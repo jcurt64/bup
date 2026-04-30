@@ -26,7 +26,7 @@ export default function WaitlistPage() {
         height: "100%",
         border: 0,
         display: "block",
-        background: "#080808",
+        background: "#F7F4EC",
       }}
     />
   );

@@ -14,21 +14,21 @@ html{scroll-behavior:smooth}
 
 /* ── Tokens ──────────────────────────────────────────────────────── */
 :root{
-  --bg:       #080808;
-  --bg2:      #111111;
-  --bg3:      #1A1A1A;
-  --border:   rgba(255,255,255,0.08);
-  --border2:  rgba(255,255,255,0.14);
-  --text:     #F0EDE8;
-  --muted:    rgba(240,237,232,0.5);
-  --muted2:   rgba(240,237,232,0.3);
-  --gold:     #4596EC;
-  --gold2:    #8DC4F5;
-  --gold-bg:  rgba(69,150,236,0.08);
-  --gold-bd:  rgba(69,150,236,0.2);
-  --green:    #4ADE80;
-  --green-bg: rgba(74,222,128,0.08);
-  --green-bd: rgba(74,222,128,0.2);
+  --bg:       #F7F4EC;
+  --bg2:      #F1EDE2;
+  --bg3:      #FBF9F3;
+  --border:   rgba(15,23,42,0.08);
+  --border2:  rgba(15,23,42,0.14);
+  --text:     #0F172A;
+  --muted:    rgba(15,23,42,0.6);
+  --muted2:   rgba(15,23,42,0.4);
+  --gold:     #2D6FB8;
+  --gold2:    #4596EC;
+  --gold-bg:  rgba(69,150,236,0.10);
+  --gold-bd:  rgba(69,150,236,0.28);
+  --green:    #15803D;
+  --green-bg: rgba(74,222,128,0.14);
+  --green-bd: rgba(34,138,73,0.28);
   --r:        12px;
   --r2:       20px;
 }
@@ -42,14 +42,15 @@ body{
   min-height:100vh;
 }
 
-/* ── Noise grain overlay ─────────────────────────────────────────── */
+/* ── Grid background overlay ─────────────────────────────────────── */
 body::before{
   content:'';
   position:fixed;inset:0;z-index:0;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-  background-size:200px 200px;
+  background-image:
+    linear-gradient(rgba(15,23,42,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.06) 1px, transparent 1px);
+  background-size:88px 88px;
   pointer-events:none;
-  opacity:.5;
 }
 
 /* ── Radial bg glow ──────────────────────────────────────────────── */
@@ -99,7 +100,7 @@ body::before{
   position:fixed;top:0;left:0;right:0;z-index:100;
   padding:0;
   border-bottom:1px solid var(--border);
-  background:rgba(8,8,8,.85);
+  background:rgba(247,244,236,.85);
   backdrop-filter:blur(20px);
 }
 .nav-inner{
@@ -213,7 +214,7 @@ body::before{
 .hl-beam{position:absolute;inset:-2px;border-radius:18px;overflow:hidden;pointer-events:none;z-index:1}
 .hl-beam::before{content:'';position:absolute;inset:-120%;background:conic-gradient(from 0deg,transparent 0deg,transparent 110deg,rgba(69,150,236,.1) 130deg,rgba(69,150,236,.75) 150deg,#EBF4FD 160deg,rgba(242,209,137,.8) 170deg,rgba(69,150,236,.12) 190deg,transparent 210deg,transparent 360deg);animation:beam-rotate 5s linear infinite}
 .hl-beam::after{content:'';position:absolute;inset:2px;border-radius:16px;background:var(--bg)}
-.hl-card{position:relative;z-index:2;background:rgba(255,255,255,.03);border:0.5px solid rgba(69,150,236,.3);border-radius:16px;padding:20px 28px}
+.hl-card{position:relative;z-index:2;background:rgba(15,23,42,.03);border:0.5px solid rgba(69,150,236,.35);border-radius:16px;padding:20px 28px}
 .hl-card p{font-size:clamp(16px,2vw,20px);color:var(--muted);line-height:1.65;font-weight:300;margin:0}
 .kw{position:relative;display:inline;font-weight:400;color:var(--text)}
 .kw::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:1px;background:linear-gradient(90deg,transparent 0%,var(--gold) 20%,var(--gold2) 50%,var(--gold) 80%,transparent 100%);background-size:200% 100%;animation:shimmer-kw 2.5s linear infinite}
@@ -303,7 +304,7 @@ body::before{
 .wl-progress-hd{display:flex;justify-content:space-between;margin-bottom:8px}
 .wl-progress-label{font-size:12px;color:var(--muted)}
 .wl-progress-val{font-size:12px;font-weight:600;color:var(--gold);font-family:'DM Mono',monospace}
-.wl-bar{height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.wl-bar{height:4px;background:rgba(15,23,42,.10);border-radius:2px;overflow:hidden}
 .wl-bar-fill{
   height:100%;border-radius:2px;
   background:linear-gradient(90deg,var(--gold),var(--gold2));
@@ -345,7 +346,7 @@ body::before{
   font-size:14px;color:var(--text);
   outline:none;cursor:pointer;
   appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,237,232,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(15,23,42,0.45)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;
   background-position:right 14px center;
   padding-right:36px;
@@ -408,7 +409,7 @@ body::before{
 .result-palier-row{
   display:flex;align-items:center;justify-content:space-between;
   padding:8px 12px;
-  background:rgba(255,255,255,.03);
+  background:rgba(15,23,42,.04);
   border-radius:8px;font-size:12px;
 }
 .rpr-name{color:var(--muted)}
@@ -444,7 +445,7 @@ body::before{
 .ref-input-row{display:flex;gap:8px}
 .ref-link{
   flex:1;
-  background:rgba(255,255,255,.04);
+  background:rgba(15,23,42,.04);
   border:1px solid var(--border);
   border-radius:8px;
   padding:10px 12px;
@@ -480,8 +481,8 @@ body::before{
   width:100%;
   font-family:'Outfit',sans-serif;
   font-size:15px;font-weight:700;
-  background:linear-gradient(135deg,var(--gold) 0%,#2070C8 100%);
-  color:#030D1A;
+  background:linear-gradient(135deg,#4596EC 0%,#2070C8 100%);
+  color:#FFFFFF;
   border:none;border-radius:99px;
   padding:16px;cursor:pointer;
   transition:all .25s;
@@ -626,7 +627,7 @@ input[type=range]::-moz-range-thumb{
 .cb-val{font-family:'DM Mono',monospace;font-weight:500;color:var(--text)}
 .cb-note{
   font-size:11px;color:var(--muted2);line-height:1.5;
-  padding:10px 12px;background:rgba(255,255,255,.02);
+  padding:10px 12px;background:rgba(15,23,42,.04);
   border-radius:8px;border-left:2px solid var(--gold);
 }
 
