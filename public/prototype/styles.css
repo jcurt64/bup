@@ -1,0 +1,354 @@
+/* BUPP — Editorial premium system */
+:root {
+  --ivory: #F7F4EC;
+  --ivory-2: #F1EDE2;
+  --paper: #FBF9F3;
+  --ink: #0F172A;           /* ardoise profonde — slate-900 */
+  --ink-2: #1E293B;         /* slate-800 */
+  --ink-3: #334155;
+  --ink-4: #64748B;
+  --ink-5: #94A3B8;
+  --line: #E6E1D3;          /* ivory line */
+  --line-2: #D9D2BF;
+  --accent: #4F46E5;        /* indigo */
+  --accent-ink: #3730A3;
+  --accent-soft: #EEF2FF;
+  --gold: #B8860B;
+  --good: #15803D;
+  --warn: #B45309;
+  --danger: #B91C1C;
+
+  --serif: "Fraunces", "Cormorant Garamond", "DM Serif Display", Georgia, serif;
+  --sans: "Söhne", "Inter", "DM Sans", -apple-system, system-ui, sans-serif;
+  --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --shadow-1: 0 1px 0 rgba(15,23,42,.04), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-2: 0 1px 0 rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.10);
+}
+
+/* Palette variants via [data-palette] */
+[data-palette="indigo"] { --accent: #4F46E5; --accent-ink: #3730A3; --accent-soft: #EEF2FF; }
+[data-palette="slate"]  { --accent: #1E293B; --accent-ink: #0F172A; --accent-soft: #F1F5F9; }
+[data-palette="green"]  { --accent: #166534; --accent-ink: #14532D; --accent-soft: #ECFDF5; }
+[data-palette="gold"]   { --accent: #A16207; --accent-ink: #854D0E; --accent-soft: #FEFCE8; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--ivory); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+body { font-size: 15px; line-height: 1.5; letter-spacing: -0.005em; }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+
+/* Type */
+.serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.015em; }
+.mono { font-family: var(--mono); }
+.caps { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; }
+.hairline { border-top: 1px solid var(--line); }
+.hairline-b { border-bottom: 1px solid var(--line); }
+
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 400; margin: 0; letter-spacing: -0.02em; color: var(--ink); }
+h1 { font-size: clamp(56px, 7vw, 104px); line-height: 0.98; }
+h2 { font-size: clamp(36px, 4vw, 56px); line-height: 1.02; }
+h3 { font-size: 28px; line-height: 1.1; }
+h4 { font-size: 20px; line-height: 1.2; }
+
+.italic { font-style: italic; }
+em { font-style: italic; color: var(--accent); font-family: var(--serif); font-weight: 400; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 500; transition: all .18s ease; border: 1px solid transparent; white-space: nowrap; }
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: #000; transform: translateY(-1px); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
+.btn-ghost:hover { background: var(--ivory-2); }
+.btn-accent { background: var(--accent); color: white; }
+.btn-accent:hover { background: var(--accent-ink); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-lg { padding: 14px 22px; font-size: 15px; }
+
+/* Inputs */
+.input { width: 100%; background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 10px 12px; font: inherit; color: var(--ink); transition: border .15s; }
+.input:focus { outline: none; border-color: var(--ink); }
+.label { font-size: 12px; color: var(--ink-4); margin-bottom: 6px; display: block; font-weight: 500; }
+
+/* Cards */
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.card-flat { background: var(--paper); border: 1px solid var(--line); }
+
+/* Utility */
+.row { display: flex; }
+.col { display: flex; flex-direction: column; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; } .gap-8 { gap: 32px; }
+.center { align-items: center; } .between { justify-content: space-between; } .end { justify-content: flex-end; }
+.muted { color: var(--ink-4); } .subtle { color: var(--ink-5); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--paper); font-size: 12px; color: var(--ink-3); }
+.badge .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+.badge-dark { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.badge-ivory { background: var(--ivory-2); color: var(--ink-3); border-color: var(--line-2); }
+
+/* Ruled placeholder */
+.placeholder {
+  background:
+    repeating-linear-gradient(135deg, rgba(15,23,42,.04) 0 1px, transparent 1px 8px),
+    var(--ivory-2);
+  border: 1px solid var(--line);
+  color: var(--ink-4);
+  font-family: var(--mono);
+  font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; border: 2px solid var(--ivory); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Tweaks panel */
+.tweaks-panel {
+  position: fixed; right: 20px; bottom: 20px; z-index: 100;
+  background: var(--ink); color: var(--paper);
+  border-radius: 14px; padding: 14px 16px; box-shadow: 0 20px 40px -20px rgba(0,0,0,.4);
+  min-width: 260px; font-size: 13px;
+}
+.tweaks-panel .title { font-family: var(--serif); font-size: 16px; margin-bottom: 10px; }
+.swatch-row { display: flex; gap: 8px; }
+.swatch { width: 28px; height: 28px; border-radius: 999px; border: 2px solid transparent; cursor: pointer; }
+.swatch.active { border-color: var(--paper); }
+
+/* keyframes */
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+
+/* Marquee */
+@keyframes scroll-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.marquee { display: flex; gap: 48px; animation: scroll-x 40s linear infinite; white-space: nowrap; }
+
+/* Nav */
+.nav-link { color: var(--ink-3); font-size: 14px; padding: 6px 0; position: relative; transition: color .15s; }
+.nav-link:hover { color: var(--ink); }
+.nav-link.active { color: var(--ink); }
+
+/* Sidebar item */
+.side-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; color: var(--ink-3); font-size: 14px; transition: background .15s, color .15s; cursor: pointer; }
+.side-item:hover { background: var(--ivory-2); color: var(--ink); }
+.side-item.active { background: var(--ink); color: var(--paper); }
+.side-item.active .side-icon { color: var(--paper); }
+.side-icon { width: 16px; height: 16px; color: var(--ink-4); }
+
+/* Coin */
+.coin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 999px;
+  background: linear-gradient(135deg, #E8C767 0%, #B8860B 100%);
+  color: #3a2b00; font-size: 10px; font-weight: 700;
+  font-family: var(--serif);
+}
+.coin-lg { width: 24px; height: 24px; font-size: 13px; }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-weight: 500; color: var(--ink-4); padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+.tbl td { padding: 14px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tr:hover td { background: rgba(15, 23, 42, 0.015); }
+
+/* Chip */
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-family: var(--mono); background: var(--ivory-2); color: var(--ink-3); border: 1px solid var(--line); }
+.chip-good { background: #ECFDF5; color: #065F46; border-color: #A7F3D0; }
+.chip-warn { background: #FFFBEB; color: #854D0E; border-color: #FDE68A; }
+.chip-accent { background: var(--accent-soft); color: var(--accent-ink); border-color: color-mix(in oklab, var(--accent) 30%, white); }
+
+/* Focus ring */
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Page container — fills full viewport */
+.page { min-height: 100vh; }
+
+/* ---------- Responsive base ---------- */
+html, body { overflow-x: hidden; max-width: 100vw; }
+
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+  h1 { font-size: clamp(40px, 7vw, 104px); line-height: 1.05; }
+  h2 { font-size: clamp(28px, 4.5vw, 56px); line-height: 1.05; }
+  h3 { font-size: clamp(20px, 2.4vw, 28px); line-height: 1.15; }
+  h4 { font-size: clamp(16px, 1.8vw, 20px); line-height: 1.25; }
+  .btn-lg { padding: 12px 18px; font-size: 14px; }
+}
+
+/* ---------- Auth page responsive ---------- */
+.auth-page {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 100vh;
+}
+.auth-brand {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+}
+.auth-form-col {
+  padding: 48px 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--ivory);
+}
+.auth-title { font-size: 52px; line-height: 1.05; }
+.auth-form-title { font-size: 36px; }
+
+@media (max-width: 960px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-brand { padding: 32px 24px; min-height: auto; }
+  .auth-form-col { padding: 40px 24px; }
+  .auth-title { font-size: clamp(32px, 6vw, 44px); }
+  .auth-form-title { font-size: clamp(24px, 4vw, 30px); }
+}
+
+@media (max-width: 480px) {
+  .auth-brand { padding: 24px 20px; gap: 28px; }
+  .auth-form-col { padding: 32px 20px; }
+}
+
+/* ---------- Dashboard responsive (Prospect / Pro) ---------- */
+
+/* Mobile-only floating hamburger trigger; hidden on desktop */
+.dash-mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* Page layout: collapse two-column grid into a single block. The original
+     inline `gridTemplateColumns: "<NN>px 1fr"` is overridden with !important. */
+  .dash-shell {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  /* The vertical sidebar becomes a horizontal floating bar pinned to the top.
+     Hidden by default; shown when the hamburger toggles data-menu-open="true". */
+  .dash-shell > aside {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    z-index: 95 !important;
+    padding: 10px 12px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--line) !important;
+    gap: 6px !important;
+    box-shadow: 0 8px 24px -16px rgba(15, 23, 42, .25);
+    transform: translateY(-110%);
+    transition: transform .25s ease;
+  }
+
+  .dash-shell[data-menu-open="true"] > aside {
+    transform: translateY(0);
+  }
+
+  /* Hide elements that don't make sense in a horizontal bar:
+     the "Logo + hamburger" row, the section eyebrow, and the logout footer. */
+  .dash-shell > aside > .row.between.center,
+  .dash-shell > aside > .mono.caps,
+  .dash-shell > aside > div[style*="border-top"] {
+    display: none !important;
+  }
+
+  /* Spacer push (flex: 1) is harmless but can be hidden too. */
+  .dash-shell > aside > div[style*="flex: 1"] {
+    display: none !important;
+  }
+
+  /* Side items become inline-flex chips; force horizontal layout. */
+  .dash-shell > aside button,
+  .dash-shell > aside .side-item {
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+    white-space: nowrap !important;
+  }
+  .dash-shell > aside button > span,
+  .dash-shell > aside .side-item > span:not(.side-icon) {
+    display: inline !important;
+  }
+
+  /* Force every inline-styled grid inside main into a single column. */
+  .dash-shell main [style*="display: grid"],
+  .dash-shell main [style*="display:grid"],
+  .dash-shell main [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Reduce main padding so cards aren't cramped horizontally. */
+  .dash-shell main {
+    padding: 18px 16px 96px !important;
+    max-width: 100% !important;
+  }
+
+  /* Topbar cleanup on mobile: hide search & sticky stacked layouts wrap. */
+  .dash-shell .row.between.center > div:first-child > div[style*="width: 280px"] {
+    display: none !important;
+  }
+  .dash-shell .row.between.center {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* The fixed mobile hamburger trigger floats over the page so the user can
+     open/close the horizontal menu without affecting layout flow. */
+  .dash-mobile-toggle {
+    display: inline-flex !important;
+    position: fixed !important;
+    top: 14px !important;
+    right: 14px !important;
+    z-index: 96 !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow: 0 8px 24px -10px rgba(15,23,42,.4);
+    border: 0;
+    cursor: pointer;
+  }
+
+  /* When menu is open, push topbar/header down so it doesn't sit under the bar. */
+  .dash-shell[data-menu-open="true"] > div:nth-child(2) {
+    padding-top: 56px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dash-shell main {
+    padding: 16px 14px 110px !important;
+  }
+  .dash-mobile-toggle {
+    top: 10px !important;
+    right: 10px !important;
+  }
+}
