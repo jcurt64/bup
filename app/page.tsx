@@ -3,6 +3,15 @@
 import { useState, useEffect, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+type Router = ReturnType<typeof useRouter>;
+
+function goWaitlist(router: Router) {
+  try {
+    sessionStorage.setItem("bupp:waitlist-ok", "1");
+  } catch {}
+  router.push("/waitlist");
+}
+
 const TIERS = [
   { n: 1, name: "Identification", ex: "email, nom, téléphone", range: "0,10 € – 0,50 €", low: 0.1, high: 0.5 },
   { n: 2, name: "Localisation", ex: "adresse, logement", range: "0,50 € – 2,00 €", low: 0.5, high: 2.0 },
@@ -425,7 +434,7 @@ function Hero() {
           <div className="hero-buttons" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
             <button
               className="btn btn-lg btn-block-mobile"
-              onClick={() => router.push("/waitlist")}
+              onClick={() => goWaitlist(router)}
               style={{
                 background: "linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)",
                 color: "#0F1629",
@@ -1359,7 +1368,7 @@ function StickyPreinscription() {
   }, []);
   return (
     <button
-      onClick={() => router.push("/waitlist")}
+      onClick={() => goWaitlist(router)}
       aria-label="Pré-inscription à la liste d'attente"
       className="sticky-preinscription"
       style={{

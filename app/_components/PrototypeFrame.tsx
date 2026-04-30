@@ -11,7 +11,11 @@ const ROUTE_TO_PATH: Record<string, string> = {
   pro: "/pro",
 };
 
-export default function PrototypeFrame({ route }: { route: "auth" | "prospect" | "pro" | "waitlist" }) {
+export default function PrototypeFrame({
+  route,
+}: {
+  route: "auth" | "prospect" | "pro" | "waitlist";
+}) {
   const router = useRouter();
 
   useEffect(() => {
@@ -19,7 +23,14 @@ export default function PrototypeFrame({ route }: { route: "auth" | "prospect" |
       const data = e.data as { bupp?: string; route?: string } | undefined;
       if (!data || data.bupp !== "goto") return;
       const target = data.route && ROUTE_TO_PATH[data.route];
-      if (target) router.push(target);
+      if (target) {
+        if (target === "/waitlist") {
+          try {
+            sessionStorage.setItem("bupp:waitlist-ok", "1");
+          } catch {}
+        }
+        router.push(target);
+      }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
