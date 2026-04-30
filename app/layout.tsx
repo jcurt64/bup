@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BUPP — Be Used, Paid & Proud",
+  title: "BUUPP — Be Used, Paid & Proud (HMR test)",
   description:
     "BUUPP est la première plateforme qui rémunère les particuliers pour accepter d'être contactés par les professionnels qui les ciblent vraiment.",
 };

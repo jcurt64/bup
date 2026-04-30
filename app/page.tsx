@@ -13,11 +13,46 @@ function goWaitlist(router: Router) {
 }
 
 const TIERS = [
-  { n: 1, name: "Identification", ex: "email, nom, téléphone", range: "0,10 € – 0,50 €", low: 0.1, high: 0.5 },
-  { n: 2, name: "Localisation", ex: "adresse, logement", range: "0,50 € – 2,00 €", low: 0.5, high: 2.0 },
-  { n: 3, name: "Style de vie", ex: "habitudes, famille, véhicule", range: "2,00 € – 5,00 €", low: 2.0, high: 5.0 },
-  { n: 4, name: "Données professionnelles", ex: "poste, revenus, statut", range: "5,00 € – 8,00 €", low: 5.0, high: 8.0 },
-  { n: 5, name: "Patrimoine & projets", ex: "immobilier, épargne", range: "8,00 € – 10,00 €", low: 8.0, high: 10.0 },
+  {
+    n: 1,
+    name: "Identification",
+    ex: "email, nom, téléphone",
+    range: "0,10 € – 0,50 €",
+    low: 0.1,
+    high: 0.5,
+  },
+  {
+    n: 2,
+    name: "Localisation",
+    ex: "adresse, logement",
+    range: "0,50 € – 2,00 €",
+    low: 0.5,
+    high: 2.0,
+  },
+  {
+    n: 3,
+    name: "Style de vie",
+    ex: "habitudes, famille, véhicule",
+    range: "2,00 € – 5,00 €",
+    low: 2.0,
+    high: 5.0,
+  },
+  {
+    n: 4,
+    name: "Données professionnelles",
+    ex: "poste, revenus, statut",
+    range: "5,00 € – 8,00 €",
+    low: 5.0,
+    high: 8.0,
+  },
+  {
+    n: 5,
+    name: "Patrimoine & projets",
+    ex: "immobilier, épargne",
+    range: "8,00 € – 10,00 €",
+    low: 8.0,
+    high: 10.0,
+  },
 ];
 
 type IconName =
@@ -57,7 +92,15 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   ),
 };
 
-function Icon({ name, size = 16, stroke = 1.5 }: { name: IconName; size?: number; stroke?: number }) {
+function Icon({
+  name,
+  size = 16,
+  stroke = 1.5,
+}: {
+  name: IconName;
+  size?: number;
+  stroke?: number;
+}) {
   return (
     <svg
       width={size}
@@ -75,7 +118,15 @@ function Icon({ name, size = 16, stroke = 1.5 }: { name: IconName; size?: number
   );
 }
 
-function Logo({ size = 50, color, onClick }: { size?: number; color?: string; onClick?: () => void }) {
+function Logo({
+  size = 50,
+  color,
+  onClick,
+}: {
+  size?: number;
+  color?: string;
+  onClick?: () => void;
+}) {
   const content = (
     <div className="row center" style={{ color: color || "inherit" }}>
       <img
@@ -90,7 +141,13 @@ function Logo({ size = 50, color, onClick }: { size?: number; color?: string; on
       <button
         onClick={onClick}
         aria-label="Retour à l'accueil"
-        style={{ padding: 0, background: "transparent", border: 0, cursor: "pointer", color: "inherit" }}
+        style={{
+          padding: 0,
+          background: "transparent",
+          border: 0,
+          cursor: "pointer",
+          color: "inherit",
+        }}
       >
         {content}
       </button>
@@ -99,16 +156,40 @@ function Logo({ size = 50, color, onClick }: { size?: number; color?: string; on
   return content;
 }
 
-function ScoreGauge({ value = 742, max = 1000, size = 120, label = true }: { value?: number; max?: number; size?: number; label?: boolean }) {
+function ScoreGauge({
+  value = 742,
+  max = 1000,
+  size = 120,
+  label = true,
+}: {
+  value?: number;
+  max?: number;
+  size?: number;
+  label?: boolean;
+}) {
   const pct = value / max;
   const R = size / 2 - 6;
   const C = 2 * Math.PI * R;
   const offset = C * (1 - pct);
-  const tone = value >= 800 ? "#166534" : value >= 600 ? "var(--accent)" : value >= 400 ? "#A16207" : "#B91C1C";
+  const tone =
+    value >= 800
+      ? "#166534"
+      : value >= 600
+        ? "var(--accent)"
+        : value >= 400
+          ? "#A16207"
+          : "#B91C1C";
   return (
     <div style={{ position: "relative", width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={R} stroke="var(--line)" strokeWidth="4" fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={R}
+          stroke="var(--line)"
+          strokeWidth="4"
+          fill="none"
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -133,11 +214,17 @@ function ScoreGauge({ value = 742, max = 1000, size = 120, label = true }: { val
           textAlign: "center",
         }}
       >
-        <div className="serif tnum" style={{ fontSize: size * 0.28, lineHeight: 1, color: "var(--ink)" }}>
+        <div
+          className="serif tnum"
+          style={{ fontSize: size * 0.28, lineHeight: 1, color: "var(--ink)" }}
+        >
           {value}
         </div>
         {label && (
-          <div className="mono muted" style={{ fontSize: 10, marginTop: 2, letterSpacing: "0.1em" }}>
+          <div
+            className="mono muted"
+            style={{ fontSize: 10, marginTop: 2, letterSpacing: "0.1em" }}
+          >
             / {max}
           </div>
         )}
@@ -148,7 +235,14 @@ function ScoreGauge({ value = 742, max = 1000, size = 120, label = true }: { val
 
 function Progress({ value = 0.5, color }: { value?: number; color?: string }) {
   return (
-    <div style={{ height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
+    <div
+      style={{
+        height: 4,
+        borderRadius: 2,
+        background: "var(--line)",
+        overflow: "hidden",
+      }}
+    >
       <div
         style={{
           width: `${value * 100}%`,
@@ -197,7 +291,14 @@ function RotatingHeadlineWord() {
   }, []);
   const current = ROTATING_WORDS[i];
   return (
-    <span style={{ display: "inline-block", position: "relative", minWidth: "8ch", verticalAlign: "baseline" }}>
+    <span
+      style={{
+        display: "inline-block",
+        position: "relative",
+        minWidth: "8ch",
+        verticalAlign: "baseline",
+      }}
+    >
       <span
         key={`${i}-${phase}`}
         style={{
@@ -206,7 +307,10 @@ function RotatingHeadlineWord() {
           color: current.color,
           transition:
             "transform .42s cubic-bezier(.22,.8,.24,1), opacity .42s cubic-bezier(.22,.8,.24,1), filter .42s",
-          transform: phase === "in" ? "translateY(0) rotateX(0deg)" : "translateY(-0.25em) rotateX(45deg)",
+          transform:
+            phase === "in"
+              ? "translateY(0) rotateX(0deg)"
+              : "translateY(-0.25em) rotateX(45deg)",
           opacity: phase === "in" ? 1 : 0,
           filter: phase === "in" ? "blur(0)" : "blur(3px)",
           transformOrigin: "bottom center",
@@ -259,9 +363,13 @@ function Navbar() {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: scrolled || open ? "rgba(247,244,236,.92)" : "var(--ivory)",
+          background:
+            scrolled || open ? "rgba(247,244,236,.92)" : "var(--ivory)",
           backdropFilter: scrolled || open ? "blur(10px)" : "none",
-          borderBottom: scrolled || open ? "1px solid var(--line)" : "1px solid transparent",
+          borderBottom:
+            scrolled || open
+              ? "1px solid var(--line)"
+              : "1px solid transparent",
           transition: "background .2s, border-color .2s",
         }}
       >
@@ -270,7 +378,10 @@ function Navbar() {
           className="row between center"
         >
           <div className="row center" style={{ gap: 32 }}>
-            <Logo size={50} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+            <Logo
+              size={50}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
             <nav className="row gap-6 nav-desktop" style={{ marginLeft: 8 }}>
               <a className="nav-link" href="#prospects">
                 Prospects
@@ -285,10 +396,16 @@ function Navbar() {
           </div>
 
           <div className="row center gap-3 nav-desktop">
-            <button className="btn btn-sm btn-ghost" onClick={() => router.push("/auth")}>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={() => router.push("/auth")}
+            >
               Se connecter
             </button>
-            <button className="btn btn-sm btn-primary" onClick={() => router.push("/auth")}>
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => router.push("/auth")}
+            >
               Démarrer <Icon name="arrow" size={14} />
             </button>
           </div>
@@ -354,7 +471,12 @@ function Hero() {
   return (
     <section
       className="hero-section"
-      style={{ background: "#0F1629", color: "var(--paper)", position: "relative", overflow: "hidden" }}
+      style={{
+        background: "#0F1629",
+        color: "var(--paper)",
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
       <div
         aria-hidden
@@ -364,8 +486,10 @@ function Hero() {
           backgroundImage:
             "linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px)",
           backgroundSize: "88px 88px",
-          maskImage: "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
           pointerEvents: "none",
         }}
       />
@@ -391,7 +515,8 @@ function Hero() {
           right: 0,
           width: "60%",
           height: "100%",
-          background: "radial-gradient(ellipse at 90% 30%, rgba(165,180,252,.08) 0%, transparent 60%)",
+          background:
+            "radial-gradient(ellipse at 90% 30%, rgba(165,180,252,.08) 0%, transparent 60%)",
           pointerEvents: "none",
         }}
       />
@@ -401,16 +526,31 @@ function Hero() {
           style={{ alignItems: "flex-end", marginBottom: 40, gap: 16 }}
         >
           <div className="row center gap-3">
-            <span className="badge" style={{ background: "transparent", color: "var(--ivory)", borderColor: "rgba(255,255,255,.18)" }}>
-              <span className="dot pulse-dot" style={{ background: "#A7F3D0" }} />
+            <span
+              className="badge"
+              style={{
+                background: "transparent",
+                color: "var(--ivory)",
+                borderColor: "rgba(255,255,255,.18)",
+              }}
+            >
+              <span
+                className="dot pulse-dot"
+                style={{ background: "#A7F3D0" }}
+              />
               Vos données ont de la valeur — récupérez-la
             </span>
           </div>
           <div
             className="mono hide-sm"
-            style={{ fontSize: 11, letterSpacing: "0.18em", color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              color: "rgba(255,255,255,.5)",
+              textTransform: "uppercase",
+            }}
           >
-            Be Used · Paid &amp; Proud — France, avril 2026
+            Be Used · <p className="inline text-[#4596EC]">Paid &amp; Proud</p> — France, avril 2026
           </div>
         </div>
 
@@ -422,16 +562,37 @@ function Hero() {
 
         <div
           className="hero-cta-row"
-          style={{ marginTop: 40, gap: 32, display: "flex", flexWrap: "wrap", justifyContent: "space-between" }}
+          style={{
+            marginTop: 40,
+            gap: 32,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
         >
           <p
-            className="hero-lede"
-            style={{ flex: "1 1 320px", maxWidth: 520, fontSize: "clamp(15px, 1.6vw, 19px)", lineHeight: 1.55, color: "rgba(255,255,255,.78)" }}
+            className="tracking-wide hero-lede"
+            style={{
+              flex: "1 1 320px",
+              maxWidth: 520,
+              fontSize: "clamp(15px, 1.6vw, 19px)",
+              lineHeight: 1.55,
+              color: "rgba(255,255,255,.78)",
+            }}
           >
-            BUPP est la première plateforme qui rémunère les particuliers pour accepter d&apos;être contactés par les professionnels qui les
-            ciblent vraiment. Double consentement, RGPD natif, 60% de la valeur reversée au prospect.
+            BUUPP est la première plateforme qui rémunère les particuliers pour
+            accepter d&apos;être contactés par les professionnels qui les
+            ciblent vraiment. Double consentement, <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-orange-400">RGPD natif.</p>
           </p>
-          <div className="hero-buttons" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div
+            className="hero-buttons"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "flex-end",
+            }}
+          >
             <button
               className="btn btn-lg btn-block-mobile"
               onClick={() => goWaitlist(router)}
@@ -439,7 +600,8 @@ function Hero() {
                 background: "linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)",
                 color: "#0F1629",
                 fontWeight: 600,
-                boxShadow: "0 12px 28px -8px rgba(69,150,236,.55), inset 0 1px 0 rgba(255,255,255,.4)",
+                boxShadow:
+                  "0 12px 28px -8px rgba(69,150,236,.55), inset 0 1px 0 rgba(255,255,255,.4)",
               }}
             >
               <Icon name="sparkle" size={16} /> Pré-inscription
@@ -466,15 +628,33 @@ function Hero() {
             <button
               className="btn btn-lg btn-ghost btn-block-mobile"
               onClick={() => router.push("/pro")}
-              style={{ color: "var(--paper)", borderColor: "rgba(255,255,255,.28)" }}
+              style={{
+                color: "var(--paper)",
+                borderColor: "rgba(255,255,255,.28)",
+              }}
             >
               Je suis professionnel
             </button>
           </div>
         </div>
 
-        <div style={{ marginTop: 56, borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 24, overflow: "hidden" }}>
-          <div className="mono" style={{ fontSize: 10, letterSpacing: ".18em", color: "rgba(255,255,255,.35)", marginBottom: 14 }}>
+        <div
+          style={{
+            marginTop: 56,
+            borderTop: "1px solid rgba(255,255,255,.1)",
+            paddingTop: 24,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            className="mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: ".18em",
+              color: "rgba(255,255,255,.35)",
+              marginBottom: 14,
+            }}
+          >
             ● EN DIRECT — Mises en relation acceptées ces dernières heures
           </div>
           <div style={{ overflow: "hidden" }}>
@@ -490,14 +670,20 @@ function Hero() {
                     ["Nutritionniste Lille", "Théo M.", "5,60 €"],
                   ] as const
                 ).map((row, i) => (
-                  <div key={`${r}-${i}`} className="row center gap-3" style={{ fontSize: 13, color: "rgba(255,255,255,.7)" }}>
+                  <div
+                    key={`${r}-${i}`}
+                    className="row center gap-3"
+                    style={{ fontSize: 13, color: "rgba(255,255,255,.7)" }}
+                  >
                     <span style={{ color: "rgba(255,255,255,.4)" }}>◇</span>
                     <span>{row[0]}</span>
                     <span style={{ color: "rgba(255,255,255,.4)" }}>→</span>
                     <span>{row[1]}</span>
-                    <span className="mono" style={{ color: "#A5B4FC" }}>+{row[2]}</span>
+                    <span className="mono" style={{ color: "#A5B4FC" }}>
+                      +{row[2]}
+                    </span>
                   </div>
-                ))
+                )),
               )}
             </div>
           </div>
@@ -517,17 +703,36 @@ function FlashDeal() {
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, "0");
   const s = String(left % 60).padStart(2, "0");
   return (
-    <section style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)" }}>
-      <div className="container row between center wrap" style={{ padding: "12px 20px", gap: 12 }}>
+    <section
+      style={{
+        background: "var(--paper)",
+        borderBottom: "1px solid var(--line)",
+      }}
+    >
+      <div
+        className="container row between center wrap"
+        style={{ padding: "12px 20px", gap: 12 }}
+      >
         <div className="row center gap-3 wrap" style={{ flex: "1 1 280px" }}>
-          <span className="badge" style={{ background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" }}>
+          <span
+            className="badge"
+            style={{
+              background: "var(--ink)",
+              color: "var(--paper)",
+              borderColor: "var(--ink)",
+            }}
+          >
             <Icon name="bolt" size={12} /> Flash Deal
           </span>
           <span style={{ fontSize: 13 }}>
-            Gains <em>×3</em> sur les paliers 3 à 5 pour toute demande acceptée dans l&apos;heure qui vient.
+            Gains <em>×3</em> sur les paliers 3 à 5 pour toute demande acceptée
+            dans l&apos;heure qui vient.
           </span>
         </div>
-        <div className="row center gap-2 mono tnum" style={{ fontSize: 13, color: "var(--ink-3)" }}>
+        <div
+          className="row center gap-2 mono tnum"
+          style={{ fontSize: 13, color: "var(--ink-3)" }}
+        >
           <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
           <span className="muted hide-sm" style={{ marginLeft: 6 }}>
             restantes
@@ -543,28 +748,36 @@ function HowItWorks() {
     {
       n: "01",
       title: "Créez votre profil",
-      body:
-        "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUPP Score et vos gains potentiels.",
+      body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUPP Score et vos gains potentiels.",
     },
     {
       n: "02",
       title: "Choisissez vos contacts",
-      body:
-        "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire.",
+      body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire.",
     },
     {
       n: "03",
       title: "Encaissez vos gains",
-      body:
-        "Chaque mise en relation acceptée crédite votre portefeuille en BUPP Coins. Retrait par IBAN, carte cadeau ou don associatif.",
+      body: "Chaque mise en relation acceptée crédite votre portefeuille en BUPP Coins. Retrait par IBAN, carte cadeau ou don associatif.",
     },
   ];
   return (
     <section id="prospects" className="section">
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div className="row between wrap" style={{ marginBottom: 48, gap: 24, alignItems: "flex-end" }}>
+        <div
+          className="row between wrap"
+          style={{ marginBottom: 48, gap: 24, alignItems: "flex-end" }}
+        >
           <div style={{ maxWidth: 720 }}>
-            <div className="mono caps" style={{ fontSize: 11, letterSpacing: ".18em", color: "var(--accent)", marginBottom: 16 }}>
+            <div
+              className="mono caps"
+              style={{
+                fontSize: 11,
+                letterSpacing: ".18em",
+                color: "var(--accent)",
+                marginBottom: 16,
+              }}
+            >
               — Pour les prospects
             </div>
             <h2 className="serif">
@@ -572,13 +785,26 @@ function HowItWorks() {
               <br />
               pour votre attention.
             </h2>
-            <p className="muted" style={{ fontSize: "clamp(15px, 1.6vw, 18px)", lineHeight: 1.55, marginTop: 20, maxWidth: 560 }}>
-              En trois gestes simples, vous choisissez qui peut vous contacter — et à quel prix. Le consentement est au centre. Aucune
-              donnée n&apos;est transmise avant que vous, puis le professionnel, ne confirmiez la mise en relation.
+            <p
+              className="muted"
+              style={{
+                fontSize: "clamp(15px, 1.6vw, 18px)",
+                lineHeight: 1.55,
+                marginTop: 20,
+                maxWidth: 560,
+              }}
+            >
+              En trois gestes simples, vous choisissez qui peut vous contacter —
+              et à quel prix. Le consentement est au centre. Aucune donnée
+              n&apos;est transmise avant que vous, puis le professionnel, ne
+              confirmiez la mise en relation.
             </p>
           </div>
         </div>
-        <div className="grid grid-3 steps-grid" style={{ gap: 0, borderTop: "1px solid var(--line)" }}>
+        <div
+          className="grid grid-3 steps-grid"
+          style={{ gap: 0, borderTop: "1px solid var(--line)" }}
+        >
           {steps.map((s, i) => (
             <div
               key={i}
@@ -587,7 +813,14 @@ function HowItWorks() {
                 borderRight: i < 2 ? "1px solid var(--line)" : "none",
               }}
             >
-              <div className="mono" style={{ fontSize: 12, color: "var(--accent)", marginBottom: 16 }}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 12,
+                  color: "var(--accent)",
+                  marginBottom: 16,
+                }}
+              >
                 {s.n}
               </div>
               <h3 className="serif" style={{ marginBottom: 12 }}>
@@ -617,7 +850,10 @@ function TiersTable() {
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div className="row between wrap" style={{ marginBottom: 36, gap: 16, alignItems: "flex-end" }}>
+        <div
+          className="row between wrap"
+          style={{ marginBottom: 36, gap: 16, alignItems: "flex-end" }}
+        >
           <div>
             <div className="mono caps muted" style={{ marginBottom: 14 }}>
               — Grille de rémunération
@@ -628,7 +864,10 @@ function TiersTable() {
               <em>Un prix par donnée.</em>
             </h2>
           </div>
-          <label className="row center gap-3" style={{ cursor: "pointer", userSelect: "none" }}>
+          <label
+            className="row center gap-3"
+            style={{ cursor: "pointer", userSelect: "none" }}
+          >
             <span className="muted" style={{ fontSize: 13 }}>
               Afficher les gains Prospect vérifié 100%
             </span>
@@ -660,57 +899,82 @@ function TiersTable() {
           </label>
         </div>
 
-        <div className="card" style={{ background: "var(--ivory)", padding: 0, overflow: "hidden" }}>
+        <div
+          className="card"
+          style={{ background: "var(--ivory)", padding: 0, overflow: "hidden" }}
+        >
           <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-          <table className="tbl" style={{ minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th style={{ width: 80 }}>Palier</th>
-                <th>Catégorie</th>
-                <th>Exemples de données</th>
-                <th style={{ textAlign: "right", width: 200 }}>Rémunération</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TIERS.map((t) => (
-                <tr key={t.n}>
-                  <td>
-                    <div className="serif tnum" style={{ fontSize: 28 }}>
-                      {t.n}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 15, fontWeight: 500 }}>{t.name}</div>
-                  </td>
-                  <td className="muted">{t.ex}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <span className="mono tnum" style={{ fontSize: 14 }}>
-                      {verified ? (
-                        <span>
-                          <span style={{ textDecoration: "line-through", color: "var(--ink-5)", marginRight: 8 }}>{t.range}</span>
-                          <span style={{ color: "var(--accent)" }}>
-                            {(t.low * 2).toFixed(2).replace(".", ",")} € – {(t.high * 2).toFixed(2).replace(".", ",")} €
-                          </span>
-                        </span>
-                      ) : (
-                        t.range
-                      )}
-                    </span>
-                  </td>
+            <table className="tbl" style={{ minWidth: 560 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 80 }}>Palier</th>
+                  <th>Catégorie</th>
+                  <th>Exemples de données</th>
+                  <th style={{ textAlign: "right", width: 200 }}>
+                    Rémunération
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {TIERS.map((t) => (
+                  <tr key={t.n}>
+                    <td>
+                      <div className="serif tnum" style={{ fontSize: 28 }}>
+                        {t.n}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 15, fontWeight: 500 }}>
+                        {t.name}
+                      </div>
+                    </td>
+                    <td className="muted">{t.ex}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <span className="mono tnum" style={{ fontSize: 14 }}>
+                        {verified ? (
+                          <span>
+                            <span
+                              style={{
+                                textDecoration: "line-through",
+                                color: "var(--ink-5)",
+                                marginRight: 8,
+                              }}
+                            >
+                              {t.range}
+                            </span>
+                            <span style={{ color: "var(--accent)" }}>
+                              {(t.low * 2).toFixed(2).replace(".", ",")} € –{" "}
+                              {(t.high * 2).toFixed(2).replace(".", ",")} €
+                            </span>
+                          </span>
+                        ) : (
+                          t.range
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <div
-            style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", background: "var(--ivory-2)" }}
+            style={{
+              padding: "14px 20px",
+              borderTop: "1px solid var(--line)",
+              background: "var(--ivory-2)",
+            }}
             className="row between center wrap gap-2"
           >
             <div className="muted" style={{ fontSize: 13 }}>
               <Icon name="sparkle" size={13} />{" "}
-              <span style={{ marginLeft: 6, verticalAlign: "middle" }}>Prospect vérifié 100% → gains doublés ×2</span>
+              <span style={{ marginLeft: 6, verticalAlign: "middle" }}>
+                Prospect vérifié 100% → gains doublés ×2
+              </span>
             </div>
-            <div className="mono" style={{ fontSize: 12, color: "var(--ink-4)" }}>
+            <div
+              className="mono"
+              style={{ fontSize: 12, color: "var(--ink-4)" }}
+            >
               60% reversé au prospect · 40% plateforme &amp; fiscalité
             </div>
           </div>
@@ -735,7 +999,15 @@ function ScoreSection() {
   ];
   return (
     <section className="section">
-      <div className="grid grid-2" style={{ maxWidth: 1280, margin: "0 auto", gap: 56, alignItems: "center" }}>
+      <div
+        className="grid grid-2"
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          gap: 56,
+          alignItems: "center",
+        }}
+      >
         <div>
           <div className="mono caps muted" style={{ marginBottom: 16 }}>
             — BUPP Score
@@ -743,22 +1015,41 @@ function ScoreSection() {
           <h2 className="serif" style={{ marginBottom: 20 }}>
             Un indice de <em>désirabilité</em> transparent.
           </h2>
-          <p className="muted" style={{ fontSize: "clamp(15px, 1.5vw, 17px)", marginBottom: 24, maxWidth: 520 }}>
-            Votre score évolue selon la complétude de vos paliers KYC, la fraîcheur de vos données, votre taux d&apos;acceptation, et la
-            qualité des évaluations reçues. Un score élevé attire des demandes plus exigeantes et mieux rémunérées.
+          <p
+            className="muted"
+            style={{
+              fontSize: "clamp(15px, 1.5vw, 17px)",
+              marginBottom: 24,
+              maxWidth: 520,
+            }}
+          >
+            Votre score évolue selon la complétude de vos paliers KYC, la
+            fraîcheur de vos données, votre taux d&apos;acceptation, et la
+            qualité des évaluations reçues. Un score élevé attire des demandes
+            plus exigeantes et mieux rémunérées.
           </p>
           <div className="row gap-6 wrap">
             {ranges.map(([r, n, c], i) => (
               <div key={i} className="col gap-1">
-                <div className="mono tnum" style={{ fontSize: 12, color: "var(--ink-4)" }}>
+                <div
+                  className="mono tnum"
+                  style={{ fontSize: 12, color: "var(--ink-4)" }}
+                >
                   {r}
                 </div>
-                <div style={{ fontSize: 15, fontFamily: "var(--serif)", color: c }}>{n}</div>
+                <div
+                  style={{ fontSize: 15, fontFamily: "var(--serif)", color: c }}
+                >
+                  {n}
+                </div>
               </div>
             ))}
           </div>
         </div>
-        <div className="card score-card" style={{ padding: "clamp(24px, 4vw, 48px)", textAlign: "center" }}>
+        <div
+          className="card score-card"
+          style={{ padding: "clamp(24px, 4vw, 48px)", textAlign: "center" }}
+        >
           <div className="row center" style={{ justifyContent: "center" }}>
             <ScoreGauge value={742} size={180} />
           </div>
@@ -768,10 +1059,20 @@ function ScoreSection() {
           <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
             Profil vérifié · 3 paliers validés · 12 mises en relation
           </div>
-          <div style={{ marginTop: 28, borderTop: "1px solid var(--line)", paddingTop: 20, textAlign: "left" }}>
+          <div
+            style={{
+              marginTop: 28,
+              borderTop: "1px solid var(--line)",
+              paddingTop: 20,
+              textAlign: "left",
+            }}
+          >
             {stats.map(([l, v], i) => (
               <div key={i} style={{ marginBottom: 10 }}>
-                <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
+                <div
+                  className="row between"
+                  style={{ fontSize: 12, marginBottom: 4 }}
+                >
                   <span className="muted">{l}</span>
                   <span className="mono tnum">{v}%</span>
                 </div>
@@ -791,47 +1092,65 @@ function ProsSection() {
     {
       ic: "check",
       t: "Des prospects qui acceptent vraiment",
-      d:
-        "Chaque contact dans votre base a dit oui, explicitement, à votre offre précise. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide.",
+      d: "Chaque contact dans votre base a dit oui, explicitement, à votre offre précise. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide.",
     },
     {
       ic: "target",
       t: "Ciblage par paliers de données",
-      d:
-        "Payez uniquement pour ce dont vous avez besoin : identification, localisation, style de vie, profession, patrimoine. Budget maîtrisé au centime.",
+      d: "Payez uniquement pour ce dont vous avez besoin : identification, localisation, style de vie, profession, patrimoine. Budget maîtrisé au centime.",
     },
     {
       ic: "wallet",
       hi: true,
       t: "Vous ne payez que les acceptations",
-      d:
-        "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté la mise en relation. Les refus et expirations sont gratuits.",
+      d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté la mise en relation. Les refus et expirations sont gratuits.",
     },
     {
       ic: "trend",
       t: "ROI ×3 à ×5 en moyenne",
-      d:
-        "Taux d'acceptation moyen de 62% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des conversations qui convertissent.",
+      d: "Taux d'acceptation moyen de 62% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des conversations qui convertissent.",
     },
     {
       ic: "gauge",
       t: "BUPP Score : qualité mesurée",
-      d:
-        "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
+      d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
     },
     {
       ic: "bolt",
       t: "Mise en relation en 24 h",
-      d:
-        "Campagne créée le matin, premiers rendez-vous pris le soir. Plus d'intermédiaires, plus d'agences, plus de délais.",
+      d: "Campagne créée le matin, premiers rendez-vous pris le soir. Plus d'intermédiaires, plus d'agences, plus de délais.",
     },
   ];
 
   const useCases: [string, string, string, string, string][] = [
-    ["Artisan", "Menuisier, plombier, cuisiniste", "Rayon 30 km", "42 devis/mois", "4,20 €/contact"],
-    ["Professions libérales", "Kiné, dentiste, coach", "Rayon 15 km", "28 RDV/mois", "5,80 €/contact"],
-    ["Agences immobilières", "Vente, location, gestion", "Rayon 20 km", "65 leads/mois", "7,40 €/contact"],
-    ["SaaS & B2B", "Éditeurs, cabinets conseil", "National", "180 DL/mois", "2,90 €/contact"],
+    [
+      "Artisan",
+      "Menuisier, plombier, cuisiniste",
+      "Rayon 30 km",
+      "42 devis/mois",
+      "4,20 €/contact",
+    ],
+    [
+      "Professions libérales",
+      "Kiné, dentiste, coach",
+      "Rayon 15 km",
+      "28 RDV/mois",
+      "5,80 €/contact",
+    ],
+    [
+      "Agences immobilières",
+      "Vente, location, gestion",
+      "Rayon 20 km",
+      "65 leads/mois",
+      "7,40 €/contact",
+    ],
+    [
+      "SaaS & B2B",
+      "Éditeurs, cabinets conseil",
+      "National",
+      "180 DL/mois",
+      "2,90 €/contact",
+    ],
   ];
 
   const classic: [string, string][] = [
@@ -849,11 +1168,26 @@ function ProsSection() {
   ];
 
   return (
-    <section id="pros" className="section" style={{ background: "var(--ink)", color: "var(--paper)" }}>
+    <section
+      id="pros"
+      className="section"
+      style={{ background: "var(--ink)", color: "var(--paper)" }}
+    >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div className="row between wrap" style={{ alignItems: "flex-end", marginBottom: 48, gap: 24 }}>
+        <div
+          className="row between wrap"
+          style={{ alignItems: "flex-end", marginBottom: 48, gap: 24 }}
+        >
           <div style={{ maxWidth: 640 }}>
-            <div className="mono caps" style={{ fontSize: 11, letterSpacing: ".18em", color: "#A5B4FC", marginBottom: 16 }}>
+            <div
+              className="mono caps"
+              style={{
+                fontSize: 11,
+                letterSpacing: ".18em",
+                color: "#A5B4FC",
+                marginBottom: 16,
+              }}
+            >
               — Pour les professionnels
             </div>
             <h2 className="serif" style={{ color: "var(--paper)" }}>
@@ -861,8 +1195,16 @@ function ProsSection() {
               <br />
               <em style={{ color: "#A5B4FC" }}>Laissez vos prospects venir.</em>
             </h2>
-            <p style={{ fontSize: "clamp(15px, 1.6vw, 18px)", lineHeight: 1.55, color: "rgba(255,255,255,.72)", marginTop: 20 }}>
-              L&apos;inbound, vraiment. Des contacts qui ont eux-mêmes accepté d&apos;être approchés, pour des campagnes qui correspondent à leur
+            <p
+              style={{
+                fontSize: "clamp(15px, 1.6vw, 18px)",
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,.72)",
+                marginTop: 20,
+              }}
+            >
+              L&apos;inbound, vraiment. Des contacts qui ont eux-mêmes accepté
+              d&apos;être approchés, pour des campagnes qui correspondent à leur
               profil et à leur moment de vie.
             </p>
           </div>
@@ -876,7 +1218,10 @@ function ProsSection() {
             </button>
             <button
               className="btn btn-lg btn-ghost btn-block-mobile"
-              style={{ color: "var(--paper)", borderColor: "rgba(255,255,255,.28)" }}
+              style={{
+                color: "var(--paper)",
+                borderColor: "rgba(255,255,255,.28)",
+              }}
             >
               Voir une démo
             </button>
@@ -903,7 +1248,9 @@ function ProsSection() {
                   ? "linear-gradient(160deg, rgba(165,180,252,.18) 0%, rgba(165,180,252,.06) 40%, #0F1629 100%)"
                   : "#0F1629",
                 position: "relative",
-                boxShadow: b.hi ? "inset 0 0 0 1px rgba(165,180,252,.35)" : "none",
+                boxShadow: b.hi
+                  ? "inset 0 0 0 1px rgba(165,180,252,.35)"
+                  : "none",
               }}
             >
               {b.hi && (
@@ -930,7 +1277,9 @@ function ProsSection() {
                   width: 42,
                   height: 42,
                   borderRadius: 10,
-                  background: b.hi ? "rgba(165,180,252,.22)" : "rgba(165,180,252,.12)",
+                  background: b.hi
+                    ? "rgba(165,180,252,.22)"
+                    : "rgba(165,180,252,.12)",
                   color: "#A5B4FC",
                   display: "flex",
                   alignItems: "center",
@@ -940,10 +1289,28 @@ function ProsSection() {
               >
                 <Icon name={b.ic} size={18} />
               </div>
-              <div className="serif" style={{ fontSize: 22, color: "var(--paper)", marginBottom: 10, letterSpacing: "-0.01em" }}>
+              <div
+                className="serif"
+                style={{
+                  fontSize: 22,
+                  color: "var(--paper)",
+                  marginBottom: 10,
+                  letterSpacing: "-0.01em",
+                }}
+              >
                 {b.t}
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: b.hi ? "rgba(255,255,255,.78)" : "rgba(255,255,255,.6)" }}>{b.d}</div>
+              <div
+                style={{
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: b.hi
+                    ? "rgba(255,255,255,.78)"
+                    : "rgba(255,255,255,.6)",
+                }}
+              >
+                {b.d}
+              </div>
             </div>
           ))}
         </div>
@@ -957,10 +1324,25 @@ function ProsSection() {
               background: "rgba(255,255,255,.02)",
             }}
           >
-            <div className="mono caps" style={{ fontSize: 11, color: "rgba(255,255,255,.4)", letterSpacing: ".15em", marginBottom: 16 }}>
+            <div
+              className="mono caps"
+              style={{
+                fontSize: 11,
+                color: "rgba(255,255,255,.4)",
+                letterSpacing: ".15em",
+                marginBottom: 16,
+              }}
+            >
               — Prospection classique
             </div>
-            <div className="serif" style={{ fontSize: 26, color: "rgba(255,255,255,.7)", marginBottom: 24 }}>
+            <div
+              className="serif"
+              style={{
+                fontSize: 26,
+                color: "rgba(255,255,255,.7)",
+                marginBottom: 24,
+              }}
+            >
               Le cold call, l&apos;achat de fichier, la pub display
             </div>
             {classic.map((r, i) => (
@@ -974,7 +1356,10 @@ function ProsSection() {
                 }}
               >
                 <span style={{ color: "rgba(255,255,255,.6)" }}>{r[1]}</span>
-                <span className="serif tnum" style={{ fontSize: 20, color: "rgba(255,255,255,.85)" }}>
+                <span
+                  className="serif tnum"
+                  style={{ fontSize: 20, color: "rgba(255,255,255,.85)" }}
+                >
                   {r[0]}
                 </span>
               </div>
@@ -985,15 +1370,28 @@ function ProsSection() {
               padding: "clamp(24px, 3vw, 36px)",
               borderRadius: 14,
               border: "1px solid #A5B4FC",
-              background: "linear-gradient(180deg, rgba(165,180,252,.06), transparent)",
+              background:
+                "linear-gradient(180deg, rgba(165,180,252,.06), transparent)",
               position: "relative",
             }}
           >
-            <div className="mono caps" style={{ fontSize: 11, color: "#A5B4FC", letterSpacing: ".15em", marginBottom: 16 }}>
+            <div
+              className="mono caps"
+              style={{
+                fontSize: 11,
+                color: "#A5B4FC",
+                letterSpacing: ".15em",
+                marginBottom: 16,
+              }}
+            >
               — Avec BUPP
             </div>
-            <div className="serif" style={{ fontSize: 26, color: "var(--paper)", marginBottom: 24 }}>
-              Le prospect <em style={{ color: "#A5B4FC" }}>accepte</em> avant même que vous parliez
+            <div
+              className="serif"
+              style={{ fontSize: 26, color: "var(--paper)", marginBottom: 24 }}
+            >
+              Le prospect <em style={{ color: "#A5B4FC" }}>accepte</em> avant
+              même que vous parliez
             </div>
             {bupp.map((r, i) => (
               <div
@@ -1006,7 +1404,10 @@ function ProsSection() {
                 }}
               >
                 <span style={{ color: "rgba(255,255,255,.7)" }}>{r[1]}</span>
-                <span className="serif tnum" style={{ fontSize: 20, color: "#A5B4FC" }}>
+                <span
+                  className="serif tnum"
+                  style={{ fontSize: 20, color: "#A5B4FC" }}
+                >
                   {r[0]}
                 </span>
               </div>
@@ -1015,7 +1416,15 @@ function ProsSection() {
         </div>
 
         <div>
-          <div className="mono caps" style={{ fontSize: 11, color: "rgba(255,255,255,.4)", letterSpacing: ".18em", marginBottom: 24 }}>
+          <div
+            className="mono caps"
+            style={{
+              fontSize: 11,
+              color: "rgba(255,255,255,.4)",
+              letterSpacing: ".18em",
+              marginBottom: 24,
+            }}
+          >
             — Ils prospectent mieux avec BUPP
           </div>
           <div className="grid grid-4" style={{ gap: 12 }}>
@@ -1029,17 +1438,42 @@ function ProsSection() {
                   background: "rgba(255,255,255,.02)",
                 }}
               >
-                <div className="serif" style={{ fontSize: 22, color: "var(--paper)" }}>
+                <div
+                  className="serif"
+                  style={{ fontSize: 22, color: "var(--paper)" }}
+                >
                   {u[0]}
                 </div>
-                <div className="muted" style={{ fontSize: 12, color: "rgba(255,255,255,.5)", marginTop: 4, marginBottom: 20 }}>
+                <div
+                  className="muted"
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(255,255,255,.5)",
+                    marginTop: 4,
+                    marginBottom: 20,
+                  }}
+                >
                   {u[1]}
                 </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 6 }}>{u[2]}</div>
-                <div className="serif tnum" style={{ fontSize: 18, color: "var(--paper)" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(255,255,255,.5)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {u[2]}
+                </div>
+                <div
+                  className="serif tnum"
+                  style={{ fontSize: 18, color: "var(--paper)" }}
+                >
                   {u[3]}
                 </div>
-                <div className="mono" style={{ fontSize: 11, color: "#A5B4FC", marginTop: 4 }}>
+                <div
+                  className="mono"
+                  style={{ fontSize: 11, color: "#A5B4FC", marginTop: 4 }}
+                >
                   {u[4]}
                 </div>
               </div>
@@ -1053,46 +1487,80 @@ function ProsSection() {
 
 function SecuritySection() {
   const pillars = [
-    { t: "RGPD natif", d: "Double consentement explicite, registre de traitement complet, droit à l'effacement en un clic." },
+    {
+      t: "RGPD natif",
+      d: "Double consentement explicite, registre de traitement complet, droit à l'effacement en un clic.",
+    },
     {
       t: "Consentement à usage unique",
-      d:
-        "Chaque accord donné est strictement limité à une seule campagne et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage.",
+      d: "Chaque accord donné est strictement limité à une seule campagne et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage.",
     },
     {
       t: "Anti-fraude multicouche",
-      d:
-        "Honeypots, détection de comptes dupliqués, empreinte appareil, scoring comportemental en temps réel.",
+      d: "Honeypots, détection de comptes dupliqués, empreinte appareil, scoring comportemental en temps réel.",
     },
     {
       t: "Watermarking des données",
-      d:
-        "Chaque fiche transmise est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur.",
+      d: "Chaque fiche transmise est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur.",
     },
   ];
   return (
-    <section className="section" style={{ background: "var(--ink)", color: "var(--paper)" }}>
+    <section
+      className="section"
+      style={{ background: "var(--ink)", color: "var(--paper)" }}
+    >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div className="row between wrap" style={{ marginBottom: 48, gap: 20 }}>
           <div>
-            <div className="mono caps" style={{ color: "rgba(255,255,255,.4)", marginBottom: 14 }}>
+            <div
+              className="mono caps"
+              style={{ color: "rgba(255,255,255,.4)", marginBottom: 14 }}
+            >
               — Sécurité &amp; conformité
             </div>
-            <h2 className="serif" style={{ color: "var(--paper)", maxWidth: 720 }}>
-              Une architecture pensée pour que <em style={{ color: "#A5B4FC" }}>vos données</em> ne fuitent pas.
+            <h2
+              className="serif"
+              style={{ color: "var(--paper)", maxWidth: 720 }}
+            >
+              Une architecture pensée pour que{" "}
+              <em style={{ color: "#A5B4FC" }}>vos données</em> ne fuitent pas.
             </h2>
           </div>
         </div>
-        <div className="grid grid-4" style={{ gap: 1, background: "rgba(255,255,255,.08)" }}>
+        <div
+          className="grid grid-4"
+          style={{ gap: 1, background: "rgba(255,255,255,.08)" }}
+        >
           {pillars.map((p, i) => (
-            <div key={i} style={{ background: "var(--ink)", padding: "24px 20px" }}>
-              <div className="mono" style={{ fontSize: 10, color: "#A5B4FC", marginBottom: 14 }}>
+            <div
+              key={i}
+              style={{ background: "var(--ink)", padding: "24px 20px" }}
+            >
+              <div
+                className="mono"
+                style={{ fontSize: 10, color: "#A5B4FC", marginBottom: 14 }}
+              >
                 0{i + 1}
               </div>
-              <div className="serif" style={{ fontSize: 22, marginBottom: 10, color: "var(--paper)" }}>
+              <div
+                className="serif"
+                style={{
+                  fontSize: 22,
+                  marginBottom: 10,
+                  color: "var(--paper)",
+                }}
+              >
                 {p.t}
               </div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.6 }}>{p.d}</div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(255,255,255,.6)",
+                  lineHeight: 1.6,
+                }}
+              >
+                {p.d}
+              </div>
             </div>
           ))}
         </div>
@@ -1103,12 +1571,30 @@ function SecuritySection() {
 
 function Stats() {
   const stats: [string, string, string][] = [
-    ["2", "consentements requis", "Prospect + professionnel. Sans accord explicite des deux, aucune donnée n'est transmise."],
-    ["5", "paliers de données", "De l'identification au patrimoine — chaque palier est cloisonné et monétisé séparément."],
-    ["60%", "reversé au prospect", "De la valeur brute de chaque mise en relation. Le reste couvre la fiscalité et la plateforme."],
+    [
+      "2",
+      "consentements requis",
+      "Prospect + professionnel. Sans accord explicite des deux, aucune donnée n'est transmise.",
+    ],
+    [
+      "5",
+      "paliers de données",
+      "De l'identification au patrimoine — chaque palier est cloisonné et monétisé séparément.",
+    ],
+    [
+      "60%",
+      "reversé au prospect",
+      "De la valeur brute de chaque mise en relation. Le reste couvre la fiscalité et la plateforme.",
+    ],
   ];
   return (
-    <section className="section-md" style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)" }}>
+    <section
+      className="section-md"
+      style={{
+        background: "var(--paper)",
+        borderBottom: "1px solid var(--line)",
+      }}
+    >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div
           className="grid grid-3 stats-grid"
@@ -1124,14 +1610,24 @@ function Stats() {
             >
               <div
                 className="serif tnum"
-                style={{ fontSize: "clamp(64px, 9vw, 120px)", lineHeight: 1, letterSpacing: "-0.04em" }}
+                style={{
+                  fontSize: "clamp(64px, 9vw, 120px)",
+                  lineHeight: 1,
+                  letterSpacing: "-0.04em",
+                }}
               >
                 {n}
               </div>
-              <div className="serif italic muted" style={{ fontSize: "clamp(15px, 1.6vw, 18px)", marginTop: 4 }}>
+              <div
+                className="serif italic muted"
+                style={{ fontSize: "clamp(15px, 1.6vw, 18px)", marginTop: 4 }}
+              >
                 {l}
               </div>
-              <div className="muted" style={{ fontSize: 13, marginTop: 12, maxWidth: 300 }}>
+              <div
+                className="muted"
+                style={{ fontSize: 13, marginTop: 12, maxWidth: 300 }}
+              >
                 {d}
               </div>
             </div>
@@ -1184,14 +1680,37 @@ function PricingCard({
           RECOMMANDÉ
         </div>
       )}
-      <div className="serif" style={{ fontSize: "clamp(28px, 3.2vw, 36px)", color: featured ? "var(--paper)" : "var(--ink)" }}>
+      <div
+        className="serif"
+        style={{
+          fontSize: "clamp(28px, 3.2vw, 36px)",
+          color: featured ? "var(--paper)" : "var(--ink)",
+        }}
+      >
         {name}
       </div>
-      <div className="row" style={{ alignItems: "baseline", marginTop: 20, gap: 8 }}>
-        <span className="serif tnum" style={{ fontSize: "clamp(56px, 7vw, 80px)", lineHeight: 1, color: featured ? "var(--paper)" : "var(--ink)" }}>
+      <div
+        className="row"
+        style={{ alignItems: "baseline", marginTop: 20, gap: 8 }}
+      >
+        <span
+          className="serif tnum"
+          style={{
+            fontSize: "clamp(56px, 7vw, 80px)",
+            lineHeight: 1,
+            color: featured ? "var(--paper)" : "var(--ink)",
+          }}
+        >
           {price}
         </span>
-        <span style={{ fontSize: 16, color: featured ? "rgba(255,255,255,.6)" : "var(--ink-4)" }}>€ / mois</span>
+        <span
+          style={{
+            fontSize: 16,
+            color: featured ? "rgba(255,255,255,.6)" : "var(--ink-4)",
+          }}
+        >
+          € / mois
+        </span>
       </div>
       <div
         style={{
@@ -1201,9 +1720,19 @@ function PricingCard({
         }}
       >
         {features.map((f, i) => (
-          <div key={i} className="row center gap-3" style={{ padding: "8px 0", fontSize: 14 }}>
+          <div
+            key={i}
+            className="row center gap-3"
+            style={{ padding: "8px 0", fontSize: 14 }}
+          >
             <Icon name="check" size={14} stroke={1.75} />
-            <span style={{ color: featured ? "rgba(255,255,255,.86)" : "var(--ink-3)" }}>{f}</span>
+            <span
+              style={{
+                color: featured ? "rgba(255,255,255,.86)" : "var(--ink-3)",
+              }}
+            >
+              {f}
+            </span>
           </div>
         ))}
       </div>
@@ -1236,8 +1765,12 @@ function Pricing() {
           <h2 className="serif">
             Deux plans. <em>Sans engagement.</em>
           </h2>
-          <p className="muted" style={{ fontSize: "clamp(15px, 1.6vw, 17px)", marginTop: 14 }}>
-            Les prospects paient zéro — ils gagnent. Les professionnels paient à la qualité, pas au clic douteux.
+          <p
+            className="muted"
+            style={{ fontSize: "clamp(15px, 1.6vw, 17px)", marginTop: 14 }}
+          >
+            Les prospects paient zéro — ils gagnent. Les professionnels paient à
+            la qualité, pas au clic douteux.
           </p>
         </div>
         <div className="grid grid-2" style={{ gap: 20 }}>
@@ -1276,13 +1809,27 @@ function Pricing() {
 function FinalCTA() {
   const router = useRouter();
   return (
-    <section className="section" style={{ background: "var(--ivory-2)", borderTop: "1px solid var(--line)" }}>
+    <section
+      className="section"
+      style={{
+        background: "var(--ivory-2)",
+        borderTop: "1px solid var(--line)",
+      }}
+    >
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
         <h2 className="serif">
           Be <em>Used.</em> Paid. <em>Proud.</em>
         </h2>
-        <p className="muted" style={{ fontSize: "clamp(15px, 1.7vw, 18px)", maxWidth: 600, margin: "20px auto 0" }}>
-          La publicité qui vous rémunère, enfin. Sans spam, sans fuite, sans le sentiment d&apos;être le produit.
+        <p
+          className="muted"
+          style={{
+            fontSize: "clamp(15px, 1.7vw, 18px)",
+            maxWidth: 600,
+            margin: "20px auto 0",
+          }}
+        >
+          La publicité qui vous rémunère, enfin. Sans spam, sans fuite, sans le
+          sentiment d&apos;être le produit.
         </p>
         <div
           className="row center gap-3 wrap"
@@ -1313,18 +1860,36 @@ function Footer() {
     ["Légal", ["CGU", "CGV", "RGPD", "Contact DPO"]],
   ];
   return (
-    <footer style={{ padding: "56px 20px 96px", background: "var(--ink)", color: "rgba(255,255,255,.6)", fontSize: 13 }}>
+    <footer
+      style={{
+        padding: "56px 20px 96px",
+        background: "var(--ink)",
+        color: "rgba(255,255,255,.6)",
+        fontSize: 13,
+      }}
+    >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div className="row between wrap" style={{ gap: 32, marginBottom: 40, alignItems: "flex-start" }}>
+        <div
+          className="row between wrap"
+          style={{ gap: 32, marginBottom: 40, alignItems: "flex-start" }}
+        >
           <div style={{ flex: "1 1 240px", maxWidth: 320 }}>
-            <Logo size={50} color="var(--paper)" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+            <Logo
+              size={50}
+              color="var(--paper)"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
             <div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
-              BUPP SAS · 12 rue du Sentier, 75002 Paris · RCS Paris 908 214 009 · Agréé intermédiaire en opérations de banque.
+              BUPP SAS · 12 rue du Sentier, 75002 Paris · RCS Paris 908 214 009
+              · Agréé intermédiaire en opérations de banque.
             </div>
           </div>
           {columns.map(([h, items]) => (
             <div key={h} style={{ flex: "1 1 140px", minWidth: 120 }}>
-              <div className="mono caps" style={{ color: "rgba(255,255,255,.4)", marginBottom: 12 }}>
+              <div
+                className="mono caps"
+                style={{ color: "rgba(255,255,255,.4)", marginBottom: 12 }}
+              >
                 {h}
               </div>
               {items.map((it) => (
@@ -1337,7 +1902,11 @@ function Footer() {
         </div>
         <div
           className="row between wrap gap-2"
-          style={{ borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 20, fontSize: 12 }}
+          style={{
+            borderTop: "1px solid rgba(255,255,255,.1)",
+            paddingTop: 20,
+            fontSize: 12,
+          }}
         >
           <div>© 2026 BUPP SAS. Tous droits réservés.</div>
           <div className="row gap-4">
@@ -1391,9 +1960,12 @@ function StickyPreinscription() {
         boxShadow:
           "0 18px 40px -10px rgba(69,150,236,.55), 0 6px 14px rgba(15,22,41,.18), inset 0 1px 0 rgba(255,255,255,.45)",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0) scale(1)" : "translateY(20px) scale(.92)",
+        transform: visible
+          ? "translateY(0) scale(1)"
+          : "translateY(20px) scale(.92)",
         pointerEvents: visible ? "auto" : "none",
-        transition: "opacity .35s cubic-bezier(.22,1,.36,1), transform .35s cubic-bezier(.22,1,.36,1)",
+        transition:
+          "opacity .35s cubic-bezier(.22,1,.36,1), transform .35s cubic-bezier(.22,1,.36,1)",
       }}
     >
       <Icon name="sparkle" size={15} />
