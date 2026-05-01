@@ -303,7 +303,7 @@ function Portefeuille() {
       <div className="card" style={{ padding: 28 }}>
         <div className="row between" style={{ marginBottom: 20 }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique des mouvements</div>
-          <button className="btn btn-sm btn-ghost"><Icon name="download" size={12}/> Exporter CSV</button>
+          <button className="btn btn-sm btn-ghost btn-export-csv"><Icon name="download" size={12}/> Exporter CSV</button>
         </div>
         <table className="tbl">
           <thead><tr>

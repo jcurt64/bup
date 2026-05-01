@@ -350,6 +350,86 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   .dash-shell[data-menu-open="true"] > div:nth-child(2) {
     padding-top: 56px;
   }
+
+  /* ProHeader buttons row (Recharger / Nouvelle campagne) — centrer la rangée
+     entière au lieu de la coller à droite quand elle wrappe sous le titre. */
+  .pro-header-actions {
+    width: 100%;
+    justify-content: center !important;
+    flex-wrap: wrap;
+  }
+
+  /* Exporter CSV — réduit le padding vertical pour s'adapter quand la rangée
+     "Historique des mouvements" se compacte sur mobile. */
+  .btn-export-csv {
+    padding: 3px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* ── Wizard "Créer une campagne" — étapes 2/4/5 ────────────────────
+     Empile verticalement les éléments de chaque carte d'option pour
+     éviter l'écrasement horizontal sur petit écran. */
+  .wizard-tier-row,
+  .wizard-mode-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    text-align: center !important;
+    gap: 10px !important;
+  }
+  /* La case ronde de sélection est centrée horizontalement quand la row
+     se met en colonne (largeur fixe → besoin d'auto-margin). */
+  .wizard-tier-row > span:first-child,
+  .wizard-mode-row > span:first-child {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  /* Barre de progression (Palier) : pleine largeur en mobile. */
+  .wizard-tier-row > div[style*="width: 80px"],
+  .wizard-tier-row > div[style*="width:80px"] {
+    width: 100% !important;
+  }
+  /* Bloc prix (textAlign: right) recentré. */
+  .wizard-tier-row > div:last-child {
+    text-align: center !important;
+  }
+
+  /* Étape 4 — bloc "Coût par contact / Budget total" : 2 colonnes → 1 colonne. */
+  .wizard-cost-preview {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    text-align: center !important;
+  }
+  .wizard-cost-right {
+    text-align: center !important;
+  }
+
+  /* Étape 5 — input + bouton "Ajouter" : empile pour éviter l'écrasement. */
+  .wizard-kw-input-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  /* Étape 5 — explainer "Comment fonctionne le matching par mots-clés ?".
+     Les chips "Sans filtre" / "Filtre strict" passent au-dessus de leur
+     description au lieu d'être à gauche. */
+  .wizard-kw-explainer-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  /* Modale "Félicitations !" — boutons "Voir mes campagnes" /
+     "Aller au dashboard" empilés sur mobile. */
+  .launched-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .launched-actions > .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 600px) {

@@ -43,7 +43,7 @@ function ProHeader({ onCreate, onRecharge }) {
             2 campagnes actives · taux d'acceptation moyen 62% · ROI estimé ×3,8
           </div>
         </div>
-        <div className="row center gap-3">
+        <div className="row center gap-3 pro-header-actions">
           <button className="btn btn-ghost btn-sm" onClick={onRecharge}><Icon name="plus" size={12}/> Recharger le crédit</button>
           <button className="btn btn-primary" onClick={onCreate}>
             <Icon name="plus" size={14}/> Nouvelle campagne
@@ -451,7 +451,7 @@ function CreateCampaign({ onDone }) {
   );
 
   const costPreview = cpc > 0 && (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
+    <div className="wizard-cost-preview" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
       background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
       border: '1px solid color-mix(in oklab, var(--accent) 20%, var(--line))',
       borderRadius: 14, padding: 20, marginBottom: 24 }}>
@@ -460,7 +460,7 @@ function CreateCampaign({ onDone }) {
         <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(cpc)}</div>
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>selon paliers et vérification</div>
       </div>
-      <div style={{ textAlign: 'right' }}>
+      <div className="wizard-cost-right" style={{ textAlign: 'right' }}>
         <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Budget total</div>
         <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(total)}</div>
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>pour {contacts} contacts</div>
@@ -572,7 +572,7 @@ function CreateCampaign({ onDone }) {
                     onClick={() => allowed && toggleTier(t.id)}
                     disabled={!allowed}
                     title={allowed ? '' : 'Palier non disponible pour cette finalité (RGPD — minimisation)'}
-                    className="row center" style={{ gap: 16, padding: 16, borderRadius: 12, textAlign: 'left',
+                    className="row center wizard-tier-row" style={{ gap: 16, padding: 16, borderRadius: 12, textAlign: 'left',
                       border: '1px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
                       background: checked ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))'
                                 : allowed ? 'var(--paper)'
@@ -726,7 +726,7 @@ function CreateCampaign({ onDone }) {
               ].map(m => {
                 const sel = poolMode === m.id;
                 return (
-                  <button key={m.id} onClick={() => setPoolMode(m.id)} className="row center" style={{ gap: 14, padding: 14, borderRadius: 10, cursor: 'pointer',
+                  <button key={m.id} onClick={() => setPoolMode(m.id)} className="row center wizard-mode-row" style={{ gap: 14, padding: 14, borderRadius: 10, cursor: 'pointer',
                     border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
                     background: sel ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
                     boxShadow: sel ? '0 0 0 1px var(--accent)' : 'none',
@@ -770,7 +770,7 @@ function CreateCampaign({ onDone }) {
                 </div>
               </div>
 
-              <div className="row gap-2" style={{ marginBottom: 14 }}>
+              <div className="row gap-2 wizard-kw-input-row" style={{ marginBottom: 14 }}>
                 <input value={kwInput} onChange={e => setKwInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKw(); } }}
                   placeholder="Ex : véhicule, immobilier, retraite…" maxLength={40}
@@ -863,14 +863,14 @@ function CreateCampaign({ onDone }) {
             <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: 16 }}>
               <div className="mono caps" style={{ fontSize: 10, fontWeight: 600, marginBottom: 10, letterSpacing: '.1em' }}>Comment fonctionne le matching par mots-clés ?</div>
               <div className="col gap-3">
-                <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+                <div className="row wizard-kw-explainer-row" style={{ gap: 10, alignItems: 'flex-start' }}>
                   <span className="chip" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Sans filtre</span>
                   <div className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
                     Les mots-clés agissent comme un <strong style={{ color: 'var(--ink)' }}>signal de priorité</strong> — les prospects
                     correspondants remontent en tête de liste sans exclure les autres. Le volume de campagne est préservé.
                   </div>
                 </div>
-                <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+                <div className="row wizard-kw-explainer-row" style={{ gap: 10, alignItems: 'flex-start' }}>
                   <span className="chip chip-accent" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Filtre strict</span>
                   <div className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
                     Seuls les prospects dont le profil contient l'un des mots-clés sont ciblés.
@@ -1072,7 +1072,7 @@ function CampaignLaunchedModal({ data, onClose }) {
           <span><strong>Code à usage unique par sollicitation.</strong> À conserver de manière confidentielle.</span>
         </div>
 
-        <div className="row gap-2" style={{ marginTop: 22 }}>
+        <div className="row gap-2 launched-actions" style={{ marginTop: 22 }}>
           <button onClick={onClose} className="btn btn-ghost" style={{ flex: 1 }}>Voir mes campagnes</button>
           <button onClick={onClose} className="btn btn-primary" style={{ flex: 1 }}>
             Aller au dashboard <Icon name="arrow" size={13}/>
