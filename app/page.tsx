@@ -995,7 +995,7 @@ function TiersTable() {
               className="mono"
               style={{ fontSize: 12, color: "var(--ink-4)" }}
             >
-              Fourchette d&apos;estimation par budget de la campagne
+              Fourchette d&apos;estimation par campagne
             </div>
           </div>
         </div>
