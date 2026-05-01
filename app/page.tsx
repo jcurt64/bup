@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -1918,10 +1919,11 @@ function FinalCTA() {
 }
 
 function Footer() {
-  const columns: [string, string[]][] = [
-    ["Plateforme", ["Prospects", "Professionnels", "Tarifs", "API"]],
-    ["Ressources", ["Barème des paliers", "Documentation", "API", "Status"]],
-    ["Légal", ["CGU", "CGV", "RGPD", "Contact DPO"]],
+  type Item = { label: string; href?: string };
+  const columns: [string, Item[]][] = [
+    ["Plateforme", [{ label: "Prospects" }, { label: "Professionnels" }, { label: "Tarifs" }, { label: "API" }]],
+    ["Ressources", [{ label: "Barème des paliers", href: "/bareme" }, { label: "Documentation" }, { label: "API" }, { label: "Status" }]],
+    ["Légal", [{ label: "CGU" }, { label: "CGV" }, { label: "RGPD" }, { label: "Contact DPO" }]],
   ];
   return (
     <footer
@@ -1956,11 +1958,29 @@ function Footer() {
               >
                 {h}
               </div>
-              {items.map((it) => (
-                <div key={it} style={{ padding: "4px 0" }}>
-                  {it}
-                </div>
-              ))}
+              {items.map((it) =>
+                it.href ? (
+                  <Link
+                    key={it.label}
+                    href={it.href}
+                    style={{
+                      display: "block",
+                      padding: "4px 0",
+                      color: "inherit",
+                      textDecoration: "none",
+                      transition: "color .15s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--paper)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+                  >
+                    {it.label}
+                  </Link>
+                ) : (
+                  <div key={it.label} style={{ padding: "4px 0" }}>
+                    {it.label}
+                  </div>
+                ),
+              )}
             </div>
           ))}
         </div>
