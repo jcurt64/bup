@@ -905,6 +905,21 @@ input[type=range]::-moz-range-thumb{
     </div>
   </div>
 </div>
+
+<!-- Popup avertissement inscription -->
+<div class="tier-popup-overlay" id="signup-warning-overlay">
+  <div class="tier-popup" role="dialog" aria-modal="true" aria-labelledby="signup-warning-title">
+    <div class="tier-popup-icon">✨</div>
+    <div class="tier-popup-title" id="signup-warning-title">Soyez vous-même, c'est ce qui compte</div>
+    <div class="tier-popup-body">
+      Les professionnels comptent sur des <strong>profils authentiques</strong> pour proposer des campagnes pertinentes — et c'est ce qui vous permet d'être <strong>rémunéré</strong>. Confirmez que toutes vos informations sont exactes.
+    </div>
+    <div class="tier-popup-actions">
+      <button class="tier-popup-cancel" onclick="closeSignupWarning()">Annuler</button>
+      <button class="tier-popup-ok" onclick="closeSignupWarning(); confirmSignup();">Je confirme et m'inscris</button>
+    </div>
+  </div>
+</div>
 <div class="glow-orb glow-1" aria-hidden="true"></div>
 <div class="glow-orb glow-2" aria-hidden="true"></div>
 
@@ -1099,16 +1114,7 @@ input[type=range]::-moz-range-thumb{
           <div class="milestone"><div class="m-val">10 amis</div><div class="m-label">VIP +20€</div></div>
         </div>
 
-        <!-- Referral link -->
-        <div class="referral-box">
-          <div class="ref-label">Votre lien de parrainage</div>
-          <div class="ref-input-row">
-            <div class="ref-link" id="ref-link">buupp.fr/ref/MD8X4K</div>
-            <button class="ref-copy-btn" onclick="copyRef()" aria-label="Copier le lien de parrainage">Copier</button>
-          </div>
-        </div>
-
-        <button class="btn-wl" onclick="confirmSignup()">Confirmer mon inscription ✦ +5€</button>
+        <button class="btn-wl" onclick="openSignupWarning()">Confirmer mon inscription ✦ +5€</button>
         <p class="rgpd-notice">Consentement enregistré · Suppression possible à tout moment · RGPD Art. 7</p>
       </div>
 
@@ -1127,7 +1133,7 @@ input[type=range]::-moz-range-thumb{
         <div class="referral-box">
           <div class="ref-label">Partagez et gagnez du terrain</div>
           <div class="ref-input-row">
-            <div class="ref-link">buupp.fr/ref/MD8X4K</div>
+            <div class="ref-link" id="ref-link">buupp.fr/ref/MD8X4K</div>
             <button class="ref-copy-btn" onclick="copyRef()">Copier</button>
           </div>
         </div>
@@ -1372,6 +1378,14 @@ function goStep3(){
   document.getElementById('ref-link').textContent = 'buupp.fr/ref/' + code;
 
   setStep(3);
+}
+
+function openSignupWarning(){
+  document.getElementById('signup-warning-overlay').classList.add('show');
+}
+
+function closeSignupWarning(){
+  document.getElementById('signup-warning-overlay').classList.remove('show');
 }
 
 function confirmSignup(){

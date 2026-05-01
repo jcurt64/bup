@@ -384,10 +384,10 @@ function Navbar() {
             />
             <nav className="row gap-6 nav-desktop" style={{ marginLeft: 8 }}>
               <a className="nav-link" href="#prospects">
-                Prospects
+                Prospect
               </a>
               <a className="nav-link" href="#pros">
-                Professionnels
+                Professionnel
               </a>
               <a className="nav-link" href="#tarifs">
                 Tarifs
@@ -434,12 +434,13 @@ function Navbar() {
           if (e.target === e.currentTarget) setOpen(false);
         }}
       >
+        {/* Lien menu format telephone */}
         <div className="mobile-drawer-inner">
           <button className="drawer-link" onClick={() => goAnchor("prospects")}>
-            Prospects
+            Prospect
           </button>
           <button className="drawer-link" onClick={() => goAnchor("pros")}>
-            Professionnels
+            Professionnel
           </button>
           <button className="drawer-link" onClick={() => goAnchor("tarifs")}>
             Tarifs
@@ -531,12 +532,13 @@ function Hero() {
               style={{
                 background: "transparent",
                 color: "var(--ivory)",
+                letterSpacing: "0.10em",
                 borderColor: "rgba(255,255,255,.18)",
               }}
             >
               <span
                 className="dot pulse-dot"
-                style={{ background: "#A7F3D0" }}
+                style={{ background: "#16a34a" }}
               />
               Vos données ont de la valeur — récupérez-la
             </span>
@@ -572,19 +574,20 @@ function Hero() {
           }}
         >
           <h2
-            className="tracking-wide hero-lede"
+            className="hero-lede"
             style={{
               flex: "1 1 320px",
               maxWidth: 520,
               fontSize: "clamp(15px, 1.6vw, 19px)",
-              lineHeight: 1.55,
+              lineHeight: 1.75,
+              letterSpacing:"0.04em",
               color: "rgba(255,255,255,.78)",
             }}
           >
             BUUPP est la première plateforme qui rémunère les particuliers pour
             accepter d&apos;être contactés par les professionnels. Double
             consentement,{" "}
-            <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-orange-400">
+            <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-[#FB923C]">
               {"<"}RGPD natif {">"}.
             </p>
           </h2>
@@ -655,7 +658,7 @@ function Hero() {
             style={{
               fontSize: 10,
               letterSpacing: ".18em",
-              color: "rgba(255,255,255,.35)",
+              color: "rgba(22,163,74)",
               marginBottom: 14,
             }}
           >
@@ -723,12 +726,13 @@ function FlashDeal() {
             style={{
               background: "var(--ink)",
               color: "var(--paper)",
+              fontSize: 15,
               borderColor: "var(--ink)",
             }}
           >
-            <Icon name="bolt" size={12} /> Flash Deal
+            <Icon name="bolt" size={14} /> Flash Deal
           </span>
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: 13,letterSpacing: "0.08em", }}>
             Gains <em>×3 </em> sur les paliers 3 à 5 pour toute demande acceptée
             dans l&apos;heure qui vient.
           </span>
@@ -784,7 +788,7 @@ function HowItWorks() {
             >
               — Pour les prospects
             </div>
-            <h2 className="serif">
+            <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
               Enfin <em>rémunéré</em>
               <br />
               pour votre attention.
@@ -862,17 +866,17 @@ function TiersTable() {
             <div className="mono caps muted" style={{ marginBottom: 14 }}>
               — Grille de rémunération
             </div>
-            <h2 className="serif">
+            <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
               Cinq paliers.
               <br />
-              <em>Un prix par palier.</em>
+              <em style={{ letterSpacing: "0.06em" }}>Un prix par palier.</em>
             </h2>
           </div>
           <label
             className="row center gap-3"
             style={{ cursor: "pointer", userSelect: "none" }}
           >
-            <span className="muted" style={{ fontSize: 13 }}>
+            <span className="muted" style={{ fontSize: 13,letterSpacing: "0.08em" }}>
               Afficher les gains Prospect vérifié 100%
             </span>
             <span
@@ -969,9 +973,9 @@ function TiersTable() {
             }}
             className="row between center wrap gap-2"
           >
-            <div className="muted" style={{ fontSize: 13 }}>
+            <div className="muted flex items-center" style={{ fontSize: 13 }}>
               <Icon name="sparkle" size={13} />{" "}
-              <span style={{ marginLeft: 6, verticalAlign: "middle" }}>
+              <span style={{ marginLeft: 6, verticalAlign: "middle", letterSpacing: "0.08em" }}>
                 Prospect vérifié 100% → gains doublés ×2
               </span>
             </div>
@@ -979,7 +983,7 @@ function TiersTable() {
               className="mono"
               style={{ fontSize: 12, color: "var(--ink-4)" }}
             >
-              60% reversé au prospect · 40% plateforme &amp; fiscalité
+              Fourchette d&apos;estimation par budget de la campagne 
             </div>
           </div>
         </div>
@@ -1016,7 +1020,7 @@ function ScoreSection() {
           <div className="mono caps muted" style={{ marginBottom: 16 }}>
             — BUPP Score
           </div>
-          <h2 className="serif" style={{ marginBottom: 20 }}>
+          <h2 className="serif" style={{ marginBottom: 20, letterSpacing: "0.08em" }}>
             Un indice de <em>désirabilité</em> transparent.
           </h2>
           <p
@@ -1060,7 +1064,7 @@ function ScoreSection() {
           <div className="serif" style={{ fontSize: 20, marginTop: 24 }}>
             Marie L. — <em>Recherchée</em>
           </div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+          <div className="muted" style={{ fontSize: 13,letterSpacing: "0.08em", marginTop: 4 }}>
             Profil vérifié · 3 paliers validés · 12 mises en relation
           </div>
           <div
@@ -1075,7 +1079,7 @@ function ScoreSection() {
               <div key={i} style={{ marginBottom: 10 }}>
                 <div
                   className="row between"
-                  style={{ fontSize: 12, marginBottom: 4 }}
+                  style={{ fontSize: 12, marginBottom: 4, letterSpacing: "0.06em" }}
                 >
                   <span className="muted">{l}</span>
                   <span className="mono tnum">{v}%</span>
@@ -1133,28 +1137,28 @@ function ProsSection() {
       "Artisan",
       "Menuisier, plombier, cuisiniste",
       "Rayon 30 km",
-      "42 devis/mois",
+      "+ devis/mois",
       "4,20 €/contact",
     ],
     [
       "Professions libérales",
       "Kiné, dentiste, coach",
       "Rayon 15 km",
-      "28 RDV/mois",
+      "+ RDV/mois",
       "5,80 €/contact",
     ],
     [
       "Agences immobilières",
       "Vente, location, gestion",
       "Rayon 20 km",
-      "65 leads/mois",
+      "+ leads/mois",
       "7,40 €/contact",
     ],
     [
       "SaaS & B2B",
       "Éditeurs, cabinets conseil",
       "National",
-      "180 DL/mois",
+      "+ DL/mois",
       "2,90 €/contact",
     ],
   ];
@@ -1199,7 +1203,7 @@ function ProsSection() {
             <h2 className="serif" style={{ color: "var(--paper)" }}>
               Arrêtez de prospecter.
               <br />
-              <em style={{ color: "#A5B4FC" }}>Laissez vos prospects venir.</em>
+              <em style={{ color: "#A5B4FC", letterSpacing: "0.08em" }}>Laissez vos prospects venir.</em>
             </h2>
             <p
               style={{
@@ -1310,6 +1314,7 @@ function ProsSection() {
                 style={{
                   fontSize: 13,
                   lineHeight: 1.6,
+                  letterSpacing: "0.03em",
                   color: b.hi
                     ? "rgba(255,255,255,.78)"
                     : "rgba(255,255,255,.6)",
@@ -1359,6 +1364,7 @@ function ProsSection() {
                   padding: "12px 0",
                   borderTop: i ? "1px solid rgba(255,255,255,.08)" : "none",
                   fontSize: 14,
+                  letterSpacing: "0.03em"
                 }}
               >
                 <span style={{ color: "rgba(255,255,255,.6)" }}>{r[1]}</span>
@@ -1406,6 +1412,7 @@ function ProsSection() {
                   padding: "12px 0",
                   borderTop: i ? "1px solid rgba(165,180,252,.15)" : "none",
                   fontSize: 14,
+                  letterSpacing: "0.01em"
                 }}
               >
                 <span style={{ color: "rgba(255,255,255,.7)" }}>{r[1]}</span>
@@ -1456,6 +1463,7 @@ function ProsSection() {
                     color: "rgba(255,255,255,.5)",
                     marginTop: 4,
                     marginBottom: 20,
+                    letterSpacing: "0.06em"
                   }}
                 >
                   {u[1]}
@@ -1465,19 +1473,20 @@ function ProsSection() {
                     fontSize: 12,
                     color: "rgba(255,255,255,.5)",
                     marginBottom: 6,
+                    letterSpacing: "0.06em"
                   }}
                 >
                   {u[2]}
                 </div>
                 <div
                   className="serif tnum"
-                  style={{ fontSize: 18, color: "var(--paper)" }}
+                  style={{ fontSize: 18, letterSpacing: "0.08em", color: "var(--paper)" }}
                 >
                   {u[3]}
                 </div>
                 <div
                   className="mono"
-                  style={{ fontSize: 11, color: "#A5B4FC", marginTop: 4 }}
+                  style={{ fontSize: 11, letterSpacing: "0.08em", color: "#A5B4FC", marginTop: 4 }}
                 >
                   {u[4]}
                 </div>
@@ -1494,11 +1503,11 @@ function SecuritySection() {
   const pillars = [
     {
       t: "Données pseudonymisées",
-      d: "Vos données ne sont pas visibles intégralement sur la plateforme BUUPP. Même les professionnels n'y ont pas accès directement.",
+      d: "Vos données ne sont pas visibles intégralement. Les professionnels ne peuvent pas les extraire de la plateforme BUUPP.",
     },
     {
       t: "Consentement à usage unique",
-      d: "Chaque accord donné est strictement limité à une seule campagne et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage.",
+      d: "Chaque accord donné est strictement limité à une seule sollicitation et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage.",
     },
     {
       t: "Anti-fraude multicouche",
@@ -1525,10 +1534,10 @@ function SecuritySection() {
             </div>
             <h2
               className="serif"
-              style={{ color: "var(--paper)", maxWidth: 720 }}
+              style={{ color: "var(--paper)", maxWidth: 720, letterSpacing:"0.06em" }}
             >
               Une architecture pensée pour que{" "}
-              <em style={{ color: "#A5B4FC" }}>vos données</em> ne fuitent pas.
+              <em style={{ color: "#A5B4FC", letterSpacing: "0.08em" }}>vos données</em> ne fuitent pas.
             </h2>
           </div>
         </div>
@@ -1552,6 +1561,7 @@ function SecuritySection() {
                 style={{
                   fontSize: 22,
                   marginBottom: 10,
+                  letterSpacing:"0.01em" ,
                   color: "var(--paper)",
                 }}
               >
@@ -1562,6 +1572,7 @@ function SecuritySection() {
                   fontSize: 13,
                   color: "rgba(255,255,255,.6)",
                   lineHeight: 1.6,
+                  letterSpacing:"0.06em" 
                 }}
               >
                 {p.d}
@@ -1603,7 +1614,7 @@ function Stats() {
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div
           className="grid grid-3 stats-grid"
-          style={{ gap: 0, borderTop: "1px solid var(--line)" }}
+          style={{ gap: 0, letterSpacing:"0.04em" , borderTop: "1px solid var(--line)" }}
         >
           {stats.map(([n, l, d], i) => (
             <div
@@ -1767,8 +1778,8 @@ function Pricing() {
           <div className="mono caps muted" style={{ marginBottom: 14 }}>
             — Tarifs professionnels
           </div>
-          <h2 className="serif">
-            Deux plans. <em>Sans engagement.</em>
+          <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
+            Deux plans. <em >Sans engagement.</em>
           </h2>
           <p
             className="muted"
@@ -1778,7 +1789,7 @@ function Pricing() {
             la qualité, pas au clic douteux.
           </p>
         </div>
-        <div className="grid grid-2" style={{ gap: 20 }}>
+        <div className="grid grid-2" style={{ gap: 20, letterSpacing: "0.04em" }}>
           <PricingCard
             name="Starter"
             price="29"
@@ -1821,7 +1832,7 @@ function FinalCTA() {
       }}
     >
       <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
-        <h2 className="serif">
+        <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
           Be <em>Used.</em> Paid. <em>Proud.</em>
         </h2>
         <p
