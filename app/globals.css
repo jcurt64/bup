@@ -288,6 +288,77 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .stat-cell-0 { padding-left: 0; }
 .stat-cell-1, .stat-cell-2 { padding-left: 24px; }
 
+@media (max-width: 1024px) {
+  .step-cell,
+  .step-cell-0,
+  .step-cell-1,
+  .step-cell-2,
+  .stat-cell,
+  .stat-cell-0,
+  .stat-cell-1,
+  .stat-cell-2 {
+    text-align: center !important;
+  }
+  .step-cell > *,
+  .stat-cell > * { margin-left: auto !important; margin-right: auto !important; }
+  .hero-live { text-align: center; }
+  .hero-live .marquee { justify-content: center; }
+
+  /* ---------- Centrage global des titres / sous-titres / contenus en responsive ---------- */
+  /* Titres et eyebrows dans toutes les grandes sections */
+  .section h2, .section-md h2, .section-sm h2, .section-xs h2,
+  .section h3, .section-md h3, .section-sm h3,
+  .section .mono.caps, .section-md .mono.caps, .section-sm .mono.caps, .section-xs .mono.caps {
+    text-align: center !important;
+  }
+  /* Paragraphes descriptifs qui suivent un titre */
+  .section h2 ~ p, .section-md h2 ~ p, .section-sm h2 ~ p, .section-xs h2 ~ p,
+  .section h2 + p, .section-md h2 + p, .section-sm h2 + p {
+    text-align: center !important;
+  }
+  /* Wrapper "row between wrap" → centre les contenus en empilement */
+  .section > div > .row.between.wrap,
+  .section-md > div > .row.between.wrap,
+  .section-sm > div > .row.between.wrap {
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  .section > div > .row.between.wrap > div,
+  .section-md > div > .row.between.wrap > div,
+  .section-sm > div > .row.between.wrap > div {
+    text-align: center;
+  }
+  /* Hero — H1, eyebrow, lede */
+  .hero-section h1,
+  .hero-section .hero-lede,
+  .hero-section .badge {
+    text-align: center !important;
+  }
+  .hero-section h1 { margin-left: auto; margin-right: auto; }
+
+  /* Flash Deal — centre toute la ligne */
+  .flash-deal-row { justify-content: center !important; text-align: center !important; }
+  .flash-deal-row .row { justify-content: center !important; }
+
+  /* Cartes dans les grilles des sections : centre tout le texte */
+  .section .grid > *,
+  .section-md .grid > *,
+  .section-sm .grid > * {
+    text-align: center !important;
+  }
+
+  /* Icônes carrées dans les cartes "Pour les professionnels" → auto-margin */
+  .mobile-icon-center { margin-left: auto !important; margin-right: auto !important; }
+
+  /* Pricing : centrer les rows internes (prix + features) */
+  .section .grid.grid-2 > .card .row { justify-content: center !important; }
+
+  /* Footer : centre uniquement le logo + la description société (1ère colonne du bloc principal, pas la ligne copyright) */
+  footer .row.between.wrap:not(.gap-2) > div:first-child {
+    text-align: center !important;
+  }
+}
+
 @media (max-width: 768px) {
   .step-cell,
   .step-cell-0,
@@ -330,7 +401,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
     overflow-x: auto;
   }
   .route-nav .route-nav-tab {
-    padding: 5px 9px !important;
+    padding: 12px 9px !important;
     letter-spacing: 0.02em !important;
     font-size: 10px !important;
   }
@@ -341,7 +412,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
     font-size: 9px !important;
   }
   .route-nav .route-nav-tab {
-    padding: 5px 7px !important;
+    padding: 11px 7px !important;
     font-size: 9px !important;
     letter-spacing: 0 !important;
   }
