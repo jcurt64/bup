@@ -533,7 +533,7 @@ function RechargeModal({ onClose }) {
     <Modal title="Recharger le crédit" subtitle={"Solde actuel : 847 € · Atelier Mercier SARL · TVA intracom. FR 42 852 147 012"} onClose={onClose}>
       <div>
         <div className="label">Montant à créditer</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
+        <div className="recharge-amounts" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
           {[200, 500, 1000, 2000].map(v => {
             const b = v >= 2000 ? 8 : v >= 1000 ? 5 : v >= 500 ? 3 : 0;
             return (
@@ -542,7 +542,7 @@ function RechargeModal({ onClose }) {
                 border: '1px solid ' + (amount === v && !custom ? 'var(--ink)' : 'var(--line-2)'),
                 background: amount === v && !custom ? 'var(--ivory-2)' : 'var(--paper)'
               }}>
-                <div className="serif tnum" style={{ fontSize: 22 }}>{v} €</div>
+                <div className="serif tnum recharge-amount-value" style={{ fontSize: 22 }}>{v} €</div>
                 {b > 0 && <div className="mono" style={{ fontSize: 10, color: 'var(--accent)' }}>+{b}% bonus</div>}
               </button>
             );
@@ -562,7 +562,7 @@ function RechargeModal({ onClose }) {
             ['sepa', 'Prélèvement SEPA', 'IBAN FR76 •••• 0012 · BNP Paribas', '2 jours ouvrés'],
             ['virement', 'Virement bancaire', 'IBAN de BUPP fourni à la validation', '1 à 3 jours'],
           ].map(([k, n, d, tag]) => (
-            <label key={k} className="row center gap-3" style={{
+            <label key={k} className="row center gap-3 recharge-method-row" style={{
               padding: 12, border: '1px solid ' + (method === k ? 'var(--ink)' : 'var(--line-2)'),
               borderRadius: 10, cursor: 'pointer', background: method === k ? 'var(--ivory-2)' : 'var(--paper)'
             }}>
@@ -599,23 +599,23 @@ function RechargeModal({ onClose }) {
             <span style={{ color: 'rgba(255,255,255,.6)' }}>TVA 20%</span>
             <span className="mono tnum" style={{ color: 'rgba(255,255,255,.6)' }}>{tva.toFixed(2).replace('.', ',')} €</span>
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,.2)', marginTop: 8, paddingTop: 10 }} className="row between">
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.2)', marginTop: 8, paddingTop: 10 }} className="row between recharge-summary-totals">
             <div>
-              <div className="mono caps" style={{ fontSize: 10, color: 'rgba(255,255,255,.5)' }}>Crédit disponible</div>
-              <div className="serif tnum" style={{ fontSize: 28 }}>{credit.toFixed(2).replace('.', ',')} €</div>
+              <div className="mono caps recharge-summary-label" style={{ fontSize: 10, color: 'rgba(255,255,255,.5)' }}>Crédit disponible</div>
+              <div className="serif tnum recharge-summary-amount" style={{ fontSize: 28 }}>{credit.toFixed(2).replace('.', ',')} €</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="mono caps" style={{ fontSize: 10, color: 'rgba(255,255,255,.5)' }}>À payer TTC</div>
-              <div className="serif tnum" style={{ fontSize: 28 }}>{(amount + tva).toFixed(2).replace('.', ',')} €</div>
+              <div className="mono caps recharge-summary-label" style={{ fontSize: 10, color: 'rgba(255,255,255,.5)' }}>À payer TTC</div>
+              <div className="serif tnum recharge-summary-amount" style={{ fontSize: 28 }}>{(amount + tva).toFixed(2).replace('.', ',')} €</div>
             </div>
           </div>
         </div>
 
-        <div className="row between center" style={{ marginTop: 20 }}>
-          <div className="muted" style={{ fontSize: 11, maxWidth: 280 }}>
+        <div className="row between center recharge-footer" style={{ marginTop: 20 }}>
+          <div className="muted recharge-footer-note" style={{ fontSize: 11, maxWidth: 280 }}>
             Paiement sécurisé via Stripe · facture émise sous 5 min · aucune donnée carte stockée par BUPP.
           </div>
-          <div className="row gap-2">
+          <div className="row gap-2 recharge-footer-actions">
             <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
             <button className="btn btn-primary btn-sm" onClick={() => setDone(true)}>
               Payer {(amount + tva).toFixed(2).replace('.', ',')} € <Icon name="arrow" size={12}/>
