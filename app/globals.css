@@ -273,8 +273,9 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 @media (max-width: 768px) {
   .hero-section { padding: 56px 20px 72px; }
-  .hero-cta-row { flex-direction: column !important; align-items: stretch !important; }
-  .hero-buttons { width: 100%; }
+  .hero-cta-row { flex-direction: column !important; align-items: stretch !important; gap: 28px !important; }
+  .hero-lede { flex: 0 0 auto !important; }
+  .hero-buttons { width: 100%; gap: 16px !important; padding: 0 8px; }
   .hero-buttons .btn { flex: 1 1 100%; justify-content: center; }
 }
 

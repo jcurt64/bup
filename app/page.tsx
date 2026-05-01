@@ -9,7 +9,7 @@ function goWaitlist(router: Router) {
   try {
     sessionStorage.setItem("bupp:waitlist-ok", "1");
   } catch {}
-  router.push("/waitlist");
+  router.push("/liste-attente");
 }
 
 const TIERS = [
@@ -25,33 +25,33 @@ const TIERS = [
     n: 2,
     name: "Localisation",
     ex: "adresse, logement",
-    range: "0,50 € – 2,00 €",
+    range: "0,50 € – 1,00 €",
     low: 0.5,
-    high: 2.0,
+    high: 1.0,
   },
   {
     n: 3,
     name: "Style de vie",
     ex: "habitudes, famille, véhicule",
-    range: "2,00 € – 5,00 €",
-    low: 2.0,
-    high: 5.0,
+    range: "1,00 € – 2,00 €",
+    low: 1.0,
+    high: 2.0,
   },
   {
     n: 4,
     name: "Données professionnelles",
     ex: "poste, revenus, statut",
-    range: "5,00 € – 8,00 €",
-    low: 5.0,
-    high: 8.0,
+    range: "2,00 € – 4,00 €",
+    low: 2.0,
+    high: 4.0,
   },
   {
     n: 5,
     name: "Patrimoine & projets",
     ex: "immobilier, épargne",
-    range: "8,00 € – 10,00 €",
-    low: 8.0,
-    high: 10.0,
+    range: "4,00 € – 8,00 €",
+    low: 4.0,
+    high: 8.0,
   },
 ];
 
@@ -398,13 +398,13 @@ function Navbar() {
           <div className="row center gap-3 nav-desktop">
             <button
               className="btn btn-sm btn-ghost"
-              onClick={() => router.push("/auth")}
+              onClick={() => router.push("/connexion")}
             >
               Se connecter
             </button>
             <button
               className="btn btn-sm btn-primary"
-              onClick={() => router.push("/auth")}
+              onClick={() => router.push("/connexion")}
             >
               Démarrer <Icon name="arrow" size={14} />
             </button>
@@ -448,14 +448,14 @@ function Navbar() {
             <button
               className="btn btn-lg btn-ghost"
               style={{ justifyContent: "center" }}
-              onClick={() => go("/auth")}
+              onClick={() => go("/connexion")}
             >
               Se connecter
             </button>
             <button
               className="btn btn-lg btn-primary"
               style={{ justifyContent: "center" }}
-              onClick={() => go("/auth")}
+              onClick={() => go("/connexion")}
             >
               Démarrer <Icon name="arrow" size={14} />
             </button>
@@ -550,7 +550,8 @@ function Hero() {
               textTransform: "uppercase",
             }}
           >
-            Be Used · <p className="inline text-[#4596EC]">Paid &amp; Proud</p> — France, avril 2026
+            Be Used · <p className="inline text-[#4596EC]">Paid &amp; Proud</p>{" "}
+            — France, avril 2026
           </div>
         </div>
 
@@ -570,7 +571,7 @@ function Hero() {
             justifyContent: "space-between",
           }}
         >
-          <p
+          <h2
             className="tracking-wide hero-lede"
             style={{
               flex: "1 1 320px",
@@ -581,9 +582,12 @@ function Hero() {
             }}
           >
             BUUPP est la première plateforme qui rémunère les particuliers pour
-            accepter d&apos;être contactés par les professionnels qui les
-            ciblent vraiment. Double consentement, <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-orange-400">RGPD natif.</p>
-          </p>
+            accepter d&apos;être contactés par les professionnels. Double
+            consentement,{" "}
+            <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-orange-400">
+              {"<"}RGPD natif {">"}.
+            </p>
+          </h2>
           <div
             className="hero-buttons"
             style={{
@@ -725,7 +729,7 @@ function FlashDeal() {
             <Icon name="bolt" size={12} /> Flash Deal
           </span>
           <span style={{ fontSize: 13 }}>
-            Gains <em>×3</em> sur les paliers 3 à 5 pour toute demande acceptée
+            Gains <em>×3 </em> sur les paliers 3 à 5 pour toute demande acceptée
             dans l&apos;heure qui vient.
           </span>
         </div>
@@ -753,7 +757,7 @@ function HowItWorks() {
     {
       n: "02",
       title: "Choisissez vos contacts",
-      body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire.",
+      body: "Vous recevez des demandes ciblées et vérifiées. Acceptez ou refusez la sollicitation. Les données vous appartiennent.",
     },
     {
       n: "03",
@@ -861,7 +865,7 @@ function TiersTable() {
             <h2 className="serif">
               Cinq paliers.
               <br />
-              <em>Un prix par donnée.</em>
+              <em>Un prix par palier.</em>
             </h2>
           </div>
           <label
@@ -1023,7 +1027,7 @@ function ScoreSection() {
               maxWidth: 520,
             }}
           >
-            Votre score évolue selon la complétude de vos paliers KYC, la
+            Votre score évolue selon la complétude de vos paliers, la
             fraîcheur de vos données, votre taux d&apos;acceptation, et la
             qualité des évaluations reçues. Un score élevé attire des demandes
             plus exigeantes et mieux rémunérées.
@@ -1091,8 +1095,9 @@ function ProsSection() {
   const benefits: { ic: IconName; t: string; d: string; hi?: boolean }[] = [
     {
       ic: "check",
-      t: "Des prospects qui acceptent vraiment",
-      d: "Chaque contact dans votre base a dit oui, explicitement, à votre offre précise. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide.",
+       hi: true,
+      t: "Des prospects qui ont dit oui 2 fois",
+      d: "Chaque contact que vous obtiendrez a accepté à 2 reprises, explicitement. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide.",
     },
     {
       ic: "target",
@@ -1103,22 +1108,23 @@ function ProsSection() {
       ic: "wallet",
       hi: true,
       t: "Vous ne payez que les acceptations",
-      d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté la mise en relation. Les refus et expirations sont gratuits.",
+      d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté d'être sollicités. Les refus et expirations sont gratuits.",
     },
     {
       ic: "trend",
       t: "ROI ×3 à ×5 en moyenne",
-      d: "Taux d'acceptation moyen de 62% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des conversations qui convertissent.",
+      d: "Taux d'acceptation moyen de 80% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des échanges qui convertissent.",
     },
     {
       ic: "gauge",
+       hi: true,
       t: "BUPP Score : qualité mesurée",
       d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
     },
     {
       ic: "bolt",
-      t: "Mise en relation en 24 h",
-      d: "Campagne créée le matin, premiers rendez-vous pris le soir. Plus d'intermédiaires, plus d'agences, plus de délais.",
+      t: "Mise en relation instantannée",
+      d: "Campagne créée à 8h, premiers rendez-vous pris la minute d'après, dès acceptation. Plus d'intermédiaires, plus d'agences, plus de délais.",
     },
   ];
 
@@ -1154,17 +1160,17 @@ function ProsSection() {
   ];
 
   const classic: [string, string][] = [
-    ["1–3%", "taux d'acceptation"],
-    ["< 10%", "conformité RGPD mesurée"],
-    ["120 €", "coût moyen d'un lead qualifié"],
-    ["⊘", "aucune traçabilité du consentement"],
+    ["1–3%", "Taux d'acceptation"],
+    ["< 10%", "Conformité RGPD mesurée"],
+    ["120 €", "Coût moyen d'un lead qualifié"],
+    ["⊘", "Aucune traçabilité du consentement"],
   ];
 
   const bupp: [string, string][] = [
-    ["62%", "taux d'acceptation moyen"],
-    ["100%", "double consentement horodaté"],
-    ["5,40 €", "coût moyen d'un contact qualifié"],
-    ["✓", "watermarking + piste d'audit complète"],
+    ["90%", "Taux d'acceptation moyen"],
+    ["100%", "Double consentement horodaté"],
+    ["5,40 €", "Coût moyen d'un contact qualifié"],
+    ["✓", "Watermarking + piste d'audit complète"],
   ];
 
   return (
@@ -1204,7 +1210,7 @@ function ProsSection() {
               }}
             >
               L&apos;inbound, vraiment. Des contacts qui ont eux-mêmes accepté
-              d&apos;être approchés, pour des campagnes qui correspondent à leur
+              d&apos;être sollicités, pour des campagnes qui correspondent à leur
               profil et à leur moment de vie.
             </p>
           </div>
@@ -1223,7 +1229,7 @@ function ProsSection() {
                 borderColor: "rgba(255,255,255,.28)",
               }}
             >
-              Voir une démo
+              Demandez une démo
             </button>
           </div>
         </div>
@@ -1390,8 +1396,7 @@ function ProsSection() {
               className="serif"
               style={{ fontSize: 26, color: "var(--paper)", marginBottom: 24 }}
             >
-              Le prospect <em style={{ color: "#A5B4FC" }}>accepte</em> avant
-              même que vous parliez
+              Le prospect a déjà <em style={{ color: "#A5B4FC" }}>accepté</em> à 2 reprises
             </div>
             {bupp.map((r, i) => (
               <div
@@ -1425,7 +1430,7 @@ function ProsSection() {
               marginBottom: 24,
             }}
           >
-            — Ils prospectent mieux avec BUPP
+            — Ils pourraient prospecter mieux <p className="inline text-[#4596EC] font-extrabold">avec BUPP</p>
           </div>
           <div className="grid grid-4" style={{ gap: 12 }}>
             {useCases.map((u, i) => (
@@ -1488,8 +1493,8 @@ function ProsSection() {
 function SecuritySection() {
   const pillars = [
     {
-      t: "RGPD natif",
-      d: "Double consentement explicite, registre de traitement complet, droit à l'effacement en un clic.",
+      t: "Données pseudonymisées",
+      d: "Vos données ne sont pas visibles intégralement sur la plateforme BUUPP. Même les professionnels n'y ont pas accès directement.",
     },
     {
       t: "Consentement à usage unique",
@@ -1573,18 +1578,18 @@ function Stats() {
   const stats: [string, string, string][] = [
     [
       "2",
-      "consentements requis",
-      "Prospect + professionnel. Sans accord explicite des deux, aucune donnée n'est transmise.",
+      "Consentements requis",
+      "CGU BUUPP + Sollicitation par le professionnel. Sans accord explicite des deux, aucune donnée n'est transmise.",
     ],
     [
       "5",
-      "paliers de données",
-      "De l'identification au patrimoine — chaque palier est cloisonné et monétisé séparément.",
+      "Paliers de données",
+      "Des données d'identification aux centres d'intérêts. Chaque palier est cloisonné et monétisé séparément.",
     ],
     [
-      "60%",
-      "reversé au prospect",
-      "De la valeur brute de chaque mise en relation. Le reste couvre la fiscalité et la plateforme.",
+      "90%",
+      "Taux d'acceptation",
+      "L'assurance d'obtenir l'accord des prospects pour réaliser vos campagnes ciblées. À vous de jouer pour le reste.",
     ],
   ];
   return (
@@ -1709,7 +1714,7 @@ function PricingCard({
             color: featured ? "rgba(255,255,255,.6)" : "var(--ink-4)",
           }}
         >
-          € / mois
+          € / campagne
         </span>
       </div>
       <div
@@ -1776,29 +1781,28 @@ function Pricing() {
         <div className="grid grid-2" style={{ gap: 20 }}>
           <PricingCard
             name="Starter"
-            price="49"
+            price="29"
             features={[
-              "50 contacts qualifiés par mois",
+              "50 contacts qualifiés par campagne",
               "Ciblage par paliers 1–3",
               "Dashboard & analytics essentiels",
               "Support email sous 48h",
             ]}
             cta="Démarrer en Starter"
-            onCta={() => router.push("/auth")}
+            onCta={() => router.push("/connexion")}
           />
           <PricingCard
             name="Pro"
-            price="149"
+            price="99"
             featured
             features={[
               "Contacts illimités",
               "Tous les paliers 1–5",
               "CRM intégré + historique 12 mois",
-              "API & webhooks",
               "Support dédié sous 4h",
             ]}
             cta="Passer en Pro"
-            onCta={() => router.push("/auth")}
+            onCta={() => router.push("/connexion")}
           />
         </div>
       </div>
@@ -1880,8 +1884,7 @@ function Footer() {
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             />
             <div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
-              BUPP SAS · 12 rue du Sentier, 75002 Paris · RCS Paris 908 214 009
-              · Agréé intermédiaire en opérations de banque.
+              BUUPPP est développée et exploitée par la société Majelink · 12 Impasse des Étriers, 64140 Lons · RCS Pau 892 514 167.
             </div>
           </div>
           {columns.map(([h, items]) => (
@@ -1908,7 +1911,7 @@ function Footer() {
             fontSize: 12,
           }}
         >
-          <div>© 2026 BUPP SAS. Tous droits réservés.</div>
+          <div>© 2026 Majelink. Tous droits réservés.</div>
           <div className="row gap-4">
             <span>Français</span>
             <span>EUR €</span>

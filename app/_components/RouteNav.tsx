@@ -4,16 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS: [string, string][] = [
-  ["/", "Landing"],
-  ["/waitlist", "Wait List"],
-  ["/auth", "Auth"],
+  ["/", "Accueil"],
+  ["/liste-attente", "Liste d'attente"],
+  ["/connexion", "Connexion"],
   ["/prospect", "Prospect"],
   ["/pro", "Pro"],
 ];
 
 export default function RouteNav() {
   const pathname = usePathname();
-  if (pathname === "/auth") return null;
+  if (pathname === "/connexion") return null;
   return (
     <div
       className="route-nav"
@@ -24,7 +24,7 @@ export default function RouteNav() {
         transform: "translateX(-50%)",
         background: "rgba(15, 23, 42, 0.92)",
         color: "#FBF9F3",
-        padding: 4,
+        padding: "6px 6px",
         borderRadius: 999,
         zIndex: 90,
         backdropFilter: "blur(10px)",
@@ -43,7 +43,7 @@ export default function RouteNav() {
             href={href}
             className="route-nav-tab"
             style={{
-              padding: "7px 14px",
+              padding: "12px 14px",
               borderRadius: 999,
               background: active ? "#FBF9F3" : "transparent",
               color: active ? "#0F172A" : "rgba(255,255,255,.7)",

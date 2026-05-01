@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 
 const ROUTE_TO_PATH: Record<string, string> = {
   landing: "/",
-  waitlist: "/waitlist",
-  auth: "/auth",
+  waitlist: "/liste-attente",
+  auth: "/connexion",
   prospect: "/prospect",
   pro: "/pro",
 };
@@ -24,7 +24,7 @@ export default function PrototypeFrame({
       if (!data || data.bupp !== "goto") return;
       const target = data.route && ROUTE_TO_PATH[data.route];
       if (target) {
-        if (target === "/waitlist") {
+        if (target === "/liste-attente") {
           try {
             sessionStorage.setItem("bupp:waitlist-ok", "1");
           } catch {}
