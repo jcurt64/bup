@@ -258,6 +258,7 @@ function Progress({ value = 0.5, color }: { value?: number; color?: string }) {
 const ROTATING_WORDS = [
   { t: "inversée.", color: "#A5B4FC" },
   { t: "transparente.", color: "#FB923C" },
+  { t: "équitable.", color: "#16a34a" },
 ];
 
 function RotatingHeadlineWord() {
@@ -276,11 +277,11 @@ function RotatingHeadlineWord() {
           if (!mounted) return;
           setI((n) => (n + 1) % ROTATING_WORDS.length);
           setPhase("in");
-          const nextT = setTimeout(tick, 2000);
+          const nextT = setTimeout(tick, 1000);
           timers.push(nextT);
         }, 420);
         timers.push(swapT);
-      }, 2000);
+      }, 1000);
       timers.push(showT);
     };
     tick();

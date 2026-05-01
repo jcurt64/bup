@@ -245,7 +245,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
+    /* Laisse 68px à droite pour que le bouton hamburger flottant
+       ne recouvre jamais les onglets cliquables. */
+    right: 68px !important;
     height: auto !important;
     min-height: 0 !important;
     flex-direction: row !important;
@@ -264,6 +266,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   .dash-shell[data-menu-open="true"] > aside {
     transform: translateY(0);
+  }
+
+  /* Feedback tactile sur les onglets pour qu'ils paraissent interactifs au tap. */
+  .dash-shell > aside .side-item:active,
+  .dash-shell > aside button:active {
+    transform: scale(0.96);
+    transition: transform .08s ease;
   }
 
   /* Hide elements that don't make sense in a horizontal bar:
