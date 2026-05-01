@@ -270,11 +270,26 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .hero-section { padding: 96px 32px 120px; }
 @media (max-width: 1024px) {
   .hero-section { padding: 80px 28px 96px; }
+  /* Empile + centre le paragraphe d'accroche et la rangée de boutons sur tablette. */
+  .hero-cta-row {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 28px !important;
+  }
+  .hero-lede {
+    flex: 0 0 auto !important;
+    margin-bottom: 32px !important;
+    max-width: 720px;
+    text-align: center !important;
+  }
+  .hero-buttons {
+    justify-content: center !important;
+    align-items: center !important;
+  }
 }
 @media (max-width: 768px) {
   .hero-section { padding: 56px 20px 72px; }
-  .hero-cta-row { flex-direction: column !important; align-items: stretch !important; gap: 28px !important; }
-  .hero-lede { flex: 0 0 auto !important; }
+  .hero-cta-row { align-items: stretch !important; }
   .hero-buttons { width: 100%; gap: 16px !important; padding: 0 8px; }
   .hero-buttons .btn { flex: 1 1 100%; justify-content: center; }
 }
