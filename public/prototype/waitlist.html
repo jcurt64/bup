@@ -106,6 +106,10 @@ body::before{
 .nav-inner{
   display:flex;align-items:center;justify-content:space-between;
   height:56px;
+  position:relative;
+}
+.nav-pill{
+  position:absolute;left:50%;top:50%;transform:translate(-50%, -50%);
 }
 .nav-logo{
   text-decoration:none;
@@ -728,6 +732,8 @@ input[type=range]::-moz-range-thumb{
 
   /* Perks */
   .perks-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .perk-card { text-align: center; }
+  .perk-icon { margin-left: auto; margin-right: auto; }
 
   /* Social strip */
   .social-strip { gap: 28px; padding: 20px 0; }
@@ -929,9 +935,9 @@ input[type=range]::-moz-range-thumb{
     <a href="#" class="nav-logo" onclick="event.preventDefault(); try{window.parent.postMessage({bupp:'goLanding'},'*')}catch(e){}" style="display:flex;align-items:center;cursor:pointer;"><img src="/logo%20buupp.png" alt="BUPP" style="height:49px;width:auto;display:block;"></a>
     <div class="nav-pill">
       <div class="pulse-dot" aria-hidden="true"></div>
-      <span>Bêta · Lancement dans <span id="countdown">23 jours</span></span>
+      <span>Lancement dans <span id="countdown">23 jours</span></span>
     </div>
-    <button onclick="try{window.parent.postMessage({bupp:'goLanding'},'*')}catch(e){}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:999px;font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;letter-spacing:.04em;">← Retour BUPP</button>
+    <button onclick="try{window.parent.postMessage({bupp:'goLanding'},'*')}catch(e){}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:999px;font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;letter-spacing:.04em;">← Retour</button>
   </div>
 </nav>
 
@@ -1064,12 +1070,16 @@ input[type=range]::-moz-range-thumb{
         <button class="btn-secondary" onclick="setStep(1)" style="margin-bottom:16px;display:flex;align-items:center;gap:6px;justify-content:center;">
           ← Modifier mes informations
         </button>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Choisissez vos centres d'intérêt — cela personnalise votre estimation de gains.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Choisissez vos centres d'intérêt — cela personnalise votre estimation de gains.</p>
+        <div class="interests-warning" role="note" style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;margin-bottom:16px;background:#FEF2F2;border:1px solid #FCA5A5;border-left:3px solid #DC2626;border-radius:8px;color:#991B1B;font-size:13px;line-height:1.5;">
+          <span aria-hidden="true" style="font-size:16px;line-height:1.2;flex-shrink:0">⚠️</span>
+          <span><strong>BUUPP ne collecte jamais</strong> les données concernant les <strong>enfants mineurs</strong> ni celles relatives à <strong>l'état de santé</strong> des utilisateurs.</span>
+        </div>
         <div class="interests-grid" id="interests-grid">
+          <button type="button" class="interest-btn interest-all" data-id="all" onclick="toggleAllInterests(this)"><span class="interest-icon" style="background:linear-gradient(135deg,#FB7185,#F59E0B,#10B981,#3B82F6,#A855F7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:bold;">✦</span>Toutes les catégories</button>
           <button type="button" class="interest-btn" data-id="sport" onclick="toggleInterest(this)"><span class="interest-icon">🏃</span>Sport</button>
           <button type="button" class="interest-btn" data-id="immo" onclick="toggleInterest(this)"><span class="interest-icon">🏠</span>Immobilier</button>
           <button type="button" class="interest-btn" data-id="finance" onclick="toggleInterest(this)"><span class="interest-icon">💰</span>Finance</button>
-          <button type="button" class="interest-btn" data-id="sante" onclick="toggleInterest(this)"><span class="interest-icon">💊</span>Santé</button>
           <button type="button" class="interest-btn" data-id="auto" onclick="toggleInterest(this)"><span class="interest-icon">🚗</span>Automobile</button>
           <button type="button" class="interest-btn" data-id="voyage" onclick="toggleInterest(this)"><span class="interest-icon">✈️</span>Voyages</button>
           <button type="button" class="interest-btn" data-id="cuisine" onclick="toggleInterest(this)"><span class="interest-icon">🍳</span>Cuisine</button>
@@ -1424,6 +1434,32 @@ function toggleInterest(btn){
     selectedInterests.add(id);
     btn.classList.add('selected');
   }
+  // Sync the "Toutes les catégories" button state with the individual ones.
+  syncSelectAllState();
+}
+
+function toggleAllInterests(btn){
+  const buttons = document.querySelectorAll('.interest-btn:not(.interest-all)');
+  const allSelected = [...buttons].every(b => selectedInterests.has(b.dataset.id));
+  buttons.forEach(b => {
+    const id = b.dataset.id;
+    if(allSelected){
+      selectedInterests.delete(id);
+      b.classList.remove('selected');
+    } else {
+      selectedInterests.add(id);
+      b.classList.add('selected');
+    }
+  });
+  btn.classList.toggle('selected', !allSelected);
+}
+
+function syncSelectAllState(){
+  const allBtn = document.querySelector('.interest-btn.interest-all');
+  if(!allBtn) return;
+  const buttons = document.querySelectorAll('.interest-btn:not(.interest-all)');
+  const allSelected = [...buttons].every(b => selectedInterests.has(b.dataset.id));
+  allBtn.classList.toggle('selected', allSelected);
 }
 
 /* ── Calculator ─────────────────────────────────────────────────────── */

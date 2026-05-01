@@ -43,7 +43,7 @@ const INITIAL_PROFILE = {
   allCampaignTypes: true,
   campaignTypes: new Set(['Prise de contact', 'Prise de rendez-vous']),
   // Categories authorised (mirrored in Préférences)
-  categories: new Set(['Santé', 'Bien-être', 'Artisanat']),
+  categories: new Set(['Bien-être', 'Artisanat', 'Coaching']),
 };
 
 const ProspectCtx = React.createContext(null);
@@ -1163,7 +1163,7 @@ function Prefs() {
   const [radius, setRadius] = useState(25);
   const [tierShare, setTierShare] = useState({1: true, 2: true, 3: true, 4: false, 5: false});
 
-  const allCats = ['Santé', 'Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
+  const allCats = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
   const allCampaignTypes = ['Prise de contact', 'Prise de rendez-vous', 'Événement', 'Téléchargement', 'Enquête & avis', 'Promotion'];
 
   return (

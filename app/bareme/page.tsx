@@ -129,7 +129,7 @@ const TIERS: Tier[] = [
       {
         name: "Secteur d'activité",
         value: 5.0,
-        desc: "Industrie, services, santé...",
+        desc: "Industrie, services, technologies...",
       },
       {
         name: "Intitulé du poste",
