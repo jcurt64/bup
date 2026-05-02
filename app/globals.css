@@ -261,6 +261,10 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 .route-nav::-webkit-scrollbar { display: none; }
 
+/* Desktop par défaut : on cache l'icône, on garde le label texte. */
+.route-nav .route-nav-icon { display: none; }
+.route-nav .route-nav-label { display: inline; }
+
 @media (max-width: 480px) {
   h1 { line-height: 1.05; }
   .btn-lg { padding: 11px 16px; font-size: 13px; }
@@ -408,27 +412,49 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 /* Bottom RouteNav — tighter spacing on narrow viewports so all 5 tabs fit. */
 @media (max-width: 600px) {
   .route-nav {
-    bottom: 12px !important;
-    padding: 3px !important;
-    gap: 1px !important;
-    font-size: 10px !important;
+    bottom: 14px !important;
+    padding: 5px !important;
+    gap: 4px !important;
     max-width: calc(100vw - 16px);
     overflow-x: auto;
   }
+  /* Mobile : icônes uniquement, onglets carrés → la pastille active devient
+     un cercle parfait (width === height + border-radius 999). */
   .route-nav .route-nav-tab {
-    padding: 12px 9px !important;
-    letter-spacing: 0.02em !important;
-    font-size: 10px !important;
+    padding: 0 !important;
+    width: 42px !important;
+    height: 42px !important;
+    flex: 0 0 42px !important;
+    letter-spacing: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
+  .route-nav .route-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+  }
+  .route-nav .route-nav-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  .route-nav .route-nav-label { display: none; }
 }
 
 @media (max-width: 380px) {
-  .route-nav {
-    font-size: 9px !important;
-  }
+  .route-nav { gap: 2px !important; }
   .route-nav .route-nav-tab {
-    padding: 11px 7px !important;
-    font-size: 9px !important;
-    letter-spacing: 0 !important;
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+  }
+  .route-nav .route-nav-icon,
+  .route-nav .route-nav-icon svg {
+    width: 18px;
+    height: 18px;
   }
 }

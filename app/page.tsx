@@ -131,7 +131,7 @@ function Logo({
   const content = (
     <div className="row center" style={{ color: color || "inherit" }}>
       <img
-        src="/logo%20buupp.png"
+        src="/logo.png"
         alt="BUPP"
         style={{ height: size, width: "auto", display: "block" }}
       />

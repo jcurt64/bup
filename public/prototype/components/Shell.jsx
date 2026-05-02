@@ -6,7 +6,7 @@ const Logo = ({ size = 18, color, onClick }) => {
   const content = (
     <div className="row center" style={{ color: color || 'inherit' }}>
       <img
-        src="/logo%20buupp.png"
+        src="/logo.png"
         alt="BUPP"
         style={{ height: renderHeight, width: 'auto', display: 'block' }}
       />
