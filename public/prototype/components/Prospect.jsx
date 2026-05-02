@@ -274,7 +274,17 @@ function DashShell({ role, go, sections, current, onNav, children, header }) {
         })}
         <div style={{ flex: 1 }}/>
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
-          <div className="side-item" onClick={() => go('landing')}>
+          <div
+            className="side-item"
+            onClick={() => {
+              // Demande au parent Next.js de révoquer la session Clerk puis
+              // de rediriger vers la home. Le parent écoute ce message dans
+              // PrototypeFrame.tsx.
+              try {
+                window.parent.postMessage({ bupp: 'signOut' }, '*');
+              } catch (e) {}
+            }}
+          >
             <span className="side-icon"><Icon name="logout" size={16}/></span>
             {!collapsed && <span>Déconnexion</span>}
           </div>

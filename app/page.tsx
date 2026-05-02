@@ -406,7 +406,7 @@ function Navbar() {
             </button>
             <button
               className="btn btn-sm btn-primary"
-              onClick={() => router.push("/connexion")}
+              onClick={() => router.push("/inscription")}
             >
               Démarrer <Icon name="arrow" size={14} />
             </button>
@@ -458,7 +458,7 @@ function Navbar() {
             <button
               className="btn btn-lg btn-primary"
               style={{ justifyContent: "center" }}
-              onClick={() => go("/connexion")}
+              onClick={() => go("/inscription")}
             >
               Démarrer <Icon name="arrow" size={14} />
             </button>

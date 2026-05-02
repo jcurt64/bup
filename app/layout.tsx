@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 
@@ -43,14 +44,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="fr"
-      className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
-    >
-      <body data-palette="indigo">
-        {children}
-        <RouteNav />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="fr"
+        className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      >
+        <body data-palette="indigo">
+          {children}
+          <RouteNav />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

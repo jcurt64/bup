@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 
 const ROUTE_TO_PATH: Record<string, string> = {
   landing: "/",
@@ -17,13 +18,24 @@ export default function PrototypeFrame({
   route: "auth" | "prospect" | "pro" | "waitlist";
 }) {
   const router = useRouter();
+  const { signOut } = useClerk();
 
   useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
-      const data = e.data as { bupp?: string; route?: string } | undefined;
-      if (!data || data.bupp !== "goto") return;
-      const target = data.route && ROUTE_TO_PATH[data.route];
-      if (target) {
+    const onMsg = async (e: MessageEvent) => {
+      const data = e.data as
+        | { bupp?: string; route?: string }
+        | undefined;
+      if (!data?.bupp) return;
+
+      if (data.bupp === "signOut") {
+        // Révoque la session Clerk et redirige vers la home dans le même flow.
+        await signOut({ redirectUrl: "/" });
+        return;
+      }
+
+      if (data.bupp === "goto") {
+        const target = data.route && ROUTE_TO_PATH[data.route];
+        if (!target) return;
         if (target === "/liste-attente") {
           try {
             sessionStorage.setItem("bupp:waitlist-ok", "1");
@@ -34,7 +46,7 @@ export default function PrototypeFrame({
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [router]);
+  }, [router, signOut]);
 
   return (
     <iframe
