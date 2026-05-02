@@ -374,36 +374,38 @@ function Portefeuille() {
         <BalanceCard label="Cumulé depuis 2024" value="284,50" coins="2 845" sub="12 mois · 38 mises en relation"/>
       </div>
 
-      <div className="card" style={{ padding: 28 }}>
-        <div className="row between" style={{ marginBottom: 20 }}>
+      <div className="card historique-card" style={{ padding: 28 }}>
+        <div className="row between historique-header" style={{ marginBottom: 20 }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique des mouvements</div>
           <button className="btn btn-sm btn-ghost btn-export-csv"><Icon name="download" size={12}/> Exporter CSV</button>
         </div>
-        <table className="tbl">
-          <thead><tr>
-            <th>Date</th><th>Origine</th><th>Palier</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th>
-          </tr></thead>
-          <tbody>
-            {[
-              ['18 avr.', 'Cabinet Kiné Lyon 3', 2, 'Crédité', '+4,20', 'good'],
-              ['16 avr.', 'Coach pro Nantes', 3, 'En séquestre', '+6,80', 'warn'],
-              ['12 avr.', 'Retrait IBAN •••4521', '—', 'Exécuté', '−30,00', ''],
-              ['09 avr.', 'Agence immo Paris 11', 4, 'Crédité', '+9,40', 'good'],
-              ['07 avr.', 'Bonus parrainage Léa B.', '—', 'Crédité', '+0,84', 'good'],
-              ['03 avr.', 'Nutritionniste Lille', 3, 'Crédité', '+5,60', 'good'],
-            ].map((r, i) => (
-              <tr key={i}>
-                <td className="mono" style={{ color: 'var(--ink-4)' }}>{r[0]}</td>
-                <td>{r[1]}</td>
-                <td>{r[2] === '—' ? <span className="muted">—</span> : <span className="chip">Palier {r[2]}</span>}</td>
-                <td><span className={'chip ' + (r[5] ? 'chip-' + r[5] : '')}>{r[3]}</span></td>
-                <td style={{ textAlign: 'right' }} className="mono tnum">
-                  <span style={{ color: r[4].startsWith('+') ? 'var(--good)' : 'var(--ink-3)' }}>{r[4]} €</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead><tr>
+              <th>Date</th><th>Origine</th><th>Palier</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th>
+            </tr></thead>
+            <tbody>
+              {[
+                ['18 avr.', 'Cabinet Kiné Lyon 3', 2, 'Crédité', '+4,20', 'good'],
+                ['16 avr.', 'Coach pro Nantes', 3, 'En séquestre', '+6,80', 'warn'],
+                ['12 avr.', 'Retrait IBAN •••4521', '—', 'Exécuté', '−30,00', ''],
+                ['09 avr.', 'Agence immo Paris 11', 4, 'Crédité', '+9,40', 'good'],
+                ['07 avr.', 'Bonus parrainage Léa B.', '—', 'Crédité', '+0,84', 'good'],
+                ['03 avr.', 'Nutritionniste Lille', 3, 'Crédité', '+5,60', 'good'],
+              ].map((r, i) => (
+                <tr key={i}>
+                  <td className="mono" style={{ color: 'var(--ink-4)' }}>{r[0]}</td>
+                  <td>{r[1]}</td>
+                  <td>{r[2] === '—' ? <span className="muted">—</span> : <span className="chip">Palier {r[2]}</span>}</td>
+                  <td><span className={'chip ' + (r[5] ? 'chip-' + r[5] : '')}>{r[3]}</span></td>
+                  <td style={{ textAlign: 'right' }} className="mono tnum">
+                    <span style={{ color: r[4].startsWith('+') ? 'var(--good)' : 'var(--ink-3)' }}>{r[4]} €</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {modal === 'retrait' && <RetraitModal onClose={() => setModal(null)}/>}
@@ -677,7 +679,7 @@ function MesDonnees({ onGoPrefs }) {
           const isDeleted = deleted[cat.key];
           return (
             <div key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1 }}>
-              <div className="row between" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+              <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                 <div className="row center gap-4">
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--ivory-2)', color: 'var(--ink-2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

@@ -384,11 +384,53 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     flex-wrap: wrap;
   }
 
-  /* Exporter CSV — réduit le padding vertical pour s'adapter quand la rangée
-     "Historique des mouvements" se compacte sur mobile. */
+  /* Exporter CSV — réduit padding vertical ET horizontal pour rester compact
+     dans la rangée "Historique des mouvements" sur petit écran. */
   .btn-export-csv {
-    padding: 3px 10px !important;
+    padding: 3px 7px !important;
+    font-size: 11px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap;
+  }
+  .historique-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Tableau "Historique des mouvements" — wrapper scrollable horizontalement
+     pour que les chips ("En séquestre", "Crédité"…) ne soient jamais tronqués. */
+  .tbl-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -16px; /* compense le padding de la card pour bord-à-bord */
+    padding: 0 16px;
+  }
+  .tbl-scroll .tbl {
+    min-width: 540px;
+  }
+  .tbl-scroll .tbl th,
+  .tbl-scroll .tbl td {
+    padding: 10px 8px;
+    white-space: nowrap;
+  }
+  .tbl-scroll .tbl .chip {
+    white-space: nowrap;
+  }
+
+  /* Mes données — la rangée d'actions de chaque catégorie déborde sur mobile.
+     Force le wrap, rétrécit les boutons et leur permet de s'étirer en grille. */
+  .mes-donnees-card-head > .row.gap-2 {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+  .mes-donnees-card-head > .row.gap-2 > .btn {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+    padding: 6px 10px !important;
     font-size: 12px !important;
+    min-width: 0;
+    white-space: nowrap;
   }
 
   /* ── Wizard "Créer une campagne" — étapes 2/4/5 ────────────────────
