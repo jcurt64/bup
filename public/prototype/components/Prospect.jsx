@@ -46,22 +46,68 @@ const INITIAL_PROFILE = {
   categories: new Set(['Bien-être', 'Artisanat', 'Coaching']),
 };
 
+/* Sollicitations entrantes envoyées par les pros via leurs campagnes.
+   Exposées par le ProspectProvider pour piloter à la fois la section
+   "Mises en relation" et le badge de notification dans la sidebar. */
+const INITIAL_PENDING_RELATIONS = [
+  { id: 'r1', pro: 'Cabinet Vitalité', sector: 'Kinésithérapie · Lyon 3e', motif: 'Prise de RDV pour un bilan postural gratuit à destination des télétravailleurs lyonnais.', reward: 4.20, tier: 2, timer: '14 h 22 min' },
+  { id: 'r2', pro: 'Atelier Mercier', sector: 'Artisan menuisier · Grand Lyon', motif: 'Devis gratuit pour aménagement sur mesure (cuisine, dressing). Déplacement inclus.', reward: 3.10, tier: 2, timer: '42 h 08 min' },
+  { id: 'r3', pro: 'Patrimoine & Co.', sector: 'Conseil en gestion · À distance', motif: "Audit patrimonial 30 min, sans engagement. Portefeuilles > 100 k€ principalement.", reward: 8.40, tier: 5, timer: '61 h 40 min' },
+];
+
 const ProspectCtx = React.createContext(null);
 
 function ProspectProvider({ children }) {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [deleted, setDeleted] = useState({}); // key -> true for temporarily suppressed categories
+  const [removed, setRemoved] = useState({}); // key -> true for permanently deleted categories (RGPD art.17)
+  const [pendingRelations, setPendingRelations] = useState(INITIAL_PENDING_RELATIONS);
+  const [acceptedRelations, setAcceptedRelations] = useState({});
+  const [refusedRelations, setRefusedRelations] = useState({});
+  const pendingRelationsCount = pendingRelations.filter(
+    r => !acceptedRelations[r.id] && !refusedRelations[r.id]
+  ).length;
+  const acceptRelation = (id) => {
+    setRefusedRelations(r => { const n = {...r}; delete n[id]; return n; });
+    setAcceptedRelations(a => ({ ...a, [id]: true }));
+  };
+  const refuseRelation = (id) => {
+    setAcceptedRelations(a => { const n = {...a}; delete n[id]; return n; });
+    setRefusedRelations(r => ({ ...r, [id]: true }));
+  };
+  const undoAcceptRelation = (id) => setAcceptedRelations(a => { const n = {...a}; delete n[id]; return n; });
+  const undoRefuseRelation = (id) => setRefusedRelations(r => { const n = {...r}; delete n[id]; return n; });
   const updateField = (category, field, value) => {
     setProfile(p => ({ ...p, [category]: { ...p[category], [field]: value } }));
   };
   const suppressTemp = (category) => setDeleted(d => ({ ...d, [category]: true }));
   const restore = (category) => setDeleted(d => { const n = {...d}; delete n[category]; return n; });
   const deletePermanent = (category) => {
+    // Identification is the keystone palier: without it the prospect cannot
+    // be identified at all, so removing it cascades to every other category.
+    const cascade = category === 'identity';
+    const targets = cascade
+      ? DATA_CATEGORIES.map(c => c.key)
+      : [category];
     setProfile(p => {
-      const cleared = Object.fromEntries(Object.keys(p[category] || {}).map(k => [k, '']));
-      return { ...p, [category]: cleared };
+      const next = { ...p };
+      targets.forEach(key => {
+        const cleared = Object.fromEntries(Object.keys(p[key] || {}).map(k => [k, '']));
+        next[key] = cleared;
+      });
+      return next;
     });
-    setDeleted(d => { const n = {...d}; delete n[category]; return n; });
+    setDeleted(d => {
+      const n = { ...d };
+      targets.forEach(key => { delete n[key]; });
+      return n;
+    });
+    // Remove the categories from the displayed list — RGPD art.17 (droit à l'effacement).
+    setRemoved(r => {
+      const n = { ...r };
+      targets.forEach(key => { n[key] = true; });
+      return n;
+    });
   };
   const addField = (category, field, value) => updateField(category, field, value);
   const setAllCampaignTypes = (on) => setProfile(p => ({ ...p, allCampaignTypes: on }));
@@ -76,7 +122,13 @@ function ProspectProvider({ children }) {
     return { ...p, categories: n };
   });
   return (
-    <ProspectCtx.Provider value={{ profile, deleted, updateField, suppressTemp, restore, deletePermanent, addField, setAllCampaignTypes, toggleCampaignType, toggleCategory }}>
+    <ProspectCtx.Provider value={{
+      profile, deleted, removed, updateField, suppressTemp, restore, deletePermanent, addField,
+      setAllCampaignTypes, toggleCampaignType, toggleCategory,
+      pendingRelations, acceptedRelations, refusedRelations,
+      acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
+      pendingRelationsCount,
+    }}>
       {children}
     </ProspectCtx.Provider>
   );
@@ -96,21 +148,34 @@ const PROSPECT_SECTIONS = [
 ];
 
 function ProspectDashboard({ go }) {
-  const [sec, setSec] = useState('portefeuille');
   return (
     <ProspectProvider>
-      <DashShell role="prospect" go={go} sections={PROSPECT_SECTIONS} current={sec} onNav={setSec}
-        header={<ProspectHeader />}>
-        {sec === 'portefeuille' && <Portefeuille />}
-        {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
-        {sec === 'relations' && <Relations />}
-        {sec === 'verif' && <VerifTiers />}
-        {sec === 'score' && <ScorePanel />}
-        {sec === 'prefs' && <Prefs />}
-        {sec === 'parrainage' && <Parrainage />}
-        {sec === 'fiscal' && <Fiscal />}
-      </DashShell>
+      <ProspectDashboardInner go={go}/>
     </ProspectProvider>
+  );
+}
+
+function ProspectDashboardInner({ go }) {
+  const [sec, setSec] = useState('portefeuille');
+  const { pendingRelationsCount } = useProspect();
+  // Inject dynamic badges (e.g. number of pending relations) into the static
+  // section descriptors. Keeping the merge here avoids leaking prospect-specific
+  // logic into the generic DashShell.
+  const sections = PROSPECT_SECTIONS.map(s =>
+    s.id === 'relations' ? { ...s, badge: pendingRelationsCount } : s
+  );
+  return (
+    <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
+      header={<ProspectHeader />}>
+      {sec === 'portefeuille' && <Portefeuille />}
+      {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
+      {sec === 'relations' && <Relations />}
+      {sec === 'verif' && <VerifTiers />}
+      {sec === 'score' && <ScorePanel />}
+      {sec === 'prefs' && <Prefs />}
+      {sec === 'parrainage' && <Parrainage />}
+      {sec === 'fiscal' && <Fiscal />}
+    </DashShell>
   );
 }
 
@@ -191,10 +256,19 @@ function DashShell({ role, go, sections, current, onNav, children, header }) {
               </button>
             );
           }
+          const hasBadge = typeof s.badge === 'number' && s.badge > 0;
           return (
             <div key={s.id} className={'side-item' + (active ? ' active' : '')} onClick={() => handleNav(s.id)}>
-              <span className="side-icon"><Icon name={s.icon} size={16}/></span>
-              {!collapsed && <span>{s.label}</span>}
+              <span className="side-icon" style={{ position: 'relative' }}>
+                <Icon name={s.icon} size={16}/>
+                {hasBadge && collapsed && <span className="side-badge-dot" aria-hidden/>}
+              </span>
+              {!collapsed && <span style={{ flex: 1 }}>{s.label}</span>}
+              {hasBadge && !collapsed && (
+                <span className="side-badge" aria-label={`${s.badge} en attente`}>
+                  {s.badge > 99 ? '99+' : s.badge}
+                </span>
+              )}
             </div>
           );
         })}
@@ -508,15 +582,22 @@ function MesDonnees({ onGoPrefs }) {
   const ctx = useProspect();
   const profile = ctx?.profile;
   const deleted = ctx?.deleted || {};
+  const removed = ctx?.removed || {};
   const [editing, setEditing] = useState(null); // { category, field, value }
   const [adding, setAdding] = useState(null); // category key
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmHide, setConfirmHide] = useState(null); // category key
+  const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { category, field, label }
 
-  const completeness = Math.round(
-    (DATA_CATEGORIES.reduce((acc, c) => acc + (deleted[c.key] ? 0 : c.fields.filter(([f]) => profile?.[c.key]?.[f]).length), 0)
-      / DATA_CATEGORIES.reduce((acc, c) => acc + c.fields.length, 0)) * 100
+  // Categories permanently removed by the user are excluded from the list,
+  // from the completeness calculation, and from the per-tier progress bars.
+  const visibleCategories = DATA_CATEGORIES.filter(c => !removed[c.key]);
+  const totalFields = visibleCategories.reduce((acc, c) => acc + c.fields.length, 0);
+  const filledFields = visibleCategories.reduce(
+    (acc, c) => acc + (deleted[c.key] ? 0 : c.fields.filter(([f]) => profile?.[c.key]?.[f]).length),
+    0
   );
+  const completeness = totalFields === 0 ? 0 : Math.round((filledFields / totalFields) * 100);
 
   return (
     <div className="col gap-6">
@@ -560,7 +641,7 @@ function MesDonnees({ onGoPrefs }) {
         </div>
         <div>
           <div className="col gap-2">
-            {DATA_CATEGORIES.map(c => {
+            {visibleCategories.map(c => {
               const filled = c.fields.filter(([f]) => profile?.[c.key]?.[f]).length;
               const pct = deleted[c.key] ? 0 : Math.round(filled / c.fields.length * 100);
               return (
@@ -581,7 +662,18 @@ function MesDonnees({ onGoPrefs }) {
 
       {/* Categories */}
       <div className="col gap-4">
-        {DATA_CATEGORIES.map(cat => {
+        {visibleCategories.length === 0 && (
+          <div className="card" style={{ padding: 28, textAlign: 'center', color: 'var(--ink-4)' }}>
+            <div className="serif" style={{ fontSize: 18, color: 'var(--ink-2)', marginBottom: 6 }}>
+              Aucun palier de données
+            </div>
+            <div style={{ fontSize: 13 }}>
+              Vous avez supprimé toutes vos catégories de données. Les professionnels ne peuvent
+              plus vous solliciter via BUUPP.
+            </div>
+          </div>
+        )}
+        {visibleCategories.map(cat => {
           const isDeleted = deleted[cat.key];
           return (
             <div key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1 }}>
@@ -643,7 +735,9 @@ function MesDonnees({ onGoPrefs }) {
                             <Icon name="edit" size={11}/>
                           </button>
                           <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }}
-                            onClick={() => ctx?.updateField(cat.key, field, '')}>
+                            onClick={() => setConfirmFieldDelete({ category: cat.key, categoryLabel: cat.label, field, label })}
+                            disabled={!val}
+                            title={val ? 'Supprimer cette donnée' : 'Aucune valeur à supprimer'}>
                             <Icon name="trash" size={11}/>
                           </button>
                         </div>
@@ -700,6 +794,14 @@ function MesDonnees({ onGoPrefs }) {
         <ConfirmHideModal category={DATA_CATEGORIES.find(c => c.key === confirmHide)}
           onConfirm={() => { ctx?.suppressTemp(confirmHide); setConfirmHide(null); }}
           onClose={() => setConfirmHide(null)}/>
+      )}
+      {confirmFieldDelete && (
+        <ConfirmFieldDeleteModal field={confirmFieldDelete}
+          onConfirm={() => {
+            ctx?.updateField(confirmFieldDelete.category, confirmFieldDelete.field, '');
+            setConfirmFieldDelete(null);
+          }}
+          onClose={() => setConfirmFieldDelete(null)}/>
       )}
     </div>
   );
@@ -758,23 +860,67 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
 }
 
 function ConfirmDeleteModal({ category, onConfirm, onClose }) {
+  const isIdentity = category.key === 'identity';
+  const otherCategories = DATA_CATEGORIES.filter(c => c.key !== 'identity').map(c => c.label);
   return (
     <ModalShell title="Suppression définitive" onClose={onClose}>
       <div style={{
-        padding: 14, borderRadius: 10, marginBottom: 18,
-        background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B',
-        display: 'flex', gap: 12, alignItems: 'flex-start'
+        padding: 16, borderRadius: 10, marginBottom: 14,
+        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
       }}>
-        <Icon name="alert" size={16}/>
-        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-          Toutes vos données de la catégorie <strong>{category.label}</strong> seront <strong>effacées de façon définitive</strong>.
-          Cette action est conforme à l'article 17 du RGPD (droit à l'effacement) et ne peut être annulée.
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: '#DC2626', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+            Vous ne pourrez plus être sollicité
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            En supprimant la catégorie <strong>{category.label}</strong>, les professionnels
+            <strong> ne pourront plus vous contacter</strong> pour les campagnes qui exigent ces
+            données. Vous ne recevrez donc plus aucune sollicitation associée à ce palier — et
+            ne pourrez plus en tirer de gains.
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
+            Action irréversible — RGPD article 17 (droit à l'effacement)
+          </div>
         </div>
       </div>
+      {isIdentity && (
+        <div style={{
+          padding: 16, borderRadius: 10, marginBottom: 14,
+          background: '#FFF7ED', border: '1.5px solid #FDBA74', color: '#7C2D12',
+          display: 'flex', gap: 14, alignItems: 'flex-start'
+        }}>
+          <div style={{
+            width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+            background: '#EA580C', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name="alert" size={16} stroke={2}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#7C2D12', marginBottom: 4 }}>
+              Suppression en cascade de tous vos paliers
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              La catégorie <strong>Identification</strong> est la <strong>clé de voûte</strong> de
+              votre profil — sans elle, plus aucune donnée ne peut être rattachée à votre personne.
+              Sa suppression entraînera donc <strong>l'effacement définitif</strong> de toutes les
+              autres catégories : <strong>{otherCategories.join(', ')}</strong>.
+            </div>
+          </div>
+        </div>
+      )}
       <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
-          <Icon name="trash" size={12}/> Supprimer définitivement
+          <Icon name="trash" size={12}/> {isIdentity ? 'Confirmer la suppression complète' : 'Confirmer la suppression'}
         </button>
       </div>
     </ModalShell>
@@ -831,15 +977,55 @@ function ConfirmHideModal({ category, onConfirm, onClose }) {
   );
 }
 
+function ConfirmFieldDeleteModal({ field, onConfirm, onClose }) {
+  return (
+    <ModalShell title={'Supprimer : ' + field.label} onClose={onClose}>
+      <div style={{
+        padding: 16, borderRadius: 10, marginBottom: 14,
+        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: '#DC2626', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+            Conséquence sur vos sollicitations
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            En supprimant la donnée <strong>{field.label}</strong> (catégorie{' '}
+            <strong>{field.categoryLabel}</strong>), vous <strong>ne pourrez plus être sollicité</strong>{' '}
+            pour les campagnes dont le professionnel a besoin de cette information — et donc{' '}
+            <strong>plus être rémunéré</strong> sur ces mises en relation.
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
+            Vous pourrez la renseigner à nouveau à tout moment depuis cette page
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
+          <Icon name="trash" size={12}/> Confirmer la suppression
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
 /* ---------- Relations ---------- */
 function Relations() {
-  const [accepted, setAccepted] = useState({});
-  const [refused, setRefused] = useState({});
-  const pending = [
-    { id: 'r1', pro: 'Cabinet Vitalité', sector: 'Kinésithérapie · Lyon 3e', motif: 'Prise de RDV pour un bilan postural gratuit à destination des télétravailleurs lyonnais.', reward: 4.20, tier: 2, timer: '14 h 22 min' },
-    { id: 'r2', pro: 'Atelier Mercier', sector: 'Artisan menuisier · Grand Lyon', motif: 'Devis gratuit pour aménagement sur mesure (cuisine, dressing). Déplacement inclus.', reward: 3.10, tier: 2, timer: '42 h 08 min' },
-    { id: 'r3', pro: 'Patrimoine & Co.', sector: 'Conseil en gestion · À distance', motif: "Audit patrimonial 30 min, sans engagement. Portefeuilles > 100 k€ principalement.", reward: 8.40, tier: 5, timer: '61 h 40 min' },
-  ];
+  const {
+    pendingRelations: pending,
+    acceptedRelations: accepted,
+    refusedRelations: refused,
+    acceptRelation, refuseRelation,
+    undoAcceptRelation, undoRefuseRelation,
+  } = useProspect();
   const history = [
     ['12 avr.', 'Coach pro Nantes', 3, 'Acceptée', 'Crédité', '+6,80'],
     ['08 avr.', 'Agence immo Paris 11', 4, 'Acceptée', 'Crédité', '+9,40'],
@@ -914,7 +1100,7 @@ function Relations() {
                       <span>Accord strictement limité à <strong style={{ color: 'var(--ink-3)' }}>cette campagne uniquement</strong> — pas de réutilisation ni revente.</span>
                     </div>
                     <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}
-                      onClick={() => setAccepted(a => { const n = {...a}; delete n[p.id]; return n; })}>
+                      onClick={() => undoAcceptRelation(p.id)}>
                       <Icon name="rotate" size={12}/> Revenir sur mon acceptation
                     </button>
                     <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', letterSpacing: '.04em' }}>
@@ -950,11 +1136,11 @@ function Relations() {
                     </div>
                     <div className="row gap-2">
                       <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }}
-                        onClick={() => setRefused(r => { const n = {...r}; delete n[p.id]; return n; })}>
+                        onClick={() => undoRefuseRelation(p.id)}>
                         <Icon name="rotate" size={12}/> Revenir en arrière
                       </button>
                       <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}
-                        onClick={() => { setRefused(r => { const n = {...r}; delete n[p.id]; return n; }); setAccepted(a => ({ ...a, [p.id]: true })); }}>
+                        onClick={() => acceptRelation(p.id)}>
                         <Icon name="check" size={12}/> Accepter
                       </button>
                     </div>
@@ -964,8 +1150,8 @@ function Relations() {
                   </div>
                 ) : (
                   <div className="row gap-2">
-                    <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setAccepted(a => ({...a, [p.id]: true}))}>Accepter</button>
-                    <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setRefused(r => ({...r, [p.id]: true}))}>Refuser</button>
+                    <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => acceptRelation(p.id)}>Accepter</button>
+                    <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => refuseRelation(p.id)}>Refuser</button>
                   </div>
                 )}
               </div>

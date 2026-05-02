@@ -526,7 +526,7 @@ function Hero() {
       <div className="container" style={{ position: "relative" }}>
         <div
           className="row between wrap"
-          style={{ alignItems: "flex-end", marginBottom: 40, gap: 16 }}
+          style={{ alignItems: "baseline", marginBottom: 40, gap: 16 }}
         >
           <div className="row center gap-3">
             <span
@@ -827,7 +827,7 @@ function HowItWorks() {
               <div
                 className="mono"
                 style={{
-                  fontSize: 12,
+                  fontSize: 24,
                   color: "var(--accent)",
                   marginBottom: 16,
                 }}
@@ -1595,7 +1595,7 @@ function SecuritySection() {
             >
               <div
                 className="mono"
-                style={{ fontSize: 10, color: "#A5B4FC", marginBottom: 14 }}
+                style={{ fontSize: 20, color: "#A5B4FC", marginBottom: 14 }}
               >
                 0{i + 1}
               </div>
@@ -1921,9 +1921,33 @@ function FinalCTA() {
 function Footer() {
   type Item = { label: string; href?: string };
   const columns: [string, Item[]][] = [
-    ["Plateforme", [{ label: "Prospects" }, { label: "Professionnels" }, { label: "Tarifs" }, { label: "API" }]],
-    ["Ressources", [{ label: "Barème des paliers", href: "/bareme" }, { label: "Documentation" }, { label: "API" }, { label: "Status" }]],
-    ["Légal", [{ label: "CGU" }, { label: "CGV" }, { label: "RGPD" }, { label: "Contact DPO" }]],
+    [
+      "Plateforme",
+      [
+        { label: "Prospects" },
+        { label: "Professionnels" },
+        { label: "Tarifs" },
+        { label: "API" },
+      ],
+    ],
+    [
+      "Ressources",
+      [
+        { label: "Barème des paliers", href: "/bareme" },
+        { label: "Documentation" },
+        { label: "API" },
+        { label: "Status" },
+      ],
+    ],
+    [
+      "Légal",
+      [
+        { label: "CGU" },
+        { label: "CGV" },
+        { label: "RGPD" },
+        { label: "Contact DPO" },
+      ],
+    ],
   ];
   return (
     <footer
@@ -1970,7 +1994,9 @@ function Footer() {
                       textDecoration: "none",
                       transition: "color .15s",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--paper)")}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "var(--paper)")
+                    }
                     onMouseLeave={(e) => (e.currentTarget.style.color = "")}
                   >
                     {it.label}

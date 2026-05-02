@@ -145,6 +145,31 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .side-item.active .side-icon { color: var(--paper); }
 .side-icon { width: 16px; height: 16px; color: var(--ink-4); }
 
+/* Sidebar notification badge — driven by `s.badge` on a section.
+   Pill with the count when expanded, small dot on the icon when collapsed. */
+.side-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: #DC2626; color: #fff;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  line-height: 1; letter-spacing: 0;
+  box-shadow: 0 0 0 2px color-mix(in oklab, #DC2626 22%, transparent);
+}
+.side-item.active .side-badge {
+  box-shadow: 0 0 0 2px color-mix(in oklab, #DC2626 35%, transparent);
+}
+.side-badge-dot {
+  position: absolute; top: -3px; right: -4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #DC2626;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.side-item.active .side-badge-dot {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
 /* Coin */
 .coin {
   display: inline-flex; align-items: center; justify-content: center;
