@@ -1,18 +1,28 @@
 // Pro dashboard
 var { useState, useEffect } = React;
 const PRO_SECTIONS = [
-  { id: 'create',     icon: 'plus',    label: 'Créer une campagne', featured: true },
-  { id: 'overview',   icon: 'chart',   label: "Vue d'ensemble" },
-  { id: 'campagnes',  icon: 'target',  label: 'Campagnes' },
-  { id: 'contacts',   icon: 'users',   label: 'Mes contacts' },
-  { id: 'analytics',  icon: 'trend',   label: 'Analytics' },
-  { id: 'facturation',icon: 'money',   label: 'Facturation' },
+  { id: 'create',       icon: 'plus',      label: 'Créer une campagne', featured: true },
+  { id: 'overview',     icon: 'chart',     label: "Vue d'ensemble" },
+  { id: 'campagnes',    icon: 'target',    label: 'Campagnes' },
+  { id: 'contacts',     icon: 'users',     label: 'Mes contacts' },
+  { id: 'analytics',    icon: 'trend',     label: 'Analytics' },
+  { id: 'informations', icon: 'briefcase', label: 'Mes informations' },
+  { id: 'facturation',  icon: 'money',     label: 'Facturation' },
 ];
 
 function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
   const [campDetail, setCampDetail] = useState(null);
+  // Informations société partagées entre l'onglet "Mes informations" et le
+  // wizard "Créer une campagne" (la raison sociale + la ville sont obligatoires
+  // pour pouvoir lancer une campagne — cf. ProInfoFieldDeleteModal).
+  const [companyInfo, setCompanyInfo] = useState({
+    raisonSociale: 'Atelier Mercier',
+    adresse: '12 rue des Artisans',
+    ville: 'Lyon',
+    siren: '',
+  });
   return (
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={setSec}
@@ -20,9 +30,18 @@ function ProDashboard({ go }) {
       {sec === 'overview' && <Overview onCreate={() => setSec('create')}/>}
       {sec === 'campagnes' && !campDetail && <Campagnes onCreate={() => setSec('create')} onDetail={setCampDetail}/>}
       {sec === 'campagnes' && campDetail && <CampaignDetail camp={campDetail} onBack={() => setCampDetail(null)}/>}
-      {sec === 'create' && <CreateCampaign onDone={() => setSec('campagnes')}/>}
+      {sec === 'create' && (
+        <CreateCampaign
+          onDone={() => setSec('campagnes')}
+          companyInfo={companyInfo}
+          onGoInformations={() => setSec('informations')}
+        />
+      )}
       {sec === 'contacts' && <Contacts/>}
       {sec === 'analytics' && <Analytics/>}
+      {sec === 'informations' && (
+        <MesInformations info={companyInfo} setInfo={setCompanyInfo}/>
+      )}
       {sec === 'facturation' && <Facturation onRecharge={() => setRecharge(true)}/>}
     </DashShell>
     {recharge && <RechargeModal onClose={() => setRecharge(false)}/>}
@@ -357,9 +376,16 @@ const WIZ_STEPS = ['Objectif','Données','Ciblage','Budget','Mots-clés','Récap
 
 const fmtEur = (v) => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v);
 
-function CreateCampaign({ onDone }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
+  // raison sociale + ville sont obligatoires pour permettre aux prospects
+  // d'identifier l'entreprise dans l'annonce → le lancement est bloqué tant
+  // que ces deux champs ne sont pas renseignés.
+  const missingCompanyFields = [];
+  if (!companyInfo?.raisonSociale) missingCompanyFields.push('raison sociale');
+  if (!companyInfo?.ville) missingCompanyFields.push('ville');
+  const canLaunch = missingCompanyFields.length === 0;
   const [selectedObj, setSelectedObj] = useState(null);
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
@@ -472,6 +498,39 @@ function CreateCampaign({ onDone }) {
     <div className="col gap-6">
       <SectionTitle eyebrow="Nouvelle campagne" title={"Étape " + step + " · " + WIZ_STEPS[step-1]}/>
       {stepperBar}
+      {!canLaunch && (
+        <div className="alert-block" style={{
+          padding: 16, borderRadius: 12,
+          background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+          display: 'flex', gap: 14, alignItems: 'flex-start'
+        }}>
+          <div style={{
+            width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+            background: '#DC2626', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name="alert" size={16} stroke={2}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+              Lancement de campagne bloqué
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              Vous devez renseigner <strong>{missingCompanyFields.join(' et ')}</strong> de votre
+              société avant de pouvoir lancer une campagne. Ces informations permettent aux
+              prospects d'identifier l'entreprise qui souhaite les solliciter et apparaissent
+              dans l'annonce diffusée.
+            </div>
+            {onGoInformations && (
+              <button onClick={onGoInformations} className="btn btn-sm" style={{
+                marginTop: 12, background: '#DC2626', color: 'white'
+              }}>
+                <Icon name="briefcase" size={12}/> Compléter mes informations
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {step === 1 && <CampaignDurationBanner/>}
 
       <div className="card" style={{ padding: 32 }}>
@@ -960,11 +1019,20 @@ function CreateCampaign({ onDone }) {
 
             <div className="row gap-3">
               <button onClick={() => setStep(1)} className="btn btn-ghost" style={{ flex: 1 }}>Modifier</button>
-              <button onClick={() => {
+              <button
+                onClick={() => {
+                  if (!canLaunch) return;
                   // Generate a unique single-use code (e.g. BUPP-XXXX-XXXX)
                   const rand = () => Math.random().toString(36).slice(2, 6).toUpperCase();
                   setLaunched({ code: `BUPP-${rand()}-${rand()}`, name: obj?.name });
-                }} className="btn btn-primary" style={{ flex: 2 }}>Lancer la campagne <Icon name="arrow" size={14}/></button>
+                }}
+                disabled={!canLaunch}
+                title={canLaunch ? undefined : 'Renseignez ' + missingCompanyFields.join(' et ') + ' dans Mes informations'}
+                className="btn btn-primary"
+                style={{ flex: 2, opacity: canLaunch ? 1 : 0.55, cursor: canLaunch ? 'pointer' : 'not-allowed' }}
+              >
+                {canLaunch ? <>Lancer la campagne <Icon name="arrow" size={14}/></> : <>Lancement bloqué <Icon name="lock" size={14}/></>}
+              </button>
             </div>
           </div>
         )}
@@ -1789,6 +1857,360 @@ function CampaignDetail({ camp, onBack }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- Mes informations (entreprise) ----------
+   Reprend la logique et le design de "Mes données" côté prospect : carte unique
+   avec en-tête (icône + titre + chip), grille deux colonnes des champs, boutons
+   éditer / supprimer par champ + bouton global "Tout supprimer". Modales pour
+   l'édition et la confirmation de suppression. Le SIREN est facultatif et fait
+   l'objet d'un message de confidentialité dédié. */
+
+const PRO_INFO_FIELDS = [
+  { key: 'raisonSociale', label: 'Raison sociale / Nom de la société', placeholder: 'Atelier Mercier' },
+  { key: 'adresse',       label: 'Adresse',                            placeholder: '12 rue des Artisans' },
+  { key: 'ville',         label: 'Ville',                              placeholder: 'Lyon' },
+  { key: 'siren',         label: 'SIREN',                              placeholder: '— facultatif —', optional: true, mono: true },
+];
+
+function MesInformations({ info, setInfo }) {
+  const [editing, setEditing] = useState(null); // { key, label, value }
+  const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { key, label }
+  const [confirmAllDelete, setConfirmAllDelete] = useState(false);
+
+  const filledRequired = PRO_INFO_FIELDS.filter(f => !f.optional && info[f.key]).length;
+  const totalRequired = PRO_INFO_FIELDS.filter(f => !f.optional).length;
+  const allEmpty = PRO_INFO_FIELDS.every(f => !info[f.key]);
+  const isComplete = filledRequired === totalRequired;
+
+  return (
+    <div className="col gap-6">
+      <SectionTitle eyebrow="Mes informations" title="Identité de votre société"
+        desc="Renseignez ici les informations de votre entreprise. Elles permettent à BUUPP de vérifier votre activité et apparaissent sur vos factures. Toute modification est immédiatement prise en compte."/>
+
+      {/* SIREN confidentiality banner */}
+      <div className="alert-block" style={{
+        padding: '18px 22px', borderRadius: 12,
+        background: 'color-mix(in oklab, var(--accent) 7%, var(--paper))',
+        border: '1px solid color-mix(in oklab, var(--accent) 28%, var(--line))',
+        color: 'var(--ink-2)',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: 'var(--accent)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="shield" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
+            Votre SIREN reste strictement confidentiel
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Le numéro SIREN <strong>n'est jamais diffusé aux utilisateurs</strong> ni affiché publiquement.
+            Il sert uniquement à BUUPP pour <strong>vérifier l'existence légale</strong> de votre société
+            auprès des registres officiels. Renseigner ce champ accélère la validation de votre compte
+            et renforce la confiance des prospects que vous contactez.
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: 'var(--ink-4)', letterSpacing: '.06em' }}>
+            Champ facultatif — usage interne BUUPP uniquement
+          </div>
+        </div>
+      </div>
+
+      {/* Completeness summary */}
+      <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
+        <div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Complétude du profil entreprise</div>
+          <div className="serif tnum" style={{ fontSize: 40 }}>
+            {filledRequired}<span style={{ fontSize: 20, color: 'var(--ink-4)' }}> / {totalRequired}</span>
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            {isComplete
+              ? 'Toutes les informations obligatoires sont renseignées.'
+              : 'Complétez les informations restantes pour finaliser votre profil.'}
+          </div>
+        </div>
+        <div className="col gap-2">
+          {PRO_INFO_FIELDS.map(f => {
+            const filled = !!info[f.key];
+            return (
+              <div key={f.key}>
+                <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
+                  <span className="muted">{f.label}{f.optional ? ' (facultatif)' : ''}</span>
+                  <span className="mono tnum">{filled ? '✓' : '—'}</span>
+                </div>
+                <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: filled ? '100%' : '0%',
+                    background: f.optional ? 'var(--ink-4)' : 'var(--accent)',
+                    transition: 'width .25s'
+                  }}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Card: company info */}
+      <div className="card" style={{ padding: 24, opacity: allEmpty ? 0.65 : 1 }}>
+        <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div className="row center gap-4">
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: 'var(--ivory-2)', color: 'var(--ink-2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <Icon name="briefcase" size={18}/>
+            </div>
+            <div>
+              <div className="row center gap-3">
+                <div className="serif" style={{ fontSize: 20 }}>Informations société</div>
+                <span className="chip">Profil pro</span>
+                {allEmpty && <span className="chip chip-warn">Vide</span>}
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Raison sociale, adresse, ville et SIREN (facultatif).
+              </div>
+            </div>
+          </div>
+          <div className="row gap-2">
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmAllDelete(true)}
+              style={{ color: 'var(--danger)' }}
+              disabled={allEmpty}
+              title={allEmpty ? 'Aucune information à supprimer' : 'Supprimer toutes les informations'}>
+              <Icon name="trash" size={12}/> Tout supprimer
+            </button>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1,
+          background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)'
+        }}>
+          {PRO_INFO_FIELDS.map(f => {
+            const val = info[f.key] || '';
+            return (
+              <div key={f.key} style={{
+                background: 'var(--paper)', padding: '14px 16px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>
+                    {f.label}{f.optional ? ' · facultatif' : ''}
+                  </div>
+                  <div
+                    className={f.mono && val ? 'mono tnum' : ''}
+                    style={{
+                      fontSize: 14,
+                      color: val ? 'var(--ink)' : 'var(--ink-5)',
+                      fontStyle: val ? 'normal' : 'italic',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {val || '— non renseigné —'}
+                  </div>
+                </div>
+                <div className="row gap-1">
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
+                    onClick={() => setEditing({ key: f.key, label: f.label, value: val, mono: f.mono, placeholder: f.placeholder, optional: f.optional })}>
+                    <Icon name="edit" size={11}/>
+                  </button>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                    onClick={() => setConfirmFieldDelete({ key: f.key, label: f.label })}
+                    disabled={!val}
+                    title={val ? 'Supprimer cette donnée' : 'Aucune valeur à supprimer'}>
+                    <Icon name="trash" size={11}/>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {editing && (
+        <ProInfoEditModal edit={editing}
+          onSave={(v) => { setInfo(prev => ({ ...prev, [editing.key]: v })); setEditing(null); }}
+          onClose={() => setEditing(null)}/>
+      )}
+      {confirmFieldDelete && (
+        <ProInfoFieldDeleteModal field={confirmFieldDelete}
+          onConfirm={() => { setInfo(prev => ({ ...prev, [confirmFieldDelete.key]: '' })); setConfirmFieldDelete(null); }}
+          onClose={() => setConfirmFieldDelete(null)}/>
+      )}
+      {confirmAllDelete && (
+        <ProInfoAllDeleteModal
+          onConfirm={() => {
+            setInfo({ raisonSociale: '', adresse: '', ville: '', siren: '' });
+            setConfirmAllDelete(false);
+          }}
+          onClose={() => setConfirmAllDelete(false)}/>
+      )}
+    </div>
+  );
+}
+
+function ProInfoModalShell({ title, children, onClose, width = 460 }) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15,22,41,.5)', zIndex: 100,
+        overflowY: 'auto',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 20px 110px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--paper)', borderRadius: 16, padding: 28,
+          maxWidth: width, width: '100%',
+          boxShadow: '0 20px 50px rgba(0,0,0,.15)',
+          margin: 'auto 0',
+        }}
+      >
+        <div className="row between" style={{ marginBottom: 22 }}>
+          <div className="serif" style={{ fontSize: 22 }}>{title}</div>
+          <button onClick={onClose} style={{ color: 'var(--ink-4)', padding: 4, fontSize: 20, lineHeight: 1 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ProInfoEditModal({ edit, onSave, onClose }) {
+  const [val, setVal] = useState(edit.value);
+  const isSiren = edit.key === 'siren';
+  return (
+    <ProInfoModalShell title={'Modifier : ' + edit.label} onClose={onClose}>
+      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>
+        {edit.label}{edit.optional ? ' · facultatif' : ''}
+      </div>
+      <input
+        className={'input' + (edit.mono ? ' mono' : '')}
+        value={val}
+        onChange={e => setVal(isSiren ? e.target.value.replace(/\D/g, '').slice(0, 9) : e.target.value)}
+        placeholder={edit.placeholder}
+        autoFocus
+        inputMode={isSiren ? 'numeric' : undefined}
+        style={{ width: '100%', fontSize: 14, marginBottom: isSiren ? 10 : 20 }}
+      />
+      {isSiren && (
+        <div className="muted" style={{ fontSize: 12, marginBottom: 18, lineHeight: 1.5 }}>
+          9 chiffres. Ce numéro reste confidentiel — BUUPP s'en sert uniquement
+          pour vérifier l'existence légale de votre société.
+        </div>
+      )}
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+        <button onClick={() => onSave(val.trim())} className="btn btn-primary btn-sm"
+          disabled={!edit.optional && !val.trim()}>
+          Enregistrer
+        </button>
+      </div>
+    </ProInfoModalShell>
+  );
+}
+
+function ProInfoFieldDeleteModal({ field, onConfirm, onClose }) {
+  // raison sociale + ville sont les deux champs affichés dans les annonces
+  // de campagne — leur suppression bloque tout lancement de campagne.
+  const blocksCampaign = field.key === 'raisonSociale' || field.key === 'ville';
+  return (
+    <ProInfoModalShell title={'Supprimer : ' + field.label} onClose={onClose}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 14,
+        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: '#DC2626', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+            {blocksCampaign ? 'Information obligatoire — bloque le lancement de campagne' : 'Information requise pour vos campagnes'}
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            En supprimant <strong>{field.label}</strong>, votre profil entreprise devient incomplet.
+            Cette information est <strong>nécessaire</strong> pour vérifier votre activité et apparaît
+            sur vos factures.
+            {blocksCampaign && (
+              <>
+                <br/><br/>
+                Surtout, <strong>{field.label.toLowerCase()}</strong> est{' '}
+                <strong>obligatoire</strong> pour permettre aux prospects de connaître l'identité
+                de l'entreprise qui souhaite les solliciter. Tant que cette information ne sera
+                pas renseignée, <strong>il vous sera impossible de lancer une nouvelle campagne</strong>.
+              </>
+            )}
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
+            Vous pourrez la renseigner à nouveau à tout moment depuis cette page
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
+          <Icon name="trash" size={12}/> Confirmer la suppression
+        </button>
+      </div>
+    </ProInfoModalShell>
+  );
+}
+
+function ProInfoAllDeleteModal({ onConfirm, onClose }) {
+  return (
+    <ProInfoModalShell title="Tout supprimer ?" onClose={onClose}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 14,
+        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: '#DC2626', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+            Profil entreprise vide
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Vous êtes sur le point de supprimer <strong>l'ensemble</strong> des informations
+            de votre société (raison sociale, adresse, ville, SIREN). Tant que ces informations
+            ne sont pas renseignées à nouveau, BUUPP ne pourra plus vérifier votre activité
+            ni générer vos factures.
+            <br/><br/>
+            En particulier, le <strong>nom de votre société</strong> est{' '}
+            <strong>obligatoire</strong> pour être affiché dans l'annonce de toute campagne
+            que vous lancerez — sans lui, aucune campagne ne pourra être diffusée auprès
+            des prospects.
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
+            Action réversible — vous pourrez tout réécrire depuis cette page
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
+          <Icon name="trash" size={12}/> Confirmer la suppression
+        </button>
+      </div>
+    </ProInfoModalShell>
   );
 }
 
