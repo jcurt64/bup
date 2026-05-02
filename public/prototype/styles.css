@@ -148,13 +148,24 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 /* Sidebar notification badge — driven by `s.badge` on a section.
    Pill with the count when expanded, small dot on the icon when collapsed. */
 .side-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 20px; padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   margin-left: auto;
   border-radius: 999px;
-  background: #DC2626; color: #fff;
-  font-family: var(--mono); font-size: 11px; font-weight: 600;
-  line-height: 1; letter-spacing: 0;
+  background: #DC2626;
+  color: #fff;
+  /* Sans-serif + line-height = hauteur du badge → chiffre parfaitement centré
+     verticalement (la mono BUUPP a un baseline asymétrique qui décalait le 3). */
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-align: center;
   box-shadow: 0 0 0 2px color-mix(in oklab, #DC2626 22%, transparent);
 }
 .side-item.active .side-badge {
@@ -301,11 +312,22 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 
   /* Hide elements that don't make sense in a horizontal bar:
-     the "Logo + hamburger" row, the section eyebrow, and the logout footer. */
+     the "Logo + hamburger" row and the section eyebrow. */
   .dash-shell > aside > .row.between.center,
-  .dash-shell > aside > .mono.caps,
-  .dash-shell > aside > div[style*="border-top"] {
+  .dash-shell > aside > .mono.caps {
     display: none !important;
+  }
+
+  /* Logout : on garde le bouton visible dans la barre mobile, et on neutralise
+     le séparateur (border-top + paddings) qui n'a pas de sens à l'horizontale.
+     `display: contents !important` rend le wrapper "transparent" pour le flex
+     parent → le `.side-item` enfant devient sibling des autres onglets. */
+  .dash-shell > aside > .dash-logout {
+    display: contents !important;
+    border-top: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
   }
 
   /* Spacer push (flex: 1) is harmless but can be hidden too. */

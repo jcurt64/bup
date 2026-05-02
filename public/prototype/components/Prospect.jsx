@@ -273,7 +273,7 @@ function DashShell({ role, go, sections, current, onNav, children, header }) {
           );
         })}
         <div style={{ flex: 1 }}/>
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
+        <div className="dash-logout" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
           <div
             className="side-item"
             onClick={() => {

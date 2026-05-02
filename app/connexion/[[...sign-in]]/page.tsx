@@ -35,6 +35,20 @@ export default function ConnexionPage() {
               background: "var(--ink)",
               "&:hover, &:focus, &:active": { background: "#1a2342" },
             },
+            // Boutons sociaux (Google / Apple / Facebook…) — alignés sur le design BUUPP
+            socialButtonsBlockButton: {
+              border: "1px solid var(--line)",
+              borderRadius: 10,
+              "&:hover, &:focus": {
+                background: "var(--ivory-2, #efe9da)",
+                borderColor: "var(--ink-4, #5b6478)",
+              },
+            },
+            socialButtonsBlockButtonText: {
+              fontWeight: 500,
+            },
+            dividerLine: { background: "var(--line)" },
+            dividerText: { color: "var(--ink-4, #5b6478)" },
           },
           variables: {
             colorPrimary: "#0F1629",
