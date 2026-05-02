@@ -409,22 +409,25 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .score-card { padding: 24px !important; }
 }
 
-/* Bottom RouteNav — tighter spacing on narrow viewports so all 5 tabs fit. */
+/* Bottom RouteNav — barre mobile élargie : plus d'air entre les icônes
+   pour un rendu aéré, sans déborder de la viewport. */
 @media (max-width: 600px) {
   .route-nav {
     bottom: 14px !important;
-    padding: 5px !important;
-    gap: 4px !important;
-    max-width: calc(100vw - 16px);
-    overflow-x: auto;
+    padding: 6px 14px !important;
+    gap: 0 !important;
+    width: 80vw !important;
+    max-width: 80vw !important;
+    justify-content: space-between !important;
+    overflow-x: visible !important;
   }
-  /* Mobile : icônes uniquement, onglets carrés → la pastille active devient
-     un cercle parfait (width === height + border-radius 999). */
+  /* Onglets carrés : la pastille active devient un cercle parfait
+     (width === height + border-radius 999). */
   .route-nav .route-nav-tab {
     padding: 0 !important;
-    width: 42px !important;
-    height: 42px !important;
-    flex: 0 0 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px !important;
     letter-spacing: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -446,11 +449,14 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 
 @media (max-width: 380px) {
-  .route-nav { gap: 2px !important; }
+  /* Sur très petit écran, on resserre légèrement la pill et les icônes. */
+  .route-nav {
+    padding: 5px 10px !important;
+  }
   .route-nav .route-nav-tab {
-    width: 38px !important;
-    height: 38px !important;
-    flex: 0 0 38px !important;
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
   }
   .route-nav .route-nav-icon,
   .route-nav .route-nav-icon svg {

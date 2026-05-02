@@ -47,17 +47,6 @@ const TABS: Tab[] = [
     ),
   },
   {
-    href: "/connexion",
-    label: "Connexion",
-    icon: (
-      <Svg>
-        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-        <path d="M10 17l5-5-5-5" />
-        <path d="M15 12H3" />
-      </Svg>
-    ),
-  },
-  {
     href: "/prospect",
     label: "Prospect",
     icon: (
@@ -75,6 +64,17 @@ const TABS: Tab[] = [
         <rect x={3} y={7} width={18} height={13} rx={2} />
         <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
         <path d="M3 13h18" />
+      </Svg>
+    ),
+  },
+  {
+    href: "/connexion",
+    label: "Connexion",
+    icon: (
+      <Svg>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <path d="M10 17l5-5-5-5" />
+        <path d="M15 12H3" />
       </Svg>
     ),
   },
