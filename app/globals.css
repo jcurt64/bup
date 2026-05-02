@@ -468,29 +468,31 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 
 /* ───────────────────────────────────────────────────────────────────
-   Mobile + tablette : bump ~1.1× sur TOUS les boutons de la page
-   d'accueil. Padding et font-size proportionnels. Le format desktop
-   (>1024px) reste inchangé.
+   Mobile + tablette : bump ~1.02× sur TOUS les boutons de la page
+   d'accueil. Très subtil (~+0.3px sur padding et font-size). Le
+   format desktop (>1024px) reste strictement inchangé.
    ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
+  /* Padding vertical réduit (~-3px) pour des boutons plus compacts en
+     responsive ; padding horizontal et font-size restent à ~1.02×. */
   .btn {
-    padding: 11px 18px !important;
-    font-size: 15px !important;
+    padding: 8px 16.3px !important;
+    font-size: 14.3px !important;
   }
   .btn-sm {
-    padding: 7px 14px !important;
-    font-size: 14px !important;
+    padding: 5px 12.2px !important;
+    font-size: 13.3px !important;
   }
   .btn-lg {
-    padding: 16px 26px !important;
-    font-size: 17px !important;
+    padding: 11px 22.4px !important;
+    font-size: 15.3px !important;
   }
-  /* Sticky preinscription : padding/font-size bumpés.
+  /* Sticky preinscription : même logique de compactage vertical.
      Le @media 640px plus bas écrase ces valeurs avec un layout adapté
      (positionnement et taille resserrée pour les très petits téléphones). */
   .sticky-preinscription {
-    padding: 16px 24px !important;
-    font-size: 15px !important;
+    padding: 11px 22.4px !important;
+    font-size: 14.3px !important;
   }
 }
 
