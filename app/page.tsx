@@ -586,9 +586,15 @@ function Hero() {
               color: "rgba(255,255,255,.78)",
             }}
           >
-            BUUPP est la première plateforme qui rémunère les particuliers pour
+            BUUPP renverse la table 🎯. Première plateforme où ce sont les
+            professionnels qui rémunèrent les particuliers pour avoir le droit
+            de les solliciter.
+            <p>
+              Votre temps, c&apos;est de l&apos;argent — et on vous le prouve.
+              {/* BUUPP est la première plateforme qui rémunère les particuliers pour
             accepter d&apos;être contactés par les professionnels. Double
-            consentement,{" "}
+            consentement,{" "} */}
+            </p>
             <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-[#FB923C]">
               {"<"}RGPD natif {">"}.
             </p>
@@ -807,8 +813,8 @@ function HowItWorks() {
             >
               En trois gestes simples, vous choisissez qui peut vous contacter —
               et à quel prix. Le consentement est au centre. Aucune donnée
-              n&apos;est transmise avant que vous, puis le professionnel, ne
-              confirmiez la mise en relation.
+              n&apos;est transmise avant que vous ne confirmiez la mise en
+              relation.
             </p>
           </div>
         </div>
