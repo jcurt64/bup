@@ -6,10 +6,13 @@ function Modal({ title, subtitle, onClose, children, width = 560 }) {
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(14, 14, 18, 0.55)',
       backdropFilter: 'blur(6px)', zIndex: 9998,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
+      overflowY: 'auto',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '24px 24px 110px',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="card" style={{
-        width, maxWidth: '100%', maxHeight: '92vh', overflow: 'auto', padding: 28, background: 'var(--paper)'
+        width, maxWidth: '100%', maxHeight: '92vh', overflow: 'auto', padding: 28, background: 'var(--paper)',
+        margin: 'auto 0',
       }}>
         <div className="row between" style={{ marginBottom: 20, alignItems: 'flex-start' }}>
           <div>

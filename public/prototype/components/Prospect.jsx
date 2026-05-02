@@ -503,12 +503,23 @@ function RetraitModal({ onClose }) {
 
 function Modal({ title, subtitle, children, onClose }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(15,23,42,.48)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-    }} onClick={onClose}>
-      <div className="card" style={{ background: 'var(--paper)', padding: 32, maxWidth: 540, width: '100%', boxShadow: '0 20px 60px -10px rgba(0,0,0,.3)' }}
-        onClick={e => e.stopPropagation()}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(15,23,42,.48)',
+        overflowY: 'auto',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 20px 110px',
+      }}
+      onClick={onClose}
+    >
+      <div className="card"
+        style={{
+          background: 'var(--paper)', padding: 32, maxWidth: 540, width: '100%',
+          boxShadow: '0 20px 60px -10px rgba(0,0,0,.3)',
+          margin: 'auto 0',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="row between" style={{ marginBottom: 20 }}>
           <div>
             <div className="serif" style={{ fontSize: 26 }}>{title}</div>
@@ -617,7 +628,7 @@ function MesDonnees({ onGoPrefs }) {
         desc="Ajoutez, modifiez, supprimez temporairement ou définitivement chaque donnée. Toute modification se répercute immédiatement sur l'ensemble de l'application."/>
 
       {/* RGPD rights banner — eye-catching */}
-      <div style={{
+      <div className="alert-block" style={{
         padding: '22px 26px', borderRadius: 14,
         background: 'linear-gradient(120deg, #FEF3C7 0%, #FCD34D 100%)',
         border: '1.5px solid #F59E0B',
@@ -821,8 +832,33 @@ function MesDonnees({ onGoPrefs }) {
 
 function ModalShell({ title, children, onClose, width = 460 }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,22,41,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--paper)', borderRadius: 16, padding: 28, maxWidth: width, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.15)' }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15,22,41,.5)',
+        zIndex: 100,
+        // Scroll vertical sur l'overlay quand la modale dépasse la hauteur
+        // de la viewport (sinon le contenu est inaccessible).
+        overflowY: 'auto',
+        // `flex-start` au lieu de `center` : avec overflow scroll, center
+        // clipperait le haut de la modale quand elle dépasse.
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        // padding-bottom large = clearance pour la RouteNav fixée en bas
+        // de l'écran qui occulterait sinon les boutons d'action de la modale.
+        padding: '24px 20px 110px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--paper)', borderRadius: 16, padding: 28,
+          maxWidth: width, width: '100%',
+          boxShadow: '0 20px 50px rgba(0,0,0,.15)',
+          // Centre verticalement quand la modale tient dans l'écran ;
+          // s'ancre en haut (auto résout à 0) quand elle dépasse → scrollable.
+          margin: 'auto 0',
+        }}
+      >
         <div className="row between" style={{ marginBottom: 22 }}>
           <div className="serif" style={{ fontSize: 22 }}>{title}</div>
           <button onClick={onClose} style={{ color: 'var(--ink-4)', padding: 4, fontSize: 20, lineHeight: 1 }}>✕</button>
@@ -840,7 +876,7 @@ function EditFieldModal({ edit, onSave, onClose }) {
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{edit.label}</div>
       <input className="input" value={val} onChange={e => setVal(e.target.value)} autoFocus
         style={{ width: '100%', fontSize: 14, marginBottom: 20 }}/>
-      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={() => onSave(val)} className="btn btn-primary btn-sm">Enregistrer</button>
       </div>
@@ -863,7 +899,7 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Valeur</div>
       <input className="input" value={val} onChange={e => setVal(e.target.value)} autoFocus
         style={{ width: '100%', fontSize: 14, marginBottom: 20 }}/>
-      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={() => onSave(field, val)} className="btn btn-primary btn-sm" disabled={!val}>Ajouter</button>
       </div>
@@ -876,7 +912,7 @@ function ConfirmDeleteModal({ category, onConfirm, onClose }) {
   const otherCategories = DATA_CATEGORIES.filter(c => c.key !== 'identity').map(c => c.label);
   return (
     <ModalShell title="Suppression définitive" onClose={onClose}>
-      <div style={{
+      <div className="alert-block" style={{
         padding: 16, borderRadius: 10, marginBottom: 14,
         background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
         display: 'flex', gap: 14, alignItems: 'flex-start'
@@ -904,7 +940,7 @@ function ConfirmDeleteModal({ category, onConfirm, onClose }) {
         </div>
       </div>
       {isIdentity && (
-        <div style={{
+        <div className="alert-block" style={{
           padding: 16, borderRadius: 10, marginBottom: 14,
           background: '#FFF7ED', border: '1.5px solid #FDBA74', color: '#7C2D12',
           display: 'flex', gap: 14, alignItems: 'flex-start'
@@ -929,7 +965,7 @@ function ConfirmDeleteModal({ category, onConfirm, onClose }) {
           </div>
         </div>
       )}
-      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
           <Icon name="trash" size={12}/> {isIdentity ? 'Confirmer la suppression complète' : 'Confirmer la suppression'}
@@ -942,7 +978,7 @@ function ConfirmDeleteModal({ category, onConfirm, onClose }) {
 function ConfirmHideModal({ category, onConfirm, onClose }) {
   return (
     <ModalShell title="Masquer cette catégorie ?" onClose={onClose}>
-      <div style={{
+      <div className="alert-block" style={{
         padding: 16, borderRadius: 10, marginBottom: 16,
         background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
         border: '1.5px solid color-mix(in oklab, var(--warn) 40%, var(--line))',
@@ -979,7 +1015,7 @@ function ConfirmHideModal({ category, onConfirm, onClose }) {
         <Icon name="info" size={12}/>
         <span>Vos données restent stockées mais <strong style={{ color: 'var(--ink-2)' }}>ne sont plus diffusables</strong> — aucun professionnel n'y aura accès.</span>
       </div>
-      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={onConfirm} className="btn btn-primary btn-sm">
           <Icon name="eyeSlash" size={12}/> Masquer temporairement
@@ -992,7 +1028,7 @@ function ConfirmHideModal({ category, onConfirm, onClose }) {
 function ConfirmFieldDeleteModal({ field, onConfirm, onClose }) {
   return (
     <ModalShell title={'Supprimer : ' + field.label} onClose={onClose}>
-      <div style={{
+      <div className="alert-block" style={{
         padding: 16, borderRadius: 10, marginBottom: 14,
         background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
         display: 'flex', gap: 14, alignItems: 'flex-start'
@@ -1019,7 +1055,7 @@ function ConfirmFieldDeleteModal({ field, onConfirm, onClose }) {
           </div>
         </div>
       </div>
-      <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
           <Icon name="trash" size={12}/> Confirmer la suppression

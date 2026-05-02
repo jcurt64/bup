@@ -168,7 +168,7 @@ function BarChart() {
 
 function CampaignDurationBanner({ compact }) {
   return (
-    <div style={{
+    <div className="alert-block" style={{
       display: 'flex', alignItems: 'flex-start', gap: 14,
       padding: compact ? '12px 16px' : '14px 18px',
       background: 'color-mix(in oklab, var(--accent) 7%, var(--paper))',
@@ -938,7 +938,7 @@ function CreateCampaign({ onDone }) {
               </div>
             </div>
 
-            <div style={{ padding: 14, borderRadius: 10,
+            <div className="alert-block" style={{ padding: 14, borderRadius: 10,
               background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
               border: '1px solid color-mix(in oklab, var(--warn) 25%, transparent)',
               fontSize: 11, lineHeight: 1.55, color: 'color-mix(in oklab, var(--warn) 55%, var(--ink-3))',
@@ -1003,9 +1003,10 @@ function CampaignLaunchedModal({ data, onClose }) {
   return (
     <div role="dialog" aria-modal="true" style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      overflowY: 'auto',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
       background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
-      padding: 24, animation: 'bupp-fade-in .25s ease'
+      padding: '24px 24px 110px', animation: 'bupp-fade-in .25s ease'
     }}>
       <ConfettiBurst />
 
@@ -1013,7 +1014,8 @@ function CampaignLaunchedModal({ data, onClose }) {
         position: 'relative', maxWidth: 520, width: '100%',
         background: 'var(--paper)', borderRadius: 18, padding: '38px 36px 32px',
         boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
-        animation: 'bupp-pop-in .45s cubic-bezier(.18,1.2,.4,1)'
+        animation: 'bupp-pop-in .45s cubic-bezier(.18,1.2,.4,1)',
+        margin: 'auto 0',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <div style={{
