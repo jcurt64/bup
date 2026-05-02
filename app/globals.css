@@ -466,3 +466,69 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
     height: 18px;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+   Mobile typography bump — home + footer (1.1×)
+   Augmente d'environ +1px (≈ 1.1×) les paragraphes, descriptions, le
+   contenu textuel des encadrés et le footer. Les titres (h1/h2/h3,
+   .serif), micro-labels (.mono, .caps) et nombres (.tnum) ne sont
+   pas touchés.
+   ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Tous les <p> de description (exclut .inline utilisé pour les spans
+     à l'intérieur de titres). ~15px → 17px. */
+  body p:not(.inline) {
+    font-size: 17px !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Hero lede — la phrase qui décrit BUUPP sous le grand titre. */
+  .hero-lede {
+    font-size: 18px !important;
+    line-height: 1.7 !important;
+  }
+
+  /* Bump des descriptions en inline-style (très utilisées dans les
+     encadrés des sections "Pour les professionnels", "Sécurité",
+     "Use cases" etc.). On ajoute ~1px à chaque palier (≈ 1.1×). */
+  .section [style*="font-size: 12px"]:not(.mono):not(.caps):not(.tnum),
+  .section [style*="font-size:12px"]:not(.mono):not(.caps):not(.tnum) {
+    font-size: 13px !important;
+  }
+  .section [style*="font-size: 13px"]:not(.mono):not(.caps):not(.tnum),
+  .section [style*="font-size:13px"]:not(.mono):not(.caps):not(.tnum) {
+    font-size: 14px !important;
+  }
+  .section [style*="font-size: 14px"]:not(.mono):not(.caps):not(.tnum),
+  .section [style*="font-size:14px"]:not(.mono):not(.caps):not(.tnum) {
+    font-size: 15px !important;
+  }
+  .section [style*="font-size: 15px"]:not(.mono):not(.caps):not(.tnum),
+  .section [style*="font-size:15px"]:not(.mono):not(.caps):not(.tnum) {
+    font-size: 16px !important;
+  }
+
+  /* Descriptions en classe .muted dans les sections (couvre les divs
+     sans inline fontSize, type stat-cell / step-cell sub-text). */
+  .section .muted:not(.mono):not(.caps):not(.tnum) {
+    font-size: 16px !important;
+  }
+  .step-cell .muted:not(.mono):not(.caps):not(.tnum),
+  .stat-cell .muted:not(.mono):not(.caps):not(.tnum) {
+    font-size: 16px !important;
+  }
+
+  /* Encadrés .card : descriptions secondaires (hors valeurs/labels mono). */
+  .card .muted:not(.mono):not(.caps):not(.tnum) {
+    font-size: 15px !important;
+  }
+
+  /* Footer — bump le corps de texte (~13 → 14-15). */
+  footer {
+    font-size: 14px !important;
+  }
+  /* Les micro-labels du footer (mono caps) restent inchangés. */
+  footer .mono.caps {
+    font-size: 11px !important;
+  }
+}
