@@ -11,7 +11,7 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { stripe } from "@/lib/stripe/server";
+import { getStripe } from "@/lib/stripe/server";
 import { auth } from "@/lib/clerk/server";
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   const { amountCents } = (await request.json()) as { amountCents: number };
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
     line_items: [
