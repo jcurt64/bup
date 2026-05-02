@@ -13,6 +13,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/server";
 
+// Force dynamique : pas d'analyse statique au build, le SDK Stripe ne sera
+// chargé qu'à la 1re requête réelle.
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
@@ -23,7 +28,8 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = getStripe().webhooks.constructEvent(
+    const stripe = await getStripe();
+    event = stripe.webhooks.constructEvent(
       payload,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!,
