@@ -15,30 +15,44 @@
 
 import nodemailer, { type Transporter } from "nodemailer";
 
-let cachedTransport: Transporter | null | undefined;
+// On cache uniquement les transports VALIDES (non-null). Si la config était
+// absente au démarrage et a été ajoutée depuis, on retentera la création
+// au prochain appel — pas besoin de redémarrer le serveur.
+let cachedTransport: Transporter | null = null;
+let cachedFor: string | null = null; // signature user|host|port pour invalider
 
 export function getTransport(): Transporter | null {
-  if (cachedTransport !== undefined) return cachedTransport;
-
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST ?? "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT ?? 465);
 
   if (!user || !pass) {
+    if (cachedTransport) {
+      cachedTransport.close();
+      cachedTransport = null;
+      cachedFor = null;
+    }
     console.warn(
       "[email] SMTP_USER / SMTP_PASS non définis — l'envoi de mails est désactivé. " +
-      "Configurez ces variables dans .env.local pour activer les confirmations.",
+        "Configurez ces variables dans .env.local pour activer les confirmations.",
     );
-    cachedTransport = null;
     return null;
   }
 
-  const port = Number(process.env.SMTP_PORT ?? 465);
+  const signature = `${user}|${host}|${port}`;
+  if (cachedTransport && cachedFor === signature) return cachedTransport;
+
+  // Reconfigurer si la signature a changé.
+  if (cachedTransport) cachedTransport.close();
+
   cachedTransport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST ?? "smtp.gmail.com",
+    host,
     port,
     secure: port === 465, // SSL implicite sur 465, STARTTLS sur 587.
     auth: { user, pass },
   });
+  cachedFor = signature;
 
   return cachedTransport;
 }

@@ -2803,6 +2803,28 @@
         requestAnimationFrame(step);
       }
 
+      /* ── Code de parrainage déterministe à partir de l'email ──────────────
+         Algorithme strictement identique à celui du serveur
+         (lib/waitlist/ref-code.ts) : SHA-1 de l'email normalisé, 5 premiers
+         octets en BE → entier 40 bits → base36 majuscule, padé à 7 chars.
+         Garantit qu'une même adresse aura toujours le même code, peu importe
+         le nombre de fois où le formulaire est rempli. */
+      async function refCodeFromEmail(email) {
+        const normalized = String(email || "")
+          .trim()
+          .toLowerCase();
+        if (!normalized) return "GUEST00";
+        const buf = await crypto.subtle.digest(
+          "SHA-1",
+          new TextEncoder().encode(normalized),
+        );
+        const bytes = new Uint8Array(buf);
+        // 40 bits → tient dans un Number JS sans risque de perte (max 2^53).
+        let n = 0;
+        for (let i = 0; i < 5; i++) n = n * 256 + bytes[i];
+        return n.toString(36).toUpperCase().padStart(7, "0").slice(0, 7);
+      }
+
       /* ── Confettis (déclenchés à la confirmation d'inscription) ──────────── */
       function launchConfetti({ count = 140, duration = 3800 } = {}) {
         const palette = [
@@ -2908,7 +2930,7 @@
         setStep(2);
       }
 
-      function goStep3() {
+      async function goStep3() {
         // Calculate estimate based on interests
         const base = selectedInterests.size;
         let min = 4 + base * 0.8;
@@ -2941,10 +2963,12 @@
           .join("");
 
         // Unique ref link
-        const code = userData.prenom
-          ? userData.prenom.slice(0, 2).toUpperCase() +
-            Math.random().toString(36).slice(2, 7).toUpperCase()
-          : "GUEST";
+        // Code de parrainage déterministe à partir de l'email — même
+        // adresse = même code, toujours. Identique à l'algorithme serveur
+        // (lib/waitlist/ref-code.ts) pour rester cohérent.
+        const code = userData.email
+          ? await refCodeFromEmail(userData.email)
+          : "GUEST00";
         document.getElementById("ref-link").textContent =
           "buupp.fr/ref/" + code;
 
@@ -3021,6 +3045,13 @@
           const rankSuccessEl = document.getElementById("rank-num-success");
           if (rankSuccessEl && typeof json.rank === "number") {
             rankSuccessEl.textContent = "#" + json.rank.toLocaleString("fr-FR");
+          }
+          // Synchronise le lien de parrainage avec celui persisté côté serveur
+          // — source de vérité. Garantit que l'utilisateur voit toujours le
+          // même lien que celui qu'il avait reçu lors de sa première inscription.
+          if (json.refCode) {
+            const refLink = document.getElementById("ref-link");
+            if (refLink) refLink.textContent = "buupp.fr/ref/" + json.refCode;
           }
         } catch (err) {
           console.error("[waitlist] signup failed:", err);
@@ -3276,16 +3307,25 @@
         });
       }
 
+      // Récupère le lien de parrainage actuellement affiché — source unique
+      // pour les boutons "Copier", "Partager Twitter", "Partager WhatsApp".
+      function currentRefLink() {
+        const el = document.getElementById("ref-link");
+        return el?.textContent?.trim() || "buupp.fr";
+      }
+
       function shareTwitter() {
         const txt = encodeURIComponent(
-          "💰 J'ai découvert BUUPP — une app française qui vous rémunère pour vos données personnelles. Vos données ont de la valeur, il est temps qu'elles vous rapportent. Rejoignez la liste → buupp.fr/ref/MD8X4K",
+          "💰 J'ai découvert BUUPP — une app française qui vous rémunère pour vos données personnelles. Vos données ont de la valeur, il est temps qu'elles vous rapportent. Rejoignez la liste → " +
+            currentRefLink(),
         );
         window.open("https://twitter.com/intent/tweet?text=" + txt, "_blank");
       }
 
       function shareWA() {
         const txt = encodeURIComponent(
-          "Découvre BUUPP — une app française qui te rémunère pour tes données personnelles 💰 Tes données ont de la valeur, il est temps qu'elles te rapportent. BUUPP reverse 60% directement à toi. Rejoins la liste : buupp.fr/ref/MD8X4K",
+          "Découvre BUUPP — une app française qui te rémunère pour tes données personnelles 💰 Tes données ont de la valeur, il est temps qu'elles te rapportent. BUUPP reverse 60% directement à toi. Rejoins la liste : " +
+            currentRefLink(),
         );
         window.open("https://wa.me/?text=" + txt, "_blank");
       }

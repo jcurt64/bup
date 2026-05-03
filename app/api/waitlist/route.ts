@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendWaitlistConfirmation } from "@/lib/email/waitlist";
+import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
@@ -19,7 +20,6 @@ type WaitlistPayload = {
   email?: string;
   ville?: string;
   interests?: string[];
-  refCode?: string | null;
 };
 
 const TRIM_MAX = 80;
@@ -48,7 +48,6 @@ export async function POST(req: Request) {
   const nom = clean(body.nom);
   const email = clean(body.email, 255);
   const ville = clean(body.ville);
-  const refCode = clean(body.refCode ?? null, 32);
 
   if (!prenom || !nom || !email || !ville) {
     return NextResponse.json(
@@ -77,22 +76,27 @@ export async function POST(req: Request) {
 
   const supabase = createSupabaseAdminClient();
 
-  // Calcule le rang d'un email donné = position chronologique parmi les
-  // inscrits (1 = premier inscrit). Utilise `created_at <=` pour rester
-  // déterministe même si plusieurs lignes partagent la même horloge.
-  async function rankFor(targetEmail: string): Promise<number> {
+  // Calcule le rang + récupère le ref_code persisté pour un email donné.
+  // Le ref_code en base est la source de vérité : si un jour l'algo de
+  // génération évolue, les anciens codes restent stables.
+  async function rowFor(targetEmail: string): Promise<{ rank: number; refCode: string | null }> {
     const { data: row } = await supabase
       .from("waitlist")
-      .select("created_at")
+      .select("created_at, ref_code")
       .ilike("email", targetEmail)
       .single();
-    if (!row?.created_at) return 0;
+    if (!row?.created_at) return { rank: 0, refCode: null };
     const { count } = await supabase
       .from("waitlist")
       .select("id", { count: "exact", head: true })
       .lte("created_at", row.created_at);
-    return count ?? 0;
+    return { rank: count ?? 0, refCode: row.ref_code };
   }
+
+  // Code de parrainage déterministe depuis l'email — même email = même code,
+  // toujours. Persisté à l'insert pour servir de source de vérité ; relu
+  // pour les réinscriptions.
+  const generatedRefCode = refCodeFromEmail(email);
 
   const { error } = await supabase.from("waitlist").insert({
     email,
@@ -100,7 +104,7 @@ export async function POST(req: Request) {
     nom,
     ville,
     interests,
-    ref_code: refCode,
+    ref_code: generatedRefCode,
     ip_hash: ipHash,
     user_agent: userAgent,
   });
@@ -108,15 +112,18 @@ export async function POST(req: Request) {
   if (error) {
     // Code Postgres 23505 = violation d'unicité (email déjà inscrit).
     if (error.code === "23505") {
-      const [statsRes, rank] = await Promise.all([
+      const [statsRes, info] = await Promise.all([
         supabase.rpc("waitlist_stats").single(),
-        rankFor(email),
+        rowFor(email),
       ]);
       return NextResponse.json(
         {
           ok: true,
           alreadyRegistered: true,
-          rank,
+          rank: info.rank,
+          // Code persisté ; fallback sur recalcul si manquant (lignes
+          // antérieures à cette feature).
+          refCode: info.refCode ?? generatedRefCode,
           stats: statsRes.data ?? { total: 0, villes: 0 },
         },
         { status: 200 },
@@ -126,23 +133,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 
-  const [statsRes, rank] = await Promise.all([
+  const [statsRes, info] = await Promise.all([
     supabase.rpc("waitlist_stats").single(),
-    rankFor(email),
+    rowFor(email),
   ]);
 
-  // Envoi du mail de confirmation en arrière-plan — on ne bloque pas la
-  // réponse HTTP sur la latence SMTP. Les erreurs d'envoi sont loggées
-  // par sendWaitlistConfirmation, jamais propagées au client.
-  sendWaitlistConfirmation({ email, prenom, ville, rank }).catch((err) =>
-    console.error("[/api/waitlist] confirmation mail failed:", err),
-  );
+  // Envoi du mail de confirmation : on AWAIT (avec timeout de sécurité)
+  // pour garantir que SMTP termine avant que la fonction Next.js soit
+  // suspendue (en serverless le runtime peut couper l'event loop dès
+  // que la réponse est renvoyée). Échecs loggés, jamais propagés.
+  try {
+    await Promise.race([
+      sendWaitlistConfirmation({ email, prenom, ville, rank: info.rank }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("SMTP timeout (10s)")), 10_000),
+      ),
+    ]);
+  } catch (err) {
+    console.error("[/api/waitlist] confirmation mail failed:", err);
+  }
 
   return NextResponse.json(
     {
       ok: true,
       alreadyRegistered: false,
-      rank,
+      rank: info.rank,
+      refCode: info.refCode ?? generatedRefCode,
       stats: statsRes.data ?? { total: 0, villes: 0 },
     },
     { status: 201 },

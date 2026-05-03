@@ -37,7 +37,7 @@ export async function sendWaitlistConfirmation(
     `Bonjour ${prenom},`,
     "",
     "Merci de rejoindre la liste d'attente BUUPP — la première plateforme",
-    "qui rémunère les particuliers pour accepter d'être contactés par les",
+    "qui rémunère les particuliers pour accepter d'être sollicités par les",
     "professionnels qui les ciblent vraiment.",
     "",
     `Votre rang sur la liste d'attente : #${formattedRank}`,
@@ -101,7 +101,7 @@ export async function sendWaitlistConfirmation(
             Félicitations ${escapeHtml(prenom)},<br/>votre place est réservée !
           </h1>
           <p style="margin:0;font-size:15px;line-height:1.6;color:#3A4150;">
-            Merci de rejoindre BUUPP — la première plateforme qui <strong>vous rémunère</strong> pour accepter d'être contacté par les professionnels qui vous ciblent vraiment.
+            Merci de rejoindre BUUPP — la première plateforme qui <strong>vous rémunère</strong> pour accepter d'être sollicité par les professionnels qui vous ciblent vraiment.
           </p>
         </td></tr>
 
@@ -187,16 +187,22 @@ export async function sendWaitlistConfirmation(
   `.trim();
 
   try {
-    await transport.sendMail({
+    const info = await transport.sendMail({
       from: getFromAddress(),
       to: email,
       subject,
       text,
       html,
     });
+    console.log(
+      `[email/waitlist] mail envoyé à ${email} — messageId=${info.messageId}` +
+        (info.accepted?.length ? ` accepted=[${info.accepted.join(", ")}]` : "") +
+        (info.rejected?.length ? ` rejected=[${info.rejected.join(", ")}]` : ""),
+    );
   } catch (err) {
     // Ne fait pas échouer l'inscription — on log et on continue.
-    console.error("[email/waitlist] sendMail error:", err);
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error(`[email/waitlist] échec d'envoi à ${email} → ${msg}`);
   }
 }
 
