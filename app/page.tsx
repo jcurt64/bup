@@ -1863,7 +1863,7 @@ function Pricing() {
             price="99"
             featured
             features={[
-              "Contacts illimités",
+              "Jusqu'à 500 contacts qualifiés par campagne",
               "Tous les paliers 1–5",
               "CRM intégré + historique 12 mois",
               "Support dédié sous 4h",
