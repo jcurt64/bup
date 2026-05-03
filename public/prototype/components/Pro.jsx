@@ -405,6 +405,13 @@ const fmtDateLong = (iso) => {
 function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
+  // À chaque changement d'étape du wizard, on remonte automatiquement en
+  // haut de la page : sinon l'utilisateur, qui vient de cliquer "Continuer"
+  // en bas, atterrit sur l'étape suivante… toujours en bas. Mauvaise UX.
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+    document.querySelectorAll('main, .page').forEach(el => { el.scrollTop = 0; });
+  }, [step]);
   // raison sociale + ville sont obligatoires pour permettre aux prospects
   // d'identifier l'entreprise dans l'annonce → le lancement est bloqué tant
   // que ces deux champs ne sont pas renseignés.
@@ -1677,6 +1684,12 @@ function Facturation() {
 
 function CampaignDetail({ camp, onBack }) {
   const [tab, setTab] = useState('overview');
+  // Remonte en haut à chaque changement d'onglet pour que l'utilisateur
+  // n'atterrisse pas en bas du nouvel onglet après son clic.
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+    document.querySelectorAll('main, .page').forEach(el => { el.scrollTop = 0; });
+  }, [tab]);
   // camp = [name, status, budget, spent, contacts, objective, date, avgCost]
   const [name, status, budget, spent, contacts, objective, date, avgCost] = camp;
   const statusLabel = status === 'active' ? 'Active' : status === 'paused' ? 'En pause' : 'Terminée';
