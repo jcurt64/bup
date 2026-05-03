@@ -1129,30 +1129,34 @@ function Relations() {
             <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
               <div className="row between center" style={{ marginBottom: 14 }}>
                 <span className="chip chip-accent">Palier {p.tier}</span>
-                <div className="row center gap-2">
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
-                    <Icon name="bolt" size={10}/> {p.timer}
-                  </span>
-                  <button
-                    onClick={() => setDetail(p)}
-                    aria-label="Voir les détails de l'offre"
-                    title="Voir les détails de l'offre"
-                    className="btn btn-ghost btn-sm relation-detail-btn"
-                    style={{
-                      padding: 0, width: 28, height: 28, borderRadius: 999,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      border: '1px solid var(--line-2)', background: 'var(--paper)',
-                    }}>
-                    <Icon name="plus" size={13} stroke={2}/>
-                  </button>
-                </div>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                  <Icon name="bolt" size={10}/> {p.timer}
+                </span>
               </div>
-              <div className="row center gap-3" style={{ marginBottom: 10 }}>
+              <div className="row center gap-3" style={{ marginBottom: 10, alignItems: 'center' }}>
                 <Avatar name={p.pro} size={32}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 500 }}>{p.pro}</div>
                   <div className="muted" style={{ fontSize: 12 }}>{p.sector}</div>
                 </div>
+                <button
+                  onClick={() => setDetail(p)}
+                  aria-label="Voir les détails de l'offre"
+                  title="Voir les détails de l'offre"
+                  className="relation-detail-btn"
+                  style={{
+                    padding: 0, width: 32, height: 32, borderRadius: 999,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--accent)', color: 'white',
+                    border: '1px solid var(--accent)',
+                    boxShadow: '0 4px 12px -4px color-mix(in oklab, var(--accent) 60%, transparent)',
+                    cursor: 'pointer', flexShrink: 0,
+                    transition: 'transform .12s ease, box-shadow .12s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
+                  <Icon name="plus" size={15} stroke={2.5}/>
+                </button>
               </div>
               <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 10, marginBottom: 16, lineHeight: 1.55 }}>{p.motif}</p>
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
