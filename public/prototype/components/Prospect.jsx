@@ -50,9 +50,33 @@ const INITIAL_PROFILE = {
    Exposées par le ProspectProvider pour piloter à la fois la section
    "Mises en relation" et le badge de notification dans la sidebar. */
 const INITIAL_PENDING_RELATIONS = [
-  { id: 'r1', pro: 'Cabinet Vitalité', sector: 'Kinésithérapie · Lyon 3e', motif: 'Prise de RDV pour un bilan postural gratuit à destination des télétravailleurs lyonnais.', reward: 4.20, tier: 2, timer: '14 h 22 min' },
-  { id: 'r2', pro: 'Atelier Mercier', sector: 'Artisan menuisier · Grand Lyon', motif: 'Devis gratuit pour aménagement sur mesure (cuisine, dressing). Déplacement inclus.', reward: 3.10, tier: 2, timer: '42 h 08 min' },
-  { id: 'r3', pro: 'Patrimoine & Co.', sector: 'Conseil en gestion · À distance', motif: "Audit patrimonial 30 min, sans engagement. Portefeuilles > 100 k€ principalement.", reward: 8.40, tier: 5, timer: '61 h 40 min' },
+  {
+    id: 'r1',
+    pro: 'Cabinet Vitalité',
+    sector: 'Kinésithérapie · Lyon 3e',
+    motif: 'Prise de RDV pour un bilan postural gratuit à destination des télétravailleurs lyonnais.',
+    reward: 4.20, tier: 2, timer: '14 h 22 min',
+    startDate: '2026-05-02', endDate: '2026-05-09',
+    brief: '1ère séance offerte aux 20 premiers inscrits.',
+  },
+  {
+    id: 'r2',
+    pro: 'Atelier Mercier',
+    sector: 'Artisan menuisier · Grand Lyon',
+    motif: 'Devis gratuit pour aménagement sur mesure (cuisine, dressing). Déplacement inclus.',
+    reward: 3.10, tier: 2, timer: '42 h 08 min',
+    startDate: '2026-04-28', endDate: '2026-05-12',
+    brief: 'Remise de 10% pour tout devis signé avant le 12 mai.',
+  },
+  {
+    id: 'r3',
+    pro: 'Patrimoine & Co.',
+    sector: 'Conseil en gestion · À distance',
+    motif: "Audit patrimonial 30 min, sans engagement. Portefeuilles > 100 k€ principalement.",
+    reward: 8.40, tier: 5, timer: '61 h 40 min',
+    startDate: '2026-05-01', endDate: '2026-05-15',
+    brief: 'Audit + plan d\'action remis sous 48 h.',
+  },
 ];
 
 const ProspectCtx = React.createContext(null);
@@ -1092,6 +1116,9 @@ function Relations() {
     (historyFilter === 'accepted' && h[3] === 'Acceptée') ||
     (historyFilter === 'refused'  && h[3] === 'Refusée')
   );
+  // Modale "détails de l'offre" — affiche toutes les infos campagne (dates,
+  // brief texte, motif complet, palier, récompense) au clic sur le bouton +.
+  const [detail, setDetail] = useState(null); // l'objet pending sélectionné
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Vous avez 72 heures pour accepter ou refuser chaque demande. Sans réponse, elle expire."/>
@@ -1102,9 +1129,23 @@ function Relations() {
             <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
               <div className="row between center" style={{ marginBottom: 14 }}>
                 <span className="chip chip-accent">Palier {p.tier}</span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
-                  <Icon name="bolt" size={10}/> {p.timer}
-                </span>
+                <div className="row center gap-2">
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                    <Icon name="bolt" size={10}/> {p.timer}
+                  </span>
+                  <button
+                    onClick={() => setDetail(p)}
+                    aria-label="Voir les détails de l'offre"
+                    title="Voir les détails de l'offre"
+                    className="btn btn-ghost btn-sm relation-detail-btn"
+                    style={{
+                      padding: 0, width: 28, height: 28, borderRadius: 999,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1px solid var(--line-2)', background: 'var(--paper)',
+                    }}>
+                    <Icon name="plus" size={13} stroke={2}/>
+                  </button>
+                </div>
               </div>
               <div className="row center gap-3" style={{ marginBottom: 10 }}>
                 <Avatar name={p.pro} size={32}/>
@@ -1269,7 +1310,131 @@ function Relations() {
           </table>
         </div>
       </div>
+
+      {detail && (
+        <RelationDetailModal
+          relation={detail}
+          isAccepted={!!accepted[detail.id]}
+          isRefused={!!refused[detail.id]}
+          onAccept={() => { acceptRelation(detail.id); setDetail(null); }}
+          onRefuse={() => { refuseRelation(detail.id); setDetail(null); }}
+          onClose={() => setDetail(null)}/>
+      )}
     </div>
+  );
+}
+
+function formatRelationDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  }).format(d);
+}
+
+function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefuse, onClose }) {
+  const r = relation;
+  const status = isAccepted ? 'accepted' : isRefused ? 'refused' : 'pending';
+  return (
+    <ModalShell title="Détails de l'offre" onClose={onClose} width={520}>
+      <div className="col gap-4">
+        {/* En-tête : nom pro + secteur + chip palier */}
+        <div className="row center gap-3" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <Avatar name={r.pro} size={44}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>{r.pro}</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{r.sector}</div>
+          </div>
+          <span className="chip chip-accent" style={{ alignSelf: 'center' }}>Palier {r.tier}</span>
+        </div>
+
+        {/* Brief de campagne — texte court rédigé par le pro */}
+        {r.brief && (
+          <div style={{
+            padding: 14, borderRadius: 10,
+            background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--accent) 24%, var(--line))',
+          }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>
+              Le mot du professionnel
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, fontStyle: 'italic' }}>
+              « {r.brief} »
+            </div>
+          </div>
+        )}
+
+        {/* Motif détaillé */}
+        <div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Objet de la demande</div>
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.55 }}>{r.motif}</div>
+        </div>
+
+        {/* Dates de campagne — bloc à 2 colonnes (1 colonne sur mobile via CSS) */}
+        <div className="relation-detail-dates" style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        }}>
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'var(--ivory-2)', border: '1px solid var(--line)',
+          }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>
+              <Icon name="calendar" size={10}/> Lancement
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>
+              {formatRelationDate(r.startDate)}
+            </div>
+          </div>
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'var(--ivory-2)', border: '1px solid var(--line)',
+          }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>
+              <Icon name="flag" size={10}/> Fin
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>
+              {formatRelationDate(r.endDate)}
+            </div>
+          </div>
+        </div>
+
+        {/* Récompense + délai */}
+        <div className="row between center" style={{
+          padding: '14px 16px', borderRadius: 10,
+          background: 'var(--paper)', border: '1px solid var(--line)',
+          flexWrap: 'wrap', gap: 12,
+        }}>
+          <div>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>Récompense</div>
+            <div className="serif tnum" style={{ fontSize: 24, color: 'var(--accent)' }}>
+              {r.reward.toFixed(2).replace('.', ',')} €
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>
+              <Icon name="bolt" size={10}/> Vous avez encore
+            </div>
+            <div className="mono" style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{r.timer}</div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+          {status === 'pending' && (
+            <>
+              <button onClick={onRefuse} className="btn btn-ghost btn-sm">Refuser</button>
+              <button onClick={onAccept} className="btn btn-primary btn-sm">
+                <Icon name="check" size={12} stroke={2.25}/> Accepter
+              </button>
+            </>
+          )}
+          {status !== 'pending' && (
+            <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
+          )}
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

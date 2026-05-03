@@ -374,9 +374,33 @@ const VERIF_LEVELS = [
 
 const KW_SUGGESTIONS = ['véhicule','immobilier','retraite','sport','artisan','nutrition','coaching','BTP','épargne','assurance','crédit','jardinage','animaux','voyages','informatique'];
 
-const WIZ_STEPS = ['Objectif','Données','Ciblage','Budget','Mots-clés','Récap'];
+// 8 étapes : Objectif → Dates → Données → Ciblage → Budget → Mots-clés → Description → Récap.
+// "Dates" et "Description" sont les deux étapes ajoutées récemment.
+const WIZ_STEPS = ['Objectif','Dates','Données','Ciblage','Budget','Mots-clés','Description','Récap'];
+const WIZ_TOTAL = WIZ_STEPS.length;
+const WIZ_STEP_RECAP = WIZ_TOTAL; // dernière étape
+
+const BRIEF_MAX_LENGTH = 50;
+const BRIEF_PLACEHOLDER = "Ex : offre de remise de 10% les 10 premiers clients du jour…";
+
+// Pré-remplissage des dates : démarrage demain, fin par défaut +7 jours.
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const isoPlusDays = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 const fmtEur = (v) => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v);
+
+const fmtDateLong = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  }).format(d);
+};
 
 function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [step, setStep] = useState(1);
@@ -400,6 +424,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
+  // Étape 2 : dates de lancement / fin de campagne
+  const [startDate, setStartDate] = useState(isoPlusDays(1));
+  const [endDate, setEndDate] = useState(isoPlusDays(8));
+  const datesValid = startDate && endDate && startDate <= endDate;
+  // Étape 7 : brief / description (50 caractères max)
+  const [brief, setBrief] = useState('');
+  const briefValid = brief.trim().length > 0 && brief.length <= BRIEF_MAX_LENGTH;
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
   const allowedTiers = obj?.allowedTiers || [1,2,3,4,5];
@@ -450,8 +481,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   };
 
   const stepperBar = (
-    <div className="card" style={{ padding: 4 }}>
-      <div className="row" style={{ padding: 8 }}>
+    <div className="card wizard-stepper" style={{ padding: 4 }}>
+      <div className="row wizard-stepper-row" style={{ padding: 8 }}>
         {WIZ_STEPS.map((s, i) => {
           const idx = i + 1;
           const isDone = idx < step;
@@ -537,6 +568,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
 
       <div className="card" style={{ padding: 32 }}>
 
+        {/* Étape 1 — Objectif */}
         {step === 1 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quel est l'objectif de votre campagne ?</div>
@@ -590,7 +622,73 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
+        {/* Étape 2 — Dates de lancement / fin (NOUVEAU) */}
         {step === 2 && (
+          <div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quand votre campagne sera-t-elle diffusée ?</div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>
+              Choisissez la date de lancement et la date de fin. Ces deux dates seront affichées
+              aux prospects dans le détail de votre offre.
+            </div>
+            <div className="wizard-dates-grid" style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 22
+            }}>
+              <div>
+                <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
+                  <Icon name="calendar" size={11}/> Date de lancement
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  value={startDate}
+                  min={todayIso()}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setStartDate(v);
+                    if (v && endDate && v > endDate) setEndDate(v);
+                  }}
+                  style={{ width: '100%', fontSize: 14, padding: '10px 12px' }}
+                />
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  {startDate ? fmtDateLong(startDate) : 'Sélectionnez une date'}
+                </div>
+              </div>
+              <div>
+                <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
+                  <Icon name="flag" size={11}/> Date de fin
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  value={endDate}
+                  min={startDate || todayIso()}
+                  onChange={e => setEndDate(e.target.value)}
+                  style={{ width: '100%', fontSize: 14, padding: '10px 12px' }}
+                />
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  {endDate ? fmtDateLong(endDate) : 'Sélectionnez une date'}
+                </div>
+              </div>
+            </div>
+            {!datesValid && (
+              <div className="alert-block" style={{
+                padding: '12px 14px', borderRadius: 10,
+                background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+                display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 13,
+              }}>
+                <Icon name="alert" size={14}/>
+                <span>La date de fin doit être postérieure ou égale à la date de lancement.</span>
+              </div>
+            )}
+            <div className="muted" style={{ fontSize: 12, marginTop: 16, lineHeight: 1.55 }}>
+              Une campagne reste active pendant 7 jours par défaut. Vous pouvez prolonger une seule
+              fois de 7 jours supplémentaires (10 € HT) depuis la fiche campagne avant expiration.
+            </div>
+          </div>
+        )}
+
+        {/* Étape 3 — Données (anciennement étape 2) */}
+        {step === 3 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quelles données souhaitez-vous obtenir ?</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 18 }}>Sélectionnez un ou plusieurs paliers parmi ceux autorisés pour cette finalité.</div>
@@ -692,7 +790,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
-        {step === 3 && (
+        {/* Étape 4 — Ciblage (anciennement étape 3) */}
+        {step === 4 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Définissez votre ciblage</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Zone géographique, âge et niveau de vérification des prospects.</div>
@@ -749,7 +848,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
-        {step === 4 && (
+        {/* Étape 5 — Budget (anciennement étape 4) */}
+        {step === 5 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Définissez votre budget</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Ajustez le nombre de contacts et la durée de la campagne.</div>
@@ -808,7 +908,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
-        {step === 5 && (
+        {/* Étape 6 — Mots-clés (anciennement étape 5) */}
+        {step === 6 && (
           <div>
             <div className="row center gap-3" style={{ marginBottom: 6 }}>
               <div className="serif" style={{ fontSize: 22 }}>Filtrage par mots-clés</div>
@@ -943,7 +1044,66 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
-        {step === 6 && (
+        {/* Étape 7 — Description / brief de campagne (NOUVEAU, 50 caractères max) */}
+        {step === 7 && (
+          <div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Décrivez votre offre en quelques mots</div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 18, lineHeight: 1.55 }}>
+              Rédigez un message court et percutant qui sera affiché aux prospects dans le détail
+              de votre campagne. Limité à <strong>{BRIEF_MAX_LENGTH} caractères</strong>.
+            </div>
+            <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
+              Le mot du professionnel
+            </label>
+            <textarea
+              className="input"
+              value={brief}
+              onChange={e => setBrief(e.target.value.slice(0, BRIEF_MAX_LENGTH))}
+              placeholder={BRIEF_PLACEHOLDER}
+              maxLength={BRIEF_MAX_LENGTH}
+              rows={3}
+              style={{
+                width: '100%', fontSize: 14, padding: '12px 14px',
+                resize: 'vertical', minHeight: 80, lineHeight: 1.5,
+                fontFamily: 'var(--sans)',
+              }}
+            />
+            <div className="row between" style={{ marginTop: 8, alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="muted" style={{ fontSize: 12 }}>
+                Conseil : un appel à l'action ou une remise concrète améliorent fortement le taux d'acceptation.
+              </div>
+              <div className="mono tnum" style={{
+                fontSize: 12,
+                color: brief.length >= BRIEF_MAX_LENGTH ? 'var(--danger)' : 'var(--ink-4)',
+                fontWeight: brief.length >= BRIEF_MAX_LENGTH ? 600 : 400,
+              }}>
+                {brief.length} / {BRIEF_MAX_LENGTH}
+              </div>
+            </div>
+
+            {/* Aperçu live tel qu'il sera affiché côté prospect */}
+            <div style={{ marginTop: 22 }}>
+              <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
+                Aperçu côté prospect
+              </label>
+              <div style={{
+                padding: 14, borderRadius: 10,
+                background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+                border: '1px solid color-mix(in oklab, var(--accent) 24%, var(--line))',
+              }}>
+                <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>
+                  Le mot du professionnel
+                </div>
+                <div style={{ fontSize: 14, color: brief ? 'var(--ink)' : 'var(--ink-5)', lineHeight: 1.5, fontStyle: brief ? 'italic' : 'italic' }}>
+                  « {brief || BRIEF_PLACEHOLDER} »
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Étape 8 — Récap (anciennement étape 6) */}
+        {step === 8 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Récapitulatif de votre campagne</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Vérifiez tous les paramètres avant de lancer.</div>
@@ -954,6 +1114,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               {[
                 ['Objectif', obj?.name || '—'],
                 ['Sous-types', obj ? Array.from(selectedSubs).map(sid => obj.sub.find(s => s.id === sid)?.name).filter(Boolean).join(', ') || '—' : '—'],
+                ['Date de lancement', fmtDateLong(startDate)],
+                ['Date de fin', fmtDateLong(endDate)],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
                 ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
                 ["Tranches d'âge", Array.from(ages).join(', ')],
@@ -961,6 +1123,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 ['Mode', poolMode === 'pool' ? 'BUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
                 ['Durée', days + ' jours'],
+                ['Le mot du pro', brief ? '« ' + brief + ' »' : '—'],
               ].map(([l, v], i) => (
                 <div key={i} className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', gap: 16, alignItems: 'flex-start' }}>
                   <span className="muted" style={{ fontSize: 12 }}>{l}</span>
@@ -1045,12 +1208,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         <button className="btn btn-ghost" onClick={() => step > 1 ? setStep(step - 1) : onDone()}>
           <Icon name="arrowLeft" size={14}/> {step > 1 ? 'Retour' : 'Annuler'}
         </button>
-        {step < 6 && (
+        {step < WIZ_STEP_RECAP && (
           <button className="btn btn-primary"
             onClick={() => setStep(step + 1)}
             disabled={
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
-              (step === 2 && !selectedTiers.size)
+              (step === 2 && !datesValid) ||
+              (step === 3 && !selectedTiers.size) ||
+              (step === 7 && !briefValid)
             }>
             Continuer <Icon name="arrow" size={14}/>
           </button>

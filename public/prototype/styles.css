@@ -548,6 +548,41 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     gap: 14px !important;
     text-align: center !important;
   }
+
+  /* Étape 2 — Dates de lancement / fin : 2 colonnes → 1 colonne sur mobile.
+     Les inputs date prennent toute la largeur pour tenir sur l'écran. */
+  .wizard-dates-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  /* Bouton + sur les cards de mises en relation : taille tactile confortable. */
+  .relation-detail-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* Stepper du wizard "Créer une campagne" — avec 8 étapes le bandeau ne tient
+     plus sur mobile. On le rend scrollable horizontalement sans flex:1 forcé. */
+  .wizard-stepper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wizard-stepper-row {
+    flex-wrap: nowrap !important;
+    min-width: max-content;
+  }
+  .wizard-stepper-row > div {
+    flex: 0 0 auto !important;
+    padding: 8px 12px !important;
+  }
+  .wizard-stepper-row > div > span:last-child {
+    white-space: nowrap;
+  }
+
+  /* Bloc dates dans la modale "Détails de l'offre" côté prospect : 1 colonne. */
+  .relation-detail-dates {
+    grid-template-columns: 1fr !important;
+  }
   .wizard-cost-right {
     text-align: center !important;
   }
