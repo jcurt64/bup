@@ -705,6 +705,54 @@ input[type=range]::-moz-range-thumb{
 }
 .success-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6}
 
+/* Bandeau d'avertissement sur l'email — utilisé à l'étape 1 ET dans la
+   card de succès pour rappeler l'importance de réutiliser la même adresse
+   au moment du lancement (sinon perte des avantages prospect prioritaire). */
+.email-notice{
+  margin-top:10px;
+  padding:12px 14px;
+  border-radius:10px;
+  background:linear-gradient(120deg,#FEF3C7 0%,#FDE68A 100%);
+  border:1px solid #F59E0B;
+  color:#78350F;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  font-size:13px;
+  line-height:1.5;
+  text-align:left;
+}
+.email-notice-icon{
+  flex-shrink:0;
+  width:24px;height:24px;border-radius:50%;
+  background:#B45309;color:#FFF;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;
+}
+.email-notice strong{color:#78350F;font-weight:700}
+
+/* Confettis : pluie de pastilles colorées qui retombent depuis le haut
+   pendant ~4s lors de la confirmation. Position fixed sur la viewport. */
+.confetti-layer{
+  position:fixed;inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  z-index:9999;
+}
+.confetti-piece{
+  position:absolute;top:-20px;
+  width:10px;height:14px;
+  opacity:0;
+  will-change:transform,opacity;
+  animation:confetti-fall var(--duration,3.5s) cubic-bezier(.2,.65,.5,1) forwards;
+  animation-delay:var(--delay,0s);
+}
+@keyframes confetti-fall{
+  0%{transform:translate3d(0,-20px,0) rotate(0deg);opacity:0}
+  10%{opacity:1}
+  100%{transform:translate3d(var(--drift,0px),105vh,0) rotate(var(--spin,720deg));opacity:1}
+}
+
 
 /* ═══════════════════════════════════════════════════════
    RESPONSIVE — Tablette (≤ 900px) & Mobile (≤ 600px)
@@ -997,11 +1045,11 @@ input[type=range]::-moz-range-thumb{
     <!-- Live counters -->
     <div class="live-counter fade-up d3">
       <div class="lc-item">
-        <div class="lc-val" id="ctr-inscrits">1 247</div>
+        <div class="lc-val" id="ctr-inscrits">0</div>
         <div class="lc-label">Inscrits</div>
       </div>
       <div class="lc-item">
-        <div class="lc-val" id="ctr-villes">23</div>
+        <div class="lc-val" id="ctr-villes">0</div>
         <div class="lc-label">Villes</div>
       </div>
       <div class="lc-item">
@@ -1031,9 +1079,9 @@ input[type=range]::-moz-range-thumb{
       <div class="wl-progress">
         <div class="wl-progress-hd">
           <span class="wl-progress-label">Places prioritaires</span>
-          <span class="wl-progress-val" id="progress-val">1 247 / 2 000</span>
+          <span class="wl-progress-val" id="progress-val">0 / 2 000</span>
         </div>
-        <div class="wl-bar"><div class="wl-bar-fill" id="wl-bar-fill" style="width:62%"></div></div>
+        <div class="wl-bar"><div class="wl-bar-fill" id="wl-bar-fill" style="width:0%"></div></div>
       </div>
 
       <!-- Step indicator -->
@@ -1059,6 +1107,12 @@ input[type=range]::-moz-range-thumb{
           <div class="form-field full">
             <label class="field-label" for="inp-email">Adresse e-mail</label>
             <input class="field-input" id="inp-email" type="email" placeholder="marie.dupont@email.fr" required autocomplete="email">
+            <div class="email-notice" role="note">
+              <span class="email-notice-icon" aria-hidden="true">!</span>
+              <div>
+                <strong>Important :</strong> cette adresse devra être <strong>la même</strong> que celle que vous utiliserez pour la création de votre compte lors du lancement officiel, afin de conserver vos avantages de prospect prioritaire.
+              </div>
+            </div>
           </div>
           <div class="form-field full">
             <label class="field-label" for="inp-ville">Votre ville</label>
@@ -1119,12 +1173,12 @@ input[type=range]::-moz-range-thumb{
           <div class="result-paliers" id="result-paliers"></div>
         </div>
 
-        <!-- Rank -->
+        <!-- Rank (preview avant inscription) -->
         <div class="rank-card">
-          <div class="rank-num" id="rank-num">#1 248</div>
+          <div class="rank-num" id="rank-num">#—</div>
           <div>
-            <div class="rank-label">Votre rang sur la liste d'attente</div>
-            <div class="rank-sub">Parrainez des amis pour monter dans le classement</div>
+            <div class="rank-label" id="rank-label">Votre rang prévu sur la liste d'attente</div>
+            <div class="rank-sub">Confirmez pour réserver votre place — ce numéro est figé à ce moment-là.</div>
           </div>
         </div>
 
@@ -1143,10 +1197,16 @@ input[type=range]::-moz-range-thumb{
       <!-- SUCCESS STATE -->
       <div class="success-state" id="success-state" role="alert">
         <div class="success-icon" aria-hidden="true">✓</div>
-        <div class="success-title">Bienvenue dans BUUPP !</div>
-        <div class="success-sub">Votre place est réservée. Nous vous enverrons un e-mail de confirmation et vous préviendrons en priorité le jour du lancement.</div>
+        <div class="success-title" id="success-title">Félicitations, votre place a bien été réservée !</div>
+        <div class="success-sub" id="success-sub">Vous figurez désormais sur la liste d'attente prioritaire BUUPP. Nous vous enverrons un e-mail de confirmation et vous préviendrons en priorité le jour du lancement.</div>
+        <div class="email-notice" style="margin-bottom:20px">
+          <span class="email-notice-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>À retenir :</strong> lors du lancement officiel, créez votre compte avec <strong>la même adresse e-mail</strong> que celle utilisée ici, sans quoi vos avantages de prospect prioritaire seront perdus.
+          </div>
+        </div>
         <div class="rank-card" style="margin-bottom:20px">
-          <div class="rank-num">#1 248</div>
+          <div class="rank-num" id="rank-num-success">#—</div>
           <div>
             <div class="rank-label">Votre rang actuel</div>
             <div class="rank-sub">Partagez pour monter dans le classement</div>
@@ -1279,7 +1339,7 @@ input[type=range]::-moz-range-thumb{
 
   <!-- SOCIAL STRIP -->
   <div class="social-strip fade-up">
-    <div class="ss-item"><div class="ss-val">1 247</div><div class="ss-label">Prospects inscrits</div></div>
+    <div class="ss-item"><div class="ss-val" id="ss-inscrits">0</div><div class="ss-label">Prospects inscrits</div></div>
     <div class="ss-item"><div class="ss-val">68%</div><div class="ss-label">Taux d'acceptation moyen</div></div>
     <div class="ss-item"><div class="ss-val">5€</div><div class="ss-label">Bonus de bienvenue</div></div>
     <div class="ss-item"><div class="ss-val">0€</div><div class="ss-label">Toujours gratuit pour vous</div></div>
@@ -1344,20 +1404,105 @@ setInterval(updateCountdown, 60000);
 
 /* ── Animated counter ───────────────────────────────────────────────── */
 function animateCount(el, target, prefix='', suffix=''){
-  let start = 0;
-  const dur = 1800;
+  if(!el) return;
+  // Animation depuis la valeur courante (parsée), pas 0 → mise à jour fluide
+  // après chaque inscription sans repartir de zéro.
+  const startVal = parseInt(String(el.textContent).replace(/\D/g, ''), 10) || 0;
+  if(startVal === target){
+    el.textContent = prefix + target.toLocaleString('fr-FR') + suffix;
+    return;
+  }
+  let startTs = 0;
+  const dur = 1200;
+  const delta = target - startVal;
   const step = timestamp => {
-    if(!start) start = timestamp;
-    const p = Math.min((timestamp - start)/dur, 1);
+    if(!startTs) startTs = timestamp;
+    const p = Math.min((timestamp - startTs)/dur, 1);
     const ease = 1 - Math.pow(1-p, 3);
-    el.textContent = prefix + Math.floor(ease*target).toLocaleString('fr-FR') + suffix;
+    el.textContent = prefix + Math.round(startVal + delta*ease).toLocaleString('fr-FR') + suffix;
     if(p < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
 }
+
+/* ── Confettis (déclenchés à la confirmation d'inscription) ──────────── */
+function launchConfetti({ count = 140, duration = 3800 } = {}){
+  const palette = ['#4596EC', '#0F172A', '#F2D189', '#10B981', '#F59E0B', '#EF4444', '#A78BFA'];
+  const layer = document.createElement('div');
+  layer.className = 'confetti-layer';
+  layer.setAttribute('aria-hidden', 'true');
+
+  const frag = document.createDocumentFragment();
+  for(let i = 0; i < count; i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const startX = Math.random() * 100;        // % horizontal
+    const drift  = (Math.random() - 0.5) * 320; // dérive horizontale en px
+    const spin   = (Math.random() * 8 + 2) * 360;
+    const size   = 6 + Math.random() * 8;
+    const dur    = 2.6 + Math.random() * 2.4;
+    const delay  = Math.random() * 0.6;
+    p.style.left = startX + '%';
+    p.style.width = size + 'px';
+    p.style.height = (size * 1.4) + 'px';
+    p.style.background = palette[Math.floor(Math.random() * palette.length)];
+    p.style.borderRadius = Math.random() < 0.3 ? '50%' : '2px';
+    p.style.setProperty('--drift', drift + 'px');
+    p.style.setProperty('--spin', spin + 'deg');
+    p.style.setProperty('--duration', dur + 's');
+    p.style.setProperty('--delay', delay + 's');
+    frag.appendChild(p);
+  }
+  layer.appendChild(frag);
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), duration + 800);
+}
+
+/* ── Stats publiques (Supabase via /api/waitlist/stats) ─────────────── */
+const WAITLIST_TARGET = 2000; // capacité places prioritaires
+
+function applyStats(stats){
+  const total = Number(stats?.total ?? 0);
+  const villes = Number(stats?.villes ?? 0);
+  animateCount(document.getElementById('ctr-inscrits'), total);
+  animateCount(document.getElementById('ctr-villes'), villes);
+  const ssEl = document.getElementById('ss-inscrits');
+  if(ssEl) animateCount(ssEl, total);
+  const progEl = document.getElementById('progress-val');
+  if(progEl) progEl.textContent = total.toLocaleString('fr-FR') + ' / ' + WAITLIST_TARGET.toLocaleString('fr-FR');
+  const barEl = document.getElementById('wl-bar-fill');
+  if(barEl) barEl.style.width = Math.min(100, (total / WAITLIST_TARGET) * 100).toFixed(1) + '%';
+}
+
+async function loadStats(){
+  try {
+    const r = await fetch('/api/waitlist/stats', { cache: 'no-store' });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch(err){
+    console.warn('[waitlist] stats fetch failed:', err);
+    return null;
+  }
+}
+
+// Met à jour la card "Votre rang prévu" affichée à l'étape 3 avant la
+// confirmation. La position estimée = nombre actuel d'inscrits + 1, puisque
+// la confirmation immédiate placerait l'utilisateur en queue de liste.
+async function refreshRankPreview(){
+  const stats = await loadStats();
+  if(stats) applyStats(stats);
+  const previewRank = (stats?.total ?? 0) + 1;
+  const el = document.getElementById('rank-num');
+  if(el) el.textContent = '#' + previewRank.toLocaleString('fr-FR');
+}
+
 window.addEventListener('load', () => {
-  setTimeout(()=>animateCount(document.getElementById('ctr-inscrits'), 1247), 500);
-  setTimeout(()=>animateCount(document.getElementById('ctr-villes'), 23), 700);
+  // Petit délai pour laisser les animations d'entrée s'exécuter avant de
+  // déclencher l'animation des compteurs.
+  setTimeout(async () => {
+    const stats = await loadStats();
+    if(stats) applyStats(stats);
+  }, 400);
 });
 
 /* ── Waitlist steps ─────────────────────────────────────────────────── */
@@ -1400,6 +1545,9 @@ function goStep3(){
   document.getElementById('ref-link').textContent = 'buupp.fr/ref/' + code;
 
   setStep(3);
+  // Récupère les stats fraîches au moment d'afficher l'étape 3 → calcule
+  // le rang prévu (= nombre d'inscrits + 1) en temps réel.
+  refreshRankPreview();
 }
 
 function openSignupWarning(){
@@ -1410,15 +1558,59 @@ function closeSignupWarning(){
   document.getElementById('signup-warning-overlay').classList.remove('show');
 }
 
-function confirmSignup(){
-  document.getElementById('step-3').classList.remove('active');
-  document.getElementById('step-indicator').style.display = 'none';
-  document.getElementById('success-state').classList.add('active');
-  // Update counter
-  const el = document.getElementById('ctr-inscrits');
-  el.textContent = '1 248';
-  document.getElementById('progress-val').textContent = '1 248 / 2 000';
-  document.getElementById('wl-bar-fill').style.width = '62.4%';
+async function confirmSignup(){
+  // Désactive le bouton de confirmation et affiche un état de chargement
+  // pour éviter les double-soumissions pendant l'appel API.
+  const btns = document.querySelectorAll('#step-3 button');
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; b.style.cursor = 'wait'; });
+
+  try {
+    const r = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prenom: userData.prenom,
+        nom: userData.nom,
+        email: userData.email,
+        ville: userData.ville,
+        interests: Array.from(selectedInterests),
+      }),
+    });
+    const json = await r.json().catch(() => ({}));
+    if(!r.ok && r.status !== 200 && r.status !== 201){
+      throw new Error(json?.error || ('HTTP ' + r.status));
+    }
+
+    // Succès → bascule en état de confirmation et anime les compteurs vers
+    // les nouvelles valeurs renvoyées par le serveur.
+    document.getElementById('step-3').classList.remove('active');
+    document.getElementById('step-indicator').style.display = 'none';
+    document.getElementById('success-state').classList.add('active');
+
+    if(json.alreadyRegistered){
+      const successHd = document.getElementById('success-title');
+      if(successHd) successHd.textContent = 'Vous étiez déjà inscrit !';
+      const successSub = document.getElementById('success-sub');
+      if(successSub) successSub.textContent = "Vous figurez déjà sur la liste d'attente prioritaire BUUPP. Pas de double inscription possible — nous vous préviendrons en priorité le jour du lancement.";
+    } else {
+      // Effet confettis uniquement pour une vraie nouvelle inscription.
+      launchConfetti({ count: 160, duration: 4200 });
+    }
+    if(json.stats) applyStats(json.stats);
+    else {
+      const fresh = await loadStats();
+      if(fresh) applyStats(fresh);
+    }
+    // Affiche le vrai rang renvoyé par l'API dans la card de succès.
+    const rankSuccessEl = document.getElementById('rank-num-success');
+    if(rankSuccessEl && typeof json.rank === 'number'){
+      rankSuccessEl.textContent = '#' + json.rank.toLocaleString('fr-FR');
+    }
+  } catch(err){
+    console.error('[waitlist] signup failed:', err);
+    alert("Impossible d'enregistrer votre inscription : " + (err.message || 'erreur réseau') + '\n\nMerci de réessayer dans un instant.');
+    btns.forEach(b => { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
+  }
 }
 
 function setStep(n){

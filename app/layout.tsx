@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 
@@ -44,12 +45,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={frFR}>
       <html
         lang="fr"
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
       >
-        <body data-palette="indigo">
+        <body data-palette="indigo" suppressHydrationWarning>
           {children}
           <RouteNav />
         </body>
