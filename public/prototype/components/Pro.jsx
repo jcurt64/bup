@@ -131,30 +131,32 @@ function Overview({ onCreate }) {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="row between" style={{ marginBottom: 20 }}>
+        <div className="row between historique-header" style={{ marginBottom: 20 }}>
           <div className="serif" style={{ fontSize: 22 }}>Dernières acceptations</div>
-          <button className="btn btn-ghost btn-sm">Voir tout <Icon name="arrow" size={12}/></button>
+          <button className="btn btn-ghost btn-sm btn-voir-tout">Voir tout <Icon name="arrow" size={12}/></button>
         </div>
-        <table className="tbl">
-          <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
-          <tbody>
-            {[
-              ['Marie L.', 'Bilan postural — Lyon', 2, 742, 'il y a 2 h', '4,20'],
-              ['Antoine R.', 'Devis aménagement', 3, 688, 'il y a 6 h', '6,80'],
-              ['Solène P.', 'Bilan postural — Lyon', 2, 812, 'hier', '4,20'],
-              ['Karim B.', 'Devis aménagement', 3, 655, 'hier', '6,80'],
-            ].map((r, i) => (
-              <tr key={i}>
-                <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                <td>{r[1]}</td>
-                <td><span className="chip">Palier {r[2]}</span></td>
-                <td><span className="mono tnum">{r[3]}</span></td>
-                <td className="muted mono">{r[4]}</td>
-                <td className="mono tnum" style={{ textAlign: 'right' }}>−{r[5]} €</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <tbody>
+              {[
+                ['Marie L.', 'Bilan postural — Lyon', 2, 742, 'il y a 2 h', '4,20'],
+                ['Antoine R.', 'Devis aménagement', 3, 688, 'il y a 6 h', '6,80'],
+                ['Solène P.', 'Bilan postural — Lyon', 2, 812, 'hier', '4,20'],
+                ['Karim B.', 'Devis aménagement', 3, 655, 'hier', '6,80'],
+              ].map((r, i) => (
+                <tr key={i}>
+                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
+                  <td>{r[1]}</td>
+                  <td><span className="chip">Palier {r[2]}</span></td>
+                  <td><span className="mono tnum">{r[3]}</span></td>
+                  <td className="muted mono">{r[4]}</td>
+                  <td className="mono tnum" style={{ textAlign: 'right' }}>−{r[5]} €</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1271,45 +1273,47 @@ function Contacts() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
-        <table className="tbl">
-          <thead><tr>
-            <th>Prospect</th><th>Score</th><th>Campagne</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
-          </tr></thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <div className="muted" style={{ fontSize: 13 }}>Aucun prospect ne correspond aux filtres activés.</div>
-              </td></tr>
-            )}
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                <td className="mono tnum">{r[1]}</td>
-                <td className="muted">{r[2]}</td>
-                <td><span className="chip">P{r[3]}</span></td>
-                <td className="mono" style={{ fontSize: 12 }}>{r[4]}</td>
-                <td className="mono" style={{ fontSize: 12 }}>{r[5]}</td>
-                <td className="muted mono" style={{ fontSize: 12 }}>{r[6]}</td>
-                <td>
-                  {r[7] === 'valide' ? <span className="chip chip-good">✓ Valide</span>
-                    : r[7] === 'difficile' ? <span className="chip chip-warn">Difficile</span>
-                    : <div className="row gap-1">
-                      <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
-                      <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
-                      <button className="chip" style={{ cursor:'pointer' }}>Invalide</button>
-                    </div>}
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
-                    <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="phone" size={12}/></button>
-                    <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="email" size={12}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="tbl-scroll tbl-scroll-flush">
+          <table className="tbl">
+            <thead><tr>
+              <th>Prospect</th><th>Score</th><th>Campagne</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
+            </tr></thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <div className="muted" style={{ fontSize: 13 }}>Aucun prospect ne correspond aux filtres activés.</div>
+                </td></tr>
+              )}
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
+                  <td className="mono tnum">{r[1]}</td>
+                  <td className="muted">{r[2]}</td>
+                  <td><span className="chip">P{r[3]}</span></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{r[4]}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{r[5]}</td>
+                  <td className="muted mono" style={{ fontSize: 12 }}>{r[6]}</td>
+                  <td>
+                    {r[7] === 'valide' ? <span className="chip chip-good">✓ Valide</span>
+                      : r[7] === 'difficile' ? <span className="chip chip-warn">Difficile</span>
+                      : <div className="row gap-1">
+                        <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
+                        <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
+                        <button className="chip" style={{ cursor:'pointer' }}>Invalide</button>
+                      </div>}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="phone" size={12}/></button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="email" size={12}/></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div className="card" style={{ padding: 16, background: 'var(--ivory-2)', borderStyle: 'dashed' }}>
         <div className="row center gap-3">
@@ -1346,7 +1350,7 @@ function Analytics() {
             </div>
           ))}
         </div>
-        <div className="card" style={{ padding: 28 }}>
+        <div className="card analytics-creneaux" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Meilleurs créneaux</div>
           <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>Heatmap du taux d'acceptation heure × jour</div>
           <Heatmap/>
@@ -1437,7 +1441,7 @@ function Heatmap() {
     return Math.min(1, peak + (Math.sin(d * 7 + h * 3) + 1) * 0.15);
   }));
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '18px repeat(7, 1fr)', gap: 4 }}>
+    <div className="heatmap-grid" style={{ display: 'grid', gridTemplateColumns: '18px repeat(7, 1fr)', gap: 4 }}>
       <div/>
       {hours.map(h => <div key={h} className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center' }}>{h}h</div>)}
       {days.map((d, di) => (
@@ -1480,25 +1484,27 @@ function Facturation() {
         ))}
       </div>
       <div className="card" style={{ padding: 28 }}>
-        <div className="row between" style={{ marginBottom: 18 }}>
+        <div className="row between historique-header" style={{ marginBottom: 18 }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique des factures</div>
-          <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Tout télécharger</button>
+          <button className="btn btn-ghost btn-sm btn-telecharger"><Icon name="download" size={12}/> Tout télécharger</button>
         </div>
-        <table className="tbl">
-          <thead><tr><th>Numéro</th><th>Date</th><th>Libellé</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th><th></th></tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="mono" style={{ fontSize: 12 }}>{r[0]}</td>
-                <td className="muted">{r[1]}</td>
-                <td>{r[2]}</td>
-                <td><span className="chip chip-good">✓ {r[4]}</span></td>
-                <td className="mono tnum" style={{ textAlign: 'right' }}>{r[3]} €</td>
-                <td style={{ textAlign: 'right' }}><button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> PDF</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead><tr><th>Numéro</th><th>Date</th><th>Libellé</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th><th></th></tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="mono" style={{ fontSize: 12 }}>{r[0]}</td>
+                  <td className="muted">{r[1]}</td>
+                  <td>{r[2]}</td>
+                  <td><span className="chip chip-good">✓ {r[4]}</span></td>
+                  <td className="mono tnum" style={{ textAlign: 'right' }}>{r[3]} €</td>
+                  <td style={{ textAlign: 'right' }}><button className="btn btn-ghost btn-sm btn-telecharger"><Icon name="download" size={12}/> PDF</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1958,7 +1964,7 @@ function MesInformations({ info, setInfo }) {
       {/* Card: company info */}
       <div className="card" style={{ padding: 24, opacity: allEmpty ? 0.65 : 1 }}>
         <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div className="row center gap-4">
+          <div className="row pro-info-card-head" style={{ alignItems: 'center', gap: 14, minWidth: 0 }}>
             <div style={{
               width: 40, height: 40, borderRadius: 10,
               background: 'var(--ivory-2)', color: 'var(--ink-2)',
@@ -1966,13 +1972,15 @@ function MesInformations({ info, setInfo }) {
             }}>
               <Icon name="briefcase" size={18}/>
             </div>
-            <div>
-              <div className="row center gap-3">
-                <div className="serif" style={{ fontSize: 20 }}>Informations société</div>
-                <span className="chip">Profil pro</span>
-                {allEmpty && <span className="chip chip-warn">Vide</span>}
+            <div style={{ minWidth: 0 }}>
+              <div className="pro-info-title-row" style={{
+                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', rowGap: 6
+              }}>
+                <div className="serif" style={{ fontSize: 20, lineHeight: 1.1 }}>Informations société</div>
+                <span className="chip" style={{ alignSelf: 'center' }}>Profil pro</span>
+                {allEmpty && <span className="chip chip-warn" style={{ alignSelf: 'center' }}>Vide</span>}
               </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Raison sociale, adresse, ville et SIREN (facultatif).
               </div>
             </div>

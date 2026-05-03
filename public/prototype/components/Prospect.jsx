@@ -1080,6 +1080,18 @@ function Relations() {
     ['05 avr.', 'Assurance Leclerc', 2, 'Refusée', '—', '—'],
     ['01 avr.', 'Nutritionniste Lille', 3, 'Acceptée', 'Crédité', '+5,60'],
   ];
+  // Filtre cyclique sur l'historique : toutes → acceptées → refusées → toutes
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const HISTORY_FILTERS = [
+    { key: 'all',      label: 'Toutes' },
+    { key: 'accepted', label: 'Acceptées' },
+    { key: 'refused',  label: 'Refusées' },
+  ];
+  const filteredHistory = history.filter(h =>
+    historyFilter === 'all' ||
+    (historyFilter === 'accepted' && h[3] === 'Acceptée') ||
+    (historyFilter === 'refused'  && h[3] === 'Refusée')
+  );
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Vous avez 72 heures pour accepter ou refuser chaque demande. Sans réponse, elle expire."/>
@@ -1209,27 +1221,53 @@ function Relations() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="row between" style={{ marginBottom: 20 }}>
+        <div className="row between historique-header" style={{ marginBottom: 20, alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique</div>
-          <div className="row gap-2">
-            <button className="btn btn-sm btn-ghost"><Icon name="filter" size={12}/> Filtrer</button>
+          <div className="row gap-2 historique-filters" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="muted" style={{ fontSize: 11 }}>
+              <Icon name="filter" size={11}/> Filtrer
+            </span>
+            {HISTORY_FILTERS.map(f => {
+              const active = historyFilter === f.key;
+              return (
+                <button key={f.key}
+                  onClick={() => setHistoryFilter(f.key)}
+                  className="chip"
+                  style={{
+                    cursor: 'pointer',
+                    background: active ? 'var(--ink)' : 'var(--ivory-2)',
+                    color: active ? 'var(--paper)' : 'var(--ink-3)',
+                    border: 0,
+                    fontWeight: active ? 600 : 400,
+                  }}>
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
         </div>
-        <table className="tbl">
-          <thead><tr><th>Date</th><th>Professionnel</th><th>Palier</th><th>Décision</th><th>Statut</th><th style={{textAlign:'right'}}>Gain</th></tr></thead>
-          <tbody>
-            {history.map((h, i) => (
-              <tr key={i}>
-                <td className="mono" style={{ color: 'var(--ink-4)' }}>{h[0]}</td>
-                <td>{h[1]}</td>
-                <td><span className="chip">Palier {h[2]}</span></td>
-                <td><span className={'chip ' + (h[3] === 'Acceptée' ? 'chip-good' : '')}>{h[3]}</span></td>
-                <td className="muted">{h[4]}</td>
-                <td className="mono tnum" style={{ textAlign: 'right', color: h[5] === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{h[5] === '—' ? '—' : h[5] + ' €'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead><tr><th>Date</th><th>Professionnel</th><th>Palier</th><th>Décision</th><th>Statut</th><th style={{textAlign:'right'}}>Gain</th></tr></thead>
+            <tbody>
+              {filteredHistory.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px 12px' }}>
+                  <span className="muted" style={{ fontSize: 13 }}>Aucune demande {historyFilter === 'accepted' ? 'acceptée' : 'refusée'}.</span>
+                </td></tr>
+              )}
+              {filteredHistory.map((h, i) => (
+                <tr key={i}>
+                  <td className="mono" style={{ color: 'var(--ink-4)' }}>{h[0]}</td>
+                  <td>{h[1]}</td>
+                  <td><span className="chip">Palier {h[2]}</span></td>
+                  <td><span className={'chip ' + (h[3] === 'Acceptée' ? 'chip-good' : '')}>{h[3]}</span></td>
+                  <td className="muted">{h[4]}</td>
+                  <td className="mono tnum" style={{ textAlign: 'right', color: h[5] === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{h[5] === '—' ? '—' : h[5] + ' €'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1590,27 +1628,29 @@ function Parrainage() {
 
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 20 }}>Filleuls actifs</div>
-        <table className="tbl">
-          <thead><tr><th>Nom</th><th>Niveau</th><th>Inscrit le</th><th>Mises en relation</th><th style={{textAlign:'right'}}>Commissions</th></tr></thead>
-          <tbody>
-            {[
-              ['Léa Bertrand', 1, '14 mars', 8, '4,80'],
-              ['Antoine Mercier', 1, '02 mars', 5, '2,40'],
-              ['Julie Caron', 2, '21 fév.', 3, '0,84'],
-              ['Karim Benali', 1, '14 fév.', 12, '7,20'],
-              ['Solène Pires', 2, '08 janv.', 7, '1,96'],
-              ['Théo Moreau', 1, '03 janv.', 4, '2,00'],
-            ].map((r, i) => (
-              <tr key={i}>
-                <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                <td><span className="chip">Niveau {r[1]}</span></td>
-                <td className="muted mono">{r[2]}</td>
-                <td className="mono tnum">{r[3]}</td>
-                <td className="mono tnum" style={{ textAlign: 'right', color: 'var(--good)' }}>+{r[4]} €</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead><tr><th>Nom</th><th>Niveau</th><th>Inscrit le</th><th>Mises en relation</th><th style={{textAlign:'right'}}>Commissions</th></tr></thead>
+            <tbody>
+              {[
+                ['Léa Bertrand', 1, '14 mars', 8, '4,80'],
+                ['Antoine Mercier', 1, '02 mars', 5, '2,40'],
+                ['Julie Caron', 2, '21 fév.', 3, '0,84'],
+                ['Karim Benali', 1, '14 fév.', 12, '7,20'],
+                ['Solène Pires', 2, '08 janv.', 7, '1,96'],
+                ['Théo Moreau', 1, '03 janv.', 4, '2,00'],
+              ].map((r, i) => (
+                <tr key={i}>
+                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
+                  <td><span className="chip">Niveau {r[1]}</span></td>
+                  <td className="muted mono">{r[2]}</td>
+                  <td className="mono tnum">{r[3]}</td>
+                  <td className="mono tnum" style={{ textAlign: 'right', color: 'var(--good)' }}>+{r[4]} €</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

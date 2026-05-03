@@ -379,6 +379,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
+  /* Exception : la heatmap "Meilleurs créneaux" doit conserver sa grille
+     7 colonnes (jours × heures), sinon elle perd tout son sens. La carte
+     parente passe en pleine largeur via la règle générique ; on rend la
+     heatmap elle-même horizontalement scrollable si l'écran est trop étroit. */
+  .dash-shell main .analytics-creneaux {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dash-shell main .heatmap-grid {
+    grid-template-columns: 18px repeat(7, 1fr) !important;
+    gap: 4px !important;
+    min-width: 320px;
+  }
 
   /* Reduce main padding so cards aren't cramped horizontally. */
   .dash-shell main {
@@ -430,7 +443,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
   /* Exporter CSV — réduit padding vertical ET horizontal pour rester compact
      dans la rangée "Historique des mouvements" sur petit écran. */
-  .btn-export-csv {
+  .btn-export-csv,
+  .btn-voir-tout,
+  .btn-telecharger {
     padding: 3px 7px !important;
     font-size: 11px !important;
     flex-shrink: 0 !important;
@@ -448,6 +463,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     -webkit-overflow-scrolling: touch;
     margin: 0 -16px; /* compense le padding de la card pour bord-à-bord */
     padding: 0 16px;
+  }
+  /* Variante quand la card parente a déjà padding: 0 (table edge-to-edge) :
+     pas de marge négative, le scroll horizontal reste collé aux bords. */
+  .tbl-scroll-flush {
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .tbl-scroll .tbl {
     min-width: 540px;
@@ -467,6 +488,23 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     width: 100%;
     flex-wrap: wrap;
     justify-content: stretch;
+  }
+
+  /* Mes informations — l'en-tête de la carte "Informations société" doit
+     rester lisible sur mobile : icône + titre + chip alignés au centre,
+     wrap propre du chip sous le titre si l'espace est trop court. */
+  .pro-info-card-head {
+    width: 100%;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+  .pro-info-card-head > div:last-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .pro-info-title-row .serif {
+    font-size: 18px !important;
+    line-height: 1.2 !important;
   }
   .mes-donnees-card-head > .row.gap-2 > .btn {
     flex: 1 1 calc(50% - 8px);
