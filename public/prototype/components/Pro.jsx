@@ -211,11 +211,11 @@ function Overview({ onCreate }) {
         </div>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition par palier</div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume des 30 derniers jours</div>
-          {tiers.length === 0 && (
+          <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume cumulés depuis l'ouverture</div>
+          {tiers.every(t => t.contacts === 0) && (
             <div className="muted" style={{ fontSize: 13 }}>Aucun contact accepté pour le moment.</div>
           )}
-          {tiers.map((r, i) => (
+          {!tiers.every(t => t.contacts === 0) && tiers.map((r, i) => (
             <div key={i} style={{ padding: '10px 0', borderBottom: i < tiers.length - 1 ? '1px solid var(--line)' : 'none' }}>
               <div className="row between" style={{ marginBottom: 6 }}>
                 <span style={{ fontSize: 13 }}><span className="chip">P{r.tier}</span> {r.label}</span>
