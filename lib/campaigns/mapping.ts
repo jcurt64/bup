@@ -29,10 +29,10 @@ export function objectiveToCampaignType(objectiveId: string): CampaignTypeDb {
 }
 
 const VERIF_ACCEPTABLE: Record<string, VerificationLevelDb[]> = {
-  p0: ["basique", "verifie", "certifie", "confiance"],
-  p1: ["verifie", "certifie", "confiance"],
-  p2: ["certifie", "confiance"],
-  p3: ["confiance"],
+  p0: ["basique", "verifie", "certifie", "confiance", "certifie_confiance"],
+  p1: ["verifie", "certifie", "confiance", "certifie_confiance"],
+  p2: ["certifie", "confiance", "certifie_confiance"],
+  p3: ["confiance", "certifie_confiance"],
 };
 
 export function acceptableVerifLevels(verif: string): VerificationLevelDb[] {
@@ -47,7 +47,8 @@ const TIER_NUM_TO_KEY: Record<number, TierKeyDb> = {
   5: "patrimoine",
 };
 
-export function tierNumsToKeys(nums: number[]): TierKeyDb[] {
+export function tierNumsToKeys(nums: number[] | null | undefined): TierKeyDb[] {
+  if (!nums || nums.length === 0) return [];
   return nums
     .map((n) => TIER_NUM_TO_KEY[n])
     .filter((k): k is TierKeyDb => Boolean(k));
@@ -57,11 +58,12 @@ export function tierNumsToKeys(nums: number[]): TierKeyDb[] {
  * Calcule un préfixe `LIKE` à appliquer sur `prospect_localisation.code_postal`
  * en fonction de la zone choisie par le pro et de son propre code postal.
  *
- * - 'ville'    → préfixe sur les 2 premiers caractères + département (08)
- *                pour rester simple dans cette itération.
+ * - 'ville'    → 2 premiers chiffres du CP du pro (ex. "69%"). Approximation
+ *                département pour cette itération — un vrai rayon 20 km
+ *                (TODO geo) demanderait une lib geocoding ou une table CP→GPS.
  * - 'dept'     → 2 premiers chiffres du CP du pro.
- * - 'region'   → 2 premiers chiffres seulement (le mapping région complet
- *                est out-of-scope ; on traite 'region' comme 'dept' large).
+ * - 'region'   → idem 'dept' pour cette itération (mapping région complet
+ *                out-of-scope).
  * - 'national' → null (pas de filtre).
  */
 export function geoCodePostalPrefix(
@@ -101,8 +103,16 @@ export function ageFromBirthString(s: string | null): number | null {
   if (!s) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!m) return null;
-  const birth = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const birth = new Date(y, mo - 1, d);
   if (isNaN(birth.getTime())) return null;
+  // Guard contre l'overflow silencieux du constructeur Date
+  // (ex. "2001-02-29" devient "2001-03-01"). Rejette les dates invalides.
+  if (birth.getFullYear() !== y || birth.getMonth() !== mo - 1 || birth.getDate() !== d) {
+    return null;
+  }
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
   const md = now.getMonth() - birth.getMonth();
