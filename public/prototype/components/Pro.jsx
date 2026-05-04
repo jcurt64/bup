@@ -397,13 +397,32 @@ function CampaignDurationBanner({ compact }) {
 
 function Campagnes({ onCreate, onDetail }) {
   const [filter, setFilter] = useState('all');
-  const camps = [
-    ['Bilan postural — Lyon', 'active', 300, 218, 42, 'Prise de RDV', '02 avr.', '4,20'],
-    ['Devis aménagement', 'active', 400, 147, 21, 'Prise de contact', '10 avr.', '6,80'],
-    ['Portes ouvertes mai', 'paused', 150, 82, 11, 'Événement', '28 mars', '3,40'],
-    ['Promo printemps', 'done', 200, 200, 38, 'Prise de contact', '14 fév.', '5,20'],
-  ];
-  const filtered = camps.filter(c => filter === 'all' || c[1] === filter);
+  const [camps, setCamps] = useState(null); // null = loading
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCamps(null);
+    fetch('/api/pro/campaigns', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(j => { if (!cancelled) setCamps(j.campaigns || []); })
+      .catch(() => { if (!cancelled) setCamps([]); });
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  const ALL = camps || [];
+  // Bucket "done" regroupe completed + canceled (les deux sont terminales).
+  const isDone = (s) => s === 'completed' || s === 'canceled';
+  const counts = {
+    all: ALL.length,
+    active: ALL.filter(c => c.status === 'active').length,
+    paused: ALL.filter(c => c.status === 'paused').length,
+    done: ALL.filter(c => isDone(c.status)).length,
+  };
+  const filtered = ALL.filter(c =>
+    filter === 'all' ||
+    (filter === 'done' ? isDone(c.status) : c.status === filter)
+  );
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Campagnes" title="Vos initiatives en cours" action={
@@ -411,7 +430,12 @@ function Campagnes({ onCreate, onDetail }) {
       }/>
       <CampaignDurationBanner/>
       <div className="row gap-2">
-        {[['all', 'Toutes (4)'], ['active', 'Actives (2)'], ['paused', 'En pause (1)'], ['done', 'Terminées (1)']].map(([k, l]) => (
+        {[
+          ['all', `Toutes (${counts.all})`],
+          ['active', `Actives (${counts.active})`],
+          ['paused', `En pause (${counts.paused})`],
+          ['done', `Terminées (${counts.done})`],
+        ].map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)} className="chip" style={{
             cursor: 'pointer', padding: '6px 12px', fontSize: 12,
             background: filter === k ? 'var(--ink)' : 'var(--paper)',
@@ -421,37 +445,89 @@ function Campagnes({ onCreate, onDetail }) {
         ))}
       </div>
       <div className="col gap-3">
-        {filtered.map((c, i) => (
-          <div key={i} className="card" style={{ padding: 24 }}>
-            <div className="row between" style={{ alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 260 }}>
-                <div className="row center gap-3" style={{ marginBottom: 10 }}>
-                  <div className="serif" style={{ fontSize: 22 }}>{c[0]}</div>
-                  <span className={'chip ' + (c[1] === 'active' ? 'chip-good' : c[1] === 'paused' ? 'chip-warn' : '')}>
-                    {c[1] === 'active' ? 'Active' : c[1] === 'paused' ? 'En pause' : 'Terminée'}
-                  </span>
-                </div>
-                <div className="muted" style={{ fontSize: 13 }}>{c[5]} · créée le {c[6]} · coût unitaire moyen {c[7]} €</div>
-                <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
-                  <div><div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div><div className="serif tnum" style={{ fontSize: 20 }}>{c[3]} / {c[2]} €</div></div>
-                  <div><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c[4]}</div></div>
-                  <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
-                    <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé</div>
-                    <Progress value={c[3]/c[2]}/>
+        {camps === null && (
+          <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+            <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
+          </div>
+        )}
+        {camps !== null && camps.length === 0 && (
+          <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              Aucune campagne pour le moment.
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={onCreate}>
+              <Icon name="plus" size={12}/> Créer votre première campagne
+            </button>
+          </div>
+        )}
+        {camps !== null && camps.length > 0 && filtered.length === 0 && (
+          <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+            <div className="muted" style={{ fontSize: 13 }}>Aucune campagne ne correspond à ce filtre.</div>
+          </div>
+        )}
+        {filtered.map((c) => {
+          const statusLabel = c.status === 'active' ? 'Active' : c.status === 'paused' ? 'En pause' : 'Terminée';
+          const statusChip = c.status === 'active' ? 'chip-good' : c.status === 'paused' ? 'chip-warn' : '';
+          const dateStr = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(new Date(c.createdAt));
+          const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
+          const isActive = c.status === 'active';
+          const canToggle = c.status === 'active' || c.status === 'paused';
+          return (
+            <div key={c.id} className="card" style={{ padding: 24 }}>
+              <div className="row between" style={{ alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <div className="row center gap-3" style={{ marginBottom: 10 }}>
+                    <div className="serif" style={{ fontSize: 22 }}>{c.name}</div>
+                    <span className={'chip ' + statusChip}>{statusLabel}</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {c.objectiveLabel} · créée le {dateStr} · coût unitaire moyen {fmt2(c.avgCostEur)} €
+                  </div>
+                  <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
+                    <div><div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div><div className="serif tnum" style={{ fontSize: 20 }}>{fmt2(c.spentEur)} / {fmt2(c.budgetEur)} €</div></div>
+                    <div><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
+                    <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
+                      <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé</div>
+                      <Progress value={c.budgetEur > 0 ? c.spentEur / c.budgetEur : 0}/>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="row gap-2">
-                <button className="btn btn-ghost btn-sm">
-                  <Icon name={c[1] === 'active' ? 'pause' : 'play'} size={12}/>
-                  {c[1] === 'active' ? 'Pause' : 'Relancer'}
-                </button>
-                <button className="btn btn-ghost btn-sm"><Icon name="copy" size={12}/> Dupliquer</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => onDetail(c)}>Détails <Icon name="arrow" size={12}/></button>
+                <div className="row gap-2">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={!canToggle}
+                    style={!canToggle ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                    onClick={async () => {
+                      if (!canToggle) return;
+                      const next = isActive ? 'paused' : 'active';
+                      try {
+                        const r = await fetch(`/api/pro/campaigns/${c.id}`, {
+                          method: 'PATCH',
+                          headers: { 'content-type': 'application/json' },
+                          body: JSON.stringify({ status: next }),
+                        });
+                        if (!r.ok) {
+                          const j = await r.json().catch(() => ({}));
+                          alert("Échec : " + (j?.error || r.status));
+                          return;
+                        }
+                        try { window.dispatchEvent(new Event('pro:overview-changed')); } catch {}
+                        setReloadKey(k => k + 1);
+                      } catch (e) {
+                        alert("Erreur réseau : " + (e.message || ''));
+                      }
+                    }}
+                  >
+                    <Icon name={isActive ? 'pause' : 'play'} size={12}/>
+                    {isActive ? 'Pause' : 'Relancer'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm"><Icon name="copy" size={12}/> Dupliquer</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => onDetail(c)}>Détails <Icon name="arrow" size={12}/></button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
