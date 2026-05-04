@@ -234,20 +234,7 @@ function Overview({ onCreate }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
-        <div className="card" style={{ padding: 28 }}>
-          <div className="row between" style={{ marginBottom: 16 }}>
-            <div>
-              <div className="serif" style={{ fontSize: 22 }}>Performance des campagnes</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Contacts obtenus, 30 derniers jours</div>
-            </div>
-            <div className="row gap-2">
-              {['7J', '30J', '90J'].map((t, i) => (
-                <button key={t} className="chip" style={{ cursor: 'pointer', background: i === 1 ? 'var(--ink)' : 'var(--ivory-2)', color: i === 1 ? 'var(--paper)' : 'var(--ink-3)', border: 0 }}>{t}</button>
-              ))}
-            </div>
-          </div>
-          <BarChart/>
-        </div>
+        <PerformanceCard/>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition par palier</div>
           <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume cumulés depuis l'ouverture</div>
@@ -298,14 +285,20 @@ function Overview({ onCreate }) {
   );
 }
 
-function BarChart() {
-  const data = [4, 7, 5, 9, 6, 8, 12, 10, 13, 9, 14, 11];
-  const labels = ['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'];
-  const max = 16, H = 180, W = 560, P = 16;
-  const bw = (W - 2*P) / data.length;
+function BarChart({ buckets }) {
+  const data = (buckets || []).map(b => Number(b.count) || 0);
+  const labels = (buckets || []).map(b => b.label);
+  const rawMax = Math.max(...data, 1);
+  // Round up to a nice grid value.
+  const step = rawMax <= 4 ? 1 : rawMax <= 10 ? 2 : rawMax <= 25 ? 5 : 10;
+  const max = Math.ceil(rawMax / step) * step;
+  const gridLines = [];
+  for (let v = step; v <= max; v += step) gridLines.push(v);
+  const H = 180, W = 560, P = 16;
+  const bw = data.length > 0 ? (W - 2*P) / data.length : 0;
   return (
     <svg viewBox={`0 0 ${W} ${H+28}`} style={{ width: '100%', height: 210 }}>
-      {[4, 8, 12, 16].map(v => {
+      {gridLines.map(v => {
         const y = P + (1 - v/max) * (H - 2*P);
         return <g key={v}><line x1={P} x2={W-P} y1={y} y2={y} stroke="var(--line)" strokeDasharray="2 4"/>
           <text x={W-P+2} y={y+3} fontSize="9" fill="var(--ink-5)" fontFamily="monospace">{v}</text></g>;
@@ -315,11 +308,60 @@ function BarChart() {
         const x = P + i * bw + 4;
         const y = H - P - h;
         return <g key={i}>
-          <rect x={x} y={y} width={bw - 8} height={h} fill={i === data.length - 1 ? 'var(--accent)' : 'var(--ink-2)'} rx="2"/>
+          <rect x={x} y={y} width={Math.max(0, bw - 8)} height={Math.max(0, h)} fill={i === data.length - 1 ? 'var(--accent)' : 'var(--ink-2)'} rx="2"/>
           <text x={x + (bw-8)/2} y={H+4} textAnchor="middle" fontSize="9" fill="var(--ink-5)" fontFamily="monospace">{labels[i]}</text>
         </g>;
       })}
     </svg>
+  );
+}
+
+const RANGE_LABELS = { '7d': '7 derniers jours', '30d': '30 derniers jours', '90d': '90 derniers jours' };
+
+function PerformanceCard() {
+  const [range, setRange] = React.useState('30d');
+  const [series, setSeries] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    setSeries(null);
+    fetch(`/api/pro/timeseries?range=${range}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setSeries(j); })
+      .catch(() => { if (!cancelled) setSeries(null); });
+    return () => { cancelled = true; };
+  }, [range]);
+  const buckets = series?.buckets || [];
+  const totalCount = buckets.reduce((acc, b) => acc + (Number(b.count) || 0), 0);
+  return (
+    <div className="card" style={{ padding: 28 }}>
+      <div className="row between" style={{ marginBottom: 16 }}>
+        <div>
+          <div className="serif" style={{ fontSize: 22 }}>Performance des campagnes</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+            Contacts obtenus, {RANGE_LABELS[range]}
+            {series && ` · ${totalCount} acceptation${totalCount === 1 ? '' : 's'}`}
+          </div>
+        </div>
+        <div className="row gap-2">
+          {[['7d', '7J'], ['30d', '30J'], ['90d', '90J']].map(([k, l]) => {
+            const active = range === k;
+            return (
+              <button key={k} onClick={() => setRange(k)} className="chip" style={{
+                cursor: 'pointer',
+                background: active ? 'var(--ink)' : 'var(--ivory-2)',
+                color: active ? 'var(--paper)' : 'var(--ink-3)',
+                border: 0,
+              }}>{l}</button>
+            );
+          })}
+        </div>
+      </div>
+      {series === null ? (
+        <div className="muted" style={{ fontSize: 13, padding: 32, textAlign: 'center' }}>Chargement…</div>
+      ) : (
+        <BarChart buckets={buckets}/>
+      )}
+    </div>
   );
 }
 
