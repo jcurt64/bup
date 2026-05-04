@@ -158,14 +158,30 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
 }
 
 function Overview({ onCreate }) {
+  const [data, setData] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/overview', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setData(j); })
+      .catch(() => { if (!cancelled) setData(null); });
+    return () => { cancelled = true; };
+  }, []);
+  const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
+  const k1 = data?.contactsAccepted30d ?? 0;
+  const k2 = (data?.acceptanceRate ?? 0) + '%';
+  const k3 = fmt2((data?.avgCostCents ?? 0) / 100) + ' €';
+  const last = data?.lastAcceptances || [];
+  const tiers = data?.tierBreakdown || [];
+
   return (
     <div className="col gap-6">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          ['Contacts acceptés (30j)', '24', '+18%', 'trend'],
-          ["Taux d'acceptation", '62%', '+4 pts', 'check'],
-          ['Coût moyen / contact', '5,40 €', '−0,30 €', 'money'],
-          ['ROI estimé', '×3,8', '+0,4', 'sparkle'],
+          ['Contacts acceptés (30j)', String(k1), '', 'trend'],
+          ["Taux d'acceptation", k2, '', 'check'],
+          ['Coût moyen / contact', k3, '', 'money'],
+          ['ROI estimé', k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ','), '', 'sparkle'],
         ].map((k, i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="row between center" style={{ marginBottom: 14 }}>
@@ -173,7 +189,7 @@ function Overview({ onCreate }) {
               <span style={{ color: 'var(--accent)' }}><Icon name={k[3]} size={14}/></span>
             </div>
             <div className="serif tnum" style={{ fontSize: 36 }}>{k[1]}</div>
-            <div className="mono" style={{ fontSize: 12, color: 'var(--good)', marginTop: 4 }}>{k[2]} vs mois dernier</div>
+            {k[2] && <div className="mono" style={{ fontSize: 12, color: 'var(--good)', marginTop: 4 }}>{k[2]} vs mois dernier</div>}
           </div>
         ))}
       </div>
@@ -196,19 +212,16 @@ function Overview({ onCreate }) {
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition par palier</div>
           <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume des 30 derniers jours</div>
-          {[
-            [1, 'Identification', 6, 1.20, 20],
-            [2, 'Localisation', 8, 11.60, 40],
-            [3, 'Style de vie', 5, 18.50, 28],
-            [4, 'Pro', 3, 19.80, 18],
-            [5, 'Patrimoine', 2, 17.00, 12],
-          ].map((r, i) => (
-            <div key={i} style={{ padding: '10px 0', borderBottom: i < 4 ? '1px solid var(--line)' : 'none' }}>
+          {tiers.length === 0 && (
+            <div className="muted" style={{ fontSize: 13 }}>Aucun contact accepté pour le moment.</div>
+          )}
+          {tiers.map((r, i) => (
+            <div key={i} style={{ padding: '10px 0', borderBottom: i < tiers.length - 1 ? '1px solid var(--line)' : 'none' }}>
               <div className="row between" style={{ marginBottom: 6 }}>
-                <span style={{ fontSize: 13 }}><span className="chip">P{r[0]}</span> {r[1]}</span>
-                <span className="mono tnum" style={{ fontSize: 12 }}>{r[2]} contacts · {r[3].toFixed(2).replace('.', ',')} €</span>
+                <span style={{ fontSize: 13 }}><span className="chip">P{r.tier}</span> {r.label}</span>
+                <span className="mono tnum" style={{ fontSize: 12 }}>{r.contacts} contacts · {fmt2(r.totalCents/100)} €</span>
               </div>
-              <Progress value={r[4]/40}/>
+              <Progress value={Math.min(1, r.contacts / 40)}/>
             </div>
           ))}
         </div>
@@ -223,19 +236,19 @@ function Overview({ onCreate }) {
           <table className="tbl">
             <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
             <tbody>
-              {[
-                ['Marie L.', 'Bilan postural — Lyon', 2, 742, 'il y a 2 h', '4,20'],
-                ['Antoine R.', 'Devis aménagement', 3, 688, 'il y a 6 h', '6,80'],
-                ['Solène P.', 'Bilan postural — Lyon', 2, 812, 'hier', '4,20'],
-                ['Karim B.', 'Devis aménagement', 3, 655, 'hier', '6,80'],
-              ].map((r, i) => (
+              {last.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
+                  <span className="muted" style={{ fontSize: 13 }}>Aucune acceptation pour le moment.</span>
+                </td></tr>
+              )}
+              {last.map((r, i) => (
                 <tr key={i}>
-                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                  <td>{r[1]}</td>
-                  <td><span className="chip">Palier {r[2]}</span></td>
-                  <td><span className="mono tnum">{r[3]}</span></td>
-                  <td className="muted mono">{r[4]}</td>
-                  <td className="mono tnum" style={{ textAlign: 'right' }}>−{r[5]} €</td>
+                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                  <td>{r.campaign}</td>
+                  <td><span className="chip">Palier {r.tier}</span></td>
+                  <td><span className="mono tnum">{r.score}</span></td>
+                  <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
+                  <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>
                 </tr>
               ))}
             </tbody>
