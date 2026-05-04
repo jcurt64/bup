@@ -34,7 +34,7 @@
       let tab = null;
       if (query) {
         const params = new URLSearchParams(query);
-        tab = params.get('tab');
+        tab = (params.get('tab') || '').trim() || null;
       }
       const safeRoute = ['landing','auth','prospect','pro','waitlist'].includes(route) ? route : 'landing';
       return { route: safeRoute, tab };

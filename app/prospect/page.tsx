@@ -28,12 +28,14 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
   });
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const { data: prospect, error } = await supabase
     .from("prospects")
     .select("id, bupp_score, verification, created_at")
     .single();
   if (error) {
     console.error("[/prospect] Lecture RLS échouée :", error);
+  } else {
+    console.log("[/prospect] Pont Clerk↔Supabase OK → prospect", prospect.id);
   }
 
   const sp = await props.searchParams;
