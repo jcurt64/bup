@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -12,46 +13,80 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       campaigns: {
         Row: {
+          brief: string | null
           budget_cents: number
           cost_per_contact_cents: number
           created_at: string
           ends_at: string | null
           id: string
+          matched_count: number
           name: string
           pro_account_id: string
           spent_cents: number
+          starts_at: string
           status: Database["public"]["Enums"]["campaign_status"]
           targeting: Json
           type: Database["public"]["Enums"]["campaign_type"]
           updated_at: string
         }
         Insert: {
+          brief?: string | null
           budget_cents: number
           cost_per_contact_cents: number
           created_at?: string
           ends_at?: string | null
           id?: string
+          matched_count?: number
           name: string
           pro_account_id: string
           spent_cents?: number
+          starts_at?: string
           status?: Database["public"]["Enums"]["campaign_status"]
           targeting?: Json
           type: Database["public"]["Enums"]["campaign_type"]
           updated_at?: string
         }
         Update: {
+          brief?: string | null
           budget_cents?: number
           cost_per_contact_cents?: number
           created_at?: string
           ends_at?: string | null
           id?: string
+          matched_count?: number
           name?: string
           pro_account_id?: string
           spent_cents?: number
+          starts_at?: string
           status?: Database["public"]["Enums"]["campaign_status"]
           targeting?: Json
           type?: Database["public"]["Enums"]["campaign_type"]
@@ -66,6 +101,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plan_pricing: {
+        Row: {
+          max_prospects: number
+          monthly_cents: number
+          plan: Database["public"]["Enums"]["pro_plan"]
+          updated_at: string
+        }
+        Insert: {
+          max_prospects: number
+          monthly_cents: number
+          plan: Database["public"]["Enums"]["pro_plan"]
+          updated_at?: string
+        }
+        Update: {
+          max_prospects?: number
+          monthly_cents?: number
+          plan?: Database["public"]["Enums"]["pro_plan"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       pro_accounts: {
         Row: {
@@ -121,6 +177,7 @@ export type Database = {
       prospect_identity: {
         Row: {
           email: string | null
+          genre: string | null
           naissance: string | null
           nom: string | null
           prenom: string | null
@@ -130,6 +187,7 @@ export type Database = {
         }
         Insert: {
           email?: string | null
+          genre?: string | null
           naissance?: string | null
           nom?: string | null
           prenom?: string | null
@@ -139,6 +197,7 @@ export type Database = {
         }
         Update: {
           email?: string | null
+          genre?: string | null
           naissance?: string | null
           nom?: string | null
           prenom?: string | null
@@ -256,6 +315,82 @@ export type Database = {
             foreignKeyName: "prospect_pro_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_rib: {
+        Row: {
+          bic: string | null
+          created_at: string
+          holder_name: string
+          iban: string
+          prospect_id: string
+          updated_at: string
+          validated_at: string | null
+        }
+        Insert: {
+          bic?: string | null
+          created_at?: string
+          holder_name: string
+          iban: string
+          prospect_id: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Update: {
+          bic?: string | null
+          created_at?: string
+          holder_name?: string
+          iban?: string
+          prospect_id?: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_rib_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: true
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_score_history: {
+        Row: {
+          acceptance_pct: number
+          completeness_pct: number
+          created_at: string
+          freshness_pct: number
+          prospect_id: string
+          score: number
+          snapshot_date: string
+        }
+        Insert: {
+          acceptance_pct?: number
+          completeness_pct?: number
+          created_at?: string
+          freshness_pct?: number
+          prospect_id: string
+          score: number
+          snapshot_date: string
+        }
+        Update: {
+          acceptance_pct?: number
+          completeness_pct?: number
+          created_at?: string
+          freshness_pct?: number
+          prospect_id?: string
+          score?: number
+          snapshot_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_score_history_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
             referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
@@ -468,103 +603,6 @@ export type Database = {
           },
         ]
       }
-      plan_pricing: {
-        Row: {
-          plan: Database["public"]["Enums"]["pro_plan"]
-          monthly_cents: number
-          max_prospects: number
-          updated_at: string
-        }
-        Insert: {
-          plan: Database["public"]["Enums"]["pro_plan"]
-          monthly_cents: number
-          max_prospects: number
-          updated_at?: string
-        }
-        Update: {
-          plan?: Database["public"]["Enums"]["pro_plan"]
-          monthly_cents?: number
-          max_prospects?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      prospect_score_history: {
-        Row: {
-          prospect_id: string
-          snapshot_date: string
-          score: number
-          completeness_pct: number
-          freshness_pct: number
-          acceptance_pct: number
-          created_at: string
-        }
-        Insert: {
-          prospect_id: string
-          snapshot_date: string
-          score: number
-          completeness_pct?: number
-          freshness_pct?: number
-          acceptance_pct?: number
-          created_at?: string
-        }
-        Update: {
-          prospect_id?: string
-          snapshot_date?: string
-          score?: number
-          completeness_pct?: number
-          freshness_pct?: number
-          acceptance_pct?: number
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_score_history_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prospect_rib: {
-        Row: {
-          prospect_id: string
-          iban: string
-          bic: string | null
-          holder_name: string
-          validated_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          prospect_id: string
-          iban: string
-          bic?: string | null
-          holder_name: string
-          validated_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          prospect_id?: string
-          iban?: string
-          bic?: string | null
-          holder_name?: string
-          validated_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_rib_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       waitlist: {
         Row: {
           created_at: string
@@ -612,7 +650,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_relation_tx: {
+        Args: { p_relation_id: string }
+        Returns: undefined
+      }
       clerk_user_id: { Args: never; Returns: string }
+      refund_relation_tx: {
+        Args: {
+          p_new_status: Database["public"]["Enums"]["relation_status"]
+          p_relation_id: string
+        }
+        Returns: undefined
+      }
       waitlist_stats: {
         Args: never
         Returns: {
@@ -659,3 +708,162 @@ export type Database = {
     }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {
+      account_kind: ["prospect", "pro"],
+      campaign_status: ["draft", "active", "paused", "completed", "canceled"],
+      campaign_type: [
+        "prise_de_contact",
+        "prise_de_rendez_vous",
+        "information_sondage",
+        "devis_chiffrage",
+      ],
+      pro_billing_status: ["active", "past_due", "canceled", "trialing"],
+      pro_plan: ["starter", "pro"],
+      relation_status: ["pending", "accepted", "refused", "expired", "settled"],
+      tier_key: ["identity", "localisation", "vie", "pro", "patrimoine"],
+      transaction_status: ["pending", "completed", "failed", "canceled"],
+      transaction_type: [
+        "credit",
+        "escrow",
+        "withdrawal",
+        "topup",
+        "campaign_charge",
+        "referral_bonus",
+        "refund",
+      ],
+      verification_level: [
+        "basique",
+        "verifie",
+        "certifie",
+        "confiance",
+        "certifie_confiance",
+      ],
+    },
+  },
+} as const
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+A new version of Supabase CLI is available: v2.98.1 (currently installed v2.98.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
