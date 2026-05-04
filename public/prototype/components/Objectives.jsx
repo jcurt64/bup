@@ -593,7 +593,24 @@ function RechargeModal({ onClose }) {
         <label className="row center gap-2" style={{ padding: 12, border: '1px solid ' + (custom ? 'var(--ink)' : 'var(--line-2)'), borderRadius: 10, cursor: 'pointer', background: custom ? 'var(--ivory-2)' : 'var(--paper)' }}>
           <input type="radio" checked={custom} onChange={() => setCustom(true)}/>
           <span style={{ fontSize: 13 }}>Montant libre</span>
-          <input type="number" min="50" max="10000" value={custom ? amount : ''} placeholder="50 – 10 000" onFocus={() => setCustom(true)} onChange={e => setAmount(+e.target.value || 0)} className="input mono tnum" style={{ flex: 1, padding: '6px 10px', fontSize: 14 }}/>
+          {/* type="text" + inputMode="numeric" : iOS Safari refuse les
+              valeurs vides ou non-numériques sur <input type="number">
+              et lève "the string did not match the expected pattern".
+              On garde un clavier numérique sur mobile via inputMode. */}
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={custom ? String(amount || '') : ''}
+            placeholder="50 – 10 000"
+            onFocus={() => setCustom(true)}
+            onChange={e => {
+              const digits = (e.target.value || '').replace(/[^0-9]/g, '');
+              setAmount(digits === '' ? 0 : Math.min(10000, parseInt(digits, 10)));
+            }}
+            className="input mono tnum"
+            style={{ flex: 1, padding: '6px 10px', fontSize: 14 }}
+          />
           <span style={{ fontSize: 13 }}>€</span>
         </label>
 

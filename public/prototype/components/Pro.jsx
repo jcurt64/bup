@@ -81,17 +81,36 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     let cancelled = false;
     const refresh = () => fetchProWallet().then(j => !cancelled && setWallet(j));
     refresh();
-    // Stripe Checkout renvoie sur /pro?topup=success → on invalide pour
-    // forcer un re-fetch même si le webhook met 1-2 s à passer. On
-    // diffuse aussi `pro:wallet-changed` pour propager au tab Facturation.
+
+    // Stripe Checkout renvoie sur /pro?topup=success. Le webhook peut
+    // mettre 1-3 s à arriver (surtout en local via `stripe listen`),
+    // donc on POLL le wallet jusqu'à ce que le solde change OU max 12 s
+    // (16 essais espacés de 750 ms). Nettement plus réactif qu'un
+    // setTimeout unique, sans tape sur l'API quand le webhook est rapide.
     if (typeof window !== 'undefined' && window.location.search.includes('topup=success')) {
-      // Petit délai pour laisser le webhook créditer la base.
-      setTimeout(() => {
+      const initialBalance = Number(_proWalletCache?.walletBalanceCents ?? 0);
+      let attempts = 0;
+      const poll = async () => {
+        if (cancelled || attempts >= 16) return;
+        attempts++;
         invalidateProWallet();
-        refresh();
-        try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
-      }, 1200);
+        const fresh = await fetchProWallet();
+        if (cancelled) return;
+        setWallet(fresh);
+        const newBalance = Number(fresh?.walletBalanceCents ?? 0);
+        if (newBalance > initialBalance) {
+          // Crédit reçu → on prévient les autres consommateurs (Facturation, …)
+          try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+          // Nettoie l'URL pour ne pas re-poller à chaque navigation interne.
+          try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+          return;
+        }
+        setTimeout(poll, 750);
+      };
+      // Petit délai initial : laisse le temps au webhook de partir.
+      setTimeout(poll, 600);
     }
+
     const onChange = () => { invalidateProWallet(); refresh(); };
     window.addEventListener('pro:wallet-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
