@@ -20,6 +20,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
 import {
+  objectiveLabel,
   objectiveToCampaignType,
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
@@ -245,4 +246,61 @@ function randomCode(n: number): string {
     s += chars[Math.floor(Math.random() * chars.length)];
   }
   return s;
+}
+
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const user = await currentUser();
+  const email =
+    user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
+      ?.emailAddress ?? null;
+  const proId = await ensureProAccount({ clerkUserId: userId, email });
+
+  const admin = createSupabaseAdminClient();
+  const [{ data: camps, error: campErr }, { data: rels, error: relErr }] = await Promise.all([
+    admin
+      .from("campaigns")
+      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at")
+      .eq("pro_account_id", proId)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("relations")
+      .select("campaign_id, status")
+      .eq("pro_account_id", proId)
+      .in("status", ["accepted", "settled"]),
+  ]);
+
+  if (campErr) {
+    console.error("[/api/pro/campaigns GET] read campaigns failed", campErr);
+    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  }
+  if (relErr) {
+    console.error("[/api/pro/campaigns GET] read relations failed", relErr);
+    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  }
+
+  const contactsByCampaign = new Map<string, number>();
+  for (const r of (rels ?? [])) {
+    contactsByCampaign.set(r.campaign_id, (contactsByCampaign.get(r.campaign_id) ?? 0) + 1);
+  }
+
+  type Targeting = { objectiveId?: string };
+  const campaigns = (camps ?? []).map((c) => {
+    const targeting = (c.targeting as Targeting | null) ?? null;
+    return {
+      id: c.id as string,
+      name: c.name as string,
+      status: c.status as string,
+      objectiveLabel: objectiveLabel(targeting?.objectiveId),
+      budgetEur: Number(c.budget_cents ?? 0) / 100,
+      spentEur: Number(c.spent_cents ?? 0) / 100,
+      contactsCount: contactsByCampaign.get(c.id as string) ?? 0,
+      createdAt: c.created_at as string,
+      avgCostEur: Number(c.cost_per_contact_cents ?? 0) / 100,
+    };
+  });
+
+  return NextResponse.json({ campaigns });
 }
