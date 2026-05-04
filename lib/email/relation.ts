@@ -132,13 +132,18 @@ export async function sendRelationInvitation(
   `.trim();
 
   try {
-    await transport.sendMail({
+    const info = await transport.sendMail({
       from: getFromAddress(),
       to: email,
       subject,
       text,
       html,
     });
+    console.log(
+      `[email/relation] mail envoyé à ${email} — messageId=${info.messageId}` +
+        (info.accepted?.length ? ` accepted=[${info.accepted.join(", ")}]` : "") +
+        (info.rejected?.length ? ` rejected=[${info.rejected.join(", ")}]` : ""),
+    );
   } catch (err) {
     const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error(`[email/relation] échec d'envoi à ${email} → ${msg}`);
