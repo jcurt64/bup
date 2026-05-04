@@ -23,18 +23,27 @@ export async function GET() {
 
   const admin = createSupabaseAdminClient();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString();
 
-  const { data, error } = await admin
-    .from("relations")
-    .select(
-      `id, status, reward_cents, decided_at,
+  const [{ data, error }, { count: activeCampaignsCount }] = await Promise.all([
+    admin
+      .from("relations")
+      .select(
+        `id, status, reward_cents, decided_at,
        campaigns ( name, targeting ),
        prospects:prospect_id ( bupp_score,
          prospect_identity ( prenom, nom )
        )`,
     )
-    .eq("pro_account_id", proId)
-    .order("decided_at", { ascending: false });
+      .eq("pro_account_id", proId)
+      .order("decided_at", { ascending: false }),
+    admin
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .eq("pro_account_id", proId)
+      .eq("status", "active"),
+  ]);
 
   if (error) {
     console.error("[/api/pro/overview] read failed", error);
@@ -78,6 +87,9 @@ export async function GET() {
   const wins30d = rows.filter(
     (r) => isWin(r.status) && r.decided_at && r.decided_at >= since,
   );
+  const winsThisMonth = rows.filter(
+    (r) => isWin(r.status) && r.decided_at && r.decided_at >= monthStart,
+  );
   const finals = rows.filter((r) => isFinal(r.status));
   const wins = rows.filter((r) => isWin(r.status));
   const acceptanceRate =
@@ -106,6 +118,8 @@ export async function GET() {
 
   return NextResponse.json({
     contactsAccepted30d: wins30d.length,
+    contactsAcceptedThisMonth: winsThisMonth.length,
+    activeCampaignsCount: activeCampaignsCount ?? 0,
     acceptanceRate,
     avgCostCents,
     lastAcceptances,
