@@ -307,6 +307,9 @@ export type Database = {
           hidden_tiers: Database["public"]["Enums"]["tier_key"][]
           id: string
           removed_tiers: Database["public"]["Enums"]["tier_key"][]
+          stripe_connect_account_id: string | null
+          stripe_details_submitted: boolean
+          stripe_payouts_enabled: boolean
           updated_at: string
           verification: Database["public"]["Enums"]["verification_level"]
         }
@@ -320,6 +323,9 @@ export type Database = {
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
+          stripe_connect_account_id?: string | null
+          stripe_details_submitted?: boolean
+          stripe_payouts_enabled?: boolean
           updated_at?: string
           verification?: Database["public"]["Enums"]["verification_level"]
         }
@@ -333,6 +339,9 @@ export type Database = {
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
+          stripe_connect_account_id?: string | null
+          stripe_details_submitted?: boolean
+          stripe_payouts_enabled?: boolean
           updated_at?: string
           verification?: Database["public"]["Enums"]["verification_level"]
         }

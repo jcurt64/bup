@@ -509,10 +509,49 @@ function RechargeModal({ onClose }) {
   const [method, setMethod] = useState('card');
   const [auto, setAuto] = useState(true);
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [wallet, setWallet] = useState(null);
 
-  const bonus = amount >= 2000 ? 0.08 : amount >= 1000 ? 0.05 : amount >= 500 ? 0.03 : 0;
-  const credit = amount * (1 + bonus);
+  // Solde live affiché dans le sous-titre + dans l'écran de succès
+  // (« Nouveau solde : X € »). Fetched depuis /api/pro/wallet à
+  // l'ouverture de la modale ; pas de cache car la modale est rare.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/wallet', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setWallet(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const currentBalanceEur = Number(wallet?.walletBalanceEur ?? 0);
+  const fmtEur = v => Number(v || 0).toFixed(2).replace('.', ',');
+
+  // Plus de bonus : montant payé == montant crédité.
+  const credit = amount;
   const tva = amount * 0.20;
+
+  // Crée la Stripe Checkout Session puis redirige le top-level (sortie
+  // de l'iframe) vers la page de paiement hébergée. Le webhook crédite
+  // le wallet à `checkout.session.completed`.
+  const startCheckout = async () => {
+    if (amount < 50) { setError('Montant minimum : 50 €.'); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ amountCents: Math.round(amount * 100) }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.url) throw new Error(j?.message || j?.error || 'Erreur Stripe');
+      try { window.top.location.href = j.url; } catch { window.location.href = j.url; }
+    } catch (err) {
+      setError(err.message || 'Erreur Stripe');
+      setSubmitting(false);
+    }
+  };
 
   if (done) {
     return (
@@ -521,7 +560,7 @@ function RechargeModal({ onClose }) {
           <div style={{ display: 'inline-flex', padding: 14, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', marginBottom: 16 }}>
             <Icon name="check" size={22} stroke={2}/>
           </div>
-          <div className="serif" style={{ fontSize: 26, marginBottom: 6 }}>Nouveau solde : {(847 + credit).toFixed(2).replace('.', ',')} €</div>
+          <div className="serif" style={{ fontSize: 26, marginBottom: 6 }}>Nouveau solde : {fmtEur(currentBalanceEur + credit)} €</div>
           <div className="muted" style={{ fontSize: 13 }}>Facture BUUPP-2026-04-0184 disponible immédiatement.</div>
           <div className="row gap-2" style={{ justifyContent: 'center', marginTop: 20 }}>
             <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Télécharger la facture</button>
@@ -533,23 +572,23 @@ function RechargeModal({ onClose }) {
   }
 
   return (
-    <Modal title="Recharger le crédit" subtitle={"Solde actuel : 847 € · Atelier Mercier SARL · TVA intracom. FR 42 852 147 012"} onClose={onClose}>
+    <Modal
+      title="Recharger le crédit"
+      subtitle={`Solde actuel : ${wallet ? fmtEur(currentBalanceEur) : '…'} €${wallet?.raisonSociale ? ' · ' + wallet.raisonSociale : ''}`}
+      onClose={onClose}
+    >
       <div>
         <div className="label">Montant à créditer</div>
         <div className="recharge-amounts" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
-          {[200, 500, 1000, 2000].map(v => {
-            const b = v >= 2000 ? 8 : v >= 1000 ? 5 : v >= 500 ? 3 : 0;
-            return (
-              <button key={v} onClick={() => { setAmount(v); setCustom(false); }} style={{
-                padding: 14, borderRadius: 10, textAlign: 'left',
-                border: '1px solid ' + (amount === v && !custom ? 'var(--ink)' : 'var(--line-2)'),
-                background: amount === v && !custom ? 'var(--ivory-2)' : 'var(--paper)'
-              }}>
-                <div className="serif tnum recharge-amount-value" style={{ fontSize: 22 }}>{v} €</div>
-                {b > 0 && <div className="mono" style={{ fontSize: 10, color: 'var(--accent)' }}>+{b}% bonus</div>}
-              </button>
-            );
-          })}
+          {[200, 500, 1000, 2000].map(v => (
+            <button key={v} onClick={() => { setAmount(v); setCustom(false); }} style={{
+              padding: 14, borderRadius: 10, textAlign: 'left',
+              border: '1px solid ' + (amount === v && !custom ? 'var(--ink)' : 'var(--line-2)'),
+              background: amount === v && !custom ? 'var(--ivory-2)' : 'var(--paper)'
+            }}>
+              <div className="serif tnum recharge-amount-value" style={{ fontSize: 22 }}>{v} €</div>
+            </button>
+          ))}
         </div>
         <label className="row center gap-2" style={{ padding: 12, border: '1px solid ' + (custom ? 'var(--ink)' : 'var(--line-2)'), borderRadius: 10, cursor: 'pointer', background: custom ? 'var(--ivory-2)' : 'var(--paper)' }}>
           <input type="radio" checked={custom} onChange={() => setCustom(true)}/>
@@ -592,12 +631,6 @@ function RechargeModal({ onClose }) {
             <span style={{ color: 'rgba(255,255,255,.6)' }}>Montant</span>
             <span className="mono tnum">{amount.toFixed(2).replace('.', ',')} €</span>
           </div>
-          {bonus > 0 && (
-            <div className="row between" style={{ padding: '6px 0', fontSize: 13 }}>
-              <span style={{ color: '#A5B4FC' }}>Bonus {Math.round(bonus * 100)}%</span>
-              <span className="mono tnum" style={{ color: '#A5B4FC' }}>+{(amount * bonus).toFixed(2).replace('.', ',')} €</span>
-            </div>
-          )}
           <div className="row between" style={{ padding: '6px 0', fontSize: 13 }}>
             <span style={{ color: 'rgba(255,255,255,.6)' }}>TVA 20%</span>
             <span className="mono tnum" style={{ color: 'rgba(255,255,255,.6)' }}>{tva.toFixed(2).replace('.', ',')} €</span>
@@ -614,14 +647,26 @@ function RechargeModal({ onClose }) {
           </div>
         </div>
 
+        {error && (
+          <div style={{
+            marginTop: 14, padding: '10px 12px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5,
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className="row between center recharge-footer" style={{ marginTop: 20 }}>
           <div className="muted recharge-footer-note" style={{ fontSize: 11, maxWidth: 280 }}>
             Paiement sécurisé via Stripe · facture émise sous 5 min · aucune donnée carte stockée par BUUPP.
           </div>
           <div className="row gap-2 recharge-footer-actions">
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
-            <button className="btn btn-primary btn-sm" onClick={() => setDone(true)}>
-              Payer {(amount + tva).toFixed(2).replace('.', ',')} € <Icon name="arrow" size={12}/>
+            <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>Annuler</button>
+            <button className="btn btn-primary btn-sm" onClick={startCheckout} disabled={submitting}>
+              {submitting
+                ? 'Redirection…'
+                : <>Payer {(amount + tva).toFixed(2).replace('.', ',')} € <Icon name="arrow" size={12}/></>}
             </button>
           </div>
         </div>

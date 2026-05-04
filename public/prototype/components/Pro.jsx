@@ -50,16 +50,64 @@ function ProDashboard({ go }) {
   );
 }
 
+/* Cache module-level du wallet pro — partagé entre le header et la
+   modale Recharge. Invalidé via l'event `pro:wallet-changed` (émis
+   après un retour de Checkout success ou une recharge confirmée). */
+let _proWalletCache = null;
+let _proWalletPromise = null;
+async function fetchProWallet() {
+  if (_proWalletCache) return _proWalletCache;
+  if (_proWalletPromise) return _proWalletPromise;
+  _proWalletPromise = fetch('/api/pro/wallet', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { _proWalletCache = j; _proWalletPromise = null; return j; })
+    .catch(() => { _proWalletPromise = null; return null; });
+  return _proWalletPromise;
+}
+function invalidateProWallet() {
+  _proWalletCache = null;
+  _proWalletPromise = null;
+}
+const _eurFmt = new Intl.NumberFormat('fr-FR', {
+  style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
+});
+
 function ProHeader({ companyInfo, onCreate, onRecharge }) {
   // Reflète en direct la raison sociale saisie dans "Mes informations".
   const raison = (companyInfo?.raisonSociale || '').trim() || 'Atelier Mercier';
+
+  const [wallet, setWallet] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => fetchProWallet().then(j => !cancelled && setWallet(j));
+    refresh();
+    // Stripe Checkout renvoie sur /pro?topup=success → on invalide pour
+    // forcer un re-fetch même si le webhook met 1-2 s à passer. On
+    // diffuse aussi `pro:wallet-changed` pour propager au tab Facturation.
+    if (typeof window !== 'undefined' && window.location.search.includes('topup=success')) {
+      // Petit délai pour laisser le webhook créditer la base.
+      setTimeout(() => {
+        invalidateProWallet();
+        refresh();
+        try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+      }, 1200);
+    }
+    const onChange = () => { invalidateProWallet(); refresh(); };
+    window.addEventListener('pro:wallet-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
+  }, []);
+
+  const balanceText = wallet
+    ? _eurFmt.format(Number(wallet.walletBalanceEur ?? 0))
+    : '…';
+
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison} · Menuiserie sur mesure</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
-            <em>847 €</em> de crédit actif · 24 contacts ce mois
+            <em>{balanceText}</em> de crédit actif · 24 contacts ce mois
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             2 campagnes actives · taux d'acceptation moyen 62% · ROI estimé ×3,8
@@ -1635,13 +1683,40 @@ function Heatmap() {
 }
 
 function Facturation() {
-  const rows = [
-    ['BUUPP-2026-04-0183', '14 avr. 2026', 'Recharge crédit', '500,00', 'Payée'],
-    ['BUUPP-2026-04-0112', '02 avr. 2026', 'Abonnement Pro · avril', '149,00', 'Payée'],
-    ['BUUPP-2026-03-0421', '02 mars 2026', 'Abonnement Pro · mars', '149,00', 'Payée'],
-    ['BUUPP-2026-03-0298', '18 mars 2026', 'Recharge crédit', '300,00', 'Payée'],
-    ['BUUPP-2026-02-0512', '02 fév. 2026', 'Abonnement Pro · février', '149,00', 'Payée'],
-  ];
+  // Historique des factures alimenté par /api/pro/invoices (table
+  // transactions filtrée sur account_kind='pro'). Re-fetch déclenché
+  // sur l'event `pro:wallet-changed` (émis après une recharge réussie)
+  // pour intégrer immédiatement la nouvelle facture sans rechargement.
+  const [invoices, setInvoices] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () =>
+      fetch('/api/pro/invoices', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : { invoices: [] })
+        .then(j => !cancelled && setInvoices(j.invoices || []))
+        .catch(() => !cancelled && setInvoices([]));
+    refresh();
+    const onChange = () => refresh();
+    window.addEventListener('pro:wallet-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
+  }, []);
+
+  const _eurFmtFr = new Intl.NumberFormat('fr-FR', {
+    style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
+  });
+  const _dateFmtFr = new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const statusChipClass = (s) =>
+    s === 'completed' ? 'chip-good' :
+    s === 'pending' ? 'chip-warn' :
+    s === 'failed' || s === 'canceled' ? '' : '';
+  const statusIcon = (s) =>
+    s === 'completed' ? '✓ ' :
+    s === 'pending' ? '◷ ' :
+    s === 'failed' ? '✗ ' :
+    s === 'canceled' ? '— ' : '';
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
@@ -1665,16 +1740,37 @@ function Facturation() {
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
-            <thead><tr><th>Numéro</th><th>Date</th><th>Libellé</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Numéro</th>
+                <th>Date</th>
+                <th>Libellé</th>
+                <th>Statut</th>
+                <th style={{ textAlign: 'right' }}>Montant</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="mono" style={{ fontSize: 12 }}>{r[0]}</td>
-                  <td className="muted">{r[1]}</td>
-                  <td>{r[2]}</td>
-                  <td><span className="chip chip-good">✓ {r[4]}</span></td>
-                  <td className="mono tnum" style={{ textAlign: 'right' }}>{r[3]} €</td>
-                  <td style={{ textAlign: 'right' }}><button className="btn btn-ghost btn-sm btn-telecharger"><Icon name="download" size={12}/> PDF</button></td>
+              {invoices === null && (
+                <tr><td colSpan={6} className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement…</td></tr>
+              )}
+              {invoices !== null && invoices.length === 0 && (
+                <tr><td colSpan={6} className="muted" style={{ padding: 20, textAlign: 'center' }}>
+                  Aucune facture pour le moment. Effectuez une recharge pour générer votre première facture.
+                </td></tr>
+              )}
+              {invoices !== null && invoices.map((inv) => (
+                <tr key={inv.transactionId}>
+                  <td className="mono" style={{ fontSize: 12 }}>{inv.number}</td>
+                  <td className="muted">{_dateFmtFr.format(new Date(inv.date))}</td>
+                  <td>{inv.label}</td>
+                  <td><span className={'chip ' + statusChipClass(inv.status)}>{statusIcon(inv.status)}{inv.statusLabel}</span></td>
+                  <td className="mono tnum" style={{ textAlign: 'right' }}>{_eurFmtFr.format(inv.amountEur)}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn btn-ghost btn-sm btn-telecharger" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                      <Icon name="download" size={12}/> PDF
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

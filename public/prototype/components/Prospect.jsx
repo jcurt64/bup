@@ -845,7 +845,13 @@ function Portefeuille() {
         </div>
       </div>
 
-      {modal === 'retrait' && <RetraitModal onClose={() => setModal(null)}/>}
+      {modal === 'retrait' && (
+        <RetraitModal
+          onClose={() => setModal(null)}
+          availableEur={availableEur}
+          threshold={threshold}
+        />
+      )}
     </div>
   );
 }
@@ -879,49 +885,139 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action }) {
   );
 }
 
-function RetraitModal({ onClose }) {
-  const [method, setMethod] = useState('iban');
+/* Modale de retrait — branchée sur Stripe Connect Express.
+   Selon l'état d'onboarding du prospect (fetched via /api/prospect/payout/status) :
+     - pas de compte Connect ou onboarding incomplet → CTA d'onboarding
+       qui redirige vers le tunnel hébergé Stripe.
+     - payouts_enabled → formulaire de retrait, POST sur /api/prospect/payout/withdraw.
+   La transaction est créée en `pending` côté serveur, puis passée à
+   `completed` par le webhook `transfer.created`. */
+function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
+  const [status, setStatus] = useState(null); // {hasAccount, payoutsEnabled, detailsSubmitted}
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [amount, setAmount] = useState(Math.max(threshold, availableEur));
+  const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/prospect/payout/status', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) { setStatus(j); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const startOnboarding = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/prospect/payout/onboarding', { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok || !j?.url) throw new Error(j?.message || j?.error || 'Erreur onboarding');
+      // Redirige le top-level (sortir de l'iframe) vers le tunnel Stripe.
+      try { window.top.location.href = j.url; } catch { window.location.href = j.url; }
+    } catch (err) {
+      setError(err.message || 'Erreur onboarding');
+      setSubmitting(false);
+    }
+  };
+
+  const submitWithdraw = async () => {
+    const eurValue = Math.max(0, Number(amount) || 0);
+    if (eurValue < threshold) { setError(`Minimum ${threshold} €.`); return; }
+    if (eurValue > availableEur) { setError('Solde insuffisant.'); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/prospect/payout/withdraw', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ amountCents: Math.round(eurValue * 100) }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.message || j?.error || 'Erreur retrait');
+      setDone(true);
+      try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch {}
+    } catch (err) {
+      setError(err.message || 'Erreur retrait');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const subtitle = `Solde disponible : ${availableEur.toFixed(2).replace('.', ',')} € · Virement vers votre IBAN sous 1–3 jours ouvrés`;
+
   return (
-    <Modal onClose={onClose} title="Retirer mes gains" subtitle="Solde disponible : 43,20 € · Arrivée sous 48 h ouvrées">
-      {!done ? (
-        <>
-          <div className="col gap-2" style={{ marginBottom: 20 }}>
-            {[
-              ['iban', 'Virement IBAN', '•••4521 · BNP Paribas', 'Sans frais · 48 h'],
-              ['card', 'Carte cadeau', 'Fnac, Décathlon, Amazon, Darty…', '+3% bonus'],
-              ['don',  'Don associatif', 'La Croix-Rouge, Restos du Cœur, SPA', 'Reçu fiscal émis'],
-            ].map(([k, n, d, tag]) => (
-              <label key={k} className="row center gap-3" style={{
-                padding: 14, border: '1px solid ' + (method === k ? 'var(--ink)' : 'var(--line-2)'),
-                borderRadius: 10, cursor: 'pointer',
-                background: method === k ? 'var(--ivory-2)' : 'var(--paper)'
-              }}>
-                <input type="radio" checked={method === k} onChange={() => setMethod(k)} style={{ marginRight: 4 }}/>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{n}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{d}</div>
-                </div>
-                <span className="chip chip-accent">{tag}</span>
-              </label>
-            ))}
-          </div>
-          <div className="row between center" style={{ marginTop: 20 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Seuil de retrait : 10 €</div>
-            <div className="row gap-2">
-              <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
-              <button className="btn btn-primary btn-sm" onClick={() => setDone(true)}>Confirmer le retrait</button>
-            </div>
-          </div>
-        </>
-      ) : (
+    <Modal onClose={onClose} title="Retirer mes gains" subtitle={subtitle}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)' }}>
+          Chargement de votre compte Stripe…
+        </div>
+      ) : done ? (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <div style={{ display: 'inline-flex', padding: 14, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', marginBottom: 16 }}>
             <Icon name="check" size={22} stroke={2}/>
           </div>
-          <div className="serif" style={{ fontSize: 24, marginBottom: 6 }}>Demande enregistrée</div>
-          <div className="muted" style={{ fontSize: 14 }}>Arrivée estimée : mercredi 23 avril</div>
+          <div className="serif" style={{ fontSize: 24, marginBottom: 6 }}>Retrait enregistré</div>
+          <div className="muted" style={{ fontSize: 14 }}>Le virement sera versé sur l'IBAN renseigné chez Stripe sous 1 à 3 jours ouvrés.</div>
           <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={onClose}>Fermer</button>
+        </div>
+      ) : !status?.payoutsEnabled ? (
+        <div>
+          <div style={{ padding: 16, borderRadius: 10, background: 'var(--ivory-2)', marginBottom: 18 }}>
+            <div className="serif" style={{ fontSize: 18, marginBottom: 6 }}>
+              {status?.hasAccount ? 'Finalisez votre onboarding Stripe' : 'Activez vos retraits'}
+            </div>
+            <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Pour recevoir vos gains sur votre IBAN, vous devez d'abord créer un compte Stripe Connect (procédure hébergée par Stripe, ~3 minutes : justificatif d'identité + IBAN). Vos données ne transitent jamais par BUUPP.
+            </div>
+          </div>
+          {error && (
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: 12.5, marginBottom: 14 }}>
+              {error}
+            </div>
+          )}
+          <div className="row between center" style={{ marginTop: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>Plus tard</button>
+            <button className="btn btn-primary btn-sm" onClick={startOnboarding} disabled={submitting}>
+              {submitting ? 'Redirection…' : (status?.hasAccount ? 'Reprendre l\'onboarding' : 'Activer mes retraits')} <Icon name="arrow" size={12}/>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="label" style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6 }}>
+            Montant à retirer (en €)
+          </div>
+          <input
+            type="number"
+            min={threshold}
+            max={availableEur}
+            step="0.01"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            className="input mono"
+            style={{ width: '100%', padding: '10px 12px', fontSize: 18 }}
+          />
+          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            Min {threshold} € · Max {availableEur.toFixed(2).replace('.', ',')} € · Virement vers Stripe puis IBAN
+          </div>
+          {error && (
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: 12.5, marginTop: 14 }}>
+              {error}
+            </div>
+          )}
+          <div className="row between center" style={{ marginTop: 20 }}>
+            <div className="muted" style={{ fontSize: 12 }}>Seuil de retrait : {threshold} €</div>
+            <div className="row gap-2">
+              <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>Annuler</button>
+              <button className="btn btn-primary btn-sm" onClick={submitWithdraw} disabled={submitting}>
+                {submitting ? 'Retrait…' : 'Confirmer le retrait'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Modal>
