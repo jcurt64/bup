@@ -1018,9 +1018,9 @@ function ScoreSection() {
     ["900–1000", "Prestige", "#166534"],
   ];
   const stats: [string, number][] = [
-    ["Complétude des paliers", 80],
+    ["Complétude des paliers", 85],
     ["Fraîcheur des données", 92],
-    ["Taux d'acceptation", 66],
+    ["Taux d'acceptation", 90],
   ];
   return (
     <section className="section">
