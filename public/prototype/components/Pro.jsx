@@ -14,6 +14,20 @@ function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
   const [campDetail, setCampDetail] = useState(null);
+
+  // Détecte le retour Stripe `?continue_campaign=1` → bascule
+  // automatiquement sur le wizard de création de campagne. Le wizard
+  // restaurera ensuite le brouillon depuis sessionStorage et sautera
+  // à l'étape Récap. Le flag est laissé dans l'URL — il sera nettoyé
+  // par ProHeader après le polling du wallet.
+  useEffect(() => {
+    try {
+      const search = (window.top || window).location.search || '';
+      if (search.includes('continue_campaign=1')) {
+        setSec('create');
+      }
+    } catch {}
+  }, []);
   // Informations société partagées entre l'onglet "Mes informations" et le
   // wizard "Créer une campagne" (la raison sociale + la ville sont obligatoires
   // pour pouvoir lancer une campagne — cf. ProInfoFieldDeleteModal).
@@ -472,9 +486,474 @@ const fmtDateLong = (iso) => {
   }).format(d);
 };
 
+/* Popup de sélection de plan affichée à l'ouverture du wizard de
+   création de campagne. Le plan choisi (Starter / Pro) est persisté
+   dans `pro_accounts.plan` via /api/pro/plan et conditionne le cap
+   du nombre de prospects (50 / 500). La popup ré-apparaît à chaque
+   nouvelle création — l'utilisateur peut donc changer de plan à
+   chaque campagne. */
+/* Les prix et caps des plans sont injectés dynamiquement depuis
+   /api/pro/plan (qui lit `plan_pricing` en base). On garde ici les
+   éléments statiques (features, couleur, badge) qui ne dépendent pas
+   du tarif. */
+const PLAN_DEFS_STATIC = [
+  {
+    id: 'starter',
+    label: 'Starter',
+    color: 'var(--ink)',
+    features: [
+      'Jusqu\'à 50 prospects par campagne',
+      '2 campagnes actives en parallèle',
+      'Reporting standard',
+      'Support par email (48 h)',
+    ],
+  },
+  {
+    id: 'pro',
+    label: 'Pro',
+    color: 'var(--accent)',
+    badge: 'Recommandé',
+    features: [
+      'Jusqu\'à 500 prospects par campagne',
+      'Campagnes actives illimitées',
+      'Reporting avancé (segments, ROI)',
+      'Support prioritaire (4 h ouvrées)',
+      'Accès anticipé aux nouvelles fonctionnalités',
+    ],
+  },
+];
+
+function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
+  const [selecting, setSelecting] = useState(null);
+  const [error, setError] = useState(null);
+  // Fusionne les éléments statiques (features, couleurs) avec les
+  // valeurs dynamiques (prix, cap) lues depuis l'API pour rester
+  // alignées avec ce qui sera prélevé en base.
+  const planDefs = PLAN_DEFS_STATIC.map(p => {
+    const s = specs?.[p.id] || {};
+    return {
+      ...p,
+      monthly: s.monthlyEur != null
+        ? Number(s.monthlyEur).toFixed(0).replace('.', ',') + ' €'
+        : '—',
+      maxProspects: s.maxProspects ?? null,
+    };
+  });
+
+  const choose = async (planId) => {
+    setSelecting(planId);
+    setError(null);
+    try {
+      const r = await fetch('/api/pro/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plan: planId }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.message || j?.error || 'Erreur');
+      onChoose(planId);
+    } catch (e) {
+      setError(e.message || 'Impossible de mettre à jour le plan');
+      setSelecting(null);
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" className="plan-modal-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 16px 80px',
+    }}>
+      <div className="plan-modal-card" style={{
+        position: 'relative', maxWidth: 880, width: '100%',
+        background: 'var(--paper)', borderRadius: 18,
+        padding: 'clamp(20px, 4vw, 36px)',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0',
+      }}>
+        <button
+          onClick={onClose}
+          aria-label="Fermer"
+          style={{
+            position: 'absolute', top: 14, right: 14,
+            padding: 6, color: 'var(--ink-4)', cursor: 'pointer',
+            background: 'transparent', border: 'none',
+          }}>
+          <Icon name="close" size={18}/>
+        </button>
+
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div className="mono caps muted" style={{ fontSize: 11, letterSpacing: '.16em', marginBottom: 10 }}>
+            — Avant de lancer votre campagne
+          </div>
+          <div className="serif" style={{ fontSize: 'clamp(22px, 3vw, 28px)', lineHeight: 1.2, marginBottom: 8 }}>
+            Choisissez votre plan
+          </div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 540, margin: '0 auto' }}>
+            Le plan sélectionné détermine le nombre de prospects que vous pourrez cibler dans votre campagne. Vous pouvez changer à tout moment.
+          </div>
+        </div>
+
+        <div className="plan-modal-grid" style={{
+          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16,
+        }}>
+          {planDefs.map(plan => {
+            const isCurrent = plan.id === currentPlan;
+            const isSubmitting = selecting === plan.id;
+            return (
+              <div
+                key={plan.id}
+                className="plan-card"
+                style={{
+                  position: 'relative',
+                  padding: 'clamp(16px, 3vw, 22px)',
+                  borderRadius: 14,
+                  border: '1.5px solid ' + (isCurrent ? plan.color : 'var(--line-2)'),
+                  background: isCurrent
+                    ? `color-mix(in oklab, ${plan.color} 5%, var(--paper))`
+                    : 'var(--paper)',
+                  display: 'flex', flexDirection: 'column', gap: 14,
+                }}>
+                {plan.badge && (
+                  <div style={{
+                    position: 'absolute', top: -10, right: 12,
+                    padding: '3px 10px', borderRadius: 999,
+                    background: plan.color, color: 'white',
+                    fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
+                  }}>{plan.badge}</div>
+                )}
+
+                <div>
+                  <div className="serif" style={{ fontSize: 24, color: plan.color, marginBottom: 4 }}>
+                    {plan.label}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+                    <span className="serif tnum" style={{ fontSize: 22, color: 'var(--ink)' }}>{plan.monthly}</span>
+                    <span className="muted"> / mois</span>
+                  </div>
+                </div>
+
+                <div style={{
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--ivory-2)', fontSize: 13, lineHeight: 1.4,
+                }}>
+                  <span style={{ color: 'var(--ink-3)' }}>Cap par campagne : </span>
+                  <strong>{plan.maxProspects} prospects</strong>
+                </div>
+
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="row" style={{ gap: 8, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
+                      <span style={{ color: plan.color, flexShrink: 0, marginTop: 2 }}>
+                        <Icon name="check" size={13} stroke={2.5}/>
+                      </span>
+                      <span style={{ color: 'var(--ink-2)' }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className="btn"
+                  onClick={() => choose(plan.id)}
+                  disabled={isSubmitting}
+                  style={{
+                    marginTop: 'auto',
+                    background: plan.id === 'pro' ? plan.color : 'var(--ink)',
+                    color: 'white', borderColor: 'transparent',
+                    width: '100%',
+                    opacity: isSubmitting ? 0.7 : 1,
+                  }}>
+                  {isSubmitting
+                    ? 'Activation…'
+                    : isCurrent
+                      ? `Continuer en ${plan.label}`
+                      : `Choisir ${plan.label}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {error && (
+          <div style={{
+            marginTop: 18, padding: '10px 12px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="muted" style={{ fontSize: 11, textAlign: 'center', marginTop: 18 }}>
+          Aucun engagement · Changement de plan possible à tout moment depuis l'onglet Facturation.
+        </div>
+
+        <style>{`
+          @media (max-width: 720px) {
+            .plan-modal-overlay { align-items: stretch !important; padding: 0 !important; }
+            .plan-modal-card { border-radius: 0 !important; min-height: 100vh; max-width: none !important; }
+            .plan-modal-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+/* Modale "Solde insuffisant" affichée à la validation finale d'une
+   campagne quand wallet < (budget + frais plan). Pré-remplit le montant
+   de recharge avec le manquant (arrondi au multiple de 50 supérieur).
+   Sauvegarde le brouillon de campagne avant la redirection Stripe pour
+   que le pro puisse reprendre où il en était au retour de paiement. */
+function InsufficientBalanceModal({ details, onCancel, onTopup }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  // Arrondi au multiple de 50 € supérieur, plafonné à 10 000 €.
+  const suggestedEur = Math.min(10000, Math.max(50, Math.ceil(details.missing / 50) * 50));
+  const [amount, setAmount] = useState(suggestedEur);
+  const fmt = v => Number(v || 0).toFixed(2).replace('.', ',');
+
+  const goRecharge = async () => {
+    if (amount < details.missing) { setError(`Montant insuffisant. Il vous manque ${fmt(details.missing)} €.`); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      // 1) Sauve l'état du wizard pour reprise au retour Stripe.
+      onTopup();
+      // 2) Crée la session Stripe Checkout avec un flag de continuation
+      //    qui sera lu par ProDashboard au retour pour ré-ouvrir le wizard.
+      const r = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          amountCents: Math.round(amount * 100),
+          continueCampaign: true,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.url) throw new Error(j?.message || j?.error || 'Erreur Stripe');
+      try { window.top.location.href = j.url; } catch { window.location.href = j.url; }
+    } catch (e) {
+      setError(e.message || 'Erreur Stripe');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" className="insuf-modal-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 220,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 16px 80px',
+    }}>
+      <div className="insuf-modal-card" style={{
+        position: 'relative', maxWidth: 540, width: '100%',
+        background: 'var(--paper)', borderRadius: 18,
+        padding: 'clamp(20px, 4vw, 32px)',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0', borderTop: '4px solid #f59e0b',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 56, height: 56, margin: '0 auto 12px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
+            fontSize: 26, fontWeight: 700,
+          }}>!</div>
+          <div className="serif" style={{ fontSize: 'clamp(20px, 3vw, 24px)', lineHeight: 1.2, marginBottom: 6 }}>
+            Solde insuffisant
+          </div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 440, margin: '0 auto' }}>
+            Pour lancer cette campagne, vous devez disposer d'un crédit suffisant pour couvrir le budget de la campagne et les frais de votre plan.
+          </div>
+        </div>
+
+        <div style={{
+          padding: 14, borderRadius: 10, background: 'var(--ivory-2)',
+          border: '1px solid var(--line)', fontSize: 13, marginBottom: 14,
+        }}>
+          {[
+            ['Solde actuel', fmt(details.balance) + ' €'],
+            ['Budget de la campagne', fmt(details.campaignTotal) + ' €'],
+            ['Frais du plan', fmt(details.planFee) + ' €'],
+          ].map(([l, v], i) => (
+            <div key={i} className="row between" style={{ padding: '4px 0' }}>
+              <span className="muted">{l}</span>
+              <span className="mono tnum">{v}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8 }} className="row between">
+            <span style={{ fontWeight: 500 }}>Montant manquant</span>
+            <span className="mono tnum" style={{ color: '#b45309', fontWeight: 600 }}>{fmt(details.missing)} €</span>
+          </div>
+        </div>
+
+        <div className="label" style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6 }}>
+          Montant à recharger
+        </div>
+        <div className="row center" style={{ gap: 10, marginBottom: 14 }}>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={String(amount || '')}
+            onChange={e => {
+              const digits = (e.target.value || '').replace(/[^0-9]/g, '');
+              setAmount(digits === '' ? 0 : Math.min(10000, parseInt(digits, 10)));
+            }}
+            className="input mono tnum"
+            style={{ flex: 1, padding: '10px 12px', fontSize: 18 }}
+          />
+          <span style={{ fontSize: 14, color: 'var(--ink-3)' }}>€</span>
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5, marginBottom: 12,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="insuf-actions row gap-2" style={{ flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost" onClick={onCancel} disabled={submitting} style={{ flex: 1, minWidth: 120 }}>
+            Plus tard
+          </button>
+          <button className="btn btn-primary" onClick={goRecharge} disabled={submitting} style={{ flex: 2, minWidth: 200 }}>
+            {submitting ? 'Redirection…' : `Recharger ${fmt(amount)} €`} <Icon name="arrow" size={12}/>
+          </button>
+        </div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', fontStyle: 'italic' }}>
+          Vous reprendrez la validation de votre campagne automatiquement après le paiement — aucune saisie ne sera perdue.
+        </div>
+
+        <style>{`
+          @media (max-width: 540px) {
+            .insuf-modal-overlay { align-items: stretch !important; padding: 0 !important; }
+            .insuf-modal-card { border-radius: 0 !important; min-height: 100vh; }
+            .insuf-actions .btn { flex: 1 1 100% !important; }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
 function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
+  const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
+  // ─── Plan tarifaire ─────────────────────────────────────────────
+  // Au montage du wizard on récupère le plan actuel et on ouvre la
+  // popup de sélection. Tant que `planChosen=false`, on bloque le
+  // wizard (overlay devant le contenu) pour que le pro confirme son
+  // plan avant toute saisie.
+  const [plan, setPlan] = useState(null);
+  const [planSpecs, setPlanSpecs] = useState(null);
+  const [planChosen, setPlanChosen] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/plan', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled || !j) return;
+        setPlan(j.plan || 'starter');
+        setPlanSpecs(j.specs || null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  // Cap et frais lus depuis l'API (`plan_pricing` en base) plutôt que
+  // codés en dur ici. Fallback raisonnable si l'API n'a pas (encore)
+  // répondu : le brouillon UI reste utilisable.
+  const planMaxProspects = planSpecs?.[plan]?.maxProspects ?? (plan === 'pro' ? 500 : 50);
+  const planMonthlyEur = planSpecs?.[plan]?.monthlyEur ?? (plan === 'pro' ? 89 : 19);
+  // Si l'utilisateur passe d'un plan Pro à Starter (ou si la valeur
+  // initiale dépasse le cap), on rabote `contacts` au plafond du plan.
+  useEffect(() => {
+    setContacts(c => Math.min(c, planMaxProspects));
+  }, [planMaxProspects]);
+
+  // Solde wallet pro (pour la validation budget à l'étape 7).
+  const [walletBalanceEur, setWalletBalanceEur] = useState(null);
+  const refreshWalletBalance = React.useCallback(async () => {
+    try {
+      invalidateProWallet();
+      const j = await fetchProWallet();
+      setWalletBalanceEur(Number(j?.walletBalanceEur ?? 0));
+    } catch {}
+  }, []);
+  useEffect(() => { refreshWalletBalance(); }, [refreshWalletBalance]);
+
+  // ─── Persistance brouillon de campagne ─────────────────────────
+  // Si l'utilisateur est redirigé vers Stripe pour recharger son crédit
+  // au moment de valider la campagne, on sauvegarde l'intégralité du
+  // wizard dans `window.top.sessionStorage`, puis on restore au retour.
+  // Cela évite de devoir refaire tout le wizard. La clé est nettoyée
+  // dès la restauration pour ne pas rejouer un brouillon obsolète.
+  const DRAFT_KEY = 'bupp:campaign-draft';
+  const safeTopSession = () => {
+    try { return window.top.sessionStorage; } catch { return window.sessionStorage; }
+  };
+  const saveDraft = () => {
+    try {
+      const draft = {
+        version: 1,
+        ts: Date.now(),
+        plan,
+        selectedObj,
+        selectedSubs: Array.from(selectedSubs),
+        selectedTiers: Array.from(selectedTiers),
+        geo, ages: Array.from(ages),
+        verif, contacts, days, poolMode,
+        keywords, kwInput, kwFilter,
+        startDate, endDate, brief,
+      };
+      safeTopSession().setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) { console.warn('saveDraft failed', e); }
+  };
+  // Restaure le brouillon si présent (au montage du wizard, juste après
+  // un retour de Stripe success). Saute directement à l'étape Récap.
+  useEffect(() => {
+    try {
+      const raw = safeTopSession().getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || d.version !== 1) return;
+      // Considère le brouillon obsolète après 1 h.
+      if (Date.now() - Number(d.ts || 0) > 60 * 60 * 1000) {
+        safeTopSession().removeItem(DRAFT_KEY);
+        return;
+      }
+      setSelectedObj(d.selectedObj ?? null);
+      setSelectedSubs(new Set(d.selectedSubs || []));
+      setSelectedTiers(new Set(d.selectedTiers || [1]));
+      setGeo(d.geo ?? 'ville');
+      setAges(new Set(d.ages || ['Tous']));
+      setVerif(d.verif ?? 'p0');
+      setContacts(Number(d.contacts ?? 10));
+      setDays(Number(d.days ?? 30));
+      setPoolMode(d.poolMode ?? 'standard');
+      setKeywords(d.keywords || []);
+      setKwInput(d.kwInput || '');
+      setKwFilter(Boolean(d.kwFilter));
+      setStartDate(d.startDate || isoPlusDays(1));
+      setEndDate(d.endDate || isoPlusDays(8));
+      setBrief(d.brief || '');
+      // On considère que le plan est déjà acté (l'utilisateur a déjà
+      // choisi avant de partir recharger).
+      setPlanChosen(true);
+      setPlanModalOpen(false);
+      // Saute directement à l'étape Récap pour finaliser le paiement.
+      setStep(WIZ_TOTAL);
+      safeTopSession().removeItem(DRAFT_KEY);
+    } catch (e) { console.warn('restoreDraft failed', e); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // À chaque changement d'étape du wizard, on remonte automatiquement en
   // haut de la page : sinon l'utilisateur, qui vient de cliquer "Continuer"
   // en bas, atterrit sur l'étape suivante… toujours en bas. Mauvaise UX.
@@ -495,7 +974,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [geo, setGeo] = useState('ville');
   const [ages, setAges] = useState(new Set(['Tous']));
   const [verif, setVerif] = useState('p0');
-  const [contacts, setContacts] = useState(50);
+  const [contacts, setContacts] = useState(10);
   const [days, setDays] = useState(30);
   const [poolMode, setPoolMode] = useState('standard');
   const [keywords, setKeywords] = useState([]);
@@ -508,6 +987,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   // Étape 7 : brief / description (50 caractères max)
   const [brief, setBrief] = useState('');
   const briefValid = brief.trim().length > 0 && brief.length <= BRIEF_MAX_LENGTH;
+  // Indicateur "l'utilisateur a tenté de continuer sans remplir" → on
+  // affiche la bordure rouge + le message obligatoire. Reset dès qu'il
+  // commence à saisir quelque chose.
+  const [briefError, setBriefError] = useState(false);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
   const allowedTiers = obj?.allowedTiers || [1,2,3,4,5];
@@ -557,6 +1040,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     if (!next.length) setKwFilter(false);
   };
 
+  /* Cliquable : on autorise un retour direct vers une étape déjà visitée
+     (idx <= step). Aller en avant force toujours à passer par "Continuer"
+     pour s'assurer que les validations intermédiaires se font dans l'ordre. */
+  const goToStep = (idx) => {
+    if (idx >= 1 && idx <= step) setStep(idx);
+  };
   const stepperBar = (
     <div className="card wizard-stepper" style={{ padding: 4 }}>
       <div className="row wizard-stepper-row" style={{ padding: 8 }}>
@@ -564,22 +1053,37 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           const idx = i + 1;
           const isDone = idx < step;
           const isActive = idx === step;
+          const clickable = idx <= step;
           return (
-            <div key={s} style={{ flex: 1, padding: '10px 12px', borderRadius: 8,
-              background: isActive ? 'var(--ivory-2)' : 'transparent',
-              borderRight: i < WIZ_STEPS.length - 1 ? '1px solid var(--line)' : 'none',
-              display: 'flex', alignItems: 'center', gap: 10,
-              opacity: idx <= step ? 1 : 0.5
-            }}>
+            <button
+              key={s}
+              type="button"
+              onClick={() => goToStep(idx)}
+              disabled={!clickable}
+              aria-current={isActive ? 'step' : undefined}
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: 8,
+                background: isActive ? 'var(--ivory-2)' : 'transparent',
+                borderRight: i < WIZ_STEPS.length - 1 ? '1px solid var(--line)' : 'none',
+                borderTop: 'none', borderLeft: 'none', borderBottom: 'none',
+                display: 'flex', alignItems: 'center', gap: 10,
+                opacity: clickable ? 1 : 0.5,
+                cursor: clickable && !isActive ? 'pointer' : 'default',
+                fontFamily: 'inherit', textAlign: 'left',
+                transition: 'background .15s',
+              }}
+              onMouseEnter={e => { if (clickable && !isActive) e.currentTarget.style.background = 'color-mix(in oklab, var(--accent) 6%, var(--paper))'; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+            >
               <span style={{ width: 22, height: 22, borderRadius: 999,
                 background: isDone ? 'var(--good)' : isActive ? 'var(--ink)' : 'var(--line)',
                 color: idx <= step ? 'white' : 'var(--ink-4)',
                 fontSize: 11, fontFamily: 'var(--mono)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {isDone ? '✓' : idx}
               </span>
-              <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400 }}>{s}</span>
-            </div>
+              <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400, color: 'var(--ink)' }}>{s}</span>
+            </button>
           );
         })}
       </div>
@@ -939,9 +1443,51 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                   <label style={{ fontSize: 13, fontWeight: 500 }}>Contacts souhaités</label>
                   <span className="mono tnum" style={{ fontSize: 14, fontWeight: 600 }}>{contacts}</span>
                 </div>
-                <input type="range" min={10} max={500} step={10} value={contacts} onChange={e => setContacts(+e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--accent)' }}/>
-                <div className="row between mono muted" style={{ fontSize: 10, marginTop: 4 }}><span>10</span><span>500</span></div>
+                <input
+                  type="range"
+                  min={10}
+                  max={planMaxProspects}
+                  step={planMaxProspects >= 100 ? 10 : 5}
+                  value={Math.min(contacts, planMaxProspects)}
+                  onChange={e => setContacts(+e.target.value)}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+                <div className="row between mono muted" style={{ fontSize: 10, marginTop: 4 }}>
+                  <span>10</span>
+                  <span>{planMaxProspects}</span>
+                </div>
+                {plan === 'starter' && (
+                  <div className="row center upgrade-pro-cta" style={{
+                    marginTop: 12, padding: 12, borderRadius: 10, gap: 12,
+                    background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+                    border: '1px dashed color-mix(in oklab, var(--accent) 30%, var(--line))',
+                    flexWrap: 'wrap',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45 }}>
+                      <strong>Plan Starter : 50 prospects max.</strong> Passez en mode Pro pour cibler jusqu'à <strong>500 prospects</strong> par campagne.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={async () => {
+                        try {
+                          const r = await fetch('/api/pro/plan', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ plan: 'pro' }),
+                          });
+                          if (!r.ok) throw new Error();
+                          setPlan('pro');
+                        } catch {
+                          alert('Impossible de passer en mode Pro. Réessayez.');
+                        }
+                      }}
+                      style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }}
+                    >
+                      Passer en mode Pro <Icon name="arrow" size={12}/>
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <div className="row between" style={{ marginBottom: 8 }}>
@@ -1135,16 +1681,33 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             <textarea
               className="input"
               value={brief}
-              onChange={e => setBrief(e.target.value.slice(0, BRIEF_MAX_LENGTH))}
+              onChange={e => {
+                setBrief(e.target.value.slice(0, BRIEF_MAX_LENGTH));
+                if (briefError) setBriefError(false);
+              }}
               placeholder={BRIEF_PLACEHOLDER}
               maxLength={BRIEF_MAX_LENGTH}
               rows={3}
+              aria-invalid={briefError ? true : undefined}
               style={{
                 width: '100%', fontSize: 14, padding: '12px 14px',
                 resize: 'vertical', minHeight: 80, lineHeight: 1.5,
                 fontFamily: 'var(--sans)',
+                /* Bordure rouge + halo doux quand l'utilisateur a tenté
+                   de continuer sans rien saisir. */
+                borderColor: briefError ? '#dc2626' : undefined,
+                boxShadow: briefError ? '0 0 0 3px rgba(220, 38, 38, 0.15)' : undefined,
+                outline: 'none',
               }}
             />
+            {briefError && (
+              <div role="alert" className="row center" style={{
+                gap: 6, marginTop: 6, color: '#dc2626', fontSize: 12.5, fontWeight: 500,
+              }}>
+                <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>⚠</span>
+                <span>Information obligatoire</span>
+              </div>
+            )}
             <div className="row between" style={{ marginTop: 8, alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <div className="muted" style={{ fontSize: 12 }}>
                 Conseil : un appel à l'action ou une remise concrète améliorent fortement le taux d'acceptation.
@@ -1262,9 +1825,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             <div className="row gap-3">
               <button onClick={() => setStep(1)} className="btn btn-ghost" style={{ flex: 1 }}>Modifier</button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!canLaunch) return;
-                  // Generate a unique single-use code (e.g. BUUPP-XXXX-XXXX)
+                  // Re-fetch le wallet juste avant la validation pour
+                  // tenir compte d'une éventuelle recharge récente.
+                  await refreshWalletBalance();
+                  const balance = Number(walletBalanceEur ?? 0);
+                  const totalNeeded = total + planMonthlyEur;
+                  if (balance < totalNeeded) {
+                    setInsufficient({
+                      balance,
+                      campaignTotal: total,
+                      planFee: planMonthlyEur,
+                      needed: totalNeeded,
+                      missing: Math.max(0, totalNeeded - balance),
+                    });
+                    return;
+                  }
+                  // Solde OK → on lance la campagne.
                   const rand = () => Math.random().toString(36).slice(2, 6).toUpperCase();
                   setLaunched({ code: `BUUPP-${rand()}-${rand()}`, name: obj?.name });
                 }}
@@ -1287,12 +1865,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         </button>
         {step < WIZ_STEP_RECAP && (
           <button className="btn btn-primary"
-            onClick={() => setStep(step + 1)}
+            onClick={() => {
+              // Étape 7 : si le brief est vide, on bloque la navigation
+              // ET on déclenche l'affichage rouge + le message
+              // "Information obligatoire" sous le textarea.
+              if (step === 7 && !briefValid) {
+                setBriefError(true);
+                return;
+              }
+              setStep(step + 1);
+            }}
             disabled={
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
               (step === 2 && !datesValid) ||
-              (step === 3 && !selectedTiers.size) ||
-              (step === 7 && !briefValid)
+              (step === 3 && !selectedTiers.size)
             }>
             Continuer <Icon name="arrow" size={14}/>
           </button>
@@ -1300,6 +1886,30 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
       </div>
 
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
+      {insufficient && (
+        <InsufficientBalanceModal
+          details={insufficient}
+          onCancel={() => setInsufficient(null)}
+          onTopup={() => { saveDraft(); }}
+        />
+      )}
+      {planModalOpen && plan && (
+        <PlanSelectorModal
+          currentPlan={plan}
+          specs={planSpecs}
+          onChoose={(p) => {
+            setPlan(p);
+            setPlanChosen(true);
+            setPlanModalOpen(false);
+          }}
+          onClose={() => {
+            // Refus de choisir → on retourne à l'écran précédent (campagnes)
+            // pour ne pas laisser le pro saisir une campagne sans plan acté.
+            if (!planChosen) onDone();
+            else setPlanModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1707,6 +2317,9 @@ function Facturation() {
   // sur l'event `pro:wallet-changed` (émis après une recharge réussie)
   // pour intégrer immédiatement la nouvelle facture sans rechargement.
   const [invoices, setInvoices] = useState(null);
+  // Plan actif (label + prix mensuel) lu depuis /api/pro/plan, lui-même
+  // alimenté par la table `plan_pricing`.
+  const [planInfo, setPlanInfo] = useState(null);
   useEffect(() => {
     let cancelled = false;
     const refresh = () =>
@@ -1715,6 +2328,10 @@ function Facturation() {
         .then(j => !cancelled && setInvoices(j.invoices || []))
         .catch(() => !cancelled && setInvoices([]));
     refresh();
+    fetch('/api/pro/plan', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setPlanInfo(j); })
+      .catch(() => {});
     const onChange = () => refresh();
     window.addEventListener('pro:wallet-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
@@ -1741,7 +2358,11 @@ function Facturation() {
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
-          ['Abonnement actuel', 'Pro', '149 € / mois'],
+          [
+            'Abonnement actuel',
+            planInfo ? planInfo.label : '…',
+            planInfo ? `${Number(planInfo.monthlyEur).toFixed(0)} € / mois` : '—',
+          ],
           ['Renouvellement', '02 mai 2026', 'Prélèvement auto.'],
           ['Carte enregistrée', 'Visa ••4521', 'Expire 08/28'],
         ].map((r, i) => (

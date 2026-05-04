@@ -1846,7 +1846,7 @@ function Pricing() {
         >
           <PricingCard
             name="Starter"
-            price="29"
+            price="19"
             features={[
               "50 contacts qualifiés par campagne",
               "Ciblage par paliers 1–3",
@@ -1858,7 +1858,7 @@ function Pricing() {
           />
           <PricingCard
             name="Pro"
-            price="99"
+            price="89"
             featured
             features={[
               "Jusqu'à 500 contacts qualifiés par campagne",

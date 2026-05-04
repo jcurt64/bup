@@ -468,6 +468,27 @@ export type Database = {
           },
         ]
       }
+      plan_pricing: {
+        Row: {
+          plan: Database["public"]["Enums"]["pro_plan"]
+          monthly_cents: number
+          max_prospects: number
+          updated_at: string
+        }
+        Insert: {
+          plan: Database["public"]["Enums"]["pro_plan"]
+          monthly_cents: number
+          max_prospects: number
+          updated_at?: string
+        }
+        Update: {
+          plan?: Database["public"]["Enums"]["pro_plan"]
+          monthly_cents?: number
+          max_prospects?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       prospect_score_history: {
         Row: {
           prospect_id: string

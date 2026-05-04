@@ -32,8 +32,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as {
     amountCents?: number;
+    continueCampaign?: boolean;
   };
   const amountCents = Number(body.amountCents);
+  const continueCampaign = Boolean(body.continueCampaign);
   if (
     !Number.isFinite(amountCents) ||
     amountCents < MIN_TOPUP_CENTS ||
@@ -98,8 +100,8 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       },
     ],
-    success_url: `${appUrl}/pro?topup=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/pro?topup=canceled`,
+    success_url: `${appUrl}/pro?topup=success&session_id={CHECKOUT_SESSION_ID}${continueCampaign ? '&continue_campaign=1' : ''}`,
+    cancel_url: `${appUrl}/pro?topup=canceled${continueCampaign ? '&continue_campaign=1' : ''}`,
     // Tags arbitraires — repris dans le webhook pour cibler la bonne row
     // pro_accounts et créditer le bon montant sans re-faire un round-trip.
     metadata: {

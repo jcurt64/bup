@@ -18,6 +18,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook",
   "/api/waitlist",
   "/api/waitlist/stats",
+  "/api/plan-pricing",
 ]);
 
 // `clerkMiddleware` retourne une fonction de signature compatible avec

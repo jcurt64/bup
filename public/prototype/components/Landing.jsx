@@ -543,7 +543,7 @@ function Pricing({ go }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <PricingCard
             name="Starter"
-            price="49"
+            price="19"
             features={[
               '50 contacts qualifiés par mois',
               'Ciblage par paliers 1–3',
@@ -555,10 +555,10 @@ function Pricing({ go }) {
           />
           <PricingCard
             name="Pro"
-            price="149"
+            price="89"
             featured
             features={[
-              'Contacts illimités',
+              'Jusqu\'à 500 contacts qualifiés par campagne',
               'Tous les paliers 1–5',
               'CRM intégré + historique 12 mois',
               'API &amp; webhooks',
