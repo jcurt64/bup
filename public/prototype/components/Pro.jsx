@@ -2094,24 +2094,39 @@ function ConfettiBurst() {
   );
 }
 
+function formatRelativeFr(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return 'à l\'instant';
+  if (h < 24) return `il y a ${h} h`;
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(d);
+}
+
 function Contacts() {
-  const ALL_ROWS = [
-    ['Marie Leroy', 742, 'Bilan postural — Lyon', 2, 'marie.l•••@gmail.com', '06 •• •• •• 12', '02 avr.', 'valide'],
-    ['Antoine Renaud', 688, 'Devis aménagement', 3, 'a.renaud•••@orange.fr', '07 •• •• •• 48', '04 avr.', null],
-    ['Solène Pires', 812, 'Bilan postural — Lyon', 2, 's.pires•••@free.fr', '06 •• •• •• 03', '08 avr.', 'valide'],
-    ['Karim Benali', 655, 'Devis aménagement', 3, 'k.benali•••@laposte.net', '07 •• •• •• 91', '12 avr.', 'difficile'],
-    ['Julie Caron', 774, 'Bilan postural — Lyon', 2, 'julie.caron•••@gmail.com', '06 •• •• •• 27', '14 avr.', null],
-  ];
-  // Filter definitions — a filter narrows the list; combining filters is AND
+  const [allRows, setAllRows] = React.useState(null); // null = loading
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/contacts', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { rows: [] })
+      .then(j => { if (!cancelled) setAllRows(j.rows || []); })
+      .catch(() => { if (!cancelled) setAllRows([]); });
+    return () => { cancelled = true; };
+  }, []);
+
   const FILTERS = {
-    f1: { label: 'Score ≥ 720',          test: r => r[1] >= 720 },
-    f2: { label: "Évaluation validée",   test: r => r[7] === 'valide' },
-    f3: { label: 'Palier 2',              test: r => r[3] === 2 },
+    f1: { label: 'Score ≥ 720',        test: r => Number(r.score) >= 720 },
+    f2: { label: "Évaluation validée", test: r => r.evaluation === 'valide' },
+    f3: { label: 'Palier 2',            test: r => Number(r.tier) === 2 },
   };
   const [active, setActive] = useState(new Set());
   const toggle = (k) => setActive(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const clear = () => setActive(new Set());
-  const rows = active.size === 0 ? ALL_ROWS : ALL_ROWS.filter(r => [...active].every(k => FILTERS[k].test(r)));
+  const ALL = allRows || [];
+  const rows = active.size === 0 ? ALL : ALL.filter(r => [...active].every(k => FILTERS[k].test(r)));
 
   return (
     <div className="col gap-6">
@@ -2133,7 +2148,7 @@ function Contacts() {
             </div>
           </div>
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
-            {rows.length} / {ALL_ROWS.length} prospect{rows.length > 1 ? 's' : ''}
+            {rows.length} / {ALL.length} prospect{rows.length > 1 ? 's' : ''}
           </span>
         </div>
         <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
@@ -2172,23 +2187,32 @@ function Contacts() {
               <th>Prospect</th><th>Score</th><th>Campagne</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
             </tr></thead>
             <tbody>
-              {rows.length === 0 && (
+              {allRows === null && (
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>Aucun prospect ne correspond aux filtres activés.</div>
+                  <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
+                </td></tr>
+              )}
+              {allRows !== null && rows.length === 0 && (
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {allRows.length === 0
+                      ? 'Aucun prospect n\'a encore accepté de mise en relation.'
+                      : 'Aucun prospect ne correspond aux filtres activés.'}
+                  </div>
                 </td></tr>
               )}
               {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                  <td className="mono tnum">{r[1]}</td>
-                  <td className="muted">{r[2]}</td>
-                  <td><span className="chip">P{r[3]}</span></td>
-                  <td className="mono" style={{ fontSize: 12 }}>{r[4]}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>{r[5]}</td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{r[6]}</td>
+                <tr key={r.relationId || i}>
+                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                  <td className="mono tnum">{r.score}</td>
+                  <td className="muted">{r.campaign}</td>
+                  <td><span className="chip">P{r.tier}</span></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{r.email}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{r.telephone}</td>
+                  <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
                   <td>
-                    {r[7] === 'valide' ? <span className="chip chip-good">✓ Valide</span>
-                      : r[7] === 'difficile' ? <span className="chip chip-warn">Difficile</span>
+                    {r.evaluation === 'valide' ? <span className="chip chip-good">✓ Valide</span>
+                      : r.evaluation === 'difficile' ? <span className="chip chip-warn">Difficile</span>
                       : <div className="row gap-1">
                         <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
                         <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
