@@ -2244,25 +2244,42 @@ function Contacts() {
 }
 
 function Analytics() {
+  const [data, setData] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/analytics', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setData(j); })
+      .catch(() => { if (!cancelled) setData(null); });
+    return () => { cancelled = true; };
+  }, []);
+  const empty = !data || data.sampleSize?.wins === 0;
+  const acceptance = data?.acceptanceByTier || [
+    {tier:1,label:'Identification',pct:0},{tier:2,label:'Localisation',pct:0},
+    {tier:3,label:'Style de vie',pct:0},{tier:4,label:'Pro',pct:0},
+    {tier:5,label:'Patrimoine',pct:0},
+  ];
+  const geo = data?.geoBreakdown || [];
+  const ages = data?.ageBreakdown || [];
+  const sex = data?.sexBreakdown || [
+    {label:'Femmes',pct:0},{label:'Hommes',pct:0},{label:'Autre / non précisé',pct:0},
+  ];
+
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Analytics" title="Performance fine" desc="Analyses sur 30 derniers jours · mise à jour toutes les 15 minutes"/>
+      <SectionTitle eyebrow="Analytics" title="Performance fine" desc={empty
+        ? "Aucune mise en relation acceptée pour le moment — les graphiques s'animent dès le premier contact."
+        : "Analyses sur 30 derniers jours · mise à jour toutes les 15 minutes"}/>
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Taux d'acceptation par palier</div>
-          {[
-            [1, 'Identification', 84],
-            [2, 'Localisation', 72],
-            [3, 'Style de vie', 61],
-            [4, 'Pro', 48],
-            [5, 'Patrimoine', 34],
-          ].map(r => (
-            <div key={r[0]} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+          {acceptance.map(r => (
+            <div key={r.tier} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
               <div className="row between" style={{ marginBottom: 6 }}>
-                <span style={{ fontSize: 13 }}><span className="chip">P{r[0]}</span> {r[1]}</span>
-                <span className="mono tnum">{r[2]}%</span>
+                <span style={{ fontSize: 13 }}><span className="chip">P{r.tier}</span> {r.label}</span>
+                <span className="mono tnum">{r.pct}%</span>
               </div>
-              <Progress value={r[2]/100}/>
+              <Progress value={r.pct/100}/>
             </div>
           ))}
         </div>
@@ -2276,55 +2293,43 @@ function Analytics() {
         <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition géographique</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Pourcentage de contacts acceptés par zone</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-          {[
-            ['Lyon 3e', '78%', '42 contacts'],
-            ['Villeurbanne', '71%', '28 contacts'],
-            ['Lyon 6e', '66%', '19 contacts'],
-            ['Caluire', '58%', '12 contacts'],
-            ['Lyon 7e', '54%', '8 contacts'],
-          ].map((r, i) => (
+          {geo.length === 0 && (
+            <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 13, padding: 16 }}>
+              Aucune ville renseignée chez vos prospects acceptés pour le moment.
+            </div>
+          )}
+          {geo.map((r, i) => (
             <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
-              <div className="serif" style={{ fontSize: 18 }}>{r[0]}</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r[1]}</div>
-              <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{r[2]}</div>
+              <div className="serif" style={{ fontSize: 18 }}>{r.ville}</div>
+              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r.pct}%</div>
+              <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{r.contacts} contact{r.contacts > 1 ? 's' : ''}</div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Age breakdown */}
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par tranche d'âge</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par segment</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-          {[
-            ['18–25', 8],
-            ['26–35', 24],
-            ['36–45', 31],
-            ['46–55', 22],
-            ['56–65', 11],
-            ['65+', 4],
-          ].map(([l, v], i) => (
+          {ages.map(({ label: l, pct: v }, i) => (
             <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
               <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>{l}</div>
               <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{v}%</div>
               <div style={{ height: 4, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 10, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: (v * 3) + '%', background: 'var(--accent)', borderRadius: 999 }}/>
+                <div style={{ height: '100%', width: Math.min(100, v * 3) + '%', background: 'var(--accent)', borderRadius: 999 }}/>
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Sex breakdown */}
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par sexe</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par genre déclaré</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {[
-            ['Femmes', 58, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
-            ['Hommes', 39, 'var(--accent)'],
-            ['Autre / non précisé', 3, 'var(--ink-4)'],
+            [sex[0].label, sex[0].pct, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
+            [sex[1].label, sex[1].pct, 'var(--accent)'],
+            [sex[2].label, sex[2].pct, 'var(--ink-4)'],
           ].map(([l, v, c], i) => (
             <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
               <div className="row between center" style={{ marginBottom: 10 }}>
@@ -2338,11 +2343,10 @@ function Analytics() {
             </div>
           ))}
         </div>
-        {/* Stacked horizontal bar */}
         <div style={{ marginTop: 22, height: 14, borderRadius: 999, overflow: 'hidden', display: 'flex', border: '1px solid var(--line)' }}>
-          <div style={{ width: '58%', background: 'color-mix(in oklab, var(--accent) 90%, #EC4899)' }}/>
-          <div style={{ width: '39%', background: 'var(--accent)' }}/>
-          <div style={{ width: '3%', background: 'var(--ink-4)' }}/>
+          <div style={{ width: sex[0].pct + '%', background: 'color-mix(in oklab, var(--accent) 90%, #EC4899)' }}/>
+          <div style={{ width: sex[1].pct + '%', background: 'var(--accent)' }}/>
+          <div style={{ width: sex[2].pct + '%', background: 'var(--ink-4)' }}/>
         </div>
       </div>
     </div>
