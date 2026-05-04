@@ -26,7 +26,8 @@ function ProDashboard({ go }) {
   return (
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={setSec}
-      header={<ProHeader onCreate={() => setSec('create')} onRecharge={() => setRecharge(true)}/>}>
+      overrideName={companyInfo?.raisonSociale || ''}
+      header={<ProHeader companyInfo={companyInfo} onCreate={() => setSec('create')} onRecharge={() => setRecharge(true)}/>}>
       {sec === 'overview' && <Overview onCreate={() => setSec('create')}/>}
       {sec === 'campagnes' && !campDetail && <Campagnes onCreate={() => setSec('create')} onDetail={setCampDetail}/>}
       {sec === 'campagnes' && campDetail && <CampaignDetail camp={campDetail} onBack={() => setCampDetail(null)}/>}
@@ -49,12 +50,14 @@ function ProDashboard({ go }) {
   );
 }
 
-function ProHeader({ onCreate, onRecharge }) {
+function ProHeader({ companyInfo, onCreate, onRecharge }) {
+  // Reflète en direct la raison sociale saisie dans "Mes informations".
+  const raison = (companyInfo?.raisonSociale || '').trim() || 'Atelier Mercier';
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
-          <div className="mono caps muted" style={{ marginBottom: 8 }}>— Atelier Mercier · Menuiserie sur mesure</div>
+          <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison} · Menuiserie sur mesure</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
             <em>847 €</em> de crédit actif · 24 contacts ce mois
           </div>

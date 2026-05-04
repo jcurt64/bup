@@ -181,16 +181,19 @@ function ProspectDashboard({ go }) {
 
 function ProspectDashboardInner({ go }) {
   const [sec, setSec] = useState('portefeuille');
-  const { pendingRelationsCount } = useProspect();
+  const { pendingRelationsCount, profile } = useProspect();
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific
   // logic into the generic DashShell.
   const sections = PROSPECT_SECTIONS.map(s =>
     s.id === 'relations' ? { ...s, badge: pendingRelationsCount } : s
   );
+  // Override live du nom dans le header : reflète instantanément les
+  // modifications de l'onglet "Mes données" (palier identification).
+  const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
   return (
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
-      header={<ProspectHeader />}>
+      header={<ProspectHeader />} overrideName={overrideName}>
       {sec === 'portefeuille' && <Portefeuille />}
       {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
       {sec === 'relations' && <Relations />}
@@ -203,11 +206,12 @@ function ProspectDashboardInner({ go }) {
   );
 }
 
-function DashShell({ role, go, sections, current, onNav, children, header }) {
+function DashShell({ role, go, sections, current, onNav, children, header, overrideName }) {
   // Mobile (≤900px) starts with the menu hidden so the dashboard takes full
   // width; on desktop the sidebar is shown expanded by default.
   const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 900;
   const [collapsed, setCollapsed] = useState(() => isMobile());
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const scrollTopEverywhere = () => {
     try { window.scrollTo(0, 0); } catch (e) {}
     try { document.documentElement.scrollTop = 0; } catch (e) {}
@@ -312,22 +316,210 @@ function DashShell({ role, go, sections, current, onNav, children, header }) {
             <span className="side-icon"><Icon name="logout" size={16}/></span>
             {!collapsed && <span>Déconnexion</span>}
           </div>
+          {/* Action destructive — couleur rouge pour signaler le danger.
+              Ouvre la modale de confirmation (DeleteAccountModal). */}
+          <div
+            className="side-item"
+            onClick={() => setDeleteOpen(true)}
+            style={{ color: '#dc2626' }}
+            title="Supprimer définitivement mon compte"
+          >
+            <span className="side-icon" style={{ color: '#dc2626' }}>
+              <Icon name="trash" size={16}/>
+            </span>
+            {!collapsed && <span>Supprimer mon compte</span>}
+          </div>
         </div>
       </aside>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'var(--ivory)', borderBottom: '1px solid var(--line)' }}>
-          <TopBar role={role} go={go}/>
+          <TopBar role={role} go={go} overrideName={overrideName}/>
           {header}
         </div>
         <main style={{ padding: '32px 40px 80px', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
           {children}
         </main>
       </div>
+      {deleteOpen && (
+        <DeleteAccountModal role={role} onClose={() => setDeleteOpen(false)}/>
+      )}
     </div>
   );
 }
 
-function TopBar({ role, go }) {
+/* ─── Modale "Supprimer mon compte" ─────────────────────────────────────
+   Action destructive irréversible : supprime les données Supabase + le
+   compte Clerk. Le message d'avertissement (rouge) rappelle que les
+   buupp coins seront perdus définitivement, et que recréer un compte
+   avec les mêmes identifiants ne les restituera pas. Variante de
+   message selon le rôle (récupération des gains pour prospect /
+   utilisation du crédit pour pro). */
+function DeleteAccountModal({ role, onClose }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const tip =
+    role === 'prospect'
+      ? "Pensez d'abord à récupérer vos gains avant de supprimer votre compte — une fois supprimé, votre solde ne pourra pas être versé."
+      : "Pensez d'abord à utiliser tout votre crédit avant de supprimer votre compte — le solde restant ne pourra pas être remboursé.";
+
+  const handleDelete = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/me', { method: 'DELETE' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.message || j?.error || ('HTTP ' + r.status));
+      }
+      // Succès → demande au parent (Next.js) de révoquer la session Clerk
+      // et de rediriger vers la landing. Le parent écoute ce message dans
+      // PrototypeFrame.tsx (bupp: 'signOut').
+      try { window.parent.postMessage({ bupp: 'signOut' }, '*'); } catch (e) {}
+    } catch (e) {
+      setError(e.message || 'Suppression échouée');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 24px 110px',
+    }}>
+      <div style={{
+        position: 'relative', maxWidth: 540, width: '100%',
+        background: 'var(--paper)', borderRadius: 18, padding: '34px 32px 28px',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0',
+        borderTop: '4px solid #dc2626',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 56, height: 56, margin: '0 auto 14px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626',
+            fontSize: 26, fontWeight: 700,
+          }}>!</div>
+          <div className="serif" style={{ fontSize: 24, lineHeight: 1.15, marginBottom: 6, color: '#991b1b' }}>
+            Suppression définitive du compte
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+            Cette action est <strong>irréversible</strong>.
+          </div>
+        </div>
+
+        <div style={{
+          padding: '14px 16px', borderRadius: 10,
+          background: '#fef2f2', borderLeft: '3px solid #dc2626', border: '1px solid #fca5a5',
+          color: '#991b1b', fontSize: 13.5, lineHeight: 1.55, marginBottom: 14,
+        }}>
+          En supprimant définitivement votre compte, vous effacerez
+          <strong> toutes vos données personnelles</strong> et perdrez
+          <strong> définitivement le solde de vos buupp coins</strong>.
+          Vous ne pourrez pas les récupérer, même en recréant un nouveau
+          compte avec les mêmes identifiants.
+        </div>
+
+        <div style={{
+          padding: '12px 14px', borderRadius: 10,
+          background: 'color-mix(in oklab, #f59e0b 8%, var(--paper))',
+          border: '1px solid color-mix(in oklab, #f59e0b 35%, var(--line))',
+          color: '#92400e', fontSize: 13, lineHeight: 1.5, marginBottom: 18,
+        }}>
+          <strong>⚠ Avant de continuer :</strong> {tip}
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5, marginBottom: 14,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="row gap-2 modal-actions" style={{ marginTop: 4 }}>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost"
+            style={{ flex: 1 }}
+            disabled={loading}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleDelete}
+            className="btn"
+            style={{
+              flex: 1,
+              background: '#dc2626', color: 'white', borderColor: '#dc2626',
+              opacity: loading ? 0.7 : 1, cursor: loading ? 'wait' : 'pointer',
+            }}
+            disabled={loading}
+          >
+            {loading ? 'Suppression…' : 'Supprimer définitivement'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Cache module-level pour /api/me — mutualise le fetch entre TopBar et le
+   reste du dashboard, et évite de re-frapper l'API à chaque switch d'onglet. */
+let _meCache = null;
+let _mePromise = null;
+function fetchMe() {
+  if (_meCache) return Promise.resolve(_meCache);
+  if (_mePromise) return _mePromise;
+  _mePromise = fetch('/api/me', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { _meCache = j; _mePromise = null; return j; })
+    .catch(() => { _mePromise = null; return null; });
+  return _mePromise;
+}
+
+/* Calcule des initiales à partir d'un nom libre. Stratégie :
+     - 2+ mots → première lettre de chacun des 2 premiers (« Marie Leroy » → ML)
+     - 1 mot   → 2 premières lettres alpha (« AtelierMercier » → AT)
+   Fallback "?" si rien d'exploitable. */
+function deriveInitials(name) {
+  const cleaned = String(name || '').trim();
+  if (!cleaned) return null;
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  const alpha = parts[0].replace(/[^A-Za-zÀ-ÿ]/g, '');
+  return ((alpha.slice(0, 2) || parts[0].slice(0, 2)) || '?').toUpperCase();
+}
+
+function TopBar({ role, go, overrideName }) {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe().then(j => { if (!cancelled && j) setMe(j); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fallback initiales si /api/me n'a pas encore répondu — on garde
+  // l'ancienne valeur visuelle pour ne pas avoir un avatar vide à l'écran.
+  const fallbackInitials = role === 'prospect' ? 'ML' : 'AM';
+
+  // L'override (raison sociale pour pro, prénom+nom pour prospect) prend
+  // toujours le pas sur la donnée serveur : il reflète l'état UI le plus
+  // récent → le header se met à jour instantanément lorsque l'utilisateur
+  // édite ses informations dans "Mes informations" / "Mes données".
+  const overrideTrim = (overrideName || '').trim();
+  const initials = overrideTrim
+    ? (deriveInitials(overrideTrim) || fallbackInitials)
+    : (me?.initials || fallbackInitials);
+  const displayName = overrideTrim
+    || me?.displayName
+    || (role === 'prospect' ? 'Marie Leroy' : 'Atelier Mercier');
+
   return (
     <div style={{ padding: '14px 40px' }} className="row between center">
       <div className="row center gap-4">
@@ -348,7 +540,9 @@ function TopBar({ role, go }) {
         <button style={{ padding: 8, borderRadius: 999, color: 'var(--ink-3)' }}>
           <Icon name="bell" size={16}/>
         </button>
-        <Avatar name={role === 'prospect' ? 'Marie Leroy' : 'Atelier Mercier'} size={32}/>
+        <div title={displayName}>
+          <Avatar name={initials.split('').join(' ')} size={32}/>
+        </div>
       </div>
     </div>
   );
