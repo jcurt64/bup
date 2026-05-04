@@ -1827,8 +1827,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               <button
                 onClick={async () => {
                   if (!canLaunch) return;
-                  // Re-fetch le wallet juste avant la validation pour
-                  // tenir compte d'une éventuelle recharge récente.
                   await refreshWalletBalance();
                   const balance = Number(walletBalanceEur ?? 0);
                   const totalNeeded = total + planMonthlyEur;
@@ -1842,9 +1840,46 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                     });
                     return;
                   }
-                  // Solde OK → on lance la campagne.
-                  const rand = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-                  setLaunched({ code: `BUUPP-${rand()}-${rand()}`, name: obj?.name });
+                  // POST vers /api/pro/campaigns — persist + match + emails.
+                  try {
+                    const r = await fetch('/api/pro/campaigns', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({
+                        name: obj?.name || '',
+                        objectiveId: selectedObj,
+                        subTypes: Array.from(selectedSubs),
+                        requiredTiers: Array.from(selectedTiers),
+                        geo, ages: Array.from(ages), verifLevel: verif,
+                        contacts, days,
+                        startDate, endDate, brief,
+                        costPerContactCents: Math.round(cpc * 100),
+                        budgetCents: Math.round(total * 100),
+                        keywords, kwFilter, poolMode,
+                      }),
+                    });
+                    const j = await r.json();
+                    if (!r.ok) {
+                      if (r.status === 402) {
+                        setInsufficient({
+                          balance: (j.walletCents || 0) / 100,
+                          campaignTotal: total,
+                          planFee: planMonthlyEur,
+                          needed: (j.neededCents || 0) / 100,
+                          missing: Math.max(0, ((j.neededCents || 0) - (j.walletCents || 0)) / 100),
+                        });
+                        return;
+                      }
+                      throw new Error(j?.error || 'launch_failed');
+                    }
+                    // Wallet a été lu/contrôlé côté serveur — on invalide
+                    // pour que le header et la facturation se rafraîchissent.
+                    invalidateProWallet();
+                    try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+                    setLaunched({ code: j.code, name: obj?.name, matched: j.matchedCount });
+                  } catch (e) {
+                    alert("Échec du lancement : " + (e.message || 'inconnu'));
+                  }
                 }}
                 disabled={!canLaunch}
                 title={canLaunch ? undefined : 'Renseignez ' + missingCompanyFields.join(' et ') + ' dans Mes informations'}
@@ -1978,6 +2013,11 @@ function CampaignLaunchedModal({ data, onClose }) {
               {copied ? <><Icon name="check" size={13}/> Copié</> : <><Icon name="copy" size={13}/> Copier</>}
             </button>
           </div>
+          {data.matched != null && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+              {data.matched} prospect{data.matched > 1 ? 's' : ''} notifié{data.matched > 1 ? 's' : ''}
+            </div>
+          )}
         </div>
 
         {/* RGPD article 14 notice */}
