@@ -51,7 +51,7 @@ export default function PrototypeFrame({
   return (
     <iframe
       src={`/prototype/shell.html#${route}`}
-      title={`BUPP — ${route}`}
+      title={`BUUPP — ${route}`}
       style={{
         position: "fixed",
         inset: 0,

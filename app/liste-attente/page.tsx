@@ -20,7 +20,7 @@ export default function WaitlistPage() {
   return (
     <iframe
       src="/prototype/waitlist.html"
-      title="BUPP — Liste d'attente"
+      title="BUUPP — Liste d'attente"
       style={{
         position: "fixed",
         inset: 0,

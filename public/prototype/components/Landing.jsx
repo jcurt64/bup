@@ -207,7 +207,7 @@ function Hero({ go }) {
 
         <div className="row between" style={{ marginTop: 48, gap: 48, flexWrap: 'wrap' }}>
           <p style={{ maxWidth: 520, fontSize: 19, lineHeight: 1.5, color: 'rgba(255,255,255,.78)' }}>
-            BUPP est la première plateforme qui rémunère les particuliers pour accepter
+            BUUPP est la première plateforme qui rémunère les particuliers pour accepter
             d'être contactés par les professionnels qui les ciblent vraiment.
             Double consentement, RGPD natif, 60% de la valeur reversée au prospect.
           </p>
@@ -293,9 +293,9 @@ function FlashDeal() {
 
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Créez votre profil', body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUPP Score et vos gains potentiels." },
+    { n: '01', title: 'Créez votre profil', body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUUPP Score et vos gains potentiels." },
     { n: '02', title: 'Choisissez vos contacts', body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire." },
-    { n: '03', title: 'Encaissez vos gains', body: "Chaque mise en relation acceptée crédite votre portefeuille en BUPP Coins. Retrait par IBAN, carte cadeau ou don associatif." },
+    { n: '03', title: 'Encaissez vos gains', body: "Chaque mise en relation acceptée crédite votre portefeuille en BUUPP Coins. Retrait par IBAN, carte cadeau ou don associatif." },
   ];
   return (
     <section id="prospects" style={{ padding: '120px 32px' }}>
@@ -417,12 +417,12 @@ function ScoreSection() {
     <section style={{ padding: '120px 32px' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
         <div>
-          <div className="mono caps muted" style={{ marginBottom: 16 }}>— BUPP Score</div>
+          <div className="mono caps muted" style={{ marginBottom: 16 }}>— BUUPP Score</div>
           <h2 className="serif" style={{ marginBottom: 24 }}>Un indice de <em>désirabilité</em> transparent.</h2>
           <p className="muted" style={{ fontSize: 17, marginBottom: 32, maxWidth: 520 }}>
-            Votre score évolue selon la complétude de vos paliers KYC, la fraîcheur de vos données,
-            votre taux d'acceptation, et la qualité des évaluations reçues. Un score élevé attire
-            des demandes plus exigeantes et mieux rémunérées.
+            Votre score évolue selon la complétude de vos paliers KYC, la fraîcheur de vos données
+            et votre taux d'acceptation. Un score élevé attire des demandes plus exigeantes et mieux
+            rémunérées.
           </p>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             {[
@@ -451,7 +451,6 @@ function ScoreSection() {
               ['Complétude des paliers', 80],
               ['Fraîcheur des données', 92],
               ['Taux d\'acceptation', 66],
-              ['Évaluations positives', 88],
             ].map(([l, v], i) => (
               <div key={i} style={{ marginBottom: 10 }}>
                 <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
@@ -620,7 +619,7 @@ function ProsSection({ go }) {
     { ic: 'target', t: 'Ciblage par paliers de données', d: "Payez uniquement pour ce dont vous avez besoin : identification, localisation, style de vie, profession, patrimoine. Budget maîtrisé au centime." },
     { ic: 'wallet', hi: true, t: 'Vous ne payez que les acceptations', d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté la mise en relation. Les refus et expirations sont gratuits.", featured: true },
     { ic: 'trend', t: 'ROI ×3 à ×5 en moyenne', d: "Taux d'acceptation moyen de 62% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des conversations qui convertissent." },
-    { ic: 'gauge', t: 'BUPP Score : qualité mesurée', d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient." },
+    { ic: 'gauge', t: 'BUUPP Score : qualité mesurée', d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient." },
     { ic: 'bolt', t: 'Mise en relation en 24 h', d: "Campagne créée le matin, premiers rendez-vous pris le soir. Plus d'intermédiaires, plus d'agences, plus de délais." },
   ];
 
@@ -673,7 +672,7 @@ function ProsSection({ go }) {
                   fontSize: 9, padding: '3px 8px', borderRadius: 999,
                   background: '#A5B4FC', color: '#0F1629', letterSpacing: '.14em', fontWeight: 600
                 }}>
-                  LE + BUPP
+                  LE + BUUPP
                 </div>
               )}
               <div style={{
@@ -707,7 +706,7 @@ function ProsSection({ go }) {
             ))}
           </div>
           <div style={{ padding: 36, borderRadius: 14, border: '1px solid #A5B4FC', background: 'linear-gradient(180deg, rgba(165,180,252,.06), transparent)', position: 'relative' }}>
-            <div className="mono caps" style={{ fontSize: 11, color: '#A5B4FC', letterSpacing: '.15em', marginBottom: 16 }}>— Avec BUPP</div>
+            <div className="mono caps" style={{ fontSize: 11, color: '#A5B4FC', letterSpacing: '.15em', marginBottom: 16 }}>— Avec BUUPP</div>
             <div className="serif" style={{ fontSize: 26, color: 'var(--paper)', marginBottom: 24 }}>Le prospect <em style={{ color: '#A5B4FC' }}>accepte</em> avant même que vous parliez</div>
             {[
               ['62%', "taux d'acceptation moyen"],
@@ -726,7 +725,7 @@ function ProsSection({ go }) {
         {/* Cas d'usage */}
         <div>
           <div className="mono caps" style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', letterSpacing: '.18em', marginBottom: 24 }}>
-            — Ils prospectent mieux avec BUPP
+            — Ils prospectent mieux avec BUUPP
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             {useCases.map((u, i) => (
@@ -765,7 +764,7 @@ function Journal() {
       tag: 'Product',
       date: '19 mars 2026',
       read: '4 min',
-      title: "Ce qui change avec le BUPP Score v2",
+      title: "Ce qui change avec le BUUPP Score v2",
       excerpt: "Nouvelle pondération, prise en compte du taux de réponse historique, certification par tiers : ce qui évolue pour les prospects et pour les professionnels."
     },
   ];
@@ -846,7 +845,7 @@ function Journal() {
         <div className="card" style={{ marginTop: 56, padding: 36, background: 'var(--ivory-2)', border: '1px dashed var(--line-2)' }}>
           <div className="row between center" style={{ gap: 32, flexWrap: 'wrap' }}>
             <div>
-              <div className="serif" style={{ fontSize: 28, letterSpacing: '-0.01em' }}>La <em>Lettre BUPP</em> — un mercredi sur deux.</div>
+              <div className="serif" style={{ fontSize: 28, letterSpacing: '-0.01em' }}>La <em>Lettre BUUPP</em> — un mercredi sur deux.</div>
               <div className="muted" style={{ fontSize: 14, marginTop: 6 }}>Une idée, une donnée, une histoire. Lue par 18 400 personnes qui pensent comme vous.</div>
             </div>
             <div className="row gap-2" style={{ minWidth: 360 }}>
@@ -892,7 +891,7 @@ function Footer() {
           <div style={{ maxWidth: 320 }}>
             <Logo size={26} color="var(--paper)" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
             <div style={{ marginTop: 20, fontSize: 13, lineHeight: 1.6 }}>
-              BUPP SAS · 12 rue du Sentier, 75002 Paris · RCS Paris 908 214 009 · Agréé
+              BUUPP SAS · 12 rue du Sentier, 75002 Paris · RCS Paris 908 214 009 · Agréé
               intermédiaire en opérations de banque.
             </div>
           </div>
@@ -908,7 +907,7 @@ function Footer() {
           ))}
         </div>
         <div className="row between" style={{ borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 20, fontSize: 12 }}>
-          <div>© 2026 BUPP SAS. Tous droits réservés.</div>
+          <div>© 2026 BUUPP SAS. Tous droits réservés.</div>
           <div className="row gap-4"><span>Français</span><span>EUR €</span></div>
         </div>
       </div>

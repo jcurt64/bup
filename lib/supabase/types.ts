@@ -459,6 +459,82 @@ export type Database = {
           },
         ]
       }
+      prospect_score_history: {
+        Row: {
+          prospect_id: string
+          snapshot_date: string
+          score: number
+          completeness_pct: number
+          freshness_pct: number
+          acceptance_pct: number
+          created_at: string
+        }
+        Insert: {
+          prospect_id: string
+          snapshot_date: string
+          score: number
+          completeness_pct?: number
+          freshness_pct?: number
+          acceptance_pct?: number
+          created_at?: string
+        }
+        Update: {
+          prospect_id?: string
+          snapshot_date?: string
+          score?: number
+          completeness_pct?: number
+          freshness_pct?: number
+          acceptance_pct?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_score_history_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_rib: {
+        Row: {
+          prospect_id: string
+          iban: string
+          bic: string | null
+          holder_name: string
+          validated_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          prospect_id: string
+          iban: string
+          bic?: string | null
+          holder_name: string
+          validated_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          prospect_id?: string
+          iban?: string
+          bic?: string | null
+          holder_name?: string
+          validated_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_rib_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: true
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waitlist: {
         Row: {
           created_at: string
@@ -541,7 +617,12 @@ export type Database = {
         | "campaign_charge"
         | "referral_bonus"
         | "refund"
-      verification_level: "basique" | "verifie" | "certifie" | "confiance"
+      verification_level:
+        | "basique"
+        | "verifie"
+        | "certifie"
+        | "confiance"
+        | "certifie_confiance"
     }
     CompositeTypes: {
       [_ in never]: never

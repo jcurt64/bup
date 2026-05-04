@@ -37,7 +37,7 @@ function Auth({ go }) {
             <span className="italic" style={{ color: '#A5B4FC' }}>votre revenu.</span>
           </h2>
           <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 16, maxWidth: 440, marginTop: 20, lineHeight: 1.6 }}>
-            BUPP est la première plateforme française où les professionnels rémunèrent
+            BUUPP est la première plateforme française où les professionnels rémunèrent
             directement les prospects qu'ils contactent. Double consentement, RGPD natif,
             retraits sous 48 heures.
           </p>
@@ -181,7 +181,7 @@ function Auth({ go }) {
 
           <div className="muted" style={{ fontSize: 11, marginTop: 20, lineHeight: 1.6 }}>
             En continuant, vous acceptez les <a style={{ textDecoration: 'underline' }} href="#">CGU</a> et la{' '}
-            <a style={{ textDecoration: 'underline' }} href="#">Politique RGPD</a>. BUPP ne transmet
+            <a style={{ textDecoration: 'underline' }} href="#">Politique RGPD</a>. BUUPP ne transmet
             aucune donnée sans votre consentement explicite préalable.
           </div>
         </div>

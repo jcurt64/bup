@@ -15,7 +15,7 @@ import { ensureProspect } from "@/lib/sync/prospects";
 import PrototypeFrame from "../_components/PrototypeFrame";
 
 export const metadata = {
-  title: "BUPP — Espace Prospect",
+  title: "BUUPP — Espace Prospect",
 };
 
 export default async function ProspectPage() {

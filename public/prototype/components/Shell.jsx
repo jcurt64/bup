@@ -1,13 +1,13 @@
 /* Shared small components */
 
 const Logo = ({ size = 18, color, onClick }) => {
-  // BUPP brand image (replaces former SVG mark). `size` controls rendered height.
+  // BUUPP brand image (replaces former SVG mark). `size` controls rendered height.
   const renderHeight = Math.max(size * 2.2, 36);
   const content = (
     <div className="row center" style={{ color: color || 'inherit' }}>
       <img
         src="/logo.png"
-        alt="BUPP"
+        alt="BUUPP"
         style={{ height: renderHeight, width: 'auto', display: 'block' }}
       />
     </div>
@@ -110,7 +110,7 @@ const Avatar = ({ name = "?", size = 32, color }) => {
   );
 };
 
-// Small circular BUPP Score gauge
+// Small circular BUUPP Score gauge
 const ScoreGauge = ({ value = 742, max = 1000, size = 120, label = true }) => {
   const pct = value / max;
   const R = size / 2 - 6;

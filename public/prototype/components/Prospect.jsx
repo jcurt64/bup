@@ -2,49 +2,70 @@
 var { useState, useEffect } = React;
 
 /* ---------- Shared prospect profile store ----------
-   Single source of truth for the prospect's declared data.
-   Any edits from "Mes données" ripple across:
-   - header greeting ("Bonjour Marie")
-   - campaign-types allowed (also shown in Préférences)
-   - score panel name                                        */
+   Source de vérité côté client pour les données déclarées par le
+   prospect. Au montage, hydraté depuis /api/prospect/donnees ; chaque
+   mutation est répliquée sur l'API (PATCH/POST) tout en restant
+   optimiste côté UI pour ne pas geler le formulaire.
+
+   Toute édition de "Mes données" se propage à :
+   - la salutation du header ("Bonjour Marie")
+   - l'avatar du topbar (initiales)
+   - les onglets Préférences / Score                              */
+const EMPTY_TIER = {
+  identity:    { prenom: '', nom: '', email: '', telephone: '', naissance: '' },
+  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '' },
+  vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
+  pro:         { poste: '', statut: '', secteur: '', revenus: '' },
+  patrimoine:  { residence: '', epargne: '', projets: '' },
+};
+
 const INITIAL_PROFILE = {
-  identity: {
-    prenom: 'Marie',
-    nom: 'Leroy',
-    email: 'marie.leroy@gmail.com',
-    telephone: '06 12 •• •• 12',
-    naissance: '14/06/1988',
-  },
-  localisation: {
-    adresse: '24 rue Moncey',
-    ville: 'Lyon 3e',
-    codePostal: '69003',
-    logement: 'Appartement T3',
-    mobilite: 'Voiture + vélo',
-  },
-  vie: {
-    foyer: 'Couple, 1 enfant (5 ans)',
-    sports: 'Yoga, running',
-    animaux: 'Chat',
-    vehicule: 'Peugeot 208 (2021)',
-  },
-  pro: {
-    poste: 'Designer produit sénior',
-    statut: 'CDI',
-    secteur: 'Tech / SaaS',
-    revenus: '45–55 k€ / an',
-  },
-  patrimoine: {
-    residence: 'Locataire',
-    epargne: '20–50 k€',
-    projets: 'Achat immobilier à 3 ans',
-  },
+  ...EMPTY_TIER,
   // Preference: true = all campaign types, else selected subset
   allCampaignTypes: true,
   campaignTypes: new Set(['Prise de contact', 'Prise de rendez-vous']),
   // Categories authorised (mirrored in Préférences)
   categories: new Set(['Bien-être', 'Artisanat', 'Coaching']),
 };
+
+/* Helpers HTTP — fire-and-forget (les erreurs sont loggées mais la
+   mutation optimiste UI n'est pas annulée pour ne pas perturber le
+   formulaire en cours d'édition). À chaque succès on diffuse un
+   `prospect:profile-changed` pour que les composants qui calculent
+   un agrégat (BUUPP Score, header pills) puissent se rafraîchir. */
+function notifyProfileChanged() {
+  try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch (_) {}
+}
+async function persistFieldUpdate(category, field, value) {
+  try {
+    const r = await fetch('/api/prospect/donnees', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tier: category, fields: { [field]: value } }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      console.warn('[prospect/donnees] PATCH failed', r.status, j);
+      return;
+    }
+    notifyProfileChanged();
+  } catch (e) { console.warn('[prospect/donnees] PATCH error', e); }
+}
+async function persistTierAction(tier, action) {
+  try {
+    const r = await fetch('/api/prospect/tier', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tier, action }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      console.warn('[prospect/tier] POST failed', r.status, j);
+      return;
+    }
+    notifyProfileChanged();
+  } catch (e) { console.warn('[prospect/tier] POST error', e); }
+}
 
 /* Sollicitations entrantes envoyées par les pros via leurs campagnes.
    Exposées par le ProspectProvider pour piloter à la fois la section
@@ -85,6 +106,45 @@ function ProspectProvider({ children }) {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [deleted, setDeleted] = useState({}); // key -> true for temporarily suppressed categories
   const [removed, setRemoved] = useState({}); // key -> true for permanently deleted categories (RGPD art.17)
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydratation initiale depuis Supabase via /api/prospect/donnees.
+  // Tant que l'API n'a pas répondu, on affiche l'état vide (EMPTY_TIER) ;
+  // dès la réponse, les 5 paliers sont remplis avec les valeurs persistées
+  // ainsi que les états "caché" et "supprimé".
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/prospect/donnees', { cache: 'no-store' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (cancelled) return;
+        setProfile(p => ({
+          ...p,
+          identity:    { ...p.identity,    ...data.identity },
+          localisation:{ ...p.localisation,...data.localisation },
+          vie:         { ...p.vie,         ...data.vie },
+          pro:         { ...p.pro,         ...data.pro },
+          patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
+        }));
+        // hidden_tiers ↔ deleted (suppression temporaire)
+        const nextDeleted = {};
+        (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
+        setDeleted(nextDeleted);
+        // removed_tiers ↔ removed (suppression définitive RGPD art. 17)
+        const nextRemoved = {};
+        (data.removedTiers || []).forEach(t => { nextRemoved[t] = true; });
+        setRemoved(nextRemoved);
+      } catch (e) {
+        console.warn('[prospect/donnees] GET error', e);
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const [pendingRelations, setPendingRelations] = useState(INITIAL_PENDING_RELATIONS);
   const [acceptedRelations, setAcceptedRelations] = useState({});
   const [refusedRelations, setRefusedRelations] = useState({});
@@ -103,9 +163,18 @@ function ProspectProvider({ children }) {
   const undoRefuseRelation = (id) => setRefusedRelations(r => { const n = {...r}; delete n[id]; return n; });
   const updateField = (category, field, value) => {
     setProfile(p => ({ ...p, [category]: { ...p[category], [field]: value } }));
+    // Persiste vers /api/prospect/donnees (PATCH). Optimiste : on n'attend
+    // pas la réponse pour mettre à jour l'UI ; les erreurs sont loggées.
+    persistFieldUpdate(category, field, value);
   };
-  const suppressTemp = (category) => setDeleted(d => ({ ...d, [category]: true }));
-  const restore = (category) => setDeleted(d => { const n = {...d}; delete n[category]; return n; });
+  const suppressTemp = (category) => {
+    setDeleted(d => ({ ...d, [category]: true }));
+    persistTierAction(category, 'hide');
+  };
+  const restore = (category) => {
+    setDeleted(d => { const n = {...d}; delete n[category]; return n; });
+    persistTierAction(category, 'restore');
+  };
   const deletePermanent = (category) => {
     // Identification is the keystone palier: without it the prospect cannot
     // be identified at all, so removing it cascades to every other category.
@@ -132,6 +201,9 @@ function ProspectProvider({ children }) {
       targets.forEach(key => { n[key] = true; });
       return n;
     });
+    // Côté serveur, le DELETE sur 'identity' déclenche la cascade vers
+    // tous les paliers — on n'envoie qu'un seul appel API.
+    persistTierAction(category, 'delete');
   };
   const addField = (category, field, value) => updateField(category, field, value);
   const setAllCampaignTypes = (on) => setProfile(p => ({ ...p, allCampaignTypes: on }));
@@ -165,7 +237,7 @@ const PROSPECT_SECTIONS = [
   { id: 'donnees',      icon: 'database', label: 'Mes données' },
   { id: 'relations',    icon: 'handshake', label: 'Mises en relation' },
   { id: 'verif',        icon: 'tiers',  label: 'Paliers de vérification' },
-  { id: 'score',        icon: 'gauge',  label: 'BUPP Score' },
+  { id: 'score',        icon: 'gauge',  label: 'BUUPP Score' },
   { id: 'prefs',        icon: 'sliders', label: 'Préférences' },
   { id: 'parrainage',   icon: 'gift',   label: 'Parrainage' },
   { id: 'fiscal',       icon: 'doc',    label: 'Informations fiscales' },
@@ -548,25 +620,103 @@ function TopBar({ role, go, overrideName }) {
   );
 }
 
+/* Cache module-level pour /api/prospect/parrainage, /api/prospect/score
+   et /api/prospect/wallet afin que ProspectHeader, l'onglet Parrainage,
+   l'onglet BUUPP Score et le bandeau de gains se partagent la même
+   réponse au sein d'une session de dashboard. Le cache est invalidé à
+   chaque mutation profil pour refléter immédiatement les modifications
+   faites dans "Mes données". */
+const _prospectApiCache = { parrainage: null, score: null, wallet: null, verification: null };
+async function fetchCachedJson(key, url) {
+  if (_prospectApiCache[key]) return _prospectApiCache[key];
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const json = await r.json();
+    _prospectApiCache[key] = json;
+    return json;
+  } catch (e) {
+    return null;
+  }
+}
+function invalidateProspectApiCache() {
+  _prospectApiCache.parrainage = null;
+  _prospectApiCache.score = null;
+  _prospectApiCache.wallet = null;
+  _prospectApiCache.verification = null;
+}
+
+/* Format euros français : "57,80 €" / "0,00 €". */
+const _eurFmt = new Intl.NumberFormat('fr-FR', {
+  style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
+});
+
 function ProspectHeader() {
   const { profile } = useProspect() || {};
   const prenom = profile?.identity?.prenom || 'Marie';
+  const [parrainage, setParrainage] = useState(null);
+  const [score, setScore] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [verification, setVerification] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      fetchCachedJson('parrainage', '/api/prospect/parrainage').then(j => !cancelled && setParrainage(j));
+      fetchCachedJson('score', '/api/prospect/score').then(j => !cancelled && setScore(j));
+      fetchCachedJson('wallet', '/api/prospect/wallet').then(j => !cancelled && setWallet(j));
+      fetchCachedJson('verification', '/api/prospect/verification').then(j => !cancelled && setVerification(j));
+    };
+    refresh();
+    // Une mutation faite ailleurs (ex. édition dans "Mes données") doit
+    // recalculer score / parrainage / wallet → on invalide puis re-fetch.
+    const onChange = () => { invalidateProspectApiCache(); refresh(); };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('prospect:profile-changed', onChange);
+    };
+  }, []);
+
+  const filleulCount = parrainage?.count ?? null;
+  const filleulCap = parrainage?.cap ?? 10;
+  const parrainageText =
+    filleulCount == null ? '…' : `${filleulCount} / ${filleulCap}`;
+  const scoreVal = score?.score;
+  const scoreText = scoreVal == null ? '…' : `${scoreVal} / 1000`;
+  // Tant que /api/prospect/wallet n'a pas répondu, on garde "…" plutôt
+  // que 0 € (évite un flash trompeur). Une fois la réponse reçue, on
+  // affiche le vrai cumul du mois (par défaut 0 € si aucun gain).
+  const gainsText = wallet == null
+    ? '…'
+    : _eurFmt.format(Number(wallet.monthGainsEur ?? 0));
+
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8 }}>— Bonjour {prenom || '—'}</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
-            Vos gains du mois : <em>57,80 €</em>
+            Vos gains du mois : <em>{gainsText}</em>
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             3 mises en relation en attente · prochaine échéance dans 14 h 22 min
           </div>
         </div>
         <div className="row center gap-6">
-          <StatusPill label="Vérification" value="Vérifié 80%" chip="chip-accent"/>
-          <StatusPill label="BUPP Score" value="742 / 1000" chip="chip-good"/>
-          <StatusPill label="Parrainages" value="6 actifs" chip=""/>
+          <StatusPill
+            label="Vérification"
+            value={verification
+              ? `${VERIF_LABELS[verification.tier] || 'Basique'} ${verification.progress ?? 33}%`
+              : '…'}
+            chip={
+              verification?.tier === 'certifie_confiance' ? 'chip-good' :
+              verification?.tier === 'verifie' ? 'chip-accent' :
+              ''
+            }
+          />
+          <StatusPill label="BUUPP Score" value={scoreText} chip="chip-good"/>
+          <StatusPill label="Parrainages" value={parrainageText} chip=""/>
         </div>
       </div>
     </div>
@@ -585,6 +735,45 @@ function StatusPill({ label, value, chip }) {
 /* ---------- Portefeuille ---------- */
 function Portefeuille() {
   const [modal, setModal] = useState(null);
+  const [wallet, setWallet] = useState(null);
+
+  // Hydrate les 3 cartes (Disponible / En séquestre / Cumulé depuis ouverture)
+  // depuis /api/prospect/wallet. Re-fetch sur prospect:profile-changed pour
+  // refléter immédiatement un nouveau crédit ou retrait.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () =>
+      fetchCachedJson('wallet', '/api/prospect/wallet').then(j => !cancelled && setWallet(j));
+    refresh();
+    const onChange = () => { invalidateProspectApiCache(); refresh(); };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
+  }, []);
+
+  // Helpers de formatage : "0,00" / "284,50" (séparateur fr-FR, 2 décimales).
+  const fmt = (eur) => Number(eur || 0).toFixed(2).replace('.', ',');
+  const availableEur = wallet?.availableEur ?? 0;
+  const availableCoins = Math.round((wallet?.availableCents ?? 0));
+  const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
+  const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
+  const threshold = wallet?.withdrawThresholdEur ?? 5;
+  const canWithdraw = wallet?.canWithdraw ?? false;
+  const relationsCount = wallet?.relationsCount ?? 0;
+
+  // Sous-titre "Cumulé depuis ouverture" : nombre de mois écoulés depuis
+  // la création du compte + nombre réel de mises en relation reçues.
+  const lifetimeSub = (() => {
+    const created = wallet?.accountCreatedAt ? new Date(wallet.accountCreatedAt) : null;
+    const rel = `${relationsCount} mise${relationsCount > 1 ? 's' : ''} en relation`;
+    if (!created || Number.isNaN(created.getTime())) return rel;
+    const now = new Date();
+    const months = Math.max(
+      0,
+      (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()),
+    );
+    return `${months} mois · ${rel}`;
+  })();
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Portefeuille" title="Votre capital" desc="Solde disponible, fonds en séquestre jusqu'à validation, gains cumulés depuis l'ouverture."/>
@@ -592,14 +781,34 @@ function Portefeuille() {
         <BalanceCard
           big
           label="Disponible"
-          value="43,20"
-          coins="432"
-          sub="Retirable immédiatement"
+          value={fmt(availableEur)}
+          coins={availableCoins.toLocaleString('fr-FR')}
+          sub={canWithdraw
+            ? 'Retirable immédiatement'
+            : `Retirable à partir de ${threshold} € de gains`}
           primary
-          action={<button className="btn btn-accent" onClick={() => setModal('retrait')}>Retirer mes gains <Icon name="arrow" size={14}/></button>}
+          action={
+            <button
+              className="btn btn-accent"
+              onClick={() => canWithdraw && setModal('retrait')}
+              disabled={!canWithdraw}
+              style={{
+                opacity: canWithdraw ? 1 : 0.5,
+                cursor: canWithdraw ? 'pointer' : 'not-allowed',
+              }}
+              title={canWithdraw ? '' : `Disponible à partir de ${threshold} €`}
+            >
+              Retirer mes gains <Icon name="arrow" size={14}/>
+            </button>
+          }
         />
         <BalanceCard label="En séquestre" value="14,60" coins="146" sub="Déblocage sous 72 h" lock/>
-        <BalanceCard label="Cumulé depuis 2024" value="284,50" coins="2 845" sub="12 mois · 38 mises en relation"/>
+        <BalanceCard
+          label="Cumulé depuis ouverture"
+          value={fmt(lifetimeEur)}
+          coins={lifetimeCoins.toLocaleString('fr-FR')}
+          sub={lifetimeSub}
+        />
       </div>
 
       <div className="card historique-card" style={{ padding: 28 }}>
@@ -662,7 +871,7 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action }) {
       </div>
       <div className="row center gap-2" style={{ marginTop: 10, fontSize: 13, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>
         <span className="coin">B</span>
-        <span className="mono tnum">{coins} BUPP Coins</span>
+        <span className="mono tnum">{coins} BUUPP Coins</span>
       </div>
       <div style={{ fontSize: 12, color: primary ? 'rgba(255,255,255,.5)' : 'var(--ink-5)', marginTop: 14 }}>{sub}</div>
       {action && <div style={{ marginTop: 20 }}>{action}</div>}
@@ -878,7 +1087,7 @@ function MesDonnees({ onGoPrefs }) {
         <div>
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Complétude de votre profil</div>
           <div className="serif tnum" style={{ fontSize: 40 }}>{completeness}<span style={{ fontSize: 20, color: 'var(--ink-4)' }}>%</span></div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Plus votre profil est complet, plus votre BUPP Score augmente.</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Plus votre profil est complet, plus votre BUUPP Score augmente.</div>
         </div>
         <div>
           <div className="col gap-2">
@@ -1637,70 +1846,301 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
 }
 
 /* ---------- Verif tiers ---------- */
+/* ─── Verification (3 paliers) ──────────────────────────────────────
+   Modèle métier (enums Supabase) :
+     basique           — créé par défaut à l'ouverture du compte.
+     verifie           — RIB renseigné + auto-validé.
+     certifie_confiance — au moins une mise en relation acceptée
+                          issue d'une campagne 'prise_de_rendez_vous'.
+   Données récupérées via /api/prospect/verification (recalcul + persist
+   à chaque GET). Le re-fetch est aussi déclenché par le bus
+   `prospect:profile-changed` (ex. après upsert RIB). */
+const VERIF_TIERS = [
+  {
+    key: 'basique',
+    label: 'Basique',
+    done: 'Compte créé',
+    requirement: "Création du compte",
+    nextLabel: 'Première étape',
+  },
+  {
+    key: 'verifie',
+    label: 'Vérifié',
+    done: "RIB renseigné et validé",
+    requirement: "Renseignez vos coordonnées bancaires (RIB) pour passer au palier Vérifié.",
+    nextLabel: 'Prochaine étape',
+  },
+  {
+    key: 'certifie_confiance',
+    label: 'Certifié confiance',
+    done: "Rendez-vous physique accepté",
+    requirement: "Acceptez un rendez-vous physique proposé par un professionnel.",
+    nextLabel: 'Dernière étape',
+  },
+];
+const VERIF_LABELS = {
+  basique: 'Basique',
+  verifie: 'Vérifié',
+  certifie_confiance: 'Certifié confiance',
+};
+
 function VerifTiers() {
-  const tiers = [
-    { k: 'Basique',   pct: 0,   active: true,  ok: true,  done: "Email + mot de passe", next: "Ajoutez votre téléphone pour passer au palier Vérifié." },
-    { k: 'Vérifié',   pct: 40,  active: true,  ok: true,  done: "Téléphone + pièce d'identité", next: "Passez la vérification vidéo sélective pour atteindre Certifié." },
-    { k: 'Certifié',  pct: 80,  active: true,  ok: false, done: "Vérification vidéo sélective", next: "Reliez un justificatif de domicile datant de moins de 3 mois." },
-    { k: 'Confiance', pct: 100, active: false, ok: false, done: "Justificatif de domicile + IBAN vérifié", next: "Vos gains seront doublés ×2 sur tous les paliers." },
-  ];
-  const current = 2; // at 80
+  const [data, setData] = useState(null);
+  const [ribOpen, setRibOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () =>
+      fetchCachedJson('verification', '/api/prospect/verification').then(j => !cancelled && setData(j));
+    refresh();
+    const onChange = () => { invalidateProspectApiCache(); refresh(); };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
+  }, []);
+
+  const tier = data?.tier || 'basique';
+  const currentIdx = Math.max(0, VERIF_TIERS.findIndex(t => t.key === tier));
+  const pct = data?.progress ?? 33;
+  const ribValidated = data?.rib?.validated;
+  const ibanMasked = data?.rib?.ibanMasked;
+
+
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Paliers de vérification" title="Vos paliers" desc="Chaque palier validé débloque des demandes plus exigeantes et mieux rémunérées. Aucune donnée n'est partagée — la vérification reste confidentielle et n'alimente que votre BUPP Score."/>
+      <SectionTitle
+        eyebrow="Paliers de vérification"
+        title="Vos paliers"
+        desc="Trois paliers : Basique (à la création), Vérifié (RIB renseigné), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées."
+      />
       <div className="card" style={{ padding: 32 }}>
-        {/* progress dots line */}
+        {/* Progress dots line */}
         <div style={{ position: 'relative', padding: '0 0 24px' }}>
           <div style={{ position: 'absolute', top: 14, left: 14, right: 14, height: 2, background: 'var(--line)' }}/>
-          <div style={{ position: 'absolute', top: 14, left: 14, width: `calc(${(current)/(tiers.length-1)*100}% - 28px)`, height: 2, background: 'var(--accent)' }}/>
+          <div style={{
+            position: 'absolute', top: 14, left: 14,
+            width: `calc(${(currentIdx)/(VERIF_TIERS.length-1)*100}% - 28px)`,
+            height: 2, background: 'var(--accent)',
+            transition: 'width .3s'
+          }}/>
           <div className="row between">
-            {tiers.map((t, i) => (
-              <div key={t.k} style={{ textAlign: 'center', zIndex: 1, width: 120 }}>
+            {VERIF_TIERS.map((t, i) => (
+              <div key={t.key} style={{ textAlign: 'center', zIndex: 1, width: 160 }}>
                 <div style={{
                   width: 30, height: 30, borderRadius: 999,
-                  background: i <= current ? 'var(--accent)' : 'var(--paper)',
-                  border: '2px solid ' + (i <= current ? 'var(--accent)' : 'var(--line-2)'),
-                  color: i <= current ? 'white' : 'var(--ink-4)',
+                  background: i <= currentIdx ? 'var(--accent)' : 'var(--paper)',
+                  border: '2px solid ' + (i <= currentIdx ? 'var(--accent)' : 'var(--line-2)'),
+                  color: i <= currentIdx ? 'white' : 'var(--ink-4)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto', fontSize: 12, fontFamily: 'var(--mono)'
-                }}>{i < current ? '✓' : i + 1}</div>
-                <div style={{ marginTop: 10, fontSize: 13, fontWeight: i === current ? 500 : 400 }}>{t.k}</div>
-                <div className="mono tnum muted" style={{ fontSize: 11 }}>{t.pct}%</div>
+                }}>{i < currentIdx ? '✓' : i + 1}</div>
+                <div style={{ marginTop: 10, fontSize: 13, fontWeight: i === currentIdx ? 500 : 400 }}>{t.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          <div>
-            <div className="mono caps muted" style={{ marginBottom: 10 }}>— Palier actuel</div>
-            <div className="serif" style={{ fontSize: 28, marginBottom: 4 }}>Certifié <span className="muted" style={{ fontSize: 16 }}>80%</span></div>
-            <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>{tiers[current].done} validé.</div>
-          </div>
-          <div>
-            <div className="mono caps muted" style={{ marginBottom: 10 }}>— Prochaine étape</div>
-            <div className="serif" style={{ fontSize: 20, marginBottom: 8 }}>Palier Confiance</div>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 14 }}>{tiers[current + 1].next}</p>
-            <button className="btn btn-primary btn-sm">Téléverser mon justificatif <Icon name="arrow" size={12}/></button>
-          </div>
+        {/* 3 colonnes équidistantes, alignées avec les 3 pastilles de
+            progression au-dessus. Chaque colonne décrit l'état d'un
+            palier (Validé / Palier actuel / Prochaine étape / Dernière
+            étape). Le mapping des libellés est dynamique : il dépend du
+            palier courant — pour un prospect "Basique", on aura
+            Basique → Palier actuel · Vérifié → Prochaine étape ·
+            Certifié confiance → Dernière étape. */}
+        <div style={{
+          borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 24,
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24,
+        }}>
+          {VERIF_TIERS.map((t, i) => {
+            const reached = i <= currentIdx;
+            const isCurrent = i === currentIdx;
+            const label = isCurrent
+              ? 'Palier actuel'
+              : i < currentIdx
+                ? 'Palier validé'
+                : t.nextLabel;
+            // CTA disponible uniquement pour le palier "Vérifié" non
+            // encore atteint (ouverture de la modale RIB).
+            const showRibCta = !reached && t.key === 'verifie';
+            return (
+              <div key={t.key} style={{ textAlign: 'center', minWidth: 0 }}>
+                <div className="mono caps muted" style={{ marginBottom: 10, fontSize: 10, letterSpacing: '.14em' }}>
+                  — {label}
+                </div>
+                <div className="serif" style={{ fontSize: isCurrent ? 24 : 18, marginBottom: 6 }}>
+                  {t.label}
+                  {isCurrent && (
+                    <span className="muted" style={{ fontSize: 14 }}> {pct}%</span>
+                  )}
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5, margin: 0 }}>
+                  {reached ? `${t.done}.` : t.requirement}
+                </p>
+                {isCurrent && ribValidated && ibanMasked && (
+                  <div className="muted mono" style={{ fontSize: 12, marginTop: 8 }}>RIB : {ibanMasked}</div>
+                )}
+                {showRibCta && (
+                  <button
+                    onClick={() => setRibOpen(true)}
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: 12 }}
+                  >
+                    {ribValidated ? 'Modifier mon RIB' : 'Renseigner mon RIB'}{' '}
+                    <Icon name="arrow" size={12}/>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        {tiers.map((t, i) => (
-          <div key={t.k} className="card" style={{ padding: 20, background: i === current ? 'var(--paper)' : 'var(--ivory-2)', borderColor: i === current ? 'var(--ink)' : 'var(--line)' }}>
-            <div className="row between center" style={{ marginBottom: 10 }}>
-              <div className="mono caps muted" style={{ fontSize: 10 }}>Palier {i+1}</div>
-              {i < current ? <span className="chip chip-good"><Icon name="check" size={10}/> Validé</span>
-                : i === current ? <span className="chip chip-accent">En cours</span>
-                : <span className="chip">À venir</span>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {VERIF_TIERS.map((t, i) => {
+          const reached = i <= currentIdx;
+          return (
+            <div key={t.key} className="card" style={{
+              padding: 20,
+              background: i === currentIdx ? 'var(--paper)' : 'var(--ivory-2)',
+              borderColor: i === currentIdx ? 'var(--ink)' : 'var(--line)',
+            }}>
+              <div className="row between center" style={{ marginBottom: 10 }}>
+                <div className="mono caps muted" style={{ fontSize: 10 }}>Palier {i + 1}</div>
+                {reached
+                  ? <span className="chip chip-good"><Icon name="check" size={10}/> Validé</span>
+                  : <span className="chip">À venir</span>}
+              </div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 10 }}>{t.label}</div>
+              {/* Pour chaque carte, on affiche le même format en deux lignes :
+                  (1) un sous-titre "eyebrow" qui qualifie l'étape (Première /
+                      Étape suivante / Dernière étape),
+                  (2) la description : ce qui a été validé pour les paliers
+                      atteints, ou le prérequis pour les paliers à venir.
+                  Cela harmonise visuellement les 3 cartes (notamment "Certifié
+                  confiance" qui rappelle le rendez-vous physique requis). */}
+              <div className="mono caps muted" style={{ fontSize: 9, letterSpacing: '.14em', marginBottom: 4 }}>
+                — {reached ? 'Validé' : t.nextLabel}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+                {reached ? t.done : t.requirement}
+              </div>
             </div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 4 }}>{t.k}</div>
-            <div className="mono tnum muted" style={{ fontSize: 11, marginBottom: 12 }}>{t.pct}%</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t.done}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {ribOpen && <RibModal initial={data?.rib} onClose={() => setRibOpen(false)}/>}
+    </div>
+  );
+}
+
+/* Modale "Renseigner mon RIB" — IBAN + BIC + nom du titulaire.
+   Validation côté serveur (longueur + alphanumérique). À la confirmation,
+   notifie `prospect:profile-changed` pour propager la mise à jour du
+   palier de vérification dans tout le dashboard. */
+function RibModal({ initial, onClose }) {
+  const [iban, setIban] = useState('');
+  const [bic, setBic] = useState('');
+  const [holderName, setHolderName] = useState(initial?.holderName || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/prospect/rib', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ iban, bic, holderName }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.message || j?.error || 'Erreur');
+      try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch {}
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15,22,41,0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 24px 110px',
+    }}>
+      <form onSubmit={submit} style={{
+        position: 'relative', maxWidth: 520, width: '100%',
+        background: 'var(--paper)', borderRadius: 18, padding: '32px 32px 26px',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0',
+      }}>
+        <div className="serif" style={{ fontSize: 24, marginBottom: 6 }}>Coordonnées bancaires</div>
+        <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
+          La saisie de votre RIB validera automatiquement le palier <strong>Vérifié</strong>.
+          {initial?.ibanMasked ? <> RIB actuel : <span className="mono">{initial.ibanMasked}</span>.</> : null}
+        </p>
+
+        <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>
+          IBAN
+        </label>
+        <input
+          className="input"
+          value={iban}
+          onChange={(e) => setIban(e.target.value)}
+          placeholder="FR76 1234 5678 9012 3456 7890 123"
+          autoComplete="off"
+          spellCheck={false}
+          style={{ width: '100%', marginBottom: 14, fontFamily: 'var(--mono)' }}
+          required
+        />
+
+        <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>
+          BIC <span className="muted">(optionnel)</span>
+        </label>
+        <input
+          className="input"
+          value={bic}
+          onChange={(e) => setBic(e.target.value)}
+          placeholder="BNPAFRPPXXX"
+          autoComplete="off"
+          spellCheck={false}
+          style={{ width: '100%', marginBottom: 14, fontFamily: 'var(--mono)' }}
+        />
+
+        <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>
+          Titulaire du compte
+        </label>
+        <input
+          className="input"
+          value={holderName}
+          onChange={(e) => setHolderName(e.target.value)}
+          placeholder="Marie Leroy"
+          style={{ width: '100%', marginBottom: 14 }}
+          required
+        />
+
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5, marginBottom: 14,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="row gap-2" style={{ marginTop: 6 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} style={{ flex: 1 }} disabled={loading}>
+            Annuler
+          </button>
+          <button type="submit" className="btn btn-primary" style={{ flex: 1, opacity: loading ? 0.7 : 1 }} disabled={loading}>
+            {loading ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -1710,41 +2150,108 @@ function ScorePanel() {
   const { profile } = useProspect() || {};
   const prenom = profile?.identity?.prenom || 'Marie';
   const nomInitial = (profile?.identity?.nom || 'L.').charAt(0) + '.';
+
+  // Récupère le score live depuis /api/prospect/score (cache mutualisé
+  // avec le header). Re-fetch si une mutation profil est diffusée.
+  const [score, setScore] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchCachedJson('score', '/api/prospect/score').then(j => !cancelled && setScore(j));
+    const onChange = () => {
+      invalidateProspectApiCache();
+      fetchCachedJson('score', '/api/prospect/score').then(j => !cancelled && setScore(j));
+    };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('prospect:profile-changed', onChange);
+    };
+  }, []);
+
+  const value = score?.score ?? 0;
+  // Bandeau qualitatif aligné sur la grille de la landing.
+  const tier =
+    value >= 900 ? { label: 'Prestige', color: '#166534' }
+    : value >= 700 ? { label: 'Recherchée', color: 'var(--accent)' }
+    : value >= 400 ? { label: 'Solide', color: '#A16207' }
+    : { label: 'Découverte', color: '#B91C1C' };
+
+  const completeness = score?.breakdown?.completeness;
+  const freshness = score?.breakdown?.freshness;
+  const acceptance = score?.breakdown?.acceptance;
+
+  // Conseils dynamiques : on affiche en priorité les axes les plus bas.
+  const tips = [];
+  if (completeness && completeness.filled < completeness.total) {
+    const missing = completeness.total - completeness.filled;
+    tips.push([
+      `Complétez ${missing > 1 ? 'vos paliers manquants' : 'votre dernier palier'}`,
+      `+${missing * 67} pts estimés`,
+      `Chaque palier renseigné pèse ${Math.round(completeness.perTier)} % de la complétude (${completeness.filled}/${completeness.total} validés).`,
+      'chart',
+    ]);
+  }
+  if (freshness && freshness.pct < 100) {
+    tips.push([
+      'Rafraîchissez vos données',
+      `+${Math.round((100 - freshness.pct) * 0.33)} pts estimés`,
+      freshness.lastUpdate
+        ? "Vos infos n'ont pas été mises à jour depuis plus d'un an — ré-éditez un champ pour réenclencher la fraîcheur."
+        : "Renseignez au moins un champ de chaque palier pour amorcer le score de fraîcheur.",
+      'sparkle',
+    ]);
+  }
+  if (acceptance && acceptance.total > 0 && acceptance.pct < 80) {
+    tips.push([
+      'Acceptez plus de mises en relation',
+      `+${Math.round((80 - acceptance.pct) * 0.33)} pts estimés`,
+      `Votre taux actuel est de ${acceptance.pct}% (${acceptance.accepted}/${acceptance.total}). Cible : 80 %.`,
+      'inbox',
+    ]);
+  } else if (acceptance && acceptance.total === 0) {
+    tips.push([
+      'Vos premières sollicitations arrivent',
+      '+0 pts pour l\'instant',
+      "Le taux d'acceptation entrera en vigueur dès la première mise en relation reçue.",
+      'inbox',
+    ]);
+  }
+  // Garantit toujours 3 cartes pour conserver la grille 3 colonnes.
+  while (tips.length < 3) {
+    tips.push(['Passez au palier Confiance', '+80 pts estimés', 'Téléversez votre justificatif de domicile.', 'shield']);
+  }
+
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="BUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 qui évolue chaque semaine selon vos actions, votre complétude et vos évaluations."/>
+      <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre taux d'acceptation."/>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <ScoreGauge value={742} size={240}/>
-          <div className="serif italic" style={{ fontSize: 22, marginTop: 16, color: 'var(--accent)' }}>Recherchée</div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{prenom} {nomInitial} · +24 points sur 30 jours</div>
-          <div className="row between" style={{ marginTop: 22, borderTop: '1px solid var(--line)', paddingTop: 16, fontSize: 12 }}>
-            <div><div className="muted">Rang</div><div className="serif">Top 18%</div></div>
-            <div><div className="muted">Prochain palier</div><div className="serif">Prestige</div></div>
-            <div><div className="muted">À gagner</div><div className="serif">+158 pts</div></div>
+          <ScoreGauge value={value} size={240}/>
+          <div className="serif italic" style={{ fontSize: 22, marginTop: 16, color: tier.color }}>{tier.label}</div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{prenom} {nomInitial}</div>
+          <div className="col gap-2" style={{ marginTop: 22, borderTop: '1px solid var(--line)', paddingTop: 16, fontSize: 12, textAlign: 'left' }}>
+            {[
+              ['Complétude des paliers', completeness?.pct ?? 0, completeness ? `${completeness.filled}/${completeness.total} paliers` : null],
+              ['Fraîcheur des données', freshness?.pct ?? 0, freshness?.ageDays != null ? `${freshness.ageDays} j` : null],
+              ["Taux d'acceptation", acceptance?.pct ?? 0, acceptance ? `${acceptance.accepted}/${acceptance.total}` : null],
+            ].map(([l, v, sub], i) => (
+              <div key={i}>
+                <div className="row between" style={{ marginBottom: 4, letterSpacing: '.04em' }}>
+                  <span className="muted">{l}</span>
+                  <span className="mono tnum">{v}%{sub ? ` · ${sub}` : ''}</span>
+                </div>
+                <Progress value={v / 100} />
+              </div>
+            ))}
           </div>
         </div>
-        <div className="card" style={{ padding: 28 }}>
-          <div className="row between" style={{ marginBottom: 20 }}>
-            <div className="serif" style={{ fontSize: 22 }}>Évolution sur 6 mois</div>
-            <div className="row gap-2">
-              {['1M', '3M', '6M', '1A'].map((t, i) => (
-                <button key={t} className="chip" style={{ cursor: 'pointer', background: i === 2 ? 'var(--ink)' : 'var(--ivory-2)', color: i === 2 ? 'var(--paper)' : 'var(--ink-3)', border: 0 }}>{t}</button>
-              ))}
-            </div>
-          </div>
-          <ScoreChart/>
-        </div>
+        <ScoreEvolution/>
       </div>
 
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 18 }}>Conseils pour améliorer votre score</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          {[
-            ['Passez au palier Confiance', '+80 pts estimés', 'Téléversez votre justificatif de domicile.', 'shield'],
-            ['Complétez votre palier 4', '+45 pts estimés', "Renseignez votre statut professionnel et votre tranche de revenus.", 'chart'],
-            ['Acceptez 2 mises en relation', '+35 pts estimés', "Votre taux d'acceptation actuel (66%) peut atteindre 80%.", 'inbox'],
-          ].map((c, i) => (
+          {tips.slice(0, 3).map((c, i) => (
             <div key={i} style={{ padding: 20, border: '1px dashed var(--line-2)', borderRadius: 12 }}>
               <div className="row between center" style={{ marginBottom: 12 }}>
                 <span style={{ color: 'var(--accent)' }}><Icon name={c[3]} size={18}/></span>
@@ -1760,14 +2267,119 @@ function ScorePanel() {
   );
 }
 
-function ScoreChart() {
-  const data = [620, 638, 652, 658, 684, 702, 715, 728, 730, 742];
-  const W = 600, H = 180, P = 24;
-  const max = 800, min = 600;
-  const x = i => P + (i / (data.length - 1)) * (W - 2*P);
-  const y = v => P + (1 - (v - min) / (max - min)) * (H - 2*P);
-  const line = data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(v)}`).join(' ');
-  const area = line + ` L ${x(data.length-1)} ${H-P} L ${x(0)} ${H-P} Z`;
+/* Section "Évolution du BUUPP Score" : sélecteur de fenêtre + courbe.
+   Les chips 1M/3M/6M/12M deviennent des boutons fonctionnels qui
+   re-fetchent /api/prospect/score/history avec le param `range`. La
+   table source est `prospect_score_history` (1 snapshot par jour),
+   alimentée par /api/prospect/score à chaque consultation du panel. */
+const SCORE_RANGES = ['1M', '3M', '6M', '12M'];
+const SCORE_RANGE_LABELS = {
+  '1M': 'Évolution sur 1 mois',
+  '3M': 'Évolution sur 3 mois',
+  '6M': 'Évolution sur 6 mois',
+  '12M': 'Évolution sur 12 mois',
+};
+
+function ScoreEvolution() {
+  const [range, setRange] = useState('6M');
+  const [history, setHistory] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/prospect/score/history?range=${range}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) { setHistory(j); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    // Tout changement de profil → ré-évalue le score (et son snapshot
+    // du jour) → on re-fetch la courbe pour intégrer immédiatement le
+    // nouveau point.
+    const onChange = () => {
+      fetch(`/api/prospect/score/history?range=${range}`, { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => !cancelled && setHistory(j));
+    };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('prospect:profile-changed', onChange);
+    };
+  }, [range]);
+
+  return (
+    <div className="card" style={{ padding: 28 }}>
+      <div className="row between" style={{ marginBottom: 20 }}>
+        <div className="serif" style={{ fontSize: 22 }}>{SCORE_RANGE_LABELS[range]}</div>
+        <div className="row gap-2">
+          {SCORE_RANGES.map(r => {
+            const active = range === r;
+            return (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className="chip"
+                aria-pressed={active}
+                style={{
+                  cursor: 'pointer',
+                  background: active ? 'var(--ink)' : 'var(--ivory-2)',
+                  color: active ? 'var(--paper)' : 'var(--ink-3)',
+                  border: 0,
+                  fontWeight: active ? 600 : 400,
+                  transition: 'background .15s, color .15s',
+                }}>
+                {r}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <ScoreChart points={history?.points || []} loading={loading} range={range}/>
+    </div>
+  );
+}
+
+/* Trace SVG des snapshots de score. L'axe Y s'auto-ajuste sur la
+   plage [min, max] des points présents (avec une marge), pour rester
+   lisible même quand le score reste plat. Si aucune donnée → message
+   "pas encore d'historique". */
+function ScoreChart({ points, loading, range }) {
+  const W = 600, H = 180, P = 28;
+
+  if (!points || points.length === 0) {
+    return (
+      <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
+        {loading
+          ? 'Chargement de l\'historique…'
+          : `Pas encore d'historique sur ${range}. Votre score sera enregistré à chaque consultation de cet onglet.`}
+      </div>
+    );
+  }
+
+  // Si un seul point, on duplique pour pouvoir tracer une ligne.
+  const data = points.length === 1
+    ? [points[0], { ...points[0] }]
+    : points;
+
+  const scores = data.map(p => Number(p.score) || 0);
+  const rawMin = Math.min(...scores);
+  const rawMax = Math.max(...scores);
+  // Plage Y : on garantit au moins 100 pts d'amplitude pour éviter une
+  // courbe écrasée quand le score est stable.
+  const span = Math.max(100, rawMax - rawMin);
+  const center = (rawMin + rawMax) / 2;
+  const min = Math.max(0, Math.floor((center - span) / 50) * 50);
+  const max = Math.min(1000, Math.ceil((center + span) / 50) * 50);
+
+  const x = i => P + (i / (data.length - 1)) * (W - 2 * P);
+  const y = v => P + (1 - (v - min) / (max - min || 1)) * (H - 2 * P);
+
+  const line = data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(p.score)}`).join(' ');
+  const area = `${line} L ${x(data.length - 1)} ${H - P} L ${x(0)} ${H - P} Z`;
+
+  // 3 graduations Y équidistantes entre min et max (arrondies).
+  const ticks = [min, Math.round((min + max) / 2), max];
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
       <defs>
@@ -1776,7 +2388,7 @@ function ScoreChart() {
           <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
         </linearGradient>
       </defs>
-      {[600, 700, 800].map(v => (
+      {ticks.map(v => (
         <g key={v}>
           <line x1={P} x2={W-P} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeDasharray="2 4"/>
           <text x={W-P+4} y={y(v)+3} fontSize="10" fill="var(--ink-5)" fontFamily="monospace">{v}</text>
@@ -1784,7 +2396,11 @@ function ScoreChart() {
       ))}
       <path d={area} fill="url(#g1)"/>
       <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      {data.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r="3" fill="var(--paper)" stroke="var(--accent)" strokeWidth="1.5"/>)}
+      {data.map((p, i) => (
+        <circle key={i} cx={x(i)} cy={y(p.score)} r="3" fill="var(--paper)" stroke="var(--accent)" strokeWidth="1.5">
+          <title>{p.date} · {p.score}</title>
+        </circle>
+      ))}
     </svg>
   );
 }
@@ -2081,7 +2697,7 @@ function Parrainage() {
 function Fiscal() {
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Informations fiscales" title="Récapitulatif annuel" desc="BUPP transmet vos données récapitulatives à la DGFiP dès le dépassement du seuil déclaratif (3 000 € / 20 transactions en 2026)."/>
+      <SectionTitle eyebrow="Informations fiscales" title="Récapitulatif annuel" desc="BUUPP transmet vos données récapitulatives à la DGFiP dès le dépassement du seuil déclaratif (3 000 € / 20 transactions en 2026)."/>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 28 }}>
@@ -2123,7 +2739,7 @@ function Fiscal() {
           {[
             ['305 €', 'Franchise annuelle', "En dessous, aucune déclaration URSSAF n'est requise."],
             ['3 000 €', 'Seuil DGFiP', "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant."],
-            ['77 700 €', 'Plafond micro-BIC', "Au-delà, bascule en régime réel. BUPP vous alertera 6 mois avant."],
+            ['77 700 €', 'Plafond micro-BIC', "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant."],
           ].map((r, i) => (
             <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
               <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r[0]}</div>

@@ -1,7 +1,7 @@
 import { SignUp } from "@clerk/nextjs";
 
 export const metadata = {
-  title: "BUPP — Inscription",
+  title: "BUUPP — Inscription",
 };
 
 export default function InscriptionPage() {

@@ -189,7 +189,7 @@ function ContactFields() {
             {message.replace(/{{prenom}}/g, 'Marie').replace(/{{ville}}/g, 'Lyon 3e').replace(/{{age}}/g, '34 ans').replace(/{{profession}}/g, 'architecte')}
           </div>
           <div style={{ marginTop: 18, padding: 10, background: 'var(--ivory-2)', borderRadius: 6, fontSize: 11, color: 'var(--ink-4)' }}>
-            <Icon name="shield" size={11}/> <span style={{ marginLeft: 6 }}>Envoyé via BUPP — double consentement vérifié · watermarking actif.</span>
+            <Icon name="shield" size={11}/> <span style={{ marginLeft: 6 }}>Envoyé via BUUPP — double consentement vérifié · watermarking actif.</span>
           </div>
         </div>
       </div>
@@ -379,7 +379,7 @@ function EventFields() {
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10 }}>— Aperçu de l'invitation</div>
           <div className="card" style={{ padding: 0, background: 'var(--paper)', overflow: 'hidden' }}>
             <div style={{ height: 140, background: 'linear-gradient(135deg, var(--ink) 0%, var(--accent) 100%)', color: 'var(--paper)', padding: 20, display: 'flex', alignItems: 'flex-end' }}>
-              <div className="mono caps" style={{ fontSize: 10, color: 'rgba(255,255,255,.6)', letterSpacing: '.14em' }}>ÉVÉNEMENT BUPP</div>
+              <div className="mono caps" style={{ fontSize: 10, color: 'rgba(255,255,255,.6)', letterSpacing: '.14em' }}>ÉVÉNEMENT BUUPP</div>
             </div>
             <div style={{ padding: 20 }}>
               <div className="serif" style={{ fontSize: 22 }}>{name}</div>
@@ -476,7 +476,7 @@ function DownloadFields() {
               </div>
             </div>
             <div style={{ marginTop: 16, padding: 12, background: 'var(--ivory-2)', borderRadius: 6, fontSize: 12 }}>
-              <Icon name="shield" size={11}/> <span style={{ marginLeft: 6 }}>Téléchargement après double consentement BUPP · sans spam.</span>
+              <Icon name="shield" size={11}/> <span style={{ marginLeft: 6 }}>Téléchargement après double consentement BUUPP · sans spam.</span>
             </div>
             <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
               Télécharger le PDF <Icon name="download" size={12}/>
@@ -522,7 +522,7 @@ function RechargeModal({ onClose }) {
             <Icon name="check" size={22} stroke={2}/>
           </div>
           <div className="serif" style={{ fontSize: 26, marginBottom: 6 }}>Nouveau solde : {(847 + credit).toFixed(2).replace('.', ',')} €</div>
-          <div className="muted" style={{ fontSize: 13 }}>Facture BUPP-2026-04-0184 disponible immédiatement.</div>
+          <div className="muted" style={{ fontSize: 13 }}>Facture BUUPP-2026-04-0184 disponible immédiatement.</div>
           <div className="row gap-2" style={{ justifyContent: 'center', marginTop: 20 }}>
             <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Télécharger la facture</button>
             <button className="btn btn-primary btn-sm" onClick={onClose}>Fermer</button>
@@ -563,7 +563,7 @@ function RechargeModal({ onClose }) {
           {[
             ['card', 'Carte Visa •••• 4521', 'Atelier Mercier SARL · exp. 08/28', 'Immédiat'],
             ['sepa', 'Prélèvement SEPA', 'IBAN FR76 •••• 0012 · BNP Paribas', '2 jours ouvrés'],
-            ['virement', 'Virement bancaire', 'IBAN de BUPP fourni à la validation', '1 à 3 jours'],
+            ['virement', 'Virement bancaire', 'IBAN de BUUPP fourni à la validation', '1 à 3 jours'],
           ].map(([k, n, d, tag]) => (
             <label key={k} className="row center gap-3 recharge-method-row" style={{
               padding: 12, border: '1px solid ' + (method === k ? 'var(--ink)' : 'var(--line-2)'),
@@ -616,7 +616,7 @@ function RechargeModal({ onClose }) {
 
         <div className="row between center recharge-footer" style={{ marginTop: 20 }}>
           <div className="muted recharge-footer-note" style={{ fontSize: 11, maxWidth: 280 }}>
-            Paiement sécurisé via Stripe · facture émise sous 5 min · aucune donnée carte stockée par BUPP.
+            Paiement sécurisé via Stripe · facture émise sous 5 min · aucune donnée carte stockée par BUUPP.
           </div>
           <div className="row gap-2 recharge-footer-actions">
             <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>

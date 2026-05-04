@@ -1,7 +1,7 @@
 import { SignIn } from "@clerk/nextjs";
 
 export const metadata = {
-  title: "BUPP — Connexion",
+  title: "BUUPP — Connexion",
 };
 
 export default function ConnexionPage() {

@@ -132,7 +132,7 @@ function Logo({
     <div className="row center" style={{ color: color || "inherit" }}>
       <img
         src="/logo.png"
-        alt="BUPP"
+        alt="BUUPP"
         style={{ height: size, width: "auto", display: "block" }}
       />
     </div>
@@ -765,7 +765,7 @@ function HowItWorks() {
     {
       n: "01",
       title: "Créez votre profil",
-      body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUPP Score et vos gains potentiels.",
+      body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUUPP Score et vos gains potentiels.",
     },
     {
       n: "02",
@@ -775,7 +775,7 @@ function HowItWorks() {
     {
       n: "03",
       title: "Encaissez vos gains",
-      body: "Chaque mise en relation acceptée crédite votre portefeuille en BUPP Coins. Retrait par IBAN, carte cadeau ou don associatif.",
+      body: "Chaque mise en relation acceptée crédite votre portefeuille en BUUPP Coins. Retrait par IBAN, carte cadeau ou don associatif.",
     },
   ];
   return (
@@ -1021,7 +1021,6 @@ function ScoreSection() {
     ["Complétude des paliers", 80],
     ["Fraîcheur des données", 92],
     ["Taux d'acceptation", 66],
-    ["Évaluations positives", 88],
   ];
   return (
     <section className="section">
@@ -1036,7 +1035,7 @@ function ScoreSection() {
       >
         <div>
           <div className="mono caps muted" style={{ marginBottom: 16 }}>
-            — BUPP Score
+            — BUUPP Score
           </div>
           <h2
             className="serif"
@@ -1053,9 +1052,8 @@ function ScoreSection() {
             }}
           >
             Votre score évolue selon la complétude de vos paliers, la fraîcheur
-            de vos données, votre taux d&apos;acceptation, et la qualité des
-            évaluations reçues. Un score élevé attire des demandes plus
-            exigeantes et mieux rémunérées.
+            de vos données et votre taux d&apos;acceptation. Un score élevé
+            attire des demandes plus exigeantes et mieux rémunérées.
           </p>
           <div className="row gap-6 wrap">
             {ranges.map(([r, n, c], i) => (
@@ -1150,7 +1148,7 @@ function ProsSection() {
     {
       ic: "gauge",
       hi: true,
-      t: "BUPP Score : qualité mesurée",
+      t: "BUUPP Score : qualité mesurée",
       d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
     },
     {
@@ -1309,7 +1307,7 @@ function ProsSection() {
                     fontWeight: 600,
                   }}
                 >
-                  LE + BUPP
+                  LE + BUUPP
                 </div>
               )}
               <div
@@ -1427,7 +1425,7 @@ function ProsSection() {
                 marginBottom: 16,
               }}
             >
-              — Avec BUPP
+              — Avec BUUPP
             </div>
             <div
               className="serif"
@@ -1470,7 +1468,7 @@ function ProsSection() {
             }}
           >
             — Ils pourraient prospecter mieux{" "}
-            <p className="inline text-[#4596EC] font-extrabold">avec BUPP</p>
+            <p className="inline text-[#4596EC] font-extrabold">avec BUUPP</p>
           </div>
           <div className="grid grid-4" style={{ gap: 12 }}>
             {useCases.map((u, i) => (

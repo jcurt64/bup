@@ -140,7 +140,7 @@ function Overview({ onCreate }) {
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
-            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
             <tbody>
               {[
                 ['Marie L.', 'Bilan postural — Lyon', 2, 742, 'il y a 2 h', '4,20'],
@@ -893,7 +893,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             <div className="col gap-2">
               {[
                 { id: 'standard', name: 'Mise en relation individuelle', sub: 'Contact direct avec chaque prospect — immédiat' },
-                { id: 'pool', name: 'BUPP Pool — enchère groupée', sub: 'Groupez des prospects ayant un besoin commun — le plus offrant remporte le pool' },
+                { id: 'pool', name: 'BUUPP Pool — enchère groupée', sub: 'Groupez des prospects ayant un besoin commun — le plus offrant remporte le pool' },
               ].map(m => {
                 const sel = poolMode === m.id;
                 return (
@@ -926,7 +926,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               <span className="chip chip-accent" style={{ fontSize: 10 }}>Optionnel</span>
             </div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22, maxWidth: 720 }}>
-              Affinez votre ciblage en ajoutant des mots-clés. BUPP vérifiera leur présence dans les données
+              Affinez votre ciblage en ajoutant des mots-clés. BUUPP vérifiera leur présence dans les données
               déclarées des prospects — centres d'intérêt, profession, projets de vie, type de logement, véhicule, etc.
             </div>
 
@@ -1023,7 +1023,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                         </svg>
                       </span>
                       <div style={{ fontSize: 11, lineHeight: 1.55, color: 'color-mix(in oklab, var(--warn) 60%, var(--ink-3))' }}>
-                        Le filtre strict peut réduire le nombre de prospects disponibles. BUPP vous notifiera
+                        Le filtre strict peut réduire le nombre de prospects disponibles. BUUPP vous notifiera
                         si le volume ciblé est insuffisant pour atteindre l'objectif de votre campagne.
                       </div>
                     </div>
@@ -1130,7 +1130,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
                 ["Tranches d'âge", Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
-                ['Mode', poolMode === 'pool' ? 'BUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
+                ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
                 ['Durée', days + ' jours'],
                 ['Le mot du pro', brief ? '« ' + brief + ' »' : '—'],
@@ -1186,7 +1186,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 <Icon name="check" size={12} stroke={2.5}/>
               </span>
               <span>
-                En lançant cette campagne, vous acceptez les conditions de licence des données BUPP. Les coordonnées
+                En lançant cette campagne, vous acceptez les conditions de licence des données BUUPP. Les coordonnées
                 des prospects ne sont transmises qu'après double consentement explicite. Vos données sont
                 watermarkées — toute revente est juridiquement poursuivable.
               </span>
@@ -1197,9 +1197,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               <button
                 onClick={() => {
                   if (!canLaunch) return;
-                  // Generate a unique single-use code (e.g. BUPP-XXXX-XXXX)
+                  // Generate a unique single-use code (e.g. BUUPP-XXXX-XXXX)
                   const rand = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-                  setLaunched({ code: `BUPP-${rand()}-${rand()}`, name: obj?.name });
+                  setLaunched({ code: `BUUPP-${rand()}-${rand()}`, name: obj?.name });
                 }}
                 disabled={!canLaunch}
                 title={canLaunch ? undefined : 'Renseignez ' + missingCompanyFields.join(' et ') + ' dans Mes informations'}
@@ -1311,7 +1311,7 @@ function CampaignLaunchedModal({ data, onClose }) {
           fontSize: 12, lineHeight: 1.55, color: 'var(--ink-2)', marginBottom: 8
         }}>
           Communiquez ce code à chaque prospect afin de confirmer que vous avez bien obtenu
-          ses données via la plateforme <strong>BUPP</strong>, conformément à l'<strong>article 14
+          ses données via la plateforme <strong>BUUPP</strong>, conformément à l'<strong>article 14
           du RGPD</strong> qui impose la communication de la source des données aux personnes concernées.
         </div>
         <div className="row center" style={{ gap: 8, fontSize: 11.5, color: 'var(--warn, #B45309)' }}>
@@ -1636,11 +1636,11 @@ function Heatmap() {
 
 function Facturation() {
   const rows = [
-    ['BUPP-2026-04-0183', '14 avr. 2026', 'Recharge crédit', '500,00', 'Payée'],
-    ['BUPP-2026-04-0112', '02 avr. 2026', 'Abonnement Pro · avril', '149,00', 'Payée'],
-    ['BUPP-2026-03-0421', '02 mars 2026', 'Abonnement Pro · mars', '149,00', 'Payée'],
-    ['BUPP-2026-03-0298', '18 mars 2026', 'Recharge crédit', '300,00', 'Payée'],
-    ['BUPP-2026-02-0512', '02 fév. 2026', 'Abonnement Pro · février', '149,00', 'Payée'],
+    ['BUUPP-2026-04-0183', '14 avr. 2026', 'Recharge crédit', '500,00', 'Payée'],
+    ['BUUPP-2026-04-0112', '02 avr. 2026', 'Abonnement Pro · avril', '149,00', 'Payée'],
+    ['BUUPP-2026-03-0421', '02 mars 2026', 'Abonnement Pro · mars', '149,00', 'Payée'],
+    ['BUUPP-2026-03-0298', '18 mars 2026', 'Recharge crédit', '300,00', 'Payée'],
+    ['BUUPP-2026-02-0512', '02 fév. 2026', 'Abonnement Pro · février', '149,00', 'Payée'],
   ];
   return (
     <div className="col gap-6">
