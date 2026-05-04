@@ -148,21 +148,27 @@ function ProspectProvider({ children }) {
     const ok = await postDecision(id, 'accept');
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
     await refetchRelations();
-    setOptimistic({});
+    // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
+    // écraser un optimistic en cours sur une autre card (clic rapide).
+    setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
   };
   const refuseRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'refused' }));
     const ok = await postDecision(id, 'refuse');
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
     await refetchRelations();
-    setOptimistic({});
+    // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
+    // écraser un optimistic en cours sur une autre card (clic rapide).
+    setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
   };
   const undoAcceptRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'pending' }));
     const ok = await postDecision(id, 'undo');
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
     await refetchRelations();
-    setOptimistic({});
+    // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
+    // écraser un optimistic en cours sur une autre card (clic rapide).
+    setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
   };
   const undoRefuseRelation = undoAcceptRelation;
 
