@@ -67,51 +67,15 @@ async function persistTierAction(tier, action) {
   } catch (e) { console.warn('[prospect/tier] POST error', e); }
 }
 
-/* Sollicitations entrantes envoyées par les pros via leurs campagnes.
-   Exposées par le ProspectProvider pour piloter à la fois la section
-   "Mises en relation" et le badge de notification dans la sidebar. */
-const INITIAL_PENDING_RELATIONS = [
-  {
-    id: 'r1',
-    pro: 'Cabinet Vitalité',
-    sector: 'Kinésithérapie · Lyon 3e',
-    motif: 'Prise de RDV pour un bilan postural gratuit à destination des télétravailleurs lyonnais.',
-    reward: 4.20, tier: 2, timer: '14 h 22 min',
-    startDate: '2026-05-02', endDate: '2026-05-09',
-    brief: '1ère séance offerte aux 20 premiers inscrits.',
-  },
-  {
-    id: 'r2',
-    pro: 'Atelier Mercier',
-    sector: 'Artisan menuisier · Grand Lyon',
-    motif: 'Devis gratuit pour aménagement sur mesure (cuisine, dressing). Déplacement inclus.',
-    reward: 3.10, tier: 2, timer: '42 h 08 min',
-    startDate: '2026-04-28', endDate: '2026-05-12',
-    brief: 'Remise de 10% pour tout devis signé avant le 12 mai.',
-  },
-  {
-    id: 'r3',
-    pro: 'Patrimoine & Co.',
-    sector: 'Conseil en gestion · À distance',
-    motif: "Audit patrimonial 30 min, sans engagement. Portefeuilles > 100 k€ principalement.",
-    reward: 8.40, tier: 5, timer: '61 h 40 min',
-    startDate: '2026-05-01', endDate: '2026-05-15',
-    brief: 'Audit + plan d\'action remis sous 48 h.',
-  },
-];
-
 const ProspectCtx = React.createContext(null);
 
 function ProspectProvider({ children }) {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
-  const [deleted, setDeleted] = useState({}); // key -> true for temporarily suppressed categories
-  const [removed, setRemoved] = useState({}); // key -> true for permanently deleted categories (RGPD art.17)
+  const [deleted, setDeleted] = useState({});
+  const [removed, setRemoved] = useState({});
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydratation initiale depuis Supabase via /api/prospect/donnees.
-  // Tant que l'API n'a pas répondu, on affiche l'état vide (EMPTY_TIER) ;
-  // dès la réponse, les 5 paliers sont remplis avec les valeurs persistées
-  // ainsi que les états "caché" et "supprimé".
+  // Hydratation `Mes données` (inchangée).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -128,39 +92,91 @@ function ProspectProvider({ children }) {
           pro:         { ...p.pro,         ...data.pro },
           patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
         }));
-        // hidden_tiers ↔ deleted (suppression temporaire)
         const nextDeleted = {};
         (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
         setDeleted(nextDeleted);
-        // removed_tiers ↔ removed (suppression définitive RGPD art. 17)
         const nextRemoved = {};
         (data.removedTiers || []).forEach(t => { nextRemoved[t] = true; });
         setRemoved(nextRemoved);
-      } catch (e) {
-        console.warn('[prospect/donnees] GET error', e);
-      } finally {
-        if (!cancelled) setHydrated(true);
-      }
+      } catch (e) { console.warn('[prospect/donnees] GET error', e); }
+      finally { if (!cancelled) setHydrated(true); }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  const [pendingRelations, setPendingRelations] = useState(INITIAL_PENDING_RELATIONS);
-  const [acceptedRelations, setAcceptedRelations] = useState({});
-  const [refusedRelations, setRefusedRelations] = useState({});
+  // ─── Relations (pending + history) — fetch initial + revalidation ──
+  const [pendingRelations, setPendingRelations] = useState([]);
+  const [historyRelations, setHistoryRelations] = useState([]);
+  const [relationsHydrated, setRelationsHydrated] = useState(false);
+
+  const refetchRelations = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/prospect/relations', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      setPendingRelations(j.pending || []);
+      setHistoryRelations(j.history || []);
+    } catch (e) { console.warn('[prospect/relations] GET error', e); }
+    finally { setRelationsHydrated(true); }
+  }, []);
+  useEffect(() => { refetchRelations(); }, [refetchRelations]);
+
+  const postDecision = async (id, action) => {
+    try {
+      const r = await fetch(`/api/prospect/relations/${id}/decision`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        console.warn('[prospect/relations] decision failed', r.status, j);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[prospect/relations] decision error', e);
+      return false;
+    }
+  };
+
+  // États optimistes locaux pour répondre instantanément.
+  const [optimistic, setOptimistic] = useState({}); // id → 'accepted' | 'refused' | 'pending'
+
+  const acceptRelation = async (id) => {
+    setOptimistic(o => ({ ...o, [id]: 'accepted' }));
+    const ok = await postDecision(id, 'accept');
+    if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    await refetchRelations();
+    setOptimistic({});
+  };
+  const refuseRelation = async (id) => {
+    setOptimistic(o => ({ ...o, [id]: 'refused' }));
+    const ok = await postDecision(id, 'refuse');
+    if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    await refetchRelations();
+    setOptimistic({});
+  };
+  const undoAcceptRelation = async (id) => {
+    setOptimistic(o => ({ ...o, [id]: 'pending' }));
+    const ok = await postDecision(id, 'undo');
+    if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    await refetchRelations();
+    setOptimistic({});
+  };
+  const undoRefuseRelation = undoAcceptRelation;
+
+  const accepted = {};
+  const refused = {};
+  pendingRelations.forEach(r => {
+    const ov = optimistic[r.id];
+    if (ov === 'accepted') accepted[r.id] = true;
+    else if (ov === 'refused') refused[r.id] = true;
+  });
+
   const pendingRelationsCount = pendingRelations.filter(
-    r => !acceptedRelations[r.id] && !refusedRelations[r.id]
+    r => !accepted[r.id] && !refused[r.id]
   ).length;
-  const acceptRelation = (id) => {
-    setRefusedRelations(r => { const n = {...r}; delete n[id]; return n; });
-    setAcceptedRelations(a => ({ ...a, [id]: true }));
-  };
-  const refuseRelation = (id) => {
-    setAcceptedRelations(a => { const n = {...a}; delete n[id]; return n; });
-    setRefusedRelations(r => ({ ...r, [id]: true }));
-  };
-  const undoAcceptRelation = (id) => setAcceptedRelations(a => { const n = {...a}; delete n[id]; return n; });
-  const undoRefuseRelation = (id) => setRefusedRelations(r => { const n = {...r}; delete n[id]; return n; });
   const updateField = (category, field, value) => {
     setProfile(p => ({ ...p, [category]: { ...p[category], [field]: value } }));
     // Persiste vers /api/prospect/donnees (PATCH). Optimiste : on n'attend
@@ -221,9 +237,10 @@ function ProspectProvider({ children }) {
     <ProspectCtx.Provider value={{
       profile, deleted, removed, updateField, suppressTemp, restore, deletePermanent, addField,
       setAllCampaignTypes, toggleCampaignType, toggleCategory,
-      pendingRelations, acceptedRelations, refusedRelations,
+      pendingRelations, historyRelations,
+      acceptedRelations: accepted, refusedRelations: refused,
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
-      pendingRelationsCount,
+      pendingRelationsCount, relationsHydrated,
     }}>
       {children}
     </ProspectCtx.Provider>
@@ -1589,20 +1606,33 @@ function ConfirmFieldDeleteModal({ field, onConfirm, onClose }) {
 }
 
 /* ---------- Relations ---------- */
+function formatHistoryDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'short',
+  }).format(d);
+}
+
 function Relations() {
   const {
     pendingRelations: pending,
+    historyRelations,
     acceptedRelations: accepted,
     refusedRelations: refused,
     acceptRelation, refuseRelation,
     undoAcceptRelation, undoRefuseRelation,
+    relationsHydrated,
   } = useProspect();
-  const history = [
-    ['12 avr.', 'Coach pro Nantes', 3, 'Acceptée', 'Crédité', '+6,80'],
-    ['08 avr.', 'Agence immo Paris 11', 4, 'Acceptée', 'Crédité', '+9,40'],
-    ['05 avr.', 'Assurance Leclerc', 2, 'Refusée', '—', '—'],
-    ['01 avr.', 'Nutritionniste Lille', 3, 'Acceptée', 'Crédité', '+5,60'],
-  ];
+  const history = (historyRelations || []).map(h => ([
+    formatHistoryDate(h.date),
+    h.proName,
+    h.tier,
+    h.decision,
+    h.status,
+    h.gain != null ? '+' + h.gain.toFixed(2).replace('.', ',') : '—',
+  ]));
   // Filtre cyclique sur l'historique : toutes → acceptées → refusées → toutes
   const [historyFilter, setHistoryFilter] = useState('all');
   const HISTORY_FILTERS = [
@@ -1621,148 +1651,158 @@ function Relations() {
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Vous avez 72 heures pour accepter ou refuser chaque demande. Sans réponse, elle expire."/>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-        {pending.map(p => {
-          const isAccepted = accepted[p.id], isRefused = refused[p.id];
-          return (
-            <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
-              <div className="row between center" style={{ marginBottom: 14 }}>
-                <span className="chip chip-accent">Palier {p.tier}</span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
-                  <Icon name="bolt" size={10}/> {p.timer}
-                </span>
-              </div>
-              <div className="row center gap-3" style={{ marginBottom: 10, alignItems: 'center' }}>
-                <Avatar name={p.pro} size={32}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>{p.pro}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{p.sector}</div>
-                </div>
-                <button
-                  onClick={() => setDetail(p)}
-                  aria-label="Voir les détails de l'offre"
-                  title="Voir les détails de l'offre"
-                  className="relation-detail-btn"
-                  style={{
-                    padding: 0, width: 32, height: 32, borderRadius: 999,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'var(--accent)', color: 'white',
-                    border: '1px solid var(--accent)',
-                    boxShadow: '0 4px 12px -4px color-mix(in oklab, var(--accent) 60%, transparent)',
-                    cursor: 'pointer', flexShrink: 0,
-                    transition: 'transform .12s ease, box-shadow .12s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
-                  <Icon name="plus" size={15} stroke={2.5}/>
-                </button>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 10, marginBottom: 16, lineHeight: 1.55 }}>{p.motif}</p>
-              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-                <div className="row between center" style={{ marginBottom: 12 }}>
-                  <span className="mono caps muted" style={{ fontSize: 10 }}>Récompense</span>
-                  <span className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>
-                    {p.reward.toFixed(2).replace('.', ',')} €
+      {!relationsHydrated ? (
+        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 13 }}>Chargement de vos sollicitations…</div>
+        </div>
+      ) : pending.length === 0 ? (
+        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 13 }}>Aucune demande en attente pour le moment.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {pending.map(p => {
+            const isAccepted = accepted[p.id], isRefused = refused[p.id];
+            return (
+              <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
+                <div className="row between center" style={{ marginBottom: 14 }}>
+                  <span className="chip chip-accent">Palier {p.tier}</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                    <Icon name="bolt" size={10}/> {p.timer}
                   </span>
                 </div>
-                {isAccepted ? (
-                  <div className="col gap-2">
-                    <div style={{
-                      padding: 14, borderRadius: 10,
-                      background: 'color-mix(in oklab, var(--good) 10%, var(--paper))',
-                      border: '1.5px solid var(--good)',
-                      boxShadow: '0 0 0 3px color-mix(in oklab, var(--good) 18%, transparent), 0 10px 28px -14px color-mix(in oklab, var(--good) 50%, transparent)',
-                    }}>
-                      <div className="row center gap-2" style={{ marginBottom: 8 }}>
-                        <span style={{
-                          width: 24, height: 24, borderRadius: '50%',
-                          background: 'var(--good)', color: 'white',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Icon name="check" size={14} stroke={2.5}/>
-                        </span>
-                        <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--good)' }}>
-                          Accord donné · à usage unique
-                        </span>
-                      </div>
-                      <div className="row between" style={{ alignItems: 'flex-end', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Paiement en séquestre</span>
-                        <span className="serif tnum" style={{ fontSize: 26, color: 'var(--ink)' }}>
-                          {p.reward.toFixed(2).replace('.', ',')} €
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55 }}>
-                        Crédité sur votre portefeuille après 72 h ou dès que {p.pro.split(' ')[0]} a confirmé le contact.
-                      </div>
-                    </div>
-                    <div className="row center gap-2" style={{
-                      padding: '8px 10px', borderRadius: 8,
-                      background: 'var(--ivory-2)',
-                      fontSize: 11, color: 'var(--ink-4)',
-                    }}>
-                      <Icon name="shield" size={11}/>
-                      <span>Accord strictement limité à <strong style={{ color: 'var(--ink-3)' }}>cette campagne uniquement</strong> — pas de réutilisation ni revente.</span>
-                    </div>
-                    <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}
-                      onClick={() => undoAcceptRelation(p.id)}>
-                      <Icon name="rotate" size={12}/> Revenir sur mon acceptation
-                    </button>
-                    <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', letterSpacing: '.04em' }}>
-                      Réversible tant que la campagne n'est pas clôturée
-                    </div>
+                <div className="row center gap-3" style={{ marginBottom: 10, alignItems: 'center' }}>
+                  <Avatar name={p.pro} size={32}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 500 }}>{p.pro}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>{p.sector}</div>
                   </div>
-                ) : isRefused ? (
-                  <div className="col gap-2">
-                    <div style={{
-                      padding: 12, borderRadius: 10,
-                      background: 'color-mix(in oklab, var(--danger) 6%, var(--paper))',
-                      border: '1.5px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
-                    }}>
-                      <div className="row center gap-2">
-                        <span style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          background: 'color-mix(in oklab, var(--danger) 14%, var(--paper))',
-                          color: 'var(--danger)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Icon name="x" size={12} stroke={2.5}/>
-                        </span>
-                        <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--danger)' }}>
-                          Demande refusée
-                        </span>
+                  <button
+                    onClick={() => setDetail(p)}
+                    aria-label="Voir les détails de l'offre"
+                    title="Voir les détails de l'offre"
+                    className="relation-detail-btn"
+                    style={{
+                      padding: 0, width: 32, height: 32, borderRadius: 999,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'var(--accent)', color: 'white',
+                      border: '1px solid var(--accent)',
+                      boxShadow: '0 4px 12px -4px color-mix(in oklab, var(--accent) 60%, transparent)',
+                      cursor: 'pointer', flexShrink: 0,
+                      transition: 'transform .12s ease, box-shadow .12s ease',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
+                    <Icon name="plus" size={15} stroke={2.5}/>
+                  </button>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 10, marginBottom: 16, lineHeight: 1.55 }}>{p.motif}</p>
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+                  <div className="row between center" style={{ marginBottom: 12 }}>
+                    <span className="mono caps muted" style={{ fontSize: 10 }}>Récompense</span>
+                    <span className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>
+                      {p.reward.toFixed(2).replace('.', ',')} €
+                    </span>
+                  </div>
+                  {isAccepted ? (
+                    <div className="col gap-2">
+                      <div style={{
+                        padding: 14, borderRadius: 10,
+                        background: 'color-mix(in oklab, var(--good) 10%, var(--paper))',
+                        border: '1.5px solid var(--good)',
+                        boxShadow: '0 0 0 3px color-mix(in oklab, var(--good) 18%, transparent), 0 10px 28px -14px color-mix(in oklab, var(--good) 50%, transparent)',
+                      }}>
+                        <div className="row center gap-2" style={{ marginBottom: 8 }}>
+                          <span style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: 'var(--good)', color: 'white',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Icon name="check" size={14} stroke={2.5}/>
+                          </span>
+                          <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--good)' }}>
+                            Accord donné · à usage unique
+                          </span>
+                        </div>
+                        <div className="row between" style={{ alignItems: 'flex-end', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Paiement en séquestre</span>
+                          <span className="serif tnum" style={{ fontSize: 26, color: 'var(--ink)' }}>
+                            {p.reward.toFixed(2).replace('.', ',')} €
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55 }}>
+                          Crédité sur votre portefeuille après 72 h ou dès que {p.pro.split(' ')[0]} a confirmé le contact.
+                        </div>
+                      </div>
+                      <div className="row center gap-2" style={{
+                        padding: '8px 10px', borderRadius: 8,
+                        background: 'var(--ivory-2)',
+                        fontSize: 11, color: 'var(--ink-4)',
+                      }}>
+                        <Icon name="shield" size={11}/>
+                        <span>Accord strictement limité à <strong style={{ color: 'var(--ink-3)' }}>cette campagne uniquement</strong> — pas de réutilisation ni revente.</span>
+                      </div>
+                      <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}
+                        onClick={() => undoAcceptRelation(p.id)}>
+                        <Icon name="rotate" size={12}/> Revenir sur mon acceptation
+                      </button>
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', letterSpacing: '.04em' }}>
+                        Réversible tant que la campagne n'est pas clôturée
                       </div>
                     </div>
-                    <div className="row center gap-2" style={{ padding: '8px 10px', borderRadius: 8,
-                      background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
-                      border: '1px dashed color-mix(in oklab, var(--accent) 30%, transparent)' }}>
-                      <Icon name="info" size={11}/>
-                      <span style={{ fontSize: 11, color: 'var(--ink-3)', flex: 1 }}>Campagne toujours ouverte — vous pouvez changer d'avis.</span>
+                  ) : isRefused ? (
+                    <div className="col gap-2">
+                      <div style={{
+                        padding: 12, borderRadius: 10,
+                        background: 'color-mix(in oklab, var(--danger) 6%, var(--paper))',
+                        border: '1.5px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
+                      }}>
+                        <div className="row center gap-2">
+                          <span style={{
+                            width: 22, height: 22, borderRadius: '50%',
+                            background: 'color-mix(in oklab, var(--danger) 14%, var(--paper))',
+                            color: 'var(--danger)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Icon name="x" size={12} stroke={2.5}/>
+                          </span>
+                          <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--danger)' }}>
+                            Demande refusée
+                          </span>
+                        </div>
+                      </div>
+                      <div className="row center gap-2" style={{ padding: '8px 10px', borderRadius: 8,
+                        background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+                        border: '1px dashed color-mix(in oklab, var(--accent) 30%, transparent)' }}>
+                        <Icon name="info" size={11}/>
+                        <span style={{ fontSize: 11, color: 'var(--ink-3)', flex: 1 }}>Campagne toujours ouverte — vous pouvez changer d'avis.</span>
+                      </div>
+                      <div className="row gap-2">
+                        <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }}
+                          onClick={() => undoRefuseRelation(p.id)}>
+                          <Icon name="rotate" size={12}/> Revenir en arrière
+                        </button>
+                        <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}
+                          onClick={() => acceptRelation(p.id)}>
+                          <Icon name="check" size={12}/> Accepter
+                        </button>
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', letterSpacing: '.04em' }}>
+                        Réversible tant que la campagne n'est pas clôturée
+                      </div>
                     </div>
+                  ) : (
                     <div className="row gap-2">
-                      <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }}
-                        onClick={() => undoRefuseRelation(p.id)}>
-                        <Icon name="rotate" size={12}/> Revenir en arrière
-                      </button>
-                      <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}
-                        onClick={() => acceptRelation(p.id)}>
-                        <Icon name="check" size={12}/> Accepter
-                      </button>
+                      <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => acceptRelation(p.id)}>Accepter</button>
+                      <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => refuseRelation(p.id)}>Refuser</button>
                     </div>
-                    <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', letterSpacing: '.04em' }}>
-                      Réversible tant que la campagne n'est pas clôturée
-                    </div>
-                  </div>
-                ) : (
-                  <div className="row gap-2">
-                    <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => acceptRelation(p.id)}>Accepter</button>
-                    <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => refuseRelation(p.id)}>Refuser</button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20, alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
