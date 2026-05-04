@@ -134,16 +134,32 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     ? _eurFmt.format(Number(wallet.walletBalanceEur ?? 0))
     : '…';
 
+  // Overview stats — fetched live from /api/pro/overview.
+  const [overview, setOverview] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/overview', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setOverview(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const contactsThisMonth = overview?.contactsAcceptedThisMonth ?? null;
+  const activeCampaigns = overview?.activeCampaignsCount ?? null;
+  const acceptanceRate = overview?.acceptanceRate ?? null;
+  const k1 = overview?.contactsAccepted30d ?? 0;
+  const roi = k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ',');
+
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison} · Menuiserie sur mesure</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
-            <em>{balanceText}</em> de crédit actif · 24 contacts ce mois
+            <em>{balanceText}</em> de crédit actif · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-            2 campagnes actives · taux d'acceptation moyen 62% · ROI estimé ×3,8
+            {activeCampaigns ?? '…'} campagne{activeCampaigns === 1 ? '' : 's'} active{activeCampaigns === 1 ? '' : 's'} · taux d'acceptation moyen {acceptanceRate ?? '…'}% · ROI estimé {roi}
           </div>
         </div>
         <div className="row center gap-3 pro-header-actions">
