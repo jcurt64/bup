@@ -51,20 +51,21 @@ export async function findMatchingProspects(
 
   // SELECT principal — on sur-fetch un peu si on doit filtrer par âge
   // côté Node (×3 le cap) pour avoir de la marge.
+  // Sur-fetch ×3 quand on filtre par âge côté Node, pour avoir une marge
+  // si beaucoup de prospects matchent les autres critères mais pas l'âge.
+  // Quand cette marge ne suffit pas, l'appelant (Task 5) doit accepter
+  // un résultat plus court que `contacts` sans considérer ça comme une erreur.
   const oversampleFactor = ageBounds && wantsTier1 ? 3 : 1;
-  const selectLimit = Math.max(input.contacts * oversampleFactor, input.contacts);
+  const selectLimit = input.contacts * oversampleFactor;
 
   let query = admin
     .from("prospects")
     .select(
       `
       id,
-      bupp_score,
       verification,
       removed_tiers,
       hidden_tiers,
-      all_campaign_types,
-      campaign_types,
       prospect_identity ( email, prenom, naissance ),
       prospect_localisation ( code_postal )
     `,
@@ -74,7 +75,9 @@ export async function findMatchingProspects(
     .order("id", { ascending: true })
     .limit(selectLimit);
 
-  // Filtre type campagne : `all_campaign_types=true OR enum dans campaign_types`
+  // Filtre type campagne : `all_campaign_types=true OR enum dans campaign_types`.
+  // ⚠ campaignType DOIT venir de `objectiveToCampaignType` (enum literal).
+  // Ne JAMAIS interpoler une chaîne libre ici — risque d'injection PostgREST.
   query = query.or(
     `all_campaign_types.eq.true,campaign_types.cs.{${campaignType}}`,
   );
@@ -101,14 +104,11 @@ export async function findMatchingProspects(
 
     // Le palier 1 (identity) doit avoir une row prospect_identity non vide
     // si on l'exige. Idem pour la localisation si geo != national.
-    const identity = Array.isArray(row.prospect_identity)
-      ? row.prospect_identity[0]
-      : row.prospect_identity;
+    // (Les deux relations sont isOneToOne → typés `T | null` directement.)
+    const identity = row.prospect_identity;
     if (requiredKeys.includes("identity") && !identity) continue;
 
-    const localisation = Array.isArray(row.prospect_localisation)
-      ? row.prospect_localisation[0]
-      : row.prospect_localisation;
+    const localisation = row.prospect_localisation;
     if (cpPrefix && !localisation?.code_postal) continue;
 
     // Filtre âge — uniquement applicable si tier 1 requis (sinon on ne
@@ -120,7 +120,7 @@ export async function findMatchingProspects(
     }
 
     matched.push({
-      prospectId: row.id as string,
+      prospectId: row.id,
       email: identity?.email ?? null,
       prenom: identity?.prenom ?? null,
     });
