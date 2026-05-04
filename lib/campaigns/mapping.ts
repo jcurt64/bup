@@ -28,6 +28,21 @@ export function objectiveToCampaignType(objectiveId: string): CampaignTypeDb {
   return OBJECTIVE_TO_TYPE[objectiveId] ?? "prise_de_contact";
 }
 
+const OBJECTIVE_TO_LABEL: Record<string, string> = {
+  contact: "Prise de contact direct",
+  rdv: "Prise de rendez-vous",
+  evt: "Événementiel & inscription",
+  dl: "Contenus à télécharger",
+  survey: "Études & collecte d'avis",
+  promo: "Promotions & fidélisation",
+  addigital: "Publicité digitale",
+};
+
+export function objectiveLabel(objectiveId: string | null | undefined): string {
+  if (!objectiveId) return "Campagne";
+  return OBJECTIVE_TO_LABEL[objectiveId] ?? "Campagne";
+}
+
 const VERIF_ACCEPTABLE: Record<string, VerificationLevelDb[]> = {
   p0: ["basique", "verifie", "certifie", "confiance", "certifie_confiance"],
   p1: ["verifie", "certifie", "confiance", "certifie_confiance"],
