@@ -1283,6 +1283,11 @@
       }
       .ss-item {
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
       }
       .ss-val {
         font-family: "Playfair Display", serif;
@@ -1290,7 +1295,8 @@
         font-weight: 900;
         letter-spacing: -1px;
         color: var(--gold);
-        margin-bottom: 2px;
+        line-height: 1;
+        margin-bottom: 0;
       }
       .ss-label {
         font-size: 11px;
@@ -1298,6 +1304,7 @@
         text-transform: uppercase;
         letter-spacing: 1.5px;
         font-family: "DM Mono", monospace;
+        line-height: 1.35;
       }
 
       /* ═══════════════════════════════════════════════════════════════════
@@ -1632,13 +1639,35 @@
           padding: 0 0 48px;
         }
 
-        /* Social strip → 2 par ligne */
+        /* Social strip → 2 par ligne.
+           - `align-items: stretch` (default grid) garantit que toutes les
+             cellules d'une même ligne ont la même hauteur ;
+           - `min-height` sur le label réserve 2 lignes pour homogénéiser
+             les libellés courts ("Bonus de bienvenue") avec ceux qui
+             passent sur 2 lignes ("Taux d'acceptation moyen") → les
+             chiffres restent strictement alignés horizontalement. */
         .social-strip {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 16px;
+          gap: 18px 16px;
           padding: 20px 0;
           margin-bottom: 48px;
+          align-items: stretch;
+        }
+        .ss-item {
+          justify-content: flex-start;
+          gap: 8px;
+        }
+        .ss-val {
+          font-size: 26px;
+          line-height: 1;
+        }
+        .ss-label {
+          min-height: 2.7em;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 0 4px;
         }
 
         /* Sections perks title */
