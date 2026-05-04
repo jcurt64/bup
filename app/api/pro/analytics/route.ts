@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 
 const AGE_BUCKETS: Array<[string, number, number]> = [
   ["18–25", 18, 25], ["26–35", 26, 35], ["36–45", 36, 45],
-  ["46–55", 46, 55], ["56–65", 56, 65], ["65+", 66, 200],
+  ["46–55", 46, 55], ["56–64", 56, 64], ["65+", 65, 200],
 ];
 
 export async function GET() {
