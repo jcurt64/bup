@@ -28,32 +28,40 @@
   <script type="text/babel" src="/prototype/components/Pro.jsx"></script>
 
   <script type="text/babel" data-presets="react">
-    function readRoute() {
-      const h = (window.location.hash || '').replace('#', '').trim();
-      if (['landing','auth','prospect','pro','waitlist'].includes(h)) return h;
-      return 'landing';
+    function readRouteAndTab() {
+      const raw = (window.location.hash || '').replace('#', '').trim();
+      const [route, query] = raw.split('?');
+      let tab = null;
+      if (query) {
+        const params = new URLSearchParams(query);
+        tab = params.get('tab');
+      }
+      const safeRoute = ['landing','auth','prospect','pro','waitlist'].includes(route) ? route : 'landing';
+      return { route: safeRoute, tab };
     }
 
     function App() {
-      const [route, setRoute] = React.useState(readRoute());
+      const initial = readRouteAndTab();
+      const [route, setRoute] = React.useState(initial.route);
+      const [initialTab, setInitialTab] = React.useState(initial.tab);
 
       React.useEffect(() => {
-        const onHash = () => setRoute(readRoute());
+        const onHash = () => {
+          const next = readRouteAndTab();
+          setRoute(next.route);
+          setInitialTab(next.tab);
+        };
         window.addEventListener('hashchange', onHash);
         return () => window.removeEventListener('hashchange', onHash);
       }, []);
 
       React.useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
-        // notify the parent Next.js shell so it can sync its own URL
-        try {
-          window.parent && window.parent.postMessage({ bupp: 'route', route }, '*');
-        } catch (_) {}
+        try { window.parent && window.parent.postMessage({ bupp: 'route', route }, '*'); } catch (_) {}
       }, [route]);
 
       const go = (r) => {
         if (window.parent && window.parent !== window) {
-          // ask the parent (Next.js) to navigate at the top level
           try { window.parent.postMessage({ bupp: 'goto', route: r }, '*'); return; } catch (_) {}
         }
         window.location.hash = r;
@@ -63,7 +71,7 @@
         <>
           {route === 'landing' && <Landing go={go}/>}
           {route === 'auth' && <Auth go={go}/>}
-          {route === 'prospect' && <ProspectDashboard go={go}/>}
+          {route === 'prospect' && <ProspectDashboard go={go} initialTab={initialTab}/>}
           {route === 'pro' && <ProDashboard go={go}/>}
           {route === 'waitlist' && (
             <div style={{ position:'fixed', inset:0, background:'#080808', zIndex: 1 }}>

@@ -266,16 +266,16 @@ const PROSPECT_SECTIONS = [
   { id: 'fiscal',       icon: 'doc',    label: 'Informations fiscales' },
 ];
 
-function ProspectDashboard({ go }) {
+function ProspectDashboard({ go, initialTab }) {
   return (
     <ProspectProvider>
-      <ProspectDashboardInner go={go}/>
+      <ProspectDashboardInner go={go} initialTab={initialTab}/>
     </ProspectProvider>
   );
 }
 
-function ProspectDashboardInner({ go }) {
-  const [sec, setSec] = useState('portefeuille');
+function ProspectDashboardInner({ go, initialTab }) {
+  const [sec, setSec] = useState(initialTab || 'portefeuille');
   const { pendingRelationsCount, profile } = useProspect();
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific

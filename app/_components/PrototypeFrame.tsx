@@ -14,8 +14,10 @@ const ROUTE_TO_PATH: Record<string, string> = {
 
 export default function PrototypeFrame({
   route,
+  tab,
 }: {
   route: "auth" | "prospect" | "pro" | "waitlist";
+  tab?: string | null;
 }) {
   const router = useRouter();
   const { signOut } = useClerk();
@@ -26,20 +28,15 @@ export default function PrototypeFrame({
         | { bupp?: string; route?: string }
         | undefined;
       if (!data?.bupp) return;
-
       if (data.bupp === "signOut") {
-        // Révoque la session Clerk et redirige vers la home dans le même flow.
         await signOut({ redirectUrl: "/" });
         return;
       }
-
       if (data.bupp === "goto") {
         const target = data.route && ROUTE_TO_PATH[data.route];
         if (!target) return;
         if (target === "/liste-attente") {
-          try {
-            sessionStorage.setItem("bupp:waitlist-ok", "1");
-          } catch {}
+          try { sessionStorage.setItem("bupp:waitlist-ok", "1"); } catch {}
         }
         router.push(target);
       }
@@ -48,18 +45,15 @@ export default function PrototypeFrame({
     return () => window.removeEventListener("message", onMsg);
   }, [router, signOut]);
 
+  const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
+
   return (
     <iframe
-      src={`/prototype/shell.html#${route}`}
+      src={`/prototype/shell.html#${hash}`}
       title={`BUUPP — ${route}`}
       style={{
-        position: "fixed",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        border: 0,
-        display: "block",
-        background: "#F7F4EC",
+        position: "fixed", inset: 0, width: "100%", height: "100%",
+        border: 0, display: "block", background: "#F7F4EC",
       }}
     />
   );
