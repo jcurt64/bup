@@ -49,12 +49,10 @@ export async function findMatchingProspects(
   const wantsTier1 = input.requiredTiers.includes(1);
   const campaignType: CampaignTypeDb = objectiveToCampaignType(input.objectiveId);
 
-  // SELECT principal — on sur-fetch un peu si on doit filtrer par âge
-  // côté Node (×3 le cap) pour avoir de la marge.
   // Sur-fetch ×3 quand on filtre par âge côté Node, pour avoir une marge
   // si beaucoup de prospects matchent les autres critères mais pas l'âge.
-  // Quand cette marge ne suffit pas, l'appelant (Task 5) doit accepter
-  // un résultat plus court que `contacts` sans considérer ça comme une erreur.
+  // Quand cette marge ne suffit pas, l'appelant doit accepter un résultat
+  // plus court que `contacts` sans considérer ça comme une erreur.
   const oversampleFactor = ageBounds && wantsTier1 ? 3 : 1;
   const selectLimit = input.contacts * oversampleFactor;
 
