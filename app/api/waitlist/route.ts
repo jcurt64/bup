@@ -20,9 +20,11 @@ type WaitlistPayload = {
   email?: string;
   ville?: string;
   interests?: string[];
+  referrerRefCode?: string;
 };
 
 const TRIM_MAX = 80;
+const REFERRER_CAP = 10;
 
 function clean(input: unknown, max = TRIM_MAX): string | null {
   if (typeof input !== "string") return null;
@@ -34,6 +36,22 @@ function clean(input: unknown, max = TRIM_MAX): string | null {
 function isValidEmail(v: string): boolean {
   // Validation pragmatique : 1 caractère + @ + 1 caractère + . + 2+ caractères.
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+}
+
+/**
+ * Normalise une saisie utilisateur en code de parrainage 7 caractères
+ * base36 majuscule. Accepte aussi bien le code brut (`MD8X4K0`) que
+ * l'URL complète (`https://buupp.fr/ref/MD8X4K0`, `buupp.fr/r/MD8X4K0`).
+ * Retourne null si l'entrée ne contient pas un code valide.
+ */
+function parseReferrerCode(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const raw = input.trim();
+  if (!raw) return null;
+  // Dernier segment après un éventuel "/" → permet d'accepter une URL.
+  const tail = raw.split(/[\\/?#]/).filter(Boolean).pop() ?? raw;
+  const code = tail.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^[A-Z0-9]{7}$/.test(code) ? code : null;
 }
 
 export async function POST(req: Request) {
@@ -98,6 +116,58 @@ export async function POST(req: Request) {
   // pour les réinscriptions.
   const generatedRefCode = refCodeFromEmail(email);
 
+  // Code du parrain (optionnel) : nettoyé/normalisé côté serveur. On
+  // valide ici la présence du code en base ET le plafond avant insert
+  // pour pouvoir renvoyer une 4xx explicite à l'UI ; le trigger Postgres
+  // sert de filet ultime contre les inscriptions concurrentes.
+  const referrerRefCode = parseReferrerCode(body.referrerRefCode);
+  if (body.referrerRefCode != null && referrerRefCode === null) {
+    return NextResponse.json(
+      { error: "invalid_referrer", message: "Lien de parrainage invalide." },
+      { status: 400 },
+    );
+  }
+
+  if (referrerRefCode) {
+    if (referrerRefCode === generatedRefCode) {
+      return NextResponse.json(
+        {
+          error: "self_referral",
+          message: "Vous ne pouvez pas être votre propre parrain.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const { count: refExists } = await supabase
+      .from("waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("ref_code", referrerRefCode);
+    if (!refExists) {
+      return NextResponse.json(
+        {
+          error: "referrer_not_found",
+          message: "Ce lien de parrainage n'existe pas.",
+        },
+        { status: 404 },
+      );
+    }
+
+    const { count: filleulCount } = await supabase
+      .from("waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("referrer_ref_code", referrerRefCode);
+    if ((filleulCount ?? 0) >= REFERRER_CAP) {
+      return NextResponse.json(
+        {
+          error: "referrer_cap_reached",
+          message: `Nombre maximal de filleul déjà atteint (${REFERRER_CAP}).`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const { error } = await supabase.from("waitlist").insert({
     email,
     prenom,
@@ -105,11 +175,32 @@ export async function POST(req: Request) {
     ville,
     interests,
     ref_code: generatedRefCode,
+    referrer_ref_code: referrerRefCode,
     ip_hash: ipHash,
     user_agent: userAgent,
   });
 
   if (error) {
+    // Plafond filleul atteint au moment de l'INSERT (race condition
+    // résolue par le trigger BEFORE INSERT côté Postgres).
+    if (error.code === "P0001" && /referrer_cap_reached/.test(error.message)) {
+      return NextResponse.json(
+        {
+          error: "referrer_cap_reached",
+          message: `Nombre maximal de filleul déjà atteint (${REFERRER_CAP}).`,
+        },
+        { status: 409 },
+      );
+    }
+    if (error.code === "P0001" && /self_referral/.test(error.message)) {
+      return NextResponse.json(
+        {
+          error: "self_referral",
+          message: "Vous ne pouvez pas être votre propre parrain.",
+        },
+        { status: 400 },
+      );
+    }
     // Code Postgres 23505 = violation d'unicité (email déjà inscrit).
     if (error.code === "23505") {
       const [statsRes, info] = await Promise.all([

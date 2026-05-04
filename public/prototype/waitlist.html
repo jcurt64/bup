@@ -2391,6 +2391,53 @@
               </div>
             </div>
 
+            <!-- Champ de parrainage (optionnel) -->
+            <div
+              class="form-field full"
+              style="margin-top: 6px; margin-bottom: 14px"
+            >
+              <label class="field-label" for="inp-referrer"
+                >Lien de parrainage (optionnel)</label
+              >
+              <input
+                class="field-input"
+                id="inp-referrer"
+                type="text"
+                placeholder="buupp.fr/ref/MD8X4K0"
+                autocomplete="off"
+                spellcheck="false"
+                inputmode="text"
+                oninput="clearReferrerError()"
+              />
+              <p
+                style="
+                  font-size: 12px;
+                  color: var(--muted);
+                  margin: 6px 2px 0;
+                  line-height: 1.45;
+                "
+              >
+                En renseignant ce lien, votre parrain bénéficera des avantages
+                VIP.
+              </p>
+              <div
+                id="referrer-error"
+                role="alert"
+                style="
+                  display: none;
+                  margin-top: 10px;
+                  padding: 10px 12px;
+                  background: #fef2f2;
+                  border: 1px solid #fca5a5;
+                  border-left: 3px solid #dc2626;
+                  border-radius: 8px;
+                  color: #991b1b;
+                  font-size: 13px;
+                  line-height: 1.5;
+                "
+              ></div>
+            </div>
+
             <button class="btn-wl" onclick="openSignupWarning()">
               Confirmer mon inscription ✦ +5€
             </button>
@@ -2918,6 +2965,33 @@
           const stats = await loadStats();
           if (stats) applyStats(stats);
         }, 400);
+
+        // Pré-remplissage du champ "Lien de parrainage" depuis :
+        //   - le query string (?ref=XXXX, propagé depuis le shell parent)
+        //   - le hash (#ref=XXXX) ou le path (/ref/XXXX)
+        // Permet à un parrain de partager directement le lien complet.
+        try {
+          const params = new URLSearchParams(window.location.search);
+          let ref =
+            params.get("ref") ||
+            params.get("r") ||
+            params.get("parrain") ||
+            "";
+          if (!ref) {
+            const m = (window.location.hash || "").match(
+              /[?&#]ref=([A-Za-z0-9]+)/,
+            );
+            if (m) ref = m[1];
+          }
+          if (!ref) {
+            const m2 = window.location.pathname.match(/\/r(?:ef)?\/([A-Za-z0-9]+)/);
+            if (m2) ref = m2[1];
+          }
+          if (ref) {
+            const input = document.getElementById("inp-referrer");
+            if (input) input.value = ref;
+          }
+        } catch (_) {}
       });
 
       /* ── Waitlist steps ─────────────────────────────────────────────────── */
@@ -2988,7 +3062,36 @@
           .classList.remove("show");
       }
 
+      /* ── Parrainage ─────────────────────────────────────────────────────
+         Affiche le bandeau d'erreur sous le champ "Lien de parrainage"
+         (plafond 10 atteint, lien introuvable, etc.). Reset au prochain
+         keypress via clearReferrerError(). */
+      function showReferrerError(message) {
+        const box = document.getElementById("referrer-error");
+        if (!box) return;
+        box.textContent = message;
+        box.style.display = "block";
+        const input = document.getElementById("inp-referrer");
+        if (input) {
+          input.style.borderColor = "#dc2626";
+          input.focus();
+        }
+      }
+
+      function clearReferrerError() {
+        const box = document.getElementById("referrer-error");
+        if (box) {
+          box.style.display = "none";
+          box.textContent = "";
+        }
+        const input = document.getElementById("inp-referrer");
+        if (input) input.style.borderColor = "";
+      }
+
       async function confirmSignup() {
+        // Reset toute erreur de parrainage précédente avant de retenter.
+        clearReferrerError();
+
         // Désactive le bouton de confirmation et affiche un état de chargement
         // pour éviter les double-soumissions pendant l'appel API.
         const btns = document.querySelectorAll("#step-3 button");
@@ -2997,6 +3100,11 @@
           b.style.opacity = "0.6";
           b.style.cursor = "wait";
         });
+
+        const referrerInput = document.getElementById("inp-referrer");
+        const referrerRefCode = referrerInput
+          ? referrerInput.value.trim()
+          : "";
 
         try {
           const r = await fetch("/api/waitlist", {
@@ -3008,9 +3116,30 @@
               email: userData.email,
               ville: userData.ville,
               interests: Array.from(selectedInterests),
+              referrerRefCode: referrerRefCode || undefined,
             }),
           });
           const json = await r.json().catch(() => ({}));
+
+          // Plafond filleul atteint / lien invalide → bandeau dédié sous
+          // le champ et NE PAS basculer en état "succès".
+          if (
+            !r.ok &&
+            json &&
+            (json.error === "referrer_cap_reached" ||
+              json.error === "referrer_not_found" ||
+              json.error === "invalid_referrer" ||
+              json.error === "self_referral")
+          ) {
+            showReferrerError(json.message || "Lien de parrainage invalide.");
+            btns.forEach((b) => {
+              b.disabled = false;
+              b.style.opacity = "";
+              b.style.cursor = "";
+            });
+            return;
+          }
+
           if (!r.ok && r.status !== 200 && r.status !== 201) {
             throw new Error(json?.error || "HTTP " + r.status);
           }

@@ -1754,23 +1754,67 @@ function MapThumb({ radius }) {
 }
 
 /* ---------- Parrainage ---------- */
+/* Données live depuis Supabase via /api/prospect/parrainage :
+   - refCode : code unique persisté (table waitlist) ;
+   - filleuls : inscrits ayant utilisé ce code lors de leur propre
+     inscription à la liste d'attente ;
+   - cap = 10 (hard limit côté DB via trigger BEFORE INSERT). */
 function Parrainage() {
   const [copied, setCopied] = useState(false);
-  const link = 'bupp.fr/r/marie-l-3f4';
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/prospect/parrainage', { cache: 'no-store' });
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error || ('HTTP ' + r.status));
+        if (!cancelled) setData(json);
+      } catch (e) {
+        if (!cancelled) setError(e.message || 'Erreur de chargement');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const refCode = data?.refCode || '—';
+  const cap = data?.cap ?? 10;
+  const filleuls = data?.filleuls || [];
+  const count = data?.count ?? filleuls.length;
+  const link = 'buupp.fr/ref/' + refCode;
+
+  const formatDate = (iso) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+    } catch { return '—'; }
+  };
+
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Parrainage" title="Recommandez, gagnez en cascade" desc="10% sur vos filleuls directs, 3% sur le niveau 2, 1% sur le niveau 3. Et un statut ambassadeur à 20 filleuls actifs."/>
+      <SectionTitle eyebrow="Parrainage" title="Recommandez, gagnez en cascade" desc={`10% sur vos filleuls directs, 3% sur le niveau 2, 1% sur le niveau 3. Limite : ${cap} filleuls par parrain sur la liste d'attente.`}/>
 
       <div className="card" style={{ padding: 28, background: 'var(--ink)', color: 'var(--paper)' }}>
         <div className="row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
           <div>
             <div className="mono caps" style={{ color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>— Votre lien unique</div>
-            <div className="serif" style={{ fontSize: 28 }}>bupp.fr/r/<em style={{ color: '#A5B4FC' }}>marie-l-3f4</em></div>
+            <div className="serif" style={{ fontSize: 28 }}>
+              buupp.fr/ref/<em style={{ color: '#A5B4FC' }}>{loading ? '…' : refCode}</em>
+            </div>
           </div>
           <div className="row gap-2">
-            <button className="btn" style={{ background: 'var(--paper)', color: 'var(--ink)' }} onClick={() => {
-              navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500);
-            }}>
+            <button
+              className="btn"
+              disabled={loading || !data}
+              style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: loading ? 0.6 : 1 }}
+              onClick={() => {
+                navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500);
+              }}>
               <Icon name="copy" size={14}/> {copied ? 'Copié !' : 'Copier'}
             </button>
             <button className="btn btn-ghost" style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)' }}>
@@ -1780,12 +1824,18 @@ function Parrainage() {
         </div>
       </div>
 
+      {error && (
+        <div className="card" style={{ padding: 16, borderLeft: '3px solid #dc2626', background: '#fef2f2', color: '#991b1b', fontSize: 13 }}>
+          Impossible de charger vos données de parrainage : {error}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          ['Filleuls actifs', '6', '/ 20 ambassadeur'],
-          ['Gains parrainage', '38,40 €', 'depuis l\'inscription'],
-          ['Ce mois-ci', '+4,20 €', '3 filleuls actifs'],
-          ['Statut', 'Niveau 2', 'Ambassadeur dans 14'],
+          ['Filleuls actifs', loading ? '…' : String(count), `/ ${cap} max`],
+          ['Places restantes', loading ? '…' : String(Math.max(0, cap - count)), 'avant plafond'],
+          ['Gains parrainage', '0,00 €', 'liste d\'attente'],
+          ['Statut', count >= cap ? 'Plein' : (count > 0 ? 'Actif' : 'En attente'), count >= cap ? 'Plafond atteint' : 'Invitez vos proches'],
         ].map(([l, v, s], i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{l}</div>
@@ -1796,27 +1846,35 @@ function Parrainage() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 20 }}>Filleuls actifs</div>
+        <div className="row between center" style={{ marginBottom: 20 }}>
+          <div className="serif" style={{ fontSize: 22 }}>Filleuls actifs</div>
+          <div className="muted mono" style={{ fontSize: 12 }}>
+            {loading ? 'Chargement…' : `${count} / ${cap}`}
+          </div>
+        </div>
         <div className="tbl-scroll">
           <table className="tbl">
-            <thead><tr><th>Nom</th><th>Niveau</th><th>Inscrit le</th><th>Mises en relation</th><th style={{textAlign:'right'}}>Commissions</th></tr></thead>
+            <thead><tr><th>Nom</th><th>Ville</th><th>Inscrit le</th><th style={{textAlign:'right'}}>Statut</th></tr></thead>
             <tbody>
-              {[
-                ['Léa Bertrand', 1, '14 mars', 8, '4,80'],
-                ['Antoine Mercier', 1, '02 mars', 5, '2,40'],
-                ['Julie Caron', 2, '21 fév.', 3, '0,84'],
-                ['Karim Benali', 1, '14 fév.', 12, '7,20'],
-                ['Solène Pires', 2, '08 janv.', 7, '1,96'],
-                ['Théo Moreau', 1, '03 janv.', 4, '2,00'],
-              ].map((r, i) => (
-                <tr key={i}>
-                  <td className="row center gap-3"><Avatar name={r[0]} size={28}/><span>{r[0]}</span></td>
-                  <td><span className="chip">Niveau {r[1]}</span></td>
-                  <td className="muted mono">{r[2]}</td>
-                  <td className="mono tnum">{r[3]}</td>
-                  <td className="mono tnum" style={{ textAlign: 'right', color: 'var(--good)' }}>+{r[4]} €</td>
-                </tr>
-              ))}
+              {loading && (
+                <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement de vos filleuls…</td></tr>
+              )}
+              {!loading && filleuls.length === 0 && (
+                <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>
+                  Vous n'avez pas encore de filleul. Partagez votre lien pour gagner les avantages VIP.
+                </td></tr>
+              )}
+              {!loading && filleuls.map((f, i) => {
+                const fullName = `${f.prenom || ''} ${f.nom || ''}`.trim() || '—';
+                return (
+                  <tr key={i}>
+                    <td className="row center gap-3"><Avatar name={fullName} size={28}/><span>{fullName}</span></td>
+                    <td className="muted">{f.ville || '—'}</td>
+                    <td className="muted mono">{formatDate(f.createdAt)}</td>
+                    <td className="mono" style={{ textAlign: 'right', color: 'var(--good)' }}>Inscrit ✓</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

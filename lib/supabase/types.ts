@@ -469,6 +469,7 @@ export type Database = {
           nom: string
           prenom: string
           ref_code: string | null
+          referrer_ref_code: string | null
           user_agent: string | null
           ville: string
         }
@@ -481,6 +482,7 @@ export type Database = {
           nom: string
           prenom: string
           ref_code?: string | null
+          referrer_ref_code?: string | null
           user_agent?: string | null
           ville: string
         }
@@ -493,6 +495,7 @@ export type Database = {
           nom?: string
           prenom?: string
           ref_code?: string | null
+          referrer_ref_code?: string | null
           user_agent?: string | null
           ville?: string
         }
