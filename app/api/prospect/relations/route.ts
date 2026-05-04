@@ -3,7 +3,7 @@
  *
  * Découpage côté serveur en deux listes :
  *   - pending  : status='pending' AND expires_at > now() — affichées en cards.
- *   - history  : tout le reste, triées par decided_at desc puis sent_at desc.
+ *   - history  : tout le reste, triées par sent_at desc (ordre Postgres).
  *
  * Champs renvoyés taillés pour le composant `Relations` de Prospect.jsx.
  */
@@ -19,7 +19,9 @@ type RelationRow = {
   id: string;
   campaign_id: string;
   motif: string;
-  reward_cents: number;
+  // bigint en DB → renvoyé comme number par PostgREST tant qu'on reste sous 2^53.
+  // On garde `number | string` par sécurité (le `Number()` côté handler couvre les deux).
+  reward_cents: number | string;
   status: string;
   sent_at: string;
   expires_at: string;
