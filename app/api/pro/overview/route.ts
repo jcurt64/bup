@@ -1,10 +1,12 @@
 /**
  * GET /api/pro/overview — KPI cards de la Vue d'ensemble pro.
- *  - contactsAccepted30d : count(relations status in (accepted, settled) AND decided_at >= 30d ago)
- *  - acceptanceRate      : wins / finals (toutes campagnes confondues)
- *  - avgCostCents        : moyenne des reward_cents sur relations gagnées 30d
- *  - lastAcceptances     : 4 dernières acceptations pour le tableau "Dernières acceptations"
- *  - tierBreakdown       : 5 paliers, count + somme reward
+ *  - contactsAccepted30d       : count(relations status in (accepted, settled) AND decided_at >= 30d ago)
+ *  - contactsAcceptedThisMonth : wins du mois calendaire UTC en cours (header ProHeader)
+ *  - activeCampaignsCount      : count(campaigns where status = 'active') (header ProHeader)
+ *  - acceptanceRate            : wins / finals (toutes campagnes confondues)
+ *  - avgCostCents              : moyenne des reward_cents sur relations gagnées 30d
+ *  - lastAcceptances           : 4 dernières acceptations pour le tableau "Dernières acceptations"
+ *  - tierBreakdown             : 5 paliers, count + somme reward
  */
 
 import { NextResponse } from "next/server";
@@ -26,7 +28,10 @@ export async function GET() {
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString();
 
-  const [{ data, error }, { count: activeCampaignsCount }] = await Promise.all([
+  const [
+    { data, error },
+    { count: activeCampaignsCount, error: campaignsErr },
+  ] = await Promise.all([
     admin
       .from("relations")
       .select(
@@ -47,6 +52,10 @@ export async function GET() {
 
   if (error) {
     console.error("[/api/pro/overview] read failed", error);
+    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  }
+  if (campaignsErr) {
+    console.error("[/api/pro/overview] campaigns count failed", campaignsErr);
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
 
