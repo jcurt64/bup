@@ -82,6 +82,26 @@ function invalidateProWallet() {
   _proWalletCache = null;
   _proWalletPromise = null;
 }
+
+// Cache module-level de l'aperçu pro — mutualisé entre ProHeader et Overview.
+// Invalidé via l'event `pro:overview-changed` (à émettre après une action
+// qui modifie un compteur affiché : pause/play campagne, accept relation, etc.).
+let _proOverviewCache = null;
+let _proOverviewPromise = null;
+async function fetchProOverview() {
+  if (_proOverviewCache) return _proOverviewCache;
+  if (_proOverviewPromise) return _proOverviewPromise;
+  _proOverviewPromise = fetch('/api/pro/overview', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { _proOverviewCache = j; _proOverviewPromise = null; return j; })
+    .catch(() => { _proOverviewPromise = null; return null; });
+  return _proOverviewPromise;
+}
+function invalidateProOverview() {
+  _proOverviewCache = null;
+  _proOverviewPromise = null;
+}
+
 const _eurFmt = new Intl.NumberFormat('fr-FR', {
   style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
 });
@@ -134,21 +154,24 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     ? _eurFmt.format(Number(wallet.walletBalanceEur ?? 0))
     : '…';
 
-  // Overview stats — fetched live from /api/pro/overview.
+  // Overview stats — partagé via le cache module fetchProOverview pour
+  // ne pas dupliquer la requête entre header et l'onglet Vue d'ensemble.
   const [overview, setOverview] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/overview', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled) setOverview(j); })
-      .catch(() => {});
-    return () => { cancelled = true; };
+    const refresh = () => fetchProOverview().then(j => { if (!cancelled) setOverview(j); });
+    refresh();
+    const onChange = () => { invalidateProOverview(); refresh(); };
+    window.addEventListener('pro:overview-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('pro:overview-changed', onChange); };
   }, []);
   const contactsThisMonth = overview?.contactsAcceptedThisMonth ?? null;
   const activeCampaigns = overview?.activeCampaignsCount ?? null;
   const acceptanceRate = overview?.acceptanceRate ?? null;
   const k1 = overview?.contactsAccepted30d ?? 0;
-  const roi = k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ',');
+  const roi = overview === null
+    ? '…'
+    : k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ',');
 
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
@@ -159,7 +182,7 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
             <em>{balanceText}</em> de crédit actif · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-            {activeCampaigns ?? '…'} campagne{activeCampaigns === 1 ? '' : 's'} active{activeCampaigns === 1 ? '' : 's'} · taux d'acceptation moyen {acceptanceRate ?? '…'}% · ROI estimé {roi}
+            {activeCampaigns ?? '…'} campagne{activeCampaigns === 1 ? '' : 's'} active{activeCampaigns === 1 ? '' : 's'} · taux d'acceptation moyen {acceptanceRate != null ? acceptanceRate + '%' : '…'} · ROI estimé {roi}
           </div>
         </div>
         <div className="row center gap-3 pro-header-actions">
@@ -177,11 +200,11 @@ function Overview({ onCreate }) {
   const [data, setData] = React.useState(null);
   React.useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/overview', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled) setData(j); })
-      .catch(() => { if (!cancelled) setData(null); });
-    return () => { cancelled = true; };
+    const refresh = () => fetchProOverview().then(j => { if (!cancelled) setData(j); });
+    refresh();
+    const onChange = () => { invalidateProOverview(); refresh(); };
+    window.addEventListener('pro:overview-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('pro:overview-changed', onChange); };
   }, []);
   const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
   const k1 = data?.contactsAccepted30d ?? 0;
