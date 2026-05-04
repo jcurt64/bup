@@ -2015,7 +2015,7 @@ function CampaignLaunchedModal({ data, onClose }) {
           </div>
           {data.matched != null && (
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              {data.matched} prospect{data.matched > 1 ? 's' : ''} notifié{data.matched > 1 ? 's' : ''}
+              {data.matched} prospect{data.matched !== 1 ? 's' : ''} notifié{data.matched !== 1 ? 's' : ''}
             </div>
           )}
         </div>
