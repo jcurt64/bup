@@ -85,13 +85,21 @@ export async function POST(req: Request, ctx: RouteContext) {
         });
         if (error) return mapRpcError(error);
       } else if (rel.status === "pending") {
-        const { error } = await admin
+        // Garde TOCTOU : si le status a changé entre notre SELECT et l'UPDATE
+        // (ex. parallel `accept` qui a déjà escrow l'argent), l'UPDATE doit
+        // affecter 0 row et on renvoie 409 — sinon le refund est zappé.
+        const { data: updated, error } = await admin
           .from("relations")
           .update({ status: "refused", decided_at: new Date().toISOString() })
-          .eq("id", id);
+          .eq("id", id)
+          .eq("status", "pending")
+          .select("id");
         if (error) {
           console.error("[decision/refuse] update failed", error);
           return NextResponse.json({ error: "update_failed" }, { status: 500 });
+        }
+        if (!updated || updated.length === 0) {
+          return NextResponse.json({ error: "invalid_status" }, { status: 409 });
         }
       } else {
         return NextResponse.json({ error: "invalid_status" }, { status: 409 });
@@ -105,13 +113,19 @@ export async function POST(req: Request, ctx: RouteContext) {
         });
         if (error) return mapRpcError(error);
       } else if (rel.status === "refused") {
-        const { error } = await admin
+        // Garde TOCTOU : voir branche `refuse from pending` ci-dessus.
+        const { data: updated, error } = await admin
           .from("relations")
           .update({ status: "pending", decided_at: null })
-          .eq("id", id);
+          .eq("id", id)
+          .eq("status", "refused")
+          .select("id");
         if (error) {
           console.error("[decision/undo] update failed", error);
           return NextResponse.json({ error: "update_failed" }, { status: 500 });
+        }
+        if (!updated || updated.length === 0) {
+          return NextResponse.json({ error: "invalid_status" }, { status: 409 });
         }
       } else {
         return NextResponse.json({ error: "invalid_status" }, { status: 409 });
