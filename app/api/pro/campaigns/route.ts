@@ -73,6 +73,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
+  const startTs = new Date(body.startDate).getTime();
+  const endTs = new Date(body.endDate).getTime();
+  if (Number.isNaN(startTs) || Number.isNaN(endTs) || endTs < startTs) {
+    return NextResponse.json({ error: "invalid_dates" }, { status: 400 });
+  }
+
   const user = await currentUser();
   const email =
     user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
@@ -145,20 +151,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "insert_campaign_failed" }, { status: 500 });
   }
 
-  const matched = await findMatchingProspects(admin, {
-    objectiveId: body.objectiveId,
-    requiredTiers: body.requiredTiers,
-    geo: body.geo,
-    proCodePostal: pro.code_postal ?? null,
-    ages: body.ages,
-    verifLevel: body.verifLevel,
-    contacts: body.contacts,
-  });
+  let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
+  try {
+    matched = await findMatchingProspects(admin, {
+      objectiveId: body.objectiveId,
+      requiredTiers: body.requiredTiers,
+      geo: body.geo,
+      proCodePostal: pro.code_postal ?? null,
+      ages: body.ages,
+      verifLevel: body.verifLevel,
+      contacts: body.contacts,
+    });
+  } catch (err) {
+    console.error("[/api/pro/campaigns] matching failed", err);
+    await admin
+      .from("campaigns")
+      .update({ status: "paused", matched_count: 0 })
+      .eq("id", campaign.id);
+    return NextResponse.json({ error: "matching_failed" }, { status: 500 });
+  }
 
   const expiresAt = new Date(Date.now() + EXPIRY_HOURS * 3600 * 1000).toISOString();
-  const motif = body.brief.trim() || name;
+  // body.brief is guaranteed non-empty by validation above.
+  const motif = body.brief.trim();
 
   let insertedCount = 0;
+  let warning: string | null = null;
   if (matched.length > 0) {
     const rows = matched.map((m) => ({
       campaign_id: campaign.id,
@@ -175,16 +193,20 @@ export async function POST(req: Request) {
       .select("id, prospect_id");
     if (relErr) {
       console.error("[/api/pro/campaigns] insert relations failed", relErr);
-      // On garde la campagne mais on remonte le flag : aucune relation créée.
+      // On garde la campagne mais on remonte un warning au caller.
+      warning = "relations_insert_failed";
     } else {
       insertedCount = inserted?.length ?? 0;
     }
   }
 
-  await admin
+  const { error: countErr } = await admin
     .from("campaigns")
     .update({ matched_count: insertedCount })
     .eq("id", campaign.id);
+  if (countErr) {
+    console.error("[/api/pro/campaigns] update matched_count failed", countErr);
+  }
 
   // Mails fire-and-forget — Promise.allSettled non-awaité.
   const proSector = pro.secteur ?? null;
@@ -212,6 +234,7 @@ export async function POST(req: Request) {
     campaignId: campaign.id,
     matchedCount: insertedCount,
     code,
+    ...(warning ? { warning } : {}),
   });
 }
 
