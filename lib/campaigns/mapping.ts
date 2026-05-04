@@ -1,0 +1,118 @@
+/**
+ * Mapping wizard ↔ DB pour la création de campagne.
+ *
+ * Source de vérité côté UI : `OBJECTIVES`, `VERIF_LEVELS`, `AGE_RANGES`,
+ * `GEO_ZONES` dans `public/prototype/components/Pro.jsx`.
+ *
+ * Comme le wizard est en JSX dans une iframe (pas typé), ces mappings
+ * sont la frontière où l'on valide et convertit avant de toucher la DB.
+ */
+
+import type { Database } from "@/lib/supabase/types";
+
+export type CampaignTypeDb = Database["public"]["Enums"]["campaign_type"];
+export type VerificationLevelDb = Database["public"]["Enums"]["verification_level"];
+export type TierKeyDb = Database["public"]["Enums"]["tier_key"];
+
+const OBJECTIVE_TO_TYPE: Record<string, CampaignTypeDb> = {
+  contact: "prise_de_contact",
+  rdv: "prise_de_rendez_vous",
+  evt: "prise_de_contact",
+  dl: "prise_de_contact",
+  survey: "information_sondage",
+  promo: "prise_de_contact",
+  addigital: "prise_de_contact",
+};
+
+export function objectiveToCampaignType(objectiveId: string): CampaignTypeDb {
+  return OBJECTIVE_TO_TYPE[objectiveId] ?? "prise_de_contact";
+}
+
+const VERIF_ACCEPTABLE: Record<string, VerificationLevelDb[]> = {
+  p0: ["basique", "verifie", "certifie", "confiance"],
+  p1: ["verifie", "certifie", "confiance"],
+  p2: ["certifie", "confiance"],
+  p3: ["confiance"],
+};
+
+export function acceptableVerifLevels(verif: string): VerificationLevelDb[] {
+  return VERIF_ACCEPTABLE[verif] ?? VERIF_ACCEPTABLE.p0;
+}
+
+const TIER_NUM_TO_KEY: Record<number, TierKeyDb> = {
+  1: "identity",
+  2: "localisation",
+  3: "vie",
+  4: "pro",
+  5: "patrimoine",
+};
+
+export function tierNumsToKeys(nums: number[]): TierKeyDb[] {
+  return nums
+    .map((n) => TIER_NUM_TO_KEY[n])
+    .filter((k): k is TierKeyDb => Boolean(k));
+}
+
+/**
+ * Calcule un préfixe `LIKE` à appliquer sur `prospect_localisation.code_postal`
+ * en fonction de la zone choisie par le pro et de son propre code postal.
+ *
+ * - 'ville'    → préfixe sur les 2 premiers caractères + département (08)
+ *                pour rester simple dans cette itération.
+ * - 'dept'     → 2 premiers chiffres du CP du pro.
+ * - 'region'   → 2 premiers chiffres seulement (le mapping région complet
+ *                est out-of-scope ; on traite 'region' comme 'dept' large).
+ * - 'national' → null (pas de filtre).
+ */
+export function geoCodePostalPrefix(
+  geo: string,
+  proCodePostal: string | null,
+): string | null {
+  if (geo === "national") return null;
+  if (!proCodePostal) return null;
+  const dep = proCodePostal.slice(0, 2);
+  if (geo === "ville" || geo === "dept" || geo === "region") {
+    return dep + "%";
+  }
+  return null;
+}
+
+const AGE_BUCKETS: Record<string, [number, number]> = {
+  "18–25": [18, 25],
+  "26–35": [26, 35],
+  "36–45": [36, 45],
+  "46–55": [46, 55],
+  "56–65": [56, 65],
+  "65+": [65, 200],
+};
+
+/** Retourne null si `Tous` est dans la sélection (pas de filtre). */
+export function ageRangesToBounds(
+  ages: string[],
+): Array<[number, number]> | null {
+  if (!ages || ages.length === 0 || ages.includes("Tous")) return null;
+  return ages
+    .map((a) => AGE_BUCKETS[a])
+    .filter((b): b is [number, number] => Boolean(b));
+}
+
+/** Calcule l'âge à partir d'une date de naissance string (`YYYY-MM-DD`). */
+export function ageFromBirthString(s: string | null): number | null {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const birth = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const md = now.getMonth() - birth.getMonth();
+  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+export function ageMatchesAny(
+  age: number,
+  bounds: Array<[number, number]>,
+): boolean {
+  return bounds.some(([lo, hi]) => age >= lo && age <= hi);
+}
