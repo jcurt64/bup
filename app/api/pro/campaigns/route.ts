@@ -290,14 +290,14 @@ export async function GET() {
   const campaigns = (camps ?? []).map((c) => {
     const targeting = (c.targeting as Targeting | null) ?? null;
     return {
-      id: c.id as string,
-      name: c.name as string,
-      status: c.status as string,
+      id: c.id,
+      name: c.name,
+      status: c.status,
       objectiveLabel: objectiveLabel(targeting?.objectiveId),
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
-      contactsCount: contactsByCampaign.get(c.id as string) ?? 0,
-      createdAt: c.created_at as string,
+      contactsCount: contactsByCampaign.get(c.id) ?? 0,
+      createdAt: c.created_at,
       avgCostEur: Number(c.cost_per_contact_cents ?? 0) / 100,
     };
   });
