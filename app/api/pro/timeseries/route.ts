@@ -22,9 +22,9 @@ const DAY_MS = 86_400_000;
 
 const DAY_LABELS_FR = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
-function rangeStart(range: Range): Date {
+function rangeStart(range: Range, now: Date): Date {
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 91;
-  return new Date(Date.now() - days * DAY_MS);
+  return new Date(now.getTime() - days * DAY_MS);
 }
 
 type Bucket = { start: string; end: string; label: string; count: number };
@@ -94,7 +94,11 @@ export async function GET(req: Request) {
   const proId = await ensureProAccount({ clerkUserId: userId, email });
 
   const admin = createSupabaseAdminClient();
-  const sinceIso = rangeStart(range).toISOString();
+  // Capture `now` once : on dérive both le filtre Supabase ET les bornes
+  // des buckets de la même base — sinon la latence DB introduit un drift
+  // qui peut faire passer le filtre à un row sans le placer dans aucun bucket.
+  const now = new Date();
+  const sinceIso = rangeStart(range, now).toISOString();
 
   const { data, error } = await admin
     .from("relations")
@@ -108,7 +112,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
 
-  const now = new Date();
   const buckets = buildBuckets(range, now);
   for (const r of (data ?? [])) {
     if (!r.decided_at) continue;
