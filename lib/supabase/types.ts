@@ -151,6 +151,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pro_contact_reveals: {
+        Row: {
+          field: string
+          id: string
+          pro_account_id: string
+          relation_id: string
+          revealed_at: string
+        }
+        Insert: {
+          field: string
+          id?: string
+          pro_account_id: string
+          relation_id: string
+          revealed_at?: string
+        }
+        Update: {
+          field?: string
+          id?: string
+          pro_account_id?: string
+          relation_id?: string
+          revealed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_contact_reveals_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_reveals_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospect_identity: {
         Row: {
           email: string | null
@@ -843,3 +882,39 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      account_kind: ["prospect", "pro"],
+      campaign_status: ["draft", "active", "paused", "completed", "canceled"],
+      campaign_type: [
+        "prise_de_contact",
+        "prise_de_rendez_vous",
+        "information_sondage",
+        "devis_chiffrage",
+      ],
+      pro_billing_status: ["active", "past_due", "canceled", "trialing"],
+      pro_plan: ["starter", "pro"],
+      relation_status: ["pending", "accepted", "refused", "expired", "settled"],
+      tier_key: ["identity", "localisation", "vie", "pro", "patrimoine"],
+      transaction_status: ["pending", "completed", "failed", "canceled"],
+      transaction_type: [
+        "credit",
+        "escrow",
+        "withdrawal",
+        "topup",
+        "campaign_charge",
+        "referral_bonus",
+        "refund",
+      ],
+      verification_level: [
+        "basique",
+        "verifie",
+        "certifie",
+        "confiance",
+        "certifie_confiance",
+      ],
+    },
+  },
+} as const
