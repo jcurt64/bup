@@ -7,6 +7,9 @@
  *                        ("Cumulé depuis ouverture" dans l'onglet Portefeuille).
  *   - available        : solde immédiatement retirable
  *                        = lifetimeGains − retraits déjà exécutés.
+ *   - escrow           : fonds en séquestre — somme des reward_cents des
+ *                        relations status='accepted' (acceptées mais pas
+ *                        encore settled au-delà de 72 h).
  *   - relationsCount   : nombre total de mises en relation reçues depuis
  *                        la création du compte (toutes statuts confondus).
  *   - accountCreatedAt : prospects.created_at, sert à dater le cumul.
@@ -62,9 +65,9 @@ export async function GET() {
 
   const monthStart = startOfMonthIso();
 
-  // Lectures parallèles : 4 requêtes ciblées, toutes indexées sur
+  // Lectures parallèles : 5 requêtes ciblées, toutes indexées sur
   // (account_id, account_kind, status) ou (prospect_id) pour relations.
-  const [gainsLifetime, gainsMonth, withdrawals, relations, prospectRow] =
+  const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow] =
     await Promise.all([
       admin
         .from("transactions")
@@ -90,6 +93,11 @@ export async function GET() {
         .eq("status", "completed"),
       admin
         .from("relations")
+        .select("reward_cents")
+        .eq("prospect_id", prospectId)
+        .eq("status", "accepted"),
+      admin
+        .from("relations")
         .select("id", { count: "exact", head: true })
         .eq("prospect_id", prospectId),
       admin
@@ -103,6 +111,10 @@ export async function GET() {
   const monthCents = sumAmounts(gainsMonth.data);
   const withdrawnCents = sumAmounts(withdrawals.data);
   const availableCents = Math.max(0, lifetimeCents - withdrawnCents);
+  const escrowCents = (escrowRelations.data ?? []).reduce(
+    (acc, r) => acc + Number(r.reward_cents ?? 0),
+    0,
+  );
 
   return NextResponse.json({
     monthStart,
@@ -112,6 +124,8 @@ export async function GET() {
     lifetimeGainsEur: Math.round(lifetimeCents) / 100,
     availableCents,
     availableEur: Math.round(availableCents) / 100,
+    escrowCents,
+    escrowEur: Math.round(escrowCents) / 100,
     canWithdraw: availableCents >= WITHDRAW_THRESHOLD_EUR * 100,
     withdrawThresholdEur: WITHDRAW_THRESHOLD_EUR,
     relationsCount: relations.count ?? 0,

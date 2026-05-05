@@ -444,11 +444,11 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
 
 /* ─── Modale "Supprimer mon compte" ─────────────────────────────────────
    Action destructive irréversible : supprime les données Supabase + le
-   compte Clerk. Le message d'avertissement (rouge) rappelle que les
-   buupp coins seront perdus définitivement, et que recréer un compte
-   avec les mêmes identifiants ne les restituera pas. Variante de
-   message selon le rôle (récupération des gains pour prospect /
-   utilisation du crédit pour pro). */
+   compte Clerk. Le message d'avertissement (rouge) varie selon le rôle :
+     - prospect : perte du solde des buupp coins (gains en attente de retrait).
+     - pro      : perte du solde du crédit non utilisé (non remboursable).
+   Le `tip` au-dessus du bouton invite à récupérer les gains (prospect) ou
+   à utiliser le crédit restant (pro) avant la suppression. */
 function DeleteAccountModal({ role, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -511,11 +511,23 @@ function DeleteAccountModal({ role, onClose }) {
           background: '#fef2f2', borderLeft: '3px solid #dc2626', border: '1px solid #fca5a5',
           color: '#991b1b', fontSize: 13.5, lineHeight: 1.55, marginBottom: 14,
         }}>
-          En supprimant définitivement votre compte, vous effacerez
-          <strong> toutes vos données personnelles</strong> et perdrez
-          <strong> définitivement le solde de vos buupp coins</strong>.
-          Vous ne pourrez pas les récupérer, même en recréant un nouveau
-          compte avec les mêmes identifiants.
+          {role === 'pro' ? (
+            <>
+              En supprimant définitivement votre compte, vous effacerez
+              <strong> toutes vos données personnelles</strong> et perdrez
+              <strong> définitivement le solde de votre crédit</strong>.
+              Le solde restant ne pourra pas être remboursé, même en recréant
+              un nouveau compte avec les mêmes identifiants.
+            </>
+          ) : (
+            <>
+              En supprimant définitivement votre compte, vous effacerez
+              <strong> toutes vos données personnelles</strong> et perdrez
+              <strong> définitivement le solde de vos buupp coins</strong>.
+              Vous ne pourrez pas les récupérer, même en recréant un nouveau
+              compte avec les mêmes identifiants.
+            </>
+          )}
         </div>
 
         <div style={{
@@ -759,14 +771,22 @@ function StatusPill({ label, value, chip }) {
 function Portefeuille() {
   const [modal, setModal] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [movements, setMovements] = useState(null);
 
   // Hydrate les 3 cartes (Disponible / En séquestre / Cumulé depuis ouverture)
   // depuis /api/prospect/wallet. Re-fetch sur prospect:profile-changed pour
   // refléter immédiatement un nouveau crédit ou retrait.
   useEffect(() => {
     let cancelled = false;
-    const refresh = () =>
+    const refresh = () => {
       fetchCachedJson('wallet', '/api/prospect/wallet').then(j => !cancelled && setWallet(j));
+      // Historique : toujours en no-cache module-level pour suivre les
+      // mutations (acceptation d'une relation, retrait, parrainage…).
+      fetch('/api/prospect/movements', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => !cancelled && setMovements(j))
+        .catch(() => { if (!cancelled) setMovements({ movements: [] }); });
+    };
     refresh();
     const onChange = () => { invalidateProspectApiCache(); refresh(); };
     window.addEventListener('prospect:profile-changed', onChange);
@@ -779,6 +799,8 @@ function Portefeuille() {
   const availableCoins = Math.round((wallet?.availableCents ?? 0));
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
+  const escrowEur = wallet?.escrowEur ?? 0;
+  const escrowCoins = Math.round((wallet?.escrowCents ?? 0));
   const threshold = wallet?.withdrawThresholdEur ?? 5;
   const canWithdraw = wallet?.canWithdraw ?? false;
   const relationsCount = wallet?.relationsCount ?? 0;
@@ -825,7 +847,13 @@ function Portefeuille() {
             </button>
           }
         />
-        <BalanceCard label="En séquestre" value="14,60" coins="146" sub="Déblocage sous 72 h" lock/>
+        <BalanceCard
+          label="En séquestre"
+          value={fmt(escrowEur)}
+          coins={escrowCoins.toLocaleString('fr-FR')}
+          sub="Déblocage sous 72 h"
+          lock
+        />
         <BalanceCard
           label="Cumulé depuis ouverture"
           value={fmt(lifetimeEur)}
@@ -845,24 +873,32 @@ function Portefeuille() {
               <th>Date</th><th>Origine</th><th>Palier</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th>
             </tr></thead>
             <tbody>
-              {[
-                ['18 avr.', 'Cabinet Kiné Lyon 3', 2, 'Crédité', '+4,20', 'good'],
-                ['16 avr.', 'Coach pro Nantes', 3, 'En séquestre', '+6,80', 'warn'],
-                ['12 avr.', 'Retrait IBAN •••4521', '—', 'Exécuté', '−30,00', ''],
-                ['09 avr.', 'Agence immo Paris 11', 4, 'Crédité', '+9,40', 'good'],
-                ['07 avr.', 'Bonus parrainage Léa B.', '—', 'Crédité', '+0,84', 'good'],
-                ['03 avr.', 'Nutritionniste Lille', 3, 'Crédité', '+5,60', 'good'],
-              ].map((r, i) => (
-                <tr key={i}>
-                  <td className="mono" style={{ color: 'var(--ink-4)' }}>{r[0]}</td>
-                  <td>{r[1]}</td>
-                  <td>{r[2] === '—' ? <span className="muted">—</span> : <span className="chip">Palier {r[2]}</span>}</td>
-                  <td><span className={'chip ' + (r[5] ? 'chip-' + r[5] : '')}>{r[3]}</span></td>
-                  <td style={{ textAlign: 'right' }} className="mono tnum">
-                    <span style={{ color: r[4].startsWith('+') ? 'var(--good)' : 'var(--ink-3)' }}>{r[4]} €</span>
-                  </td>
-                </tr>
-              ))}
+              {!movements ? (
+                <tr><td colSpan={5} className="muted" style={{ textAlign: 'center', padding: 16, fontSize: 13 }}>
+                  Chargement de l'historique…
+                </td></tr>
+              ) : (movements.movements || []).length === 0 ? (
+                <tr><td colSpan={5} className="muted" style={{ textAlign: 'center', padding: 16, fontSize: 13 }}>
+                  Aucun mouvement pour le moment.
+                </td></tr>
+              ) : (movements.movements || []).map((m) => {
+                const dateLabel = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' })
+                  .format(new Date(m.date));
+                const amountStr = `${m.sign}${fmt(Math.abs(m.amountEur))}`;
+                return (
+                  <tr key={m.id}>
+                    <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
+                    <td>{m.origin}</td>
+                    <td>{m.tier == null
+                      ? <span className="muted">—</span>
+                      : <span className="chip">Palier {m.tier}</span>}</td>
+                    <td><span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')}>{m.statusLabel}</span></td>
+                    <td style={{ textAlign: 'right' }} className="mono tnum">
+                      <span style={{ color: m.amountCents >= 0 ? 'var(--good)' : 'var(--ink-3)' }}>{amountStr} €</span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -2837,40 +2873,103 @@ function Parrainage() {
 
 /* ---------- Fiscal ---------- */
 function Fiscal() {
+  // Hydrate les deux cartes "Récapitulatif annuel" (exercice en cours + N-1)
+  // depuis /api/prospect/fiscal. Refetch sur prospect:profile-changed pour
+  // refléter immédiatement un nouveau crédit qui ferait évoluer le cumul.
+  const [fiscal, setFiscal] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () =>
+      fetch('/api/prospect/fiscal', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => !cancelled && setFiscal(j))
+        .catch(() => { if (!cancelled) setFiscal(null); });
+    refresh();
+    const onChange = () => refresh();
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
+  }, []);
+
+  // Format €1 234,56 → ['1 234', '56'] pour rendre la partie entière en gros
+  // chiffre serif et les centimes en petit, comme dans le design existant.
+  const splitEur = (eur) => {
+    const value = Number(eur || 0);
+    const [intPart, decPart] = value.toFixed(2).split('.');
+    const intFormatted = Number(intPart).toLocaleString('fr-FR');
+    return [intFormatted, decPart];
+  };
+
+  const thresholdEur = fiscal?.thresholdEur ?? 3000;
+  const thresholdTx = fiscal?.thresholdTransactions ?? 20;
+  const cur = fiscal?.currentYear ?? null;
+  const prev = fiscal?.previousYear ?? null;
+
+  const [curIntStr, curDecStr] = splitEur(cur?.totalEur);
+  const [prevIntStr, prevDecStr] = splitEur(prev?.totalEur);
+  const curEur = Number(cur?.totalEur || 0);
+  const curRatio = Math.min(1, curEur / thresholdEur);
+  const curThresholdReached = !!cur?.thresholdReached;
+
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Informations fiscales" title="Récapitulatif annuel" desc="BUUPP transmet vos données récapitulatives à la DGFiP dès le dépassement du seuil déclaratif (3 000 € / 20 transactions en 2026)."/>
+      <SectionTitle
+        eyebrow="Informations fiscales"
+        title="Récapitulatif annuel"
+        desc={`BUUPP transmet vos données récapitulatives à la DGFiP dès le dépassement du seuil déclaratif (${thresholdEur.toLocaleString('fr-FR')} € / ${thresholdTx} transactions en ${cur?.year ?? new Date().getFullYear()}).`}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 28 }}>
-          <div className="mono caps muted" style={{ marginBottom: 10 }}>— Exercice 2026 (en cours)</div>
+          <div className="mono caps muted" style={{ marginBottom: 10 }}>
+            — Exercice {cur?.year ?? '…'} (en cours)
+          </div>
           <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-            <span className="serif tnum" style={{ fontSize: 64 }}>127</span>
-            <span className="muted" style={{ fontSize: 16 }}>,40 € cumulés</span>
+            <span className="serif tnum" style={{ fontSize: 64 }}>{curIntStr}</span>
+            <span className="muted" style={{ fontSize: 16 }}>,{curDecStr} € cumulés</span>
           </div>
           <div style={{ marginTop: 22 }}>
             <div className="row between" style={{ fontSize: 12, marginBottom: 6 }}>
               <span className="muted">Seuil déclaratif</span>
-              <span className="mono tnum">127,40 / 3 000 €</span>
+              <span className="mono tnum">
+                {curEur.toFixed(2).replace('.', ',')} / {thresholdEur.toLocaleString('fr-FR')} €
+              </span>
             </div>
-            <Progress value={127.40/3000}/>
+            <Progress value={curRatio}/>
+          </div>
+          <div className="row between" style={{ fontSize: 12, marginTop: 10, color: 'var(--ink-4)' }}>
+            <span>Transactions de l'année</span>
+            <span className="mono tnum">{cur?.transactionCount ?? 0} / {thresholdTx}</span>
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 14 }}>
-            Vous n'avez pas atteint le seuil. Aucune obligation de déclaration spécifique pour l'instant.
+            {!fiscal
+              ? 'Chargement de votre récapitulatif…'
+              : curThresholdReached
+                ? "Vous avez dépassé le seuil. BUUPP transmettra votre récapitulatif à la DGFiP en janvier prochain."
+                : "Vous n'avez pas atteint le seuil. Aucune obligation de déclaration spécifique pour l'instant."}
           </div>
         </div>
         <div className="card" style={{ padding: 28 }}>
-          <div className="mono caps muted" style={{ marginBottom: 10 }}>— Exercice 2025 (clos)</div>
+          <div className="mono caps muted" style={{ marginBottom: 10 }}>
+            — Exercice {prev?.year ?? '…'} (clos)
+          </div>
           <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-            <span className="serif tnum" style={{ fontSize: 64 }}>286</span>
-            <span className="muted" style={{ fontSize: 16 }}>,40 €</span>
+            <span className="serif tnum" style={{ fontSize: 64 }}>{prevIntStr}</span>
+            <span className="muted" style={{ fontSize: 16 }}>,{prevDecStr} €</span>
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 14 }}>
-            Récapitulatif fiscal 2025 transmis le 31 janvier 2026.
+            {!fiscal
+              ? 'Chargement…'
+              : prev?.reportedToDgfip
+                ? `Récapitulatif fiscal ${prev.year} transmis le 31 janvier ${prev.year + 1}.`
+                : `Aucune transmission DGFiP pour ${prev?.year ?? ''} : seuil non atteint (${prev?.transactionCount ?? 0} transactions, ${(prev?.totalEur || 0).toFixed(2).replace('.', ',')} €).`}
           </div>
           <div className="row gap-2" style={{ marginTop: 18 }}>
-            <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Récap 2025 (PDF)</button>
-            <button className="btn btn-ghost btn-sm"><Icon name="doc" size={12}/> Reçu DGFiP</button>
+            <button className="btn btn-ghost btn-sm" disabled={!prev?.reportedToDgfip}>
+              <Icon name="download" size={12}/> Récap {prev?.year ?? ''} (PDF)
+            </button>
+            <button className="btn btn-ghost btn-sm" disabled={!prev?.reportedToDgfip}>
+              <Icon name="doc" size={12}/> Reçu DGFiP
+            </button>
           </div>
         </div>
       </div>
@@ -2880,7 +2979,7 @@ function Fiscal() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
           {[
             ['305 €', 'Franchise annuelle', "En dessous, aucune déclaration URSSAF n'est requise."],
-            ['3 000 €', 'Seuil DGFiP', "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant."],
+            [`${thresholdEur.toLocaleString('fr-FR')} €`, 'Seuil DGFiP', "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant."],
             ['77 700 €', 'Plafond micro-BIC', "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant."],
           ].map((r, i) => (
             <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>

@@ -40,6 +40,14 @@ type RelationRow = {
   } | null;
 };
 
+// Affiche la raison sociale telle qu'elle est saisie dans `pro_accounts`.
+// Si la valeur est null/vide on retombe sur un tiret pour ne pas afficher
+// "undefined" côté UI — la complétion des infos société reste à la charge du pro.
+function displayProName(raison: string | null | undefined): string {
+  const v = (raison ?? "").trim();
+  return v || "—";
+}
+
 function timerString(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return "Expirée";
@@ -96,7 +104,7 @@ export async function GET() {
     .filter((r) => r.status === "pending" && new Date(r.expires_at).getTime() > now)
     .map((r) => {
       const reward = Number(r.reward_cents) / 100;
-      const proName = r.pro_accounts?.raison_sociale ?? "—";
+      const proName = displayProName(r.pro_accounts?.raison_sociale);
       const sectorParts = [r.pro_accounts?.secteur, r.pro_accounts?.ville].filter(
         Boolean,
       ) as string[];
@@ -135,7 +143,7 @@ export async function GET() {
       return {
         id: r.id,
         date,
-        proName: r.pro_accounts?.raison_sociale ?? "—",
+        proName: displayProName(r.pro_accounts?.raison_sociale),
         tier: highestTier(r.campaigns?.targeting ?? null),
         decision: decisionLabel,
         status: statusLabel,
