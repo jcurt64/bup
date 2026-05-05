@@ -2506,6 +2506,116 @@ function Contacts() {
   );
 }
 
+function RevealContactModal({ relationId, field, name, onClose }) {
+  const [status, setStatus] = React.useState('loading'); // 'loading' | 'ok' | 'not_shared' | 'error'
+  const [value, setValue] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/pro/contacts/${relationId}/reveal`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ field }),
+    })
+      .then(async (r) => {
+        if (cancelled) return;
+        if (r.status === 404) { setStatus('not_shared'); return; }
+        if (!r.ok) { setStatus('error'); return; }
+        const j = await r.json();
+        setValue(j.value);
+        setStatus('ok');
+      })
+      .catch(() => { if (!cancelled) setStatus('error'); });
+    return () => { cancelled = true; };
+  }, [relationId, field]);
+
+  const isPhone = field === 'telephone';
+  const ctaHref = !value
+    ? '#'
+    : isPhone
+      ? `tel:${value.replace(/[^\d+]/g, '')}`
+      : `mailto:${encodeURIComponent(value)}`;
+  const ctaLabel = isPhone ? 'Appeler maintenant' : 'Ouvrir mon mail';
+  const iconName = isPhone ? 'phone' : 'email';
+  const title = isPhone ? `Contacter ${name}` : `Écrire à ${name}`;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        style={{ width: '100%', maxWidth: 420, padding: 24 }}
+      >
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 16 }}>
+          <div className="row center gap-2">
+            <Icon name={iconName} size={16}/>
+            <span className="serif" style={{ fontSize: 18 }}>{title}</span>
+          </div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer">
+            <Icon name="close" size={12}/>
+          </button>
+        </div>
+
+        {status === 'loading' && (
+          <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
+            Récupération du contact…
+          </div>
+        )}
+
+        {status === 'ok' && (
+          <>
+            <div
+              className="mono"
+              style={{ fontSize: 22, padding: '20px 0', textAlign: 'center', userSelect: 'text', wordBreak: 'break-all' }}
+            >
+              {value}
+            </div>
+            <a
+              href={ctaHref}
+              className="btn"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: 'var(--ink)', color: 'var(--paper)', textDecoration: 'none',
+                padding: '10px 16px', borderRadius: 8, fontWeight: 500,
+              }}
+            >
+              <Icon name={iconName} size={14}/> {ctaLabel}
+            </a>
+            <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'center' }}>
+              ⓘ Cet accès a été enregistré dans votre historique de consultations.
+            </div>
+          </>
+        )}
+
+        {status === 'not_shared' && (
+          <div style={{ padding: '20px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 13 }}>Le prospect n'a pas partagé ce contact pour cette campagne.</div>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ marginTop: 16 }}>
+              Fermer
+            </button>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div style={{ padding: '20px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 13 }}>Impossible de récupérer le contact. Réessayez.</div>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ marginTop: 16 }}>
+              Fermer
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Analytics() {
   const [data, setData] = React.useState(null);
   React.useEffect(() => {
