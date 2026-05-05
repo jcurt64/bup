@@ -1266,11 +1266,30 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
 
   const toggleSub = (sid) => setSelectedSubs(p => { const n = new Set(p); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
   const toggleTier = (tid) => setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+  // "Tous" agit comme un raccourci "tout cocher" : un premier clic active
+  // toutes les tranches d'âge en plus de la pill "Tous", un second clic
+  // (quand tout est déjà coché) revient au défaut "Tous" seul. Les clics
+  // sur les tranches individuelles synchronisent la pill "Tous" avec
+  // l'état réel — elle reste cochée si et seulement si toutes les tranches
+  // le sont. Le backend traite "Tous" et la liste complète comme un
+  // synonyme (cf. lib/campaigns/mapping.ts → ageRangesToBounds).
+  const ALL_AGE_RANGES_NO_TOUS = AGE_RANGES.filter(x => x !== 'Tous');
   const toggleAge = (a) => setAges(p => {
-    if (a === 'Tous') return new Set(['Tous']);
-    const n = new Set(p); n.delete('Tous');
+    if (a === 'Tous') {
+      const allOn = ALL_AGE_RANGES_NO_TOUS.every(r => p.has(r));
+      return allOn ? new Set(['Tous']) : new Set(AGE_RANGES);
+    }
+    const n = new Set(p);
+    // En mode "Tous seul", un clic individuel passe en sélection explicite
+    // sur ce seul âge (l'utilisateur restreint la sélection initiale).
+    if (n.has('Tous') && !ALL_AGE_RANGES_NO_TOUS.every(r => n.has(r))) {
+      return new Set([a]);
+    }
     n.has(a) ? n.delete(a) : n.add(a);
-    if (!n.size) n.add('Tous');
+    // Synchro de la pill "Tous" — cochée ssi toutes les tranches le sont.
+    if (ALL_AGE_RANGES_NO_TOUS.every(r => n.has(r))) n.add('Tous');
+    else n.delete('Tous');
+    if (n.size === 0) n.add('Tous');
     return n;
   });
   const addKw = (val) => {

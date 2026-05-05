@@ -6,7 +6,7 @@
  *  2. Vérification solde ≥ budget + plan_fee → sinon 402.
  *  3. INSERT campaigns(active, brief, starts_at, ends_at).
  *  4. findMatchingProspects(LIMIT contacts).
- *  5. Batch INSERT relations(pending, expires_at = now()+72h).
+ *  5. Batch INSERT relations(pending, expires_at = now()+EXPIRY_MINUTES).
  *  6. Update campaigns.matched_count.
  *  7. Fire-and-forget : sendRelationInvitation par prospect avec email.
  *
@@ -48,7 +48,10 @@ type Body = {
   poolMode: string;
 };
 
-const EXPIRY_HOURS = 72;
+// TEST : durée de validité réduite à 1 minute pour vérifier le flux
+// d'expiration. Valeur produit nominale = 72 h (4320 min). À restaurer
+// avant mise en prod.
+const EXPIRY_MINUTES = 1;
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -172,7 +175,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "matching_failed" }, { status: 500 });
   }
 
-  const expiresAt = new Date(Date.now() + EXPIRY_HOURS * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000).toISOString();
   // body.brief is guaranteed non-empty by validation above.
   const motif = body.brief.trim();
 
