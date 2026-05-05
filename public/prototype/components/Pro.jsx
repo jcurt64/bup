@@ -2788,11 +2788,27 @@ function RevealContactModal({ relationId, field, name, onClose }) {
             <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'center' }}>
               ⓘ Cet accès a été enregistré dans votre historique de consultations.
             </div>
-            {!isPhone && (
-              <div className="muted" style={{ fontSize: 11, marginTop: 6, textAlign: 'center' }}>
-                L'accès aux informations des prospects est loggé pour des raisons d'audit et de traçabilité. Une seule sollicitation par prospect est autorisée conformément aux CGV de BUUPP.
-              </div>
-            )}
+            <div
+              role="alert"
+              style={{
+                fontSize: 11,
+                marginTop: 10,
+                padding: '8px 10px',
+                borderRadius: 6,
+                background: 'color-mix(in oklab, #B91C1C 10%, transparent)',
+                border: '1px solid color-mix(in oklab, #B91C1C 30%, transparent)',
+                color: '#B91C1C',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ flexShrink: 0, marginTop: 1 }}>
+                <Icon name="alert" size={14}/>
+              </span>
+              <span>L'accès aux informations des prospects est loggé pour des raisons d'audit et de traçabilité. Une seule sollicitation par prospect est autorisée conformément aux CGV de BUUPP.</span>
+            </div>
           </>
         )}
 
