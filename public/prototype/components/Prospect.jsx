@@ -440,7 +440,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
       </aside>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'var(--ivory)', borderBottom: '1px solid var(--line)' }}>
-          <TopBar role={role} go={go} overrideName={overrideName}/>
+          <TopBar role={role} overrideName={overrideName}/>
           {header}
         </div>
         <main style={{ padding: '32px 40px 80px', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
@@ -615,7 +615,7 @@ function deriveInitials(name) {
   return ((alpha.slice(0, 2) || parts[0].slice(0, 2)) || '?').toUpperCase();
 }
 
-function TopBar({ role, go, overrideName }) {
+function TopBar({ role, overrideName }) {
   const [me, setMe] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -653,9 +653,6 @@ function TopBar({ role, go, overrideName }) {
         </div>
       </div>
       <div className="row center gap-3">
-        <button className="btn btn-sm btn-ghost" onClick={() => go(role === 'prospect' ? 'pro' : 'prospect')}>
-          <Icon name="refresh" size={12}/> Basculer {role === 'prospect' ? 'pro' : 'prospect'}
-        </button>
         <button style={{ padding: 8, borderRadius: 999, color: 'var(--ink-3)' }}>
           <Icon name="bell" size={16}/>
         </button>
