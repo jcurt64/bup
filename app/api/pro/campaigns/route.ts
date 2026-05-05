@@ -49,9 +49,16 @@ type Body = {
 };
 
 // TEST : durée de validité réduite à 1 minute pour vérifier le flux
-// d'expiration. Valeur produit nominale = 72 h (4320 min). À restaurer
-// avant mise en prod.
+// d'expiration de la relation (response window prospect). Valeur
+// produit nominale = 72 h (4320 min). À restaurer avant mise en prod.
 const EXPIRY_MINUTES = 1;
+// TEST : on ignore la fenêtre de diffusion choisie dans le wizard
+// (body.startDate / body.endDate) et on force ends_at à now()+5min
+// pour pouvoir tester la fermeture de campagne (campaignActive flippe
+// à false après 5 minutes — le bouton "Refuser" disparaît, l'acceptation
+// rétroactive depuis l'historique n'est plus permise). À retirer avant
+// prod : restaurer body.startDate / body.endDate.
+const CAMPAIGN_DURATION_MINUTES = 5;
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -145,8 +152,13 @@ export async function POST(req: Request) {
       cost_per_contact_cents: body.costPerContactCents,
       budget_cents: body.budgetCents,
       brief: body.brief.trim(),
-      starts_at: new Date(body.startDate).toISOString(),
-      ends_at: new Date(body.endDate).toISOString(),
+      // TEST : on remplace la fenêtre choisie par le wizard par
+      //   starts_at = now()
+      //   ends_at   = now() + CAMPAIGN_DURATION_MINUTES
+      // pour pouvoir vérifier rapidement la fermeture automatique de la
+      // campagne (campaignActive=false → bouton "Refuser" masqué).
+      starts_at: new Date().toISOString(),
+      ends_at: new Date(Date.now() + CAMPAIGN_DURATION_MINUTES * 60 * 1000).toISOString(),
     })
     .select("id")
     .single();

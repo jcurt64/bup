@@ -148,8 +148,29 @@ export async function GET() {
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
 
-  const rows = (data ?? []) as unknown as TransactionRow[];
+  const allRows = (data ?? []) as unknown as TransactionRow[];
   const now = Date.now();
+
+  // Déduplication par relation_id — un cycle accept → refuse → accept
+  // empile plusieurs transactions prospect dans la base (escrow pending
+  // créé à chaque accept, marqué canceled à chaque refuse). L'historique
+  // utilisateur ne doit présenter qu'UNE ligne par relation, reflétant
+  // l'état courant. La requête est déjà triée par created_at desc, donc
+  // la première occurrence rencontrée est la plus récente — on garde
+  // celle-là et on jette les versions plus anciennes.
+  // Les transactions sans relation_id (retraits, parrainages sans
+  // campagne, recharges…) sont conservées intégralement.
+  const seenRelationIds = new Set<string>();
+  const rows: TransactionRow[] = [];
+  for (const r of allRows) {
+    if (!r.relation_id) {
+      rows.push(r);
+      continue;
+    }
+    if (seenRelationIds.has(r.relation_id)) continue;
+    seenRelationIds.add(r.relation_id);
+    rows.push(r);
+  }
 
   // Construit l'objet `relation` qui sera passé à RelationDetailModal côté
   // front — même forme que les entries de /api/prospect/relations#history,
