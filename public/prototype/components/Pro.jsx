@@ -2372,6 +2372,9 @@ function formatRelativeFr(iso) {
 function Contacts() {
   const [allRows, setAllRows] = React.useState(null); // null = loading
   const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
+  const [collapsed, setCollapsed] = React.useState(new Set()); // Set<campaignId>
+  const [selected, setSelected] = React.useState(new Set()); // Set<relationId>
+  const [groupSending, setGroupSending] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/pro/contacts', { cache: 'no-store' })
@@ -2391,6 +2394,67 @@ function Contacts() {
   const clear = () => setActive(new Set());
   const ALL = allRows || [];
   const rows = active.size === 0 ? ALL : ALL.filter(r => [...active].every(k => FILTERS[k].test(r)));
+
+  // Regroupement des lignes par campagne (préserve l'ordre d'arrivée).
+  const groups = React.useMemo(() => {
+    const map = new Map();
+    for (const r of rows) {
+      const key = r.campaignId || r.campaign || '—';
+      if (!map.has(key)) map.set(key, { campaignId: key, campaign: r.campaign || '—', items: [] });
+      map.get(key).items.push(r);
+    }
+    return Array.from(map.values());
+  }, [rows]);
+
+  const toggleCollapsed = (cid) => setCollapsed(s => {
+    const n = new Set(s); n.has(cid) ? n.delete(cid) : n.add(cid); return n;
+  });
+  const toggleSelected = (rid) => setSelected(s => {
+    const n = new Set(s); n.has(rid) ? n.delete(rid) : n.add(rid); return n;
+  });
+  const setGroupSelected = (group, on) => setSelected(s => {
+    const n = new Set(s);
+    for (const item of group.items) {
+      if (!item.emailAvailable) continue;
+      if (on) n.add(item.relationId); else n.delete(item.relationId);
+    }
+    return n;
+  });
+
+  async function handleGroupMessage(group) {
+    const ids = group.items
+      .filter(it => it.emailAvailable && selected.has(it.relationId))
+      .map(it => it.relationId);
+    if (ids.length === 0) return;
+    setGroupSending(true);
+    try {
+      const res = await fetch('/api/pro/contacts/group-reveal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ relationIds: ids }),
+      });
+      if (!res.ok) {
+        alert("Impossible de récupérer les emails. Réessayez.");
+        return;
+      }
+      const j = await res.json();
+      const emails = (j.items || []).map(x => x.email).filter(Boolean);
+      const skipped = ids.length - emails.length;
+      if (emails.length === 0) {
+        alert("Aucun email disponible parmi les prospects sélectionnés.");
+        return;
+      }
+      if (skipped > 0) {
+        alert(`${skipped} prospect${skipped > 1 ? 's' : ''} ignoré${skipped > 1 ? 's' : ''} (email non partagé).`);
+      }
+      const bcc = emails.map(encodeURIComponent).join(',');
+      window.location.href = `mailto:?bcc=${bcc}`;
+    } catch {
+      alert("Impossible de récupérer les emails. Réessayez.");
+    } finally {
+      setGroupSending(false);
+    }
+  }
 
   return (
     <div className="col gap-6">
@@ -2444,81 +2508,180 @@ function Contacts() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="tbl-scroll tbl-scroll-flush">
-          <table className="tbl">
-            <thead><tr>
-              <th>Prospect</th><th>Score</th><th>Campagne</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
-            </tr></thead>
-            <tbody>
-              {allRows === null && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
-                </td></tr>
-              )}
-              {allRows !== null && rows.length === 0 && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {allRows.length === 0
-                      ? 'Aucun prospect n\'a encore accepté de mise en relation.'
-                      : 'Aucun prospect ne correspond aux filtres activés.'}
-                  </div>
-                </td></tr>
-              )}
-              {rows.map((r, i) => (
-                <tr key={r.relationId || i}>
-                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
-                  <td className="mono tnum">{r.score}</td>
-                  <td className="muted">{r.campaign}</td>
-                  <td><span className="chip">P{r.tier}</span></td>
-                  <td className="mono" style={{ fontSize: 12 }}>{r.email}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>{r.telephone}</td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
-                  <td>
-                    {r.evaluation === 'valide' ? <span className="chip chip-good">✓ Valide</span>
-                      : r.evaluation === 'difficile' ? <span className="chip chip-warn">Difficile</span>
-                      : <div className="row gap-1">
-                        <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
-                        <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
-                        <button className="chip" style={{ cursor:'pointer' }}>Invalide</button>
-                      </div>}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{
-                          padding: '4px 8px',
-                          opacity: r.telephoneAvailable ? 1 : 0.3,
-                          cursor: r.telephoneAvailable ? 'pointer' : 'not-allowed',
-                        }}
-                        disabled={!r.telephoneAvailable}
-                        title={r.telephoneAvailable ? 'Appeler ce prospect' : "Le prospect n'a pas partagé son téléphone"}
-                        onClick={() => setReveal({ relationId: r.relationId, field: 'telephone', name: r.name })}
-                      >
-                        <Icon name="phone" size={12}/>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{
-                          padding: '4px 8px',
-                          opacity: r.emailAvailable ? 1 : 0.3,
-                          cursor: r.emailAvailable ? 'pointer' : 'not-allowed',
-                        }}
-                        disabled={!r.emailAvailable}
-                        title={r.emailAvailable ? 'Envoyer un email' : "Le prospect n'a pas partagé son email"}
-                        onClick={() => setReveal({ relationId: r.relationId, field: 'email', name: r.name })}
-                      >
-                        <Icon name="email" size={12}/>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {allRows === null && (
+        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
         </div>
-      </div>
+      )}
+
+      {allRows !== null && rows.length === 0 && (
+        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 13 }}>
+            {allRows.length === 0
+              ? "Aucun prospect n'a encore accepté de mise en relation."
+              : "Aucun prospect ne correspond aux filtres activés."}
+          </div>
+        </div>
+      )}
+
+      {groups.map((group) => {
+        const isCollapsed = collapsed.has(group.campaignId);
+        const emailableIds = group.items.filter(it => it.emailAvailable).map(it => it.relationId);
+        const selectedInGroup = emailableIds.filter(id => selected.has(id));
+        const allSelected = emailableIds.length > 0 && selectedInGroup.length === emailableIds.length;
+        const someSelected = selectedInGroup.length > 0 && !allSelected;
+        return (
+          <div key={group.campaignId} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              className="row between"
+              style={{
+                padding: '14px 18px',
+                gap: 12,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                borderBottom: isCollapsed ? 'none' : '1px solid var(--line)',
+              }}
+            >
+              <button
+                onClick={() => toggleCollapsed(group.campaignId)}
+                className="row center gap-3"
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  textAlign: 'left', minWidth: 0, flex: '1 1 240px',
+                }}
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? 'Déplier' : 'Replier'}
+              >
+                <span style={{
+                  display: 'inline-flex', width: 24, height: 24, borderRadius: 6,
+                  background: 'var(--ivory-2)', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, color: 'var(--ink-3)',
+                  transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                  transition: 'transform .15s',
+                }}>
+                  <Icon name="arrow" size={12}/>
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="serif" style={{ fontSize: 16, lineHeight: 1.2 }}>{group.campaign}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {group.items.length} prospect{group.items.length > 1 ? 's' : ''}
+                    {selectedInGroup.length > 0 && ` · ${selectedInGroup.length} sélectionné${selectedInGroup.length > 1 ? 's' : ''}`}
+                  </div>
+                </div>
+              </button>
+              <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setGroupSelected(group, !allSelected)}
+                  disabled={emailableIds.length === 0}
+                  style={{ opacity: emailableIds.length === 0 ? 0.4 : 1 }}
+                  title={emailableIds.length === 0 ? 'Aucun email partagé dans ce groupe' : (allSelected ? 'Tout désélectionner' : 'Sélectionner tous')}
+                >
+                  {allSelected ? 'Tout désélectionner' : someSelected ? 'Tout sélectionner' : 'Sélectionner tous'}
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => handleGroupMessage(group)}
+                  disabled={selectedInGroup.length === 0 || groupSending}
+                  style={{
+                    background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
+                    color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
+                    cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <Icon name="email" size={12}/>
+                  Message groupé{selectedInGroup.length > 0 ? ` (${selectedInGroup.length})` : ''}
+                </button>
+              </div>
+            </div>
+
+            {!isCollapsed && (
+              <div className="tbl-scroll tbl-scroll-flush">
+                <table className="tbl">
+                  <thead><tr>
+                    <th style={{ width: 36 }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Tout sélectionner dans cette campagne"
+                        checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = someSelected; }}
+                        onChange={(e) => setGroupSelected(group, e.target.checked)}
+                        disabled={emailableIds.length === 0}
+                      />
+                    </th>
+                    <th>Prospect</th><th>Score</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    {group.items.map((r, i) => {
+                      const isChecked = selected.has(r.relationId);
+                      return (
+                        <tr key={r.relationId || i}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              aria-label={`Sélectionner ${r.name}`}
+                              checked={isChecked}
+                              onChange={() => toggleSelected(r.relationId)}
+                              disabled={!r.emailAvailable}
+                              title={r.emailAvailable ? '' : "Email non partagé — sélection désactivée"}
+                            />
+                          </td>
+                          <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                          <td className="mono tnum">{r.score}</td>
+                          <td><span className="chip">P{r.tier}</span></td>
+                          <td className="mono" style={{ fontSize: 12 }}>{r.email}</td>
+                          <td className="mono" style={{ fontSize: 12 }}>{r.telephone}</td>
+                          <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
+                          <td>
+                            {r.evaluation === 'valide' ? <span className="chip chip-good">✓ Valide</span>
+                              : r.evaluation === 'difficile' ? <span className="chip chip-warn">Difficile</span>
+                              : <div className="row gap-1">
+                                <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
+                                <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
+                                <button className="chip" style={{ cursor:'pointer' }}>Invalide</button>
+                              </div>}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                style={{
+                                  padding: '4px 8px',
+                                  opacity: r.telephoneAvailable ? 1 : 0.3,
+                                  cursor: r.telephoneAvailable ? 'pointer' : 'not-allowed',
+                                }}
+                                disabled={!r.telephoneAvailable}
+                                title={r.telephoneAvailable ? 'Appeler ce prospect' : "Le prospect n'a pas partagé son téléphone"}
+                                onClick={() => setReveal({ relationId: r.relationId, field: 'telephone', name: r.name })}
+                              >
+                                <Icon name="phone" size={12}/>
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                style={{
+                                  padding: '4px 8px',
+                                  opacity: r.emailAvailable ? 1 : 0.3,
+                                  cursor: r.emailAvailable ? 'pointer' : 'not-allowed',
+                                }}
+                                disabled={!r.emailAvailable}
+                                title={r.emailAvailable ? 'Envoyer un email' : "Le prospect n'a pas partagé son email"}
+                                onClick={() => setReveal({ relationId: r.relationId, field: 'email', name: r.name })}
+                              >
+                                <Icon name="email" size={12}/>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
       <div className="card" style={{ padding: 16, background: 'var(--ivory-2)', borderStyle: 'dashed' }}>
         <div className="row center gap-3">
           <Icon name="shield" size={16}/>
@@ -2625,6 +2788,11 @@ function RevealContactModal({ relationId, field, name, onClose }) {
             <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'center' }}>
               ⓘ Cet accès a été enregistré dans votre historique de consultations.
             </div>
+            {!isPhone && (
+              <div className="muted" style={{ fontSize: 11, marginTop: 6, textAlign: 'center' }}>
+                L'accès aux informations des prospects est loggé pour des raisons d'audit et de traçabilité. Une seule sollicitation par prospect est autorisée conformément aux CGV de BUUPP.
+              </div>
+            )}
           </>
         )}
 

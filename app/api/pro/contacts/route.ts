@@ -52,8 +52,8 @@ export async function GET() {
   const { data, error } = await admin
     .from("relations")
     .select(
-      `id, decided_at, status,
-       campaigns ( name, targeting ),
+      `id, decided_at, status, campaign_id,
+       campaigns ( id, name, targeting ),
        prospects:prospect_id ( id, bupp_score,
          prospect_identity ( prenom, nom, email, telephone )
        )`,
@@ -72,7 +72,8 @@ export async function GET() {
     id: string;
     decided_at: string | null;
     status: string;
-    campaigns: { name: string; targeting: { requiredTiers?: number[] } | null } | null;
+    campaign_id: string;
+    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
@@ -95,6 +96,7 @@ export async function GET() {
       relationId: r.id,
       name: fullName,
       score: id?.bupp_score ?? 0,
+      campaignId: camp?.id ?? r.campaign_id,
       campaign: camp?.name ?? "—",
       tier,
       email: maskEmail(ident?.email),
