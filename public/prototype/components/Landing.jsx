@@ -313,17 +313,24 @@ function FlashDeal({ go }) {
   const multStr = fmtMultiplier(deal.multiplier);
   return (
     <>
-      <section style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Voir le détail de l'offre"
-          className="flash-deal-btn row between center"
+      <section
+        role="button"
+        tabIndex={0}
+        aria-label="Voir le détail de l'offre flash deal"
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
+        style={{
+          background: 'var(--paper)', borderBottom: '1px solid var(--line)',
+          cursor: 'pointer', userSelect: 'none', position: 'relative', zIndex: 5,
+          transition: 'background .12s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklab, var(--accent) 4%, var(--paper))'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper)'; }}
+      >
+        <div
+          className="row between center"
           style={{
-            width: '100%',
             maxWidth: 1280, margin: '0 auto', padding: '14px 32px',
-            background: 'transparent', border: 'none', cursor: 'pointer',
-            textAlign: 'left', font: 'inherit', color: 'inherit',
             gap: 16, flexWrap: 'wrap',
           }}
         >
@@ -342,7 +349,7 @@ function FlashDeal({ go }) {
             <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
             <span className="muted" style={{ marginLeft: 6 }}>restantes</span>
           </div>
-        </button>
+        </div>
       </section>
       {open && (
         <FlashDealModal
