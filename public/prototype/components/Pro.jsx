@@ -550,9 +550,30 @@ function Campagnes({ onCreate, onDetail }) {
             <div key={c.id} className="card" style={{ padding: 24 }}>
               <div className="row between" style={{ alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 260 }}>
-                  <div className="row center gap-3" style={{ marginBottom: 10 }}>
+                  <div className="row center gap-3" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
                     <div className="serif" style={{ fontSize: 22 }}>{c.name}</div>
                     <span className={'chip ' + statusChip}>{statusLabel}</span>
+                    {c.authCode && (
+                      <span
+                        title="À fournir obligatoirement au prospect lors de la prise de contact pour authentifier le service BUUPP."
+                        className="row center gap-2"
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          background: 'color-mix(in oklab, #B45309 10%, var(--paper))',
+                          border: '1px solid color-mix(in oklab, #B45309 35%, var(--line))',
+                          color: '#B45309',
+                          fontSize: 11,
+                          fontWeight: 500,
+                          cursor: 'help',
+                          letterSpacing: '.04em',
+                        }}
+                      >
+                        <Icon name="lock" size={11}/>
+                        <span className="mono caps" style={{ fontSize: 10, opacity: .85 }}>Auth</span>
+                        <span className="mono" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.12em' }}>{c.authCode}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="muted" style={{ fontSize: 13 }}>
                     {c.objectiveLabel} · créée le {dateStr} · coût unitaire moyen {fmt2(c.avgCostEur)} €
@@ -2276,11 +2297,9 @@ function CampaignLaunchedModal({ data, onClose }) {
               {copied ? <><Icon name="check" size={13}/> Copié</> : <><Icon name="copy" size={13}/> Copier</>}
             </button>
           </div>
-          {data.matched != null && (
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              {data.matched} prospect{data.matched !== 1 ? 's' : ''} notifié{data.matched !== 1 ? 's' : ''}
-            </div>
-          )}
+          <div style={{ fontSize: 13, marginTop: 8, color: 'var(--ink-2)' }}>
+            <strong>{Number(data.matched ?? 0)}</strong> prospect{Number(data.matched ?? 0) !== 1 ? 's' : ''} notifié{Number(data.matched ?? 0) !== 1 ? 's' : ''} pour cette campagne.
+          </div>
         </div>
 
         {/* RGPD article 14 notice */}

@@ -156,7 +156,7 @@ export async function POST(req: Request, ctx: RouteContext) {
 type DecisionRelationRow = {
   id: string;
   reward_cents: number | string;
-  campaigns: { ends_at: string | null } | null;
+  campaigns: { ends_at: string | null; code: string | null } | null;
   pro_accounts: {
     raison_sociale: string | null;
     secteur: string | null;
@@ -178,7 +178,7 @@ async function sendDecisionEmail(
     .from("relations")
     .select(
       `id, reward_cents, motif,
-       campaigns ( ends_at ),
+       campaigns ( ends_at, code ),
        pro_accounts ( raison_sociale, secteur ),
        prospects ( prospect_identity ( email, prenom ) )`,
     )
@@ -196,12 +196,14 @@ async function sendDecisionEmail(
   const proSector = r.pro_accounts?.secteur ?? null;
   const rewardEur = Number(r.reward_cents) / 100;
   const campaignEndsAt = r.campaigns?.ends_at ?? null;
+  const fullCode = r.campaigns?.code ?? null;
+  const authCode = fullCode ? fullCode.slice(-4) : null;
 
   if (action === "accept") {
     void sendRelationAccepted({
       email, prenom, proName, proSector,
       motif: r.motif ?? null,
-      rewardEur, campaignEndsAt,
+      rewardEur, campaignEndsAt, authCode,
     });
   } else {
     void sendRelationRefused({

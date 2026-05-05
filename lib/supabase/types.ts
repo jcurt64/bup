@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           brief: string | null
           budget_cents: number
+          code: string | null
           cost_per_contact_cents: number
           created_at: string
           ends_at: string | null
@@ -36,6 +37,7 @@ export type Database = {
         Insert: {
           brief?: string | null
           budget_cents: number
+          code?: string | null
           cost_per_contact_cents: number
           created_at?: string
           ends_at?: string | null
@@ -54,6 +56,7 @@ export type Database = {
         Update: {
           brief?: string | null
           budget_cents?: number
+          code?: string | null
           cost_per_contact_cents?: number
           created_at?: string
           ends_at?: string | null

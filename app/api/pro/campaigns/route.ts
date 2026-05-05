@@ -216,12 +216,13 @@ export async function POST(req: Request) {
     }
   }
 
+  const code = `BUUPP-${randomCode(4)}-${randomCode(4)}`;
   const { error: countErr } = await admin
     .from("campaigns")
-    .update({ matched_count: insertedCount })
+    .update({ matched_count: insertedCount, code })
     .eq("id", campaign.id);
   if (countErr) {
-    console.error("[/api/pro/campaigns] update matched_count failed", countErr);
+    console.error("[/api/pro/campaigns] update matched_count/code failed", countErr);
   }
 
   // Mails fire-and-forget — Promise.allSettled non-awaité.
@@ -245,7 +246,6 @@ export async function POST(req: Request) {
       ),
   );
 
-  const code = `BUUPP-${randomCode(4)}-${randomCode(4)}`;
   return NextResponse.json({
     campaignId: campaign.id,
     matchedCount: insertedCount,
@@ -277,7 +277,7 @@ export async function GET() {
   const [{ data: camps, error: campErr }, { data: rels, error: relErr }] = await Promise.all([
     admin
       .from("campaigns")
-      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at")
+      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at, code")
       .eq("pro_account_id", proId)
       .order("created_at", { ascending: false }),
     admin
@@ -314,6 +314,8 @@ export async function GET() {
       contactsCount: contactsByCampaign.get(c.id) ?? 0,
       createdAt: c.created_at,
       avgCostEur: Number(c.cost_per_contact_cents ?? 0) / 100,
+      code: c.code ?? null,
+      authCode: c.code ? c.code.slice(-4) : null,
     };
   });
 
