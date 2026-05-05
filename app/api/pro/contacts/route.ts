@@ -99,6 +99,8 @@ export async function GET() {
       tier,
       email: maskEmail(ident?.email),
       telephone: maskPhone(ident?.telephone),
+      emailAvailable: !!ident?.email,
+      telephoneAvailable: !!ident?.telephone,
       receivedAt: r.decided_at,
       evaluation: null as null | "valide" | "difficile" | "invalide",
     };
