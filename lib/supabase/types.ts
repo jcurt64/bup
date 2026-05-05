@@ -199,6 +199,7 @@ export type Database = {
           genre: string | null
           naissance: string | null
           nom: string | null
+          phone_verified_at: string | null
           prenom: string | null
           prospect_id: string
           telephone: string | null
@@ -209,6 +210,7 @@ export type Database = {
           genre?: string | null
           naissance?: string | null
           nom?: string | null
+          phone_verified_at?: string | null
           prenom?: string | null
           prospect_id: string
           telephone?: string | null
@@ -219,6 +221,7 @@ export type Database = {
           genre?: string | null
           naissance?: string | null
           nom?: string | null
+          phone_verified_at?: string | null
           prenom?: string | null
           prospect_id?: string
           telephone?: string | null
@@ -227,6 +230,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prospect_identity_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: true
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_phone_otp: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          phone: string
+          prospect_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          phone: string
+          prospect_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          phone?: string
+          prospect_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_phone_otp_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
             referencedRelation: "prospects"

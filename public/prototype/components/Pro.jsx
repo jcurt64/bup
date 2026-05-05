@@ -718,11 +718,14 @@ const GEO_ZONES = [
 
 const AGE_RANGES = ['18–25','26–35','36–45','46–55','56–65','65+','Tous'];
 
+// Paliers alignés sur la page Prospect → onglet "Paliers de vérification" :
+// Basique (création de compte) → Vérifié (RIB validé) → Certifié confiance
+// (rendez-vous physique accepté). Les ids restent `p0/p1/p2` pour rester
+// rétro-compatibles avec les campagnes déjà persistées.
 const VERIF_LEVELS = [
-  {id:'p0', name:'Standard — Palier 0',  sub:'Email vérifié uniquement',                         mult:1},
-  {id:'p1', name:'Vérifié — Palier 1',   sub:'Téléphone + email confirmé',                       mult:1.2},
-  {id:'p2', name:'Certifié — Palier 2',  sub:"Pièce d'identité + selfie KYC",                    mult:1.5},
-  {id:'p3', name:'Confiance — Palier 3', sub:'IBAN + courrier postal — Gains prospects doublés', mult:2, badge:'×2'},
+  {id:'p0', name:'Basique',            sub:'Compte créé — email vérifié',                                  mult:1},
+  {id:'p1', name:'Vérifié',            sub:'Numéro de téléphone vérifié par SMS',                         mult:1.5},
+  {id:'p2', name:'Certifié confiance', sub:'Rendez-vous physique accepté — Gains prospects doublés', mult:2, badge:'×2'},
 ];
 
 const KW_SUGGESTIONS = ['véhicule','immobilier','retraite','sport','artisan','nutrition','coaching','BTP','épargne','assurance','crédit','jardinage','animaux','voyages','informatique'];
@@ -1329,7 +1332,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     return d.toISOString().slice(0, 10);
   })();
 
-  const toggleSub = (sid) => setSelectedSubs(p => { const n = new Set(p); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
+  const toggleSub = (sid) => setSelectedSubs(prev => {
+    // Multi-sélection : on bascule l'appartenance dans le Set sans
+    // jamais réinitialiser les autres entrées (ce serait une mono-
+    // sélection radio, pas l'effet voulu sur cette étape).
+    const next = new Set(prev);
+    if (next.has(sid)) next.delete(sid);
+    else next.add(sid);
+    return next;
+  });
   const toggleTier = (tid) => setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
   // "Tous" agit comme un raccourci "tout cocher" : un premier clic active
   // toutes les tranches d'âge en plus de la pill "Tous", un second clic
@@ -1507,34 +1518,54 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               ))}
             </div>
 
-            {selectedObj && obj && (
-              <div>
-                <div style={{ height: 1, background: 'var(--line)', margin: '24px 0 20px' }}/>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Précisez : {obj.name}</div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 14 }}>Multi-sélection possible.</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                  {obj.sub.map(s => (
-                    <button key={s.id} onClick={() => toggleSub(s.id)}
-                      className="row center" style={{ gap: 12, padding: 12, borderRadius: 10, textAlign: 'left',
-                        border: '1px solid ' + (selectedSubs.has(s.id) ? 'var(--accent)' : 'var(--line-2)'),
-                        background: selectedSubs.has(s.id) ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                        cursor: 'pointer' }}>
-                      <span style={{ width: 16, height: 16, borderRadius: 4,
-                        border: '1.5px solid ' + (selectedSubs.has(s.id) ? 'var(--accent)' : 'var(--line-2)'),
-                        background: selectedSubs.has(s.id) ? 'var(--accent)' : 'var(--paper)',
-                        color: 'white', fontSize: 10,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {selectedSubs.has(s.id) ? '✓' : ''}
+            {selectedObj && obj && (() => {
+              // Aucun sous-type coché → bordure rouge sur tous les choix
+              // pour signaler que la sélection est obligatoire avant
+              // de passer à l'étape suivante.
+              const noneSelected = selectedSubs.size === 0;
+              const danger = '#DC2626';
+              return (
+                <div>
+                  <div style={{ height: 1, background: 'var(--line)', margin: '24px 0 20px' }}/>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Précisez : {obj.name}</div>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
+                    Multi-sélection possible.
+                    {noneSelected && (
+                      <span style={{ color: danger, fontWeight: 600, marginLeft: 6 }}>
+                        Sélectionnez au moins un sous-type.
                       </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500 }}>{s.name}</div>
-                        <div className="mono" style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{fmtEur(s.cost)}/contact</div>
-                      </div>
-                    </button>
-                  ))}
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                    {obj.sub.map(s => {
+                      const checked = selectedSubs.has(s.id);
+                      const borderColor = checked
+                        ? 'var(--accent)'
+                        : noneSelected ? danger : 'var(--line-2)';
+                      return (
+                        <button key={s.id} onClick={() => toggleSub(s.id)}
+                          className="row center" style={{ gap: 12, padding: 12, borderRadius: 10, textAlign: 'left',
+                            border: '1px solid ' + borderColor,
+                            background: checked ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
+                            cursor: 'pointer' }}>
+                          <span style={{ width: 16, height: 16, borderRadius: 4,
+                            border: '1.5px solid ' + (checked ? 'var(--accent)' : noneSelected ? danger : 'var(--line-2)'),
+                            background: checked ? 'var(--accent)' : 'var(--paper)',
+                            color: 'white', fontSize: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {checked ? '✓' : ''}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 500 }}>{s.name}</div>
+                            <div className="mono" style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{fmtEur(s.cost)}/contact</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
@@ -1819,6 +1850,30 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 );
               })}
             </div>
+
+            {/* Avertissement quand le pro choisit un palier élevé : il
+                gagne en qualité de profil mais perd en volume potentiel.
+                Affiché uniquement pour Vérifié (p1) et Certifié confiance
+                (p2) — Basique (p0) ne réduit pas le bassin. */}
+            {(verif === 'p1' || verif === 'p2') && (
+              <div style={{
+                marginTop: 14, padding: '12px 14px', borderRadius: 10,
+                background: '#FFF7ED',
+                border: '1px solid #FDBA74',
+                color: '#7C2D12',
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+              }}>
+                <div style={{ flexShrink: 0, color: '#EA580C', marginTop: 1 }}>
+                  <Icon name="alert" size={16} stroke={2}/>
+                </div>
+                <div style={{ flex: 1, fontSize: 12.5, lineHeight: 1.5 }}>
+                  <strong>Œil de lynx, audience d'élite !</strong>{' '}
+                  {verif === 'p2'
+                    ? "Le palier Certifié confiance ne laisse passer que la crème de la crème — votre ciblage gagne en finesse, votre bassin de prospects en intimité."
+                    : "Vérifié, c'est plus sûr — mais aussi plus rare. Vous gagnez en qualité ce que vous perdez en volume."}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1901,22 +1956,37 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             <div className="col gap-2">
               {[
                 { id: 'standard', name: 'Mise en relation individuelle', sub: 'Contact direct avec chaque prospect — immédiat' },
-                { id: 'pool', name: 'BUUPP Pool — enchère groupée', sub: 'Groupez des prospects ayant un besoin commun — le plus offrant remporte le pool' },
+                { id: 'pool', name: 'BUUPP Pool — enchère groupée', sub: 'Groupez des prospects ayant un besoin commun', disabled: true },
               ].map(m => {
                 const sel = poolMode === m.id;
+                const disabled = !!m.disabled;
                 return (
-                  <button key={m.id} onClick={() => setPoolMode(m.id)} className="row center wizard-mode-row" style={{ gap: 14, padding: 14, borderRadius: 10, cursor: 'pointer',
-                    border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                    background: sel ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                    boxShadow: sel ? '0 0 0 1px var(--accent)' : 'none',
-                    textAlign: 'left' }}>
+                  <button
+                    key={m.id}
+                    onClick={() => { if (!disabled) setPoolMode(m.id); }}
+                    disabled={disabled}
+                    title={disabled ? 'À venir' : undefined}
+                    aria-disabled={disabled || undefined}
+                    className="row center wizard-mode-row"
+                    style={{ gap: 14, padding: 14, borderRadius: 10,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      opacity: disabled ? 0.55 : 1,
+                      border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                      background: sel ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
+                      boxShadow: sel ? '0 0 0 1px var(--accent)' : 'none',
+                      textAlign: 'left' }}>
                     <span style={{ width: 18, height: 18, borderRadius: 999,
                       border: '2px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {sel && <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }}/>}
                     </span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
+                      <div className="row center" style={{ gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
+                        {disabled && (
+                          <span className="chip" style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px' }}>À venir</span>
+                        )}
+                      </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{m.sub}</div>
                     </div>
                   </button>

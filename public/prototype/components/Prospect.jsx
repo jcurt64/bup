@@ -26,6 +26,9 @@ const INITIAL_PROFILE = {
   campaignTypes: new Set(['Prise de contact', 'Prise de rendez-vous']),
   // Categories authorised (mirrored in Préférences)
   categories: new Set(['Bien-être', 'Artisanat', 'Coaching']),
+  // Métadonnées identité non éditables directement (gérées par le flow
+  // dédié `/api/prospect/phone/verify`). `null` = jamais vérifié.
+  identityMeta: { phoneVerifiedAt: null },
 };
 
 /* Helpers HTTP — fire-and-forget (les erreurs sont loggées mais la
@@ -75,34 +78,46 @@ function ProspectProvider({ children }) {
   const [removed, setRemoved] = useState({});
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydratation `Mes données` (inchangée).
+  // Hydratation `Mes données`. Refetch déclenché aussi par le bus
+  // `prospect:profile-changed` pour répercuter les mutations qui
+  // contournent ce store (ex. /api/prospect/phone/verify qui écrit
+  // telephone + phone_verified_at directement).
+  const refetchDonnees = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/prospect/donnees', { cache: 'no-store' });
+      if (!r.ok) return;
+      const data = await r.json();
+      setProfile(p => ({
+        ...p,
+        identity:    { ...p.identity,    ...data.identity },
+        localisation:{ ...p.localisation,...data.localisation },
+        vie:         { ...p.vie,         ...data.vie },
+        pro:         { ...p.pro,         ...data.pro },
+        patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
+        identityMeta: { ...(p.identityMeta || {}), ...(data.identityMeta || {}) },
+      }));
+      const nextDeleted = {};
+      (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
+      setDeleted(nextDeleted);
+      const nextRemoved = {};
+      (data.removedTiers || []).forEach(t => { nextRemoved[t] = true; });
+      setRemoved(nextRemoved);
+    } catch (e) { console.warn('[prospect/donnees] GET error', e); }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const r = await fetch('/api/prospect/donnees', { cache: 'no-store' });
-        if (!r.ok) return;
-        const data = await r.json();
-        if (cancelled) return;
-        setProfile(p => ({
-          ...p,
-          identity:    { ...p.identity,    ...data.identity },
-          localisation:{ ...p.localisation,...data.localisation },
-          vie:         { ...p.vie,         ...data.vie },
-          pro:         { ...p.pro,         ...data.pro },
-          patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
-        }));
-        const nextDeleted = {};
-        (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
-        setDeleted(nextDeleted);
-        const nextRemoved = {};
-        (data.removedTiers || []).forEach(t => { nextRemoved[t] = true; });
-        setRemoved(nextRemoved);
-      } catch (e) { console.warn('[prospect/donnees] GET error', e); }
-      finally { if (!cancelled) setHydrated(true); }
+      await refetchDonnees();
+      if (!cancelled) setHydrated(true);
     })();
-    return () => { cancelled = true; };
-  }, []);
+    const onChange = () => { refetchDonnees(); };
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('prospect:profile-changed', onChange);
+    };
+  }, [refetchDonnees]);
 
   // ─── Relations (pending + history) — fetch initial + revalidation ──
   const [pendingRelations, setPendingRelations] = useState([]);
@@ -1263,11 +1278,16 @@ function MesDonnees({ onGoPrefs }) {
   const profile = ctx?.profile;
   const deleted = ctx?.deleted || {};
   const removed = ctx?.removed || {};
+  const phoneVerifiedAt = profile?.identityMeta?.phoneVerifiedAt || null;
   const [editing, setEditing] = useState(null); // { category, field, value }
   const [adding, setAdding] = useState(null); // category key
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmHide, setConfirmHide] = useState(null); // category key
   const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { category, field, label }
+  // Modal dédié à la vérification SMS du téléphone : on intercepte les
+  // édit / add du champ `identity.telephone` pour le router ici plutôt
+  // que par EditFieldModal / AddFieldModal, qui PATCHeraient en clair.
+  const [phoneVerify, setPhoneVerify] = useState(null); // { initialPhone }
 
   // Categories permanently removed by the user are excluded from the list,
   // from the completeness calculation, and from the per-tier progress bars.
@@ -1401,17 +1421,32 @@ function MesDonnees({ onGoPrefs }) {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
                   {cat.fields.map(([field, label], idx) => {
                     const val = profile?.[cat.key]?.[field] || '';
+                    const isPhone = cat.key === 'identity' && field === 'telephone';
+                    const phoneVerified = isPhone && Boolean(phoneVerifiedAt);
+                    const onEdit = isPhone
+                      ? () => setPhoneVerify({ initialPhone: val })
+                      : () => setEditing({ category: cat.key, field, label, value: val });
                     return (
                       <div key={field} style={{ background: 'var(--paper)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>{label}</div>
-                          <div style={{ fontSize: 14, color: val ? 'var(--ink)' : 'var(--ink-5)', fontStyle: val ? 'normal' : 'italic' }}>
-                            {val || '— non renseigné —'}
+                          <div className="row center" style={{ gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 14, color: val ? 'var(--ink)' : 'var(--ink-5)', fontStyle: val ? 'normal' : 'italic' }}>
+                              {val || '— non renseigné —'}
+                            </div>
+                            {isPhone && val && (
+                              phoneVerified ? (
+                                <span className="chip chip-good" style={{ fontSize: 10, fontWeight: 600 }}>✓ Vérifié</span>
+                              ) : (
+                                <span className="chip chip-warn" style={{ fontSize: 10, fontWeight: 600 }}>Non vérifié</span>
+                              )
+                            )}
                           </div>
                         </div>
                         <div className="row gap-1">
                           <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
-                            onClick={() => setEditing({ category: cat.key, field, label, value: val })}>
+                            onClick={onEdit}
+                            title={isPhone ? (val ? 'Modifier et vérifier le téléphone' : 'Renseigner et vérifier le téléphone') : undefined}>
                             <Icon name="edit" size={11}/>
                           </button>
                           <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }}
@@ -1462,8 +1497,31 @@ function MesDonnees({ onGoPrefs }) {
       {adding && (
         <AddFieldModal category={DATA_CATEGORIES.find(c => c.key === adding)}
           existing={profile?.[adding] || {}}
-          onSave={(field, value) => { ctx?.updateField(adding, field, value); setAdding(null); }}
+          onSave={(field, value) => {
+            // Intercepte l'ajout du téléphone : on bascule sur le flow
+            // de vérification SMS au lieu d'un PATCH direct (l'API
+            // /api/prospect/donnees rejette ce champ).
+            if (adding === 'identity' && field === 'telephone') {
+              setPhoneVerify({ initialPhone: value || '' });
+              setAdding(null);
+              return;
+            }
+            ctx?.updateField(adding, field, value);
+            setAdding(null);
+          }}
           onClose={() => setAdding(null)}/>
+      )}
+      {phoneVerify && (
+        <PhoneVerifyModal
+          initialPhone={phoneVerify.initialPhone}
+          onDone={() => {
+            setPhoneVerify(null);
+            // Rafraîchit donnees + verification : le flow a écrit côté
+            // serveur (telephone + phone_verified_at) sans passer par
+            // updateField, donc le store local doit être resynchronisé.
+            notifyProfileChanged();
+          }}
+          onClose={() => setPhoneVerify(null)}/>
       )}
       {confirmDelete && (
         <ConfirmDeleteModal category={DATA_CATEGORIES.find(c => c.key === confirmDelete)}
@@ -1560,6 +1618,133 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={() => onSave(field, val)} className="btn btn-primary btn-sm" disabled={!val}>Ajouter</button>
       </div>
+    </ModalShell>
+  );
+}
+
+/* Modal de vérification SMS du téléphone (Mes données → Identification).
+   Flow en 2 étapes via Twilio Verify (proxy par /api/prospect/phone/*) :
+     1. saisie du numéro → POST /api/prospect/phone/start
+        → Twilio envoie un code à 6 chiffres par SMS.
+     2. saisie du code → POST /api/prospect/phone/verify
+        → Twilio valide → upsert prospect_identity.telephone +
+          phone_verified_at en DB. */
+function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
+  const [step, setStep] = useState('phone');     // 'phone' | 'code'
+  const [phone, setPhone] = useState(initialPhone || '');
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState(null);
+  const [info, setInfo] = useState(null);
+
+  const sendCode = async () => {
+    setErr(null); setInfo(null); setSubmitting(true);
+    try {
+      const r = await fetch('/api/prospect/phone/start', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const echoed = j.normalizedPhone ? ` (numéro normalisé : ${j.normalizedPhone})` : '';
+        setErr((j.message || "Impossible d'envoyer le code.") + echoed);
+        return;
+      }
+      setStep('code');
+      // En mode dev (Twilio non configuré), le serveur renvoie le code
+      // factice ('000000') pour permettre le test du flow.
+      if (j.devCode) {
+        setCode(j.devCode);
+        setInfo(`Mode dev : code ${j.devCode} pré-rempli (Twilio non configuré).`);
+      } else {
+        setCode('');
+        setInfo('Code envoyé par SMS. Saisissez-le ci-dessous.');
+      }
+    } catch (e) {
+      setErr('Erreur réseau. Réessayez.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitCode = async () => {
+    setErr(null); setInfo(null); setSubmitting(true);
+    try {
+      const r = await fetch('/api/prospect/phone/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErr(j.message || 'Code incorrect.');
+        return;
+      }
+      onDone?.();
+    } catch (e) {
+      setErr('Erreur réseau. Réessayez.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const close = () => onClose?.();
+
+  return (
+    <ModalShell title="Vérification du téléphone" onClose={close}>
+      {step === 'phone' && (
+        <>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+            Saisissez votre numéro. Nous vous enverrons un code de confirmation à 6 chiffres
+            par SMS pour valider l'inscription du téléphone à votre profil.
+          </div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Numéro de téléphone</div>
+          <input className="input" value={phone} onChange={e => setPhone(e.target.value)} autoFocus
+            placeholder="+33 6 12 34 56 78"
+            inputMode="tel"
+            style={{ width: '100%', fontSize: 14, marginBottom: 16 }}/>
+          {err && <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{err}</div>}
+          <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+            <button onClick={close} className="btn btn-ghost btn-sm" disabled={submitting}>Annuler</button>
+            <button onClick={sendCode} className="btn btn-primary btn-sm"
+              disabled={submitting || !phone.trim()}>
+              {submitting ? 'Envoi…' : 'Envoyer le code'}
+            </button>
+          </div>
+        </>
+      )}
+      {step === 'code' && (
+        <>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+            Entrez le code à 6 chiffres reçu sur <strong style={{ color: 'var(--ink)' }}>{phone}</strong>.
+            Le code expire dans 10 minutes.
+          </div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Code reçu</div>
+          <input className="input" value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            autoFocus inputMode="numeric" maxLength={6}
+            placeholder="123456"
+            style={{ width: '100%', fontSize: 18, letterSpacing: '.4em', textAlign: 'center', marginBottom: 12 }}/>
+          {info && <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>{info}</div>}
+          {err && <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{err}</div>}
+          <div className="row between modal-actions" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <button onClick={() => { setStep('phone'); setCode(''); setErr(null); setInfo(null); }}
+              className="btn btn-ghost btn-sm" disabled={submitting}>
+              ← Modifier le numéro
+            </button>
+            <div className="row gap-2">
+              <button onClick={sendCode} className="btn btn-ghost btn-sm" disabled={submitting}>
+                Renvoyer le code
+              </button>
+              <button onClick={submitCode} className="btn btn-primary btn-sm"
+                disabled={submitting || code.length !== 6}>
+                {submitting ? 'Vérification…' : 'Valider'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </ModalShell>
   );
 }
@@ -2245,8 +2430,8 @@ const VERIF_TIERS = [
   {
     key: 'verifie',
     label: 'Vérifié',
-    done: "RIB renseigné et validé",
-    requirement: "Renseignez vos coordonnées bancaires (RIB) pour passer au palier Vérifié.",
+    done: "Téléphone vérifié",
+    requirement: "Vérifiez votre numéro de téléphone par SMS pour passer au palier Vérifié.",
     nextLabel: 'Prochaine étape',
   },
   {
@@ -2288,7 +2473,7 @@ function VerifTiers() {
       <SectionTitle
         eyebrow="Paliers de vérification"
         title="Vos paliers"
-        desc="Trois paliers : Basique (à la création), Vérifié (RIB renseigné), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées."
+        desc="Trois paliers : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées."
       />
       <div className="card" style={{ padding: 32 }}>
         {/* Progress dots line */}

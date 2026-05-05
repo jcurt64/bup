@@ -70,6 +70,13 @@ export async function GET() {
     vie: rowToUi("vie", vie.data ?? null),
     pro: rowToUi("pro", pro.data ?? null),
     patrimoine: rowToUi("patrimoine", patrimoine.data ?? null),
+    // Métadonnées identité non couvertes par `rowToUi` (champs lus seuls,
+    // jamais éditables via PATCH côté client — gérés exclusivement par
+    // /api/prospect/phone/verify).
+    identityMeta: {
+      phoneVerifiedAt:
+        (identity.data as { phone_verified_at?: string | null } | null)?.phone_verified_at ?? null,
+    },
     hiddenTiers: (prospect.data?.hidden_tiers ?? []) as TierKey[],
     removedTiers: (prospect.data?.removed_tiers ?? []) as TierKey[],
   });
@@ -107,6 +114,21 @@ export async function PATCH(req: Request) {
   const patch = uiToRow(tier, body.fields);
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "no_known_fields" }, { status: 400 });
+  }
+
+  // Garde-fou : on n'accepte JAMAIS un PATCH direct du téléphone via cette
+  // route. La vérif SMS (/api/prospect/phone/verify) est la seule porte
+  // d'entrée : sinon un client mal intentionné pourrait écraser un numéro
+  // déjà vérifié sans repasser par le code SMS, ce qui contournerait le
+  // palier `verifie`.
+  if (tier === "identity" && Object.prototype.hasOwnProperty.call(patch, "telephone")) {
+    return NextResponse.json(
+      {
+        error: "telephone_requires_verification",
+        message: "Le téléphone ne peut être mis à jour que via la vérification SMS.",
+      },
+      { status: 400 },
+    );
   }
 
   const prospectId = await getProspectId(userId);

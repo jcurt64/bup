@@ -3,7 +3,7 @@
  * vérification du prospect connecté (modèle 3 paliers).
  *
  *   basique             : par défaut à la création (toujours OK).
- *   verifie             : un RIB validé est attaché.
+ *   verifie             : téléphone vérifié par SMS (Brevo).
  *   certifie_confiance  : le prospect a accepté ≥ 1 mise en relation
  *                         issue d'une campagne de type 'prise_de_rendez_vous'.
  *
@@ -21,30 +21,31 @@ export const runtime = "nodejs";
 
 type Tier = "basique" | "verifie" | "certifie_confiance";
 
-async function getProspectId(userId: string): Promise<string> {
-  const user = await currentUser();
-  const email =
-    user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? null;
-  return ensureProspect({
-    clerkUserId: userId,
-    email,
-    prenom: user?.firstName ?? null,
-    nom: user?.lastName ?? null,
-  });
-}
-
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const prospectId = await getProspectId(userId);
+  const user = await currentUser();
+  const email =
+    user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
+      ?.emailAddress ?? null;
+  const prospectId = await ensureProspect({
+    clerkUserId: userId,
+    email,
+    prenom: user?.firstName ?? null,
+    nom: user?.lastName ?? null,
+  });
   const admin = createSupabaseAdminClient();
 
-  // Lectures parallèles : RIB validé + relations physiques acceptées.
-  const [ribRes, rdvRes] = await Promise.all([
+  // Lectures parallèles : tél vérifié, RIB éventuel, relations physiques.
+  const [identityRes, ribRes, rdvRes] = await Promise.all([
+    admin
+      .from("prospect_identity")
+      .select("phone_verified_at")
+      .eq("prospect_id", prospectId)
+      .maybeSingle(),
     admin
       .from("prospect_rib")
       .select("prospect_id, validated_at, iban, bic, holder_name")
@@ -62,12 +63,12 @@ export async function GET() {
       .eq("campaigns.type", "prise_de_rendez_vous"),
   ]);
 
-  const hasValidatedRib = Boolean(ribRes.data?.validated_at);
+  const hasPhoneVerified = Boolean(identityRes.data?.phone_verified_at);
   const hasPhysicalAcceptance = (rdvRes.count ?? 0) > 0;
 
   let tier: Tier = "basique";
   if (hasPhysicalAcceptance) tier = "certifie_confiance";
-  else if (hasValidatedRib) tier = "verifie";
+  else if (hasPhoneVerified) tier = "verifie";
 
   // Persiste si différent — évite des UPDATE inutiles à chaque fetch.
   const { data: current } = await admin
