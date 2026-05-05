@@ -899,7 +899,7 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
                     <span className="serif tnum" style={{ fontSize: 22, color: 'var(--ink)' }}>{plan.monthly}</span>
-                    <span className="muted"> / mois</span>
+                    <span className="muted"> / campagne</span>
                   </div>
                 </div>
 

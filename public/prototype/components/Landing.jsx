@@ -615,7 +615,7 @@ function PricingCard({ name, price, features, cta, featured, go }) {
       <div className="serif" style={{ fontSize: 36, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{name}</div>
       <div className="row" style={{ alignItems: 'baseline', marginTop: 24, gap: 8 }}>
         <span className="serif tnum" style={{ fontSize: 80, lineHeight: 1, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{price}</span>
-        <span style={{ fontSize: 16, color: featured ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€ / mois</span>
+        <span style={{ fontSize: 16, color: featured ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€ / campagne</span>
       </div>
       <div style={{ marginTop: 32, borderTop: `1px solid ${featured ? 'rgba(255,255,255,.1)' : 'var(--line)'}`, paddingTop: 24 }}>
         {features.map((f, i) => (
