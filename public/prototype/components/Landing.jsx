@@ -79,7 +79,7 @@ function Landing({ go }) {
     <div className="landing" style={{ background: 'var(--ivory)' }}>
       <Navbar go={go} />
       <Hero go={go} />
-      <FlashDeal />
+      <FlashDeal go={go} />
       <HowItWorks />
       <TiersTable />
       <ScoreSection />
@@ -262,55 +262,350 @@ function Hero({ go }) {
   );
 }
 
-function FlashDeal() {
+// Libellés FR des paliers — utilisés dans le modal pour annoncer ce que
+// le pro souhaite obtenir si certaines données ne sont pas renseignées.
+const TIER_KEY_LABEL_FR = {
+  identity:     "Identification",
+  localisation: "Localisation",
+  vie:          "Style de vie",
+  pro:          "Données professionnelles",
+  patrimoine:   "Patrimoine & projets",
+};
+
+function fmtMultiplier(m) {
+  if (m === 1) return '×1';
+  if (Number.isInteger(m)) return `×${m}`;
+  return `×${String(m).replace('.', ',')}`;
+}
+
+function FlashDeal({ go }) {
   const [deal, setDeal] = useState(null); // null = loading | undefined = none
   const [now, setNow] = useState(Date.now());
+  const [open, setOpen] = useState(false);
+
+  const load = React.useCallback(() => {
+    return fetch('/api/landing/flash-deals', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { deals: [] })
+      .then(j => {
+        const d = (j.deals || [])[0];
+        setDeal(d || undefined);
+        return d || null;
+      })
+      .catch(() => { setDeal(undefined); return null; });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => {
-      fetch('/api/landing/flash-deals', { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : { deals: [] })
-        .then(j => {
-          if (cancelled) return;
-          const d = (j.deals || [])[0];
-          setDeal(d || undefined);
-        })
-        .catch(() => { if (!cancelled) setDeal(undefined); });
-    };
-    load();
-    const t = setInterval(load, 60_000);
+    const safeLoad = () => { if (!cancelled) load(); };
+    safeLoad();
+    const t = setInterval(safeLoad, 60_000);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => { cancelled = true; clearInterval(t); clearInterval(tick); };
-  }, []);
+  }, [load]);
 
-  if (deal === null || deal === undefined) return null; // pas de flash deal actif → on n'affiche rien
+  if (deal === null || deal === undefined) return null;
 
   const left = Math.max(0, Math.floor((new Date(deal.endsAt).getTime() - now) / 1000));
   if (left === 0) return null;
   const h = String(Math.floor(left / 3600)).padStart(2, '0');
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, '0');
   const s = String(left % 60).padStart(2, '0');
-  const multStr = deal.multiplier === 1 ? '×1' : (Number.isInteger(deal.multiplier) ? `×${deal.multiplier}` : `×${String(deal.multiplier).replace('.', ',')}`);
+  const multStr = fmtMultiplier(deal.multiplier);
   return (
-    <section style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '14px 32px' }} className="row between center">
-        <div className="row center gap-3" style={{ flexWrap: 'wrap' }}>
-          <span className="badge" style={{ background: 'var(--ink)', color: 'var(--paper)', borderColor: 'var(--ink)' }}>
-            <Icon name="bolt" size={12}/> Flash Deal
-          </span>
-          <span style={{ fontSize: 14 }}>
-            Gains <em>{multStr}</em>
-            {deal.proName ? <> — <strong>{deal.proName}</strong></> : null}
-            {deal.proSector ? <span className="muted" style={{ marginLeft: 6 }}>· {deal.proSector}</span> : null}
-          </span>
+    <>
+      <section style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Voir le détail de l'offre"
+          className="flash-deal-btn row between center"
+          style={{
+            width: '100%',
+            maxWidth: 1280, margin: '0 auto', padding: '14px 32px',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            textAlign: 'left', font: 'inherit', color: 'inherit',
+            gap: 16, flexWrap: 'wrap',
+          }}
+        >
+          <div className="row center gap-3" style={{ flexWrap: 'wrap' }}>
+            <span className="badge" style={{ background: 'var(--ink)', color: 'var(--paper)', borderColor: 'var(--ink)' }}>
+              <Icon name="bolt" size={12}/> Flash Deal
+            </span>
+            <span style={{ fontSize: 14 }}>
+              Gains <em>{multStr}</em>
+              {deal.proName ? <> — <strong>{deal.proName}</strong></> : null}
+              {deal.proSector ? <span className="muted" style={{ marginLeft: 6 }}>· {deal.proSector}</span> : null}
+            </span>
+            <span className="muted" style={{ fontSize: 12, textDecoration: 'underline' }}>Voir le détail →</span>
+          </div>
+          <div className="row center gap-2 mono tnum" style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+            <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
+            <span className="muted" style={{ marginLeft: 6 }}>restantes</span>
+          </div>
+        </button>
+      </section>
+      {open && (
+        <FlashDealModal
+          deal={deal}
+          remainingHms={`${h}:${m}:${s}`}
+          go={go}
+          onClose={() => setOpen(false)}
+          onAfterDecision={async () => { await load(); setOpen(false); }}
+        />
+      )}
+    </>
+  );
+}
+
+function FlashDealModal({ deal, remainingHms, go, onClose, onAfterDecision }) {
+  const [submitting, setSubmitting] = useState(null); // 'accept' | 'refuse' | null
+  const [error, setError] = useState(null);
+  const multStr = fmtMultiplier(deal.multiplier);
+  const rewardEur = (Number(deal.costPerContactCents ?? 0) / 100)
+    .toFixed(2).replace('.', ',');
+  const requiredLabels = (deal.requiredTierKeys || []).map(k => TIER_KEY_LABEL_FR[k] || k);
+  const missingLabels = (deal.missingTierKeys || []).map(k => TIER_KEY_LABEL_FR[k] || k);
+
+  // Décide quelle action est possible :
+  // 'auth'        → anonyme, on redirige vers /auth
+  // 'fill_data'   → connecté mais des paliers requis sont vides
+  // 'decide'      → connecté, relation pending, on peut accepter/refuser
+  // 'no_match'    → connecté, pas de relation, données complètes (hors ciblage)
+  // 'already_<status>' → relation existante mais pas pending
+  let mode;
+  if (!deal.isAuthenticated) mode = 'auth';
+  else if (deal.relationStatus === 'pending') mode = 'decide';
+  else if (deal.relationStatus) mode = 'already_' + deal.relationStatus;
+  else if (Array.isArray(deal.missingTierKeys) && deal.missingTierKeys.length > 0) mode = 'fill_data';
+  else mode = 'no_match';
+
+  const decide = async (action) => {
+    if (!deal.relationId) return;
+    setSubmitting(action);
+    setError(null);
+    try {
+      const r = await fetch(`/api/prospect/relations/${deal.relationId}/decision`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || 'Erreur');
+      }
+      if (onAfterDecision) await onAfterDecision();
+    } catch (e) {
+      setError(e.message || 'Impossible de traiter votre décision.');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const goToAuth = () => { onClose(); go ? go('auth') : (window.location.hash = 'auth'); };
+  const goToDonnees = () => {
+    onClose();
+    if (go) go('prospect?tab=donnees');
+    else window.location.hash = 'prospect?tab=donnees';
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15,22,41,.55)',
+        backdropFilter: 'blur(4px)', zIndex: 1000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16, overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flash-deal-modal"
+        style={{
+          width: '100%', maxWidth: 540,
+          background: 'var(--paper)', borderRadius: 16,
+          padding: 'clamp(20px, 4vw, 30px)',
+          boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+          margin: 'auto 0',
+          maxHeight: '90vh', overflowY: 'auto',
+        }}
+      >
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 14, gap: 10 }}>
+          <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+            <span className="badge" style={{ background: 'var(--ink)', color: 'var(--paper)', borderColor: 'var(--ink)' }}>
+              <Icon name="bolt" size={11}/> Flash Deal
+            </span>
+            <span className="mono" style={{
+              fontSize: 11, fontWeight: 700,
+              padding: '3px 9px', borderRadius: 999,
+              background: 'color-mix(in oklab, #B91C1C 12%, var(--paper))',
+              border: '1px solid color-mix(in oklab, #B91C1C 30%, var(--line))',
+              color: '#B91C1C',
+            }}>Gains {multStr}</span>
+          </div>
+          <button onClick={onClose} aria-label="Fermer"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 4 }}>
+            <Icon name="close" size={16}/>
+          </button>
         </div>
-        <div className="row center gap-2 mono tnum" style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-          <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
-          <span className="muted" style={{ marginLeft: 6 }}>restantes</span>
+
+        <div className="serif" style={{ fontSize: 22, lineHeight: 1.2, marginBottom: 4 }}>
+          {deal.proName || 'BUUPP'}
         </div>
+        <div className="muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          {deal.proSector ? deal.proSector + ' · ' : ''}{deal.name}
+        </div>
+
+        <div style={{
+          padding: '14px 16px', borderRadius: 12,
+          background: 'var(--ink)', color: 'var(--paper)',
+          marginBottom: 14,
+        }}>
+          <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.12em', color: '#A8AFC0' }}>
+            Récompense
+          </div>
+          <div className="serif tnum" style={{ fontSize: 32, fontWeight: 600, marginTop: 4 }}>
+            {rewardEur} €
+          </div>
+          <div style={{ fontSize: 12, color: '#A8AFC0', marginTop: 4 }}>
+            Gains multipliés <strong style={{ color: '#FFFEF8' }}>{multStr}</strong> — fenêtre éclair
+          </div>
+        </div>
+
+        <div className="row center gap-2" style={{ marginBottom: 16, fontSize: 13, color: 'var(--ink-2)' }}>
+          <Icon name="clock" size={14}/>
+          <span>Plus que <strong className="mono tnum">{remainingHms}</strong> pour décider.</span>
+        </div>
+
+        {(deal.motif || deal.brief) && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+            marginBottom: 14, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)',
+          }}>
+            {deal.motif && (
+              <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{deal.motif}</div>
+            )}
+            {deal.brief && <div>« {deal.brief} »</div>}
+          </div>
+        )}
+
+        {requiredLabels.length > 0 && (
+          <div className="muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            Données demandées :{' '}
+            {requiredLabels.map((l, i) => (
+              <span key={i} className="chip" style={{ fontSize: 11, padding: '2px 8px', marginRight: 4, marginBottom: 4 }}>
+                {l}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* États ─────────────────────────────────────────────────── */}
+
+        {mode === 'auth' && (
+          <>
+            <div style={{
+              padding: '12px 14px', borderRadius: 10,
+              background: 'color-mix(in oklab, var(--accent) 7%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--accent) 30%, var(--line))',
+              fontSize: 13, color: 'var(--ink-2)', marginBottom: 14,
+            }}>
+              Pour accepter ou refuser cette offre, vous devez d'abord créer votre compte BUUPP.
+            </div>
+            <button onClick={goToAuth} className="btn btn-lg" style={{
+              width: '100%', justifyContent: 'center', background: 'var(--ink)', color: 'var(--paper)',
+            }}>
+              Créer un compte / Se connecter <Icon name="arrow" size={14}/>
+            </button>
+          </>
+        )}
+
+        {mode === 'decide' && (
+          <>
+            <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+              <button
+                onClick={() => decide('refuse')}
+                disabled={!!submitting}
+                className="btn"
+                style={{
+                  flex: '1 1 160px', justifyContent: 'center',
+                  background: 'var(--paper)', color: 'var(--ink)', border: '1.5px solid var(--line-2)',
+                  opacity: submitting && submitting !== 'refuse' ? 0.5 : 1,
+                }}>
+                {submitting === 'refuse' ? 'Refus en cours…' : 'Refuser'}
+              </button>
+              <button
+                onClick={() => decide('accept')}
+                disabled={!!submitting}
+                className="btn"
+                style={{
+                  flex: '1 1 160px', justifyContent: 'center',
+                  background: 'var(--ink)', color: 'var(--paper)',
+                  opacity: submitting && submitting !== 'accept' ? 0.5 : 1,
+                }}>
+                {submitting === 'accept' ? 'Acceptation…' : <>Accepter <Icon name="check" size={13}/></>}
+              </button>
+            </div>
+            {error && (
+              <div role="alert" style={{
+                marginTop: 12, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B', fontSize: 13,
+              }}>{error}</div>
+            )}
+          </>
+        )}
+
+        {mode === 'fill_data' && (
+          <>
+            <div role="alert" style={{
+              padding: '12px 14px', borderRadius: 10,
+              background: 'color-mix(in oklab, #B45309 7%, var(--paper))',
+              border: '1px solid color-mix(in oklab, #B45309 30%, var(--line))',
+              fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 14,
+            }}>
+              {deal.proName || 'Le professionnel'} souhaite obtenir vos données de
+              {' '}<strong style={{ color: '#B45309' }}>
+                {missingLabels.length === 1
+                  ? missingLabels[0]
+                  : missingLabels.slice(0, -1).join(', ') + ' et ' + missingLabels.slice(-1)}
+              </strong>, mais vous ne les avez pas encore renseignées.
+              Complétez votre profil pour pouvoir bénéficier de cette offre.
+            </div>
+            <button onClick={goToDonnees} className="btn btn-lg" style={{
+              width: '100%', justifyContent: 'center', background: 'var(--ink)', color: 'var(--paper)',
+            }}>
+              Compléter mes données <Icon name="arrow" size={14}/>
+            </button>
+          </>
+        )}
+
+        {mode === 'no_match' && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+            fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55,
+          }}>
+            Cette campagne ne correspond pas à votre profil (zone géographique, tranche d'âge ou centres d'intérêt). Aucune action n'est nécessaire.
+          </div>
+        )}
+
+        {mode && mode.startsWith('already_') && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+            fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55,
+          }}>
+            {mode === 'already_accepted' && '✓ Vous avez déjà accepté cette sollicitation.'}
+            {mode === 'already_refused'  && 'Vous avez refusé cette sollicitation.'}
+            {mode === 'already_expired'  && 'Cette sollicitation a expiré.'}
+            {mode === 'already_settled'  && '✓ Sollicitation acceptée — gains crédités.'}
+          </div>
+        )}
       </div>
-    </section>
+    </div>
   );
 }
 
