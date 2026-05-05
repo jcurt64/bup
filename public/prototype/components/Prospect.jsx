@@ -772,10 +772,27 @@ function Portefeuille() {
   const [modal, setModal] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [movements, setMovements] = useState(null);
+  // `detail` : relation sélectionnée pour ouverture de RelationDetailModal au
+  // clic sur une ligne d'historique. Null tant que rien n'est ouvert.
+  const [detail, setDetail] = useState(null);
+  const {
+    acceptedRelations: accepted,
+    refusedRelations: refused,
+    acceptRelation,
+    refuseRelation,
+  } = useProspect();
 
   // Hydrate les 3 cartes (Disponible / En séquestre / Cumulé depuis ouverture)
   // depuis /api/prospect/wallet. Re-fetch sur prospect:profile-changed pour
   // refléter immédiatement un nouveau crédit ou retrait.
+  const refreshMovements = React.useCallback(() => {
+    let cancelled = false;
+    fetch('/api/prospect/movements', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => !cancelled && setMovements(j))
+      .catch(() => { if (!cancelled) setMovements({ movements: [] }); });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
@@ -792,6 +809,27 @@ function Portefeuille() {
     window.addEventListener('prospect:profile-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
   }, []);
+
+  // Wrappers d'accept/refuse spécifiques à l'historique du Portefeuille :
+  // après l'appel mutateur (qui rafraîchit les relations dans le contexte),
+  // on rafraîchit aussi wallet + movements localement, puis on ferme la
+  // modale. Le bouton "Refuser" sur une relation déjà settled, par exemple,
+  // doit faire bouger les cartes du haut (séquestre/disponible) en plus de
+  // mettre à jour la ligne du tableau.
+  const handleAccept = async (id) => {
+    await acceptRelation(id);
+    invalidateProspectApiCache();
+    fetchCachedJson('wallet', '/api/prospect/wallet').then(j => setWallet(j));
+    refreshMovements();
+    setDetail(null);
+  };
+  const handleRefuse = async (id) => {
+    await refuseRelation(id);
+    invalidateProspectApiCache();
+    fetchCachedJson('wallet', '/api/prospect/wallet').then(j => setWallet(j));
+    refreshMovements();
+    setDetail(null);
+  };
 
   // Helpers de formatage : "0,00" / "284,50" (séparateur fr-FR, 2 décimales).
   const fmt = (eur) => Number(eur || 0).toFixed(2).replace('.', ',');
@@ -885,8 +923,25 @@ function Portefeuille() {
                 const dateLabel = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' })
                   .format(new Date(m.date));
                 const amountStr = `${m.sign}${fmt(Math.abs(m.amountEur))}`;
+                // Lignes cliquables uniquement quand le mouvement est lié à
+                // une relation (escrow / credit issu d'une mise en relation).
+                // Les retraits IBAN, parrainages sans campagne, etc. restent
+                // non interactifs.
+                const clickable = !!m.relation;
                 return (
-                  <tr key={m.id}>
+                  <tr
+                    key={m.id}
+                    onClick={clickable ? () => setDetail(m.relation) : undefined}
+                    onKeyDown={clickable ? ((e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault(); setDetail(m.relation);
+                      }
+                    }) : undefined}
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    title={clickable ? 'Voir le détail de la campagne' : undefined}
+                    style={clickable ? { cursor: 'pointer' } : undefined}
+                  >
                     <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
                     <td>{m.origin}</td>
                     <td>{m.tier == null
@@ -909,6 +964,17 @@ function Portefeuille() {
           onClose={() => setModal(null)}
           availableEur={availableEur}
           threshold={threshold}
+        />
+      )}
+
+      {detail && (
+        <RelationDetailModal
+          relation={detail}
+          isAccepted={!!accepted[detail.id]}
+          isRefused={!!refused[detail.id]}
+          onAccept={() => handleAccept(detail.id)}
+          onRefuse={() => handleRefuse(detail.id)}
+          onClose={() => setDetail(null)}
         />
       )}
     </div>

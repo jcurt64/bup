@@ -24,9 +24,26 @@ import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
-type CampaignsJoin = { targeting: Record<string, unknown> | null } | null;
-type ProJoin = { raison_sociale: string | null } | null;
+type CampaignsJoin = {
+  status: string | null;
+  brief: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  targeting: Record<string, unknown> | null;
+} | null;
+type ProJoin = {
+  raison_sociale: string | null;
+  secteur: string | null;
+  ville: string | null;
+} | null;
 type RelationsJoin = {
+  id: string;
+  motif: string | null;
+  reward_cents: number | string;
+  status: string;
+  sent_at: string;
+  expires_at: string;
+  decided_at: string | null;
   campaigns: CampaignsJoin;
   pro_accounts: ProJoin;
 } | null;
@@ -38,6 +55,7 @@ type TransactionRow = {
   amount_cents: number | string;
   description: string;
   created_at: string;
+  relation_id: string | null;
   relations: RelationsJoin;
 };
 
@@ -47,6 +65,15 @@ function highestTier(targeting: Record<string, unknown> | null): number | null {
   const max = Math.max(...t.map((n) => Number(n) || 0));
   if (!Number.isFinite(max) || max < 1) return null;
   return Math.min(5, Math.max(1, max));
+}
+
+function relationTimerString(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "Expirée";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  return `${h} h ${String(m).padStart(2, "0")} min`;
 }
 
 function statusLabel(type: string, status: string): string {
@@ -104,10 +131,11 @@ export async function GET() {
   const { data, error } = await admin
     .from("transactions")
     .select(
-      `id, type, status, amount_cents, description, created_at,
+      `id, type, status, amount_cents, description, created_at, relation_id,
        relations:relation_id (
-         campaigns ( targeting ),
-         pro_accounts ( raison_sociale )
+         id, motif, reward_cents, status, sent_at, expires_at, decided_at,
+         campaigns ( status, brief, starts_at, ends_at, targeting ),
+         pro_accounts ( raison_sociale, secteur, ville )
        )`,
     )
     .eq("account_kind", "prospect")
@@ -121,10 +149,65 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as unknown as TransactionRow[];
+  const now = Date.now();
+
+  // Construit l'objet `relation` qui sera passé à RelationDetailModal côté
+  // front — même forme que les entries de /api/prospect/relations#history,
+  // pour que la modale puisse être réutilisée verbatim au clic sur la
+  // ligne du tableau Portefeuille.
+  function buildRelation(rel: NonNullable<RelationsJoin>) {
+    const reward = Number(rel.reward_cents ?? 0) / 100;
+    const proName = (rel.pro_accounts?.raison_sociale ?? "").trim() || "—";
+    const sectorParts = [rel.pro_accounts?.secteur, rel.pro_accounts?.ville]
+      .filter((s): s is string => !!s);
+    const tier = highestTier(rel.campaigns?.targeting ?? null);
+    const decisionLabel =
+      rel.status === "accepted" || rel.status === "settled" ? "Acceptée"
+      : rel.status === "refused" ? "Refusée"
+      : rel.status === "expired" ? "Expirée"
+      : "En attente";
+    const statusDisplay =
+      rel.status === "settled" ? "Crédité" :
+      rel.status === "accepted" ? "En séquestre" :
+      rel.status === "refused" ? "—" :
+      rel.status === "expired" ? "—" : "—";
+    const gain =
+      rel.status === "accepted" || rel.status === "settled" ? reward : null;
+    const campEndsMs = rel.campaigns?.ends_at
+      ? new Date(rel.campaigns.ends_at).getTime()
+      : null;
+    const campaignActive =
+      rel.campaigns?.status === "active" &&
+      (campEndsMs == null || campEndsMs > now);
+    const campaignOpen =
+      campaignActive && rel.status !== "accepted" && rel.status !== "settled";
+    return {
+      id: rel.id,
+      date: rel.decided_at ?? rel.sent_at,
+      proName,
+      pro: proName,
+      sector: sectorParts.join(" · "),
+      motif: rel.motif ?? "",
+      brief: rel.campaigns?.brief ?? null,
+      reward,
+      tier: tier ?? 1,
+      timer: relationTimerString(rel.expires_at),
+      startDate: rel.campaigns?.starts_at ?? rel.sent_at,
+      endDate: rel.campaigns?.ends_at ?? rel.expires_at,
+      decision: decisionLabel,
+      status: statusDisplay,
+      relationStatus: rel.status,
+      gain,
+      campaignStatus: rel.campaigns?.status ?? null,
+      campaignOpen,
+      campaignActive,
+    };
+  }
 
   const movements = rows.map((r) => {
     const cents = Number(r.amount_cents ?? 0);
     const eur = cents / 100;
+    const relation = r.relations && r.relation_id ? buildRelation(r.relations) : null;
     return {
       id: r.id,
       date: r.created_at,
@@ -135,6 +218,7 @@ export async function GET() {
       amountCents: cents,
       amountEur: eur,
       sign: cents >= 0 ? "+" : "−",
+      relation,
     };
   });
 
