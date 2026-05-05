@@ -14,10 +14,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { sendRelationSettled } from "@/lib/email/relation-settled";
+import { processCampaignLifecycle } from "@/lib/lifecycle/campaign";
 
 export async function settleRipeRelationsAndNotify(
   admin: SupabaseClient<Database>,
 ): Promise<void> {
+  // Lifecycle d'abord : envoie l'avertissement "expire dans 15 min" aux
+  // prospects pending et bascule les campagnes échues en 'completed'.
+  // Doit tourner AVANT le settle pour que les acceptations retardataires
+  // dans la fenêtre [created+3min … ends_at] soient settled correctement.
+  await processCampaignLifecycle(admin);
+
   const { data, error } = await admin.rpc("settle_ripe_relations");
   if (error) {
     console.error("[settle/ripe] RPC failed", error);

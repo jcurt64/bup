@@ -17,6 +17,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { sendRelationAccepted } from "@/lib/email/relation-accepted";
+import { sendRelationRefused } from "@/lib/email/relation-refused";
 
 export const runtime = "nodejs";
 
@@ -138,7 +140,76 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 
+  // Mail de confirmation pour les transitions de décision visibles côté
+  // prospect — accept et refuse (depuis pending OU rétroactif). Le `undo`
+  // reste silencieux (le prospect le déclenche lui-même, c'est un retour
+  // à un état antérieur, pas une nouvelle décision).
+  if (action === "accept" || action === "refuse") {
+    void sendDecisionEmail(admin, id, action).catch((e) => {
+      console.error("[decision] email dispatch failed", e);
+    });
+  }
+
   return NextResponse.json({ ok: true });
+}
+
+type DecisionRelationRow = {
+  id: string;
+  reward_cents: number | string;
+  campaigns: { ends_at: string | null } | null;
+  pro_accounts: {
+    raison_sociale: string | null;
+    secteur: string | null;
+  } | null;
+  prospects: {
+    prospect_identity: {
+      email: string | null;
+      prenom: string | null;
+    } | null;
+  } | null;
+};
+
+async function sendDecisionEmail(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  relationId: string,
+  action: "accept" | "refuse",
+): Promise<void> {
+  const { data, error } = await admin
+    .from("relations")
+    .select(
+      `id, reward_cents, motif,
+       campaigns ( ends_at ),
+       pro_accounts ( raison_sociale, secteur ),
+       prospects ( prospect_identity ( email, prenom ) )`,
+    )
+    .eq("id", relationId)
+    .single();
+  if (error || !data) {
+    console.warn("[decision] failed to load relation for email", error);
+    return;
+  }
+  const r = data as unknown as DecisionRelationRow & { motif: string | null };
+  const email = r.prospects?.prospect_identity?.email ?? null;
+  if (!email) return;
+  const prenom = r.prospects?.prospect_identity?.prenom ?? null;
+  const proName = (r.pro_accounts?.raison_sociale ?? "").trim() || "le professionnel";
+  const proSector = r.pro_accounts?.secteur ?? null;
+  const rewardEur = Number(r.reward_cents) / 100;
+  const campaignEndsAt = r.campaigns?.ends_at ?? null;
+
+  if (action === "accept") {
+    void sendRelationAccepted({
+      email, prenom, proName, proSector,
+      motif: r.motif ?? null,
+      rewardEur, campaignEndsAt,
+    });
+  } else {
+    void sendRelationRefused({
+      email, prenom, proName,
+      relationId,
+      rewardEur, campaignEndsAt,
+    });
+  }
 }
 
 function mapRpcError(error: { message?: string }) {

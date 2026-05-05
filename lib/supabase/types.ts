@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       campaigns: {
@@ -46,6 +21,7 @@ export type Database = {
           cost_per_contact_cents: number
           created_at: string
           ends_at: string | null
+          expiry_warning_sent: boolean
           id: string
           matched_count: number
           name: string
@@ -63,6 +39,7 @@ export type Database = {
           cost_per_contact_cents: number
           created_at?: string
           ends_at?: string | null
+          expiry_warning_sent?: boolean
           id?: string
           matched_count?: number
           name: string
@@ -80,6 +57,7 @@ export type Database = {
           cost_per_contact_cents?: number
           created_at?: string
           ends_at?: string | null
+          expiry_warning_sent?: boolean
           id?: string
           matched_count?: number
           name?: string
@@ -481,6 +459,35 @@ export type Database = {
         }
         Relationships: []
       }
+      relation_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          relation_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          relation_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          relation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relation_feedback_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relations: {
         Row: {
           campaign_id: string
@@ -664,12 +671,12 @@ export type Database = {
       settle_ripe_relations: {
         Args: never
         Returns: {
-          relation_id: string
           campaign_id: string
+          pro_name: string
+          prospect_email: string
           prospect_id: string
-          prospect_email: string | null
-          prospect_prenom: string | null
-          pro_name: string | null
+          prospect_prenom: string
+          relation_id: string
           reward_cents: number
         }[]
       }
@@ -836,42 +843,3 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
-  public: {
-    Enums: {
-      account_kind: ["prospect", "pro"],
-      campaign_status: ["draft", "active", "paused", "completed", "canceled"],
-      campaign_type: [
-        "prise_de_contact",
-        "prise_de_rendez_vous",
-        "information_sondage",
-        "devis_chiffrage",
-      ],
-      pro_billing_status: ["active", "past_due", "canceled", "trialing"],
-      pro_plan: ["starter", "pro"],
-      relation_status: ["pending", "accepted", "refused", "expired", "settled"],
-      tier_key: ["identity", "localisation", "vie", "pro", "patrimoine"],
-      transaction_status: ["pending", "completed", "failed", "canceled"],
-      transaction_type: [
-        "credit",
-        "escrow",
-        "withdrawal",
-        "topup",
-        "campaign_charge",
-        "referral_bonus",
-        "refund",
-      ],
-      verification_level: [
-        "basique",
-        "verifie",
-        "certifie",
-        "confiance",
-        "certifie_confiance",
-      ],
-    },
-  },
-} as const
