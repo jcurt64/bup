@@ -570,7 +570,7 @@ function Campagnes({ onCreate, onDetail }) {
                         }}
                       >
                         <Icon name="lock" size={11}/>
-                        <span className="mono caps" style={{ fontSize: 10, opacity: .85 }}>Auth</span>
+                        <span className="caps" style={{ fontSize: 10, opacity: .85, letterSpacing: '.06em' }}>Code BUUPP</span>
                         <span className="mono" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.12em' }}>{c.authCode}</span>
                       </span>
                     )}
@@ -580,7 +580,11 @@ function Campagnes({ onCreate, onDetail }) {
                   </div>
                   <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
                     <div><div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div><div className="serif tnum" style={{ fontSize: 20 }}>{fmt2(c.spentEur)} / {fmt2(c.budgetEur)} €</div></div>
-                    <div><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
+                    <div title="Prospects notifiés au lancement de la campagne">
+                      <div className="muted mono caps" style={{ fontSize: 10 }}>Touchés</div>
+                      <div className="serif tnum" style={{ fontSize: 20 }}>{Number(c.reachedCount ?? 0)}</div>
+                    </div>
+                    <div title="Prospects ayant accepté la sollicitation"><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
                     <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
                       <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé</div>
                       <Progress value={c.budgetEur > 0 ? c.spentEur / c.budgetEur : 0}/>
@@ -2662,34 +2666,7 @@ function Contacts() {
                               </div>}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                style={{
-                                  padding: '4px 8px',
-                                  opacity: r.telephoneAvailable ? 1 : 0.3,
-                                  cursor: r.telephoneAvailable ? 'pointer' : 'not-allowed',
-                                }}
-                                disabled={!r.telephoneAvailable}
-                                title={r.telephoneAvailable ? 'Appeler ce prospect' : "Le prospect n'a pas partagé son téléphone"}
-                                onClick={() => setReveal({ relationId: r.relationId, field: 'telephone', name: r.name })}
-                              >
-                                <Icon name="phone" size={12}/>
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                style={{
-                                  padding: '4px 8px',
-                                  opacity: r.emailAvailable ? 1 : 0.3,
-                                  cursor: r.emailAvailable ? 'pointer' : 'not-allowed',
-                                }}
-                                disabled={!r.emailAvailable}
-                                title={r.emailAvailable ? 'Envoyer un email' : "Le prospect n'a pas partagé son email"}
-                                onClick={() => setReveal({ relationId: r.relationId, field: 'email', name: r.name })}
-                              >
-                                <Icon name="email" size={12}/>
-                              </button>
-                            </div>
+                            <ContactActionButtons row={r} onIntent={(intent) => setReveal({ relationId: r.relationId, intent, name: r.name })}/>
                           </td>
                         </tr>
                       );
@@ -2713,7 +2690,7 @@ function Contacts() {
       {reveal && (
         <RevealContactModal
           relationId={reveal.relationId}
-          field={reveal.field}
+          intent={reveal.intent}
           name={reveal.name}
           onClose={() => setReveal(null)}
         />
@@ -2722,9 +2699,65 @@ function Contacts() {
   );
 }
 
-function RevealContactModal({ relationId, field, name, onClose }) {
+// Métadonnées par "intent" — chaque bouton d'action déclenche un reveal
+// puis ouvre une URL externe (tel, mailto, sms, wa.me, recherche FB/LI).
+const REVEAL_INTENTS = {
+  call:     { field: 'telephone', icon: 'phone',    title: 'Contacter',                  cta: 'Appeler maintenant',           build: v => `tel:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
+  email:    { field: 'email',     icon: 'email',    title: 'Écrire à',                   cta: 'Ouvrir mon mail',              build: v => `mailto:${encodeURIComponent(v)}`,                                                          valuePresentation: 'mono' },
+  sms:      { field: 'telephone', icon: 'sms',      title: 'Envoyer un SMS à',           cta: 'Ouvrir mes SMS',               build: v => `sms:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
+  whatsapp: { field: 'telephone', icon: 'whatsapp', title: 'WhatsApp avec',              cta: 'Ouvrir WhatsApp',              build: v => `https://wa.me/${v.replace(/\D/g, '')}`,                                                    valuePresentation: 'mono' },
+  facebook: { field: 'name',      icon: 'facebook', title: 'Trouver sur Facebook —',     cta: 'Rechercher sur Facebook',      build: v => `https://www.facebook.com/search/people/?q=${encodeURIComponent(v)}`,                       valuePresentation: 'serif' },
+  linkedin: { field: 'name',      icon: 'linkedin', title: 'Trouver sur LinkedIn —',     cta: 'Rechercher sur LinkedIn',      build: v => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(v)}`,         valuePresentation: 'serif' },
+};
+
+function ContactActionButtons({ row, onIntent }) {
+  const channels = Array.isArray(row.campaignChannels) ? row.campaignChannels : null;
+  const channelAllowed = (k) => channels === null || channels.includes(k);
+  const phoneOk = !!row.telephoneAvailable;
+  const emailOk = !!row.emailAvailable;
+  // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
+  // relations acceptées), donc la donnée "name" est toujours dispo.
+  const buttons = [
+    { key: 'call',     channel: 'phone',     enabled: phoneOk && channelAllowed('phone'),     icon: 'phone',    title: 'Appeler ce prospect',                     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email'),     icon: 'email',    title: 'Envoyer un email',                        missingDataMsg: "Le prospect n'a pas partagé son email" },
+    { key: 'sms',      channel: 'sms',       enabled: phoneOk && channelAllowed('sms'),       icon: 'sms',      title: 'Envoyer un SMS',                          missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'whatsapp', channel: 'whatsapp',  enabled: phoneOk && channelAllowed('whatsapp'),  icon: 'whatsapp', title: 'Écrire sur WhatsApp',                     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'facebook', channel: 'facebook',  enabled: channelAllowed('facebook'),             icon: 'facebook', title: 'Rechercher sur Facebook',                 missingDataMsg: '' },
+    { key: 'linkedin', channel: 'linkedin',  enabled: channelAllowed('linkedin'),             icon: 'linkedin', title: 'Rechercher sur LinkedIn',                 missingDataMsg: '' },
+  ];
+  return (
+    <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      {buttons.map((b) => {
+        const channelOff = !channelAllowed(b.channel);
+        const tooltip = channelOff
+          ? "Canal non activé pour cette campagne"
+          : b.enabled ? b.title : (b.missingDataMsg || b.title);
+        return (
+          <button
+            key={b.key}
+            className="btn btn-ghost btn-sm"
+            style={{
+              padding: '4px 8px',
+              opacity: b.enabled ? 1 : 0.3,
+              cursor: b.enabled ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!b.enabled}
+            title={tooltip}
+            onClick={() => b.enabled && onIntent(b.key)}
+          >
+            <Icon name={b.icon} size={12}/>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function RevealContactModal({ relationId, intent, name, onClose }) {
   const [status, setStatus] = React.useState('loading'); // 'loading' | 'ok' | 'not_shared' | 'error'
   const [value, setValue] = React.useState(null);
+  const meta = REVEAL_INTENTS[intent] || REVEAL_INTENTS.call;
+  const field = meta.field;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -2745,15 +2778,11 @@ function RevealContactModal({ relationId, field, name, onClose }) {
     return () => { cancelled = true; };
   }, [relationId, field]);
 
-  const isPhone = field === 'telephone';
-  const ctaHref = !value
-    ? '#'
-    : isPhone
-      ? `tel:${value.replace(/[^\d+]/g, '')}`
-      : `mailto:${encodeURIComponent(value)}`;
-  const ctaLabel = isPhone ? 'Appeler maintenant' : 'Ouvrir mon mail';
-  const iconName = isPhone ? 'phone' : 'email';
-  const title = isPhone ? `Contacter ${name}` : `Écrire à ${name}`;
+  const ctaHref = value ? meta.build(value) : '#';
+  const ctaLabel = meta.cta;
+  const iconName = meta.icon;
+  const title = `${meta.title} ${name}`;
+  const isExternalLink = ctaHref.startsWith('http');
 
   return (
     <div
@@ -2788,13 +2817,15 @@ function RevealContactModal({ relationId, field, name, onClose }) {
         {status === 'ok' && (
           <>
             <div
-              className="mono"
-              style={{ fontSize: 22, padding: '20px 0', textAlign: 'center', userSelect: 'text', wordBreak: 'break-all' }}
+              className={meta.valuePresentation === 'serif' ? 'serif' : 'mono'}
+              style={{ fontSize: meta.valuePresentation === 'serif' ? 24 : 22, padding: '20px 0', textAlign: 'center', userSelect: 'text', wordBreak: 'break-all' }}
             >
               {value}
             </div>
             <a
               href={ctaHref}
+              target={isExternalLink ? '_blank' : undefined}
+              rel={isExternalLink ? 'noopener noreferrer' : undefined}
               className="btn"
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

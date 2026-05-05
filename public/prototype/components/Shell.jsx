@@ -84,6 +84,10 @@ const Icon = ({ name, size = 16, stroke = 1.5 }) => {
     alert: <><path d="M12 3L22 20H2L12 3z"/><path d="M12 10v4M12 17v.5"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     rotate: <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>,
+    sms: <><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></>,
+    whatsapp: <><path d="M20.5 12a8.5 8.5 0 1 1-15.6-4.7L3 21l4-1a8.5 8.5 0 0 0 13.5-8z"/><path d="M9 9.5a1 1 0 0 1 1-1h.5l1 2-1 1a6 6 0 0 0 3 3l1-1 2 1v.5a1 1 0 0 1-1 1A8 8 0 0 1 9 9.5z" fill="currentColor" stroke="none"/></>,
+    facebook: <path d="M14 8h2.5V5H14a3 3 0 0 0-3 3v2H8.5v3H11v8h3v-8h2.5l.5-3H14V8z"/>,
+    linkedin: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 10v8M8 7v.01M12 18v-5a2.5 2.5 0 0 1 5 0v5M12 13v5"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

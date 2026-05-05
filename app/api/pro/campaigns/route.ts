@@ -277,7 +277,7 @@ export async function GET() {
   const [{ data: camps, error: campErr }, { data: rels, error: relErr }] = await Promise.all([
     admin
       .from("campaigns")
-      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at, code")
+      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at, code, matched_count")
       .eq("pro_account_id", proId)
       .order("created_at", { ascending: false }),
     admin
@@ -312,6 +312,7 @@ export async function GET() {
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
       contactsCount: contactsByCampaign.get(c.id) ?? 0,
+      reachedCount: Number(c.matched_count ?? 0),
       createdAt: c.created_at,
       avgCostEur: Number(c.cost_per_contact_cents ?? 0) / 100,
       code: c.code ?? null,

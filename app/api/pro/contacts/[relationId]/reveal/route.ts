@@ -1,10 +1,11 @@
 /**
  * POST /api/pro/contacts/[relationId]/reveal
- * Body : { field: "email" | "telephone" }
+ * Body : { field: "email" | "telephone" | "name" }
  *
- * Révèle au pro authentifié la valeur en clair de l'email ou du téléphone
- * d'un prospect avec qui il a une relation acceptée/settled. Chaque appel
- * réussi est enregistré dans pro_contact_reveals (audit best-effort).
+ * Révèle au pro authentifié la valeur en clair de l'email, du téléphone
+ * ou du nom complet (prenom + nom) d'un prospect avec qui il a une
+ * relation acceptée/settled. Chaque appel réussi est enregistré dans
+ * pro_contact_reveals (audit best-effort).
  *
  * 200 → { value: string }
  * 400 → field invalide
@@ -20,7 +21,7 @@ import { ensureProAccount } from "@/lib/sync/pro-accounts";
 
 export const runtime = "nodejs";
 
-type Field = "email" | "telephone";
+type Field = "email" | "telephone" | "name";
 type RouteContext = { params: Promise<{ relationId: string }> };
 
 export async function POST(req: Request, ctx: RouteContext) {
@@ -41,7 +42,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
   const field = body?.field;
-  if (field !== "email" && field !== "telephone") {
+  if (field !== "email" && field !== "telephone" && field !== "name") {
     return NextResponse.json({ error: "invalid_field" }, { status: 400 });
   }
 
@@ -57,7 +58,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     .select(
       `id, status, pro_account_id,
        prospects:prospect_id (
-         prospect_identity ( email, telephone )
+         prospect_identity ( email, telephone, prenom, nom )
        )`,
     )
     .eq("id", relationId)
@@ -71,15 +72,13 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  type Ident = { email: string | null; telephone: string | null; prenom: string | null; nom: string | null };
   type Row = {
     id: string;
     status: string;
     pro_account_id: string;
     prospects: {
-      prospect_identity:
-        | { email: string | null; telephone: string | null }
-        | { email: string | null; telephone: string | null }[]
-        | null;
+      prospect_identity: Ident | Ident[] | null;
     } | null;
   };
   const row = data as unknown as Row;
@@ -93,7 +92,15 @@ export async function POST(req: Request, ctx: RouteContext) {
   const prospects = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
   const identRaw = prospects?.prospect_identity ?? null;
   const ident = Array.isArray(identRaw) ? identRaw[0] ?? null : identRaw;
-  const value = field === "email" ? ident?.email ?? null : ident?.telephone ?? null;
+  let value: string | null;
+  if (field === "email") {
+    value = ident?.email ?? null;
+  } else if (field === "telephone") {
+    value = ident?.telephone ?? null;
+  } else {
+    const full = `${ident?.prenom ?? ""} ${ident?.nom ?? ""}`.trim();
+    value = full.length > 0 ? full : null;
+  }
   if (!value) {
     return NextResponse.json({ error: "not_shared" }, { status: 404 });
   }

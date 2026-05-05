@@ -73,13 +73,15 @@ export async function GET() {
     decided_at: string | null;
     status: string;
     campaign_id: string;
-    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[] } | null } | null;
+    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[]; channels?: string[] } | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
       prospect_identity: { prenom: string | null; nom: string | null; email: string | null; telephone: string | null } | null;
     } | null;
   };
+
+  const ALL_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"];
 
   const rows = ((data ?? []) as unknown as Row[]).map((r) => {
     const id = (Array.isArray(r.prospects) ? r.prospects[0] : r.prospects) ?? null;
@@ -92,12 +94,17 @@ export async function GET() {
     const tiers = (camp?.targeting?.requiredTiers ?? [1]) as number[];
     const tier = Math.max(1, ...tiers.map((n) => Number(n) || 0));
     const fullName = maskName(ident?.prenom, ident?.nom);
+    const declared = camp?.targeting?.channels;
+    const campaignChannels = Array.isArray(declared) && declared.length > 0
+      ? declared.filter((x): x is string => typeof x === "string")
+      : ALL_CHANNELS;
     return {
       relationId: r.id,
       name: fullName,
       score: id?.bupp_score ?? 0,
       campaignId: camp?.id ?? r.campaign_id,
       campaign: camp?.name ?? "—",
+      campaignChannels,
       tier,
       email: maskEmail(ident?.email),
       telephone: maskPhone(ident?.telephone),
