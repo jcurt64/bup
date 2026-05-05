@@ -31,12 +31,50 @@ function ProDashboard({ go }) {
   // Informations société partagées entre l'onglet "Mes informations" et le
   // wizard "Créer une campagne" (la raison sociale + la ville sont obligatoires
   // pour pouvoir lancer une campagne — cf. ProInfoFieldDeleteModal).
-  const [companyInfo, setCompanyInfo] = useState({
-    raisonSociale: 'Atelier Mercier',
-    adresse: '12 rue des Artisans',
-    ville: 'Lyon',
+  const [companyInfo, setCompanyInfoState] = useState({
+    raisonSociale: '',
+    adresse: '',
+    ville: '',
+    codePostal: '',
     siren: '',
+    secteur: '',
   });
+  // Hydrate from /api/pro/info on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/info', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setCompanyInfoState(prev => ({ ...prev, ...j })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  // Wrapper that persists each update via PATCH and notifies subscribers.
+  const setCompanyInfo = React.useCallback((updater) => {
+    setCompanyInfoState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const diff = {};
+      for (const key of Object.keys(next)) {
+        if (next[key] !== prev[key]) diff[key] = next[key];
+      }
+      if (Object.keys(diff).length > 0) {
+        fetch('/api/pro/info', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(diff),
+        })
+          .then(async r => {
+            if (!r.ok) {
+              const j = await r.json().catch(() => ({}));
+              console.warn('[pro/info] PATCH failed', r.status, j);
+              return;
+            }
+            try { window.dispatchEvent(new Event('pro:info-changed')); } catch {}
+          })
+          .catch(e => console.warn('[pro/info] PATCH error', e));
+      }
+      return next;
+    });
+  }, []);
   return (
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={setSec}
