@@ -588,12 +588,21 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   padding: 10px 20px;
   max-width: 1280px;
   margin: 0 auto;
+  /* Hauteur unifiée pour tous les enfants — chaque pill (badge,
+     marquee item, timer, CTA) hérite de cette hauteur via min-height
+     pour que leurs centres verticaux et leurs bords haut/bas
+     s'alignent parfaitement, peu importe le padding. */
+  --flash-pill-h: 32px;
 }
+
+.flash-deal-row > * { line-height: 1; }
+.flash-deal-row svg { display: block; }
 
 .flash-deal-badge {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--ink); color: var(--paper);
-  padding: 6px 14px; border-radius: 999px;
+  padding: 0 14px; border-radius: 999px;
+  height: var(--flash-pill-h);
   font-size: 12px; font-weight: 600; letter-spacing: .08em;
   flex-shrink: 0;
   box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 40%, transparent);
@@ -607,6 +616,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .flash-deal-marquee {
   flex: 1 1 0;
   min-width: 0;
+  height: var(--flash-pill-h);
   overflow: hidden;
   position: relative;
   mask-image: linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
@@ -615,6 +625,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .flash-deal-marquee-track {
   display: inline-flex;
   align-items: center;
+  height: 100%;
   white-space: nowrap;
   /* Boucle L→R : on duplique le contenu et on anime translate(-50%, 0%).
      `from -50% to 0%` = la piste se déplace VERS LA DROITE → texte
@@ -632,7 +643,8 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 18px;
+  padding: 0 18px;
+  height: var(--flash-pill-h);
   margin-right: 8px;
   border: 1px solid var(--line-2);
   border-radius: 999px;
@@ -665,7 +677,8 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   display: inline-flex; align-items: center; gap: 6px;
   background: linear-gradient(135deg, var(--ink) 0%, color-mix(in oklab, var(--ink) 65%, var(--accent)) 100%);
   color: var(--paper);
-  padding: 7px 16px; border-radius: 999px;
+  padding: 0 16px; border-radius: 999px;
+  height: var(--flash-pill-h);
   font-size: 12px; font-weight: 600; letter-spacing: .03em;
   flex-shrink: 0;
   position: relative; overflow: hidden;
@@ -694,16 +707,17 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   color: var(--ink-3);
   background: color-mix(in oklab, var(--ink) 6%, var(--paper));
   border: 1px solid var(--line);
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 0 10px;
+  height: var(--flash-pill-h);
+  border-radius: 999px;
 }
 
 @media (max-width: 760px) {
-  .flash-deal-row { gap: 8px; padding: 8px 12px; }
-  .flash-deal-badge { font-size: 11px; padding: 4px 10px; }
-  .flash-deal-item  { font-size: 12.5px; padding: 5px 14px; gap: 8px; }
-  .flash-deal-cta   { padding: 5px 11px; font-size: 11px; }
-  .flash-deal-timer { font-size: 12px; padding: 3px 8px; }
+  .flash-deal-row { gap: 8px; padding: 8px 12px; --flash-pill-h: 28px; }
+  .flash-deal-badge { font-size: 11px; padding: 0 10px; }
+  .flash-deal-item  { font-size: 12.5px; padding: 0 14px; gap: 8px; }
+  .flash-deal-cta   { padding: 0 11px; font-size: 11px; }
+  .flash-deal-timer { font-size: 12px; padding: 0 8px; }
   /* Sur mobile, on cache le CTA — l'utilisateur peut cliquer
      directement sur un item du défilé. */
   .flash-deal-cta-hide-mobile { display: none; }
