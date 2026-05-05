@@ -782,26 +782,22 @@ function FlashDeal() {
   );
   if (liveDeals.length === 0) return null;
 
-  // Le timer affiché correspond à la campagne qui expire le plus tôt
-  // (les campagnes sont triées par ends_at asc côté API).
-  const closest = liveDeals[0];
-  const left = Math.max(
-    0,
-    Math.floor((new Date(closest.endsAt).getTime() - now) / 1000),
-  );
-  const h = String(Math.floor(left / 3600)).padStart(2, "0");
-  const m = String(Math.floor((left % 3600) / 60)).padStart(2, "0");
-  const s = String(left % 60).padStart(2, "0");
-
   // Durée d'animation proportionnelle au nombre de deals — plus il y en a,
   // plus la piste est longue, donc on rallonge le défilement pour rester
-  // lisible (env. 12s par deal).
-  const marqueeDuration = `${Math.max(18, liveDeals.length * 12)}s`;
+  // lisible (env. 14s par deal).
+  const marqueeDuration = `${Math.max(20, liveDeals.length * 14)}s`;
   const openDeal = liveDeals.find((d) => d.id === openDealId) ?? null;
 
   // On duplique deux fois la liste de deals pour que la boucle paraisse
   // continue (sans saut visible).
   const trackItems = [...liveDeals, ...liveDeals];
+
+  const fmtHms = (target: string) => {
+    const left = Math.max(0, Math.floor((new Date(target).getTime() - now) / 1000));
+    return `${String(Math.floor(left / 3600)).padStart(2, "0")}:${String(
+      Math.floor((left % 3600) / 60),
+    ).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+  };
 
   return (
     <>
@@ -820,14 +816,14 @@ function FlashDeal() {
                 const reward = (Number(d.costPerContactCents ?? 0) / 100)
                   .toFixed(2)
                   .replace(".", ",");
-                const showDividerAfter = liveDeals.length > 1; // une seule offre = pas de séparateur utile
+                const hms = fmtHms(d.endsAt);
                 return (
                   <Fragment key={`${d.id}-${i}`}>
                     <button
                       type="button"
                       className="flash-deal-item"
                       onClick={() => setOpenDealId(d.id)}
-                      aria-label={`Voir ${d.proName ?? "l'offre"} — ${multStr}`}
+                      aria-label={`Voir ${d.proName ?? "l'offre"} — ${multStr}, expire dans ${hms}`}
                     >
                       <span className="mult-pill">{multStr}</span>
                       {d.proName ? (
@@ -840,34 +836,21 @@ function FlashDeal() {
                         </>
                       ) : null}
                       <span className="sep">·</span>
-                      <span style={{ color: "var(--ink-3)" }}>
-                        <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
+                      <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
+                      <span className="flash-deal-item-timer">
+                        <Icon name="clock" size={11} />
+                        {hms}
                       </span>
-                      {d.brief ? (
-                        <>
-                          <span className="sep">·</span>
-                          <span style={{ fontStyle: "italic" }}>« {d.brief} »</span>
-                        </>
-                      ) : null}
+                      <span className="flash-deal-item-cta">
+                        Voir le détail <Icon name="arrow" size={11} />
+                      </span>
                     </button>
-                    {showDividerAfter && <span className="flash-deal-divider" aria-hidden="true" />}
+                    <span className="flash-deal-divider-dot" aria-hidden="true" />
                   </Fragment>
                 );
               })}
             </div>
           </div>
-          <span className="flash-deal-timer" aria-label="Plus court délai restant">
-            <Icon name="clock" size={12} />
-            <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
-          </span>
-          <button
-            type="button"
-            className="flash-deal-cta flash-deal-cta-hide-mobile"
-            onClick={() => setOpenDealId(closest.id)}
-          >
-            Voir le détail <Icon name="arrow" size={12} />
-          </button>
-          <span className="flash-deal-spacer" aria-hidden="true" />
         </div>
       </section>
       {openDeal && (

@@ -614,12 +614,11 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 
 .flash-deal-marquee {
-  /* On garde la flexibilité (peut rétrécir si besoin) mais on plafonne
-     à ~640px pour que le timer + le CTA restent collés au défilé sur
-     les écrans larges, plutôt que d'être isolés à droite. */
+  /* Le marquee occupe toute la largeur restante. Chaque item embarque
+     son propre timer et son propre CTA "Voir le détail" → plus de
+     timer/CTA externes à droite. */
   flex: 1 1 0;
   min-width: 0;
-  max-width: 640px;
   height: var(--flash-pill-h);
   overflow: hidden;
   position: relative;
@@ -677,20 +676,57 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .flash-deal-item .pro-name { color: var(--ink); font-weight: 600; }
 .flash-deal-item .sep      { color: var(--ink-5); }
 
-/* Trait vertical visible entre deux flash deals quand il y en a plusieurs. */
-.flash-deal-divider {
+/* Timer interne à chaque pill (un par campagne, pour qu'on sache à
+   laquelle il se rapporte). */
+.flash-deal-item-timer {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 0 9px;
+  height: 22px;
+  background: color-mix(in oklab, var(--ink) 6%, var(--paper));
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.flash-deal-item-timer svg { display: block; }
+
+/* CTA interne à chaque pill — purement visuel (le clic est porté par
+   le pill entier). */
+.flash-deal-item-cta {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: linear-gradient(135deg, var(--ink) 0%, color-mix(in oklab, var(--ink) 65%, var(--accent)) 100%);
+  color: var(--paper);
+  padding: 0 11px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  flex-shrink: 0;
+  position: relative; overflow: hidden;
+}
+.flash-deal-item-cta::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.32) 50%, transparent 65%);
+  transform: translateX(-130%);
+  transition: transform .55s ease;
+  pointer-events: none;
+}
+.flash-deal-item:hover .flash-deal-item-cta::after { transform: translateX(130%); }
+
+/* Petit point rond aligné verticalement comme séparateur entre flash deals. */
+.flash-deal-divider-dot {
   display: inline-block;
   flex-shrink: 0;
-  width: 1px;
-  height: 18px;
-  background: color-mix(in oklab, var(--ink) 25%, transparent);
-  margin: 0 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 60%, var(--ink)));
+  margin: 0 18px;
   align-self: center;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
 }
-
-/* Spacer flexible pour pousser tout vers la gauche tout en gardant la
-   barre alignée sur le container 1280px. */
-.flash-deal-spacer { flex: 1 1 auto; min-width: 0; }
 
 .flash-deal-cta {
   display: inline-flex; align-items: center; gap: 6px;
