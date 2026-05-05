@@ -64,7 +64,9 @@ type IconName =
   | "target"
   | "wallet"
   | "trend"
-  | "gauge";
+  | "gauge"
+  | "close"
+  | "clock";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -89,6 +91,13 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 15a4 4 0 1 0-4-4" />
       <path d="M3 12a9 9 0 0 1 18 0" />
+    </>
+  ),
+  close: <path d="M18 6L6 18M6 6l12 12" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </>
   ),
 };
@@ -709,54 +718,566 @@ function Hero() {
   );
 }
 
+type Deal = {
+  id: string;
+  name: string;
+  endsAt: string;
+  brief: string | null;
+  multiplier: number;
+  costPerContactCents: number;
+  requiredTiers: number[];
+  requiredTierKeys: string[];
+  proName: string | null;
+  proSector: string | null;
+  isAuthenticated: boolean;
+  relationId: string | null;
+  relationStatus: string | null;
+  missingTierKeys: string[] | null;
+};
+
+const TIER_KEY_LABEL_FR: Record<string, string> = {
+  identity: "Identification",
+  localisation: "Localisation",
+  vie: "Style de vie",
+  pro: "Données professionnelles",
+  patrimoine: "Patrimoine & projets",
+};
+
+function fmtMultiplier(m: number): string {
+  if (m === 1) return "×1";
+  if (Number.isInteger(m)) return `×${m}`;
+  return `×${String(m).replace(".", ",")}`;
+}
+
 function FlashDeal() {
-  const [left, setLeft] = useState(2 * 3600 - 1);
+  const router = useRouter();
+  const [deal, setDeal] = useState<Deal | null | undefined>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
+  const [open, setOpen] = useState(false);
+
+  const load = async () => {
+    try {
+      const r = await fetch("/api/landing/flash-deals", { cache: "no-store" });
+      if (!r.ok) { setDeal(undefined); return null; }
+      const j = await r.json();
+      const d = (j.deals || [])[0] as Deal | undefined;
+      setDeal(d ?? undefined);
+      return d ?? null;
+    } catch {
+      setDeal(undefined);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const t = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
+    let cancelled = false;
+    const safeLoad = () => { if (!cancelled) void load(); };
+    safeLoad();
+    const t = setInterval(safeLoad, 60_000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => { cancelled = true; clearInterval(t); clearInterval(tick); };
   }, []);
+
+  if (!deal) return null;
+
+  const left = Math.max(0, Math.floor((new Date(deal.endsAt).getTime() - now) / 1000));
+  if (left === 0) return null;
   const h = String(Math.floor(left / 3600)).padStart(2, "0");
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, "0");
   const s = String(left % 60).padStart(2, "0");
+  const multStr = fmtMultiplier(deal.multiplier);
   return (
-    <section
+    <>
+      <section
+        role="button"
+        tabIndex={0}
+        aria-label="Voir le détail de l'offre flash deal"
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        style={{
+          background: "var(--paper)",
+          borderBottom: "1px solid var(--line)",
+          cursor: "pointer",
+          userSelect: "none",
+          position: "relative",
+          zIndex: 5,
+          transition: "background .12s",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            "color-mix(in oklab, var(--accent) 4%, var(--paper))";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = "var(--paper)";
+        }}
+      >
+        <div
+          className="container row between center wrap flash-deal-row"
+          style={{ padding: "12px 20px", gap: 12 }}
+        >
+          <div
+            className="row center gap-3 wrap"
+            style={{ flex: "1 1 280px" }}
+          >
+            <span
+              className="badge"
+              style={{
+                background: "var(--ink)",
+                color: "var(--paper)",
+                fontSize: 15,
+                borderColor: "var(--ink)",
+              }}
+            >
+              <Icon name="bolt" size={14} /> Flash Deal
+            </span>
+            <span style={{ fontSize: 13, letterSpacing: "0.08em" }}>
+              Gains <em>{multStr}</em>
+              {deal.proName ? <> — <strong>{deal.proName}</strong></> : null}
+              {deal.proSector ? (
+                <span className="muted" style={{ marginLeft: 6 }}>
+                  · {deal.proSector}
+                </span>
+              ) : null}
+            </span>
+            <span
+              className="muted"
+              style={{ fontSize: 12, textDecoration: "underline" }}
+            >
+              Voir le détail →
+            </span>
+          </div>
+          <div
+            className="row center gap-2 mono tnum"
+            style={{ fontSize: 13, color: "var(--ink-3)" }}
+          >
+            <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
+            <span className="muted hide-sm" style={{ marginLeft: 6 }}>
+              restantes
+            </span>
+          </div>
+        </div>
+      </section>
+      {open && (
+        <FlashDealModal
+          deal={deal}
+          remainingHms={`${h}:${m}:${s}`}
+          onClose={() => setOpen(false)}
+          onAfterDecision={async () => {
+            await load();
+            setOpen(false);
+          }}
+          goAuth={() => router.push("/inscription")}
+          goDonnees={() => router.push("/prospect?tab=donnees")}
+        />
+      )}
+    </>
+  );
+}
+
+function FlashDealModal({
+  deal,
+  remainingHms,
+  onClose,
+  onAfterDecision,
+  goAuth,
+  goDonnees,
+}: {
+  deal: Deal;
+  remainingHms: string;
+  onClose: () => void;
+  onAfterDecision: () => Promise<void>;
+  goAuth: () => void;
+  goDonnees: () => void;
+}) {
+  const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const multStr = fmtMultiplier(deal.multiplier);
+  const rewardEur = (Number(deal.costPerContactCents ?? 0) / 100)
+    .toFixed(2)
+    .replace(".", ",");
+  const requiredLabels = (deal.requiredTierKeys || []).map(
+    (k) => TIER_KEY_LABEL_FR[k] || k,
+  );
+  const missingLabels = (deal.missingTierKeys || []).map(
+    (k) => TIER_KEY_LABEL_FR[k] || k,
+  );
+
+  let mode: string;
+  if (!deal.isAuthenticated) mode = "auth";
+  else if (deal.relationStatus === "pending") mode = "decide";
+  else if (deal.relationStatus) mode = "already_" + deal.relationStatus;
+  else if (Array.isArray(deal.missingTierKeys) && deal.missingTierKeys.length > 0)
+    mode = "fill_data";
+  else mode = "no_match";
+
+  const decide = async (action: "accept" | "refuse") => {
+    if (!deal.relationId) return;
+    setSubmitting(action);
+    setError(null);
+    try {
+      const r = await fetch(`/api/prospect/relations/${deal.relationId}/decision`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || "Erreur");
+      }
+      await onAfterDecision();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
       style={{
-        background: "var(--paper)",
-        borderBottom: "1px solid var(--line)",
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,22,41,.55)",
+        backdropFilter: "blur(4px)",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        overflowY: "auto",
       }}
     >
       <div
-        className="container row between center wrap flash-deal-row"
-        style={{ padding: "12px 20px", gap: 12 }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 540,
+          background: "var(--paper)",
+          borderRadius: 16,
+          padding: "clamp(20px, 4vw, 30px)",
+          boxShadow: "0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)",
+          margin: "auto 0",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
       >
-        <div className="row center gap-3 wrap" style={{ flex: "1 1 280px" }}>
-          <span
-            className="badge"
+        <div
+          className="row between"
+          style={{ alignItems: "flex-start", marginBottom: 14, gap: 10 }}
+        >
+          <div className="row center gap-2" style={{ flexWrap: "wrap" }}>
+            <span
+              className="badge"
+              style={{
+                background: "var(--ink)",
+                color: "var(--paper)",
+                borderColor: "var(--ink)",
+              }}
+            >
+              <Icon name="bolt" size={11} /> Flash Deal
+            </span>
+            <span
+              className="mono"
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "3px 9px",
+                borderRadius: 999,
+                background: "color-mix(in oklab, #B91C1C 12%, var(--paper))",
+                border: "1px solid color-mix(in oklab, #B91C1C 30%, var(--line))",
+                color: "#B91C1C",
+              }}
+            >
+              Gains {multStr}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fermer"
             style={{
-              background: "var(--ink)",
-              color: "var(--paper)",
-              fontSize: 15,
-              borderColor: "var(--ink)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--ink-4)",
+              padding: 4,
             }}
           >
-            <Icon name="bolt" size={14} /> Flash Deal
-          </span>
-          <span style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-            Gains <em>×3 </em> sur les paliers 3 à 5 pour toute demande acceptée
-            dans l&apos;heure qui vient.
-          </span>
+            <Icon name="close" size={16} />
+          </button>
         </div>
+
         <div
-          className="row center gap-2 mono tnum"
-          style={{ fontSize: 13, color: "var(--ink-3)" }}
+          className="serif"
+          style={{ fontSize: 22, lineHeight: 1.2, marginBottom: 4 }}
         >
-          <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
-          <span className="muted hide-sm" style={{ marginLeft: 6 }}>
-            restantes
+          {deal.proName || "BUUPP"}
+        </div>
+        <div className="muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          {deal.proSector ? deal.proSector + " · " : ""}
+          {deal.name}
+        </div>
+
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: "var(--ink)",
+            color: "var(--paper)",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            className="mono caps"
+            style={{
+              fontSize: 10,
+              letterSpacing: ".12em",
+              color: "#A8AFC0",
+            }}
+          >
+            Récompense
+          </div>
+          <div
+            className="serif tnum"
+            style={{ fontSize: 32, fontWeight: 600, marginTop: 4 }}
+          >
+            {rewardEur} €
+          </div>
+          <div style={{ fontSize: 12, color: "#A8AFC0", marginTop: 4 }}>
+            Gains multipliés{" "}
+            <strong style={{ color: "#FFFEF8" }}>{multStr}</strong> — fenêtre éclair
+          </div>
+        </div>
+
+        <div
+          className="row center gap-2"
+          style={{ marginBottom: 16, fontSize: 13, color: "var(--ink-2)" }}
+        >
+          <Icon name="clock" size={14} />
+          <span>
+            Plus que <strong className="mono tnum">{remainingHms}</strong> pour décider.
           </span>
         </div>
+
+        {deal.brief && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "var(--ivory-2)",
+              border: "1px solid var(--line-2)",
+              marginBottom: 14,
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              color: "var(--ink-2)",
+            }}
+          >
+            <div
+              className="mono caps muted"
+              style={{ fontSize: 10, letterSpacing: ".12em", marginBottom: 4 }}
+            >
+              Le mot du professionnel
+            </div>
+            <div>« {deal.brief} »</div>
+          </div>
+        )}
+
+        {requiredLabels.length > 0 && (
+          <div className="muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            Données demandées :{" "}
+            {requiredLabels.map((l, i) => (
+              <span
+                key={i}
+                className="chip"
+                style={{
+                  fontSize: 11,
+                  padding: "2px 8px",
+                  marginRight: 4,
+                  marginBottom: 4,
+                }}
+              >
+                {l}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {mode === "auth" && (
+          <>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "color-mix(in oklab, var(--accent) 7%, var(--paper))",
+                border: "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                marginBottom: 14,
+              }}
+            >
+              Pour accepter ou refuser cette offre, vous devez d&apos;abord créer
+              votre compte BUUPP.
+            </div>
+            <button
+              onClick={goAuth}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--ink)",
+                color: "var(--paper)",
+              }}
+            >
+              Créer un compte / Se connecter <Icon name="arrow" size={14} />
+            </button>
+          </>
+        )}
+
+        {mode === "decide" && (
+          <>
+            <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+              <button
+                onClick={() => decide("refuse")}
+                disabled={!!submitting}
+                className="btn"
+                style={{
+                  flex: "1 1 160px",
+                  justifyContent: "center",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  border: "1.5px solid var(--line-2)",
+                  opacity: submitting && submitting !== "refuse" ? 0.5 : 1,
+                }}
+              >
+                {submitting === "refuse" ? "Refus en cours…" : "Refuser"}
+              </button>
+              <button
+                onClick={() => decide("accept")}
+                disabled={!!submitting}
+                className="btn"
+                style={{
+                  flex: "1 1 160px",
+                  justifyContent: "center",
+                  background: "var(--ink)",
+                  color: "var(--paper)",
+                  opacity: submitting && submitting !== "accept" ? 0.5 : 1,
+                }}
+              >
+                {submitting === "accept" ? (
+                  "Acceptation…"
+                ) : (
+                  <>
+                    Accepter <Icon name="check" size={13} />
+                  </>
+                )}
+              </button>
+            </div>
+            {error && (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "#FEF2F2",
+                  border: "1.5px solid #FECACA",
+                  color: "#991B1B",
+                  fontSize: 13,
+                }}
+              >
+                {error}
+              </div>
+            )}
+          </>
+        )}
+
+        {mode === "fill_data" && (
+          <>
+            <div
+              role="alert"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "color-mix(in oklab, #B45309 7%, var(--paper))",
+                border: "1px solid color-mix(in oklab, #B45309 30%, var(--line))",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                lineHeight: 1.55,
+                marginBottom: 14,
+              }}
+            >
+              {deal.proName || "Le professionnel"} souhaite obtenir vos données
+              de{" "}
+              <strong style={{ color: "#B45309" }}>
+                {missingLabels.length === 1
+                  ? missingLabels[0]
+                  : missingLabels.slice(0, -1).join(", ") +
+                    " et " +
+                    missingLabels.slice(-1)}
+              </strong>
+              , mais vous ne les avez pas encore renseignées. Complétez votre
+              profil pour pouvoir bénéficier de cette offre.
+            </div>
+            <button
+              onClick={goDonnees}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--ink)",
+                color: "var(--paper)",
+              }}
+            >
+              Compléter mes données <Icon name="arrow" size={14} />
+            </button>
+          </>
+        )}
+
+        {mode === "no_match" && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "var(--ivory-2)",
+              border: "1px solid var(--line-2)",
+              fontSize: 13,
+              color: "var(--ink-2)",
+              lineHeight: 1.55,
+            }}
+          >
+            Cette campagne ne correspond pas à votre profil (zone géographique,
+            tranche d&apos;âge ou centres d&apos;intérêt). Aucune action n&apos;est
+            nécessaire.
+          </div>
+        )}
+
+        {mode.startsWith("already_") && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "var(--ivory-2)",
+              border: "1px solid var(--line-2)",
+              fontSize: 13,
+              color: "var(--ink-2)",
+              lineHeight: 1.55,
+            }}
+          >
+            {mode === "already_accepted" && "✓ Vous avez déjà accepté cette sollicitation."}
+            {mode === "already_refused" && "Vous avez refusé cette sollicitation."}
+            {mode === "already_expired" && "Cette sollicitation a expiré."}
+            {mode === "already_settled" && "✓ Sollicitation acceptée — gains crédités."}
+          </div>
+        )}
       </div>
-    </section>
+    </div>
   );
 }
 
