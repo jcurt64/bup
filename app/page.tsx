@@ -751,21 +751,18 @@ function fmtMultiplier(m: number): string {
 
 function FlashDeal() {
   const router = useRouter();
-  const [deal, setDeal] = useState<Deal | null | undefined>(null);
+  const [deals, setDeals] = useState<Deal[] | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
-  const [open, setOpen] = useState(false);
+  const [openDealId, setOpenDealId] = useState<string | null>(null);
 
   const load = async () => {
     try {
       const r = await fetch("/api/landing/flash-deals", { cache: "no-store" });
-      if (!r.ok) { setDeal(undefined); return null; }
+      if (!r.ok) { setDeals([]); return; }
       const j = await r.json();
-      const d = (j.deals || [])[0] as Deal | undefined;
-      setDeal(d ?? undefined);
-      return d ?? null;
+      setDeals((j.deals || []) as Deal[]);
     } catch {
-      setDeal(undefined);
-      return null;
+      setDeals([]);
     }
   };
 
@@ -778,88 +775,113 @@ function FlashDeal() {
     return () => { cancelled = true; clearInterval(t); clearInterval(tick); };
   }, []);
 
-  if (!deal) return null;
+  // Filtre les deals dont le timer est déjà à 0 — on évite de garder à
+  // l'écran un item qui aurait expiré entre deux refetch.
+  const liveDeals = (deals ?? []).filter(
+    (d) => new Date(d.endsAt).getTime() - now > 0,
+  );
+  if (liveDeals.length === 0) return null;
 
-  const left = Math.max(0, Math.floor((new Date(deal.endsAt).getTime() - now) / 1000));
-  if (left === 0) return null;
+  // Le timer affiché correspond à la campagne qui expire le plus tôt
+  // (les campagnes sont triées par ends_at asc côté API).
+  const closest = liveDeals[0];
+  const left = Math.max(
+    0,
+    Math.floor((new Date(closest.endsAt).getTime() - now) / 1000),
+  );
   const h = String(Math.floor(left / 3600)).padStart(2, "0");
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, "0");
   const s = String(left % 60).padStart(2, "0");
-  const multStr = fmtMultiplier(deal.multiplier);
+
+  // Durée d'animation proportionnelle au nombre de deals — plus il y en a,
+  // plus la piste est longue, donc on rallonge le défilement pour rester
+  // lisible (env. 12s par deal).
+  const marqueeDuration = `${Math.max(18, liveDeals.length * 12)}s`;
+  const openDeal = liveDeals.find((d) => d.id === openDealId) ?? null;
+
+  // On duplique deux fois la liste de deals pour que la boucle paraisse
+  // continue (sans saut visible).
+  const trackItems = [...liveDeals, ...liveDeals];
+
   return (
     <>
-      <section
-        role="button"
-        tabIndex={0}
-        aria-label="Voir le détail de l'offre flash deal"
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setOpen(true);
-          }
-        }}
-        className="flash-deal-banner"
-      >
-        <div
-          className="container row center"
-          style={{ padding: "10px 20px", gap: 14, flexWrap: "nowrap" }}
-        >
+      <section className="flash-deal-banner" aria-label="Flash deals en cours">
+        <div className="flash-deal-row">
           <span className="flash-deal-badge">
             <Icon name="bolt" size={13} /> Flash Deal
           </span>
-          <div className="flash-deal-marquee" aria-hidden="true">
-            <div className="flash-deal-marquee-track">
-              {/* On répète le contenu deux fois pour que la boucle paraisse continue */}
-              {[0, 1].map((i) => (
-                <div className="flash-deal-marquee-item" key={i}>
-                  <span className="mult-pill">Gains {multStr}</span>
-                  {deal.proName ? (
-                    <span className="pro-name">{deal.proName}</span>
-                  ) : null}
-                  {deal.proSector ? (
-                    <>
-                      <span className="sep">·</span>
-                      <span>{deal.proSector}</span>
-                    </>
-                  ) : null}
-                  {deal.brief ? (
-                    <>
-                      <span className="sep">·</span>
-                      <span style={{ fontStyle: "italic" }}>« {deal.brief} »</span>
-                    </>
-                  ) : null}
-                  <span className="sep">·</span>
-                  <span style={{ color: "var(--ink-3)" }}>
-                    Récompense{" "}
-                    <strong style={{ color: "var(--ink)" }}>
-                      {(Number(deal.costPerContactCents ?? 0) / 100)
-                        .toFixed(2)
-                        .replace(".", ",")}{" "}
-                      €
-                    </strong>
-                  </span>
-                </div>
-              ))}
+          <div className="flash-deal-marquee">
+            <div
+              className="flash-deal-marquee-track"
+              style={{ "--marquee-duration": marqueeDuration } as CSSProperties}
+            >
+              {trackItems.map((d, i) => {
+                const multStr = fmtMultiplier(d.multiplier);
+                const reward = (Number(d.costPerContactCents ?? 0) / 100)
+                  .toFixed(2)
+                  .replace(".", ",");
+                return (
+                  <button
+                    key={`${d.id}-${i}`}
+                    type="button"
+                    className="flash-deal-item"
+                    onClick={() => setOpenDealId(d.id)}
+                    aria-label={`Voir ${d.proName ?? "l'offre"} — ${multStr}`}
+                  >
+                    <span className="mult-pill">{multStr}</span>
+                    {d.proName ? (
+                      <span className="pro-name">{d.proName}</span>
+                    ) : null}
+                    {d.proSector ? (
+                      <>
+                        <span className="sep">·</span>
+                        <span>{d.proSector}</span>
+                      </>
+                    ) : null}
+                    <span className="sep">·</span>
+                    <span style={{ color: "var(--ink-3)" }}>
+                      <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
+                    </span>
+                    {d.brief ? (
+                      <>
+                        <span className="sep">·</span>
+                        <span style={{ fontStyle: "italic" }}>« {d.brief} »</span>
+                      </>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <span className="flash-deal-timer" aria-label="Temps restant">
+          <span className="flash-deal-timer" aria-label="Plus court délai restant">
             <Icon name="clock" size={12} />
             <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
           </span>
-          <span className="flash-deal-cta">
+          <button
+            type="button"
+            className="flash-deal-cta flash-deal-cta-hide-mobile"
+            onClick={() => setOpenDealId(closest.id)}
+          >
             Voir le détail <Icon name="arrow" size={12} />
-          </span>
+          </button>
         </div>
       </section>
-      {open && (
+      {openDeal && (
         <FlashDealModal
-          deal={deal}
-          remainingHms={`${h}:${m}:${s}`}
-          onClose={() => setOpen(false)}
+          deal={openDeal}
+          remainingHms={(() => {
+            const lf = Math.max(
+              0,
+              Math.floor((new Date(openDeal.endsAt).getTime() - now) / 1000),
+            );
+            return `${String(Math.floor(lf / 3600)).padStart(2, "0")}:${String(
+              Math.floor((lf % 3600) / 60),
+            ).padStart(2, "0")}:${String(lf % 60).padStart(2, "0")}`;
+          })()}
+          onClose={() => setOpenDealId(null)}
           onAfterDecision={async () => {
             await load();
-            setOpen(false);
+            setOpenDealId(null);
           }}
           goAuth={() => router.push("/inscription")}
           goDonnees={() => router.push("/prospect?tab=donnees")}

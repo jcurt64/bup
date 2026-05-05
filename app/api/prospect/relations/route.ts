@@ -65,6 +65,10 @@ function highestTier(targeting: Record<string, unknown> | null): number {
   return Math.min(5, Math.max(1, max));
 }
 
+function isFlashDealTargeting(targeting: Record<string, unknown> | null): boolean {
+  return targeting?.durationKey === "1h";
+}
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
@@ -127,6 +131,7 @@ export async function GET() {
         timer: timerString(r.expires_at),
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
+        isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
       };
     });
 
@@ -192,6 +197,7 @@ export async function GET() {
         campaignStatus: r.campaigns?.status ?? null,
         campaignOpen,
         campaignActive,
+        isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
       };
     });
 

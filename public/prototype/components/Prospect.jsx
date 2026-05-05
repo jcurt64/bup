@@ -1967,7 +1967,22 @@ function Relations() {
                     title="Voir le détail de la campagne"
                   >
                     <td className="mono" style={{ color: 'var(--ink-4)' }}>{formatHistoryDate(h.date)}</td>
-                    <td>{h.proName}</td>
+                    <td>
+                      <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+                        <span>{h.proName}</span>
+                        {h.isFlashDeal && (
+                          <span title="Sollicitation Flash Deal — gains multipliés"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              padding: '2px 8px', borderRadius: 999,
+                              background: 'linear-gradient(135deg, #B91C1C, #EF4444)',
+                              color: 'white', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+                            }}>
+                            <Icon name="bolt" size={9}/> FLASH
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td><span className="chip">Palier {h.tier}</span></td>
                     <td><span className={'chip ' + (h.decision === 'Acceptée' ? 'chip-good' : '')}>{h.decision}</span></td>
                     <td className="muted">{h.status}</td>
