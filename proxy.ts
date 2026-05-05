@@ -19,6 +19,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/waitlist",
   "/api/waitlist/stats",
   "/api/plan-pricing",
+  "/api/landing/(.*)",
 ]);
 
 // `clerkMiddleware` retourne une fonction de signature compatible avec
