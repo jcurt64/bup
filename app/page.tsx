@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type CSSProperties, type ReactNode } from "react";
+import { useState, useEffect, Fragment, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -820,35 +820,38 @@ function FlashDeal() {
                 const reward = (Number(d.costPerContactCents ?? 0) / 100)
                   .toFixed(2)
                   .replace(".", ",");
+                const showDividerAfter = liveDeals.length > 1; // une seule offre = pas de séparateur utile
                 return (
-                  <button
-                    key={`${d.id}-${i}`}
-                    type="button"
-                    className="flash-deal-item"
-                    onClick={() => setOpenDealId(d.id)}
-                    aria-label={`Voir ${d.proName ?? "l'offre"} — ${multStr}`}
-                  >
-                    <span className="mult-pill">{multStr}</span>
-                    {d.proName ? (
-                      <span className="pro-name">{d.proName}</span>
-                    ) : null}
-                    {d.proSector ? (
-                      <>
-                        <span className="sep">·</span>
-                        <span>{d.proSector}</span>
-                      </>
-                    ) : null}
-                    <span className="sep">·</span>
-                    <span style={{ color: "var(--ink-3)" }}>
-                      <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
-                    </span>
-                    {d.brief ? (
-                      <>
-                        <span className="sep">·</span>
-                        <span style={{ fontStyle: "italic" }}>« {d.brief} »</span>
-                      </>
-                    ) : null}
-                  </button>
+                  <Fragment key={`${d.id}-${i}`}>
+                    <button
+                      type="button"
+                      className="flash-deal-item"
+                      onClick={() => setOpenDealId(d.id)}
+                      aria-label={`Voir ${d.proName ?? "l'offre"} — ${multStr}`}
+                    >
+                      <span className="mult-pill">{multStr}</span>
+                      {d.proName ? (
+                        <span className="pro-name">{d.proName}</span>
+                      ) : null}
+                      {d.proSector ? (
+                        <>
+                          <span className="sep">·</span>
+                          <span>{d.proSector}</span>
+                        </>
+                      ) : null}
+                      <span className="sep">·</span>
+                      <span style={{ color: "var(--ink-3)" }}>
+                        <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
+                      </span>
+                      {d.brief ? (
+                        <>
+                          <span className="sep">·</span>
+                          <span style={{ fontStyle: "italic" }}>« {d.brief} »</span>
+                        </>
+                      ) : null}
+                    </button>
+                    {showDividerAfter && <span className="flash-deal-divider" aria-hidden="true" />}
+                  </Fragment>
                 );
               })}
             </div>
@@ -864,6 +867,7 @@ function FlashDeal() {
           >
             Voir le détail <Icon name="arrow" size={12} />
           </button>
+          <span className="flash-deal-spacer" aria-hidden="true" />
         </div>
       </section>
       {openDeal && (
