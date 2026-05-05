@@ -14,6 +14,11 @@ function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
   const [campDetail, setCampDetail] = useState(null);
+  // Section vers laquelle ramener le pro automatiquement dès qu'il a complété
+  // les champs obligatoires (raison sociale + ville). Posée quand un écran
+  // bloque sur des informations société manquantes et redirige vers
+  // "Mes informations" (ex. CreateCampaign → onGoInformations).
+  const [returnAfterInfo, setReturnAfterInfo] = useState(null);
 
   // Détecte le retour Stripe `?continue_campaign=1` → bascule
   // automatiquement sur le wizard de création de campagne. Le wizard
@@ -48,6 +53,29 @@ function ProDashboard({ go }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+  // Auto-redirect : dès que les deux champs requis pour lancer une campagne
+  // (raison sociale + ville) sont renseignés, on ramène le pro vers la
+  // section dont il vient (returnAfterInfo). Petit délai pour qu'il ait le
+  // temps de voir la valeur saisie + la bannière de retour.
+  useEffect(() => {
+    if (!returnAfterInfo) return;
+    if (!companyInfo?.raisonSociale?.trim()) return;
+    if (!companyInfo?.ville?.trim()) return;
+    const handle = setTimeout(() => {
+      setSec(returnAfterInfo);
+      setReturnAfterInfo(null);
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [returnAfterInfo, companyInfo]);
+
+  // Toute navigation manuelle (clic sidebar, bouton "Annuler le retour")
+  // efface l'intent de retour : on respecte le choix utilisateur de rester
+  // ailleurs ou d'aller voir une autre section.
+  const navTo = React.useCallback((next) => {
+    setReturnAfterInfo(null);
+    setSec(next);
+  }, []);
+
   // Wrapper that persists each update via PATCH and notifies subscribers.
   const setCompanyInfo = React.useCallback((updater) => {
     setCompanyInfoState(prev => {
@@ -77,7 +105,7 @@ function ProDashboard({ go }) {
   }, []);
   return (
     <>
-    <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={setSec}
+    <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
       overrideName={companyInfo?.raisonSociale || ''}
       header={<ProHeader companyInfo={companyInfo} onCreate={() => setSec('create')} onRecharge={() => setRecharge(true)}/>}>
       {sec === 'overview' && <Overview onCreate={() => setSec('create')}/>}
@@ -87,13 +115,18 @@ function ProDashboard({ go }) {
         <CreateCampaign
           onDone={() => setSec('campagnes')}
           companyInfo={companyInfo}
-          onGoInformations={() => setSec('informations')}
+          onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
         />
       )}
       {sec === 'contacts' && <Contacts/>}
       {sec === 'analytics' && <Analytics/>}
       {sec === 'informations' && (
-        <MesInformations info={companyInfo} setInfo={setCompanyInfo}/>
+        <MesInformations
+          info={companyInfo}
+          setInfo={setCompanyInfo}
+          returnAfterInfo={returnAfterInfo}
+          onCancelReturn={() => setReturnAfterInfo(null)}
+        />
       )}
       {sec === 'facturation' && <Facturation onRecharge={() => setRecharge(true)}/>}
     </DashShell>
@@ -3076,7 +3109,7 @@ const PRO_INFO_FIELDS = [
   { key: 'siren',         label: 'SIREN',                              placeholder: '— facultatif —', optional: true, mono: true },
 ];
 
-function MesInformations({ info, setInfo }) {
+function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
   const [editing, setEditing] = useState(null); // { key, label, value }
   const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { key, label }
   const [confirmAllDelete, setConfirmAllDelete] = useState(false);
@@ -3086,10 +3119,63 @@ function MesInformations({ info, setInfo }) {
   const allEmpty = PRO_INFO_FIELDS.every(f => !info[f.key]);
   const isComplete = filledRequired === totalRequired;
 
+  // Section vers laquelle le pro sera ramené automatiquement dès que les
+  // deux champs requis (raison sociale + ville) sont renseignés. Voir
+  // ProDashboard / useEffect [returnAfterInfo, companyInfo].
+  const RETURN_LABELS = { create: 'la création de campagne' };
+  const returnLabel = returnAfterInfo ? (RETURN_LABELS[returnAfterInfo] || 'la page précédente') : null;
+  const requiredFilled =
+    !!info?.raisonSociale?.trim() && !!info?.ville?.trim();
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mes informations" title="Identité de votre société"
         desc="Renseignez ici les informations de votre entreprise. Elles permettent à BUUPP de vérifier votre activité et apparaissent sur vos factures. Toute modification est immédiatement prise en compte."/>
+
+      {returnAfterInfo && (
+        <div className="alert-block" style={{
+          padding: 16, borderRadius: 12,
+          background: requiredFilled
+            ? 'color-mix(in oklab, var(--good) 10%, var(--paper))'
+            : 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
+          border: '1.5px solid ' + (requiredFilled
+            ? 'color-mix(in oklab, var(--good) 35%, var(--line))'
+            : 'color-mix(in oklab, var(--accent) 30%, var(--line))'),
+          color: 'var(--ink)',
+          display: 'flex', gap: 14, alignItems: 'flex-start'
+        }}>
+          <div style={{
+            width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+            background: requiredFilled ? 'var(--good)' : 'var(--accent)',
+            color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name={requiredFilled ? 'check' : 'arrow'} size={16} stroke={2.25}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+              {requiredFilled
+                ? `Profil complet — retour à ${returnLabel}…`
+                : `Complétez votre profil pour reprendre ${returnLabel}`}
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+              {requiredFilled
+                ? 'Vous serez automatiquement ramené à votre étape précédente dans un instant.'
+                : "Saisissez votre raison sociale et votre ville. Vous serez ramené automatiquement vers votre étape précédente dès que ces champs sont remplis."}
+            </div>
+          </div>
+          {onCancelReturn && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={onCancelReturn}
+              style={{ alignSelf: 'flex-start' }}
+              title="Rester sur cette page sans redirection automatique"
+            >
+              Rester ici
+            </button>
+          )}
+        </div>
+      )}
 
       {/* SIREN confidentiality banner */}
       <div className="alert-block" style={{
