@@ -18,8 +18,8 @@ const TIERS = [
     n: 1,
     name: "Identification",
     ex: "email, nom, téléphone",
-    range: "0,10 € – 0,50 €",
-    low: 0.1,
+    range: "minimum 0,50 €",
+    low: 0.5,
     high: 0.5,
   },
   {
@@ -963,8 +963,9 @@ function TiersTable() {
                               {t.range}
                             </span>
                             <span style={{ color: "var(--accent)" }}>
-                              {(t.low * 2).toFixed(2).replace(".", ",")} € –{" "}
-                              {(t.high * 2).toFixed(2).replace(".", ",")} €
+                              {t.low === t.high
+                                ? `minimum ${(t.low * 2).toFixed(2).replace(".", ",")} €`
+                                : `${(t.low * 2).toFixed(2).replace(".", ",")} € – ${(t.high * 2).toFixed(2).replace(".", ",")} €`}
                             </span>
                           </span>
                         ) : (

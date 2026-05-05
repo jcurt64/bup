@@ -24,7 +24,7 @@ const TIERS: Tier[] = [
     name: "Données d'Identification",
     icon: "◎",
     color: "#64748B",
-    baseMin: 0.1,
+    baseMin: 0.5,
     baseMax: 0.5,
     verifiedMultiplier: 2,
     categories: [
@@ -459,7 +459,7 @@ export default function BaremePage() {
                         letterSpacing: "-0.02em",
                       }}
                     >
-                      {fmt(minVal)} – {fmt(maxVal)}
+                      {minVal === maxVal ? `min. ${fmt(minVal)}` : `${fmt(minVal)} – ${fmt(maxVal)}`}
                     </div>
                     {verified && (
                       <div
@@ -639,13 +639,17 @@ export default function BaremePage() {
                     </td>
                     <td style={{ color: "var(--ink-2)" }}>{tier.name}</td>
                     <td className="mono tnum" style={{ color: tier.color }}>
-                      {fmt(tier.baseMin)} – {fmt(tier.baseMax)}
+                      {tier.baseMin === tier.baseMax
+                        ? `minimum ${fmt(tier.baseMin)}`
+                        : `${fmt(tier.baseMin)} – ${fmt(tier.baseMax)}`}
                     </td>
                     <td
                       className="mono tnum"
                       style={{ color: "var(--accent)" }}
                     >
-                      {fmt(tier.baseMin * 2)} – {fmt(tier.baseMax * 2)}
+                      {tier.baseMin === tier.baseMax
+                        ? `minimum ${fmt(tier.baseMin * 2)}`
+                        : `${fmt(tier.baseMin * 2)} – ${fmt(tier.baseMax * 2)}`}
                     </td>
                     <td>
                       <span

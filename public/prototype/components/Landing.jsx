@@ -67,7 +67,7 @@ function RotatingHeadlineWord() {
 
 
 const TIERS = [
-  { n: 1, name: 'Identification', ex: 'email, nom, téléphone', range: '0,10 € – 0,50 €', low: 0.10, high: 0.50 },
+  { n: 1, name: 'Identification', ex: 'email, nom, téléphone', range: 'minimum 0,50 €', low: 0.50, high: 0.50 },
   { n: 2, name: 'Localisation', ex: 'adresse, logement', range: '0,50 € – 2,00 €', low: 0.50, high: 2.00 },
   { n: 3, name: 'Style de vie', ex: 'habitudes, famille, véhicule', range: '2,00 € – 5,00 €', low: 2.00, high: 5.00 },
   { n: 4, name: 'Données professionnelles', ex: 'poste, revenus, statut', range: '5,00 € – 8,00 €', low: 5.00, high: 8.00 },
@@ -410,7 +410,9 @@ function TiersTable() {
                             {t.range}
                           </span>
                           <span style={{ color: 'var(--accent)' }}>
-                            {(t.low * 2).toFixed(2).replace('.', ',')} € – {(t.high * 2).toFixed(2).replace('.', ',')} €
+                            {t.low === t.high
+                              ? `minimum ${(t.low * 2).toFixed(2).replace('.', ',')} €`
+                              : `${(t.low * 2).toFixed(2).replace('.', ',')} € – ${(t.high * 2).toFixed(2).replace('.', ',')} €`}
                           </span>
                         </span>
                       ) : t.range}

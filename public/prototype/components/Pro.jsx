@@ -702,7 +702,7 @@ const OBJECTIVES = [
 ];
 
 const TIERS_DATA = [
-  {id:1, name:'Identification',            sub:'Email, nom, téléphone, date de naissance',        min:0.10, max:0.50,  pct:20},
+  {id:1, name:'Identification',            sub:'Email, nom, téléphone, date de naissance',        min:0.50, max:0.50,  pct:20},
   {id:2, name:'Localisation',              sub:'Adresse postale, logement, mobilité',             min:0.50, max:2.00,  pct:40},
   {id:3, name:'Style de vie',              sub:'Habitudes, famille, véhicule, sport',             min:2.00, max:5.00,  pct:58},
   {id:4, name:'Données professionnelles',  sub:'Poste, revenus, statut, secteur',                 min:5.00, max:8.00,  pct:78},
@@ -1138,7 +1138,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [planModalOpen, setPlanModalOpen] = useState(true);
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/plan', { cache: 'no-store' })
+    const load = () => fetch('/api/pro/plan', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(j => {
         if (cancelled || !j) return;
@@ -1146,7 +1146,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         setPlanSpecs(j.specs || null);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    load();
+    // Si l'utilisateur change de formule depuis "Mes informations" pendant
+    // que le wizard est ouvert, on resynchronise pour que les paliers et
+    // le cap de prospects reflètent la nouvelle formule en temps réel.
+    const onPlanChanged = (e) => {
+      const next = e?.detail?.plan;
+      if (next === 'starter' || next === 'pro') setPlan(next);
+      load();
+    };
+    window.addEventListener('pro:plan-changed', onPlanChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pro:plan-changed', onPlanChanged);
+    };
   }, []);
   // Cap et frais lus depuis l'API (`plan_pricing` en base) plutôt que
   // codés en dur ici. Fallback raisonnable si l'API n'a pas (encore)
@@ -1460,7 +1473,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         </div>
       )}
-      {step === 1 && <CampaignDurationBanner/>}
 
       <div className="card" style={{ padding: 32 }}>
 
@@ -1471,7 +1483,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Choisissez un objectif principal, puis affinez avec les sous-types.</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
               {OBJECTIVES.map(o => (
-                <button key={o.id} onClick={() => { setSelectedObj(o.id); setSelectedSubs(new Set()); }}
+                <button key={o.id} onClick={() => {
+                  // Ne ré-initialise les sous-types que si l'objectif change
+                  // réellement — un retour en arrière (clic sur le même
+                  // objectif) ne doit pas vider la saisie déjà effectuée.
+                  if (selectedObj !== o.id) {
+                    setSelectedObj(o.id);
+                    setSelectedSubs(new Set());
+                  }
+                }}
                   style={{ textAlign: 'left', padding: 18, borderRadius: 12, cursor: 'pointer',
                     border: '1px solid ' + (selectedObj === o.id ? 'var(--accent)' : 'var(--line-2)'),
                     background: selectedObj === o.id ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
@@ -1654,7 +1674,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
                   La formule <strong style={{ color: '#B45309' }}>Starter</strong> ne vous autorise qu'à obtenir les informations des
                   <strong style={{ color: 'var(--ink)' }}> paliers 1 à 3</strong>. Pour accéder aux paliers 4 et 5,
-                  passez en formule <strong style={{ color: 'var(--ink)' }}>Pro</strong> depuis vos informations entreprise.
+                  passez en formule{' '}
+                  {onGoInformations ? (
+                    <button
+                      type="button"
+                      onClick={onGoInformations}
+                      style={{
+                        background: 'none', border: 'none', padding: 0, margin: 0,
+                        color: 'var(--ink)', fontWeight: 700, textDecoration: 'underline',
+                        cursor: 'pointer', font: 'inherit',
+                      }}
+                    >Pro</button>
+                  ) : (
+                    <strong style={{ color: 'var(--ink)' }}>Pro</strong>
+                  )} depuis vos informations entreprise.
                 </div>
               </div>
             )}
@@ -1697,7 +1730,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       {allowed ? (
                         <>
-                          <div className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{fmtEur(t.min)} – {fmtEur(t.max)}</div>
+                          <div className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                            {t.min === t.max ? `min. ${fmtEur(t.min)}` : `${fmtEur(t.min)} – ${fmtEur(t.max)}`}
+                          </div>
                           <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>par contact</div>
                         </>
                       ) : (
@@ -3812,6 +3847,9 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
         </div>
       </div>
 
+      {/* Plan switcher */}
+      <PlanSwitcherSection/>
+
       {/* Completeness summary */}
       <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
         <div>
@@ -3943,6 +3981,173 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             setConfirmAllDelete(false);
           }}
           onClose={() => setConfirmAllDelete(false)}/>
+      )}
+    </div>
+  );
+}
+
+function PlanSwitcherSection() {
+  const [plan, setPlan] = React.useState(null);
+  const [specs, setSpecs] = React.useState(null);
+  const [submitting, setSubmitting] = React.useState(null); // 'starter' | 'pro' | null
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/plan', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled || !j) return;
+        setPlan(j.plan || 'starter');
+        setSpecs(j.specs || null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const choose = async (target) => {
+    if (target === plan || submitting) return;
+    setSubmitting(target);
+    setError(null);
+    try {
+      const r = await fetch('/api/pro/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plan: target }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.message || j?.error || 'Erreur');
+      }
+      setPlan(target);
+      // Notifie le wizard ouvert (s'il y en a un) pour qu'il re-synchronise
+      // son plan local sans recharger la page.
+      try { window.dispatchEvent(new CustomEvent('pro:plan-changed', { detail: { plan: target } })); } catch {}
+    } catch (e) {
+      setError(e.message || 'Impossible de mettre à jour le plan');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const PLANS = [
+    {
+      id: 'starter',
+      label: 'Starter',
+      color: 'var(--ink)',
+      maxProspects: specs?.starter?.maxProspects ?? 50,
+      monthlyEur: specs?.starter?.monthlyEur ?? 19,
+      features: [
+        "Jusqu'à 50 prospects par campagne",
+        '2 campagnes actives en parallèle',
+        'Ciblage par paliers 1 à 3',
+      ],
+    },
+    {
+      id: 'pro',
+      label: 'Pro',
+      color: 'var(--accent)',
+      badge: 'Recommandé',
+      maxProspects: specs?.pro?.maxProspects ?? 500,
+      monthlyEur: specs?.pro?.monthlyEur ?? 89,
+      features: [
+        "Jusqu'à 500 prospects par campagne",
+        'Campagnes actives illimitées',
+        'Tous les paliers 1 à 5',
+        'Accès anticipé aux nouvelles fonctionnalités',
+      ],
+    },
+  ];
+
+  return (
+    <div className="card" style={{ padding: 24 }}>
+      <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 16, gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>Formule d'abonnement</div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>
+            La formule détermine le nombre de prospects par campagne, le nombre de campagnes actives en parallèle
+            et les paliers de données accessibles dans le wizard de création.
+          </div>
+        </div>
+        {plan && (
+          <span className="chip" style={{
+            alignSelf: 'flex-start',
+            background: plan === 'pro' ? 'color-mix(in oklab, var(--accent) 14%, var(--paper))' : 'var(--ivory-2)',
+            color: plan === 'pro' ? 'var(--accent)' : 'var(--ink-2)',
+            border: '1px solid ' + (plan === 'pro' ? 'color-mix(in oklab, var(--accent) 30%, var(--line))' : 'var(--line-2)'),
+          }}>
+            Formule actuelle : {plan === 'pro' ? 'Pro' : 'Starter'}
+          </span>
+        )}
+      </div>
+
+      <div className="plan-switcher-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+        {PLANS.map((p) => {
+          const isCurrent = plan === p.id;
+          const isLoading = submitting === p.id;
+          return (
+            <div key={p.id} style={{
+              position: 'relative',
+              padding: 18, borderRadius: 14,
+              border: '1.5px solid ' + (isCurrent ? p.color : 'var(--line-2)'),
+              background: isCurrent ? `color-mix(in oklab, ${p.color} 5%, var(--paper))` : 'var(--paper)',
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}>
+              {p.badge && (
+                <div style={{
+                  position: 'absolute', top: -10, right: 12,
+                  padding: '3px 10px', borderRadius: 999,
+                  background: p.color, color: 'white',
+                  fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
+                }}>{p.badge}</div>
+              )}
+              <div className="row between" style={{ alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <div className="serif" style={{ fontSize: 22, color: p.color }}>{p.label}</div>
+                <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+                  <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
+                  <span className="muted"> / campagne</span>
+                </div>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {p.features.map((f, i) => (
+                  <li key={i} className="row" style={{ gap: 8, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
+                    <span style={{ color: p.color, flexShrink: 0, marginTop: 2 }}>
+                      <Icon name="check" size={13} stroke={2.5}/>
+                    </span>
+                    <span style={{ color: 'var(--ink-2)' }}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="btn"
+                onClick={() => choose(p.id)}
+                disabled={isCurrent || !!submitting}
+                style={{
+                  marginTop: 4,
+                  background: isCurrent ? 'var(--ivory-2)' : (p.id === 'pro' ? p.color : 'var(--ink)'),
+                  color: isCurrent ? 'var(--ink-3)' : 'var(--paper)',
+                  border: '1.5px solid ' + (isCurrent ? 'var(--line-2)' : (p.id === 'pro' ? p.color : 'var(--ink)')),
+                  cursor: isCurrent ? 'default' : 'pointer',
+                  opacity: submitting && !isLoading ? 0.5 : 1,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+                aria-pressed={isCurrent}
+              >
+                {isLoading ? 'Mise à jour…' : isCurrent ? '✓ Formule actuelle' : `Passer en ${p.label}`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div role="alert" style={{
+          marginTop: 14, padding: '10px 14px', borderRadius: 10,
+          background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+          fontSize: 13,
+        }}>
+          {error}
+        </div>
       )}
     </div>
   );
