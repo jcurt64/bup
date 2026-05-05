@@ -1940,7 +1940,14 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
   const canAccept = isHistory
     ? !!r.campaignOpen
     : !alreadyAccepted && !alreadyRefused;
-  const canRefuse = !isHistory && !alreadyAccepted && !alreadyRefused;
+  // Refus possible :
+  //   - pending (carte) tant que la décision n'est pas prise
+  //   - historique déjà acceptée (accepted/settled) si la campagne est
+  //     encore active — refund_relation_tx remboursera le pro et annulera
+  //     la transaction prospect (escrow pending OU credit completed).
+  const canRefuse =
+    (!isHistory && !alreadyAccepted && !alreadyRefused) ||
+    (isHistory && alreadyAccepted && !!r.campaignActive);
   return (
     <ModalShell title="Détails de l'offre" onClose={onClose} width={520}>
       <div className="col gap-4">
@@ -2064,18 +2071,61 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-          {canRefuse && (
+        {/* Actions
+            Layout desktop (flex-end) :
+              - pending           : [Refuser]  [Accepter]
+              - history+canAccept : [Fermer]   [Accepter la campagne]
+              - history+accepted  : [Refuser ……………………………… Fermer]
+                                    (Refuser ancré à gauche via marginRight:auto)
+              - history+closed    : [Fermer]
+            L'ordre JSX place toujours le CTA principal en dernier — sur
+            mobile (≤600px, .modal-actions = column-reverse + width 100%
+            via styles.css), c'est lui qui remonte en haut, accessible
+            au pouce.
+        */}
+        <div className="row gap-2 modal-actions" style={{
+          justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center', rowGap: 8,
+        }}>
+          {/* === Pending (carte demande en attente) ============================== */}
+          {!isHistory && canRefuse && (
             <button onClick={onRefuse} className="btn btn-ghost btn-sm">Refuser</button>
           )}
-          {canAccept && (
+          {!isHistory && canAccept && (
             <button onClick={onAccept} className="btn btn-primary btn-sm">
-              <Icon name="check" size={12} stroke={2.25}/>{' '}
-              {isHistory ? 'Accepter la campagne' : 'Accepter'}
+              <Icon name="check" size={12} stroke={2.25}/> Accepter
             </button>
           )}
-          {!canAccept && !canRefuse && (
+          {!isHistory && !canAccept && !canRefuse && (
+            <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
+          )}
+
+          {/* === Historique : déjà acceptée + campagne encore active ============== */}
+          {isHistory && alreadyAccepted && canRefuse && (
+            <button
+              onClick={onRefuse}
+              className="btn btn-ghost btn-sm modal-action-left"
+              style={{ marginRight: 'auto', color: 'var(--danger)' }}
+              title="Annuler votre acceptation et rembourser le professionnel"
+            >
+              Refuser
+            </button>
+          )}
+          {isHistory && alreadyAccepted && (
+            <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
+          )}
+
+          {/* === Historique : pas encore acceptée, campagne ouverte ============== */}
+          {isHistory && !alreadyAccepted && canAccept && (
+            <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
+          )}
+          {isHistory && !alreadyAccepted && canAccept && (
+            <button onClick={onAccept} className="btn btn-primary btn-sm">
+              <Icon name="check" size={12} stroke={2.25}/> Accepter la campagne
+            </button>
+          )}
+
+          {/* === Historique : campagne clôturée, pas d'action possible =========== */}
+          {isHistory && !alreadyAccepted && !canAccept && (
             <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
           )}
         </div>

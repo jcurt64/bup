@@ -79,7 +79,7 @@ export async function POST(req: Request, ctx: RouteContext) {
       const { error } = await admin.rpc("accept_relation_tx", { p_relation_id: id });
       if (error) return mapRpcError(error);
     } else if (action === "refuse") {
-      if (rel.status === "accepted") {
+      if (rel.status === "accepted" || rel.status === "settled") {
         const { error } = await admin.rpc("refund_relation_tx", {
           p_relation_id: id,
           p_new_status: "refused",
@@ -107,7 +107,7 @@ export async function POST(req: Request, ctx: RouteContext) {
       }
     } else {
       // undo → ramène à pending
-      if (rel.status === "accepted") {
+      if (rel.status === "accepted" || rel.status === "settled") {
         const { error } = await admin.rpc("refund_relation_tx", {
           p_relation_id: id,
           p_new_status: "pending",

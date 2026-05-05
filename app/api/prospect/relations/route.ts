@@ -154,12 +154,18 @@ export async function GET() {
       const campEnds = r.campaigns?.ends_at
         ? new Date(r.campaigns.ends_at).getTime()
         : null;
-      // Re-acceptation possible si la campagne est encore active ET dans sa
-      // fenêtre de diffusion ET la relation n'est pas déjà acceptée/settled
-      // (l'argent a déjà été engagé dans ces deux derniers cas).
-      const campaignOpen =
+      // `campaignActive` : la campagne tourne toujours (status='active' &&
+      // ends_at > now). Sert au front à savoir si on peut encore proposer
+      // au prospect de refuser une relation déjà acceptée/settled (refund
+      // pro + cancel de la transaction prospect).
+      const campaignActive =
         r.campaigns?.status === "active" &&
-        (campEnds == null || campEnds > now) &&
+        (campEnds == null || campEnds > now);
+      // `campaignOpen` : campagne active ET la relation n'est pas déjà
+      // acceptée/settled — utilisé pour l'acceptation rétroactive depuis
+      // l'historique. Une relation accepted/settled ne se "ré-accepte" pas.
+      const campaignOpen =
+        campaignActive &&
         r.status !== "accepted" &&
         r.status !== "settled";
       return {
@@ -185,6 +191,7 @@ export async function GET() {
         gain,
         campaignStatus: r.campaigns?.status ?? null,
         campaignOpen,
+        campaignActive,
       };
     });
 
