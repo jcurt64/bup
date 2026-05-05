@@ -585,7 +585,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   align-items: center;
   gap: 14px;
   flex-wrap: nowrap;
-  padding: 10px 20px;
+  padding: 18px 20px;
   max-width: 1280px;
   margin: 0 auto;
   /* Hauteur unifiée pour tous les enfants — chaque pill (badge,
@@ -768,7 +768,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 
 @media (max-width: 760px) {
-  .flash-deal-row { gap: 8px; padding: 8px 12px; --flash-pill-h: 28px; }
+  .flash-deal-row { gap: 8px; padding: 14px 12px; --flash-pill-h: 28px; }
   .flash-deal-badge { font-size: 11px; padding: 0 10px; }
   .flash-deal-item  { font-size: 12.5px; padding: 0 14px; gap: 8px; }
   .flash-deal-cta   { padding: 0 11px; font-size: 11px; }
