@@ -799,67 +799,57 @@ function FlashDeal() {
             setOpen(true);
           }
         }}
-        style={{
-          background: "var(--paper)",
-          borderBottom: "1px solid var(--line)",
-          cursor: "pointer",
-          userSelect: "none",
-          position: "relative",
-          zIndex: 5,
-          transition: "background .12s",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background =
-            "color-mix(in oklab, var(--accent) 4%, var(--paper))";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "var(--paper)";
-        }}
+        className="flash-deal-banner"
       >
         <div
-          className="container row between center wrap flash-deal-row"
-          style={{ padding: "12px 20px", gap: 12 }}
+          className="container row center"
+          style={{ padding: "10px 20px", gap: 14, flexWrap: "nowrap" }}
         >
-          <div
-            className="row center gap-3 wrap"
-            style={{ flex: "1 1 280px" }}
-          >
-            <span
-              className="badge"
-              style={{
-                background: "var(--ink)",
-                color: "var(--paper)",
-                fontSize: 15,
-                borderColor: "var(--ink)",
-              }}
-            >
-              <Icon name="bolt" size={14} /> Flash Deal
-            </span>
-            <span style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-              Gains <em>{multStr}</em>
-              {deal.proName ? <> — <strong>{deal.proName}</strong></> : null}
-              {deal.proSector ? (
-                <span className="muted" style={{ marginLeft: 6 }}>
-                  · {deal.proSector}
-                </span>
-              ) : null}
-            </span>
-            <span
-              className="muted"
-              style={{ fontSize: 12, textDecoration: "underline" }}
-            >
-              Voir le détail →
-            </span>
+          <span className="flash-deal-badge">
+            <Icon name="bolt" size={13} /> Flash Deal
+          </span>
+          <div className="flash-deal-marquee" aria-hidden="true">
+            <div className="flash-deal-marquee-track">
+              {/* On répète le contenu deux fois pour que la boucle paraisse continue */}
+              {[0, 1].map((i) => (
+                <div className="flash-deal-marquee-item" key={i}>
+                  <span className="mult-pill">Gains {multStr}</span>
+                  {deal.proName ? (
+                    <span className="pro-name">{deal.proName}</span>
+                  ) : null}
+                  {deal.proSector ? (
+                    <>
+                      <span className="sep">·</span>
+                      <span>{deal.proSector}</span>
+                    </>
+                  ) : null}
+                  {deal.brief ? (
+                    <>
+                      <span className="sep">·</span>
+                      <span style={{ fontStyle: "italic" }}>« {deal.brief} »</span>
+                    </>
+                  ) : null}
+                  <span className="sep">·</span>
+                  <span style={{ color: "var(--ink-3)" }}>
+                    Récompense{" "}
+                    <strong style={{ color: "var(--ink)" }}>
+                      {(Number(deal.costPerContactCents ?? 0) / 100)
+                        .toFixed(2)
+                        .replace(".", ",")}{" "}
+                      €
+                    </strong>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div
-            className="row center gap-2 mono tnum"
-            style={{ fontSize: 13, color: "var(--ink-3)" }}
-          >
+          <span className="flash-deal-timer" aria-label="Temps restant">
+            <Icon name="clock" size={12} />
             <span>{h}</span>:<span>{m}</span>:<span>{s}</span>
-            <span className="muted hide-sm" style={{ marginLeft: 6 }}>
-              restantes
-            </span>
-          </div>
+          </span>
+          <span className="flash-deal-cta">
+            Voir le détail <Icon name="arrow" size={12} />
+          </span>
         </div>
       </section>
       {open && (
@@ -928,6 +918,46 @@ function FlashDealModal({
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j?.error || "Erreur");
+      }
+      await onAfterDecision();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  // Reprend la main sur une relation refusée : undo (refused → pending),
+  // puis accept (pending → accepted). Utilisé tant que la campagne est
+  // toujours active.
+  const acceptAfterRefused = async () => {
+    if (!deal.relationId) return;
+    setSubmitting("accept");
+    setError(null);
+    try {
+      const undo = await fetch(
+        `/api/prospect/relations/${deal.relationId}/decision`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "undo" }),
+        },
+      );
+      if (!undo.ok) {
+        const j = await undo.json().catch(() => ({}));
+        throw new Error(j?.error || "Impossible de reprendre la décision.");
+      }
+      const acc = await fetch(
+        `/api/prospect/relations/${deal.relationId}/decision`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "accept" }),
+        },
+      );
+      if (!acc.ok) {
+        const j = await acc.json().catch(() => ({}));
+        throw new Error(j?.error || "Impossible d'accepter.");
       }
       await onAfterDecision();
     } catch (e) {
@@ -1258,7 +1288,65 @@ function FlashDealModal({
           </div>
         )}
 
-        {mode.startsWith("already_") && (
+        {mode === "already_refused" && (
+          <>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "var(--ivory-2)",
+                border: "1px solid var(--line-2)",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                lineHeight: 1.55,
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ marginBottom: 4 }}>Vous avez refusé cette sollicitation.</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                La campagne est encore active : vous pouvez changer d&apos;avis et accepter tant qu&apos;elle n&apos;est pas clôturée.
+              </div>
+            </div>
+            <button
+              onClick={acceptAfterRefused}
+              disabled={!!submitting}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--ink)",
+                color: "var(--paper)",
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting === "accept" ? (
+                "Acceptation en cours…"
+              ) : (
+                <>
+                  Accepter finalement <Icon name="check" size={14} />
+                </>
+              )}
+            </button>
+            {error && (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "#FEF2F2",
+                  border: "1.5px solid #FECACA",
+                  color: "#991B1B",
+                  fontSize: 13,
+                }}
+              >
+                {error}
+              </div>
+            )}
+          </>
+        )}
+
+        {mode.startsWith("already_") && mode !== "already_refused" && (
           <div
             style={{
               padding: "12px 14px",
@@ -1271,7 +1359,6 @@ function FlashDealModal({
             }}
           >
             {mode === "already_accepted" && "✓ Vous avez déjà accepté cette sollicitation."}
-            {mode === "already_refused" && "Vous avez refusé cette sollicitation."}
             {mode === "already_expired" && "Cette sollicitation a expiré."}
             {mode === "already_settled" && "✓ Sollicitation acceptée — gains crédités."}
           </div>
