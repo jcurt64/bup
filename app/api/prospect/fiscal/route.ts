@@ -20,6 +20,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -53,6 +54,11 @@ export async function GET() {
   });
 
   const admin = createSupabaseAdminClient();
+
+  // Lazy settle : convertit les escrow pending en credit completed avant
+  // de calculer les cumuls — sinon le récap fiscal sous-estime l'année
+  // pour des relations qui devraient déjà compter dans le total.
+  await settleRipeRelationsAndNotify(admin);
 
   const now = new Date();
   const currentYear = now.getUTCFullYear();

@@ -20,6 +20,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -94,6 +95,11 @@ export async function GET() {
   });
 
   const admin = createSupabaseAdminClient();
+
+  // Lazy settle : convertit les escrow pending en credit completed avant
+  // de lire la table — sinon les mouvements affichent encore "En séquestre"
+  // pour des relations qui devraient déjà être créditées.
+  await settleRipeRelationsAndNotify(admin);
 
   const { data, error } = await admin
     .from("transactions")

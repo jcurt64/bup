@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,11 @@ export async function GET() {
 
   const prospectId = await getProspectId(userId);
   const admin = createSupabaseAdminClient();
+
+  // Lazy settle : matérialise les passages séquestre → disponible avant de
+  // calculer les agrégats. Évite que la carte "Disponible" soit en retard
+  // sur la réalité tant qu'aucune autre route n'a déclenché le settle.
+  await settleRipeRelationsAndNotify(admin);
 
   const monthStart = startOfMonthIso();
 

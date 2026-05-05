@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,11 @@ export async function GET() {
   });
 
   const admin = createSupabaseAdminClient();
+
+  // Lazy settle : matérialise les passages accepted → settled avant de
+  // lire la table, pour que l'historique reflète immédiatement le statut
+  // "Crédité" des relations dont la campagne a été lancée il y a > 3 min.
+  await settleRipeRelationsAndNotify(admin);
 
   const { data, error } = await admin
     .from("relations")

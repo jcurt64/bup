@@ -661,6 +661,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      settle_ripe_relations: {
+        Args: never
+        Returns: {
+          relation_id: string
+          campaign_id: string
+          prospect_id: string
+          prospect_email: string | null
+          prospect_prenom: string | null
+          pro_name: string | null
+          reward_cents: number
+        }[]
+      }
       waitlist_stats: {
         Args: never
         Returns: {
