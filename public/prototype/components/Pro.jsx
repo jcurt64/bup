@@ -146,7 +146,10 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 
 function ProHeader({ companyInfo, onCreate, onRecharge }) {
   // Reflète en direct la raison sociale saisie dans "Mes informations".
-  const raison = (companyInfo?.raisonSociale || '').trim() || 'Atelier Mercier';
+  // Pas de fallback figé : tant que l'hydratation /api/pro/info n'est pas
+  // arrivée, on affiche '…' (cohérent avec les autres placeholders).
+  const raison = (companyInfo?.raisonSociale || '').trim() || '…';
+  const secteur = (companyInfo?.secteur || '').trim();
 
   const [wallet, setWallet] = useState(null);
   useEffect(() => {
@@ -215,7 +218,7 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
-          <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison} · Menuiserie sur mesure</div>
+          <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison}{secteur ? ' · ' + secteur : ''}</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
             <em>{balanceText}</em> de crédit actif · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>
