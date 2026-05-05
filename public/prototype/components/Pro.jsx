@@ -1274,18 +1274,21 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [briefError, setBriefError] = useState(false);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
-  const allowedTiers = obj?.allowedTiers || [1,2,3,4,5];
+  const objAllowedTiers = obj?.allowedTiers || [1,2,3,4,5];
+  // Starter limite l'accès aux paliers 1 à 3 (cf. cards de prix). On
+  // intersecte avec ce que la finalité autorise au titre du RGPD.
+  const planTierCap = plan === 'starter' ? 3 : 5;
+  const allowedTiers = objAllowedTiers.filter(t => t <= planTierCap);
 
-  // RGPD : prune tiers when objective changes — only keep allowed ones
+  // RGPD + plan : prune tiers when objective or plan changes — only keep allowed ones
   useEffect(() => {
-    if (!obj) return;
     setSelectedTiers(prev => {
       const next = new Set();
       prev.forEach(tid => { if (allowedTiers.includes(tid)) next.add(tid); });
-      if (next.size === 0) next.add(allowedTiers[0]);
+      if (next.size === 0 && allowedTiers.length > 0) next.add(allowedTiers[0]);
       return next;
     });
-  }, [selectedObj]);
+  }, [selectedObj, plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const baseCpc = (() => {
     if (!selectedTiers.size) return 0;
@@ -1632,16 +1635,41 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               </div>
             </div>
 
+            {plan === 'starter' && (
+              <div style={{
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                padding: '12px 14px', borderRadius: 10,
+                border: '1px solid color-mix(in oklab, #B45309 30%, var(--line))',
+                background: 'color-mix(in oklab, #B45309 6%, var(--paper))',
+                marginBottom: 20,
+              }}>
+                <span style={{
+                  width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'color-mix(in oklab, #B45309 14%, var(--paper))',
+                  color: '#B45309',
+                }}>
+                  <Icon name="lock" size={12}/>
+                </span>
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+                  La formule <strong style={{ color: '#B45309' }}>Starter</strong> ne vous autorise qu'à obtenir les informations des
+                  <strong style={{ color: 'var(--ink)' }}> paliers 1 à 3</strong>. Pour accéder aux paliers 4 et 5,
+                  passez en formule <strong style={{ color: 'var(--ink)' }}>Pro</strong> depuis vos informations entreprise.
+                </div>
+              </div>
+            )}
+
             {/* Tiers grid */}
             <div className="col gap-2">
               {TIERS_DATA.map(t => {
                 const allowed = allowedTiers.includes(t.id);
+                const blockedByPlan = !allowed && plan === 'starter' && t.id > 3 && objAllowedTiers.includes(t.id);
                 const checked = selectedTiers.has(t.id) && allowed;
                 return (
                   <button key={t.id}
                     onClick={() => allowed && toggleTier(t.id)}
                     disabled={!allowed}
-                    title={allowed ? '' : 'Palier non disponible pour cette finalité (RGPD — minimisation)'}
+                    title={allowed ? '' : (blockedByPlan ? 'Palier réservé à la formule Pro' : 'Palier non disponible pour cette finalité (RGPD — minimisation)')}
                     className="row center wizard-tier-row" style={{ gap: 16, padding: 16, borderRadius: 12, textAlign: 'left',
                       border: '1px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
                       background: checked ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))'
@@ -1673,8 +1701,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                           <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>par contact</div>
                         </>
                       ) : (
-                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '.08em' }}>
-                          🔒 Non autorisé
+                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: blockedByPlan ? '#B45309' : 'var(--ink-4)', letterSpacing: '.08em' }}>
+                          🔒 {blockedByPlan ? 'Plan Pro' : 'Non autorisé'}
                         </span>
                       )}
                     </div>

@@ -134,6 +134,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // Le plan Starter limite l'accès aux paliers 1 à 3 (cf. cards de prix
+  // homepage / modal). Le plan Pro accède à tous les paliers (1 à 5).
+  const planTierCap = pro.plan === "starter" ? 3 : 5;
+  if (body.requiredTiers.some((t) => Number(t) > planTierCap)) {
+    return NextResponse.json(
+      { error: "tiers_above_plan_cap", planTierCap, plan: pro.plan },
+      { status: 403 },
+    );
+  }
+
   const campaignType = objectiveToCampaignType(body.objectiveId);
   const finalChannels = [...ALLOWED_CHANNELS];
   const durationKey = typeof body.durationKey === "string" && body.durationKey in DURATION_MULTIPLIERS
