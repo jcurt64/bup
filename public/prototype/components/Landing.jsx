@@ -486,16 +486,16 @@ function FlashDealModal({ deal, remainingHms, go, onClose, onAfterDecision }) {
           <span>Plus que <strong className="mono tnum">{remainingHms}</strong> pour décider.</span>
         </div>
 
-        {(deal.motif || deal.brief) && (
+        {deal.brief && (
           <div style={{
             padding: '12px 14px', borderRadius: 10,
             background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
             marginBottom: 14, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)',
           }}>
-            {deal.motif && (
-              <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{deal.motif}</div>
-            )}
-            {deal.brief && <div>« {deal.brief} »</div>}
+            <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.12em', marginBottom: 4 }}>
+              Le mot du professionnel
+            </div>
+            <div>« {deal.brief} »</div>
           </div>
         )}
 

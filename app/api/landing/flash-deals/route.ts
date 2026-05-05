@@ -27,7 +27,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("campaigns")
     .select(
-      `id, name, ends_at, brief, motif, cost_per_contact_cents, targeting,
+      `id, name, ends_at, brief, cost_per_contact_cents, targeting,
        pro_accounts ( raison_sociale, secteur )`,
     )
     .eq("status", "active")
@@ -45,7 +45,6 @@ export async function GET() {
     name: string;
     ends_at: string;
     brief: string | null;
-    motif: string | null;
     cost_per_contact_cents: number;
     targeting: {
       durationKey?: string;
@@ -137,7 +136,6 @@ export async function GET() {
       name: r.name,
       endsAt: r.ends_at,
       brief: r.brief,
-      motif: r.motif,
       multiplier,
       costPerContactCents: Number(r.cost_per_contact_cents ?? 0),
       requiredTiers,
