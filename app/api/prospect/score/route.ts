@@ -21,7 +21,10 @@
  *      la dernière modification utilisateur.
  *
  *   3. Taux d'acceptation des sollicitations (0–100 %) :
- *        - count(relations.status = accepted) / count(relations totales) × 100
+ *        - count(relations.status ∈ {accepted, settled}) / count(relations totales) × 100
+ *        - On compte `settled` comme une acceptation : c'est une relation
+ *          que le prospect a acceptée et dont le délai de validation est
+ *          déjà passé (les fonds ont été crédités).
  *        - 0 sollicitation reçue → 0 % (neutre, pas pénalisant tant que
  *          le score est dominé par les deux autres axes).
  *
@@ -118,7 +121,7 @@ export async function GET() {
         .from("relations")
         .select("id", { count: "exact", head: true })
         .eq("prospect_id", prospectId)
-        .eq("status", "accepted"),
+        .in("status", ["accepted", "settled"]),
     ]);
 
   const tierRows: Record<TierKey, Record<string, unknown> | null> = {

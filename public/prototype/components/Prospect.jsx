@@ -143,6 +143,15 @@ function ProspectProvider({ children }) {
   // États optimistes locaux pour répondre instantanément.
   const [optimistic, setOptimistic] = useState({}); // id → 'accepted' | 'refused' | 'pending'
 
+  // Toute mutation de décision (accept/refuse/undo) modifie le ratio
+  // accepté/total → impacte BUUPP Score, taux d'acceptation, wallet
+  // (séquestre, lifetime). Pour synchroniser les autres consommateurs
+  // du dashboard (header, BUUPP Score, Portefeuille), on réémet le bus
+  // `prospect:profile-changed` qui invalide les caches /api/prospect/*.
+  const dispatchProfileChanged = () => {
+    try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch {}
+  };
+
   const acceptRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'accepted' }));
     const ok = await postDecision(id, 'accept');
@@ -151,6 +160,7 @@ function ProspectProvider({ children }) {
     // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
     // écraser un optimistic en cours sur une autre card (clic rapide).
     setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    if (ok) dispatchProfileChanged();
   };
   const refuseRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'refused' }));
@@ -160,6 +170,7 @@ function ProspectProvider({ children }) {
     // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
     // écraser un optimistic en cours sur une autre card (clic rapide).
     setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    if (ok) dispatchProfileChanged();
   };
   const undoAcceptRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'pending' }));
@@ -169,6 +180,7 @@ function ProspectProvider({ children }) {
     // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
     // écraser un optimistic en cours sur une autre card (clic rapide).
     setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    if (ok) dispatchProfileChanged();
   };
   const undoRefuseRelation = undoAcceptRelation;
 
