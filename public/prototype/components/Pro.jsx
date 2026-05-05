@@ -2735,47 +2735,150 @@ function Facturation() {
 
 function CampaignDetail({ camp, onBack }) {
   const [tab, setTab] = useState('overview');
+  // null = en cours de chargement, objet = data fetchée, string = erreur.
+  const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+
+  // Camp est l'objet de la liste (cf. Campagnes → onDetail(c)). On l'utilise
+  // pour des fallbacks d'affichage tant que le détail complet n'a pas répondu.
+  const campId = camp?.id || null;
+
+  // Fetch du détail (campaign + funnel + contacts + activity) à l'arrivée
+  // sur la page et à chaque changement d'id de campagne.
+  useEffect(() => {
+    if (!campId) return;
+    let cancelled = false;
+    setData(null);
+    setLoadError(null);
+    fetch(`/api/pro/campaigns/${campId}`, { cache: 'no-store' })
+      .then(async r => {
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j?.error || ('HTTP ' + r.status));
+        }
+        return r.json();
+      })
+      .then(j => { if (!cancelled) setData(j); })
+      .catch(e => { if (!cancelled) setLoadError(e.message || 'load_failed'); });
+    return () => { cancelled = true; };
+  }, [campId]);
+
   // Remonte en haut à chaque changement d'onglet pour que l'utilisateur
   // n'atterrisse pas en bas du nouvel onglet après son clic.
   useEffect(() => {
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     document.querySelectorAll('main, .page').forEach(el => { el.scrollTop = 0; });
   }, [tab]);
-  // camp = [name, status, budget, spent, contacts, objective, date, avgCost]
-  const [name, status, budget, spent, contacts, objective, date, avgCost] = camp;
-  const statusLabel = status === 'active' ? 'Active' : status === 'paused' ? 'En pause' : 'Terminée';
-  const statusChip = status === 'active' ? 'chip-good' : status === 'paused' ? 'chip-warn' : '';
 
-  const dailyData = [2, 4, 3, 6, 5, 7, 9, 8, 11, 9, 12, 10, 13, 14];
-  const maxDaily = Math.max(...dailyData);
+  // Vue erreur — non-fatal pour la nav (on garde le bouton retour visible).
+  if (loadError) {
+    return (
+      <div className="col gap-6">
+        <button onClick={onBack} className="btn btn-ghost btn-sm" style={{ marginBottom: 14 }}>
+          <Icon name="arrowLeft" size={12}/> Toutes les campagnes
+        </button>
+        <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 14, color: 'var(--danger)', marginBottom: 6 }}>
+            Impossible de charger les détails de cette campagne.
+          </div>
+          <div className="muted mono" style={{ fontSize: 11 }}>{loadError}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Skeleton pendant le fetch — utilise les valeurs du résumé pour donner
+  // au pro une indication immédiate plutôt qu'un écran totalement vide.
+  if (!data) {
+    return (
+      <div className="col gap-6">
+        <button onClick={onBack} className="btn btn-ghost btn-sm" style={{ marginBottom: 14 }}>
+          <Icon name="arrowLeft" size={12}/> Toutes les campagnes
+        </button>
+        <div>
+          <div className="mono caps muted" style={{ marginBottom: 8 }}>— Campagne</div>
+          <h3 className="serif" style={{ fontSize: 40, letterSpacing: '-0.015em' }}>
+            {camp?.name || '—'}
+          </h3>
+          <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+            Chargement des détails…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
+  const fmt0 = v => Math.round(Number(v ?? 0)).toLocaleString('fr-FR');
+
+  const status = data.status;
+  const statusLabel = status === 'active' ? 'Active'
+    : status === 'paused' ? 'En pause'
+    : status === 'completed' ? 'Terminée'
+    : status === 'canceled' ? 'Annulée'
+    : status === 'draft' ? 'Brouillon'
+    : status;
+  const statusChip = status === 'active' ? 'chip-good'
+    : status === 'paused' ? 'chip-warn'
+    : '';
+
+  const budgetEur = Number(data.budgetEur ?? 0);
+  const spentEur = Number(data.spentEur ?? 0);
+  const remainingEur = Number(data.remainingEur ?? Math.max(0, budgetEur - spentEur));
+  const cpcEur = Number(data.costPerContactEur ?? 0);
+  const avgCostEur = Number(data.avgCostEur ?? cpcEur);
+  const winCount = Number(data.winCount ?? 0);
+  const objectivePlannedContacts = cpcEur > 0 ? Math.round(budgetEur / cpcEur) : 0;
+  const acceptanceRate = data.acceptanceRate;
 
   const funnel = [
-    ['Prospects exposés', 3840, 100],
-    ['Demandes envoyées', 912, 24],
-    ['Acceptées', 218, 6],
-    ['Acceptées (P2+)', 147, 4],
-    ['Rendez-vous pris', 42, 1],
+    ['Prospects matchés (au lancement)', data.funnel?.matched || 0],
+    ['Demandes envoyées',                data.funnel?.sent || 0],
+    ['Acceptées',                        (data.funnel?.accepted || 0) + (data.funnel?.settled || 0)],
+    ['Créditées (séquestre écoulé)',     data.funnel?.settled || 0],
   ];
+  const funnelMax = Math.max(...funnel.map(([, v]) => v), 1);
 
-  const contactsList = [
-    ['Marie Leroy', 742, 'P2 · Certifié', '14 avr. 10:12', 'RDV confirmé', 'good'],
-    ['Antoine Renaud', 688, 'P1 · Vérifié', '14 avr. 09:47', 'Contact accepté', 'good'],
-    ['Solène Pires', 812, 'P2 · Certifié', '13 avr. 17:22', 'RDV confirmé', 'good'],
-    ['Karim Benali', 655, 'P1 · Vérifié', '13 avr. 14:08', 'En attente', ''],
-    ['Julie Caron', 774, 'P2 · Certifié', '13 avr. 11:35', 'Contact accepté', 'good'],
-    ['Théo Martin', 701, 'P1 · Vérifié', '12 avr. 16:44', 'Refusé', 'warn'],
-    ['Léa Dubois', 788, 'P2 · Certifié', '12 avr. 09:21', 'Contact accepté', 'good'],
-  ];
+  // Bucket les événements (kind=accepted|settled) sur les 14 derniers jours
+  // — alimente la barre quotidienne de l'onglet "Vue d'ensemble".
+  const dailyData = (() => {
+    const buckets = new Array(14).fill(0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const a of (data.activity || [])) {
+      if (a.kind !== 'accepted' && a.kind !== 'settled') continue;
+      const d = new Date(a.ts);
+      if (isNaN(d.getTime())) continue;
+      d.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000);
+      if (diffDays >= 0 && diffDays < 14) buckets[13 - diffDays] += 1;
+    }
+    return buckets;
+  })();
+  const maxDaily = Math.max(...dailyData, 1);
 
-  const activity = [
-    ['Il y a 14 min', 'Marie Leroy a confirmé le RDV du 17 avril à 14:30', 'calendar', 'var(--good)'],
-    ['Il y a 1 h 22 min', 'Antoine Renaud a accepté votre mise en relation', 'check', 'var(--good)'],
-    ['Il y a 3 h', 'Budget : 5,20 € consommés — 218 contacts au total', 'wallet', 'var(--accent)'],
-    ['Il y a 6 h', 'Karim Benali — demande envoyée, en attente sous 72 h', 'email', 'var(--ink-4)'],
-    ['Hier, 17:42', 'Solène Pires a réservé un créneau dans votre agenda', 'calendar', 'var(--good)'],
-    ['Hier, 09:12', 'Théo Martin a refusé — motif : hors zone', 'close', 'var(--warn)'],
-    ['14 avril', 'Campagne relancée automatiquement — objectif non atteint', 'refresh', 'var(--ink-4)'],
-  ];
+  // Mapping kind d'activité → (icône, couleur) — on reste sur le set d'icônes
+  // déjà utilisé ailleurs dans le dashboard.
+  const ACTIVITY_KIND = {
+    settled:  { icon: 'wallet',  color: 'var(--good)' },
+    accepted: { icon: 'check',   color: 'var(--good)' },
+    refused:  { icon: 'close',   color: 'var(--warn)' },
+    expired:  { icon: 'clock',   color: 'var(--ink-4)' },
+    pending:  { icon: 'email',   color: 'var(--ink-4)' },
+  };
+  const activityFmt = new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+
+  // Configuration tab — données du targeting renvoyées par l'API.
+  const tg = data.targeting || {};
+  const objectiveValue = data.objectiveLabel || '—';
+  const subTypesValue = (tg.subTypes && tg.subTypes.length) ? tg.subTypes.join(', ') : '—';
+  const tiersValue = (tg.tierLabels && tg.tierLabels.length) ? tg.tierLabels.join(', ') : '—';
+  const keywordsValue = (tg.keywords && tg.keywords.length) ? tg.keywords.join(', ') : '—';
+  const kwModeValue = tg.kwFilter ? 'Filtre exclusif' : 'Signal de priorité';
+  const agesValue = (tg.ages && tg.ages.length) ? tg.ages.join(', ') : 'Tous';
+  const briefValue = data.brief || '—';
 
   return (
     <div className="col gap-6">
@@ -2785,14 +2888,14 @@ function CampaignDetail({ camp, onBack }) {
         </button>
         <div className="row between" style={{ alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
           <div>
-            <div className="mono caps muted" style={{ marginBottom: 8 }}>— Campagne · {objective}</div>
+            <div className="mono caps muted" style={{ marginBottom: 8 }}>— Campagne · {data.objectiveLabel || 'Campagne'}</div>
             <h3 className="serif" style={{ fontSize: 40, letterSpacing: '-0.015em' }}>
-              {name} <span className={'chip ' + statusChip} style={{ fontSize: 12, verticalAlign: 'middle', marginLeft: 10 }}>{statusLabel}</span>
+              {data.name} <span className={'chip ' + statusChip} style={{ fontSize: 12, verticalAlign: 'middle', marginLeft: 10 }}>{statusLabel}</span>
             </h3>
             <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-              Créée le {date} · coût unitaire moyen {avgCost} € ·
-              {' '}<span style={{ color: 'var(--ink)', fontWeight: 500 }}>{status === 'active' ? 'Expire dans 3 j 14 h' : status === 'paused' ? 'Reprise possible · 4 j restants' : 'Terminée le 21 fév.'}</span>
-              {' '}· durée initiale 7 jours
+              Créée le {data.createdAtLabel || '—'}
+              {data.endsAtLabel ? <> · diffusion jusqu'au <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{data.endsAtLabel}</span></> : null}
+              {avgCostEur > 0 ? <> · coût unitaire moyen {fmt2(avgCostEur)} €</> : null}
             </div>
           </div>
           <div className="row gap-2">
@@ -2810,10 +2913,22 @@ function CampaignDetail({ camp, onBack }) {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          ['Budget consommé', spent + ' € / ' + budget + ' €', Math.round(spent / budget * 100) + '% engagé', 'wallet'],
-          ['Contacts obtenus', String(contacts), 'objectif ~' + Math.round(budget / parseFloat(avgCost.replace(',', '.'))), 'users'],
-          ['Taux d\'acceptation', '24%', 'vs 18% marché', 'trend'],
-          ['Coût moyen / contact', avgCost + ' €', '−0,40 € vs estimé', 'bolt'],
+          ['Budget consommé',
+            fmt2(spentEur) + ' € / ' + fmt2(budgetEur) + ' €',
+            (budgetEur > 0 ? Math.round(spentEur / budgetEur * 100) : 0) + '% engagé',
+            'wallet'],
+          ['Contacts obtenus',
+            String(winCount),
+            objectivePlannedContacts > 0 ? `objectif ~${objectivePlannedContacts}` : '—',
+            'users'],
+          ['Taux d\'acceptation',
+            acceptanceRate == null ? '—' : `${acceptanceRate}%`,
+            acceptanceRate == null ? 'pas encore de décision' : `${data.funnel?.refused || 0} refus · ${data.funnel?.expired || 0} expirés`,
+            'trend'],
+          ['Coût moyen / contact',
+            fmt2(avgCostEur) + ' €',
+            cpcEur > 0 ? `prévu ${fmt2(cpcEur)} €` : '—',
+            'bolt'],
         ].map((k, i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="row between center" style={{ marginBottom: 14 }}>
@@ -2849,32 +2964,36 @@ function CampaignDetail({ camp, onBack }) {
           <div>
             <div className="mono caps" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 4 }}>Fenêtre de diffusion</div>
             <div style={{ fontSize: 15, color: 'var(--ink)', letterSpacing: '-0.005em' }}>
-              {status === 'active' ? (
-                <>Campagne active — <strong>expiration dans 3 j 14 h</strong> · diffusion de 7 jours calendaires</>
-              ) : status === 'paused' ? (
-                <>Campagne en pause — reprise possible sous 4 jours avant clôture automatique</>
-              ) : (
-                <>Campagne clôturée le 21 février après 7 jours de diffusion</>
-              )}
+              {status === 'active' && data.endsAtLabel
+                ? <>Campagne active — diffusion jusqu'au <strong>{data.endsAtLabel}</strong></>
+                : status === 'paused'
+                  ? <>Campagne en pause — peut être relancée tant qu'elle n'est pas expirée</>
+                  : status === 'completed'
+                    ? <>Campagne clôturée le {data.endsAtLabel || '—'}</>
+                    : <>Période : du {data.startsAtLabel || '—'} au {data.endsAtLabel || '—'}</>}
             </div>
-            <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
-              Prolongation possible une fois · +7 jours · 10 € HT ajoutés à la prochaine facture.
-            </div>
+            {tg.days != null && (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+                Durée initiale : {tg.days} jour{tg.days > 1 ? 's' : ''}.
+              </div>
+            )}
           </div>
         </div>
         {status === 'active' && (
           <button className="btn btn-primary btn-sm"><Icon name="plus" size={12}/> Prolonger · 10 €</button>
         )}
-        {status === 'done' && (
-          <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-            Prolongation expirée
-          </button>
-        )}
       </div>
 
       {/* Tabs */}
       <div className="row gap-2">
-        {[['overview', 'Vue d\'ensemble'], ['contacts', 'Contacts (' + contacts + ')'], ['config', 'Configuration'], ['activity', 'Activité'], ['billing', 'Facturation']].map(([k, l]) => (          <button key={k} onClick={() => setTab(k)} className="chip" style={{
+        {[
+          ['overview', 'Vue d\'ensemble'],
+          ['contacts', 'Contacts (' + (data.contacts?.length || 0) + ')'],
+          ['config',   'Configuration'],
+          ['activity', 'Activité'],
+          ['billing',  'Facturation'],
+        ].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} className="chip" style={{
             cursor: 'pointer', padding: '8px 16px', fontSize: 13,
             background: tab === k ? 'var(--ink)' : 'var(--paper)',
             color: tab === k ? 'var(--paper)' : 'var(--ink-3)',
@@ -2890,13 +3009,21 @@ function CampaignDetail({ camp, onBack }) {
             <div className="row between" style={{ marginBottom: 20 }}>
               <div>
                 <div className="serif" style={{ fontSize: 22 }}>Progression quotidienne</div>
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Contacts acceptés par jour sur les 14 derniers jours</div>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Acceptations + crédits par jour, sur les 14 derniers jours</div>
               </div>
             </div>
             <div className="row" style={{ alignItems: 'flex-end', gap: 6, height: 160, marginBottom: 12 }}>
               {dailyData.map((v, i) => (
-                <div key={i} style={{ flex: 1, height: (v / maxDaily * 100) + '%', background: 'var(--accent)', borderRadius: 4, position: 'relative', opacity: 0.4 + (i / dailyData.length) * 0.6 }}>
-                  <span style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>{v}</span>
+                <div key={i} style={{
+                  flex: 1,
+                  height: v > 0 ? (v / maxDaily * 100) + '%' : 2,
+                  background: v > 0 ? 'var(--accent)' : 'var(--ivory-2)',
+                  borderRadius: 4, position: 'relative',
+                  opacity: 0.4 + (i / dailyData.length) * 0.6,
+                }}>
+                  {v > 0 && (
+                    <span style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--mono)' }}>{v}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -2908,19 +3035,22 @@ function CampaignDetail({ camp, onBack }) {
           {/* Funnel */}
           <div className="card" style={{ padding: 28 }}>
             <div className="serif" style={{ fontSize: 22, marginBottom: 4 }}>Entonnoir</div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>De l'exposition au rendez-vous</div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>Du matching au crédit</div>
             <div className="col gap-3">
-              {funnel.map(([l, v, pct], i) => (
-                <div key={i}>
-                  <div className="row between" style={{ marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{l}</span>
-                    <span className="mono tnum" style={{ fontSize: 13 }}>{v.toLocaleString('fr-FR')} · <span style={{ color: 'var(--accent)' }}>{pct}%</span></span>
+              {funnel.map(([l, v], i) => {
+                const pct = funnelMax > 0 ? Math.round(v / funnelMax * 100) : 0;
+                return (
+                  <div key={i}>
+                    <div className="row between" style={{ marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>{l}</span>
+                      <span className="mono tnum" style={{ fontSize: 13 }}>{fmt0(v)} · <span style={{ color: 'var(--accent)' }}>{pct}%</span></span>
+                    </div>
+                    <div style={{ height: 8, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: pct + '%', background: 'var(--accent)', borderRadius: 999, opacity: 0.3 + (1 - i / funnel.length) * 0.7 }}/>
+                    </div>
                   </div>
-                  <div style={{ height: 8, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: pct + '%', background: 'var(--accent)', borderRadius: 999, opacity: 0.3 + (1 - i / funnel.length) * 0.7 }}/>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -2928,29 +3058,17 @@ function CampaignDetail({ camp, onBack }) {
           <div className="card" style={{ padding: 28, gridColumn: '1 / -1' }}>
             <div className="row between" style={{ marginBottom: 20 }}>
               <div>
-                <div className="serif" style={{ fontSize: 22 }}>Répartition du budget</div>
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Ventilation des {spent} € consommés par palier et canal</div>
+                <div className="serif" style={{ fontSize: 22 }}>Budget</div>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{fmt2(spentEur)} € engagés sur un budget de {fmt2(budgetEur)} €</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono caps muted" style={{ fontSize: 10 }}>Reste à engager</div>
-                <div className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>{(budget - spent).toFixed(0)} €</div>
+                <div className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>{fmt2(remainingEur)} €</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              {[
-                ['Palier 1 — Identification', 62, 'var(--accent)'],
-                ['Palier 2 — Localisation', 94, 'color-mix(in oklab, var(--accent) 70%, var(--ink))'],
-                ['Palier 3 — Style de vie', 48, 'color-mix(in oklab, var(--accent) 40%, var(--ink))'],
-                ['Vérification certifiée', 14, 'var(--ink-4)'],
-              ].map(([l, v, c], i) => (
-                <div key={i}>
-                  <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{l}</div>
-                  <div className="serif tnum" style={{ fontSize: 24 }}>{v} €</div>
-                  <div style={{ height: 4, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 10, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: (v / spent * 100) + '%', background: c, borderRadius: 999 }}/>
-                  </div>
-                </div>
-              ))}
+            <Progress value={budgetEur > 0 ? spentEur / budgetEur : 0}/>
+            <div className="row between mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 8 }}>
+              <span>0 €</span><span>{fmt2(budgetEur)} €</span>
             </div>
           </div>
         </div>
@@ -2961,32 +3079,39 @@ function CampaignDetail({ camp, onBack }) {
           <div className="row between" style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
             <div>
               <div className="serif" style={{ fontSize: 20 }}>Contacts obtenus</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{contacts} contacts acceptés via cette campagne</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                {(data.contacts?.length || 0)} prospect{(data.contacts?.length || 0) > 1 ? 's' : ''} ayant accepté votre mise en relation
+              </div>
             </div>
             <div className="row gap-2">
               <button className="btn btn-ghost btn-sm"><Icon name="filter" size={12}/> Filtrer</button>
               <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Exporter CSV</button>
             </div>
           </div>
-          <table className="tbl">
-            <thead><tr>
-              <th>Prospect</th><th>Score</th><th>Palier</th><th>Date</th><th>Statut</th><th style={{ textAlign: 'right' }}>Action</th>
-            </tr></thead>
-            <tbody>
-              {contactsList.map((r, i) => (
-                <tr key={i}>
-                  <td><span className="row center gap-3"><Avatar name={r[0]} size={26}/>{r[0]}</span></td>
-                  <td className="mono tnum">{r[1]}</td>
-                  <td><span className="chip" style={{ fontSize: 11 }}>{r[2]}</span></td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{r[3]}</td>
-                  <td><span className={'chip ' + (r[5] === 'good' ? 'chip-good' : r[5] === 'warn' ? 'chip-warn' : '')} style={{ fontSize: 11 }}>{r[4]}</span></td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-ghost btn-sm"><Icon name="email" size={12}/> Contacter</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {(data.contacts?.length || 0) === 0 ? (
+            <div style={{ padding: 28, textAlign: 'center' }}>
+              <div className="muted" style={{ fontSize: 13 }}>
+                Aucun contact obtenu pour le moment via cette campagne.
+              </div>
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead><tr>
+                <th>Prospect</th><th>Score</th><th>Palier</th><th>Date</th><th>Statut</th>
+              </tr></thead>
+              <tbody>
+                {data.contacts.map((c) => (
+                  <tr key={c.id}>
+                    <td><span className="row center gap-3"><Avatar name={c.name} size={26}/>{c.name}</span></td>
+                    <td className="mono tnum">{c.score == null ? '—' : c.score}</td>
+                    <td><span className="chip" style={{ fontSize: 11 }}>{c.tierLabel}</span></td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{activityFmt.format(new Date(c.decidedAt))}</td>
+                    <td><span className={'chip ' + (c.statusChip ? 'chip-' + c.statusChip : '')} style={{ fontSize: 11 }}>{c.statusLabel}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -2995,31 +3120,32 @@ function CampaignDetail({ camp, onBack }) {
           <div className="card" style={{ padding: 28 }}>
             <div className="serif" style={{ fontSize: 20, marginBottom: 18 }}>Objectif & données</div>
             {[
-              ['Objectif principal', objective],
-              ['Sous-types', 'Email marketing, SMS'],
-              ['Paliers de données', 'P1 · Identification, P2 · Localisation'],
-              ['Mots-clés', 'véhicule, immobilier'],
-              ['Mode mot-clé', 'Signal de priorité'],
-            ].map(([l, v], i) => (
-              <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < 4 ? '1px solid var(--line)' : 'none' }}>
-                <span className="muted" style={{ fontSize: 12 }}>{l}</span>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>{v}</span>
+              ['Objectif principal', objectiveValue],
+              ['Sous-types',         subTypesValue],
+              ['Paliers de données', tiersValue],
+              ['Mots-clés',          keywordsValue],
+              ['Mode mot-clé',       (tg.keywords && tg.keywords.length) ? kwModeValue : '—'],
+              ['Brief',              briefValue],
+            ].map(([l, v], i, arr) => (
+              <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', gap: 16 }}>
+                <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>{l}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, textAlign: 'right', maxWidth: '70%' }}>{v}</span>
               </div>
             ))}
           </div>
           <div className="card" style={{ padding: 28 }}>
             <div className="serif" style={{ fontSize: 20, marginBottom: 18 }}>Ciblage & budget</div>
             {[
-              ['Zone géographique', 'Département (rayon 50 km)'],
-              ["Tranches d'âge", '26–35, 36–45'],
-              ['Vérification min.', 'Certifié — Palier 2'],
-              ['Contacts souhaités', '50 contacts'],
-              ['Durée', '30 jours'],
-              ['Mode', 'Mise en relation individuelle'],
-              ['Budget total', budget + ' €'],
-              ['Coût max / contact', '6,00 €'],
-            ].map(([l, v], i) => (
-              <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < 7 ? '1px solid var(--line)' : 'none' }}>
+              ['Zone géographique',   tg.geoLabel || '—'],
+              ["Tranches d'âge",      agesValue],
+              ['Vérification min.',   tg.verifLabel || '—'],
+              ['Contacts souhaités',  String(objectivePlannedContacts || '—')],
+              ['Durée',               tg.days != null ? (tg.days + ' jour' + (tg.days > 1 ? 's' : '')) : '—'],
+              ['Mode',                tg.poolLabel || '—'],
+              ['Budget total',        fmt2(budgetEur) + ' €'],
+              ['Coût max / contact',  fmt2(cpcEur) + ' €'],
+            ].map(([l, v], i, arr) => (
+              <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span className="muted" style={{ fontSize: 12 }}>{l}</span>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>{v}</span>
               </div>
@@ -3031,18 +3157,25 @@ function CampaignDetail({ camp, onBack }) {
       {tab === 'activity' && (
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 4 }}>Flux d'activité</div>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Événements temps réel de votre campagne</div>
-          {activity.map((a, i) => (
-            <div key={i} className="row" style={{ padding: '14px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--line)' : 'none', gap: 16, alignItems: 'flex-start' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--ivory-2)', color: a[3], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon name={a[2]} size={14}/>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>
+            {(data.activity?.length || 0) === 0
+              ? "Aucun événement enregistré pour cette campagne."
+              : `Les ${data.activity.length} derniers événements de votre campagne.`}
+          </div>
+          {(data.activity || []).map((a, i, arr) => {
+            const meta = ACTIVITY_KIND[a.kind] || ACTIVITY_KIND.pending;
+            return (
+              <div key={i} className="row" style={{ padding: '14px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', gap: 16, alignItems: 'flex-start' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--ivory-2)', color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={meta.icon} size={14}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14 }}>{a.label}</div>
+                  <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>{activityFmt.format(new Date(a.ts))}</div>
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14 }}>{a[1]}</div>
-                <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>{a[0]}</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -3057,9 +3190,9 @@ function CampaignDetail({ camp, onBack }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
             {[
-              ['Total débité', spent + ',00 €'],
-              ['Contacts facturés', contacts + ' / ' + Math.round(budget / parseFloat(avgCost.replace(',', '.')))],
-              ['Moyenne / contact', avgCost + ' €'],
+              ['Total débité',        fmt2(spentEur) + ' €'],
+              ['Contacts facturés',   `${winCount} / ${objectivePlannedContacts || '—'}`],
+              ['Moyenne / contact',   fmt2(avgCostEur) + ' €'],
             ].map(([l, v], i) => (
               <div key={i} style={{ padding: 16, background: 'var(--ivory-2)', borderRadius: 10 }}>
                 <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{l}</div>
@@ -3067,28 +3200,28 @@ function CampaignDetail({ camp, onBack }) {
               </div>
             ))}
           </div>
-          <table className="tbl">
-            <thead><tr>
-              <th>Date</th><th>Contact</th><th>Palier</th><th style={{ textAlign: 'right' }}>Montant</th><th>Statut</th>
-            </tr></thead>
-            <tbody>
-              {[
-                ['14 avr. 10:12', 'Marie Leroy', 'P2 · Certifié', '5,80', 'Débité'],
-                ['14 avr. 09:47', 'Antoine Renaud', 'P1 · Vérifié', '3,20', 'Débité'],
-                ['13 avr. 17:22', 'Solène Pires', 'P2 · Certifié', '6,10', 'Débité'],
-                ['13 avr. 11:35', 'Julie Caron', 'P2 · Certifié', '5,90', 'Débité'],
-                ['12 avr. 09:21', 'Léa Dubois', 'P2 · Certifié', '5,40', 'Débité'],
-              ].map((r, i) => (
-                <tr key={i}>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{r[0]}</td>
-                  <td>{r[1]}</td>
-                  <td><span className="chip" style={{ fontSize: 11 }}>{r[2]}</span></td>
-                  <td className="mono tnum" style={{ textAlign: 'right' }}>{r[3]} €</td>
-                  <td><span className="chip chip-good" style={{ fontSize: 11 }}>✓ {r[4]}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {(data.contacts?.length || 0) === 0 ? (
+            <div className="muted" style={{ fontSize: 13, padding: 16, textAlign: 'center' }}>
+              Aucun contact facturé pour le moment.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead><tr>
+                <th>Date</th><th>Contact</th><th>Palier</th><th style={{ textAlign: 'right' }}>Montant</th><th>Statut</th>
+              </tr></thead>
+              <tbody>
+                {data.contacts.map((c) => (
+                  <tr key={c.id}>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{activityFmt.format(new Date(c.decidedAt))}</td>
+                    <td>{c.name}</td>
+                    <td><span className="chip" style={{ fontSize: 11 }}>{c.tierLabel}</span></td>
+                    <td className="mono tnum" style={{ textAlign: 'right' }}>{fmt2(cpcEur)} €</td>
+                    <td><span className={'chip ' + (c.statusChip ? 'chip-' + c.statusChip : '')} style={{ fontSize: 11 }}>{c.statusLabel}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>
