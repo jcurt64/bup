@@ -37,19 +37,25 @@ type Body = {
   ages: string[];
   verifLevel: string;
   contacts: number;
-  days: number;
   startDate: string;
   endDate: string;
+  durationKey?: string;
   brief: string;
   costPerContactCents: number;
   budgetCents: number;
   keywords: string[];
   kwFilter: boolean;
   poolMode: string;
-  channels?: string[];
 };
 
 const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
+
+const DURATION_MULTIPLIERS: Record<string, { mult: number; ms: number }> = {
+  "1h":  { mult: 3,   ms: 3600 * 1000 },
+  "24h": { mult: 2,   ms: 24 * 3600 * 1000 },
+  "48h": { mult: 1.5, ms: 48 * 3600 * 1000 },
+  "7d":  { mult: 1,   ms: 7 * 24 * 3600 * 1000 },
+};
 
 // TEST : durée de validité réduite à 1 minute pour vérifier le flux
 // d'expiration de la relation (response window prospect). Valeur
@@ -129,10 +135,22 @@ export async function POST(req: Request) {
   }
 
   const campaignType = objectiveToCampaignType(body.objectiveId);
-  const channels = Array.isArray(body.channels)
-    ? body.channels.filter((c): c is string => typeof c === "string" && (ALLOWED_CHANNELS as readonly string[]).includes(c))
-    : [];
-  const finalChannels = channels.length > 0 ? channels : [...ALLOWED_CHANNELS];
+  const finalChannels = [...ALLOWED_CHANNELS];
+  const durationKey = typeof body.durationKey === "string" && body.durationKey in DURATION_MULTIPLIERS
+    ? body.durationKey
+    : "7d";
+  const durationMeta = DURATION_MULTIPLIERS[durationKey];
+  // Validation budget: doit couvrir contacts × cpc (et le cpc envoyé par le
+  // front est censé déjà inclure le multiplicateur de durée — on vérifie
+  // que budgetCents == contacts × costPerContactCents avec une tolérance
+  // d'1 centime pour les arrondis).
+  const expectedBudget = body.contacts * body.costPerContactCents;
+  if (Math.abs(body.budgetCents - expectedBudget) > 1) {
+    return NextResponse.json(
+      { error: "budget_mismatch", expectedBudgetCents: expectedBudget, receivedBudgetCents: body.budgetCents },
+      { status: 400 },
+    );
+  }
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: body.subTypes,
@@ -144,7 +162,8 @@ export async function POST(req: Request) {
     keywords: body.keywords,
     kwFilter: body.kwFilter,
     poolMode: body.poolMode,
-    days: body.days,
+    durationKey,
+    durationMultiplier: durationMeta.mult,
     channels: finalChannels,
   };
   const name = (body.name?.trim() || body.brief.trim()).slice(0, 120);

@@ -263,23 +263,46 @@ function Hero({ go }) {
 }
 
 function FlashDeal() {
-  const [left, setLeft] = useState(2 * 3600 - 1); // 1h59m
+  const [deal, setDeal] = useState(null); // null = loading | undefined = none
+  const [now, setNow] = useState(Date.now());
+
   useEffect(() => {
-    const t = setInterval(() => setLeft(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
+    let cancelled = false;
+    const load = () => {
+      fetch('/api/landing/flash-deals', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : { deals: [] })
+        .then(j => {
+          if (cancelled) return;
+          const d = (j.deals || [])[0];
+          setDeal(d || undefined);
+        })
+        .catch(() => { if (!cancelled) setDeal(undefined); });
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => { cancelled = true; clearInterval(t); clearInterval(tick); };
   }, []);
+
+  if (deal === null || deal === undefined) return null; // pas de flash deal actif → on n'affiche rien
+
+  const left = Math.max(0, Math.floor((new Date(deal.endsAt).getTime() - now) / 1000));
+  if (left === 0) return null;
   const h = String(Math.floor(left / 3600)).padStart(2, '0');
   const m = String(Math.floor((left % 3600) / 60)).padStart(2, '0');
   const s = String(left % 60).padStart(2, '0');
+  const multStr = deal.multiplier === 1 ? '×1' : (Number.isInteger(deal.multiplier) ? `×${deal.multiplier}` : `×${String(deal.multiplier).replace('.', ',')}`);
   return (
     <section style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '14px 32px' }} className="row between center">
-        <div className="row center gap-3">
+        <div className="row center gap-3" style={{ flexWrap: 'wrap' }}>
           <span className="badge" style={{ background: 'var(--ink)', color: 'var(--paper)', borderColor: 'var(--ink)' }}>
             <Icon name="bolt" size={12}/> Flash Deal
           </span>
           <span style={{ fontSize: 14 }}>
-            Gains <em>×3</em> sur les paliers 3 à 5 pour toute demande acceptée dans l'heure qui vient.
+            Gains <em>{multStr}</em>
+            {deal.proName ? <> — <strong>{deal.proName}</strong></> : null}
+            {deal.proSector ? <span className="muted" style={{ marginLeft: 6 }}>· {deal.proSector}</span> : null}
           </span>
         </div>
         <div className="row center gap-2 mono tnum" style={{ fontSize: 13, color: 'var(--ink-3)' }}>

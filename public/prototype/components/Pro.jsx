@@ -1111,6 +1111,18 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
   );
 }
 
+// Durées de campagne. Le multiplicateur s'applique au coût par contact
+// (= gains du prospect) : plus la fenêtre est courte, plus le pro paie
+// pour attirer une décision rapide. La durée 1h est une "flash deal"
+// affichée sur la home page avec un compte à rebours.
+const DURATIONS = [
+  { id: '1h',  label: '1 heure',     sub: 'Flash Deal — exposition sur la home page', mult: 3,   ms: 3600 * 1000,                multBadge: '×3'   },
+  { id: '24h', label: '24 heures',   sub: 'Diffusion accélérée',                       mult: 2,   ms: 24 * 3600 * 1000,           multBadge: '×2'   },
+  { id: '48h', label: '48 heures',   sub: 'Diffusion étendue',                         mult: 1.5, ms: 48 * 3600 * 1000,           multBadge: '×1,5' },
+  { id: '7d',  label: '7 jours',     sub: 'Diffusion standard',                        mult: 1,   ms: 7 * 24 * 3600 * 1000,       multBadge: '×1'   },
+];
+const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
+
 function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
@@ -1178,7 +1190,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         selectedSubs: Array.from(selectedSubs),
         selectedTiers: Array.from(selectedTiers),
         geo, ages: Array.from(ages),
-        verif, contacts, days, poolMode,
+        verif, contacts, durationKey, poolMode,
         keywords, kwInput, kwFilter,
         startDate, endDate, brief,
       };
@@ -1205,7 +1217,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
       setAges(new Set(d.ages || ['Tous']));
       setVerif(d.verif ?? 'p0');
       setContacts(Number(d.contacts ?? 10));
-      setDays(Number(d.days ?? 30));
+      setDurationKey(typeof d.durationKey === 'string' ? d.durationKey : '7d');
       setPoolMode(d.poolMode ?? 'standard');
       setKeywords(d.keywords || []);
       setKwInput(d.kwInput || '');
@@ -1244,21 +1256,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [ages, setAges] = useState(new Set(['Tous']));
   const [verif, setVerif] = useState('p0');
   const [contacts, setContacts] = useState(10);
-  const [days, setDays] = useState(30);
+  const [durationKey, setDurationKey] = useState('7d');
   const [poolMode, setPoolMode] = useState('standard');
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
-  // Canaux de contact autorisés pour la campagne (réutilisés dans
-  // l'onglet "Mes contacts" pour activer/griser les boutons d'action).
-  const [channels, setChannels] = useState(new Set(['email', 'phone', 'sms', 'whatsapp', 'facebook', 'linkedin']));
-  const toggleChannel = (k) => setChannels(p => {
-    const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n;
-  });
   // Étape 2 : dates de lancement / fin de campagne
   const [startDate, setStartDate] = useState(isoPlusDays(1));
   const [endDate, setEndDate] = useState(isoPlusDays(8));
-  const datesValid = startDate && endDate && startDate <= endDate;
+  const datesValid = !!startDate && !!durationKey;
   // Étape 7 : brief / description (50 caractères max)
   const [brief, setBrief] = useState('');
   const briefValid = brief.trim().length > 0 && brief.length <= BRIEF_MAX_LENGTH;
@@ -1281,7 +1287,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     });
   }, [selectedObj]);
 
-  const cpc = (() => {
+  const baseCpc = (() => {
     if (!selectedTiers.size) return 0;
     let base = 0;
     selectedTiers.forEach(tid => { const t = TIERS_DATA.find(t => t.id === tid); base += (t.min + t.max) / 2; });
@@ -1293,7 +1299,19 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     const mult = VERIF_LEVELS.find(v => v.id === verif)?.mult || 1;
     return Math.round(base * mult * 100) / 100;
   })();
+  const durationMeta = DURATION_BY_ID[durationKey] || DURATION_BY_ID['7d'];
+  const durationMultiplier = durationMeta.mult;
+  const cpc = Math.round(baseCpc * durationMultiplier * 100) / 100;
   const total = Math.round(cpc * contacts * 100) / 100;
+  // endDate dérivée — startDate + durée. Si startDate est invalide,
+  // fallback sur 7 jours (ne devrait pas arriver, l'input est requis).
+  const computedEndDate = (() => {
+    const t = startDate ? new Date(startDate).getTime() : NaN;
+    if (!isFinite(t)) return endDate;
+    const ms = durationMeta.ms;
+    const d = new Date(t + ms);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const toggleSub = (sid) => setSelectedSubs(p => { const n = new Set(p); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
   const toggleTier = (tid) => setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
@@ -1497,67 +1515,85 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           </div>
         )}
 
-        {/* Étape 2 — Dates de lancement / fin (NOUVEAU) */}
+        {/* Étape 2 — Date de lancement + durée de campagne */}
         {step === 2 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quand votre campagne sera-t-elle diffusée ?</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>
-              Choisissez la date de lancement et la date de fin. Ces deux dates seront affichées
-              aux prospects dans le détail de votre offre.
+              Choisissez la date de lancement et la durée de diffusion. Plus la fenêtre est courte,
+              plus les gains pour les prospects sont multipliés.
             </div>
-            <div className="wizard-dates-grid" style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 22
+
+            <div style={{ marginBottom: 24 }}>
+              <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
+                <Icon name="calendar" size={11}/> Date de lancement
+              </label>
+              <input
+                type="date"
+                className="input"
+                value={startDate}
+                min={todayIso()}
+                onChange={e => setStartDate(e.target.value)}
+                style={{ width: '100%', maxWidth: 320, fontSize: 14, padding: '10px 12px' }}
+              />
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                {startDate ? fmtDateLong(startDate) : 'Sélectionnez une date'}
+              </div>
+            </div>
+
+            <div className="label">Durée de la campagne</div>
+            <div className="wizard-duration-grid" style={{
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 8,
             }}>
-              <div>
-                <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
-                  <Icon name="calendar" size={11}/> Date de lancement
-                </label>
-                <input
-                  type="date"
-                  className="input"
-                  value={startDate}
-                  min={todayIso()}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setStartDate(v);
-                    if (v && endDate && v > endDate) setEndDate(v);
-                  }}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px' }}
-                />
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  {startDate ? fmtDateLong(startDate) : 'Sélectionnez une date'}
-                </div>
-              </div>
-              <div>
-                <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
-                  <Icon name="flag" size={11}/> Date de fin
-                </label>
-                <input
-                  type="date"
-                  className="input"
-                  value={endDate}
-                  min={startDate || todayIso()}
-                  onChange={e => setEndDate(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px' }}
-                />
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  {endDate ? fmtDateLong(endDate) : 'Sélectionnez une date'}
-                </div>
-              </div>
+              {DURATIONS.map((d) => {
+                const sel = durationKey === d.id;
+                const accent = d.id === '1h' ? '#B91C1C' : 'var(--accent)';
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDurationKey(d.id)}
+                    className="col"
+                    style={{
+                      padding: 14, borderRadius: 12, gap: 6, textAlign: 'left',
+                      border: '1.5px solid ' + (sel ? accent : 'var(--line-2)'),
+                      background: sel
+                        ? `color-mix(in oklab, ${accent} 6%, var(--paper))`
+                        : 'var(--paper)',
+                      boxShadow: sel ? `0 0 0 2px color-mix(in oklab, ${accent} 18%, transparent)` : 'none',
+                      cursor: 'pointer',
+                      transition: 'all .12s',
+                      position: 'relative',
+                    }}
+                  >
+                    <div className="row between" style={{ alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{d.label}</span>
+                      <span className="mono" style={{
+                        fontSize: 11, fontWeight: 700,
+                        padding: '2px 8px', borderRadius: 999,
+                        background: `color-mix(in oklab, ${accent} 14%, var(--paper))`,
+                        color: accent,
+                        letterSpacing: '.04em',
+                      }}>
+                        {d.multBadge}
+                      </span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.4 }}>{d.sub}</div>
+                    {d.id === '1h' && (
+                      <div style={{ fontSize: 11, color: '#B91C1C', fontWeight: 500, marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="bolt" size={11}/> Affichée sur la home page avec un compte à rebours.
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            {!datesValid && (
-              <div className="alert-block" style={{
-                padding: '12px 14px', borderRadius: 10,
-                background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
-                display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 13,
-              }}>
-                <Icon name="alert" size={14}/>
-                <span>La date de fin doit être postérieure ou égale à la date de lancement.</span>
-              </div>
-            )}
+
             <div className="muted" style={{ fontSize: 12, marginTop: 16, lineHeight: 1.55 }}>
-              Une campagne reste active pendant 7 jours par défaut. Vous pouvez prolonger une seule
-              fois de 7 jours supplémentaires (10 € HT) depuis la fiche campagne avant expiration.
+              Le multiplicateur s'applique au coût par contact (= gains du prospect). Plus la
+              fenêtre est courte, plus l'incitation à répondre rapidement est forte.
+              {' '}Date de fin estimée :{' '}
+              <strong style={{ color: 'var(--ink)' }}>{computedEndDate ? fmtDateLong(computedEndDate) : '—'}</strong>.
             </div>
           </div>
         )}
@@ -1720,55 +1756,25 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 );
               })}
             </div>
-
-            <div className="label" style={{ marginTop: 28 }}>Canaux de contact autorisés</div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-              Sélectionnez les canaux que vous pourrez utiliser pour contacter les prospects ayant accepté.
-              Au moins un canal doit être activé.
-            </div>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-              {[
-                { id: 'email',     label: 'Email',     icon: 'email'    },
-                { id: 'phone',     label: 'Téléphone', icon: 'phone'    },
-                { id: 'sms',       label: 'SMS',       icon: 'sms'      },
-                { id: 'whatsapp',  label: 'WhatsApp',  icon: 'whatsapp' },
-                { id: 'facebook',  label: 'Facebook',  icon: 'facebook' },
-                { id: 'linkedin',  label: 'LinkedIn',  icon: 'linkedin' },
-              ].map((c) => {
-                const sel = channels.has(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => toggleChannel(c.id)}
-                    type="button"
-                    className="row center gap-2"
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 999,
-                      border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                      background: sel ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--paper)',
-                      color: sel ? 'var(--ink)' : 'var(--ink-3)',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: sel ? 600 : 500,
-                      transition: 'all .12s',
-                    }}
-                  >
-                    <Icon name={c.icon} size={13}/>
-                    {c.label}
-                    {sel && <span style={{ marginLeft: 4, color: 'var(--accent)' }}>✓</span>}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         )}
 
         {/* Étape 5 — Budget (anciennement étape 4) */}
         {step === 5 && (
           <div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Définissez votre budget</div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Ajustez le nombre de contacts et la durée de la campagne.</div>
+            <div className="row between" style={{ alignItems: 'center', marginBottom: 6, gap: 10, flexWrap: 'wrap' }}>
+              <div className="serif" style={{ fontSize: 22 }}>Définissez votre budget</div>
+              <span className="mono" style={{
+                fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+                background: durationKey === '1h' ? 'color-mix(in oklab, #B91C1C 12%, var(--paper))' : 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+                color: durationKey === '1h' ? '#B91C1C' : 'var(--accent)',
+                border: '1px solid ' + (durationKey === '1h' ? 'color-mix(in oklab, #B91C1C 28%, var(--line))' : 'color-mix(in oklab, var(--accent) 25%, var(--line))'),
+                letterSpacing: '.04em',
+              }} title={`Multiplicateur appliqué au coût par contact (durée ${durationMeta.label})`}>
+                Gains {durationMeta.multBadge}
+              </span>
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Ajustez le nombre de contacts. Le coût par contact intègre déjà le multiplicateur lié à la durée choisie.</div>
 
             {costPreview}
 
@@ -1823,15 +1829,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                     </button>
                   </div>
                 )}
-              </div>
-              <div>
-                <div className="row between" style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 13, fontWeight: 500 }}>Durée de la campagne</label>
-                  <span className="mono tnum" style={{ fontSize: 14, fontWeight: 600 }}>{days} jours</span>
-                </div>
-                <input type="range" min={7} max={90} step={7} value={days} onChange={e => setDays(+e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--accent)' }}/>
-                <div className="row between mono muted" style={{ fontSize: 10, marginTop: 4 }}><span>7 j</span><span>90 j</span></div>
               </div>
             </div>
 
@@ -2090,15 +2087,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 ['Objectif', obj?.name || '—'],
                 ['Sous-types', obj ? Array.from(selectedSubs).map(sid => obj.sub.find(s => s.id === sid)?.name).filter(Boolean).join(', ') || '—' : '—'],
                 ['Date de lancement', fmtDateLong(startDate)],
-                ['Date de fin', fmtDateLong(endDate)],
+                ['Date de fin estimée', fmtDateLong(computedEndDate)],
+                ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
                 ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
                 ["Tranches d'âge", Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
-                ['Canaux de contact', channels.size === 6 ? 'Tous' : (Array.from(channels).map(c => ({email:'Email',phone:'Téléphone',sms:'SMS',whatsapp:'WhatsApp',facebook:'Facebook',linkedin:'LinkedIn'}[c])).join(', ') || '—')],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
-                ['Durée', days + ' jours'],
                 ['Le mot du pro', brief ? '« ' + brief + ' »' : '—'],
               ].map(([l, v], i) => (
                 <div key={i} className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', gap: 16, alignItems: 'flex-start' }}>
@@ -2187,12 +2183,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                         subTypes: Array.from(selectedSubs),
                         requiredTiers: Array.from(selectedTiers),
                         geo, ages: Array.from(ages), verifLevel: verif,
-                        contacts, days,
-                        startDate, endDate, brief,
+                        contacts,
+                        durationKey,
+                        startDate, endDate: computedEndDate, brief,
                         costPerContactCents: Math.round(cpc * 100),
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
-                        channels: Array.from(channels),
                       }),
                     });
                     const j = await r.json();
@@ -2250,8 +2246,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             disabled={
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
               (step === 2 && !datesValid) ||
-              (step === 3 && !selectedTiers.size) ||
-              (step === 4 && channels.size === 0)
+              (step === 3 && !selectedTiers.size)
             }>
             Continuer <Icon name="arrow" size={14}/>
           </button>
@@ -2756,7 +2751,7 @@ const REVEAL_INTENTS = {
   email:    { field: 'email',     icon: 'email',    title: 'Écrire à',                   cta: 'Ouvrir mon mail',              build: v => `mailto:${encodeURIComponent(v)}`,                                                          valuePresentation: 'mono' },
   sms:      { field: 'telephone', icon: 'sms',      title: 'Envoyer un SMS à',           cta: 'Ouvrir mes SMS',               build: v => `sms:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
   whatsapp: { field: 'telephone', icon: 'whatsapp', title: 'WhatsApp avec',              cta: 'Ouvrir WhatsApp',              build: v => `https://wa.me/${v.replace(/\D/g, '')}`,                                                    valuePresentation: 'mono' },
-  facebook: { field: 'name',      icon: 'facebook', title: 'Trouver sur Facebook —',     cta: 'Rechercher sur Facebook',      build: v => `https://www.facebook.com/search/people/?q=${encodeURIComponent(v)}`,                       valuePresentation: 'serif' },
+  facebook: { field: 'name',      icon: 'facebook', title: 'Trouver sur Facebook —',     cta: 'Rechercher sur Facebook',      build: v => `https://www.facebook.com/search/top/?q=${encodeURIComponent(v).replace(/%20/g, '+')}`,        valuePresentation: 'serif' },
   linkedin: { field: 'name',      icon: 'linkedin', title: 'Trouver sur LinkedIn —',     cta: 'Rechercher sur LinkedIn',      build: v => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(v)}`,         valuePresentation: 'serif' },
 };
 
@@ -2768,12 +2763,12 @@ function ContactActionButtons({ row, onIntent }) {
   // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
   // relations acceptées), donc la donnée "name" est toujours dispo.
   const buttons = [
-    { key: 'call',     channel: 'phone',     enabled: phoneOk && channelAllowed('phone'),     icon: 'phone',    title: 'Appeler ce prospect',                     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email'),     icon: 'email',    title: 'Envoyer un email',                        missingDataMsg: "Le prospect n'a pas partagé son email" },
-    { key: 'sms',      channel: 'sms',       enabled: phoneOk && channelAllowed('sms'),       icon: 'sms',      title: 'Envoyer un SMS',                          missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'whatsapp', channel: 'whatsapp',  enabled: phoneOk && channelAllowed('whatsapp'),  icon: 'whatsapp', title: 'Écrire sur WhatsApp',                     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'facebook', channel: 'facebook',  enabled: channelAllowed('facebook'),             icon: 'facebook', title: 'Rechercher sur Facebook',                 missingDataMsg: '' },
-    { key: 'linkedin', channel: 'linkedin',  enabled: channelAllowed('linkedin'),             icon: 'linkedin', title: 'Rechercher sur LinkedIn',                 missingDataMsg: '' },
+    { key: 'call',     channel: 'phone',     enabled: phoneOk && channelAllowed('phone'),     icon: 'phone',    color: '#0F1629', title: 'Appeler ce prospect',     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email'),     icon: 'email',    color: '#EA4335', title: 'Envoyer un email',         missingDataMsg: "Le prospect n'a pas partagé son email" },
+    { key: 'sms',      channel: 'sms',       enabled: phoneOk && channelAllowed('sms'),       icon: 'sms',      color: '#34B7F1', title: 'Envoyer un SMS',           missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'whatsapp', channel: 'whatsapp',  enabled: phoneOk && channelAllowed('whatsapp'),  icon: 'whatsapp', color: '#25D366', title: 'Écrire sur WhatsApp',      missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
+    { key: 'facebook', channel: 'facebook',  enabled: channelAllowed('facebook'),             icon: 'facebook', color: '#1877F2', title: 'Rechercher sur Facebook',  missingDataMsg: '' },
+    { key: 'linkedin', channel: 'linkedin',  enabled: channelAllowed('linkedin'),             icon: 'linkedin', color: '#0A66C2', title: 'Rechercher sur LinkedIn',  missingDataMsg: '' },
   ];
   return (
     <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -2790,6 +2785,7 @@ function ContactActionButtons({ row, onIntent }) {
               padding: '4px 8px',
               opacity: b.enabled ? 1 : 0.3,
               cursor: b.enabled ? 'pointer' : 'not-allowed',
+              color: b.enabled ? b.color : 'var(--ink-4)',
             }}
             disabled={!b.enabled}
             title={tooltip}
