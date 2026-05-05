@@ -16,6 +16,14 @@ import { ensureProAccount } from "@/lib/sync/pro-accounts";
 
 export const runtime = "nodejs";
 
+function maskName(prenom: string | null | undefined, nom: string | null | undefined): string {
+  const p = (prenom ?? "").trim();
+  const n = (nom ?? "").trim();
+  const nomMasked = n ? `${n.charAt(0).toUpperCase()}.` : "";
+  const out = `${p} ${nomMasked}`.trim();
+  return out || "Prospect anonyme";
+}
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -85,7 +93,7 @@ export async function GET() {
       campaign: c?.name ?? "—",
       tier: Math.max(1, ...tiers.map((n) => Number(n) || 0)),
       score: id?.bupp_score ?? 0,
-      name: `${pi?.prenom ?? ""} ${pi?.nom ?? ""}`.trim() || "Prospect anonyme",
+      name: maskName(pi?.prenom, pi?.nom),
     };
   });
 

@@ -29,6 +29,13 @@ function maskPhone(p: string | null | undefined): string {
   const tail = digits.slice(-2);
   return `${head} •• •• •• ${tail}`;
 }
+function maskName(prenom: string | null | undefined, nom: string | null | undefined): string {
+  const p = (prenom ?? "").trim();
+  const n = (nom ?? "").trim();
+  const nomMasked = n ? `${n.charAt(0).toUpperCase()}.` : "";
+  const out = `${p} ${nomMasked}`.trim();
+  return out || "Prospect anonyme";
+}
 
 export async function GET() {
   const { userId } = await auth();
@@ -83,8 +90,7 @@ export async function GET() {
     const camp = (Array.isArray(r.campaigns) ? r.campaigns[0] : r.campaigns) ?? null;
     const tiers = (camp?.targeting?.requiredTiers ?? [1]) as number[];
     const tier = Math.max(1, ...tiers.map((n) => Number(n) || 0));
-    const fullName =
-      `${ident?.prenom ?? ""} ${ident?.nom ?? ""}`.trim() || "Prospect anonyme";
+    const fullName = maskName(ident?.prenom, ident?.nom);
     return {
       relationId: r.id,
       name: fullName,
