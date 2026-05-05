@@ -1249,6 +1249,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
+  // Canaux de contact autorisés pour la campagne (réutilisés dans
+  // l'onglet "Mes contacts" pour activer/griser les boutons d'action).
+  const [channels, setChannels] = useState(new Set(['email', 'phone', 'sms', 'whatsapp', 'facebook', 'linkedin']));
+  const toggleChannel = (k) => setChannels(p => {
+    const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n;
+  });
   // Étape 2 : dates de lancement / fin de campagne
   const [startDate, setStartDate] = useState(isoPlusDays(1));
   const [endDate, setEndDate] = useState(isoPlusDays(8));
@@ -1714,6 +1720,47 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 );
               })}
             </div>
+
+            <div className="label" style={{ marginTop: 28 }}>Canaux de contact autorisés</div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+              Sélectionnez les canaux que vous pourrez utiliser pour contacter les prospects ayant accepté.
+              Au moins un canal doit être activé.
+            </div>
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { id: 'email',     label: 'Email',     icon: 'email'    },
+                { id: 'phone',     label: 'Téléphone', icon: 'phone'    },
+                { id: 'sms',       label: 'SMS',       icon: 'sms'      },
+                { id: 'whatsapp',  label: 'WhatsApp',  icon: 'whatsapp' },
+                { id: 'facebook',  label: 'Facebook',  icon: 'facebook' },
+                { id: 'linkedin',  label: 'LinkedIn',  icon: 'linkedin' },
+              ].map((c) => {
+                const sel = channels.has(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggleChannel(c.id)}
+                    type="button"
+                    className="row center gap-2"
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 999,
+                      border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                      background: sel ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--paper)',
+                      color: sel ? 'var(--ink)' : 'var(--ink-3)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: sel ? 600 : 500,
+                      transition: 'all .12s',
+                    }}
+                  >
+                    <Icon name={c.icon} size={13}/>
+                    {c.label}
+                    {sel && <span style={{ marginLeft: 4, color: 'var(--accent)' }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -2048,6 +2095,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
                 ["Tranches d'âge", Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
+                ['Canaux de contact', channels.size === 6 ? 'Tous' : (Array.from(channels).map(c => ({email:'Email',phone:'Téléphone',sms:'SMS',whatsapp:'WhatsApp',facebook:'Facebook',linkedin:'LinkedIn'}[c])).join(', ') || '—')],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
                 ['Durée', days + ' jours'],
@@ -2144,6 +2192,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                         costPerContactCents: Math.round(cpc * 100),
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
+                        channels: Array.from(channels),
                       }),
                     });
                     const j = await r.json();
@@ -2201,7 +2250,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
             disabled={
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
               (step === 2 && !datesValid) ||
-              (step === 3 && !selectedTiers.size)
+              (step === 3 && !selectedTiers.size) ||
+              (step === 4 && channels.size === 0)
             }>
             Continuer <Icon name="arrow" size={14}/>
           </button>

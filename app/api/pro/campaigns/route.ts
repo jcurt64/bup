@@ -46,7 +46,10 @@ type Body = {
   keywords: string[];
   kwFilter: boolean;
   poolMode: string;
+  channels?: string[];
 };
+
+const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
 
 // TEST : durée de validité réduite à 1 minute pour vérifier le flux
 // d'expiration de la relation (response window prospect). Valeur
@@ -126,6 +129,10 @@ export async function POST(req: Request) {
   }
 
   const campaignType = objectiveToCampaignType(body.objectiveId);
+  const channels = Array.isArray(body.channels)
+    ? body.channels.filter((c): c is string => typeof c === "string" && (ALLOWED_CHANNELS as readonly string[]).includes(c))
+    : [];
+  const finalChannels = channels.length > 0 ? channels : [...ALLOWED_CHANNELS];
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: body.subTypes,
@@ -138,6 +145,7 @@ export async function POST(req: Request) {
     kwFilter: body.kwFilter,
     poolMode: body.poolMode,
     days: body.days,
+    channels: finalChannels,
   };
   const name = (body.name?.trim() || body.brief.trim()).slice(0, 120);
 
