@@ -1969,22 +1969,22 @@
           <span class="t-sep"></span> Vos données ont de la valeur —
           <strong>il est temps qu'elles vous rapportent</strong>
         </div>
-        <div class="t-item">
+        <!-- <div class="t-item">
           <span class="t-sep"></span> <strong>60%</strong> du coût par contact
           reversé directement au prospect
-        </div>
+        </div> -->
         <div class="t-item">
           <span class="t-sep"></span> Double consentement RGPD — vous décidez
           <strong>toujours</strong>
         </div>
-        <div class="t-item">
+        <!-- <div class="t-item">
           <span class="t-sep"></span> Palier vérifié → gains
           <strong>doublés ×2</strong>
-        </div>
-        <div class="t-item">
+        </div> -->
+        <!-- <div class="t-item">
           <span class="t-sep"></span> BUUPP Pool : <strong>gains ×5</strong> en
           enchère groupée
-        </div>
+        </div> -->
         <div class="t-item">
           <span class="t-sep"></span> Données <strong>watermarkées</strong> —
           toute revente est traçable
@@ -1994,22 +1994,22 @@
           <span class="t-sep"></span> Vos données ont de la valeur —
           <strong>il est temps qu'elles vous rapportent</strong>
         </div>
-        <div class="t-item">
+        <!-- <div class="t-item">
           <span class="t-sep"></span> <strong>60%</strong> du coût par contact
           reversé directement au prospect
-        </div>
+        </div> -->
         <div class="t-item">
           <span class="t-sep"></span> Double consentement RGPD — vous décidez
           <strong>toujours</strong>
         </div>
-        <div class="t-item">
+        <!-- <div class="t-item">
           <span class="t-sep"></span> Palier vérifié → gains
           <strong>doublés ×2</strong>
-        </div>
-        <div class="t-item">
+        </div> -->
+        <!-- <div class="t-item">
           <span class="t-sep"></span> BUUPP Pool : <strong>gains ×5</strong> en
           enchère groupée
-        </div>
+        </div> -->
         <div class="t-item">
           <span class="t-sep"></span> Données <strong>watermarkées</strong> —
           toute revente est traçable
@@ -3002,10 +3002,7 @@
         try {
           const params = new URLSearchParams(window.location.search);
           let ref =
-            params.get("ref") ||
-            params.get("r") ||
-            params.get("parrain") ||
-            "";
+            params.get("ref") || params.get("r") || params.get("parrain") || "";
           if (!ref) {
             const m = (window.location.hash || "").match(
               /[?&#]ref=([A-Za-z0-9]+)/,
@@ -3013,7 +3010,9 @@
             if (m) ref = m[1];
           }
           if (!ref) {
-            const m2 = window.location.pathname.match(/\/r(?:ef)?\/([A-Za-z0-9]+)/);
+            const m2 = window.location.pathname.match(
+              /\/r(?:ef)?\/([A-Za-z0-9]+)/,
+            );
             if (m2) ref = m2[1];
           }
           if (ref) {
@@ -3131,9 +3130,7 @@
         });
 
         const referrerInput = document.getElementById("inp-referrer");
-        const referrerRefCode = referrerInput
-          ? referrerInput.value.trim()
-          : "";
+        const referrerRefCode = referrerInput ? referrerInput.value.trim() : "";
 
         try {
           const r = await fetch("/api/waitlist", {
