@@ -2371,6 +2371,7 @@ function formatRelativeFr(iso) {
 
 function Contacts() {
   const [allRows, setAllRows] = React.useState(null); // null = loading
+  const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/pro/contacts', { cache: 'no-store' })
@@ -2484,8 +2485,32 @@ function Contacts() {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div className="row gap-1" style={{ justifyContent: 'flex-end' }}>
-                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="phone" size={12}/></button>
-                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}><Icon name="email" size={12}/></button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{
+                          padding: '4px 8px',
+                          opacity: r.telephoneAvailable ? 1 : 0.3,
+                          cursor: r.telephoneAvailable ? 'pointer' : 'not-allowed',
+                        }}
+                        disabled={!r.telephoneAvailable}
+                        title={r.telephoneAvailable ? 'Appeler ce prospect' : "Le prospect n'a pas partagé son téléphone"}
+                        onClick={() => setReveal({ relationId: r.relationId, field: 'telephone', name: r.name })}
+                      >
+                        <Icon name="phone" size={12}/>
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{
+                          padding: '4px 8px',
+                          opacity: r.emailAvailable ? 1 : 0.3,
+                          cursor: r.emailAvailable ? 'pointer' : 'not-allowed',
+                        }}
+                        disabled={!r.emailAvailable}
+                        title={r.emailAvailable ? 'Envoyer un email' : "Le prospect n'a pas partagé son email"}
+                        onClick={() => setReveal({ relationId: r.relationId, field: 'email', name: r.name })}
+                      >
+                        <Icon name="email" size={12}/>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2502,6 +2527,15 @@ function Contacts() {
           </div>
         </div>
       </div>
+
+      {reveal && (
+        <RevealContactModal
+          relationId={reveal.relationId}
+          field={reveal.field}
+          name={reveal.name}
+          onClose={() => setReveal(null)}
+        />
+      )}
     </div>
   );
 }
