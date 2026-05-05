@@ -1667,14 +1667,10 @@ function Relations() {
     undoAcceptRelation, undoRefuseRelation,
     relationsHydrated,
   } = useProspect();
-  const history = (historyRelations || []).map(h => ([
-    formatHistoryDate(h.date),
-    h.proName,
-    h.tier,
-    h.decision,
-    h.status,
-    h.gain != null ? '+' + h.gain.toFixed(2).replace('.', ',') : '—',
-  ]));
+  // Historique : chaque ligne reste un objet complet pour pouvoir
+  // ouvrir RelationDetailModal au clic (et exposer le bouton "Accepter
+  // la campagne" tant qu'elle est ouverte).
+  const history = historyRelations || [];
   // Filtre cyclique sur l'historique : toutes → acceptées → refusées → toutes
   const [historyFilter, setHistoryFilter] = useState('all');
   const HISTORY_FILTERS = [
@@ -1684,8 +1680,8 @@ function Relations() {
   ];
   const filteredHistory = history.filter(h =>
     historyFilter === 'all' ||
-    (historyFilter === 'accepted' && h[3] === 'Acceptée') ||
-    (historyFilter === 'refused'  && h[3] === 'Refusée')
+    (historyFilter === 'accepted' && h.decision === 'Acceptée') ||
+    (historyFilter === 'refused'  && h.decision === 'Refusée')
   );
   // Modale "détails de l'offre" — affiche toutes les infos campagne (dates,
   // brief texte, motif complet, palier, récompense) au clic sur le bouton +.
@@ -1881,16 +1877,29 @@ function Relations() {
                   <span className="muted" style={{ fontSize: 13 }}>Aucune demande {historyFilter === 'accepted' ? 'acceptée' : 'refusée'}.</span>
                 </td></tr>
               )}
-              {filteredHistory.map((h, i) => (
-                <tr key={i}>
-                  <td className="mono" style={{ color: 'var(--ink-4)' }}>{h[0]}</td>
-                  <td>{h[1]}</td>
-                  <td><span className="chip">Palier {h[2]}</span></td>
-                  <td><span className={'chip ' + (h[3] === 'Acceptée' ? 'chip-good' : '')}>{h[3]}</span></td>
-                  <td className="muted">{h[4]}</td>
-                  <td className="mono tnum" style={{ textAlign: 'right', color: h[5] === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{h[5] === '—' ? '—' : h[5] + ' €'}</td>
-                </tr>
-              ))}
+              {filteredHistory.map((h) => {
+                const gainStr = h.gain != null ? '+' + h.gain.toFixed(2).replace('.', ',') : '—';
+                // Lignes cliquables — ouvrent RelationDetailModal pour voir le
+                // détail de la campagne + accepter rétroactivement si elle est
+                // encore ouverte (cf. h.campaignOpen côté API).
+                return (
+                  <tr key={h.id}
+                    onClick={() => setDetail(h)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(h); } }}
+                    style={{ cursor: 'pointer' }}
+                    title="Voir le détail de la campagne"
+                  >
+                    <td className="mono" style={{ color: 'var(--ink-4)' }}>{formatHistoryDate(h.date)}</td>
+                    <td>{h.proName}</td>
+                    <td><span className="chip">Palier {h.tier}</span></td>
+                    <td><span className={'chip ' + (h.decision === 'Acceptée' ? 'chip-good' : '')}>{h.decision}</span></td>
+                    <td className="muted">{h.status}</td>
+                    <td className="mono tnum" style={{ textAlign: 'right', color: gainStr === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{gainStr === '—' ? '—' : gainStr + ' €'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1920,10 +1929,54 @@ function formatRelationDate(iso) {
 
 function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefuse, onClose }) {
   const r = relation;
-  const status = isAccepted ? 'accepted' : isRefused ? 'refused' : 'pending';
+  // Mode "historique" — la relation a un decision/relationStatus venant
+  // de /api/prospect/relations#history. Sinon c'est une carte pending.
+  const isHistory = typeof r.relationStatus === 'string' || typeof r.decision === 'string';
+  const alreadyAccepted = isAccepted || r.relationStatus === 'accepted' || r.relationStatus === 'settled';
+  const alreadyRefused = isRefused || r.relationStatus === 'refused';
+  // Fenêtre d'acceptation : pour pending, on s'appuie sur l'état optimiste
+  // (ni accepté ni refusé). Pour l'historique, on autorise l'acceptation
+  // tant que la campagne est ouverte (campaignOpen renvoyé par l'API).
+  const canAccept = isHistory
+    ? !!r.campaignOpen
+    : !alreadyAccepted && !alreadyRefused;
+  const canRefuse = !isHistory && !alreadyAccepted && !alreadyRefused;
   return (
     <ModalShell title="Détails de l'offre" onClose={onClose} width={520}>
       <div className="col gap-4">
+        {/* Bannière contextuelle pour l'historique : explique pourquoi
+            l'acceptation reste possible (ou pas) au moment du clic. */}
+        {isHistory && (
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: alreadyAccepted
+              ? 'color-mix(in oklab, var(--good) 10%, var(--paper))'
+              : canAccept
+                ? 'color-mix(in oklab, var(--accent) 8%, var(--paper))'
+                : 'var(--ivory-2)',
+            border: '1px solid ' + (alreadyAccepted
+              ? 'color-mix(in oklab, var(--good) 35%, var(--line))'
+              : canAccept
+                ? 'color-mix(in oklab, var(--accent) 28%, var(--line))'
+                : 'var(--line)'),
+            color: 'var(--ink)',
+            fontSize: 13, lineHeight: 1.5,
+          }}>
+            {alreadyAccepted ? (
+              <>
+                <strong>Déjà accepté</strong> — votre récompense est dans votre portefeuille
+                {r.relationStatus === 'settled' ? ' (créditée)' : ' (en séquestre)'}.
+              </>
+            ) : canAccept ? (
+              <>
+                Cette campagne est <strong>encore ouverte</strong> — vous pouvez l'accepter
+                rétroactivement.
+              </>
+            ) : (
+              <>Cette campagne est <strong>clôturée</strong>, l'acceptation n'est plus possible.</>
+            )}
+          </div>
+        )}
         {/* En-tête : nom pro + secteur + chip palier */}
         <div className="row center gap-3" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <Avatar name={r.pro} size={44}/>
@@ -1998,23 +2051,31 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           </div>
           <div style={{ textAlign: 'right' }}>
             <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>
-              <Icon name="bolt" size={10}/> Vous avez encore
+              <Icon name="bolt" size={10}/>{' '}
+              {isHistory
+                ? (canAccept ? 'Campagne ouverte jusqu\'au' : 'Campagne')
+                : 'Vous avez encore'}
             </div>
-            <div className="mono" style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{r.timer}</div>
+            <div className="mono" style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>
+              {isHistory
+                ? (canAccept ? formatRelationDate(r.endDate) : 'Clôturée')
+                : r.timer}
+            </div>
           </div>
         </div>
 
         {/* Actions */}
         <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-          {status === 'pending' && (
-            <>
-              <button onClick={onRefuse} className="btn btn-ghost btn-sm">Refuser</button>
-              <button onClick={onAccept} className="btn btn-primary btn-sm">
-                <Icon name="check" size={12} stroke={2.25}/> Accepter
-              </button>
-            </>
+          {canRefuse && (
+            <button onClick={onRefuse} className="btn btn-ghost btn-sm">Refuser</button>
           )}
-          {status !== 'pending' && (
+          {canAccept && (
+            <button onClick={onAccept} className="btn btn-primary btn-sm">
+              <Icon name="check" size={12} stroke={2.25}/>{' '}
+              {isHistory ? 'Accepter la campagne' : 'Accepter'}
+            </button>
+          )}
+          {!canAccept && !canRefuse && (
             <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
           )}
         </div>

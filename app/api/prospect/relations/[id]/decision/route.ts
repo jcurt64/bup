@@ -28,6 +28,7 @@ const ACTION_TO_ERROR_HTTP: Record<string, number> = {
   relation_not_found: 404,
   invalid_status: 409,
   campaign_inactive: 409,
+  campaign_expired: 410,
   relation_expired: 410,
   insufficient_pro_funds: 402,
   not_accepted: 409,

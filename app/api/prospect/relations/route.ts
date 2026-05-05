@@ -29,6 +29,7 @@ type RelationRow = {
   decided_at: string | null;
   campaigns: {
     name: string;
+    status: string;
     brief: string | null;
     starts_at: string;
     ends_at: string | null;
@@ -92,7 +93,7 @@ export async function GET() {
     .from("relations")
     .select(
       `id, campaign_id, motif, reward_cents, status, sent_at, expires_at, decided_at,
-       campaigns ( name, brief, starts_at, ends_at, targeting ),
+       campaigns ( name, status, brief, starts_at, ends_at, targeting ),
        pro_accounts ( raison_sociale, secteur, ville )`,
     )
     .eq("prospect_id", prospectId)
@@ -146,14 +147,44 @@ export async function GET() {
         r.status === "accepted" ? "En séquestre" : "—";
       const gain = r.status === "accepted" || r.status === "settled" ? reward : null;
       const date = r.decided_at ?? r.sent_at;
+      const proName = displayProName(r.pro_accounts?.raison_sociale);
+      const sectorParts = [r.pro_accounts?.secteur, r.pro_accounts?.ville].filter(
+        Boolean,
+      ) as string[];
+      const campEnds = r.campaigns?.ends_at
+        ? new Date(r.campaigns.ends_at).getTime()
+        : null;
+      // Re-acceptation possible si la campagne est encore active ET dans sa
+      // fenêtre de diffusion ET la relation n'est pas déjà acceptée/settled
+      // (l'argent a déjà été engagé dans ces deux derniers cas).
+      const campaignOpen =
+        r.campaigns?.status === "active" &&
+        (campEnds == null || campEnds > now) &&
+        r.status !== "accepted" &&
+        r.status !== "settled";
       return {
         id: r.id,
+        campaignId: r.campaign_id,
         date,
-        proName: displayProName(r.pro_accounts?.raison_sociale),
+        proName,
+        // Champs miroir de `pending` pour permettre la réutilisation de
+        // RelationDetailModal côté front (clic sur ligne d'historique).
+        pro: proName,
+        sector: sectorParts.join(" · "),
+        motif: r.motif,
+        brief: r.campaigns?.brief ?? null,
+        reward,
         tier: highestTier(r.campaigns?.targeting ?? null),
+        timer: timerString(r.expires_at),
+        startDate: r.campaigns?.starts_at ?? r.sent_at,
+        endDate: r.campaigns?.ends_at ?? r.expires_at,
+        // Métadonnées historique
         decision: decisionLabel,
         status: statusLabel,
+        relationStatus: r.status,
         gain,
+        campaignStatus: r.campaigns?.status ?? null,
+        campaignOpen,
       };
     });
 
