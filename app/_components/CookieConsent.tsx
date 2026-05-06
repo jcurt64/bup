@@ -222,6 +222,7 @@ function CookieBanner({
     <div
       role="region"
       aria-label="Bandeau de consentement aux cookies"
+      className="cookie-banner"
       style={{
         position: "fixed",
         left: 16,

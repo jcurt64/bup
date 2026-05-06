@@ -409,8 +409,15 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
    en colonne pleine largeur pour éviter tout débordement ou troncage.
    Le bloc texte utilise `flex: 1 1 320px` qui, en direction column,
    réserverait 320px de HAUTEUR — on neutralise ce flex-basis pour
-   coller le bloc d'actions juste sous le paragraphe. */
+   coller le bloc d'actions juste sous le paragraphe.
+   Le bandeau est aussi recentré verticalement sur l'écran (au lieu
+   d'être ancré en bas) pour rester lisible et accessible au pouce. */
 @media (max-width: 640px) {
+  .cookie-banner {
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+  }
   .cookie-banner-row {
     flex-direction: column !important;
     align-items: stretch !important;
