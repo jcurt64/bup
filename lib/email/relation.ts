@@ -22,6 +22,9 @@ export type RelationInvitationParams = {
   motif: string;
   brief: string | null;
   rewardEur: number;
+  /** True quand le bonus ×2 "certifié confiance" est appliqué.
+   *  Ajoute un encart pédagogique dans l'email pour expliquer le doublage. */
+  rewardDoubled?: boolean;
   expiresAt: string; // ISO
 };
 
@@ -39,6 +42,7 @@ export async function sendRelationInvitation(
     motif,
     brief,
     rewardEur,
+    rewardDoubled = false,
     expiresAt,
   } = params;
 
@@ -57,6 +61,9 @@ export async function sendRelationInvitation(
     brief ? `Le mot du pro : « ${brief} »` : null,
     "",
     `Récompense si vous acceptez : ${rewardStr} €`,
+    rewardDoubled
+      ? "🎉 Vos gains sont doublés vu que votre profil est vérifié à 100% — quelle chance !"
+      : null,
     `Délai pour répondre : ${expiresStr}`,
     "",
     "Vous pouvez accepter ou refuser depuis votre espace prospect :",
@@ -103,11 +110,19 @@ export async function sendRelationInvitation(
     <tr>
       <td style="padding:12px 14px;background:#0F1629;border-radius:10px;color:#FFFEF8;">
         <div style="font-size:11px;color:#A8AFC0;text-transform:uppercase;letter-spacing:.12em;">Récompense si vous acceptez</div>
-        <div style="font-family:Georgia,serif;font-size:32px;font-weight:600;line-height:1.1;margin-top:4px;">${rewardStr} €</div>
+        <div style="font-family:Georgia,serif;font-size:32px;font-weight:600;line-height:1.1;margin-top:4px;">${rewardStr} €${rewardDoubled ? ' <span style="font-family:-apple-system,sans-serif;font-size:11px;background:#7C3AED;color:#FFFEF8;padding:3px 9px;border-radius:999px;letter-spacing:.04em;vertical-align:middle;">×2 Bonus</span>' : ""}</div>
         <div style="font-size:11.5px;color:#A8AFC0;margin-top:6px;">Délai pour répondre : <strong style="color:#FFFEF8;">${escapeHtml(expiresStr)}</strong></div>
       </td>
     </tr>
   </table>
+  ${
+    rewardDoubled
+      ? `
+  <div style="background:#F3EAFF;border:1px solid #C9B5F2;border-radius:10px;padding:14px 16px;margin-bottom:18px;color:#3F2670;font-size:14px;line-height:1.5;">
+    🎉 <strong>Vos gains sont doublés</strong> vu que votre profil est vérifié à 100% — quelle chance ! Le bonus ×2 est automatiquement appliqué : si vous acceptez, vous touchez le double de la récompense initiale.
+  </div>`
+      : ""
+  }
   <p style="margin:0 0 24px;text-align:center;">
     <a href="${LINK_URL}" target="_blank" rel="noopener noreferrer"
        style="display:inline-block;padding:14px 28px;background:#4596EC;color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;">

@@ -1948,7 +1948,33 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 Gains {durationMeta.multBadge}
               </span>
             </div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Ajustez le nombre de contacts. Le coût par contact intègre déjà le multiplicateur lié à la durée choisie.</div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Ajustez le nombre de contacts. Le coût par contact intègre déjà le multiplicateur lié à la durée choisie.</div>
+
+            {/* Bandeau bonus ×2 — informe le pro que les profils
+                "certifié confiance" déclenchent le doublage automatique du
+                gain prospect, et donc imputent ×2 sur le budget pour ces
+                contacts-là. Léger, pédagogique, non-bloquant. */}
+            <div style={{
+              marginBottom: 22,
+              padding: '14px 16px',
+              borderRadius: 12,
+              background: 'color-mix(in oklab, #7C3AED 7%, var(--paper))',
+              border: '1px solid color-mix(in oklab, #7C3AED 30%, var(--line))',
+              color: 'var(--ink-2)',
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+            }} role="status">
+              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✨</span>
+              <span>
+                Petit bonus à connaître 😉 — si certains de vos contacts ont un profil
+                <strong style={{ color: '#7C3AED' }}> vérifié à 100% (certifié confiance)</strong>,
+                <strong> leurs gains sont automatiquement doublés</strong> et viennent
+                s'imputer sur le budget de la campagne. Prévoyez une petite marge !
+              </span>
+            </div>
 
             {costPreview}
 

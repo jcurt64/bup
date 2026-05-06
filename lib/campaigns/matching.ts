@@ -36,6 +36,9 @@ export type MatchedProspect = {
   prospectId: string;
   email: string | null;
   prenom: string | null;
+  /** Niveau de vérification au moment du match. Sert à appliquer le
+   *  bonus ×2 sur la récompense quand le prospect est `certifie_confiance`. */
+  verification: "basique" | "verifie" | "certifie_confiance";
 };
 
 export async function findMatchingProspects(
@@ -121,6 +124,7 @@ export async function findMatchingProspects(
       prospectId: row.id,
       email: identity?.email ?? null,
       prenom: identity?.prenom ?? null,
+      verification: row.verification as MatchedProspect["verification"],
     });
   }
 

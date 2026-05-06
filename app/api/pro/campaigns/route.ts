@@ -256,13 +256,22 @@ export async function POST(req: Request) {
 
   let insertedCount = 0;
   let warning: string | null = null;
+  // Bonus ×2 sur la récompense pour les prospects "certifié confiance" :
+  // quand un prospect a atteint le palier de confiance le plus élevé,
+  // ses gains sont automatiquement doublés. La dépense côté pro suit le
+  // même multiplicateur (le `reward_cents` stocké conditionne aussi le
+  // débit du wallet à l'acceptation).
+  const rewardForProspect = (m: (typeof matched)[number]) =>
+    m.verification === "certifie_confiance"
+      ? body.costPerContactCents * 2
+      : body.costPerContactCents;
   if (matched.length > 0) {
     const rows = matched.map((m) => ({
       campaign_id: campaign.id,
       pro_account_id: proId,
       prospect_id: m.prospectId,
       motif,
-      reward_cents: body.costPerContactCents,
+      reward_cents: rewardForProspect(m),
       status: "pending" as const,
       expires_at: expiresAt,
     }));
@@ -291,7 +300,6 @@ export async function POST(req: Request) {
   // Mails fire-and-forget — Promise.allSettled non-awaité.
   const proSector = pro.secteur ?? null;
   const proName = pro.raison_sociale;
-  const rewardEur = body.costPerContactCents / 100;
   void Promise.allSettled(
     matched
       .filter((m) => m.email)
@@ -303,7 +311,9 @@ export async function POST(req: Request) {
           proSector,
           motif,
           brief: body.brief.trim(),
-          rewardEur,
+          // Récompense effective : doublée si certifie_confiance.
+          rewardEur: rewardForProspect(m) / 100,
+          rewardDoubled: m.verification === "certifie_confiance",
           expiresAt,
         }),
       ),
