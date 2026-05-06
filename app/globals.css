@@ -406,12 +406,18 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 
 /* ---------- Cookie banner — stack actions on mobile ----------
    Sur petit écran on empile texte/boutons puis on met les 3 boutons
-   en colonne pleine largeur pour éviter tout débordement ou troncage. */
+   en colonne pleine largeur pour éviter tout débordement ou troncage.
+   Le bloc texte utilise `flex: 1 1 320px` qui, en direction column,
+   réserverait 320px de HAUTEUR — on neutralise ce flex-basis pour
+   coller le bloc d'actions juste sous le paragraphe. */
 @media (max-width: 640px) {
   .cookie-banner-row {
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 14px !important;
+    gap: 12px !important;
+  }
+  .cookie-banner-row > :first-child {
+    flex: 0 0 auto !important;
   }
   .cookie-banner-actions {
     flex-direction: column !important;
