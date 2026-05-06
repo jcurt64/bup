@@ -12,7 +12,7 @@ const APP_URL =
     ? process.env.NEXT_PUBLIC_APP_URL
     : "https://bup-rouge.vercel.app";
 const LOGO_URL = `${APP_URL}/logo.png`;
-const LINK_URL = `${APP_URL}/prospect?tab=relations`;
+const PROSPECT_BASE = `${APP_URL}/prospect?tab=relations`;
 
 export type RelationInvitationParams = {
   email: string;
@@ -26,6 +26,9 @@ export type RelationInvitationParams = {
    *  Ajoute un encart pédagogique dans l'email pour expliquer le doublage. */
   rewardDoubled?: boolean;
   expiresAt: string; // ISO
+  /** ID de la relation. Permet au front de scroller / mettre en évidence
+   *  la sollicitation correspondante après clic depuis le mail. */
+  relationId?: string | null;
 };
 
 export async function sendRelationInvitation(
@@ -44,9 +47,13 @@ export async function sendRelationInvitation(
     rewardEur,
     rewardDoubled = false,
     expiresAt,
+    relationId = null,
   } = params;
 
   const greet = prenom?.trim() || "Bonjour";
+  const linkUrl = relationId
+    ? `${PROSPECT_BASE}&relationId=${encodeURIComponent(relationId)}`
+    : PROSPECT_BASE;
   const rewardStr = rewardEur.toFixed(2).replace(".", ",");
   const expiresStr = formatDeadline(expiresAt);
 
@@ -67,7 +74,7 @@ export async function sendRelationInvitation(
     `Délai pour répondre : ${expiresStr}`,
     "",
     "Vous pouvez accepter ou refuser depuis votre espace prospect :",
-    LINK_URL,
+    linkUrl,
     "",
     "À bientôt,",
     "L'équipe BUUPP",
@@ -124,7 +131,7 @@ export async function sendRelationInvitation(
       : ""
   }
   <p style="margin:0 0 24px;text-align:center;">
-    <a href="${LINK_URL}" target="_blank" rel="noopener noreferrer"
+    <a href="${linkUrl}" target="_blank" rel="noopener noreferrer"
        style="display:inline-block;padding:14px 28px;background:#4596EC;color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;">
       Voir la demande →
     </a>
@@ -167,7 +174,7 @@ export async function sendRelationInvitation(
 
 function formatDeadline(iso: string): string {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "72 h";
+  if (isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
     month: "long",

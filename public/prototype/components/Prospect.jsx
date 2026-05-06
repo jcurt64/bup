@@ -2620,7 +2620,7 @@ function Relations() {
   const [detail, setDetail] = useState(null); // l'objet pending sélectionné
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Vous avez 72 heures pour accepter ou refuser chaque demande. Sans réponse, elle expire."/>
+      <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Le délai d'acceptation dépend de chaque campagne — il est affiché en temps réel sur chaque demande. Sans réponse à temps, la sollicitation expire."/>
       {!relationsHydrated ? (
         <div className="card" style={{ padding: 24, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>Chargement de vos sollicitations…</div>

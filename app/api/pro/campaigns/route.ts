@@ -6,7 +6,7 @@
  *  2. Vérification solde ≥ budget + plan_fee → sinon 402.
  *  3. INSERT campaigns(active, brief, starts_at, ends_at).
  *  4. findMatchingProspects(LIMIT contacts).
- *  5. Batch INSERT relations(pending, expires_at = now()+EXPIRY_MINUTES).
+ *  5. Batch INSERT relations(pending, expires_at = now()+durationKey).
  *  6. Update campaigns.matched_count.
  *  7. Fire-and-forget : sendRelationInvitation par prospect avec email.
  *
@@ -60,17 +60,11 @@ const DURATION_MULTIPLIERS: Record<string, { mult: number; ms: number }> = {
   "7d":  { mult: 1,   ms: 7 * 24 * 3600 * 1000 },
 };
 
-// TEST : durée de validité réduite à 1 minute pour vérifier le flux
-// d'expiration de la relation (response window prospect). Valeur
-// produit nominale = 72 h (4320 min). À restaurer avant mise en prod.
-const EXPIRY_MINUTES = 1;
-// TEST : on ignore la fenêtre de diffusion choisie dans le wizard
-// (body.startDate / body.endDate) et on force ends_at à now()+5min
-// pour pouvoir tester la fermeture de campagne (campaignActive flippe
-// à false après 5 minutes — le bouton "Refuser" disparaît, l'acceptation
-// rétroactive depuis l'historique n'est plus permise). À retirer avant
-// prod : restaurer body.startDate / body.endDate.
-const CAMPAIGN_DURATION_MINUTES = 5;
+// La fenêtre de réponse du prospect (response window) ET la fermeture
+// de la campagne sont calquées sur le `durationKey` choisi par le pro :
+// 1h, 24h, 48h ou 7d. Auparavant ces valeurs étaient surchargées par
+// des constantes de test (1 min / 5 min) qui rendaient les relations
+// expirées avant même que le prospect n'ouvre son mail.
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -219,13 +213,12 @@ export async function POST(req: Request) {
       cost_per_contact_cents: body.costPerContactCents,
       budget_cents: body.budgetCents,
       brief: body.brief.trim(),
-      // TEST : on remplace la fenêtre choisie par le wizard par
-      //   starts_at = now()
-      //   ends_at   = now() + CAMPAIGN_DURATION_MINUTES
-      // pour pouvoir vérifier rapidement la fermeture automatique de la
-      // campagne (campaignActive=false → bouton "Refuser" masqué).
+      // Campagne ouverte immédiatement et fermée à la fin de la fenêtre
+      // de réponse (= durationKey choisi par le pro). C'est exactement
+      // la même horloge que `relations.expires_at` ci-dessous, donc le
+      // mail prospect, l'UI et la DB convergent toujours.
       starts_at: new Date().toISOString(),
-      ends_at: new Date(Date.now() + CAMPAIGN_DURATION_MINUTES * 60 * 1000).toISOString(),
+      ends_at: new Date(Date.now() + durationMeta.ms).toISOString(),
     })
     .select("id")
     .single();
@@ -255,7 +248,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "matching_failed" }, { status: 500 });
   }
 
-  const expiresAt = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000).toISOString();
+  // Fenêtre de réponse côté prospect = durationKey du wizard (1h, 24h,
+  // 48h ou 7d). Synchronisé avec `campaigns.ends_at`.
+  const expiresAt = new Date(Date.now() + durationMeta.ms).toISOString();
   // body.brief is guaranteed non-empty by validation above.
   const motif = body.brief.trim();
 
@@ -270,6 +265,9 @@ export async function POST(req: Request) {
     m.verification === "certifie_confiance"
       ? body.costPerContactCents * 2
       : body.costPerContactCents;
+  // Mapping prospect_id → relation_id, utilisé après l'INSERT pour
+  // construire un lien direct vers la relation dans le mail.
+  const relationIdByProspect = new Map<string, string>();
   if (matched.length > 0) {
     const rows = matched.map((m) => ({
       campaign_id: campaign.id,
@@ -290,6 +288,9 @@ export async function POST(req: Request) {
       warning = "relations_insert_failed";
     } else {
       insertedCount = inserted?.length ?? 0;
+      for (const row of inserted ?? []) {
+        relationIdByProspect.set(row.prospect_id, row.id);
+      }
     }
   }
 
@@ -320,6 +321,7 @@ export async function POST(req: Request) {
           rewardEur: rewardForProspect(m) / 100,
           rewardDoubled: m.verification === "certifie_confiance",
           expiresAt,
+          relationId: relationIdByProspect.get(m.prospectId) ?? null,
         }),
       ),
   );

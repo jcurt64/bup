@@ -214,7 +214,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
       } else if (r.status === "expired") {
         ts = r.decided_at ?? r.sent_at;
         kind = "expired";
-        label = `Demande expirée — ${fullName} n'a pas répondu sous 72 h`;
+        label = `Demande expirée — ${fullName} n'a pas répondu dans le délai`;
       } else {
         ts = r.sent_at;
         kind = "pending";
