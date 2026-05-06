@@ -1243,23 +1243,23 @@ const DATA_CATEGORIES = [
   },
   {
     key: 'localisation', tier: 2, label: 'Localisation', icon: 'france',
-    desc: "Adresse, logement, mobilité.",
+    desc: "Adresse, ville, code postal.",
     fields: [
       ['adresse', 'Adresse postale'],
       ['ville', 'Ville'],
       ['codePostal', 'Code postal'],
-      ['logement', 'Type de logement'],
-      ['mobilite', 'Mobilité'],
     ],
   },
   {
     key: 'vie', tier: 3, label: 'Style de vie', icon: 'sparkle',
-    desc: "Habitudes, famille, véhicule, sport, animaux.",
+    desc: "Logement, mobilité, foyer, véhicule, sports, animaux.",
     fields: [
       ['foyer', 'Composition du foyer'],
+      ['logement', 'Type de logement'],
+      ['mobilite', 'Mobilité'],
+      ['vehicule', 'Véhicule'],
       ['sports', 'Sports / loisirs'],
       ['animaux', 'Animaux'],
-      ['vehicule', 'Véhicule'],
     ],
   },
   {
@@ -1282,6 +1282,64 @@ const DATA_CATEGORIES = [
     ],
   },
 ];
+
+/* Configuration par champ : type de saisie + options (pour les tags) +
+   éventuel sous-champ "détail" libre. La clé est `category.field`.
+   - `tag`           : sélection unique parmi `options`
+   - `tag+text`      : tag + champ libre secondaire (placeholder, persisté
+                       dans `detailField`, optionnel sauf si `requireDetail`)
+   - `numeric`       : input numérique (chiffres uniquement, message d'erreur
+                       sur lettre / caractère spécial)
+   - `text` (défaut) : input libre (tel placeholder éventuel)
+*/
+const TAG_VIOLET = '#7C3AED';
+const FIELD_CONFIG = {
+  'vie.foyer': {
+    type: 'tag',
+    options: ['Solo', 'Famille'],
+  },
+  'vie.logement': {
+    type: 'tag',
+    options: ['Maison', 'Appartement', 'Studio', 'Loft', 'Duplex', 'Colocation'],
+  },
+  'vie.mobilite': {
+    type: 'tag',
+    options: ['Voiture', 'Co-voiturage', 'Transports en commun', 'Vélo', 'Trottinette', 'Moto', 'Piéton'],
+  },
+  'vie.animaux': {
+    type: 'tag+text',
+    options: ['Oui', 'Non'],
+    detailField: 'animauxDetail',
+    detailPlaceholder: 'Chat',
+    detailVisibleWhenTag: 'Oui',
+  },
+  'vie.vehicule': {
+    type: 'tag+text',
+    options: ['SUV', '4x4', 'Berline', 'Citadine', 'Break', 'Monospace', 'Coupé', 'Cabriolet', 'Utilitaire'],
+    detailField: 'vehiculeMarque',
+    detailPlaceholder: 'Marque du véhicule',
+  },
+  'pro.revenus': {
+    type: 'numeric',
+    placeholder: 'Montant en euros (chiffres uniquement)',
+  },
+  'patrimoine.residence': {
+    type: 'tag',
+    options: ['Oui', 'Non'],
+  },
+  'patrimoine.epargne': {
+    type: 'text',
+    placeholder: 'Actions, livret A, immobilier locatif...',
+  },
+  'patrimoine.projets': {
+    type: 'tag',
+    options: ['Achat', 'Construction', 'Location'],
+  },
+};
+
+function fieldConfig(category, field) {
+  return FIELD_CONFIG[`${category}.${field}`] || { type: 'text' };
+}
 
 function MesDonnees({ onGoPrefs }) {
   const ctx = useProspect();
@@ -1430,12 +1488,22 @@ function MesDonnees({ onGoPrefs }) {
               {!isDeleted && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
                   {cat.fields.map(([field, label], idx) => {
-                    const val = profile?.[cat.key]?.[field] || '';
+                    const rawVal = profile?.[cat.key]?.[field] || '';
+                    const cfg = fieldConfig(cat.key, field);
+                    // Affichage compound : tag + détail (ex. "Berline · Renault").
+                    const detailVal =
+                      cfg.type === 'tag+text' && cfg.detailField
+                        ? (profile?.[cat.key]?.[cfg.detailField] || '')
+                        : '';
+                    const showDetail =
+                      detailVal &&
+                      (!cfg.detailVisibleWhenTag || rawVal === cfg.detailVisibleWhenTag);
+                    const val = rawVal && showDetail ? `${rawVal} · ${detailVal}` : rawVal;
                     const isPhone = cat.key === 'identity' && field === 'telephone';
                     const phoneVerified = isPhone && Boolean(phoneVerifiedAt);
                     const onEdit = isPhone
-                      ? () => setPhoneVerify({ initialPhone: val })
-                      : () => setEditing({ category: cat.key, field, label, value: val });
+                      ? () => setPhoneVerify({ initialPhone: rawVal })
+                      : () => setEditing({ category: cat.key, field, label, value: rawVal });
                     return (
                       <div key={field} style={{ background: 'var(--paper)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1501,14 +1569,17 @@ function MesDonnees({ onGoPrefs }) {
 
       {editing && (
         <EditFieldModal edit={editing}
+          profileForCategory={profile?.[editing.category] || {}}
           onSave={(v) => {
-            // Cas spécial autocomplétion ville+CP : on patch les deux
-            // champs en une seule transaction.
+            // Autocomplétion ville+CP → patch atomique des deux champs.
             if (v && typeof v === 'object' && v.pair) {
               ctx?.updateFields(editing.category, {
                 ville: v.pair.ville,
                 codePostal: v.pair.codePostal,
               });
+            } else if (v && typeof v === 'object' && v.multi) {
+              // tag+text (ex. animaux + animauxDetail) → patch atomique.
+              ctx?.updateFields(editing.category, v.multi);
             } else {
               ctx?.updateField(editing.category, editing.field, v);
             }
@@ -1535,6 +1606,8 @@ function MesDonnees({ onGoPrefs }) {
                 ville: value.pair.ville,
                 codePostal: value.pair.codePostal,
               });
+            } else if (value && typeof value === 'object' && value.multi) {
+              ctx?.updateFields(adding, value.multi);
             } else {
               ctx?.updateField(adding, field, value);
             }
@@ -1567,7 +1640,17 @@ function MesDonnees({ onGoPrefs }) {
       {confirmFieldDelete && (
         <ConfirmFieldDeleteModal field={confirmFieldDelete}
           onConfirm={() => {
-            ctx?.updateField(confirmFieldDelete.category, confirmFieldDelete.field, '');
+            // Pour les champs composites (tag+text), on efface aussi le
+            // sous-champ détail pour que l'état UI reste cohérent.
+            const cfg = fieldConfig(confirmFieldDelete.category, confirmFieldDelete.field);
+            if (cfg.type === 'tag+text' && cfg.detailField) {
+              ctx?.updateFields(confirmFieldDelete.category, {
+                [confirmFieldDelete.field]: '',
+                [cfg.detailField]: '',
+              });
+            } else {
+              ctx?.updateField(confirmFieldDelete.category, confirmFieldDelete.field, '');
+            }
             setConfirmFieldDelete(null);
           }}
           onClose={() => setConfirmFieldDelete(null)}/>
@@ -1794,11 +1877,143 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
   );
 }
 
-function EditFieldModal({ edit, onSave, onClose }) {
-  const [val, setVal] = useState(edit.value);
+/* TagPicker : grille de pastilles cliquables (radio visuel). Tag actif
+   est rempli en violet (TAG_VIOLET). Cliquer un tag déjà actif le
+   désélectionne (utile si l'utilisateur veut effacer la valeur). */
+function TagPicker({ value, options, onPick }) {
+  return (
+    <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 4 }}>
+      {options.map(opt => {
+        const active = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onPick(active ? '' : opt)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 999,
+              border: '1.5px solid ' + (active ? TAG_VIOLET : 'var(--line-2)'),
+              background: active ? TAG_VIOLET : 'var(--paper)',
+              color: active ? 'white' : 'var(--ink)',
+              fontSize: 13,
+              fontWeight: active ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'background .15s, border-color .15s, transform .1s',
+            }}
+            onMouseEnter={e => {
+              if (!active) e.currentTarget.style.borderColor = TAG_VIOLET;
+            }}
+            onMouseLeave={e => {
+              if (!active) e.currentTarget.style.borderColor = 'var(--line-2)';
+            }}
+            aria-pressed={active}
+          >
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Saisie générique pour un champ : route vers le bon widget selon
+   FIELD_CONFIG (tag, tag+text, numeric, text). Renvoie via `onChange`
+   un objet { value, detail? } : les modaux savent s'il faut PATCH un
+   ou deux champs. */
+function FieldInput({ category, field, value, detail, onChange, autoFocus = false }) {
+  const cfg = fieldConfig(category, field);
+  const setValue = (v) => onChange({ value: v, detail: cfg.type === 'tag+text' ? detail : undefined });
+  const setDetail = (d) => onChange({ value, detail: d });
+
+  if (cfg.type === 'tag') {
+    return (
+      <TagPicker value={value || ''} options={cfg.options} onPick={setValue} />
+    );
+  }
+  if (cfg.type === 'tag+text') {
+    const showDetail =
+      !cfg.detailVisibleWhenTag || value === cfg.detailVisibleWhenTag;
+    return (
+      <>
+        <TagPicker value={value || ''} options={cfg.options} onPick={setValue} />
+        {showDetail && (
+          <input
+            className="input"
+            value={detail || ''}
+            onChange={e => setDetail(e.target.value)}
+            placeholder={cfg.detailPlaceholder}
+            autoFocus={autoFocus && !!value}
+            style={{ width: '100%', fontSize: 14, marginTop: 12 }}
+          />
+        )}
+      </>
+    );
+  }
+  if (cfg.type === 'numeric') {
+    const invalid = !!value && !/^\d+$/.test(value);
+    return (
+      <>
+        <input
+          className="input"
+          value={value || ''}
+          onChange={e => setValue(e.target.value)}
+          inputMode="numeric"
+          placeholder={cfg.placeholder}
+          autoFocus={autoFocus}
+          style={{
+            width: '100%', fontSize: 14,
+            borderColor: invalid ? 'var(--danger)' : undefined,
+          }}
+        />
+        {invalid && (
+          <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>
+            Renseignez uniquement les chiffres.
+          </div>
+        )}
+      </>
+    );
+  }
+  // type 'text' (défaut)
+  return (
+    <input
+      className="input"
+      value={value || ''}
+      onChange={e => setValue(e.target.value)}
+      placeholder={cfg.placeholder}
+      autoFocus={autoFocus}
+      style={{ width: '100%', fontSize: 14 }}
+    />
+  );
+}
+
+/* Validation de soumission selon le type de champ. Retourne `true`
+   si l'enregistrement est autorisé. */
+function isFieldSavable(category, field, value, detail) {
+  const cfg = fieldConfig(category, field);
+  if (cfg.type === 'tag' || cfg.type === 'tag+text') {
+    // Pour les tags, vide = clear → autorisé.
+    return true;
+  }
+  if (cfg.type === 'numeric') {
+    if (!value) return true; // clear OK
+    return /^\d+$/.test(value);
+  }
+  return true;
+}
+
+function EditFieldModal({ edit, onSave, onClose, profileForCategory }) {
+  const cfg = fieldConfig(edit.category, edit.field);
   const isNaissance = edit.field === 'naissance';
   const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal');
+  const [val, setVal] = useState(edit.value);
+  const initialDetail =
+    cfg.type === 'tag+text' && cfg.detailField
+      ? (profileForCategory?.[cfg.detailField] || '')
+      : '';
+  const [detail, setDetail] = useState(initialDetail);
   const [pair, setPair] = useState(null); // { ville, codePostal } après sélection
+
   if (isCityPostal) {
     return (
       <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
@@ -1826,34 +2041,68 @@ function EditFieldModal({ edit, onSave, onClose }) {
       </ModalShell>
     );
   }
-  const showError = isNaissance && val && !isNaissanceValid(val);
-  const canSave = !isNaissance || isNaissanceValid(val);
+
+  // Naissance : masque dédié, pas géré par FieldInput.
+  if (isNaissance) {
+    const showError = val && !isNaissanceValid(val);
+    const canSave = isNaissanceValid(val) || !val;
+    return (
+      <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
+        <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{edit.label}</div>
+        <input
+          className="input"
+          value={val}
+          onChange={e => setVal(maskNaissance(e.target.value))}
+          autoFocus
+          placeholder="JJ/MM/AAAA"
+          inputMode="numeric"
+          maxLength={10}
+          style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
+        />
+        {showError && (
+          <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
+            Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+          </div>
+        )}
+        {!val && (
+          <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+            Format attendu : JJ/MM/AAAA.
+          </div>
+        )}
+        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+          <button onClick={() => onSave(val)} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  // Cas générique : route vers FieldInput selon la config.
+  const canSave = isFieldSavable(edit.category, edit.field, val, detail);
+  const submit = () => {
+    if (cfg.type === 'tag+text' && cfg.detailField) {
+      onSave({ multi: { [edit.field]: val, [cfg.detailField]: detail } });
+    } else {
+      onSave(val);
+    }
+  };
   return (
     <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{edit.label}</div>
-      <input
-        className="input"
+      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 12 }}>{edit.label}</div>
+      <FieldInput
+        category={edit.category}
+        field={edit.field}
         value={val}
-        onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
+        detail={detail}
+        onChange={({ value, detail: d }) => {
+          setVal(value);
+          if (d !== undefined) setDetail(d);
+        }}
         autoFocus
-        placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
-        inputMode={isNaissance ? 'numeric' : undefined}
-        maxLength={isNaissance ? 10 : undefined}
-        style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
       />
-      {showError && (
-        <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-          Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
-        </div>
-      )}
-      {isNaissance && !val && (
-        <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-          Format attendu : JJ/MM/AAAA.
-        </div>
-      )}
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 22 }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={() => onSave(val)} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
+        <button onClick={submit} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
       </div>
     </ModalShell>
   );
@@ -1864,23 +2113,49 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
   const pool = empty.length ? empty : category.fields;
   const [field, setField] = useState(pool[0][0]);
   const [val, setVal] = useState(existing[pool[0][0]] || '');
+  const [detail, setDetail] = useState('');
   const [pair, setPair] = useState(null);
+
+  const cfg = fieldConfig(category.key, field);
   const isNaissance = field === 'naissance';
   const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal');
+
   const showError = isNaissance && val && !isNaissanceValid(val);
   const canSubmit = isCityPostal
     ? !!pair
-    : !!val && (!isNaissance || isNaissanceValid(val));
+    : isNaissance
+      ? !!val && isNaissanceValid(val)
+      : (cfg.type === 'tag' || cfg.type === 'tag+text')
+        ? !!val
+        : cfg.type === 'numeric'
+          ? !!val && /^\d+$/.test(val)
+          : !!val;
+
+  const onFieldChange = (nextField) => {
+    setField(nextField);
+    setPair(null);
+    setDetail('');
+    const initial = existing[nextField] || '';
+    setVal(nextField === 'naissance' ? maskNaissance(initial) : initial);
+  };
+
+  const submit = () => {
+    if (isCityPostal) {
+      onSave(field, { pair });
+      return;
+    }
+    if (cfg.type === 'tag+text' && cfg.detailField) {
+      onSave(field, { multi: { [field]: val, [cfg.detailField]: detail } });
+      return;
+    }
+    onSave(field, val);
+  };
+
   return (
     <ModalShell title={"Ajouter : " + category.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Donnée</div>
-      <select className="input" value={field} onChange={e => {
-        const nextField = e.target.value;
-        setField(nextField);
-        setPair(null);
-        const initial = existing[nextField] || '';
-        setVal(nextField === 'naissance' ? maskNaissance(initial) : initial);
-      }}
+      <select className="input" value={field}
+        onChange={e => onFieldChange(e.target.value)}
         style={{ width: '100%', fontSize: 14, marginBottom: 14, padding: '10px 12px' }}>
         {category.fields.map(([f, l]) => <option key={f} value={f}>{l}{existing[f] ? ' (déjà renseignée)' : ''}</option>)}
       </select>
@@ -1903,16 +2178,16 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
           )}
           <div style={{ marginBottom: 20 }} />
         </>
-      ) : (
+      ) : isNaissance ? (
         <>
           <input
             className="input"
             value={val}
-            onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
+            onChange={e => setVal(maskNaissance(e.target.value))}
             autoFocus
-            placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
-            inputMode={isNaissance ? 'numeric' : undefined}
-            maxLength={isNaissance ? 10 : undefined}
+            placeholder="JJ/MM/AAAA"
+            inputMode="numeric"
+            maxLength={10}
             style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
           />
           {showError && (
@@ -1921,14 +2196,24 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
             </div>
           )}
         </>
+      ) : (
+        <div style={{ marginBottom: 20 }}>
+          <FieldInput
+            category={category.key}
+            field={field}
+            value={val}
+            detail={detail}
+            onChange={({ value, detail: d }) => {
+              setVal(value);
+              if (d !== undefined) setDetail(d);
+            }}
+            autoFocus
+          />
+        </div>
       )}
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button
-          onClick={() => onSave(field, isCityPostal ? { pair } : val)}
-          className="btn btn-primary btn-sm"
-          disabled={!canSubmit}
-        >
+        <button onClick={submit} className="btn btn-primary btn-sm" disabled={!canSubmit}>
           Ajouter
         </button>
       </div>

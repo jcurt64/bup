@@ -172,6 +172,25 @@ export async function PATCH(req: Request) {
     }
   }
 
+  // Revenus — chiffres uniquement (montant en euros, sans séparateur).
+  // Le front affiche un message d'erreur en temps réel ; ici on bloque
+  // toute écriture non conforme (lettres, ponctuation…).
+  if (
+    tier === "pro" &&
+    Object.prototype.hasOwnProperty.call(patch, "revenus")
+  ) {
+    const raw = patch.revenus;
+    if (raw != null && raw !== "" && !/^\d+$/.test(raw)) {
+      return NextResponse.json(
+        {
+          error: "invalid_revenus_format",
+          message: "Renseignez uniquement les chiffres.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   // Garde-fou : on n'accepte JAMAIS un PATCH direct du téléphone via cette
   // route. La vérif SMS (/api/prospect/phone/verify) est la seule porte
   // d'entrée : sinon un client mal intentionné pourrait écraser un numéro

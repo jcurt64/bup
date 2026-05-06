@@ -57,8 +57,6 @@ export const TIERS: Record<TierKey, TierMap> = {
       adresse: "adresse",
       ville: "ville",
       codePostal: "code_postal",
-      logement: "logement",
-      mobilite: "mobilite",
     },
   },
   vie: {
@@ -67,7 +65,11 @@ export const TIERS: Record<TierKey, TierMap> = {
       foyer: "foyer",
       sports: "sports",
       animaux: "animaux",
+      animauxDetail: "animaux_detail",
       vehicule: "vehicule",
+      vehiculeMarque: "vehicule_marque",
+      logement: "logement",
+      mobilite: "mobilite",
     },
   },
   pro: {
