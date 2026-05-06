@@ -4642,18 +4642,18 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
           </div>
         </div>
 
-        <div style={{
+        <div className="pro-info-fields-grid" style={{
           display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1,
           background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)'
         }}>
           {PRO_INFO_FIELDS.map(f => {
             const val = info[f.key] || '';
             return (
-              <div key={f.key} style={{
+              <div key={f.key} className="pro-info-tile" style={{
                 background: 'var(--paper)', padding: '14px 16px',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
               }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pro-info-tile-body" style={{ flex: 1, minWidth: 0 }}>
                   <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>
                     {f.label}{f.optional ? ' · facultatif · nécessaire pour éditer votre facture' : ''}
                   </div>
@@ -4669,7 +4669,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
                     {val || '— non renseigné —'}
                   </div>
                 </div>
-                <div className="row gap-1">
+                <div className="row gap-1 pro-info-tile-actions">
                   <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
                     onClick={() => setEditing({ key: f.key, label: f.label, value: val, mono: f.mono, placeholder: f.placeholder, optional: f.optional })}>
                     <Icon name="edit" size={11}/>
@@ -4685,6 +4685,25 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             );
           })}
         </div>
+        {/* Sur mobile, la grille 2 colonnes + label long + boutons d'actions
+            poussait les boutons hors écran. Sous 640px, on passe en colonne
+            unique et on empile texte / actions verticalement. */}
+        <style>{`
+          @media (max-width: 640px) {
+            .pro-info-fields-grid { grid-template-columns: 1fr !important; }
+            .pro-info-tile {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 10px !important;
+            }
+            .pro-info-tile-actions {
+              justify-content: flex-end !important;
+            }
+            .pro-info-tile-body > div[class~="mono"] {
+              white-space: normal !important;
+            }
+          }
+        `}</style>
       </div>
 
       {editing && (
