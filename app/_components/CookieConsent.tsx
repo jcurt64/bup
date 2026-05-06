@@ -178,6 +178,7 @@ function FloatingButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       aria-label="Gérer les cookies"
       title="Gérer les cookies"
+      className="cookie-floating-btn"
       style={{
         position: "fixed",
         left: 22,

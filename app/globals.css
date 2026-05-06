@@ -404,6 +404,17 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .sticky-preinscription { right: 14px !important; bottom: 76px !important; padding: 11px 16px !important; font-size: 13px !important; }
 }
 
+/* ---------- Cookie floating button — clear the bottom RouteNav on mobile ----
+   Le RouteNav est centré en bas à `bottom: 20` (≈ 56px de haut sur mobile,
+   donc bord supérieur à `bottom: 76`). On remonte la pastille cookie à 100
+   pour laisser ~24px de respiration et éviter le chevauchement avec le menu
+   de navigation. Position horizontale (left: 22) inchangée. */
+@media (max-width: 640px) {
+  .cookie-floating-btn {
+    bottom: 100px !important;
+  }
+}
+
 /* ---------- Cookie banner — stack actions on mobile ----------
    Sur petit écran on empile texte/boutons puis on met les 3 boutons
    en colonne pleine largeur pour éviter tout débordement ou troncage.
