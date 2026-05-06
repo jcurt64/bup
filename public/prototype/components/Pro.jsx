@@ -5016,6 +5016,14 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
     isCheckable && officialForCurrent && val && norm(val) !== norm(officialForCurrent)
       ? officialForCurrent
       : null;
+  // Acquittement utilisateur : "Non je maintiens mes informations" cache
+  // le bandeau pour le reste de la session de la modale. Réinitialisé
+  // à chaque changement de la valeur officielle (= nouvel appel
+  // SIRENE qui ramène potentiellement une autre référence).
+  const [singleFieldDismissed, setSingleFieldDismissed] = useState(false);
+  React.useEffect(() => {
+    setSingleFieldDismissed(false);
+  }, [officialForCurrent]);
 
   // On bloque l'enregistrement quand le SIREN/SIRET est saisi mais
   // explicitement absent du registre — autoriser sinon (loading,
@@ -5145,7 +5153,7 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
       {/* Vérification single-field : raison sociale, adresse, ville,
           code postal ou forme juridique modifiés manuellement et qui
           divergent de la valeur officielle SIRENE pour ce même champ. */}
-      {singleFieldDiff && (
+      {singleFieldDiff && !singleFieldDismissed && (
         <div role="alert" style={{
           marginBottom: 14, padding: '12px 14px', borderRadius: 10,
           background: '#FEF3C7', border: '1.5px solid #FCD34D',
@@ -5157,19 +5165,28 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
           <div>
             Officiel : <strong>« {singleFieldDiff} »</strong>
           </div>
-          <button
-            type="button"
-            onClick={() => setVal(singleFieldDiff)}
-            className="btn btn-sm"
-            style={{
-              marginTop: 8,
-              background: '#7C3AED', color: 'white', borderColor: '#7C3AED',
-            }}
-          >
-            Remplacer par la valeur officielle
-          </button>
+          <div className="row gap-2" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setVal(singleFieldDiff)}
+              className="btn btn-sm"
+              style={{
+                background: '#7C3AED', color: 'white', borderColor: '#7C3AED',
+              }}
+            >
+              Remplacer par la valeur officielle
+            </button>
+            <button
+              type="button"
+              onClick={() => setSingleFieldDismissed(true)}
+              className="btn btn-ghost btn-sm"
+              style={{ color: '#78350F', borderColor: '#FCD34D' }}
+            >
+              Non, je maintiens mes informations
+            </button>
+          </div>
           <div style={{ fontSize: 11.5, marginTop: 8, color: '#78350F' }}>
-            Vérification croisée à partir du SIREN/SIRET enregistré dans Mes informations.
+            Vérification croisée à partir du SIREN/SIRET enregistré dans Mes informations. « Maintenir » ne touche qu'à <strong>{edit.label.toLowerCase()}</strong> — les autres champs restent inchangés.
           </div>
         </div>
       )}
