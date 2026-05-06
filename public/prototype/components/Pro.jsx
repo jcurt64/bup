@@ -1961,7 +1961,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 "certifié confiance" déclenchent le doublage automatique du
                 gain prospect, et donc imputent ×2 sur le budget pour ces
                 contacts-là. Léger, pédagogique, non-bloquant. */}
-            <div style={{
+            <div className="bonus-banner" style={{
               marginBottom: 22,
               padding: '14px 16px',
               borderRadius: 12,
@@ -1976,14 +1976,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               flexWrap: 'wrap',
             }} role="status">
               <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✨</span>
-              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+              <div className="bonus-banner-text" style={{ flex: '1 1 240px', minWidth: 0 }}>
                 Petit bonus à connaître 😉 — si certains de vos contacts ont un profil
                 <strong style={{ color: '#7C3AED' }}> vérifié à 100% (certifié confiance)</strong>,
                 <strong> leurs gains sont automatiquement doublés</strong> et viennent
                 s'imputer sur le budget de la campagne. Prévoyez une petite marge !
               </div>
               <label
-                className="row gap-2"
+                className="row gap-2 bonus-exclude-pill"
                 style={{
                   alignItems: 'center', flex: '0 0 auto',
                   padding: '8px 12px', borderRadius: 999,
@@ -1992,6 +1992,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                   border: '1.5px solid ' + (excludeCertified ? '#7C3AED' : 'color-mix(in oklab, #7C3AED 35%, var(--line))'),
                   fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
                   whiteSpace: 'normal',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 <input
@@ -2006,10 +2008,23 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                       setExcludeCertified(false);
                     }
                   }}
-                  style={{ width: 14, height: 14, accentColor: '#7C3AED' }}
+                  style={{ width: 14, height: 14, accentColor: '#7C3AED', flexShrink: 0 }}
                 />
-                Retirer les “certifié confiance” de ma cible
+                <span>Retirer les “certifié confiance” de ma cible</span>
               </label>
+              {/* Sur mobile, on bascule le pill en pleine largeur sous le texte
+                  (centré, texte autorisé à wrap) pour éviter tout débordement. */}
+              <style>{`
+                @media (max-width: 720px) {
+                  .bonus-banner { flex-direction: column !important; align-items: stretch !important; }
+                  .bonus-banner-text { flex: 1 1 auto !important; }
+                  .bonus-exclude-pill {
+                    width: 100% !important;
+                    justify-content: center !important;
+                    text-align: center !important;
+                  }
+                }
+              `}</style>
             </div>
 
             {costPreview}
