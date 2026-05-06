@@ -3499,20 +3499,32 @@ function Facturation() {
                   Aucune facture pour le moment. Effectuez une recharge pour générer votre première facture.
                 </td></tr>
               )}
-              {invoices !== null && invoices.map((inv) => (
-                <tr key={inv.transactionId}>
-                  <td className="mono" style={{ fontSize: 12 }}>{inv.number}</td>
-                  <td className="muted">{_dateFmtFr.format(new Date(inv.date))}</td>
-                  <td>{inv.label}</td>
-                  <td><span className={'chip ' + statusChipClass(inv.status)}>{statusIcon(inv.status)}{inv.statusLabel}</span></td>
-                  <td className="mono tnum" style={{ textAlign: 'right' }}>{_eurFmtFr.format(inv.amountEur)}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-ghost btn-sm btn-telecharger" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                      <Icon name="download" size={12}/> PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {invoices !== null && invoices.map((inv) => {
+                // Le PDF est généré côté serveur (pdfkit) à partir des
+                // mêmes données que la ligne ci-dessus + les infos
+                // société du pro renseignées dans "Mes informations".
+                const pdfHref = `/api/pro/invoices/${encodeURIComponent(inv.transactionId)}/pdf`;
+                return (
+                  <tr key={inv.transactionId}>
+                    <td className="mono" style={{ fontSize: 12 }}>{inv.number}</td>
+                    <td className="muted">{_dateFmtFr.format(new Date(inv.date))}</td>
+                    <td>{inv.label}</td>
+                    <td><span className={'chip ' + statusChipClass(inv.status)}>{statusIcon(inv.status)}{inv.statusLabel}</span></td>
+                    <td className="mono tnum" style={{ textAlign: 'right' }}>{_eurFmtFr.format(inv.amountEur)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <a
+                        href={pdfHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm btn-telecharger"
+                        title={`Télécharger la facture ${inv.number} (PDF)`}
+                      >
+                        <Icon name="download" size={12}/> PDF
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
