@@ -231,6 +231,7 @@ function CookieBanner({
         background: "var(--ink)",
         color: "var(--paper)",
         borderRadius: 14,
+        border: "1px solid rgba(255,255,255,.22)",
         padding: "clamp(16px, 3vw, 22px)",
         boxShadow: "0 24px 60px -20px rgba(15,22,41,.55)",
         maxWidth: 1100,
@@ -238,7 +239,7 @@ function CookieBanner({
       }}
     >
       <div
-        className="row between wrap gap-4"
+        className="cookie-banner-row row between wrap gap-4"
         style={{ alignItems: "center" }}
       >
         <div style={{ flex: "1 1 320px", minWidth: 0 }}>
@@ -272,7 +273,7 @@ function CookieBanner({
         </div>
 
         <div
-          className="row gap-2 wrap"
+          className="cookie-banner-actions row gap-2 wrap"
           style={{ flex: "0 0 auto", justifyContent: "flex-end" }}
         >
           <button
