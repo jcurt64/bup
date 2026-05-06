@@ -2469,6 +2469,24 @@ function PricingCard({
 
 function Pricing() {
   const router = useRouter();
+  // Routage conditionnel des CTA tarifaires :
+  //   - utilisateur déjà identifié comme pro → `/pro`
+  //   - sinon (anonyme ou prospect) → `/inscription` pour inviter à créer
+  //     un compte professionnel
+  // Le check est fait à la volée pour ne pas pénaliser le LCP de la home.
+  const goToProOrSignup = async () => {
+    try {
+      const r = await fetch("/api/me/is-pro", { cache: "no-store" });
+      if (r.ok) {
+        const j = (await r.json()) as { authenticated?: boolean; isPro?: boolean };
+        if (j.authenticated && j.isPro) {
+          router.push("/pro");
+          return;
+        }
+      }
+    } catch {}
+    router.push("/inscription");
+  };
   return (
     <section id="tarifs" className="section">
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -2500,7 +2518,7 @@ function Pricing() {
               "Ciblage par paliers 1 à 3",
             ]}
             cta="Démarrer en Starter"
-            onCta={() => router.push("/connexion")}
+            onCta={goToProOrSignup}
           />
           <PricingCard
             name="Pro"
@@ -2513,7 +2531,7 @@ function Pricing() {
               "Accès anticipé aux nouvelles fonctionnalités",
             ]}
             cta="Passer en Pro"
-            onCta={() => router.push("/connexion")}
+            onCta={goToProOrSignup}
           />
         </div>
       </div>
