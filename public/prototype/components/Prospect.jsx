@@ -1300,10 +1300,12 @@ const FIELD_CONFIG = {
   },
   'vie.logement': {
     type: 'tag',
+    multi: true,
     options: ['Maison', 'Appartement', 'Studio', 'Loft', 'Duplex', 'Colocation'],
   },
   'vie.mobilite': {
     type: 'tag',
+    multi: true,
     options: ['Voiture', 'Co-voiturage', 'Transports en commun', 'Vélo', 'Trottinette', 'Moto', 'Piéton'],
   },
   'vie.animaux': {
@@ -1485,9 +1487,49 @@ function MesDonnees({ onGoPrefs }) {
                   )}
                 </div>
               </div>
-              {!isDeleted && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
-                  {cat.fields.map(([field, label], idx) => {
+              {!isDeleted && (() => {
+                // Bandeau "section incomplète" : visible dès qu'un champ est
+                // rempli ET qu'un autre champ de la même section ne l'est pas.
+                // Non-bloquant — c'est juste un nudge avec un peu d'humour pour
+                // éviter d'avoir des sections à moitié renseignées en base.
+                const missing = cat.fields
+                  .filter(([f]) => !(profile?.[cat.key]?.[f]))
+                  .map(([, l]) => l);
+                const filledSomeButNotAll =
+                  missing.length > 0 && missing.length < cat.fields.length;
+                return (
+                  <>
+                    {filledSomeButNotAll && (
+                      <div style={{
+                        marginBottom: 14,
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        background: 'color-mix(in oklab, #B45309 8%, var(--paper))',
+                        border: '1px solid color-mix(in oklab, #B45309 30%, var(--line))',
+                        color: 'var(--ink-2)',
+                        fontSize: 13.5,
+                        lineHeight: 1.5,
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                      }} role="status">
+                        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>🙃</span>
+                        <span>
+                          Encore un petit effort pour valider la section{' '}
+                          <strong>{cat.label}</strong> — il manque{' '}
+                          <strong>
+                            {missing.length === 1
+                              ? missing[0].toLowerCase()
+                              : missing.slice(0, -1).map(l => l.toLowerCase()).join(', ') +
+                                ' et ' +
+                                missing.slice(-1)[0].toLowerCase()}
+                          </strong>{' '}
+                          😉
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
+                      {cat.fields.map(([field, label], idx) => {
                     const rawVal = profile?.[cat.key]?.[field] || '';
                     const cfg = fieldConfig(cat.key, field);
                     // Affichage compound : tag + détail (ex. "Berline · Renault").
@@ -1538,7 +1580,9 @@ function MesDonnees({ onGoPrefs }) {
                     );
                   })}
                 </div>
-              )}
+              </>
+            );
+          })()}
             </div>
           );
         })}
@@ -1877,19 +1921,41 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
   );
 }
 
-/* TagPicker : grille de pastilles cliquables (radio visuel). Tag actif
-   est rempli en violet (TAG_VIOLET). Cliquer un tag déjà actif le
-   désélectionne (utile si l'utilisateur veut effacer la valeur). */
-function TagPicker({ value, options, onPick }) {
+/* TagPicker : grille de pastilles cliquables. Tag actif rempli en violet.
+   - Mode `multi=false` (défaut) : sélection unique. Cliquer le tag actif le
+     désélectionne.
+   - Mode `multi=true` : sélection multiple. Valeur stockée en CSV
+     "A, B, C" pour rester compatible avec les colonnes TEXT. */
+function tagsToList(value) {
+  if (!value) return [];
+  return value.split(',').map(s => s.trim()).filter(Boolean);
+}
+function listToTags(list) {
+  return list.join(', ');
+}
+
+function TagPicker({ value, options, onPick, multi = false }) {
+  const selected = multi ? new Set(tagsToList(value)) : null;
   return (
     <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 4 }}>
       {options.map(opt => {
-        const active = value === opt;
+        const active = multi ? selected.has(opt) : value === opt;
+        const onClick = () => {
+          if (multi) {
+            const next = new Set(selected);
+            if (next.has(opt)) next.delete(opt); else next.add(opt);
+            // Préserve l'ordre des options pour un rendu stable.
+            const ordered = options.filter(o => next.has(o));
+            onPick(listToTags(ordered));
+          } else {
+            onPick(active ? '' : opt);
+          }
+        };
         return (
           <button
             key={opt}
             type="button"
-            onClick={() => onPick(active ? '' : opt)}
+            onClick={onClick}
             style={{
               padding: '8px 14px',
               borderRadius: 999,
@@ -1928,7 +1994,14 @@ function FieldInput({ category, field, value, detail, onChange, autoFocus = fals
 
   if (cfg.type === 'tag') {
     return (
-      <TagPicker value={value || ''} options={cfg.options} onPick={setValue} />
+      <>
+        <TagPicker value={value || ''} options={cfg.options} multi={!!cfg.multi} onPick={setValue} />
+        {cfg.multi && (
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+            Plusieurs choix possibles — cliquez pour ajouter ou retirer.
+          </div>
+        )}
+      </>
     );
   }
   if (cfg.type === 'tag+text') {
