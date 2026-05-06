@@ -46,6 +46,9 @@ type Body = {
   keywords: string[];
   kwFilter: boolean;
   poolMode: string;
+  /** Optionnel : quand true, exclut les prospects `certifie_confiance`
+   *  du pool de matching. Coché par le pro dans le wizard, étape Budget. */
+  excludeCertified?: boolean;
 };
 
 const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
@@ -195,6 +198,7 @@ export async function POST(req: Request) {
     geo: body.geo,
     ages: body.ages,
     verifLevel: body.verifLevel,
+    excludeCertified: body.excludeCertified === true,
     keywords: body.keywords,
     kwFilter: body.kwFilter,
     poolMode: body.poolMode,
@@ -240,6 +244,7 @@ export async function POST(req: Request) {
       ages: body.ages,
       verifLevel: body.verifLevel,
       contacts: body.contacts,
+      excludeCertified: body.excludeCertified === true,
     });
   } catch (err) {
     console.error("[/api/pro/campaigns] matching failed", err);

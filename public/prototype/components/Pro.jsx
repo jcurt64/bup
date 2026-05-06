@@ -1330,6 +1330,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [contacts, setContacts] = useState(10);
   const [durationKey, setDurationKey] = useState('7d');
   const [poolMode, setPoolMode] = useState('standard');
+  // Étape 5 : exclure ou non les profils "certifié confiance" du pool.
+  // - false (défaut) : on garde les certifié confiance (gain ×2 pour eux,
+  //   débit ×2 côté pro, déjà câblé serveur).
+  // - true : findMatchingProspects retire ces prospects du résultat.
+  const [excludeCertified, setExcludeCertified] = useState(false);
+  // Affiche la confirmation quand le pro coche la case (false → true).
+  const [confirmExcludeCertified, setConfirmExcludeCertified] = useState(false);
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
@@ -1964,16 +1971,45 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
               fontSize: 13.5,
               lineHeight: 1.5,
               display: 'flex',
-              gap: 10,
+              gap: 12,
               alignItems: 'flex-start',
+              flexWrap: 'wrap',
             }} role="status">
               <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✨</span>
-              <span>
+              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
                 Petit bonus à connaître 😉 — si certains de vos contacts ont un profil
                 <strong style={{ color: '#7C3AED' }}> vérifié à 100% (certifié confiance)</strong>,
                 <strong> leurs gains sont automatiquement doublés</strong> et viennent
                 s'imputer sur le budget de la campagne. Prévoyez une petite marge !
-              </span>
+              </div>
+              <label
+                className="row gap-2"
+                style={{
+                  alignItems: 'center', flex: '0 0 auto',
+                  padding: '8px 12px', borderRadius: 999,
+                  background: excludeCertified ? '#7C3AED' : 'var(--paper)',
+                  color: excludeCertified ? 'white' : 'var(--ink-2)',
+                  border: '1.5px solid ' + (excludeCertified ? '#7C3AED' : 'color-mix(in oklab, #7C3AED 35%, var(--line))'),
+                  fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
+                  whiteSpace: 'normal',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={excludeCertified}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Passe par la confirmation : pas de toggle silencieux.
+                      setConfirmExcludeCertified(true);
+                    } else {
+                      // Décocher (retour à l'état par défaut) : pas de friction.
+                      setExcludeCertified(false);
+                    }
+                  }}
+                  style={{ width: 14, height: 14, accentColor: '#7C3AED' }}
+                />
+                Retirer les “certifié confiance” de ma cible
+              </label>
             </div>
 
             {costPreview}
@@ -2404,6 +2440,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                         costPerContactCents: Math.round(cpc * 100),
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
+                        excludeCertified,
                       }),
                     });
                     const j = await r.json();
@@ -2478,6 +2515,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         )}
       </div>
 
+      {confirmExcludeCertified && (
+        <ExcludeCertifiedConfirmModal
+          onCancel={() => setConfirmExcludeCertified(false)}
+          onConfirm={() => {
+            setExcludeCertified(true);
+            setConfirmExcludeCertified(false);
+          }}
+        />
+      )}
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
       {insufficient && (
         <InsufficientBalanceModal
@@ -2509,6 +2555,59 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/* ─── Confirmation : retirer les certifié confiance de la cible ───
+   Case à cocher dans l'étape Budget. Pas de toggle silencieux : on
+   demande explicitement confirmation au pro pour qu'il prenne
+   conscience que sa cible va se réduire. */
+function ExcludeCertifiedConfirmModal({ onCancel, onConfirm }) {
+  return (
+    <div role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 250,
+      overflowY: 'auto',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 20px 80px',
+    }} onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: 'var(--paper)', borderRadius: 16, padding: 26,
+        maxWidth: 460, width: '100%',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+        margin: 'auto 0',
+      }}>
+        <div className="row center gap-3" style={{ marginBottom: 14 }}>
+          <span style={{
+            width: 38, height: 38, borderRadius: 999,
+            background: 'color-mix(in oklab, #7C3AED 14%, var(--paper))',
+            color: '#7C3AED',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, flexShrink: 0,
+          }}>🤔</span>
+          <div className="serif" style={{ fontSize: 20, lineHeight: 1.25 }}>
+            Vraiment ?
+          </div>
+        </div>
+        <div className="muted" style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 22 }}>
+          Dommage 😕 — vous passez à côté des prospects “certifié confiance”,
+          les profils les plus engagés de BUUPP. Votre cible risque d'être
+          réduite, et vous renoncez aux meilleurs taux d'acceptation.
+        </div>
+        <div className="row gap-2" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>
+            Non, je garde ce profil
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={onConfirm}
+            style={{ background: '#7C3AED', color: 'white', borderColor: '#7C3AED' }}
+          >
+            Oui, je confirme
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

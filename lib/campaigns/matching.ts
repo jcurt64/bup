@@ -30,6 +30,9 @@ export type MatchingInput = {
   ages: string[];
   verifLevel: string;
   contacts: number;
+  /** Quand true, retire les prospects `certifie_confiance` du pool —
+   *  le pro a explicitement décoché ce palier dans le wizard. */
+  excludeCertified?: boolean;
 };
 
 export type MatchedProspect = {
@@ -46,7 +49,14 @@ export async function findMatchingProspects(
   input: MatchingInput,
 ): Promise<MatchedProspect[]> {
   const requiredKeys = tierNumsToKeys(input.requiredTiers);
-  const acceptableLevels = acceptableVerifLevels(input.verifLevel);
+  let acceptableLevels = acceptableVerifLevels(input.verifLevel);
+  if (input.excludeCertified) {
+    // Retire `certifie_confiance` du pool : le pro a explicitement
+    // demandé à exclure ce palier (ex. pour limiter le doublage de gain).
+    acceptableLevels = acceptableLevels.filter(
+      (l) => l !== "certifie_confiance",
+    );
+  }
   const cpPrefix = geoCodePostalPrefix(input.geo, input.proCodePostal);
   const ageBounds = ageRangesToBounds(input.ages);
   const wantsTier1 = input.requiredTiers.includes(1);
