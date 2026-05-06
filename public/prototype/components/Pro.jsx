@@ -3618,8 +3618,10 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
 
   // Vérification auto SIREN/SIRET sur l'API publique data.gouv.fr.
   // Déclenchée dès qu'un identifiant atteint sa longueur valide (9
-  // chiffres pour le SIREN, 14 pour le SIRET). Debouncée ; ne re-tire
-  // pas la même requête que la précédente (clé `queriedFor`).
+  // chiffres pour le SIREN, 14 pour le SIRET). Debouncée. La clé du
+  // dernier appel est suivie via une `ref` pour ne pas créer de
+  // boucle de re-render avec l'état `verify`.
+  const lastQueryRef = React.useRef(null);
   React.useEffect(() => {
     const siren = form.siren.replace(/\s+/g, '');
     const siret = form.siret.replace(/\s+/g, '');
@@ -3627,12 +3629,14 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
       /^\d{14}$/.test(siret) ? `siret:${siret}` :
       /^\d{9}$/.test(siren)  ? `siren:${siren}` : null;
     if (!target) {
-      setVerify({ status: 'idle', data: null, queriedFor: null });
+      setVerify({ status: 'idle', data: null });
+      lastQueryRef.current = null;
       return;
     }
-    if (target === verify.queriedFor) return;
+    if (target === lastQueryRef.current) return;
+    lastQueryRef.current = target;
+    setVerify({ status: 'loading', data: null });
     let cancelled = false;
-    setVerify({ status: 'loading', data: null, queriedFor: target });
     const t = setTimeout(async () => {
       try {
         const qs = target.startsWith('siret:')
@@ -3641,15 +3645,15 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
         const r = await fetch(`/api/pro/info/verify-company?${qs}`, { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
         if (cancelled) return;
-        if (!r.ok) { setVerify({ status: 'error', data: null, queriedFor: target }); return; }
-        if (!j.found) { setVerify({ status: 'not_found', data: null, queriedFor: target }); return; }
-        setVerify({ status: 'found', data: j, queriedFor: target });
+        if (!r.ok) { setVerify({ status: 'error', data: null }); return; }
+        if (!j.found) { setVerify({ status: 'not_found', data: null }); return; }
+        setVerify({ status: 'found', data: j });
       } catch {
-        if (!cancelled) setVerify({ status: 'error', data: null, queriedFor: target });
+        if (!cancelled) setVerify({ status: 'error', data: null });
       }
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [form.siren, form.siret, verify.queriedFor]);
+  }, [form.siren, form.siret]);
 
   // Diff utilisateur ↔ valeurs officielles. Comparaison souple :
   // trim + case-insensitive, et "espace insécable" normalisé.
@@ -4900,8 +4904,82 @@ function ProInfoModalShell({ title, children, onClose, width = 460 }) {
 }
 
 function ProInfoEditModal({ edit, onSave, onClose }) {
-  const [val, setVal] = useState(edit.value);
   const isSiren = edit.key === 'siren';
+  const isSiret = edit.key === 'siret';
+  // Limites de saisie : 9 chiffres pour SIREN, 14 pour SIRET, libre sinon.
+  const maxLen = isSiret ? 14 : isSiren ? 9 : undefined;
+  const stripDigits = (s) => s.replace(/\D/g, '').slice(0, maxLen);
+  const [val, setVal] = useState(
+    isSiren || isSiret ? stripDigits(String(edit.value || '')) : (edit.value || ''),
+  );
+
+  // Pour la comparaison "votre saisie vs registre officiel", on récupère
+  // l'état courant des Mes informations au moment de l'édition.
+  const [proInfo, setProInfo] = useState(null);
+  React.useEffect(() => {
+    if (!isSiren && !isSiret) return;
+    let cancelled = false;
+    fetch('/api/pro/info', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setProInfo(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isSiren, isSiret]);
+
+  // Vérification SIRENE auto débouncée.
+  const [verify, setVerify] = useState({ status: 'idle', data: null });
+  const lastQueryRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!isSiren && !isSiret) return;
+    const target = isSiret
+      ? (/^\d{14}$/.test(val) ? `siret:${val}` : null)
+      : (/^\d{9}$/.test(val)  ? `siren:${val}` : null);
+    if (!target) {
+      setVerify({ status: 'idle', data: null });
+      lastQueryRef.current = null;
+      return;
+    }
+    if (target === lastQueryRef.current) return;
+    lastQueryRef.current = target;
+    setVerify({ status: 'loading', data: null });
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const qs = isSiret ? `siret=${val}` : `siren=${val}`;
+        const r = await fetch(`/api/pro/info/verify-company?${qs}`, { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok) { setVerify({ status: 'error', data: null }); return; }
+        if (!j.found) { setVerify({ status: 'not_found', data: null }); return; }
+        setVerify({ status: 'found', data: j });
+      } catch {
+        if (!cancelled) setVerify({ status: 'error', data: null });
+      }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [val, isSiren, isSiret]);
+
+  // Diff entre proInfo (raison sociale, adresse…) et la fiche SIRENE.
+  const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const diffs =
+    verify.status === 'found' && verify.data && proInfo
+      ? [
+          ['raisonSociale',  'Raison sociale',   proInfo.raisonSociale,  verify.data.raisonSociale],
+          ['adresse',        'Adresse',          proInfo.adresse,        verify.data.adresse],
+          ['ville',          'Ville',            proInfo.ville,          verify.data.ville],
+          ['codePostal',     'Code postal',      proInfo.codePostal,     verify.data.codePostal],
+          ['formeJuridique', 'Forme juridique',  proInfo.formeJuridique, verify.data.formeJuridique],
+        ].filter(([, , user, off]) => off && user && norm(user) !== norm(off))
+      : [];
+
+  // On bloque l'enregistrement quand le SIREN/SIRET est saisi mais
+  // explicitement absent du registre — autoriser sinon (loading,
+  // error réseau, longueur incomplète…) pour ne pas frustrer l'usage.
+  const blockedByVerification =
+    (isSiren || isSiret) && val && verify.status === 'not_found';
+  const canSave =
+    (edit.optional || val.trim()) && !blockedByVerification;
+
   return (
     <ProInfoModalShell title={'Modifier : ' + edit.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>
@@ -4910,22 +4988,90 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
       <input
         className={'input' + (edit.mono ? ' mono' : '')}
         value={val}
-        onChange={e => setVal(isSiren ? e.target.value.replace(/\D/g, '').slice(0, 9) : e.target.value)}
+        onChange={e => setVal(
+          (isSiren || isSiret) ? stripDigits(e.target.value) : e.target.value,
+        )}
         placeholder={edit.placeholder}
         autoFocus
-        inputMode={isSiren ? 'numeric' : undefined}
-        style={{ width: '100%', fontSize: 14, marginBottom: isSiren ? 10 : 20 }}
+        inputMode={(isSiren || isSiret) ? 'numeric' : undefined}
+        maxLength={maxLen}
+        style={{ width: '100%', fontSize: 14, marginBottom: 10 }}
       />
-      {isSiren && (
-        <div className="muted" style={{ fontSize: 12, marginBottom: 18, lineHeight: 1.5 }}>
-          9 chiffres. Ce numéro reste confidentiel — BUUPP s'en sert uniquement
-          pour vérifier l'existence légale de votre société.
+      {(isSiren || isSiret) && (
+        <div className="muted" style={{ fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
+          {isSiret ? '14 chiffres' : '9 chiffres'}. Vérification automatique sur le registre officiel SIRENE / data.gouv.fr.
         </div>
       )}
+
+      {/* Statut vérification SIRENE */}
+      {(isSiren || isSiret) && verify.status === 'loading' && (
+        <div role="status" style={{
+          marginBottom: 14, padding: '10px 12px', borderRadius: 8,
+          background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+          color: 'var(--ink-3)', fontSize: 12.5,
+        }}>
+          Vérification en cours sur le registre officiel…
+        </div>
+      )}
+      {(isSiren || isSiret) && verify.status === 'not_found' && (
+        <div role="alert" style={{
+          marginBottom: 14, padding: '10px 12px', borderRadius: 8,
+          background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+          color: '#991B1B', fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          ❌ <strong>Numéro introuvable</strong> dans le registre officiel SIRENE. Vérifiez votre saisie — l'enregistrement est bloqué tant que le numéro n'est pas valide.
+        </div>
+      )}
+      {(isSiren || isSiret) && verify.status === 'error' && (
+        <div role="status" style={{
+          marginBottom: 14, padding: '10px 12px', borderRadius: 8,
+          background: '#FEF3C7', border: '1px solid #FCD34D',
+          color: '#78350F', fontSize: 12.5,
+        }}>
+          Vérification temporairement indisponible — vous pouvez quand même enregistrer.
+        </div>
+      )}
+      {(isSiren || isSiret) && verify.status === 'found' && diffs.length === 0 && (
+        <div role="status" style={{
+          marginBottom: 14, padding: '12px 14px', borderRadius: 10,
+          background: 'color-mix(in oklab, var(--good) 10%, var(--paper))',
+          border: '1.5px solid color-mix(in oklab, var(--good) 35%, var(--line))',
+          color: 'var(--ink-2)', fontSize: 13, lineHeight: 1.5,
+        }}>
+          ✅ <strong>Validé</strong> — numéro reconnu dans le registre officiel
+          {verify.data?.raisonSociale ? ` (${verify.data.raisonSociale})` : ''}.
+        </div>
+      )}
+      {(isSiren || isSiret) && verify.status === 'found' && diffs.length > 0 && (
+        <div role="alert" style={{
+          marginBottom: 14, padding: '12px 14px', borderRadius: 10,
+          background: '#FEF3C7', border: '1.5px solid #FCD34D',
+          color: '#78350F', fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, color: '#78350F' }}>
+            ⚠ Numéro reconnu mais discordances avec vos informations société
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {diffs.map(([key, label, user, official]) => (
+              <li key={key} style={{ marginBottom: 2 }}>
+                <strong>{label}</strong> — vos infos : « {user || '∅'} » · officiel : « {official} »
+              </li>
+            ))}
+          </ul>
+          <div style={{ fontSize: 11.5, marginTop: 6, color: '#78350F' }}>
+            Mettez à jour vos champs Raison sociale / Adresse / Ville depuis Mes informations pour aligner avec le registre.
+          </div>
+        </div>
+      )}
+
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={() => onSave(val.trim())} className="btn btn-primary btn-sm"
-          disabled={!edit.optional && !val.trim()}>
+        <button
+          onClick={() => onSave(val.trim())}
+          className="btn btn-primary btn-sm"
+          disabled={!canSave}
+          title={blockedByVerification ? 'Numéro non reconnu dans SIRENE' : undefined}
+        >
           Enregistrer
         </button>
       </div>
