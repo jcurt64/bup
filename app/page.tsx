@@ -1311,8 +1311,17 @@ function FlashDealModal({
                 flexWrap: "wrap",
               }}
             >
-              Compléter mes données pour accepter le deal{" "}
-              <Icon name="arrow" size={14} />
+              Compléter mes données pour accepter le{" "}
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                deal <Icon name="arrow" size={14} />
+              </span>
             </button>
           </>
         )}
