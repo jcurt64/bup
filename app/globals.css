@@ -407,12 +407,15 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 /* ---------- Cookie floating button — mirror the StickyPreinscription on mobile
    Pour rester aligné horizontalement avec le bouton "Pré-inscription"
    (positionné à `right: 14, bottom: 76` sur mobile), on miroite ces
-   valeurs côté gauche. Les deux pastilles vivent ainsi sur la même ligne
-   de base. */
+   valeurs côté gauche. La pastille est aussi rétrécie à 40×40 pour matcher
+   la hauteur du bouton "Pré-inscription" (padding 11px + texte 13px ≈ 40px),
+   ce qui aligne aussi leurs bords supérieurs et leurs centres verticaux. */
 @media (max-width: 640px) {
   .cookie-floating-btn {
     left: 14px !important;
     bottom: 76px !important;
+    width: 40px !important;
+    height: 40px !important;
   }
 }
 
