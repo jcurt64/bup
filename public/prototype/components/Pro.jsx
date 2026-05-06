@@ -3586,6 +3586,11 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
     rcsVille: '',
     rmNumber: '',
   });
+  // État de la vérification SIREN/SIRET côté API officielle
+  // (data.gouv.fr / SIRENE). `status` ∈ {'idle','loading','found',
+  // 'not_found','error'} ; `data` contient les valeurs officielles
+  // pour comparaison + import éventuel.
+  const [verify, setVerify] = useState({ status: 'idle', data: null, queriedFor: null });
 
   React.useEffect(() => {
     let cancelled = false;
@@ -3610,6 +3615,69 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // Vérification auto SIREN/SIRET sur l'API publique data.gouv.fr.
+  // Déclenchée dès qu'un identifiant atteint sa longueur valide (9
+  // chiffres pour le SIREN, 14 pour le SIRET). Debouncée ; ne re-tire
+  // pas la même requête que la précédente (clé `queriedFor`).
+  React.useEffect(() => {
+    const siren = form.siren.replace(/\s+/g, '');
+    const siret = form.siret.replace(/\s+/g, '');
+    const target =
+      /^\d{14}$/.test(siret) ? `siret:${siret}` :
+      /^\d{9}$/.test(siren)  ? `siren:${siren}` : null;
+    if (!target) {
+      setVerify({ status: 'idle', data: null, queriedFor: null });
+      return;
+    }
+    if (target === verify.queriedFor) return;
+    let cancelled = false;
+    setVerify({ status: 'loading', data: null, queriedFor: target });
+    const t = setTimeout(async () => {
+      try {
+        const qs = target.startsWith('siret:')
+          ? `siret=${target.slice(6)}`
+          : `siren=${target.slice(6)}`;
+        const r = await fetch(`/api/pro/info/verify-company?${qs}`, { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok) { setVerify({ status: 'error', data: null, queriedFor: target }); return; }
+        if (!j.found) { setVerify({ status: 'not_found', data: null, queriedFor: target }); return; }
+        setVerify({ status: 'found', data: j, queriedFor: target });
+      } catch {
+        if (!cancelled) setVerify({ status: 'error', data: null, queriedFor: target });
+      }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.siren, form.siret, verify.queriedFor]);
+
+  // Diff utilisateur ↔ valeurs officielles. Comparaison souple :
+  // trim + case-insensitive, et "espace insécable" normalisé.
+  const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const diffs =
+    verify.status === 'found' && verify.data
+      ? [
+          ['raisonSociale',  'Raison sociale',   form.raisonSociale,  verify.data.raisonSociale],
+          ['adresse',        'Adresse',          form.adresse,        verify.data.adresse],
+          ['ville',          'Ville',            form.ville,          verify.data.ville],
+          ['codePostal',     'Code postal',      form.codePostal,     verify.data.codePostal],
+          ['formeJuridique', 'Forme juridique',  form.formeJuridique, verify.data.formeJuridique],
+        ].filter(([, , user, off]) => off && user && norm(user) !== norm(off))
+      : [];
+
+  const importOfficial = () => {
+    if (verify.status !== 'found' || !verify.data) return;
+    setForm(f => ({
+      ...f,
+      raisonSociale: verify.data.raisonSociale || f.raisonSociale,
+      adresse: verify.data.adresse || f.adresse,
+      ville: verify.data.ville || f.ville,
+      codePostal: verify.data.codePostal || f.codePostal,
+      formeJuridique: verify.data.formeJuridique || f.formeJuridique,
+      siren: verify.data.siren || f.siren,
+      siret: verify.data.siret || f.siret,
+    }));
+  };
 
   const required = [
     ['raisonSociale',  'Dénomination sociale ou nom/prénom',  form.raisonSociale.trim()],
@@ -3740,8 +3808,79 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
               </div>
             </div>
             <div className="muted" style={{ fontSize: 12 }}>
-              Renseignez au moins l'un des deux numéros (SIREN ou SIRET).
+              Renseignez au moins l'un des deux numéros (SIREN ou SIRET). Vérification automatique sur le registre officiel SIRENE / data.gouv.fr.
             </div>
+
+            {/* Statut vérification numéro entreprise (data.gouv.fr) */}
+            {verify.status === 'loading' && (
+              <div role="status" style={{
+                marginTop: 4, padding: '10px 12px', borderRadius: 8,
+                background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+                color: 'var(--ink-3)', fontSize: 12.5,
+              }}>
+                Vérification en cours sur le registre officiel…
+              </div>
+            )}
+            {verify.status === 'not_found' && (
+              <div role="alert" style={{
+                marginTop: 4, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+                color: '#991B1B', fontSize: 12.5,
+              }}>
+                ❌ Numéro introuvable dans le registre officiel des entreprises (SIRENE). Vérifiez la saisie.
+              </div>
+            )}
+            {verify.status === 'error' && (
+              <div role="status" style={{
+                marginTop: 4, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF3C7', border: '1px solid #FCD34D',
+                color: '#78350F', fontSize: 12.5,
+              }}>
+                Vérification temporairement indisponible — vous pouvez quand même enregistrer.
+              </div>
+            )}
+            {verify.status === 'found' && diffs.length === 0 && (
+              <div role="status" style={{
+                marginTop: 4, padding: '12px 14px', borderRadius: 10,
+                background: 'color-mix(in oklab, var(--good) 10%, var(--paper))',
+                border: '1.5px solid color-mix(in oklab, var(--good) 35%, var(--line))',
+                color: 'var(--ink-2)', fontSize: 13, lineHeight: 1.5,
+              }}>
+                ✅ <strong>Validé</strong> — les informations correspondent au registre officiel
+                {verify.data?.raisonSociale ? ` (${verify.data.raisonSociale})` : ''}.
+                {verify.data?.actif === false && (
+                  <span style={{ display: 'block', marginTop: 4, color: 'var(--warn)' }}>
+                    ⚠ Cet établissement est marqué comme cessé dans la base SIRENE.
+                  </span>
+                )}
+              </div>
+            )}
+            {verify.status === 'found' && diffs.length > 0 && (
+              <div role="alert" style={{
+                marginTop: 4, padding: '12px 14px', borderRadius: 10,
+                background: '#FEF3C7', border: '1.5px solid #FCD34D',
+                color: '#78350F', fontSize: 12.5, lineHeight: 1.5,
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: '#78350F' }}>
+                  ⚠ Discordances détectées avec le registre officiel
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {diffs.map(([key, label, user, official]) => (
+                    <li key={key} style={{ marginBottom: 2 }}>
+                      <strong>{label}</strong> — saisi : « {user || '∅'} » · officiel : « {official} »
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={importOfficial}
+                  className="btn btn-ghost btn-sm"
+                  style={{ marginTop: 8, color: '#78350F', borderColor: '#FCD34D' }}
+                >
+                  Importer les informations officielles
+                </button>
+              </div>
+            )}
             <div className="row gap-3 wrap">
               <div style={{ flex: '1 1 220px' }}>
                 <div className="label">Ville d'immatriculation RCS</div>
