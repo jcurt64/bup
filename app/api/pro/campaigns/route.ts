@@ -116,6 +116,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "pro_not_found" }, { status: 404 });
   }
 
+  // Cap concurrent : 2 campagnes actives en parallèle pour Starter, illimité
+  // pour Pro. Aligné avec la card de tarif et la PlanSwitcherSection.
+  const STARTER_ACTIVE_CAP = 2;
+  if (pro.plan === "starter") {
+    const { count: activeCount, error: activeErr } = await admin
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .eq("pro_account_id", proId)
+      .eq("status", "active");
+    if (activeErr) {
+      console.error("[/api/pro/campaigns] active count failed", activeErr);
+      return NextResponse.json({ error: "read_failed" }, { status: 500 });
+    }
+    if ((activeCount ?? 0) >= STARTER_ACTIVE_CAP) {
+      return NextResponse.json(
+        {
+          error: "starter_cap_reached",
+          plan: "starter",
+          activeCount: activeCount ?? 0,
+          cap: STARTER_ACTIVE_CAP,
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   const { data: planRow } = await admin
     .from("plan_pricing")
     .select("monthly_cents")

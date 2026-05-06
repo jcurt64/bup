@@ -793,7 +793,15 @@ const PLAN_DEFS_STATIC = [
   },
 ];
 
-function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
+function PlanSelectorModal({
+  currentPlan,
+  specs,
+  onChoose,
+  onClose,
+  capReached = false,
+  activeCampaignsCount = null,
+  starterCap = 2,
+}) {
   const [selecting, setSelecting] = useState(null);
   const [error, setError] = useState(null);
   // Fusionne les éléments statiques (features, couleurs) avec les
@@ -811,6 +819,9 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
   });
 
   const choose = async (planId) => {
+    // Quand le cap Starter est atteint, on bloque tout retour à Starter :
+    // seul l'upgrade vers Pro débloque la création de campagne.
+    if (capReached && planId === 'starter') return;
     setSelecting(planId);
     setError(null);
     try {
@@ -855,13 +866,15 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
 
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div className="mono caps muted" style={{ fontSize: 11, letterSpacing: '.16em', marginBottom: 10 }}>
-            — Avant de lancer votre campagne
+            {capReached ? '— Limite atteinte' : '— Avant de lancer votre campagne'}
           </div>
           <div className="serif" style={{ fontSize: 'clamp(22px, 3vw, 28px)', lineHeight: 1.2, marginBottom: 8 }}>
-            Choisissez votre plan
+            {capReached ? 'Vous avez atteint la limite Starter' : 'Choisissez votre plan'}
           </div>
-          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 540, margin: '0 auto' }}>
-            Le plan sélectionné détermine le nombre de prospects que vous pourrez cibler dans votre campagne. Vous pouvez changer à tout moment.
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 560, margin: '0 auto' }}>
+            {capReached
+              ? `La formule Starter autorise au maximum ${starterCap} campagnes actives en parallèle (vous en avez ${activeCampaignsCount ?? starterCap}). Passez à la formule Pro pour lancer une campagne supplémentaire — campagnes actives illimitées.`
+              : 'Le plan sélectionné détermine le nombre de prospects que vous pourrez cibler dans votre campagne. Vous pouvez changer à tout moment.'}
           </div>
         </div>
 
@@ -871,6 +884,9 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
           {planDefs.map(plan => {
             const isCurrent = plan.id === currentPlan;
             const isSubmitting = selecting === plan.id;
+            // Quand le cap Starter est atteint, la card Starter devient
+            // non-cliquable (l'utilisateur DOIT upgrader vers Pro).
+            const isLocked = capReached && plan.id === 'starter';
             return (
               <div
                 key={plan.id}
@@ -884,14 +900,23 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
                     ? `color-mix(in oklab, ${plan.color} 5%, var(--paper))`
                     : 'var(--paper)',
                   display: 'flex', flexDirection: 'column', gap: 14,
+                  opacity: isLocked ? 0.55 : 1,
                 }}>
-                {plan.badge && (
+                {plan.badge && !isLocked && (
                   <div style={{
                     position: 'absolute', top: -10, right: 12,
                     padding: '3px 10px', borderRadius: 999,
                     background: plan.color, color: 'white',
                     fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
                   }}>{plan.badge}</div>
+                )}
+                {isLocked && (
+                  <div style={{
+                    position: 'absolute', top: -10, right: 12,
+                    padding: '3px 10px', borderRadius: 999,
+                    background: 'var(--ink-4)', color: 'white',
+                    fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
+                  }}>Cap atteint</div>
                 )}
 
                 <div>
@@ -926,19 +951,24 @@ function PlanSelectorModal({ currentPlan, specs, onChoose, onClose }) {
                 <button
                   className="btn"
                   onClick={() => choose(plan.id)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLocked}
+                  title={isLocked ? `Limite Starter atteinte (${starterCap} campagnes actives). Passez à Pro pour continuer.` : undefined}
                   style={{
                     marginTop: 'auto',
-                    background: plan.id === 'pro' ? plan.color : 'var(--ink)',
-                    color: 'white', borderColor: 'transparent',
+                    background: isLocked ? 'var(--ivory-2)' : (plan.id === 'pro' ? plan.color : 'var(--ink)'),
+                    color: isLocked ? 'var(--ink-4)' : 'white',
+                    borderColor: 'transparent',
                     width: '100%',
                     opacity: isSubmitting ? 0.7 : 1,
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
                   }}>
-                  {isSubmitting
-                    ? 'Activation…'
-                    : isCurrent
-                      ? `Continuer en ${plan.label}`
-                      : `Choisir ${plan.label}`}
+                  {isLocked
+                    ? `Limite atteinte`
+                    : isSubmitting
+                      ? 'Activation…'
+                      : isCurrent
+                        ? `Continuer en ${plan.label}`
+                        : `Choisir ${plan.label}`}
                 </button>
               </div>
             );
@@ -1136,17 +1166,45 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [plan, setPlan] = useState(null);
   const [planSpecs, setPlanSpecs] = useState(null);
   const [planChosen, setPlanChosen] = useState(false);
-  const [planModalOpen, setPlanModalOpen] = useState(true);
+  // `null` tant que plan + nb de campagnes actives ne sont pas chargés —
+  // on n'ouvre PAS le sélecteur tant qu'on ne sait pas s'il est nécessaire.
+  // Voir l'effet ci-dessous : le sélecteur ne s'ouvre que pour la 1re
+  // campagne (active === 0) ou quand le cap Starter est atteint.
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  // Cap concurrent du plan Starter. Quand `capReached` est true, le modal
+  // affiche un bandeau bloquant et n'autorise plus que l'upgrade vers Pro.
+  const STARTER_ACTIVE_CAP = 2;
+  const [activeCampaignsCount, setActiveCampaignsCount] = useState(null);
+  const [capReached, setCapReached] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    const load = () => fetch('/api/pro/plan', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        if (cancelled || !j) return;
-        setPlan(j.plan || 'starter');
-        setPlanSpecs(j.specs || null);
-      })
-      .catch(() => {});
+    const load = () => Promise.all([
+      fetch('/api/pro/plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/pro/overview', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([p, o]) => {
+      if (cancelled) return;
+      const nextPlan = p?.plan || 'starter';
+      const nextActive = Number(o?.activeCampaignsCount ?? 0);
+      setPlan(nextPlan);
+      setPlanSpecs(p?.specs || null);
+      setActiveCampaignsCount(nextActive);
+      // Décide si le popup doit s'ouvrir :
+      //  - cap Starter atteint → ouvre en mode bloquant (upgrade Pro)
+      //  - 1re campagne (aucune active) → ouvre en mode normal
+      //  - sinon → skip et on considère le plan déjà choisi
+      const reached = nextPlan === 'starter' && nextActive >= STARTER_ACTIVE_CAP;
+      setCapReached(reached);
+      if (reached) {
+        setPlanModalOpen(true);
+        setPlanChosen(false);
+      } else if (nextActive === 0) {
+        setPlanModalOpen(true);
+        setPlanChosen(false);
+      } else {
+        setPlanModalOpen(false);
+        setPlanChosen(true);
+      }
+    });
     load();
     // Si l'utilisateur change de formule depuis "Mes informations" pendant
     // que le wizard est ouvert, on resynchronise pour que les paliers et
@@ -2334,6 +2392,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                         });
                         return;
                       }
+                      if (r.status === 403 && j?.error === 'starter_cap_reached') {
+                        // Le serveur a refusé : le cap Starter (2 campagnes
+                        // actives) est atteint. On ré-ouvre le sélecteur de
+                        // plan en mode bloquant pour proposer l'upgrade Pro.
+                        setActiveCampaignsCount(Number(j.activeCount ?? STARTER_ACTIVE_CAP));
+                        setCapReached(true);
+                        setPlanChosen(false);
+                        setPlanModalOpen(true);
+                        return;
+                      }
                       throw new Error(j?.error || 'launch_failed');
                     }
                     // Wallet a été lu/contrôlé côté serveur — on invalide
@@ -2396,10 +2464,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         <PlanSelectorModal
           currentPlan={plan}
           specs={planSpecs}
+          capReached={capReached}
+          activeCampaignsCount={activeCampaignsCount}
+          starterCap={STARTER_ACTIVE_CAP}
           onChoose={(p) => {
             setPlan(p);
             setPlanChosen(true);
             setPlanModalOpen(false);
+            // Le cap ne s'applique qu'au plan Starter — passer en Pro
+            // libère immédiatement la création de campagne.
+            if (p === 'pro') setCapReached(false);
           }}
           onClose={() => {
             // Refus de choisir → on retourne à l'écran précédent (campagnes)
