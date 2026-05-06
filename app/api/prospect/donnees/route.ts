@@ -153,6 +153,25 @@ export async function PATCH(req: Request) {
     }
   }
 
+  // Code postal — 5 chiffres exactement (format français). Le front utilise
+  // l'autocomplétion `geo.api.gouv.fr` qui ne renvoie que des codes valides ;
+  // on bloque ici toute écriture directe non conforme.
+  if (
+    tier === "localisation" &&
+    Object.prototype.hasOwnProperty.call(patch, "code_postal")
+  ) {
+    const raw = patch.code_postal;
+    if (raw != null && raw !== "" && !/^\d{5}$/.test(raw)) {
+      return NextResponse.json(
+        {
+          error: "invalid_code_postal_format",
+          message: "Format attendu : 5 chiffres (ex. 75001).",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   // Garde-fou : on n'accepte JAMAIS un PATCH direct du téléphone via cette
   // route. La vérif SMS (/api/prospect/phone/verify) est la seule porte
   // d'entrée : sinon un client mal intentionné pourrait écraser un numéro

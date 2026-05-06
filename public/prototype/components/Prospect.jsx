@@ -40,11 +40,14 @@ function notifyProfileChanged() {
   try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch (_) {}
 }
 async function persistFieldUpdate(category, field, value) {
+  return persistFieldsUpdate(category, { [field]: value });
+}
+async function persistFieldsUpdate(category, fields) {
   try {
     const r = await fetch('/api/prospect/donnees', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tier: category, fields: { [field]: value } }),
+      body: JSON.stringify({ tier: category, fields }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -216,6 +219,13 @@ function ProspectProvider({ children }) {
     // pas la réponse pour mettre à jour l'UI ; les erreurs sont loggées.
     persistFieldUpdate(category, field, value);
   };
+  // Met à jour PLUSIEURS champs d'un même palier en un seul PATCH atomique.
+  // Utilisé par l'autocomplétion ville+code postal : on garantit que les
+  // deux valeurs sont écrites ensemble, jamais l'une sans l'autre.
+  const updateFields = (category, fields) => {
+    setProfile(p => ({ ...p, [category]: { ...p[category], ...fields } }));
+    persistFieldsUpdate(category, fields);
+  };
   const suppressTemp = (category) => {
     setDeleted(d => ({ ...d, [category]: true }));
     persistTierAction(category, 'hide');
@@ -268,7 +278,7 @@ function ProspectProvider({ children }) {
   });
   return (
     <ProspectCtx.Provider value={{
-      profile, deleted, removed, updateField, suppressTemp, restore, deletePermanent, addField,
+      profile, deleted, removed, updateField, updateFields, suppressTemp, restore, deletePermanent, addField,
       setAllCampaignTypes, toggleCampaignType, toggleCategory,
       pendingRelations, historyRelations,
       acceptedRelations: accepted, refusedRelations: refused,
@@ -1491,7 +1501,19 @@ function MesDonnees({ onGoPrefs }) {
 
       {editing && (
         <EditFieldModal edit={editing}
-          onSave={(v) => { ctx?.updateField(editing.category, editing.field, v); setEditing(null); }}
+          onSave={(v) => {
+            // Cas spécial autocomplétion ville+CP : on patch les deux
+            // champs en une seule transaction.
+            if (v && typeof v === 'object' && v.pair) {
+              ctx?.updateFields(editing.category, {
+                ville: v.pair.ville,
+                codePostal: v.pair.codePostal,
+              });
+            } else {
+              ctx?.updateField(editing.category, editing.field, v);
+            }
+            setEditing(null);
+          }}
           onClose={() => setEditing(null)}/>
       )}
       {adding && (
@@ -1506,7 +1528,16 @@ function MesDonnees({ onGoPrefs }) {
               setAdding(null);
               return;
             }
-            ctx?.updateField(adding, field, value);
+            // Autocomplétion ville+CP : updateFields atomique au lieu
+            // d'updateField (un seul PATCH, deux champs).
+            if (value && typeof value === 'object' && value.pair) {
+              ctx?.updateFields(adding, {
+                ville: value.pair.ville,
+                codePostal: value.pair.codePostal,
+              });
+            } else {
+              ctx?.updateField(adding, field, value);
+            }
             setAdding(null);
           }}
           onClose={() => setAdding(null)}/>
@@ -1616,9 +1647,185 @@ function isNaissanceValid(s) {
   );
 }
 
+/* Autocomplétion ville + code postal (France) basée sur l'API officielle
+   `geo.api.gouv.fr`. CORS autorisé, gratuit, pas d'install.
+   - Si l'utilisateur tape des chiffres → recherche par code postal.
+   - Sinon → recherche par nom de commune.
+   Une commune peut avoir plusieurs codes postaux (Paris, Lyon...) :
+   chaque combinaison ville+CP est éclatée en suggestion distincte. */
+function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
+  const [query, setQuery] = useState(value || '');
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const containerRef = React.useRef(null);
+
+  // Debounced search.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setItems([]); setLoading(false); return; }
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const isPostal = /^\d{2,5}$/.test(q);
+        const url = isPostal
+          ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux&limit=20`
+          : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=10`;
+        const r = await fetch(url);
+        if (!r.ok) { setItems([]); setLoading(false); return; }
+        const data = await r.json();
+        const exploded = [];
+        for (const c of data || []) {
+          const codes = Array.isArray(c.codesPostaux) ? c.codesPostaux : [];
+          for (const cp of codes) {
+            // Si l'utilisateur a saisi un code postal partiel, on filtre les
+            // codes qui ne commencent pas par cette saisie pour réduire le
+            // bruit (ex. taper "750" ne doit pas faire remonter "75116").
+            if (isPostal && !cp.startsWith(q)) continue;
+            exploded.push({ ville: c.nom, codePostal: cp });
+          }
+        }
+        // Tri : code postal croissant pour les résultats par CP, ordre
+        // pertinence sinon (déjà ordonné par boost=population).
+        if (isPostal) exploded.sort((a, b) => a.codePostal.localeCompare(b.codePostal));
+        setItems(exploded.slice(0, 30));
+      } catch (e) {
+        console.warn('[geo.api.gouv.fr] error', e);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Click extérieur ferme la liste.
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const pick = (item) => {
+    setQuery(`${item.codePostal} ${item.ville}`);
+    setOpen(false);
+    setHighlight(-1);
+    onPick(item);
+  };
+
+  const onKeyDown = (e) => {
+    if (!open || items.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlight(h => Math.min(items.length - 1, h + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlight(h => Math.max(0, h - 1));
+    } else if (e.key === 'Enter') {
+      if (highlight >= 0 && highlight < items.length) {
+        e.preventDefault();
+        pick(items[highlight]);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <input
+        className="input"
+        value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        autoFocus={autoFocus}
+        placeholder="Tapez le nom de votre ville ou un code postal"
+        style={{ width: '100%', fontSize: 14 }}
+        aria-autocomplete="list"
+        aria-expanded={open}
+      />
+      {open && query.trim().length >= 2 && (
+        <div
+          role="listbox"
+          style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+            background: 'var(--paper)', border: '1px solid var(--line-2)',
+            borderRadius: 10, boxShadow: '0 12px 30px -12px rgba(15,22,41,.25)',
+            maxHeight: 280, overflowY: 'auto', zIndex: 10,
+          }}
+        >
+          {loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '10px 14px', fontSize: 13 }}>
+              Recherche…
+            </div>
+          )}
+          {!loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '10px 14px', fontSize: 13 }}>
+              Aucune ville trouvée.
+            </div>
+          )}
+          {items.map((it, i) => (
+            <button
+              key={`${it.codePostal}-${it.ville}-${i}`}
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => pick(it)}
+              onMouseEnter={() => setHighlight(i)}
+              style={{
+                display: 'flex', justifyContent: 'space-between', width: '100%',
+                padding: '10px 14px', textAlign: 'left',
+                background: highlight === i ? 'var(--ivory-2)' : 'transparent',
+                border: 'none', cursor: 'pointer', fontSize: 14,
+                color: 'var(--ink)',
+              }}
+            >
+              <span>{it.ville}</span>
+              <span className="mono" style={{ color: 'var(--ink-4)' }}>{it.codePostal}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditFieldModal({ edit, onSave, onClose }) {
   const [val, setVal] = useState(edit.value);
   const isNaissance = edit.field === 'naissance';
+  const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal');
+  const [pair, setPair] = useState(null); // { ville, codePostal } après sélection
+  if (isCityPostal) {
+    return (
+      <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
+          Tapez les premières lettres de votre ville ou son code postal puis sélectionnez-la dans la liste — les deux champs (Ville et Code postal) seront renseignés automatiquement.
+        </div>
+        <CityPostalAutocomplete
+          value={edit.value}
+          onPick={(item) => setPair(item)}
+          autoFocus
+        />
+        {pair && (
+          <div className="row gap-2" style={{ marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="chip">{pair.ville}</span>
+            <span className="chip mono">{pair.codePostal}</span>
+            <span className="muted" style={{ fontSize: 12 }}>Sélection prête à enregistrer.</span>
+          </div>
+        )}
+        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 22 }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+          <button onClick={() => pair && onSave({ pair })} disabled={!pair} className="btn btn-primary btn-sm">
+            Enregistrer
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
   const showError = isNaissance && val && !isNaissanceValid(val);
   const canSave = !isNaissance || isNaissanceValid(val);
   return (
@@ -1657,15 +1864,20 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
   const pool = empty.length ? empty : category.fields;
   const [field, setField] = useState(pool[0][0]);
   const [val, setVal] = useState(existing[pool[0][0]] || '');
+  const [pair, setPair] = useState(null);
   const isNaissance = field === 'naissance';
+  const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal');
   const showError = isNaissance && val && !isNaissanceValid(val);
-  const canSubmit = !!val && (!isNaissance || isNaissanceValid(val));
+  const canSubmit = isCityPostal
+    ? !!pair
+    : !!val && (!isNaissance || isNaissanceValid(val));
   return (
     <ModalShell title={"Ajouter : " + category.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Donnée</div>
       <select className="input" value={field} onChange={e => {
         const nextField = e.target.value;
         setField(nextField);
+        setPair(null);
         const initial = existing[nextField] || '';
         setVal(nextField === 'naissance' ? maskNaissance(initial) : initial);
       }}
@@ -1673,24 +1885,52 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
         {category.fields.map(([f, l]) => <option key={f} value={f}>{l}{existing[f] ? ' (déjà renseignée)' : ''}</option>)}
       </select>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Valeur</div>
-      <input
-        className="input"
-        value={val}
-        onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
-        autoFocus
-        placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
-        inputMode={isNaissance ? 'numeric' : undefined}
-        maxLength={isNaissance ? 10 : undefined}
-        style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
-      />
-      {showError && (
-        <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-          Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
-        </div>
+      {isCityPostal ? (
+        <>
+          <div className="muted" style={{ fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 }}>
+            Tapez les premières lettres de votre ville (ou son code postal) puis cliquez sur la bonne entrée — Ville et Code postal seront renseignés ensemble.
+          </div>
+          <CityPostalAutocomplete
+            value={existing[field] || ''}
+            onPick={(item) => setPair(item)}
+            autoFocus
+          />
+          {pair && (
+            <div className="row gap-2" style={{ marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="chip">{pair.ville}</span>
+              <span className="chip mono">{pair.codePostal}</span>
+            </div>
+          )}
+          <div style={{ marginBottom: 20 }} />
+        </>
+      ) : (
+        <>
+          <input
+            className="input"
+            value={val}
+            onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
+            autoFocus
+            placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
+            inputMode={isNaissance ? 'numeric' : undefined}
+            maxLength={isNaissance ? 10 : undefined}
+            style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
+          />
+          {showError && (
+            <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
+              Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+            </div>
+          )}
+        </>
       )}
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={() => onSave(field, val)} className="btn btn-primary btn-sm" disabled={!canSubmit}>Ajouter</button>
+        <button
+          onClick={() => onSave(field, isCityPostal ? { pair } : val)}
+          className="btn btn-primary btn-sm"
+          disabled={!canSubmit}
+        >
+          Ajouter
+        </button>
       </div>
     </ModalShell>
   );
