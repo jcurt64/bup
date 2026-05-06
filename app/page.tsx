@@ -1641,7 +1641,7 @@ function TiersTable() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Prospect vérifié 100% → gains doublés ×2
+                Prospect vérifié 100% → meilleurs gains 
               </span>
             </div>
             <div
@@ -1790,13 +1790,13 @@ function ProsSection() {
     {
       ic: "trend",
       t: "ROI ×3 à ×5 en moyenne",
-      d: "Taux d'acceptation moyen de 80% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des échanges qui convertissent.",
+      d: "Taux d'acceptation moyen > 80% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des échanges qui convertissent.",
     },
     {
       ic: "gauge",
       hi: true,
       t: "BUUPP Score : qualité mesurée",
-      d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
+      d: "Chaque prospect est noté sur 1000 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
     },
     {
       ic: "bolt",
@@ -2194,7 +2194,7 @@ function SecuritySection() {
     },
     {
       t: "Consentement à usage unique",
-      d: "Chaque accord donné est strictement limité à une seule sollicitation et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage.",
+      d: "Chaque accord donné est strictement limité à une seule sollicitation. Les données ne peuvent être revendues ni réutilisées pour un autre usage.",
     },
     {
       t: "Anti-fraude multicouche",
@@ -2202,7 +2202,7 @@ function SecuritySection() {
     },
     {
       t: "Watermarking des données",
-      d: "Chaque fiche transmise est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur.",
+      d: "Chaque donnée est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur.",
     },
   ];
   return (
