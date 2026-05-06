@@ -49,14 +49,23 @@ function ProDashboard({ go }) {
     rcsVille: '',
     rmNumber: '',
   });
-  // Hydrate from /api/pro/info on mount.
+  // Hydrate from /api/pro/info on mount + à chaque event `pro:info-changed`
+  // (émis après un PATCH réussi, notamment depuis la modale "Compléter la
+  // facture"). Sans ça, l'onglet "Mes informations" affichait les valeurs
+  // stales tant qu'on ne rechargeait pas la page.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/info', { cache: 'no-store' })
+    const refresh = () => fetch('/api/pro/info', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (!cancelled && j) setCompanyInfoState(prev => ({ ...prev, ...j })); })
       .catch(() => {});
-    return () => { cancelled = true; };
+    refresh();
+    const onChange = () => refresh();
+    window.addEventListener('pro:info-changed', onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pro:info-changed', onChange);
+    };
   }, []);
   // Auto-redirect : dès que les deux champs requis pour lancer une campagne
   // (raison sociale + ville) sont renseignés, on ramène le pro vers la
