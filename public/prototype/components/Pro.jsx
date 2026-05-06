@@ -4921,6 +4921,12 @@ function ProInfoModalShell({ title, children, onClose, width = 460 }) {
 function ProInfoEditModal({ edit, onSave, onClose }) {
   const isSiren = edit.key === 'siren';
   const isSiret = edit.key === 'siret';
+  // Champs dont la valeur peut être croisée avec la fiche SIRENE.
+  // Quand l'utilisateur les édite, on charge la fiche officielle à partir
+  // du SIREN/SIRET déjà enregistré côté Mes informations, et on compare
+  // la saisie courante au champ équivalent.
+  const SIRENE_CHECKABLE = ['raisonSociale', 'adresse', 'ville', 'codePostal', 'formeJuridique'];
+  const isCheckable = SIRENE_CHECKABLE.includes(edit.key);
   // Limites de saisie : 9 chiffres pour SIREN, 14 pour SIRET, libre sinon.
   const maxLen = isSiret ? 14 : isSiren ? 9 : undefined;
   const stripDigits = (s) => s.replace(/\D/g, '').slice(0, maxLen);
@@ -4929,26 +4935,36 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
   );
 
   // Pour la comparaison "votre saisie vs registre officiel", on récupère
-  // l'état courant des Mes informations au moment de l'édition.
+  // l'état courant des Mes informations au moment de l'édition (utile
+  // pour SIREN/SIRET qui veulent comparer raison sociale, adresse, etc.,
+  // ET pour les champs vérifiables qui ont besoin du SIREN enregistré).
   const [proInfo, setProInfo] = useState(null);
   React.useEffect(() => {
-    if (!isSiren && !isSiret) return;
+    if (!isSiren && !isSiret && !isCheckable) return;
     let cancelled = false;
     fetch('/api/pro/info', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (!cancelled) setProInfo(j); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [isSiren, isSiret]);
+  }, [isSiren, isSiret, isCheckable]);
 
   // Vérification SIRENE auto débouncée.
+  // - Quand on édite SIREN/SIRET : on requête la valeur saisie (val).
+  // - Quand on édite un champ vérifiable : on requête le SIREN/SIRET
+  //   déjà enregistré côté pro.
   const [verify, setVerify] = useState({ status: 'idle', data: null });
   const lastQueryRef = React.useRef(null);
   React.useEffect(() => {
-    if (!isSiren && !isSiret) return;
-    const target = isSiret
-      ? (/^\d{14}$/.test(val) ? `siret:${val}` : null)
-      : (/^\d{9}$/.test(val)  ? `siren:${val}` : null);
+    let target = null;
+    if (isSiret && /^\d{14}$/.test(val)) target = `siret:${val}`;
+    else if (isSiren && /^\d{9}$/.test(val)) target = `siren:${val}`;
+    else if (isCheckable && proInfo) {
+      const piSiret = (proInfo.siret || '').replace(/\s+/g, '');
+      const piSiren = (proInfo.siren || '').replace(/\s+/g, '');
+      if (/^\d{14}$/.test(piSiret)) target = `siret:${piSiret}`;
+      else if (/^\d{9}$/.test(piSiren)) target = `siren:${piSiren}`;
+    }
     if (!target) {
       setVerify({ status: 'idle', data: null });
       lastQueryRef.current = null;
@@ -4960,7 +4976,8 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const qs = isSiret ? `siret=${val}` : `siren=${val}`;
+        const [kind, num] = target.split(':');
+        const qs = `${kind}=${encodeURIComponent(num)}`;
         const r = await fetch(`/api/pro/info/verify-company?${qs}`, { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
         if (cancelled) return;
@@ -4972,12 +4989,13 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
       }
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [val, isSiren, isSiret]);
+  }, [val, isSiren, isSiret, isCheckable, proInfo]);
 
-  // Diff entre proInfo (raison sociale, adresse…) et la fiche SIRENE.
+  // Diff entre proInfo (raison sociale, adresse…) et la fiche SIRENE
+  // — utilisé pour le bandeau multi-champs côté édition SIREN/SIRET.
   const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
   const diffs =
-    verify.status === 'found' && verify.data && proInfo
+    (isSiren || isSiret) && verify.status === 'found' && verify.data && proInfo
       ? [
           ['raisonSociale',  'Raison sociale',   proInfo.raisonSociale,  verify.data.raisonSociale],
           ['adresse',        'Adresse',          proInfo.adresse,        verify.data.adresse],
@@ -4986,6 +5004,18 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
           ['formeJuridique', 'Forme juridique',  proInfo.formeJuridique, verify.data.formeJuridique],
         ].filter(([, , user, off]) => off && user && norm(user) !== norm(off))
       : [];
+
+  // Diff single-field — actif quand l'utilisateur modifie manuellement un
+  // champ vérifiable (raison sociale, adresse…) et que sa saisie diffère
+  // de la valeur officielle SIRENE pour ce même champ.
+  const officialForCurrent =
+    isCheckable && verify.status === 'found' && verify.data
+      ? verify.data[edit.key]
+      : null;
+  const singleFieldDiff =
+    isCheckable && officialForCurrent && val && norm(val) !== norm(officialForCurrent)
+      ? officialForCurrent
+      : null;
 
   // On bloque l'enregistrement quand le SIREN/SIRET est saisi mais
   // explicitement absent du registre — autoriser sinon (loading,
@@ -5108,6 +5138,38 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
           <div style={{ fontSize: 11.5, marginTop: 8, color: '#78350F' }}>
             Le clic remplace en une fois Raison sociale, Adresse, Ville,
             Code postal et Forme juridique par les valeurs officielles SIRENE.
+          </div>
+        </div>
+      )}
+
+      {/* Vérification single-field : raison sociale, adresse, ville,
+          code postal ou forme juridique modifiés manuellement et qui
+          divergent de la valeur officielle SIRENE pour ce même champ. */}
+      {singleFieldDiff && (
+        <div role="alert" style={{
+          marginBottom: 14, padding: '12px 14px', borderRadius: 10,
+          background: '#FEF3C7', border: '1.5px solid #FCD34D',
+          color: '#78350F', fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: '#78350F' }}>
+            ⚠ Cette valeur ne correspond pas au registre officiel SIRENE
+          </div>
+          <div>
+            Officiel : <strong>« {singleFieldDiff} »</strong>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVal(singleFieldDiff)}
+            className="btn btn-sm"
+            style={{
+              marginTop: 8,
+              background: '#7C3AED', color: 'white', borderColor: '#7C3AED',
+            }}
+          >
+            Remplacer par la valeur officielle
+          </button>
+          <div style={{ fontSize: 11.5, marginTop: 8, color: '#78350F' }}>
+            Vérification croisée à partir du SIREN/SIRET enregistré dans Mes informations.
           </div>
         </div>
       )}
