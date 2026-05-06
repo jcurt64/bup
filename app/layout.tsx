@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
+import CookieConsent from "./_components/CookieConsent";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -53,6 +54,7 @@ export default function RootLayout({
         <body data-palette="indigo" suppressHydrationWarning>
           {children}
           <RouteNav />
+          <CookieConsent />
         </body>
       </html>
     </ClerkProvider>

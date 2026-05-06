@@ -2566,7 +2566,7 @@ function Footer() {
       [
         { label: "CGU" },
         { label: "CGV" },
-        { label: "RGPD" },
+        { label: "RGPD", href: "/rgpd" },
         { label: "Contact DPO" },
       ],
     ],

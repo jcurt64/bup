@@ -2,7 +2,7 @@
  * Proxy Next.js 16 (ex-`middleware.ts`) — câble Clerk pour gérer
  * l'auth sur toutes les routes du site.
  *
- * Routes publiques : landing, liste d'attente, page connexion, webhooks.
+ * Routes publiques : landing, liste d'attente, page connexion, RGPD, webhooks.
  * Tout le reste (espace prospect, pro, API métier) requiert un user Clerk.
  */
 
@@ -14,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   "/connexion(.*)",
   "/inscription(.*)",
   "/bareme",
+  "/rgpd",
   "/api/clerk/webhook",
   "/api/stripe/webhook",
   "/api/waitlist",
