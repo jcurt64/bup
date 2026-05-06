@@ -1305,6 +1305,10 @@ function FlashDealModal({
                 justifyContent: "center",
                 background: "var(--ink)",
                 color: "var(--paper)",
+                whiteSpace: "normal",
+                lineHeight: 1.3,
+                textAlign: "center",
+                flexWrap: "wrap",
               }}
             >
               Compléter mes données pour accepter le deal{" "}
