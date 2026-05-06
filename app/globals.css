@@ -404,16 +404,17 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .sticky-preinscription { right: 14px !important; bottom: 76px !important; padding: 11px 16px !important; font-size: 13px !important; }
 }
 
-/* ---------- Cookie floating button — mirror the StickyPreinscription on mobile
-   Aligné avec le bouton "Pré-inscription" (`right: 14, bottom: 76`) :
-   même `bottom`, mêmes 14px de marge depuis le bord. La pastille fait
-   40×40 pour matcher la hauteur du bouton "Pré-inscription"
-   (padding vertical 11px + texte 13px ≈ 40px), donc bords inférieurs
-   ET supérieurs alignés. */
+/* ---------- Cookie floating button — vertically aligned with RouteNav home tab
+   Le RouteNav mobile est à `bottom: 14` avec un padding interne de 6px,
+   et la pastille active (Accueil, 44×44) a son centre vertical à
+   `bottom: 42`. Notre bouton cookie fait 40×40 ; pour aligner son centre
+   au même axe horizontal que l'icône "maison", on le place à
+   `bottom: 22` (42 − 20). La position horizontale (`left: 14`) est
+   conservée pour éviter tout chevauchement. */
 @media (max-width: 640px) {
   .cookie-floating-btn {
     left: 14px !important;
-    bottom: 76px !important;
+    bottom: 22px !important;
     width: 40px !important;
     height: 40px !important;
   }
