@@ -4466,9 +4466,9 @@ const PRO_INFO_FIELDS = [
   // plan au moment du téléchargement PDF.
   { key: 'capitalSocialEur', label: 'Capital social',                   placeholder: 'Montant en € (sociétés uniquement)', optional: true, mono: true },
   { key: 'siren',            label: 'SIREN',                            placeholder: '9 chiffres', optional: true, mono: true },
-  { key: 'siret',            label: 'SIRET',                            placeholder: '14 chiffres — facultatif', optional: true, mono: true },
-  { key: 'rcsVille',         label: "Ville d'immatriculation RCS",      placeholder: 'Pau, Lyon… — facultatif', optional: true },
-  { key: 'rmNumber',         label: 'Numéro RM (artisans)',             placeholder: '— facultatif —', optional: true, mono: true },
+  { key: 'siret',            label: 'SIRET',                            placeholder: '14 chiffres — facultatif · nécessaire pour éditer votre facture', optional: true, mono: true },
+  { key: 'rcsVille',         label: "Ville d'immatriculation RCS",      placeholder: 'Pau, Lyon… — facultatif · nécessaire pour éditer votre facture', optional: true },
+  { key: 'rmNumber',         label: 'Numéro RM (artisans)',             placeholder: '— facultatif · nécessaire pour éditer votre facture —', optional: true, mono: true },
 ];
 
 function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
@@ -4565,7 +4565,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             et renforce la confiance des prospects que vous contactez.
           </div>
           <div className="mono" style={{ fontSize: 11, marginTop: 10, color: 'var(--ink-4)', letterSpacing: '.06em' }}>
-            Champ facultatif — usage interne BUUPP uniquement
+            Champ facultatif · nécessaire pour éditer votre facture — usage interne BUUPP
           </div>
         </div>
       </div>
@@ -4592,7 +4592,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             return (
               <div key={f.key}>
                 <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
-                  <span className="muted">{f.label}{f.optional ? ' (facultatif)' : ''}</span>
+                  <span className="muted">{f.label}{f.optional ? ' (facultatif · nécessaire pour éditer votre facture)' : ''}</span>
                   <span className="mono tnum">{filled ? '✓' : '—'}</span>
                 </div>
                 <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
@@ -4628,7 +4628,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
                 {allEmpty && <span className="chip chip-warn" style={{ alignSelf: 'center' }}>Vide</span>}
               </div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Raison sociale, adresse, ville et SIREN (facultatif).
+                Raison sociale, adresse, ville et SIREN (facultatif · nécessaire pour éditer votre facture).
               </div>
             </div>
           </div>
@@ -4655,7 +4655,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>
-                    {f.label}{f.optional ? ' · facultatif' : ''}
+                    {f.label}{f.optional ? ' · facultatif · nécessaire pour éditer votre facture' : ''}
                   </div>
                   <div
                     className={f.mono && val ? 'mono tnum' : ''}
@@ -5036,7 +5036,7 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
   return (
     <ProInfoModalShell title={'Modifier : ' + edit.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>
-        {edit.label}{edit.optional ? ' · facultatif' : ''}
+        {edit.label}{edit.optional ? ' · facultatif · nécessaire pour éditer votre facture' : ''}
       </div>
       <input
         className={'input' + (edit.mono ? ' mono' : '')}
