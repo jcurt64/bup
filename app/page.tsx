@@ -2466,10 +2466,9 @@ function Pricing() {
             name="Starter"
             price="19"
             features={[
-              "50 contacts qualifiés par campagne",
-              "Ciblage par paliers 1–3",
-              "Dashboard & analytics essentiels",
-              "Support email sous 48h",
+              "Jusqu'à 50 prospects par campagne",
+              "2 campagnes actives en parallèle",
+              "Ciblage par paliers 1 à 3",
             ]}
             cta="Démarrer en Starter"
             onCta={() => router.push("/connexion")}
@@ -2479,10 +2478,10 @@ function Pricing() {
             price="89"
             featured
             features={[
-              "Jusqu'à 500 contacts qualifiés par campagne",
-              "Tous les paliers 1–5",
-              "CRM intégré + historique 12 mois",
-              "Support dédié sous 4h",
+              "Jusqu'à 500 prospects par campagne",
+              "Campagnes actives illimitées",
+              "Tous les paliers 1 à 5",
+              "Accès anticipé aux nouvelles fonctionnalités",
             ]}
             cta="Passer en Pro"
             onCta={() => router.push("/connexion")}

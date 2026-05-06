@@ -776,8 +776,7 @@ const PLAN_DEFS_STATIC = [
     features: [
       'Jusqu\'à 50 prospects par campagne',
       '2 campagnes actives en parallèle',
-      'Reporting standard',
-      'Support par email (48 h)',
+      'Ciblage par paliers 1 à 3',
     ],
   },
   {
@@ -788,8 +787,7 @@ const PLAN_DEFS_STATIC = [
     features: [
       'Jusqu\'à 500 prospects par campagne',
       'Campagnes actives illimitées',
-      'Reporting avancé (segments, ROI)',
-      'Support prioritaire (4 h ouvrées)',
+      'Tous les paliers 1 à 5',
       'Accès anticipé aux nouvelles fonctionnalités',
     ],
   },
