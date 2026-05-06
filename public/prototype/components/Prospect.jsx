@@ -4021,13 +4021,33 @@ function Fiscal() {
                 ? `Récapitulatif fiscal ${prev.year} transmis le 31 janvier ${prev.year + 1}.`
                 : `Aucune transmission DGFiP pour ${prev?.year ?? ''} : seuil non atteint (${prev?.transactionCount ?? 0} transactions, ${(prev?.totalEur || 0).toFixed(2).replace('.', ',')} €).`}
           </div>
-          <div className="row gap-2" style={{ marginTop: 18 }}>
-            <button className="btn btn-ghost btn-sm" disabled={!prev?.reportedToDgfip}>
+          <div className="row gap-2" style={{ marginTop: 18, flexWrap: 'wrap' }}>
+            {/* Les deux PDF sont toujours générables — même quand le seuil
+                DGFiP n'a pas été atteint, l'attestation est utile au
+                prospect (preuve qu'il n'avait rien à déclarer cette
+                année-là). On retire donc le `disabled` historique. */}
+            <a
+              className="btn btn-ghost btn-sm"
+              href={prev?.year ? `/api/prospect/fiscal/${prev.year}/recap` : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Télécharger le récapitulatif annuel ${prev?.year ?? ''} (PDF)`}
+              aria-disabled={!prev?.year}
+              style={!prev?.year ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+            >
               <Icon name="download" size={12}/> Récap {prev?.year ?? ''} (PDF)
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled={!prev?.reportedToDgfip}>
+            </a>
+            <a
+              className="btn btn-ghost btn-sm"
+              href={prev?.year ? `/api/prospect/fiscal/${prev.year}/dgfip-receipt` : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Attestation DGFiP ${prev?.year ?? ''} (PDF)`}
+              aria-disabled={!prev?.year}
+              style={!prev?.year ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+            >
               <Icon name="doc" size={12}/> Reçu DGFiP
-            </button>
+            </a>
           </div>
         </div>
       </div>
