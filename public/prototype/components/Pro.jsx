@@ -3878,10 +3878,13 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
                 <button
                   type="button"
                   onClick={importOfficial}
-                  className="btn btn-ghost btn-sm"
-                  style={{ marginTop: 8, color: '#78350F', borderColor: '#FCD34D' }}
+                  className="btn btn-sm"
+                  style={{
+                    marginTop: 10,
+                    background: '#7C3AED', color: 'white', borderColor: '#7C3AED',
+                  }}
                 >
-                  Importer les informations officielles
+                  Remplacer les informations collectées
                 </button>
               </div>
             )}
@@ -4686,7 +4689,19 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
 
       {editing && (
         <ProInfoEditModal edit={editing}
-          onSave={(v) => { setInfo(prev => ({ ...prev, [editing.key]: v })); setEditing(null); }}
+          onSave={(v) => {
+            // `onSave` accepte deux formes :
+            //  - une string         → save single-field classique
+            //  - { replaceFields }  → remplacement multi-champs depuis
+            //    le bouton "Remplacer les informations collectées"
+            //    affiché en cas de discordance SIRENE.
+            if (v && typeof v === 'object' && v.replaceFields) {
+              setInfo(prev => ({ ...prev, ...v.replaceFields }));
+            } else {
+              setInfo(prev => ({ ...prev, [editing.key]: v }));
+            }
+            setEditing(null);
+          }}
           onClose={() => setEditing(null)}/>
       )}
       {confirmFieldDelete && (
@@ -5058,8 +5073,41 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
               </li>
             ))}
           </ul>
-          <div style={{ fontSize: 11.5, marginTop: 6, color: '#78350F' }}>
-            Mettez à jour vos champs Raison sociale / Adresse / Ville depuis Mes informations pour aligner avec le registre.
+          <button
+            type="button"
+            onClick={() => {
+              // Construit le patch des champs concernés et passe la
+              // commande au parent en plus du SIREN/SIRET en cours
+              // d'édition. Le parent détecte la forme `replaceFields`
+              // et fait un PATCH unique sur /api/pro/info.
+              const replaceFields = {};
+              for (const [key, , , official] of diffs) {
+                replaceFields[key] = official || '';
+              }
+              // On inclut aussi le champ courant pour qu'il soit bien
+              // persisté (le parent ne le ferait pas seul si on saute
+              // le mode "single value" via onSave).
+              replaceFields[edit.key] = val.trim();
+              // Si on confirme un SIRET sans SIREN saisi, alignons
+              // également le SIREN sur la valeur officielle (les 9
+              // premiers chiffres du SIRET correspondent au SIREN).
+              if (isSiret && verify.data?.siren) {
+                replaceFields.siren = verify.data.siren;
+              }
+              onSave({ replaceFields });
+            }}
+            className="btn btn-sm"
+            style={{
+              marginTop: 10,
+              background: '#7C3AED', color: 'white', borderColor: '#7C3AED',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            Remplacer les informations collectées
+          </button>
+          <div style={{ fontSize: 11.5, marginTop: 8, color: '#78350F' }}>
+            Le clic remplace en une fois Raison sociale, Adresse, Ville,
+            Code postal et Forme juridique par les valeurs officielles SIRENE.
           </div>
         </div>
       )}
