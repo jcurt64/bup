@@ -404,14 +404,15 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .sticky-preinscription { right: 14px !important; bottom: 76px !important; padding: 11px 16px !important; font-size: 13px !important; }
 }
 
-/* ---------- Cookie floating button — clear the bottom RouteNav on mobile ----
-   Le RouteNav est centré en bas à `bottom: 20` (≈ 56px de haut sur mobile,
-   donc bord supérieur à `bottom: 76`). On remonte la pastille cookie à 100
-   pour laisser ~24px de respiration et éviter le chevauchement avec le menu
-   de navigation. Position horizontale (left: 22) inchangée. */
+/* ---------- Cookie floating button — mirror the StickyPreinscription on mobile
+   Pour rester aligné horizontalement avec le bouton "Pré-inscription"
+   (positionné à `right: 14, bottom: 76` sur mobile), on miroite ces
+   valeurs côté gauche. Les deux pastilles vivent ainsi sur la même ligne
+   de base. */
 @media (max-width: 640px) {
   .cookie-floating-btn {
-    bottom: 100px !important;
+    left: 14px !important;
+    bottom: 76px !important;
   }
 }
 
