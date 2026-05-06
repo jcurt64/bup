@@ -75,7 +75,7 @@ export async function GET(
       .maybeSingle(),
     admin
       .from("pro_accounts")
-      .select("raison_sociale, adresse, ville, code_postal, siren, secteur")
+      .select("raison_sociale, adresse, ville, code_postal, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
       .eq("id", proId)
       .single(),
   ]);
@@ -107,6 +107,14 @@ export async function GET(
     secteur: pro?.secteur ?? null,
     // Email tiré de Clerk (pas stocké en colonne sur pro_accounts).
     email,
+    formeJuridique: pro?.forme_juridique ?? null,
+    capitalSocialEur:
+      pro?.capital_social_cents == null
+        ? null
+        : Number(pro.capital_social_cents) / 100,
+    siret: pro?.siret ?? null,
+    rcsVille: pro?.rcs_ville ?? null,
+    rmNumber: pro?.rm_number ?? null,
   };
 
   const buf = await buildInvoicePdf(invoice, billing);

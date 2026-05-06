@@ -90,12 +90,12 @@ export async function GET() {
         .maybeSingle(),
       admin
         .from("prospect_localisation")
-        .select("adresse, ville, code_postal, logement, mobilite, updated_at")
+        .select("adresse, ville, code_postal, updated_at")
         .eq("prospect_id", prospectId)
         .maybeSingle(),
       admin
         .from("prospect_vie")
-        .select("foyer, sports, animaux, vehicule, updated_at")
+        .select("foyer, sports, animaux, vehicule, logement, mobilite, updated_at")
         .eq("prospect_id", prospectId)
         .maybeSingle(),
       admin

@@ -38,6 +38,12 @@ export type ProBillingInfo = {
   siren: string | null;
   secteur: string | null;
   email: string | null;
+  // Mentions légales obligatoires sur facture
+  formeJuridique: string | null;
+  capitalSocialEur: number | null;
+  siret: string | null;
+  rcsVille: string | null;
+  rmNumber: string | null;
 };
 
 const COLOR_INK = "#0F172A";
@@ -144,16 +150,42 @@ export async function buildInvoicePdf(
   doc.fontSize(9).fillColor(COLOR_SUBTLE).text("FACTURÉ À", rightX, yStart);
   doc.fontSize(11).fillColor(COLOR_INK).text(pro.raisonSociale, rightX, yStart + 14, { width: colWidth });
   doc.fontSize(9).fillColor(COLOR_SUBTLE);
-  if (pro.adresse) doc.text(pro.adresse, rightX, doc.y + 2, { width: colWidth });
+  if (pro.formeJuridique) {
+    doc.text(`Forme juridique : ${pro.formeJuridique}`, rightX, doc.y + 2, { width: colWidth });
+  }
+  if (pro.adresse) {
+    doc.text(pro.adresse, rightX, doc.y + 2, { width: colWidth });
+  }
   if (pro.codePostal || pro.ville) {
     doc.text([pro.codePostal, pro.ville].filter(Boolean).join(" "), { width: colWidth });
   }
-  if (pro.siren) doc.text(`SIREN : ${pro.siren}`, { width: colWidth });
+  if (pro.capitalSocialEur != null) {
+    doc.text(
+      `Capital social : ${new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: 0,
+      }).format(pro.capitalSocialEur)}`,
+      { width: colWidth },
+    );
+  }
+  if (pro.siret) {
+    doc.text(`SIRET : ${pro.siret}`, { width: colWidth });
+  } else if (pro.siren) {
+    doc.text(`SIREN : ${pro.siren}`, { width: colWidth });
+  }
+  if (pro.rcsVille) {
+    const rcsRef = pro.siren ? ` ${pro.siren}` : "";
+    doc.text(`RCS ${pro.rcsVille}${rcsRef}`, { width: colWidth });
+  }
+  if (pro.rmNumber) {
+    doc.text(`RM : ${pro.rmNumber}`, { width: colWidth });
+  }
   if (pro.email) doc.text(pro.email, { width: colWidth });
 
   // Aligne le curseur au bas du bloc le plus long
   doc.x = 56;
-  doc.y = Math.max(doc.y, yStart + 90);
+  doc.y = Math.max(doc.y, yStart + 130);
   doc.moveDown(1.5);
   hr(doc);
 

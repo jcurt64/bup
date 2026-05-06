@@ -1,8 +1,12 @@
 /**
  * /api/pro/info — informations société du pro courant.
  *
- *   GET   → { raisonSociale, adresse, ville, codePostal, siren, secteur }
+ *   GET   → { raisonSociale, adresse, ville, codePostal, siren, secteur,
+ *             formeJuridique, capitalSocialEur, siret, rcsVille, rmNumber }
  *   PATCH → applique un update partiel sur pro_accounts (mêmes champs).
+ *
+ * Les 5 derniers champs (forme juridique, capital social, SIRET, RCS,
+ * RM) sont les mentions légales requises sur les factures BUUPP.
  */
 
 import { NextResponse } from "next/server";
@@ -22,9 +26,16 @@ type InfoBody = {
   codePostal?: string | null;
   siren?: string | null;
   secteur?: string | null;
+  // Mentions légales facture
+  formeJuridique?: string | null;
+  capitalSocialEur?: number | string | null;
+  siret?: string | null;
+  rcsVille?: string | null;
+  rmNumber?: string | null;
 };
 
 const SIREN_REGEX = /^[0-9]{9}$/;
+const SIRET_REGEX = /^[0-9]{14}$/;
 
 async function getProId(): Promise<{ proId?: string; resp?: NextResponse }> {
   const { userId } = await auth();
@@ -46,7 +57,7 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("pro_accounts")
-    .select("raison_sociale, adresse, ville, code_postal, siren, secteur")
+    .select("raison_sociale, adresse, ville, code_postal, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
     .eq("id", proId!)
     .single();
   if (error || !data) {
@@ -60,6 +71,14 @@ export async function GET() {
     codePostal: data.code_postal ?? "",
     siren: data.siren ?? "",
     secteur: data.secteur ?? "",
+    formeJuridique: data.forme_juridique ?? "",
+    capitalSocialEur:
+      data.capital_social_cents == null
+        ? null
+        : Number(data.capital_social_cents) / 100,
+    siret: data.siret ?? "",
+    rcsVille: data.rcs_ville ?? "",
+    rmNumber: data.rm_number ?? "",
   });
 }
 
@@ -85,9 +104,28 @@ export async function PATCH(req: Request) {
   if ("codePostal"    in body) update.code_postal    = coerce(body.codePostal);
   if ("siren"         in body) update.siren          = coerce(body.siren);
   if ("secteur"       in body) update.secteur        = coerce(body.secteur);
+  if ("formeJuridique" in body) update.forme_juridique = coerce(body.formeJuridique);
+  if ("siret"         in body) update.siret          = coerce(body.siret);
+  if ("rcsVille"      in body) update.rcs_ville      = coerce(body.rcsVille);
+  if ("rmNumber"      in body) update.rm_number      = coerce(body.rmNumber);
+  if ("capitalSocialEur" in body) {
+    const v = body.capitalSocialEur;
+    if (v == null || v === "") {
+      update.capital_social_cents = null;
+    } else {
+      const n = typeof v === "string" ? Number(v.replace(",", ".")) : Number(v);
+      if (!Number.isFinite(n) || n < 0) {
+        return NextResponse.json({ error: "invalid_capital" }, { status: 400 });
+      }
+      update.capital_social_cents = Math.round(n * 100);
+    }
+  }
 
   if (update.siren != null && update.siren !== "" && !SIREN_REGEX.test(update.siren)) {
     return NextResponse.json({ error: "invalid_siren" }, { status: 400 });
+  }
+  if (update.siret != null && update.siret !== "" && !SIRET_REGEX.test(update.siret)) {
+    return NextResponse.json({ error: "invalid_siret" }, { status: 400 });
   }
   // raison_sociale is NOT NULL in DB — don't allow erasing it.
   if ("raison_sociale" in update && (update.raison_sociale == null || update.raison_sociale === "")) {

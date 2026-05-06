@@ -43,6 +43,11 @@ function ProDashboard({ go }) {
     codePostal: '',
     siren: '',
     secteur: '',
+    formeJuridique: '',
+    capitalSocialEur: '',
+    siret: '',
+    rcsVille: '',
+    rmNumber: '',
   });
   // Hydrate from /api/pro/info on mount.
   useEffect(() => {
@@ -3420,6 +3425,11 @@ function Facturation() {
   // Plan actif (label + prix mensuel) lu depuis /api/pro/plan, lui-même
   // alimenté par la table `plan_pricing`.
   const [planInfo, setPlanInfo] = useState(null);
+  // État du modal "Compléter la facture" : la facture qu'on s'apprête
+  // à télécharger. La modale pré-remplit les mentions légales lues
+  // depuis /api/pro/info, et persiste les modifs avant de déclencher
+  // l'ouverture du PDF.
+  const [pdfPrompt, setPdfPrompt] = useState(null);
   useEffect(() => {
     let cancelled = false;
     const refresh = () =>
@@ -3503,7 +3513,8 @@ function Facturation() {
                 // Le PDF est généré côté serveur (pdfkit) à partir des
                 // mêmes données que la ligne ci-dessus + les infos
                 // société du pro renseignées dans "Mes informations".
-                const pdfHref = `/api/pro/invoices/${encodeURIComponent(inv.transactionId)}/pdf`;
+                // Cliquer ouvre d'abord la modale de validation/complétion
+                // des mentions légales obligatoires sur la facture.
                 return (
                   <tr key={inv.transactionId}>
                     <td className="mono" style={{ fontSize: 12 }}>{inv.number}</td>
@@ -3512,21 +3523,274 @@ function Facturation() {
                     <td><span className={'chip ' + statusChipClass(inv.status)}>{statusIcon(inv.status)}{inv.statusLabel}</span></td>
                     <td className="mono tnum" style={{ textAlign: 'right' }}>{_eurFmtFr.format(inv.amountEur)}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <a
-                        href={pdfHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPdfPrompt(inv)}
                         className="btn btn-ghost btn-sm btn-telecharger"
                         title={`Télécharger la facture ${inv.number} (PDF)`}
                       >
                         <Icon name="download" size={12}/> PDF
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+      {pdfPrompt && (
+        <InvoiceFieldsModal
+          invoice={pdfPrompt}
+          onClose={() => setPdfPrompt(null)}
+          onConfirmed={(savedInvoice) => {
+            // Patch a réussi : on ouvre le PDF dans un nouvel onglet et
+            // on referme la modale.
+            const url = `/api/pro/invoices/${encodeURIComponent(savedInvoice.transactionId)}/pdf`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+            setPdfPrompt(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Modale "Compléter la facture" — interceptée au clic sur le bouton
+   PDF de l'historique. Recharge les Mes informations courantes,
+   permet de compléter les mentions légales obligatoires, persiste
+   les modifications via PATCH /api/pro/info, puis renvoie au parent
+   pour qu'il déclenche le téléchargement PDF. */
+function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [form, setForm] = useState({
+    raisonSociale: '',
+    formeJuridique: '',
+    adresse: '',
+    ville: '',
+    codePostal: '',
+    capitalSocialEur: '',
+    siren: '',
+    siret: '',
+    rcsVille: '',
+    rmNumber: '',
+  });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/info', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled || !j) { setLoading(false); return; }
+        setForm({
+          raisonSociale: j.raisonSociale ?? '',
+          formeJuridique: j.formeJuridique ?? '',
+          adresse: j.adresse ?? '',
+          ville: j.ville ?? '',
+          codePostal: j.codePostal ?? '',
+          capitalSocialEur: j.capitalSocialEur == null ? '' : String(j.capitalSocialEur),
+          siren: j.siren ?? '',
+          siret: j.siret ?? '',
+          rcsVille: j.rcsVille ?? '',
+          rmNumber: j.rmNumber ?? '',
+        });
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const required = [
+    ['raisonSociale',  'Dénomination sociale ou nom/prénom',  form.raisonSociale.trim()],
+    ['formeJuridique', 'Forme juridique',                      form.formeJuridique.trim()],
+    ['adresse',        'Adresse du siège social',              form.adresse.trim()],
+    ['ville',          'Ville',                                form.ville.trim()],
+  ];
+  const missing = required.filter(([, , v]) => !v).map(([, l]) => l);
+  // SIREN ou SIRET — un des deux requis. Ville d'immatriculation RCS
+  // OU numéro RM — un des deux requis pour les structures concernées.
+  const hasIdentifier = !!form.siren.trim() || !!form.siret.trim();
+  const hasRegistration = !!form.rcsVille.trim() || !!form.rmNumber.trim();
+  const canSubmit = !loading && missing.length === 0 && hasIdentifier && hasRegistration;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/pro/info', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          raisonSociale: form.raisonSociale.trim(),
+          formeJuridique: form.formeJuridique.trim() || null,
+          adresse: form.adresse.trim() || null,
+          ville: form.ville.trim() || null,
+          codePostal: form.codePostal.trim() || null,
+          capitalSocialEur: form.capitalSocialEur === '' ? null : form.capitalSocialEur,
+          siren: form.siren.trim() || null,
+          siret: form.siret.trim() || null,
+          rcsVille: form.rcsVille.trim() || null,
+          rmNumber: form.rmNumber.trim() || null,
+        }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || 'save_failed');
+      }
+      // Notifie l'app pour que "Mes informations" se rafraichisse à
+      // l'écran s'il est ouvert dans un autre onglet du dashboard.
+      try { window.dispatchEvent(new Event('pro:info-changed')); } catch {}
+      onConfirmed(invoice);
+    } catch (e) {
+      setError(e?.message === 'invalid_capital'
+        ? 'Le capital social doit être un nombre positif.'
+        : e?.message === 'invalid_siren'
+        ? 'Le SIREN doit comporter 9 chiffres.'
+        : e?.message === 'invalid_siret'
+        ? 'Le SIRET doit comporter 14 chiffres.'
+        : 'Impossible d\'enregistrer ces informations. Réessayez.');
+      setSaving(false);
+    }
+  };
+
+  const fld = (key) => ({
+    value: form[key],
+    onChange: (e) => setForm(f => ({ ...f, [key]: e.target.value })),
+  });
+
+  return (
+    <div role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 220,
+      overflowY: 'auto',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 20px 80px',
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: 'var(--paper)', borderRadius: 16, padding: 26,
+        maxWidth: 600, width: '100%',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+        margin: 'auto 0',
+      }}>
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 4 }}>
+          <div>
+            <div className="mono caps muted" style={{ fontSize: 11, marginBottom: 6 }}>— Génération facture</div>
+            <div className="serif" style={{ fontSize: 22, lineHeight: 1.2 }}>
+              Compléter les mentions légales
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Fermer" style={{ color: 'var(--ink-4)', padding: 4, fontSize: 20, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 8, marginBottom: 18 }}>
+          Vérifiez (et complétez si nécessaire) les informations qui apparaîtront sur votre facture <strong>{invoice.number}</strong>. Elles seront automatiquement enregistrées dans <strong>Mes informations</strong> pour les prochaines factures.
+        </div>
+
+        {loading ? (
+          <div className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement de vos informations…</div>
+        ) : (
+          <div className="col gap-3">
+            <div>
+              <div className="label">Dénomination sociale ou nom/prénom *</div>
+              <input className="input" {...fld('raisonSociale')} placeholder="Atelier Mercier" />
+            </div>
+            <div className="row gap-3 wrap">
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">Forme juridique *</div>
+                <input className="input" {...fld('formeJuridique')} placeholder="SARL, SAS, EI, Auto-entrepreneur…" />
+              </div>
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">Capital social</div>
+                <input className="input" {...fld('capitalSocialEur')} inputMode="decimal" placeholder="Montant en € (sociétés)" />
+              </div>
+            </div>
+            <div>
+              <div className="label">Adresse du siège social *</div>
+              <input className="input" {...fld('adresse')} placeholder="12 rue des Artisans" />
+            </div>
+            <div className="row gap-3 wrap">
+              <div style={{ flex: '0 1 160px' }}>
+                <div className="label">Code postal</div>
+                <input className="input" {...fld('codePostal')} placeholder="64000" inputMode="numeric" />
+              </div>
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">Ville *</div>
+                <input className="input" {...fld('ville')} placeholder="Pau" />
+              </div>
+            </div>
+            <div className="row gap-3 wrap">
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">SIREN</div>
+                <input className="input mono" {...fld('siren')} placeholder="9 chiffres" inputMode="numeric" maxLength={9} />
+              </div>
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">SIRET</div>
+                <input className="input mono" {...fld('siret')} placeholder="14 chiffres" inputMode="numeric" maxLength={14} />
+              </div>
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Renseignez au moins l'un des deux numéros (SIREN ou SIRET).
+            </div>
+            <div className="row gap-3 wrap">
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">Ville d'immatriculation RCS</div>
+                <input className="input" {...fld('rcsVille')} placeholder="Pau, Lyon…" />
+              </div>
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">Numéro RM (artisans)</div>
+                <input className="input mono" {...fld('rmNumber')} placeholder="Si artisan inscrit au répertoire des métiers" />
+              </div>
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Renseignez la ville RCS pour les sociétés commerciales, ou le numéro RM pour les artisans.
+            </div>
+
+            {missing.length > 0 && (
+              <div role="alert" style={{
+                marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF3C7', border: '1.5px solid #FCD34D',
+                color: '#78350F', fontSize: 12.5,
+              }}>
+                Champs obligatoires manquants : {missing.join(', ')}.
+              </div>
+            )}
+            {missing.length === 0 && !hasIdentifier && (
+              <div role="alert" style={{
+                marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF3C7', border: '1.5px solid #FCD34D',
+                color: '#78350F', fontSize: 12.5,
+              }}>
+                Renseignez votre SIREN ou votre SIRET pour générer la facture.
+              </div>
+            )}
+            {missing.length === 0 && hasIdentifier && !hasRegistration && (
+              <div role="alert" style={{
+                marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF3C7', border: '1.5px solid #FCD34D',
+                color: '#78350F', fontSize: 12.5,
+              }}>
+                Renseignez votre ville d'immatriculation RCS (sociétés) ou votre numéro RM (artisans).
+              </div>
+            )}
+            {error && (
+              <div role="alert" style={{
+                marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+                color: '#991B1B', fontSize: 12.5,
+              }}>
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 22, flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={saving}>Annuler</button>
+          <button className="btn btn-primary btn-sm" onClick={submit} disabled={!canSubmit || saving}>
+            {saving ? 'Enregistrement…' : 'Enregistrer & télécharger le PDF'}
+          </button>
         </div>
       </div>
     </div>
@@ -4036,10 +4300,20 @@ function CampaignDetail({ camp, onBack }) {
    l'objet d'un message de confidentialité dédié. */
 
 const PRO_INFO_FIELDS = [
-  { key: 'raisonSociale', label: 'Raison sociale / Nom de la société', placeholder: 'Atelier Mercier' },
-  { key: 'adresse',       label: 'Adresse',                            placeholder: '12 rue des Artisans' },
-  { key: 'ville',         label: 'Ville',                              placeholder: 'Lyon' },
-  { key: 'siren',         label: 'SIREN',                              placeholder: '— facultatif —', optional: true, mono: true },
+  { key: 'raisonSociale',  label: 'Raison sociale / Nom de la société', placeholder: 'Atelier Mercier' },
+  { key: 'formeJuridique', label: 'Forme juridique',                    placeholder: 'SARL, SAS, EI, Auto-entrepreneur…' },
+  { key: 'adresse',        label: 'Adresse du siège social',            placeholder: '12 rue des Artisans' },
+  { key: 'ville',          label: 'Ville',                              placeholder: 'Lyon' },
+  // Champs facturation : facultatifs au sens "raison sociale + ville"
+  // restent les seuls indispensables pour activer la création de
+  // campagne, mais ils sont obligatoires pour générer une facture
+  // conforme. La modale "Compléter la facture" les ramène au premier
+  // plan au moment du téléchargement PDF.
+  { key: 'capitalSocialEur', label: 'Capital social',                   placeholder: 'Montant en € (sociétés uniquement)', optional: true, mono: true },
+  { key: 'siren',            label: 'SIREN',                            placeholder: '9 chiffres', optional: true, mono: true },
+  { key: 'siret',            label: 'SIRET',                            placeholder: '14 chiffres — facultatif', optional: true, mono: true },
+  { key: 'rcsVille',         label: "Ville d'immatriculation RCS",      placeholder: 'Pau, Lyon… — facultatif', optional: true },
+  { key: 'rmNumber',         label: 'Numéro RM (artisans)',             placeholder: '— facultatif —', optional: true, mono: true },
 ];
 
 function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {

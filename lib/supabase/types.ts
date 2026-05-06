@@ -107,14 +107,19 @@ export type Database = {
         Row: {
           adresse: string | null
           billing_status: Database["public"]["Enums"]["pro_billing_status"]
+          capital_social_cents: number | null
           clerk_user_id: string
           code_postal: string | null
           created_at: string
+          forme_juridique: string | null
           id: string
           plan: Database["public"]["Enums"]["pro_plan"]
           raison_sociale: string
+          rcs_ville: string | null
+          rm_number: string | null
           secteur: string | null
           siren: string | null
+          siret: string | null
           stripe_customer_id: string | null
           updated_at: string
           ville: string | null
@@ -123,14 +128,19 @@ export type Database = {
         Insert: {
           adresse?: string | null
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
+          capital_social_cents?: number | null
           clerk_user_id: string
           code_postal?: string | null
           created_at?: string
+          forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
           raison_sociale: string
+          rcs_ville?: string | null
+          rm_number?: string | null
           secteur?: string | null
           siren?: string | null
+          siret?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
           ville?: string | null
@@ -139,14 +149,19 @@ export type Database = {
         Update: {
           adresse?: string | null
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
+          capital_social_cents?: number | null
           clerk_user_id?: string
           code_postal?: string | null
           created_at?: string
+          forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
           raison_sociale?: string
+          rcs_ville?: string | null
+          rm_number?: string | null
           secteur?: string | null
           siren?: string | null
+          siret?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
           ville?: string | null
@@ -237,50 +252,10 @@ export type Database = {
           },
         ]
       }
-      prospect_phone_otp: {
-        Row: {
-          attempts: number
-          code_hash: string
-          created_at: string
-          expires_at: string
-          phone: string
-          prospect_id: string
-          updated_at: string
-        }
-        Insert: {
-          attempts?: number
-          code_hash: string
-          created_at?: string
-          expires_at: string
-          phone: string
-          prospect_id: string
-          updated_at?: string
-        }
-        Update: {
-          attempts?: number
-          code_hash?: string
-          created_at?: string
-          expires_at?: string
-          phone?: string
-          prospect_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_phone_otp_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       prospect_localisation: {
         Row: {
           adresse: string | null
           code_postal: string | null
-          logement: string | null
-          mobilite: string | null
           prospect_id: string
           updated_at: string
           ville: string | null
@@ -288,8 +263,6 @@ export type Database = {
         Insert: {
           adresse?: string | null
           code_postal?: string | null
-          logement?: string | null
-          mobilite?: string | null
           prospect_id: string
           updated_at?: string
           ville?: string | null
@@ -297,8 +270,6 @@ export type Database = {
         Update: {
           adresse?: string | null
           code_postal?: string | null
-          logement?: string | null
-          mobilite?: string | null
           prospect_id?: string
           updated_at?: string
           ville?: string | null
@@ -338,6 +309,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prospect_patrimoine_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: true
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_phone_otp: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          phone: string
+          prospect_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          phone: string
+          prospect_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          phone?: string
+          prospect_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_phone_otp_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
             referencedRelation: "prospects"
@@ -459,27 +468,39 @@ export type Database = {
       prospect_vie: {
         Row: {
           animaux: string | null
+          animaux_detail: string | null
           foyer: string | null
+          logement: string | null
+          mobilite: string | null
           prospect_id: string
           sports: string | null
           updated_at: string
           vehicule: string | null
+          vehicule_marque: string | null
         }
         Insert: {
           animaux?: string | null
+          animaux_detail?: string | null
           foyer?: string | null
+          logement?: string | null
+          mobilite?: string | null
           prospect_id: string
           sports?: string | null
           updated_at?: string
           vehicule?: string | null
+          vehicule_marque?: string | null
         }
         Update: {
           animaux?: string | null
+          animaux_detail?: string | null
           foyer?: string | null
+          logement?: string | null
+          mobilite?: string | null
           prospect_id?: string
           sports?: string | null
           updated_at?: string
           vehicule?: string | null
+          vehicule_marque?: string | null
         }
         Relationships: [
           {
