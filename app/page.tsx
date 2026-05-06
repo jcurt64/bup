@@ -1280,21 +1280,37 @@ function FlashDealModal({
         )}
 
         {mode === "no_match" && (
-          <div
-            style={{
-              padding: "12px 14px",
-              borderRadius: 10,
-              background: "var(--ivory-2)",
-              border: "1px solid var(--line-2)",
-              fontSize: 13,
-              color: "var(--ink-2)",
-              lineHeight: 1.55,
-            }}
-          >
-            Cette campagne ne correspond pas à votre profil (zone géographique,
-            tranche d&apos;âge ou centres d&apos;intérêt). Aucune action n&apos;est
-            nécessaire.
-          </div>
+          <>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "var(--ivory-2)",
+                border: "1px solid var(--line-2)",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                lineHeight: 1.55,
+                marginBottom: 12,
+              }}
+            >
+              Cette campagne ne correspond pas à votre profil (zone géographique,
+              tranche d&apos;âge ou centres d&apos;intérêt). Complétez vos
+              données pour augmenter vos chances d&apos;être éligible.
+            </div>
+            <button
+              onClick={goDonnees}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--ink)",
+                color: "var(--paper)",
+              }}
+            >
+              Compléter mes données pour accepter le deal{" "}
+              <Icon name="arrow" size={14} />
+            </button>
+          </>
         )}
 
         {mode === "already_refused" && (
@@ -1367,9 +1383,9 @@ function FlashDealModal({
               lineHeight: 1.55,
             }}
           >
-            {mode === "already_accepted" && "✓ Vous avez déjà accepté cette sollicitation."}
+            {mode === "already_accepted" && "✓ Sollicitation déjà acceptée."}
             {mode === "already_expired" && "Cette sollicitation a expiré."}
-            {mode === "already_settled" && "✓ Sollicitation acceptée — gains crédités."}
+            {mode === "already_settled" && "✓ Sollicitation déjà acceptée — gains crédités."}
           </div>
         )}
       </div>
