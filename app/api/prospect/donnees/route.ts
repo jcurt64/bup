@@ -28,6 +28,24 @@ import {
 
 export const runtime = "nodejs";
 
+/** Valide une date au format `JJ/MM/AAAA` (jour/mois/année cohérents,
+ *  année dans les 120 dernières années, pas de date dans le futur). */
+function isValidNaissance(raw: string): boolean {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return false;
+  const [d, m, y] = raw.split("/").map(Number);
+  if (m < 1 || m > 12) return false;
+  if (d < 1 || d > 31) return false;
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  if (y < year - 120 || y > year) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
 async function getProspectId(userId: string): Promise<string> {
   const user = await currentUser();
   const email =
@@ -114,6 +132,25 @@ export async function PATCH(req: Request) {
   const patch = uiToRow(tier, body.fields);
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "no_known_fields" }, { status: 400 });
+  }
+
+  // Date de naissance — seul format accepté en base : `JJ/MM/AAAA`. Le front
+  // applique déjà un masque, mais on revalide ici (autoritaire) pour bloquer
+  // tout client mal intentionné. Une chaîne vide (clear du champ) reste OK.
+  if (
+    tier === "identity" &&
+    Object.prototype.hasOwnProperty.call(patch, "naissance")
+  ) {
+    const raw = patch.naissance;
+    if (raw != null && raw !== "" && !isValidNaissance(raw)) {
+      return NextResponse.json(
+        {
+          error: "invalid_naissance_format",
+          message: "Format attendu : JJ/MM/AAAA (ex. 14/06/1988).",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   // Garde-fou : on n'accepte JAMAIS un PATCH direct du téléphone via cette

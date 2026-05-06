@@ -1584,16 +1584,69 @@ function ModalShell({ title, children, onClose, width = 460 }) {
   );
 }
 
+/* Masque "JJ/MM/AAAA" pour la date de naissance.
+   - On extrait jusqu'à 8 chiffres (JJMMAAAA) et on insère les slashs
+     automatiquement après 2 et 4 chiffres.
+   - Pas de validation stricte ici (jour/mois) — uniquement le format.
+     La validation jour/mois/année est faite à la sauvegarde via
+     `isNaissanceValid` (et côté API, autoritaire). */
+function maskNaissance(input) {
+  const digits = String(input || '').replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + '/' + digits.slice(2);
+  return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+}
+
+function isNaissanceValid(s) {
+  if (!s) return true; // vide = champ effacé, autorisé
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return false;
+  const [d, m, y] = s.split('/').map(Number);
+  if (m < 1 || m > 12) return false;
+  if (d < 1 || d > 31) return false;
+  // Plage raisonnable (ex. pas de date dans le futur ni > 120 ans).
+  const now = new Date();
+  const year = now.getFullYear();
+  if (y < year - 120 || y > year) return false;
+  // Vérifie que la date existe (ex. 31/02/1990 → invalide).
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
 function EditFieldModal({ edit, onSave, onClose }) {
   const [val, setVal] = useState(edit.value);
+  const isNaissance = edit.field === 'naissance';
+  const showError = isNaissance && val && !isNaissanceValid(val);
+  const canSave = !isNaissance || isNaissanceValid(val);
   return (
     <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{edit.label}</div>
-      <input className="input" value={val} onChange={e => setVal(e.target.value)} autoFocus
-        style={{ width: '100%', fontSize: 14, marginBottom: 20 }}/>
+      <input
+        className="input"
+        value={val}
+        onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
+        autoFocus
+        placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
+        inputMode={isNaissance ? 'numeric' : undefined}
+        maxLength={isNaissance ? 10 : undefined}
+        style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
+      />
+      {showError && (
+        <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
+          Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+        </div>
+      )}
+      {isNaissance && !val && (
+        <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+          Format attendu : JJ/MM/AAAA.
+        </div>
+      )}
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={() => onSave(val)} className="btn btn-primary btn-sm">Enregistrer</button>
+        <button onClick={() => onSave(val)} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
       </div>
     </ModalShell>
   );
@@ -1604,19 +1657,40 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
   const pool = empty.length ? empty : category.fields;
   const [field, setField] = useState(pool[0][0]);
   const [val, setVal] = useState(existing[pool[0][0]] || '');
+  const isNaissance = field === 'naissance';
+  const showError = isNaissance && val && !isNaissanceValid(val);
+  const canSubmit = !!val && (!isNaissance || isNaissanceValid(val));
   return (
     <ModalShell title={"Ajouter : " + category.label} onClose={onClose}>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Donnée</div>
-      <select className="input" value={field} onChange={e => { setField(e.target.value); setVal(existing[e.target.value] || ''); }}
+      <select className="input" value={field} onChange={e => {
+        const nextField = e.target.value;
+        setField(nextField);
+        const initial = existing[nextField] || '';
+        setVal(nextField === 'naissance' ? maskNaissance(initial) : initial);
+      }}
         style={{ width: '100%', fontSize: 14, marginBottom: 14, padding: '10px 12px' }}>
         {category.fields.map(([f, l]) => <option key={f} value={f}>{l}{existing[f] ? ' (déjà renseignée)' : ''}</option>)}
       </select>
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Valeur</div>
-      <input className="input" value={val} onChange={e => setVal(e.target.value)} autoFocus
-        style={{ width: '100%', fontSize: 14, marginBottom: 20 }}/>
+      <input
+        className="input"
+        value={val}
+        onChange={e => setVal(isNaissance ? maskNaissance(e.target.value) : e.target.value)}
+        autoFocus
+        placeholder={isNaissance ? 'JJ/MM/AAAA' : undefined}
+        inputMode={isNaissance ? 'numeric' : undefined}
+        maxLength={isNaissance ? 10 : undefined}
+        style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
+      />
+      {showError && (
+        <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
+          Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+        </div>
+      )}
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={() => onSave(field, val)} className="btn btn-primary btn-sm" disabled={!val}>Ajouter</button>
+        <button onClick={() => onSave(field, val)} className="btn btn-primary btn-sm" disabled={!canSubmit}>Ajouter</button>
       </div>
     </ModalShell>
   );
