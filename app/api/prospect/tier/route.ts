@@ -18,6 +18,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { TIERS, TIER_KEYS, isTierKey, type TierKey } from "@/lib/prospect/donnees";
+import { computeAndPersistProspectScore } from "@/lib/prospect/score";
 
 export const runtime = "nodejs";
 
@@ -131,6 +132,15 @@ export async function POST(req: Request) {
   if (writeErr) {
     console.error("[/api/prospect/tier] write error:", writeErr);
     return NextResponse.json({ error: "write_failed" }, { status: 500 });
+  }
+
+  // Recompute du BUUPP Score : hide / restore / delete impactent
+  // `countedTiers` (removed_tiers) ou les paliers atteints (delete vide
+  // les rows). Garde le score en base à jour sans dépendre du client.
+  try {
+    await computeAndPersistProspectScore(admin, prospectId);
+  } catch (e) {
+    console.warn("[/api/prospect/tier] score recompute failed", e);
   }
 
   return NextResponse.json({

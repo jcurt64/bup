@@ -772,11 +772,11 @@ function ProspectHeader() {
             3 mises en relation en attente · prochaine échéance dans 14 h 22 min
           </div>
         </div>
-        <div className="row center gap-6">
+        <div className="row center gap-6 prospect-header-pills">
           <StatusPill
             label="Vérification"
             value={verification
-              ? `${VERIF_LABELS[verification.tier] || 'Basique'} ${verification.progress ?? 33}%`
+              ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Palier ${verifTierPosition(verification.tier)}/3`
               : '…'}
             chip={
               verification?.tier === 'certifie_confiance' ? 'chip-good' :
@@ -787,6 +787,35 @@ function ProspectHeader() {
           <StatusPill label="BUUPP Score" value={scoreText} chip="chip-good"/>
           <StatusPill label="Parrainages" value={parrainageText} chip=""/>
         </div>
+        <style>{`
+          /* Sur mobile, on aligne les 3 pastilles (Vérification / BUUPP
+             Score / Parrainages) en grille 3 colonnes équidistantes pour
+             que labels et chips soient alignés horizontalement, peu
+             importe la longueur du texte de chaque chip. */
+          @media (max-width: 720px) {
+            .prospect-header-pills {
+              display: grid !important;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px !important;
+              width: 100%;
+              align-items: start;
+            }
+            .prospect-header-pills .prospect-pill {
+              text-align: center;
+              min-width: 0;
+            }
+            .prospect-header-pills .prospect-pill .chip {
+              display: block;
+              text-align: center;
+              white-space: normal;
+              word-break: break-word;
+              line-height: 1.35;
+            }
+          }
+          @media (max-width: 420px) {
+            .prospect-header-pills .chip { font-size: 11.5px !important; padding: 5px 6px !important; }
+          }
+        `}</style>
       </div>
     </div>
   );
@@ -794,7 +823,7 @@ function ProspectHeader() {
 
 function StatusPill({ label, value, chip }) {
   return (
-    <div>
+    <div className="prospect-pill">
       <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{label}</div>
       <div className={'chip ' + chip} style={{ fontSize: 13, padding: '5px 10px' }}>{value}</div>
     </div>
@@ -1412,12 +1441,24 @@ function MesDonnees({ onGoPrefs }) {
   // Categories permanently removed by the user are excluded from the list,
   // from the completeness calculation, and from the per-tier progress bars.
   const visibleCategories = DATA_CATEGORIES.filter(c => !removed[c.key]);
+  // Niveau de palier = paliers atteints / paliers visibles (pondération
+  // identique au scoring backend `/api/prospect/score`). Un palier est
+  // "atteint" dès qu'au moins un de ses champs est renseigné. Aligné
+  // avec la logique de matching côté pro (un palier requis n'a besoin
+  // que d'une donnée pour qu'un prospect soit éligible).
+  const reachedTiers = visibleCategories.filter(
+    c => !deleted[c.key] && c.fields.some(([f]) => profile?.[c.key]?.[f]),
+  ).length;
+  const completeness = visibleCategories.length === 0
+    ? 0
+    : Math.round((reachedTiers / visibleCategories.length) * 100);
+  // Détail "X champs remplis sur Y" affiché en sous-titre — granularité
+  // utile pour le prospect qui veut maximiser ses gains.
   const totalFields = visibleCategories.reduce((acc, c) => acc + c.fields.length, 0);
   const filledFields = visibleCategories.reduce(
     (acc, c) => acc + (deleted[c.key] ? 0 : c.fields.filter(([f]) => profile?.[c.key]?.[f]).length),
-    0
+    0,
   );
-  const completeness = totalFields === 0 ? 0 : Math.round((filledFields / totalFields) * 100);
 
   return (
     <div className="col gap-6">
@@ -1455,9 +1496,15 @@ function MesDonnees({ onGoPrefs }) {
       {/* Completeness summary */}
       <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
         <div>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Complétude de votre profil</div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Niveau de palier</div>
           <div className="serif tnum" style={{ fontSize: 40 }}>{completeness}<span style={{ fontSize: 20, color: 'var(--ink-4)' }}>%</span></div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Plus votre profil est complet, plus votre BUUPP Score augmente.</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            <strong style={{ color: 'var(--ink-2)' }}>{reachedTiers}/{visibleCategories.length} paliers atteints</strong>
+            {' · '}{filledFields}/{totalFields} champs renseignés
+          </div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+            Un palier est <em>atteint</em> dès qu'au moins une donnée y est renseignée. Plus vous remplissez de champs, plus votre BUUPP Score augmente.
+          </div>
         </div>
         <div>
           <div className="col gap-2">
@@ -1679,6 +1726,14 @@ function MesDonnees({ onGoPrefs }) {
             }
             setEditing(null);
           }}
+          onAutoSave={(v) => {
+            // Persist sans fermer la modale (auto-save debounced 700 ms).
+            if (v && typeof v === 'object' && v.multi) {
+              ctx?.updateFields(editing.category, v.multi);
+            } else {
+              ctx?.updateField(editing.category, editing.field, v);
+            }
+          }}
           onClose={() => setEditing(null)}/>
       )}
       {adding && (
@@ -1706,6 +1761,15 @@ function MesDonnees({ onGoPrefs }) {
               ctx?.updateField(adding, field, value);
             }
             setAdding(null);
+          }}
+          onAutoSave={(field, value) => {
+            // Auto-save debounced — exclus du flow téléphone (SMS) côté
+            // modale ; ici on persiste direct les autres champs.
+            if (value && typeof value === 'object' && value.multi) {
+              ctx?.updateFields(adding, value.multi);
+            } else {
+              ctx?.updateField(adding, field, value);
+            }
           }}
           onClose={() => setAdding(null)}/>
       )}
@@ -2125,7 +2189,7 @@ function isFieldSavable(category, field, value, detail) {
   return true;
 }
 
-function EditFieldModal({ edit, onSave, onClose, profileForCategory }) {
+function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory }) {
   const cfg = fieldConfig(edit.category, edit.field);
   const isNaissance = edit.field === 'naissance';
   const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal');
@@ -2136,6 +2200,42 @@ function EditFieldModal({ edit, onSave, onClose, profileForCategory }) {
       : '';
   const [detail, setDetail] = useState(initialDetail);
   const [pair, setPair] = useState(null); // { ville, codePostal } après sélection
+  // Auto-save indicator : "saving" pendant le PATCH, "saved" après ack.
+  // Permet à l'utilisateur de fermer la modale sans crainte de perte de
+  // données — la persistance s'est déjà faite à chaque pause de saisie.
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved
+  // Debounce auto-save : 700 ms après la dernière modif valide → PATCH
+  // sans fermer la modale. La saisie ville+CP (autocomplétion) garde son
+  // flow explicite via le bouton "Enregistrer" : pas d'auto-save tant
+  // qu'aucune sélection complète n'est faite.
+  useEffect(() => {
+    if (!onAutoSave || isCityPostal) return;
+    if (isNaissance) {
+      // Auto-save uniquement quand la date est complète et valide,
+      // ou réinitialisée à vide (effacement explicite).
+      const ok = val === '' || isNaissanceValid(val);
+      if (!ok) return;
+    } else if (!isFieldSavable(edit.category, edit.field, val, detail)) {
+      return;
+    }
+    // Skip si rien n'a changé depuis l'ouverture.
+    if (val === edit.value && detail === initialDetail) return;
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      try {
+        if (cfg.type === 'tag+text' && cfg.detailField) {
+          onAutoSave({ multi: { [edit.field]: val, [cfg.detailField]: detail } });
+        } else {
+          onAutoSave(val);
+        }
+        setSaveStatus('saved');
+      } catch {
+        setSaveStatus('idle');
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [val, detail]);
 
   if (isCityPostal) {
     return (
@@ -2192,8 +2292,9 @@ function EditFieldModal({ edit, onSave, onClose, profileForCategory }) {
             Format attendu : JJ/MM/AAAA.
           </div>
         )}
+        <SaveIndicator status={saveStatus} />
         <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
           <button onClick={() => onSave(val)} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
         </div>
       </ModalShell>
@@ -2223,25 +2324,78 @@ function EditFieldModal({ edit, onSave, onClose, profileForCategory }) {
         }}
         autoFocus
       />
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 22 }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+      <SaveIndicator status={saveStatus} />
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         <button onClick={submit} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
       </div>
     </ModalShell>
   );
 }
 
-function AddFieldModal({ category, existing, onSave, onClose }) {
+/* Petit indicateur d'auto-save affiché sous les champs dans les modales
+   d'édition. Donne au user le feedback que ses données ont été persistées
+   sans qu'il ait besoin de cliquer sur "Enregistrer". */
+function SaveIndicator({ status }) {
+  if (status === 'idle') return null;
+  const isSaving = status === 'saving';
+  return (
+    <div
+      className="row"
+      style={{
+        gap: 6, marginTop: 14, alignItems: 'center', fontSize: 12,
+        color: isSaving ? 'var(--ink-4)' : 'var(--good)',
+      }}
+      aria-live="polite"
+    >
+      <span aria-hidden="true">{isSaving ? '⏳' : '✓'}</span>
+      <span>{isSaving ? 'Enregistrement…' : 'Modifications enregistrées automatiquement'}</span>
+    </div>
+  );
+}
+
+function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
   const empty = category.fields.filter(([f]) => !existing[f]);
   const pool = empty.length ? empty : category.fields;
   const [field, setField] = useState(pool[0][0]);
   const [val, setVal] = useState(existing[pool[0][0]] || '');
   const [detail, setDetail] = useState('');
   const [pair, setPair] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('idle');
 
   const cfg = fieldConfig(category.key, field);
   const isNaissance = field === 'naissance';
   const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal');
+
+  // Auto-save : 700 ms après la dernière modif valide → PATCH sans
+  // fermer la modale. Ne s'applique pas au flow ville+CP (Enregistrer
+  // explicite après sélection) ni au champ téléphone qui passe par
+  // PhoneVerifyModal (vérification SMS obligatoire).
+  useEffect(() => {
+    if (!onAutoSave) return;
+    if (isCityPostal) return;
+    if (category.key === 'identity' && field === 'telephone') return;
+    if (isNaissance) {
+      if (!val || !isNaissanceValid(val)) return;
+    } else if (!isFieldSavable(category.key, field, val, detail)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      try {
+        if (cfg.type === 'tag+text' && cfg.detailField) {
+          onAutoSave(field, { multi: { [field]: val, [cfg.detailField]: detail } });
+        } else {
+          onAutoSave(field, val);
+        }
+        setSaveStatus('saved');
+      } catch {
+        setSaveStatus('idle');
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [val, detail, field]);
 
   const showError = isNaissance && val && !isNaissanceValid(val);
   const canSubmit = isCityPostal
@@ -2334,8 +2488,9 @@ function AddFieldModal({ category, existing, onSave, onClose }) {
           />
         </div>
       )}
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+      <SaveIndicator status={saveStatus} />
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         <button onClick={submit} className="btn btn-primary btn-sm" disabled={!canSubmit}>
           Ajouter
         </button>
@@ -3170,6 +3325,16 @@ const VERIF_LABELS = {
   certifie_confiance: 'Certifié confiance',
 };
 
+// Index 1-based d'un palier de vérification dans l'échelle des 3 paliers.
+// Utilisé pour afficher "Palier 2/3" plutôt que "66%" — qui prête à
+// confusion (un user à 66% pensait être "vérifié à 66%" alors que c'est
+// la position dans l'échelle, pas un degré de complétion).
+function verifTierPosition(tier) {
+  if (tier === 'verifie') return 2;
+  if (tier === 'certifie_confiance') return 3;
+  return 1;
+}
+
 function VerifTiers() {
   const [data, setData] = useState(null);
   const [ribOpen, setRibOpen] = useState(false);
@@ -3185,7 +3350,6 @@ function VerifTiers() {
 
   const tier = data?.tier || 'basique';
   const currentIdx = Math.max(0, VERIF_TIERS.findIndex(t => t.key === tier));
-  const pct = data?.progress ?? 33;
   const ribValidated = data?.rib?.validated;
   const ibanMasked = data?.rib?.ibanMasked;
 
@@ -3254,7 +3418,9 @@ function VerifTiers() {
                 <div className="serif" style={{ fontSize: isCurrent ? 24 : 18, marginBottom: 6 }}>
                   {t.label}
                   {isCurrent && (
-                    <span className="muted" style={{ fontSize: 14 }}> {pct}%</span>
+                    <span className="muted" style={{ fontSize: 14 }}>
+                      {' · Palier '}{currentIdx + 1}/{VERIF_TIERS.length}
+                    </span>
                   )}
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5, margin: 0 }}>

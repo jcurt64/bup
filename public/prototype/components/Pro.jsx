@@ -5411,6 +5411,12 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             }
             setEditing(null);
           }}
+          onAutoSave={(v) => {
+            // Auto-save debounced : persiste sans fermer la modale.
+            // `setInfo` côté ProDashboard PATCHe automatiquement
+            // /api/pro/info pour chaque diff.
+            setInfo(prev => ({ ...prev, [editing.key]: v }));
+          }}
           onClose={() => setEditing(null)}/>
       )}
       {confirmFieldDelete && (
@@ -5629,7 +5635,28 @@ function ProInfoModalShell({ title, children, onClose, width = 460 }) {
   );
 }
 
-function ProInfoEditModal({ edit, onSave, onClose }) {
+/* Petit indicateur d'auto-save affiché sous le champ d'édition.
+   Donne au pro le feedback que ses modifications ont déjà été
+   persistées sans qu'il ait besoin de cliquer "Enregistrer". */
+function ProSaveIndicator({ status }) {
+  if (status === 'idle') return null;
+  const isSaving = status === 'saving';
+  return (
+    <div
+      className="row"
+      style={{
+        gap: 6, marginTop: 14, alignItems: 'center', fontSize: 12,
+        color: isSaving ? 'var(--ink-4)' : 'var(--good)',
+      }}
+      aria-live="polite"
+    >
+      <span aria-hidden="true">{isSaving ? '⏳' : '✓'}</span>
+      <span>{isSaving ? 'Enregistrement…' : 'Modifications enregistrées automatiquement'}</span>
+    </div>
+  );
+}
+
+function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
   const isSiren = edit.key === 'siren';
   const isSiret = edit.key === 'siret';
   // Champs dont la valeur peut être croisée avec la fiche SIRENE.
@@ -5743,6 +5770,29 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
     (isSiren || isSiret) && val && verify.status === 'not_found';
   const canSave =
     (edit.optional || val.trim()) && !blockedByVerification;
+
+  // Auto-save : 700 ms après la dernière modif → PATCH sans fermer la
+  // modale. Ne s'applique pas quand SIREN/SIRET est explicitement
+  // introuvable au registre (l'utilisateur doit corriger avant de
+  // persister une valeur invalide).
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved
+  React.useEffect(() => {
+    if (!onAutoSave) return;
+    if (val === (edit.value || '')) return;
+    if (blockedByVerification) return;
+    if (!val.trim() && !edit.optional) return;
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      try {
+        onAutoSave(val);
+        setSaveStatus('saved');
+      } catch {
+        setSaveStatus('idle');
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [val, blockedByVerification]);
 
   return (
     <ProInfoModalShell title={'Modifier : ' + edit.label} onClose={onClose}>
@@ -5902,8 +5952,9 @@ function ProInfoEditModal({ edit, onSave, onClose }) {
         </div>
       )}
 
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+      <ProSaveIndicator status={saveStatus} />
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         <button
           onClick={() => onSave(val.trim())}
           className="btn btn-primary btn-sm"

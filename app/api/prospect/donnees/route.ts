@@ -25,6 +25,7 @@ import {
   uiToRow,
   type TierKey,
 } from "@/lib/prospect/donnees";
+import { computeAndPersistProspectScore } from "@/lib/prospect/score";
 
 export const runtime = "nodejs";
 
@@ -219,6 +220,16 @@ export async function PATCH(req: Request) {
   if (error) {
     console.error("[/api/prospect/donnees PATCH] upsert error:", error);
     return NextResponse.json({ error: "upsert_failed" }, { status: 500 });
+  }
+
+  // Recompute du BUUPP Score juste après l'upsert : la modification d'un
+  // palier impacte la complétude (paliers atteints) et la fraîcheur. On
+  // évite ainsi un score périmé même si le client n'a pas (encore)
+  // re-fetché /api/prospect/score.
+  try {
+    await computeAndPersistProspectScore(admin, prospectId);
+  } catch (e) {
+    console.warn("[/api/prospect/donnees PATCH] score recompute failed", e);
   }
 
   return NextResponse.json({ ok: true, tier, fields: patch });
