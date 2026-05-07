@@ -1,8 +1,11 @@
 /**
- * Settlement lazy des relations matures (3 minutes après le lancement
- * de la campagne). Délègue à la RPC SQL atomique `settle_ripe_relations`
- * (cf. supabase/migrations/20260505000000_settle_ripe_relations.sql) puis
- * notifie chaque prospect concerné par mail (fire-and-forget).
+ * Settlement lazy des relations matures, basé sur
+ * `relations.escrow_release_at` (snapshot du `campaign.ends_at` au
+ * moment de l'acceptation). Délègue à la RPC SQL `settle_ripe_relations`
+ * qui, pour chaque relation mûre, débite simultanément le pro
+ * (reward + 10 % commission), libère la réserve correspondante et
+ * crédite le prospect. Les prolongations de campagne ne décalent pas
+ * l'échéance des séquestres déjà ouverts.
  *
  * Appelé en début de chaque endpoint prospect qui consomme du wallet ou
  * des relations (wallet, movements, relations, fiscal). La RPC est

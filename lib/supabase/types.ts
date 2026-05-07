@@ -635,6 +635,7 @@ export type Database = {
         Row: {
           campaign_id: string
           decided_at: string | null
+          escrow_release_at: string | null
           expires_at: string
           id: string
           motif: string
@@ -648,6 +649,7 @@ export type Database = {
         Insert: {
           campaign_id: string
           decided_at?: string | null
+          escrow_release_at?: string | null
           expires_at: string
           id?: string
           motif: string
@@ -661,6 +663,7 @@ export type Database = {
         Update: {
           campaign_id?: string
           decided_at?: string | null
+          escrow_release_at?: string | null
           expires_at?: string
           id?: string
           motif?: string

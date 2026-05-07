@@ -138,14 +138,15 @@ export async function processCampaignLifecycle(
 
   // Étape 2 — closure. Pour chaque campagne dont `ends_at <= now()` et
   // status='active', on appelle `close_campaign_settle` qui :
-  //   1. débite réellement le wallet pro de (rewards acceptés + 10 %
-  //      commission BUUPP) — premier vrai débit depuis la création ;
-  //   2. enregistre la commission BUUPP comme transaction
-  //      `buupp_commission` (créditée hors-plateforme : compte bancaire) ;
-  //   3. libère la réservation upfront (budget + commission max) ;
-  //   4. passe la campagne en `completed` avec `settled_at`.
-  // Les escrow prospect 'pending' sont ensuite matérialisés en credit
-  // par `settle_ripe_relations` (filtré sur `campaign.status='completed'`).
+  //   1. flushe les relations encore mûres (settle_ripe_relations).
+  //   2. libère le résidu de réservation (refus / expirations / écart
+  //      entre budget prévu et acceptations effectives).
+  //   3. passe la campagne en `completed` avec `settled_at`.
+  // Les débits pro et la maturation des escrow prospect se font désormais
+  // PER-RELATION dans `settle_ripe_relations`, basé sur
+  // `relations.escrow_release_at` (snapshot du ends_at à l'acceptation).
+  // Une prolongation de campagne ne décale donc plus l'échéance des
+  // séquestres déjà ouverts.
   const { data: expiredCamps, error: expErr } = await admin
     .from("campaigns")
     .select("id")
