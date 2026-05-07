@@ -1634,7 +1634,10 @@ function TiersTable() {
               className="muted"
               style={{ fontSize: 13, letterSpacing: "0.08em" }}
             >
-              Afficher les gains Prospect vérifié 100%
+              Afficher les gains Prospect{" "}
+              <span style={{ color: "#7C3AED", fontWeight: 600 }}>
+                certifié confiance
+              </span>
             </span>
             <span
               onClick={() => setVerified(!verified)}

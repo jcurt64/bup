@@ -344,6 +344,14 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   scrollbar-width: none;
 }
 .route-nav::-webkit-scrollbar { display: none; }
+/* Curseur pointeur sur les onglets de la barre de menu fixe en bas de
+   l'écran. `!important` pour neutraliser une éventuelle reset du
+   preflight Tailwind v4 ; on cible aussi les enfants (SVG, spans) car le
+   hover peut remonter sur eux. */
+.route-nav,
+.route-nav .route-nav-tab,
+.route-nav a,
+.route-nav a * { cursor: pointer !important; }
 
 /* Desktop par défaut : on cache l'icône, on garde le label texte. */
 .route-nav .route-nav-icon { display: none; }

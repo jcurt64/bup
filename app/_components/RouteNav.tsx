@@ -128,6 +128,7 @@ export default function RouteNav() {
               alignItems: "center",
               justifyContent: "center",
               gap: 6,
+              cursor: "pointer",
             }}
           >
             <span className="route-nav-icon" aria-hidden>{icon}</span>

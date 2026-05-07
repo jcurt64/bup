@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 
@@ -46,15 +46,24 @@ export default function PrototypeFrame({
   }, [router, signOut]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
-  // Cache-bust : force le navigateur à recharger shell.html (et donc les
-  // scripts JSX qu'il référence) à chaque montage du composant. Sans ça,
-  // une iframe gardée chaude continue à servir d'anciens fichiers JSX
-  // même après une modif côté Next.js.
-  const cacheBust = useMemo(() => Date.now(), []);
+  // Cache-bust uniquement côté client : `Date.now()` au render initial
+  // SSR donnerait un timestamp différent du client → mismatch
+  // d'hydratation. On rend donc l'iframe avec une URL stable au premier
+  // pass, puis on la remonte avec un suffixe `?v=...` après hydratation.
+  // Cela force le navigateur à recharger shell.html (et donc les
+  // scripts JSX qu'il référence) à chaque navigation client.
+  const [cacheBust, setCacheBust] = useState<number | null>(null);
+  useEffect(() => {
+    setCacheBust(Date.now());
+  }, []);
+
+  const baseSrc = `/prototype/shell.html#${hash}`;
+  const src = cacheBust ? `/prototype/shell.html?v=${cacheBust}#${hash}` : baseSrc;
 
   return (
     <iframe
-      src={`/prototype/shell.html?v=${cacheBust}#${hash}`}
+      key={cacheBust ?? "ssr"}
+      src={src}
       title={`BUUPP — ${route}`}
       style={{
         position: "fixed", inset: 0, width: "100%", height: "100%",
