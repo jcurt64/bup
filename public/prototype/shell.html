@@ -20,12 +20,27 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
-  <script type="text/babel" src="/prototype/components/Shell.jsx"></script>
-  <script type="text/babel" src="/prototype/components/Landing.jsx"></script>
-  <script type="text/babel" src="/prototype/components/Auth.jsx"></script>
-  <script type="text/babel" src="/prototype/components/Prospect.jsx"></script>
-  <script type="text/babel" src="/prototype/components/Objectives.jsx"></script>
-  <script type="text/babel" src="/prototype/components/Pro.jsx"></script>
+  <script>
+    /* Cache-bust dynamique : on injecte les scripts JSX avec le `?v=...`
+       hérité de l'URL de l'iframe (PrototypeFrame). Sans ça, la 2e
+       chargement de l'iframe sert des fichiers JSX cachés malgré
+       Cache-Control:no-store, parce que la requête initiale a pu être
+       servie depuis une copie en mémoire/disk avant le déploiement du
+       header. Une URL avec un suffixe `?v=...` unique force un fetch
+       neuf systématiquement. */
+    (function () {
+      var v = '';
+      try { v = new URLSearchParams(window.location.search).get('v') || ''; } catch (e) {}
+      if (!v) v = String(Date.now());
+      var files = ['Shell','Landing','Auth','Prospect','Objectives','Pro'];
+      files.forEach(function (name) {
+        var s = document.createElement('script');
+        s.type = 'text/babel';
+        s.src = '/prototype/components/' + name + '.jsx?v=' + encodeURIComponent(v);
+        document.head.appendChild(s);
+      });
+    })();
+  </script>
 
   <script type="text/babel" data-presets="react">
     function readRouteAndTab() {

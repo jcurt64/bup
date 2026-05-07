@@ -677,50 +677,105 @@ function Hero() {
             overflow: "hidden",
           }}
         >
-          <div
-            className="mono hero-live-label"
-            style={{
-              fontSize: 10,
-              letterSpacing: ".18em",
-              color: "rgba(22,163,74)",
-              marginBottom: 14,
-            }}
-          >
-            ● EN DIRECT — Mises en relation acceptées ces dernières heures
-          </div>
-          <div style={{ overflow: "hidden" }}>
-            <div className="marquee">
-              {[...Array(2)].flatMap((_, r) =>
-                (
-                  [
-                    ["Kiné à Lyon 3e", "Marie L.", "4,20 €"],
-                    ["Coach pro, Nantes", "Antoine R.", "6,80 €"],
-                    ["Agence immo Paris 11", "Solène P.", "9,40 €"],
-                    ["Artisan menuisier", "Karim B.", "3,10 €"],
-                    ["PME SaaS B2B", "Julie T.", "7,50 €"],
-                    ["Nutritionniste Lille", "Théo M.", "5,60 €"],
-                  ] as const
-                ).map((row, i) => (
-                  <div
-                    key={`${r}-${i}`}
-                    className="row center gap-3"
-                    style={{ fontSize: 13, color: "rgba(255,255,255,.7)" }}
-                  >
-                    <span style={{ color: "rgba(255,255,255,.4)" }}>◇</span>
-                    <span>{row[0]}</span>
-                    <span style={{ color: "rgba(255,255,255,.4)" }}>→</span>
-                    <span>{row[1]}</span>
-                    <span className="mono" style={{ color: "#A5B4FC" }}>
-                      +{row[2]}
-                    </span>
-                  </div>
-                )),
-              )}
-            </div>
-          </div>
+          <LiveRelationsTicker />
         </div>
       </div>
     </section>
+  );
+}
+
+/* Bandeau live de la home page — défile de droite à gauche les
+   dernières mises en relation acceptées (status accepted ou settled),
+   anonymisées côté API : secteur + ville pour le pro, prénom + initiale
+   du nom pour le prospect.
+
+   - en attente / API KO / liste vide → bandeau masqué (aucun mock visible)
+   - sinon → vraies données qui défilent */
+type TickerRow = {
+  id: string;
+  sector: string;
+  city: string;
+  prenomMasked: string;
+  rewardEur: number;
+};
+
+function LiveRelationsTicker() {
+  const [rows, setRows] = useState<TickerRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/landing/recent-relations", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (cancelled) return;
+          const list: TickerRow[] = Array.isArray(j?.relations)
+            ? j.relations
+            : [];
+          setRows(list);
+        })
+        .catch(() => {
+          if (!cancelled) setRows([]);
+        });
+    };
+    load();
+    // Rafraîchit toutes les 5 minutes — assez fréquent pour rester
+    // "live", assez rare pour ne pas spammer l'API.
+    const t = setInterval(load, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  if (!rows || rows.length === 0) return null;
+
+  const fmtEur = (eur: number) =>
+    Number(eur || 0)
+      .toFixed(2)
+      .replace(".", ",");
+
+  return (
+    <>
+      <div
+        className="mono hero-live-label"
+        style={{
+          fontSize: 10,
+          letterSpacing: ".18em",
+          color: "rgba(22,163,74)",
+          marginBottom: 14,
+        }}
+      >
+        ● EN DIRECT — Demandes acceptées ces dernières heures
+      </div>
+      <div style={{ overflow: "hidden" }}>
+        <div className="marquee">
+          {[...Array(2)].flatMap((_, r) =>
+            rows.map((it, i) => {
+              const where = [it.sector, it.city]
+                .filter(Boolean)
+                .join(" à ")
+                .trim();
+              return (
+                <div
+                  key={`${r}-${it.id || i}`}
+                  className="row center gap-3"
+                  style={{ fontSize: 13, color: "rgba(255,255,255,.7)" }}
+                >
+                  <span style={{ color: "rgba(255,255,255,.4)" }}>◇</span>
+                  <span>{where || it.sector || it.city || "—"}</span>
+                  <span style={{ color: "rgba(255,255,255,.4)" }}>→</span>
+                  <span>{it.prenomMasked}</span>
+                  <span className="mono" style={{ color: "#A5B4FC" }}>
+                    +{fmtEur(it.rewardEur)} €
+                  </span>
+                </div>
+              );
+            }),
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1464,7 +1519,7 @@ function HowItWorks() {
     {
       n: "03",
       title: "Encaissez vos gains",
-      body: "Chaque mise en relation acceptée crédite votre portefeuille en BUUPP Coins. Retrait par IBAN, carte cadeau ou don associatif.",
+      body: "Chaque demande acceptée crédite automatiquement votre portefeuille. Retrait par IBAN, carte cadeau ou don associatif.",
     },
   ];
   return (

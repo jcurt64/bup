@@ -9,6 +9,21 @@ const nextConfig: NextConfig = {
   // dépendance externe Node, pour que `require('pdfkit')` résolve
   // depuis le vrai `node_modules`.
   serverExternalPackages: ["pdfkit", "fontkit"],
+  // Le prototype est rendu côté navigateur via Babel-standalone : les
+  // fichiers `.jsx` de /public/prototype sont chargés à chaque ouverture
+  // de l'iframe et compilés à la volée. Sans en-tête no-cache, le
+  // navigateur sert une version périmée après une modification — d'où
+  // des composants qui semblent ne pas se mettre à jour.
+  async headers() {
+    return [
+      {
+        source: "/prototype/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

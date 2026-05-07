@@ -231,34 +231,83 @@ function Hero({ go }) {
           </div>
         </div>
 
-        {/* Live ticker */}
-        <div style={{ marginTop: 72, borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 24, overflow: 'hidden' }}>
-          <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', color: 'rgba(255,255,255,.35)', marginBottom: 14 }}>
-            ● EN DIRECT — Mises en relation acceptées ces dernières heures
-          </div>
-          <div style={{ overflow: 'hidden' }}>
-            <div className="marquee">
-              {[...Array(2)].flatMap((_, r) => [
-                ['Kiné à Lyon 3e', 'Marie L.', '4,20 €'],
-                ['Coach pro, Nantes', 'Antoine R.', '6,80 €'],
-                ['Agence immo Paris 11', 'Solène P.', '9,40 €'],
-                ['Artisan menuisier', 'Karim B.', '3,10 €'],
-                ['PME SaaS B2B', 'Julie T.', '7,50 €'],
-                ['Nutritionniste Lille', 'Théo M.', '5,60 €'],
-              ].map((row, i) => (
-                <div key={`${r}-${i}`} className="row center gap-3" style={{ fontSize: 13, color: 'rgba(255,255,255,.7)' }}>
-                  <span style={{ color: 'rgba(255,255,255,.4)' }}>◇</span>
-                  <span>{row[0]}</span>
-                  <span style={{ color: 'rgba(255,255,255,.4)' }}>→</span>
-                  <span>{row[1]}</span>
-                  <span className="mono" style={{ color: '#A5B4FC' }}>+{row[2]}</span>
-                </div>
-              )))}
-            </div>
-          </div>
-        </div>
+        {/* Live ticker — alimenté par /api/landing/recent-relations */}
+        <LiveTicker/>
       </div>
     </section>
+  );
+}
+
+/* Bandeau live de la home page — défile de droite à gauche les
+   dernières mises en relation acceptées (status accepted ou settled),
+   anonymisées côté API : secteur + ville pour le pro, prénom + initiale
+   du nom pour le prospect.
+
+   Comportement :
+   - en attente de la réponse API → bandeau invisible (pas de flash)
+   - succès, liste non vide → vraies données qui défilent
+   - succès mais liste vide (base vierge en dev) → bandeau masqué
+   - échec réseau → bandeau masqué (jamais de mock visible en prod) */
+function LiveTicker() {
+  const [rows, setRows] = useState(null); // null = loading | [] = vide/erreur
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      console.log('[LiveTicker] fetching /api/landing/recent-relations');
+      fetch('/api/landing/recent-relations', { cache: 'no-store' })
+        .then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(j => {
+          if (cancelled) return;
+          const list = Array.isArray(j?.relations) ? j.relations : [];
+          console.log('[LiveTicker] received', list.length, 'relations');
+          setRows(list);
+        })
+        .catch(err => {
+          if (cancelled) return;
+          console.warn('[LiveTicker] fetch failed', err);
+          setRows([]);
+        });
+    };
+    load();
+    // Rafraîchit toutes les 5 minutes — assez fréquent pour rester
+    // "live", assez rare pour ne pas spammer l'API.
+    const t = setInterval(load, 5 * 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  // Tant qu'on n'a pas reçu de données (ou si la base est vide / l'API
+  // KO), on n'affiche rien plutôt qu'une fausse liste — comme ça on
+  // sait toujours, à l'œil, si le composant tourne.
+  if (!rows || rows.length === 0) return null;
+
+  const eurFmt = (eur) => Number(eur || 0).toFixed(2).replace('.', ',');
+
+  return (
+    <div style={{ marginTop: 72, borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 24, overflow: 'hidden' }}>
+      <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', color: 'rgba(255,255,255,.35)', marginBottom: 14 }}>
+        ● EN DIRECT — Mises en relation acceptées ces dernières heures
+      </div>
+      <div style={{ overflow: 'hidden' }}>
+        <div className="marquee">
+          {[...Array(2)].flatMap((_, r) => rows.map((it, i) => {
+            const where = [it.sector, it.city].filter(Boolean).join(' à ').trim();
+            return (
+              <div key={`${r}-${it.id || i}`} className="row center gap-3" style={{ fontSize: 13, color: 'rgba(255,255,255,.7)' }}>
+                <span style={{ color: 'rgba(255,255,255,.4)' }}>◇</span>
+                <span>{where || it.sector || it.city || '—'}</span>
+                <span style={{ color: 'rgba(255,255,255,.4)' }}>→</span>
+                <span>{it.prenomMasked}</span>
+                <span className="mono" style={{ color: '#A5B4FC' }}>+{eurFmt(it.rewardEur)} €</span>
+              </div>
+            );
+          }))}
+        </div>
+      </div>
+    </div>
   );
 }
 

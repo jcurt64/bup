@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 
@@ -46,10 +46,15 @@ export default function PrototypeFrame({
   }, [router, signOut]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
+  // Cache-bust : force le navigateur à recharger shell.html (et donc les
+  // scripts JSX qu'il référence) à chaque montage du composant. Sans ça,
+  // une iframe gardée chaude continue à servir d'anciens fichiers JSX
+  // même après une modif côté Next.js.
+  const cacheBust = useMemo(() => Date.now(), []);
 
   return (
     <iframe
-      src={`/prototype/shell.html#${hash}`}
+      src={`/prototype/shell.html?v=${cacheBust}#${hash}`}
       title={`BUUPP — ${route}`}
       style={{
         position: "fixed", inset: 0, width: "100%", height: "100%",

@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as {
     amountCents?: number;
+    method?: string;
   };
   const amountCents = Number(body.amountCents);
   if (!Number.isFinite(amountCents) || amountCents < MIN_WITHDRAW_CENTS) {
@@ -42,6 +43,22 @@ export async function POST(request: NextRequest) {
       {
         error: "invalid_amount",
         message: `Montant invalide (minimum ${MIN_WITHDRAW_CENTS / 100} €).`,
+      },
+      { status: 400 },
+    );
+  }
+
+  // Méthode de retrait. Pour l'instant seul `iban` (virement Stripe Connect
+  // vers IBAN) est ouvert ; `card` (paiement instantané) et `gift` (cartes
+  // cadeaux & dons) sont prévus mais désactivés en attendant l'intégration.
+  // On rejette explicitement plutôt que d'ignorer pour éviter qu'un client
+  // qui passerait une autre méthode pense qu'un autre flux a réussi.
+  const method = (body.method ?? "iban").toString();
+  if (method !== "iban") {
+    return NextResponse.json(
+      {
+        error: "method_unavailable",
+        message: "Ce mode de retrait n'est pas encore disponible.",
       },
       { status: 400 },
     );

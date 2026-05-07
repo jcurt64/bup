@@ -1363,6 +1363,10 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
   const [amount, setAmount] = useState(Math.max(threshold, availableEur));
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  // Méthode choisie par le prospect dans la 1re étape. Seule "iban"
+  // (virement) est ouverte aujourd'hui ; "card" et "gift" sont stubs et
+  // n'apparaissent pas en sélection (boutons désactivés).
+  const [method, setMethod] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1398,7 +1402,7 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
       const r = await fetch('/api/prospect/payout/withdraw', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ amountCents: Math.round(eurValue * 100) }),
+        body: JSON.stringify({ amountCents: Math.round(eurValue * 100), method: 'iban' }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.message || j?.error || 'Erreur retrait');
@@ -1411,11 +1415,15 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
     }
   };
 
-  const subtitle = `Solde disponible : ${availableEur.toFixed(2).replace('.', ',')} € · Virement vers votre IBAN sous 1–3 jours ouvrés`;
+  const subtitle = method === 'iban'
+    ? `Solde disponible : ${availableEur.toFixed(2).replace('.', ',')} € · Virement vers votre IBAN sous 1–3 jours ouvrés`
+    : `Solde disponible : ${availableEur.toFixed(2).replace('.', ',')} € · Choisissez votre mode de retrait`;
 
   return (
     <Modal onClose={onClose} title="Retirer mes gains" subtitle={subtitle}>
-      {loading ? (
+      {!method ? (
+        <WithdrawMethodPicker onPick={setMethod} onClose={onClose}/>
+      ) : loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)' }}>
           Chargement de votre compte Stripe…
         </div>
@@ -1476,7 +1484,7 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
           <div className="row between center" style={{ marginTop: 20 }}>
             <div className="muted" style={{ fontSize: 12 }}>Seuil de retrait : {threshold} €</div>
             <div className="row gap-2">
-              <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>Annuler</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setMethod(null)} disabled={submitting}>← Méthode</button>
               <button className="btn btn-primary btn-sm" onClick={submitWithdraw} disabled={submitting}>
                 {submitting ? 'Retrait…' : 'Confirmer le retrait'}
               </button>
@@ -1485,6 +1493,86 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
         </div>
       )}
     </Modal>
+  );
+}
+
+/* Étape 1 du retrait : choix du mode (virement / carte / cartes cadeaux & dons).
+   Seul Virement est ouvert pour l'instant ; les deux autres restent visibles
+   pour annoncer la roadmap, désactivés (opacité réduite, curseur "not-allowed",
+   tooltip natif "Service à venir"). */
+function WithdrawMethodPicker({ onPick, onClose }) {
+  const options = [
+    {
+      key: 'iban',
+      icon: 'wallet',
+      title: 'Virement bancaire',
+      desc: 'Vers votre IBAN, sous 1 à 3 jours ouvrés.',
+      enabled: true,
+    },
+    {
+      key: 'card',
+      icon: 'money',
+      title: 'Carte',
+      desc: 'Paiement instantané sur votre carte de débit.',
+      enabled: false,
+    },
+    {
+      key: 'gift',
+      icon: 'gift',
+      title: 'Cartes cadeaux et dons',
+      desc: 'Convertissez vos gains en bons d\'achat ou en dons.',
+      enabled: false,
+    },
+  ];
+  return (
+    <div className="col gap-3">
+      {options.map(opt => (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={opt.enabled ? () => onPick(opt.key) : undefined}
+          disabled={!opt.enabled}
+          title={opt.enabled ? '' : 'Service à venir'}
+          className="card row center"
+          style={{
+            gap: 14,
+            padding: '14px 16px',
+            border: '1px solid var(--line)',
+            background: opt.enabled ? 'var(--paper)' : 'var(--ivory-2)',
+            textAlign: 'left',
+            cursor: opt.enabled ? 'pointer' : 'not-allowed',
+            opacity: opt.enabled ? 1 : 0.55,
+            transition: 'border-color .15s, background .15s',
+          }}
+        >
+          <span
+            style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: 'var(--ivory-2)', color: 'var(--ink-2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon name={opt.icon} size={18}/>
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span className="row center" style={{ gap: 8 }}>
+              <span className="serif" style={{ fontSize: 16, color: 'var(--ink)' }}>{opt.title}</span>
+              {!opt.enabled && (
+                <span className="chip" style={{ fontSize: 10, padding: '2px 8px' }}>Bientôt</span>
+              )}
+            </span>
+            <span className="muted" style={{ fontSize: 12.5, display: 'block', marginTop: 2 }}>
+              {opt.desc}
+            </span>
+          </span>
+          {opt.enabled && <Icon name="arrow" size={14} stroke={1.6}/>}
+        </button>
+      ))}
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+      </div>
+    </div>
   );
 }
 
