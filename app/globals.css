@@ -116,6 +116,47 @@ a { color: inherit; text-decoration: none; }
 .back-home-btn:hover .back-home-btn__arrow {
   transform: translateX(-3px);
 }
+
+/* Responsive footer (≤ 720 px). Layout demandé :
+   - bloc marque (logo + Majelink) parfaitement centré en haut
+   - 2 colonnes côte à côte en dessous : 1re alignée à gauche, 2e à droite
+   - 3e colonne seule en dessous, alignée à gauche
+   - bandeau du bas (copyright + langue) empilé centré */
+@media (max-width: 720px) {
+  .footer-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "brand brand"
+      "col1 col2"
+      "col3 col3";
+    gap: 28px 20px;
+    justify-content: stretch;
+  }
+  .footer-brand {
+    grid-area: brand;
+    flex: none !important;
+    max-width: none !important;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .footer-brand-info { max-width: 320px; }
+  .footer-col { flex: none !important; min-width: 0 !important; }
+  .footer-col:nth-of-type(1) { grid-area: col1; text-align: left; }
+  .footer-col:nth-of-type(2) { grid-area: col2; text-align: left; }
+  .footer-col:nth-of-type(3) { grid-area: col3; text-align: left; }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
+  .footer-locale { justify-content: center; }
+}
+
 button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
 
 .serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.015em; }

@@ -2735,22 +2735,26 @@ function Footer() {
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div
-          className="row between wrap"
+          className="row between wrap footer-grid"
           style={{ gap: 32, marginBottom: 40, alignItems: "flex-start" }}
         >
-          <div style={{ flex: "1 1 240px", maxWidth: 320 }}>
+          <div className="footer-brand" style={{ flex: "1 1 240px", maxWidth: 320 }}>
             <Logo
               size={50}
               color="var(--paper)"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             />
-            <div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
+            <div className="footer-brand-info" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
               BUUPPP est développée et exploitée par la société Majelink · 12
               Impasse des Étriers, 64140 Lons · RCS Pau 892 514 167.
             </div>
           </div>
           {columns.map(([h, items]) => (
-            <div key={h} style={{ flex: "1 1 140px", minWidth: 120 }}>
+            <div
+              key={h}
+              className="footer-col"
+              style={{ flex: "1 1 140px", minWidth: 120 }}
+            >
               <div
                 className="mono caps"
                 style={{ color: "rgba(255,255,255,.4)", marginBottom: 12 }}
@@ -2810,7 +2814,7 @@ function Footer() {
           ))}
         </div>
         <div
-          className="row between wrap gap-2"
+          className="row between wrap gap-2 footer-bottom"
           style={{
             borderTop: "1px solid rgba(255,255,255,.1)",
             paddingTop: 20,
@@ -2818,7 +2822,7 @@ function Footer() {
           }}
         >
           <div>© 2026 Majelink. Tous droits réservés.</div>
-          <div className="row gap-4">
+          <div className="row gap-4 footer-locale">
             <span>Français</span>
             <span>EUR €</span>
           </div>
