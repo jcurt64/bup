@@ -5,6 +5,7 @@ import {
   useEffect,
   Fragment,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -2697,28 +2698,29 @@ function Footer() {
     [
       "Plateforme",
       [
-        { label: "Prospects" },
-        { label: "Professionnels" },
-        { label: "Tarifs" },
-        { label: "API" },
+        { label: "Prospects", href: "/#prospects" },
+        { label: "Professionnels", href: "/#pros" },
+        { label: "Tarifs", href: "/#tarifs" },
       ],
     ],
     [
       "Ressources",
       [
         { label: "Barème des paliers", href: "/bareme" },
-        { label: "Documentation" },
-        { label: "API" },
-        { label: "Status" },
+        { label: "Documentation", href: "/aide" },
+        { label: "Status", href: "/status" },
+        { label: "Accessibilité", href: "/accessibilite" },
+        { label: "Minimisation", href: "/minimisation" },
       ],
     ],
     [
       "Légal",
       [
-        { label: "CGU" },
-        { label: "CGV" },
+        { label: "CGU", href: "/cgu" },
+        { label: "CGV", href: "/cgv" },
         { label: "RGPD", href: "/rgpd" },
-        { label: "Contact DPO" },
+        { label: "Politique des cookies", href: "/cookies" },
+        { label: "Contact DPO", href: "/contact-dpo" },
       ],
     ],
   ];
@@ -2755,31 +2757,55 @@ function Footer() {
               >
                 {h}
               </div>
-              {items.map((it) =>
-                it.href ? (
+              {items.map((it) => {
+                if (!it.href) {
+                  return (
+                    <div key={it.label} style={{ padding: "4px 0" }}>
+                      {it.label}
+                    </div>
+                  );
+                }
+                // Pour les ancres internes (`/#xxx`), on utilise un <a>
+                // natif plutôt que <Link> : Next/Link fait un scroll
+                // programmatique qui ignore `scroll-behavior: smooth`.
+                // Avec un <a>, le navigateur prend la main et applique
+                // bien le défilement fluide défini dans globals.css.
+                const linkStyle = {
+                  display: "block",
+                  padding: "4px 0",
+                  color: "inherit",
+                  textDecoration: "none",
+                  transition: "color .15s",
+                } as const;
+                const onEnter = (e: ReactMouseEvent<HTMLElement>) =>
+                  (e.currentTarget.style.color = "var(--paper)");
+                const onLeave = (e: ReactMouseEvent<HTMLElement>) =>
+                  (e.currentTarget.style.color = "");
+                if (it.href.includes("#")) {
+                  return (
+                    <a
+                      key={it.label}
+                      href={it.href}
+                      style={linkStyle}
+                      onMouseEnter={onEnter}
+                      onMouseLeave={onLeave}
+                    >
+                      {it.label}
+                    </a>
+                  );
+                }
+                return (
                   <Link
                     key={it.label}
                     href={it.href}
-                    style={{
-                      display: "block",
-                      padding: "4px 0",
-                      color: "inherit",
-                      textDecoration: "none",
-                      transition: "color .15s",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "var(--paper)")
-                    }
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+                    style={linkStyle}
+                    onMouseEnter={onEnter}
+                    onMouseLeave={onLeave}
                   >
                     {it.label}
                   </Link>
-                ) : (
-                  <div key={it.label} style={{ padding: "4px 0" }}>
-                    {it.label}
-                  </div>
-                ),
-              )}
+                );
+              })}
             </div>
           ))}
         </div>

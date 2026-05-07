@@ -113,6 +113,31 @@ export async function POST(req: Request) {
     );
   }
 
+  // Garde-fou anti-fraude (filet de sécurité) : entre le `start` et le
+  // `verify`, un autre compte a pu enregistrer le même numéro. On
+  // re-vérifie avant l'upsert pour donner un message clair, et on
+  // capture aussi la violation d'unique index Postgres au cas où.
+  const { data: phoneOwner, error: ownerErr } = await admin
+    .from("prospect_identity")
+    .select("prospect_id")
+    .eq("telephone", otp.phone)
+    .maybeSingle();
+  if (ownerErr) {
+    console.error("[/api/prospect/phone/verify] phone lookup error:", ownerErr);
+    return NextResponse.json({ error: "lookup_failed" }, { status: 500 });
+  }
+  if (phoneOwner && phoneOwner.prospect_id !== prospectId) {
+    await admin.from("prospect_phone_otp").delete().eq("prospect_id", prospectId);
+    return NextResponse.json(
+      {
+        error: "phone_already_used",
+        message:
+          "Ce numéro est déjà rattaché à un compte. Pour éviter la fraude, un numéro ne peut être associé qu'à un seul profil BUUPP.",
+      },
+      { status: 409 },
+    );
+  }
+
   // Succès : persiste le numéro vérifié + horodatage. On force la row
   // d'identité à exister (upsert), au cas où le prospect n'aurait pas
   // encore rempli ses informations d'identité.
@@ -130,6 +155,19 @@ export async function POST(req: Request) {
     );
 
   if (upErr) {
+    if (
+      (upErr as { code?: string }).code === "23505" ||
+      /prospect_identity_telephone_unique/i.test(upErr.message ?? "")
+    ) {
+      return NextResponse.json(
+        {
+          error: "phone_already_used",
+          message:
+            "Ce numéro est déjà rattaché à un compte. Pour éviter la fraude, un numéro ne peut être associé qu'à un seul profil BUUPP.",
+        },
+        { status: 409 },
+      );
+    }
     console.error("[/api/prospect/phone/verify] upsert identity:", upErr);
     return NextResponse.json(
       { error: "persist_failed", message: "Vérifié mais échec d'écriture en base." },

@@ -120,6 +120,15 @@ export default function CookieConsent() {
     setModalOpen(true);
   }, [consent]);
 
+  // Permet à n'importe quelle page (ex. /cookies) d'ouvrir le panneau de
+  // préférences en dispatchant `bupp:open-cookie-modal`. Évite d'avoir à
+  // remonter une référence du composant via un store global.
+  useEffect(() => {
+    const onOpen = () => openModal();
+    window.addEventListener("bupp:open-cookie-modal", onOpen);
+    return () => window.removeEventListener("bupp:open-cookie-modal", onOpen);
+  }, [openModal]);
+
   if (!hydrated) return null;
 
   const bannerOpen = !consent;

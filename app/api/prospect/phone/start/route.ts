@@ -77,12 +77,37 @@ export async function POST(req: Request) {
     nom: user?.lastName ?? null,
   });
 
+  // Garde-fou anti-fraude : un numéro de téléphone ne peut être associé
+  // qu'à un seul prospect. On vérifie ICI (avant d'envoyer le SMS) plutôt
+  // que d'attendre l'étape verify — le pro éconnomise un crédit Brevo et
+  // l'utilisateur reçoit le message d'erreur instantanément.
+  const adminEarly = createSupabaseAdminClient();
+  const { data: existingPhone, error: phoneLookupErr } = await adminEarly
+    .from("prospect_identity")
+    .select("prospect_id")
+    .eq("telephone", phone)
+    .maybeSingle();
+  if (phoneLookupErr) {
+    console.error("[/api/prospect/phone/start] phone lookup error:", phoneLookupErr);
+    return NextResponse.json({ error: "lookup_failed" }, { status: 500 });
+  }
+  if (existingPhone && existingPhone.prospect_id !== prospectId) {
+    return NextResponse.json(
+      {
+        error: "phone_already_used",
+        message:
+          "Ce numéro est déjà rattaché à un compte. Pour éviter la fraude, un numéro ne peut être associé qu'à un seul profil BUUPP.",
+      },
+      { status: 409 },
+    );
+  }
+
   // Code 6 chiffres, padding à gauche pour longueur fixe.
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const codeHash = sha256Hex(code);
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60_000).toISOString();
 
-  const admin = createSupabaseAdminClient();
+  const admin = adminEarly;
   const { error: upErr } = await admin
     .from("prospect_phone_otp")
     .upsert(

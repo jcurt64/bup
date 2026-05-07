@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BackHomeButton from "../_components/BackHomeButton";
 
 export const metadata: Metadata = {
   title: "Politique RGPD — BUUPP",
@@ -115,8 +116,20 @@ export default function RgpdPage() {
             Le site utilise des cookies essentiels, de préférences, de
             statistiques et de marketing. Vous pouvez gérer vos choix à tout
             moment via le bouton flottant <em>Gérer les cookies</em> en bas à
-            gauche de l’écran. Le détail des cookies (nom, fournisseur,
-            finalité, durée) est disponible dans le module de gestion.
+            gauche de l’écran. Le détail complet (nom, émetteur, finalité,
+            durée) ainsi que les modalités de refus et de suppression sont
+            décrits dans notre{" "}
+            <Link
+              href="/cookies"
+              style={{
+                color: "var(--accent)",
+                textDecoration: "underline",
+                textUnderlineOffset: 2,
+              }}
+            >
+              politique des cookies
+            </Link>
+            .
           </p>
         </Section>
 
@@ -130,22 +143,11 @@ export default function RgpdPage() {
         <div
           style={{
             marginTop: 16,
-            paddingTop: 24,
+            paddingTop: 28,
             borderTop: "1px solid var(--line)",
-            fontSize: 13,
-            color: "var(--ink-4)",
           }}
         >
-          <Link
-            href="/"
-            style={{
-              color: "var(--accent)",
-              textDecoration: "underline",
-              textUnderlineOffset: 2,
-            }}
-          >
-            ← Retour à l’accueil
-          </Link>
+          <BackHomeButton />
         </div>
       </div>
     </div>
