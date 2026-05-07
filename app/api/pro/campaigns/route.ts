@@ -441,7 +441,9 @@ export async function GET() {
       pausedAt: c.paused_at ?? null,
       autoResumeAt: c.auto_resume_at ?? null,
       pauseUsed: Boolean(c.pause_used),
-      pauseEligible: durationKey === "7d" && !c.pause_used,
+      // Pause one-shot disponible pour toutes les durées (1h flash deal
+      // inclus) : seul le flag `pause_used` la verrouille.
+      pauseEligible: !c.pause_used,
       // Prolongation : disponible une seule fois, pour toutes les durées,
       // tant que la campagne est encore active/en pause et non expirée.
       extensionUsed: Boolean(c.extension_used),

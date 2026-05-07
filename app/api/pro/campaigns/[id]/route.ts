@@ -299,7 +299,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
     pauseUsed: Boolean(camp.pause_used),
     pausedAt: camp.paused_at ?? null,
     autoResumeAt: camp.auto_resume_at ?? null,
-    pauseEligible: targeting?.durationKey === "7d" && !camp.pause_used,
+    // Pause disponible pour toutes les durées (cf. campaigns/route.ts).
+    pauseEligible: !camp.pause_used,
     durationKey: targeting?.durationKey ?? null,
     funnel,
     acceptanceRate,
@@ -354,23 +355,17 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "invalid_transition" }, { status: 409 });
   }
 
-  const targeting = (camp.targeting as { durationKey?: string } | null) ?? null;
   const PAUSE_WINDOW_MS = 48 * 60 * 60 * 1000;
   const nowMs = Date.now();
 
   // ─── PAUSE ──────────────────────────────────────────────────────
-  // Réservée aux campagnes 7d. Une seule pause autorisée par campagne.
-  // À la pause, on enregistre `paused_at` + `auto_resume_at = paused_at + 48h`,
-  // et on flag `pause_used=true`. ends_at n'est PAS modifié immédiatement :
-  // il sera décalé du temps réellement passé en pause au moment de la
-  // reprise (manuelle ou automatique).
+  // Disponible pour toutes les durées (1h, 24h, 48h, 7d). Une seule
+  // pause autorisée par campagne. À la pause, on enregistre `paused_at`
+  // + `auto_resume_at = paused_at + 48h`, et on flag `pause_used=true`.
+  // ends_at n'est PAS modifié immédiatement : il sera décalé du temps
+  // réellement passé en pause au moment de la reprise (manuelle ou
+  // automatique).
   if (targetStatus === "paused") {
-    if (targeting?.durationKey !== "7d") {
-      return NextResponse.json(
-        { error: "pause_not_allowed_duration", durationKey: targeting?.durationKey ?? null },
-        { status: 403 },
-      );
-    }
     if (camp.pause_used) {
       return NextResponse.json({ error: "pause_already_used" }, { status: 409 });
     }

@@ -24,6 +24,11 @@ type ProspectIdRow = { id: string } | null;
 export async function GET() {
   const admin = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
+  // Seules les campagnes `active` non expirées sont exposées.
+  // Les flash deals en pause sont automatiquement retirés de la home
+  // (filtre `.eq('status', 'active')` exclut le statut `paused`),
+  // ce qui garantit qu'aucun prospect ne reçoit de sollicitation
+  // pendant la fenêtre de pause 48 h.
   const { data, error } = await admin
     .from("campaigns")
     .select(

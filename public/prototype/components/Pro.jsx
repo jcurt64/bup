@@ -790,6 +790,21 @@ function PauseCampaignModal({ camp, onCancel, onConfirm }) {
           </div>
         </div>
 
+        {camp?.durationKey === '1h' && (
+          <div className="row" style={{
+            marginBottom: 14, gap: 10, padding: '10px 12px', borderRadius: 10,
+            background: 'color-mix(in oklab, #B91C1C 8%, var(--paper))',
+            border: '1px solid color-mix(in oklab, #B91C1C 25%, var(--line))',
+            color: '#7F1D1D', fontSize: 12.5, lineHeight: 1.5, alignItems: 'flex-start',
+          }} role="alert">
+            <span aria-hidden="true" style={{ fontSize: 14, flexShrink: 0 }}>📢</span>
+            <span>
+              <strong>Spécifique flash deal :</strong> votre annonce <strong>cesse immédiatement d'apparaître sur la page d'accueil</strong> pendant la pause.
+              Elle réapparaîtra dès la reprise (manuelle ou automatique à 48 h), pour le temps restant.
+            </span>
+          </div>
+        )}
+
         <ul style={{
           listStyle: 'none', padding: 0, margin: '0 0 18px',
           background: 'var(--ivory-2)', border: '1px solid var(--line)', borderRadius: 12,
