@@ -55,6 +55,10 @@ export async function sendRelationInvitation(
     ? `${PROSPECT_BASE}&relationId=${encodeURIComponent(relationId)}`
     : PROSPECT_BASE;
   const rewardStr = rewardEur.toFixed(2).replace(".", ",");
+  // Quand le bonus ×2 est appliqué, `rewardEur` est déjà la valeur doublée
+  // (cf. /api/pro/campaigns → rewardForProspect). On dérive donc la
+  // récompense de base pour afficher « soit X € au lieu de Y € ».
+  const baseRewardStr = (rewardEur / 2).toFixed(2).replace(".", ",");
   const expiresStr = formatDeadline(expiresAt);
 
   const subject = `Nouvelle mise en relation — ${rewardStr} € à la clé`;
@@ -69,7 +73,7 @@ export async function sendRelationInvitation(
     "",
     `Récompense si vous acceptez : ${rewardStr} €`,
     rewardDoubled
-      ? "🎉 Vos gains sont doublés vu que votre profil est vérifié à 100% — quelle chance !"
+      ? `🎉 Vos gains sont doublés vu que votre profil est vérifié à 100% — quelle chance ! Soit ${rewardStr} € au lieu de ${baseRewardStr} €.`
       : null,
     `Délai pour répondre : ${expiresStr}`,
     "",
@@ -145,7 +149,7 @@ export async function sendRelationInvitation(
     rewardDoubled
       ? `
   <div style="background:linear-gradient(135deg,#F3EAFF 0%,#FFEDF6 100%);background-color:#F3EAFF;border:1px solid #C9B5F2;border-radius:12px;padding:14px 16px;margin-bottom:18px;color:#3F2670;font-size:14px;line-height:1.5;">
-    🎉 <strong>Vos gains sont doublés</strong> vu que votre profil est vérifié à 100% — quelle chance ! Le bonus ×2 est automatiquement appliqué : si vous acceptez, vous touchez le double de la récompense initiale.
+    🎉 <strong>Vos gains sont doublés</strong> vu que votre profil est vérifié à 100% — quelle chance ! Le bonus ×2 est automatiquement appliqué : si vous acceptez, vous touchez le double de la récompense initiale, soit <strong>${rewardStr} €</strong> au lieu de <strong>${baseRewardStr} €</strong>.
   </div>`
       : ""
   }

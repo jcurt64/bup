@@ -419,7 +419,7 @@ export async function GET() {
     admin
       .from("campaigns")
       .select(
-        `id, name, status, targeting, budget_cents, spent_cents,
+        `id, name, brief, status, targeting, budget_cents, spent_cents,
          cost_per_contact_cents, created_at, code, matched_count,
          ends_at, paused_at, auto_resume_at, pause_used,
          extension_used, extended_at`,
@@ -454,6 +454,7 @@ export async function GET() {
     return {
       id: c.id,
       name: c.name,
+      brief: c.brief ?? null,
       status: c.status,
       objectiveLabel: objectiveLabel(targeting?.objectiveId),
       budgetEur: Number(c.budget_cents ?? 0) / 100,

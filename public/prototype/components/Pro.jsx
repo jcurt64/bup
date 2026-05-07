@@ -122,6 +122,35 @@ function ProDashboard({ go }) {
       return next;
     });
   }, []);
+
+  // `pendingContact` : ligne ciblée par la recherche header pour scroll
+  // + surlignage dans <Contacts/>. On passe par un token (timestamp) pour
+  // que la même ligne, sélectionnée à nouveau, soit consommée comme un
+  // nouvel évènement par Contacts (qui dépend de `pendingContact`).
+  const [pendingContact, setPendingContact] = useState(null);
+
+  // Le champ de recherche du header (HeaderSearch) émet
+  // `bupp:search-select` au clic sur un résultat. Pour un pro :
+  //   - kind='campaign' → on ouvre la fiche de campagne (CampaignDetail).
+  //   - kind='contact'  → on bascule sur l'onglet Mes contacts ; Contacts
+  //                       lit `pendingContact` pour scroller / surligner.
+  useEffect(() => {
+    const onPick = (e) => {
+      const d = e?.detail;
+      if (!d) return;
+      setReturnAfterInfo(null);
+      if (d.kind === 'campaign' && d.payload) {
+        setSec('campagnes');
+        setCampDetail(d.payload);
+      } else if (d.kind === 'contact') {
+        setPendingContact({ token: Date.now(), id: d.id, payload: d.payload });
+        setSec('contacts');
+      }
+    };
+    window.addEventListener('bupp:search-select', onPick);
+    return () => window.removeEventListener('bupp:search-select', onPick);
+  }, []);
+
   return (
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
@@ -154,7 +183,7 @@ function ProDashboard({ go }) {
           duplicateSourceId={duplicateSourceId}
         />
       )}
-      {sec === 'contacts' && <Contacts/>}
+      {sec === 'contacts' && <Contacts pendingContact={pendingContact} onPendingConsumed={() => setPendingContact(null)}/>}
       {sec === 'analytics' && <Analytics/>}
       {sec === 'informations' && (
         <MesInformations
@@ -3249,12 +3278,15 @@ function formatRelativeFr(iso) {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(d);
 }
 
-function Contacts() {
+function Contacts({ pendingContact, onPendingConsumed }) {
   const [allRows, setAllRows] = React.useState(null); // null = loading
   const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
   const [collapsed, setCollapsed] = React.useState(new Set()); // Set<campaignId>
   const [selected, setSelected] = React.useState(new Set()); // Set<relationId>
   const [groupSending, setGroupSending] = React.useState(false);
+  // Mise en avant temporaire d'une ligne sélectionnée depuis le champ
+  // de recherche du header — surlignage doux qui s'efface tout seul.
+  const [highlightId, setHighlightId] = React.useState(null);
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/pro/contacts', { cache: 'no-store' })
@@ -3263,6 +3295,27 @@ function Contacts() {
       .catch(() => { if (!cancelled) setAllRows([]); });
     return () => { cancelled = true; };
   }, []);
+
+  // Réception d'un pick depuis le champ de recherche du header.
+  // Le parent injecte `pendingContact` au moment du dispatch (et change
+  // le token à chaque clic, même sur la même cible), ce qui survit à un
+  // changement de section : si Contacts vient juste d'être monté, on
+  // consomme directement la valeur — désactive les filtres, déplie le
+  // groupe, scroll et surligne ~2 s.
+  React.useEffect(() => {
+    if (!pendingContact?.id) return;
+    setHighlightId(pendingContact.id);
+    const camp = pendingContact.payload?.campaignId || pendingContact.payload?.campaign;
+    if (camp) setCollapsed(s => { const n = new Set(s); n.delete(camp); return n; });
+    setActive(new Set());
+    setTimeout(() => {
+      const el = document.querySelector(`[data-relation-id="${pendingContact.id}"]`);
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+    if (onPendingConsumed) onPendingConsumed();
+    const t = setTimeout(() => setHighlightId(null), 2200);
+    return () => clearTimeout(t);
+  }, [pendingContact, onPendingConsumed]);
 
   const FILTERS = {
     f1: { label: 'Score ≥ 720',        test: r => Number(r.score) >= 720 },
@@ -3495,8 +3548,16 @@ function Contacts() {
                   <tbody>
                     {group.items.map((r, i) => {
                       const isChecked = selected.has(r.relationId);
+                      const isHi = r.relationId === highlightId;
                       return (
-                        <tr key={r.relationId || i}>
+                        <tr
+                          key={r.relationId || i}
+                          data-relation-id={r.relationId}
+                          style={isHi ? {
+                            background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+                            transition: 'background .4s',
+                          } : undefined}
+                        >
                           <td>
                             <input
                               type="checkbox"

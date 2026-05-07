@@ -314,6 +314,22 @@ function ProspectDashboard({ go, initialTab }) {
 function ProspectDashboardInner({ go, initialTab }) {
   const [sec, setSec] = useState(initialTab || 'portefeuille');
   const { pendingRelationsCount, profile } = useProspect();
+  // Relation à ouvrir dans RelationDetailModal après navigation depuis
+  // le champ de recherche du header. Stockée ici (parent) pour survivre
+  // à la bascule de section : Portefeuille la consomme à son montage si
+  // l'utilisateur n'était pas déjà sur l'onglet.
+  const [pendingDetail, setPendingDetail] = useState(null);
+
+  useEffect(() => {
+    const onPick = (e) => {
+      if (e?.detail?.kind === 'relation' && e.detail.payload) {
+        setPendingDetail({ token: Date.now(), relation: e.detail.payload });
+        setSec('portefeuille');
+      }
+    };
+    window.addEventListener('bupp:search-select', onPick);
+    return () => window.removeEventListener('bupp:search-select', onPick);
+  }, []);
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific
   // logic into the generic DashShell.
@@ -326,7 +342,7 @@ function ProspectDashboardInner({ go, initialTab }) {
   return (
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
       header={<ProspectHeader />} overrideName={overrideName}>
-      {sec === 'portefeuille' && <Portefeuille />}
+      {sec === 'portefeuille' && <Portefeuille pendingDetail={pendingDetail} onPendingConsumed={() => setPendingDetail(null)}/>}
       {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
       {sec === 'relations' && <Relations />}
       {sec === 'verif' && <VerifTiers />}
@@ -670,12 +686,7 @@ function TopBar({ role, overrideName }) {
         <div className="mono caps" style={{ fontSize: 11, letterSpacing: '.18em', color: 'var(--ink-3)', paddingRight: 14, borderRight: '1px solid var(--line)' }}>
           {role === 'prospect' ? 'Prospects' : 'Professionnels'}
         </div>
-        <div style={{ position: 'relative', width: 280 }}>
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-5)' }}>
-            <Icon name="search" size={14}/>
-          </span>
-          <input className="input" style={{ paddingLeft: 32, fontSize: 13, background: 'var(--paper)' }} placeholder={role === 'prospect' ? 'Rechercher une mise en relation…' : 'Rechercher une campagne ou un contact…'}/>
-        </div>
+        <HeaderSearch role={role}/>
       </div>
       <div className="row center gap-3">
         <button style={{ padding: 8, borderRadius: 999, color: 'var(--ink-3)' }}>
@@ -685,6 +696,211 @@ function TopBar({ role, overrideName }) {
           <Avatar name={initials.split('').join(' ')} size={32}/>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Champ de recherche du header — autocomplétion plein-texte sur les
+   campagnes / contacts visibles dans l'espace courant.
+   - prospect : interroge /api/prospect/movements et matche sur la raison
+     sociale du pro (origin) ou le contenu du brief (« le mot du
+     professionnel »). Au clic : dispatch d'un événement
+     `bupp:search-select` → ProspectDashboardInner bascule sur l'onglet
+     Portefeuille et Portefeuille ouvre RelationDetailModal.
+   - pro : interroge /api/pro/campaigns + /api/pro/contacts. Match sur le
+     nom de campagne ou son brief, et sur le nom masqué du prospect ou
+     le nom de la campagne associée. Au clic : dispatch sur le même bus
+     → ProDashboard ouvre la fiche campagne ou bascule sur Mes contacts. */
+function HeaderSearch({ role }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState([]);
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = React.useRef(null);
+  const cacheRef = React.useRef({ prospect: null, proCamps: null, proContacts: null });
+
+  React.useEffect(() => {
+    const onDocClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const ensureData = React.useCallback(async () => {
+    if (role === 'prospect') {
+      if (!cacheRef.current.prospect) {
+        const j = await fetch('/api/prospect/movements', { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null).catch(() => null);
+        cacheRef.current.prospect = j?.movements || [];
+      }
+      return cacheRef.current.prospect;
+    }
+    if (!cacheRef.current.proCamps || !cacheRef.current.proContacts) {
+      const [cj, kj] = await Promise.all([
+        fetch('/api/pro/campaigns', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/api/pro/contacts', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      ]);
+      cacheRef.current.proCamps = cj?.campaigns || [];
+      cacheRef.current.proContacts = kj?.rows || [];
+    }
+    return { camps: cacheRef.current.proCamps, contacts: cacheRef.current.proContacts };
+  }, [role]);
+
+  React.useEffect(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) { setResults([]); return; }
+    let cancelled = false;
+    ensureData().then(data => {
+      if (cancelled) return;
+      if (role === 'prospect') {
+        const movements = data || [];
+        const items = movements
+          .filter(m => m.relation)
+          .filter(m => {
+            const hay = [
+              m.origin || '',
+              m.relation?.brief || '',
+              m.relation?.motif || '',
+              m.relation?.pro || '',
+            ].join(' ').toLowerCase();
+            return hay.includes(q);
+          })
+          .slice(0, 8)
+          .map(m => ({
+            kind: 'relation',
+            id: m.relation.id,
+            title: m.origin || m.relation.pro || 'Mise en relation',
+            sub: m.relation?.brief || m.relation?.motif || '',
+            payload: m.relation,
+          }));
+        setResults(items);
+      } else {
+        const camps = data?.camps || [];
+        const contacts = data?.contacts || [];
+        const c = camps
+          .filter(x => ((x.name || '') + ' ' + (x.brief || '')).toLowerCase().includes(q))
+          .slice(0, 5)
+          .map(x => ({
+            kind: 'campaign',
+            id: x.id,
+            title: x.name || 'Campagne',
+            sub: x.brief || '',
+            payload: x,
+          }));
+        const k = contacts
+          .filter(x => ((x.name || '') + ' ' + (x.campaign || '')).toLowerCase().includes(q))
+          .slice(0, 5)
+          .map(x => ({
+            kind: 'contact',
+            id: x.relationId,
+            title: x.name || 'Contact',
+            sub: x.campaign ? `Campagne · ${x.campaign}` : '',
+            payload: x,
+          }));
+        setResults([...c, ...k]);
+      }
+      setHighlight(0);
+    });
+    return () => { cancelled = true; };
+  }, [query, role, ensureData]);
+
+  // Invalide le cache module-local quand un changement métier survient
+  // (acceptation/refus de relation côté prospect, création/pause de
+  // campagne côté pro, etc.) — sinon la recherche affiche des résultats
+  // périmés tant que l'utilisateur ne recharge pas la page.
+  React.useEffect(() => {
+    const invalidate = () => {
+      cacheRef.current = { prospect: null, proCamps: null, proContacts: null };
+    };
+    const events = role === 'prospect'
+      ? ['prospect:profile-changed']
+      : ['pro:overview-changed', 'pro:info-changed'];
+    events.forEach(ev => window.addEventListener(ev, invalidate));
+    return () => events.forEach(ev => window.removeEventListener(ev, invalidate));
+  }, [role]);
+
+  const select = (item) => {
+    setOpen(false);
+    setQuery('');
+    setResults([]);
+    try {
+      window.dispatchEvent(new CustomEvent('bupp:search-select', { detail: item }));
+    } catch {}
+  };
+
+  const onKeyDown = (e) => {
+    if (!open || results.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(results.length - 1, h + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(0, h - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); select(results[highlight]); }
+    else if (e.key === 'Escape') { setOpen(false); }
+  };
+
+  const placeholder = role === 'prospect'
+    ? 'Rechercher une campagne…'
+    : 'Rechercher une campagne ou un contact…';
+  const showDropdown = open && query.trim().length >= 2;
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', width: 320 }}>
+      <span style={{ position: 'absolute', left: 10, top: 'calc(50% - 1px)', transform: 'translateY(-50%)', color: 'var(--ink-5)', pointerEvents: 'none' }}>
+        <Icon name="search" size={14}/>
+      </span>
+      <input
+        className="input"
+        style={{ paddingLeft: 32, fontSize: 13, background: 'var(--paper)' }}
+        placeholder={placeholder}
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+      />
+      {showDropdown && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+          background: 'var(--paper)', border: '1px solid var(--line-2)',
+          borderRadius: 10, boxShadow: '0 12px 28px -10px rgba(0,0,0,.18)',
+          maxHeight: 360, overflowY: 'auto', zIndex: 30,
+        }}>
+          {results.length === 0 ? (
+            <div className="muted" style={{ padding: 12, fontSize: 12 }}>Aucun résultat.</div>
+          ) : (
+            results.map((it, idx) => {
+              const isHi = idx === highlight;
+              const tag = it.kind === 'campaign' ? 'Campagne'
+                : it.kind === 'contact' ? 'Contact'
+                : 'Campagne';
+              return (
+                <div
+                  key={it.kind + ':' + it.id}
+                  onMouseDown={(e) => { e.preventDefault(); select(it); }}
+                  onMouseEnter={() => setHighlight(idx)}
+                  style={{
+                    padding: '10px 12px', cursor: 'pointer',
+                    background: isHi ? 'var(--ivory-2)' : 'transparent',
+                    borderBottom: idx === results.length - 1 ? 'none' : '1px solid var(--line)',
+                  }}
+                >
+                  <div className="row between center" style={{ gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {it.title}
+                    </div>
+                    <span className="mono caps" style={{ fontSize: 9, letterSpacing: '.1em', color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
+                      {tag}
+                    </span>
+                  </div>
+                  {it.sub && (
+                    <div className="muted" style={{ fontSize: 12, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {it.sub}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -831,7 +1047,7 @@ function StatusPill({ label, value, chip }) {
 }
 
 /* ---------- Portefeuille ---------- */
-function Portefeuille() {
+function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const [modal, setModal] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [movements, setMovements] = useState(null);
@@ -872,6 +1088,16 @@ function Portefeuille() {
     window.addEventListener('prospect:profile-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
   }, []);
+
+  // Ouverture de RelationDetailModal depuis le champ de recherche du
+  // header. Le parent (ProspectDashboardInner) injecte `pendingDetail`
+  // au moment de la bascule de section ; le token (timestamp) garantit
+  // qu'on rouvre la modale même si la relation est la même qu'avant.
+  useEffect(() => {
+    if (!pendingDetail?.relation) return;
+    setDetail(pendingDetail.relation);
+    if (onPendingConsumed) onPendingConsumed();
+  }, [pendingDetail, onPendingConsumed]);
 
   // Wrappers d'accept/refuse spécifiques à l'historique du Portefeuille :
   // après l'appel mutateur (qui rafraîchit les relations dans le contexte),
@@ -930,7 +1156,7 @@ function Portefeuille() {
           value={fmt(availableEur)}
           coins={availableCoins.toLocaleString('fr-FR')}
           sub={canWithdraw
-            ? 'Retirable immédiatement'
+            ? 'Retirable immédiatement · minimum de 5 €'
             : `Retirable à partir de ${threshold} € de gains`}
           primary
           action={
@@ -952,7 +1178,7 @@ function Portefeuille() {
           label="En séquestre"
           value={fmt(escrowEur)}
           coins={escrowCoins.toLocaleString('fr-FR')}
-          sub="Déblocage sous 72 h"
+          sub="Déblocage à la clôture de la campagne"
           lock
         />
         <BalanceCard

@@ -73,13 +73,27 @@ export async function sendRelationRefused(
 <body style="margin:0;padding:0;background:#F7F4EC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0F1629;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7F4EC;padding:32px 16px;">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#FFFEF8;border-radius:16px;border:1px solid #EAE3D0;overflow:hidden;">
-<tr><td style="padding:28px 32px 12px;border-bottom:1px solid #F1ECDB;">
-  <div style="font-family:Georgia,serif;font-size:28px;font-weight:600;color:#0F1629;">BUUPP</div>
-  <div style="font-size:12px;color:#6B7180;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">Sollicitation refusée</div>
-</td></tr>
-<tr><td style="padding:28px 32px 8px;">
-  <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:26px;line-height:1.25;color:#0F1629;font-weight:500;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#FFFEF8;border-radius:18px;border:1px solid #EAE3D0;overflow:hidden;box-shadow:0 4px 24px -8px rgba(15,22,41,.08);">
+<tr><td style="padding:0;">
+  <!-- Bandeau header neutre/tendre : confettis + titre -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(135deg,#F1F2F6 0%,#E8EAF1 50%,#DDE0EA 100%);background-color:#E8EAF1;">
+    <tr><td style="padding:24px 32px 18px;position:relative;">
+      <!-- Confettis -->
+      <div style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#4596EC;margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:10px;height:10px;background:#7C3AED;transform:rotate(45deg);margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #F59E0B;margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10B981;vertical-align:middle;"></div>
+      <div style="margin-top:14px;">
+        <div style="font-family:Georgia,serif;font-size:30px;font-weight:600;color:#0F1629;letter-spacing:-.01em;">BUUPP</div>
+        <div style="font-size:11px;color:#6B7180;letter-spacing:0.14em;text-transform:uppercase;margin-top:4px;font-weight:600;">↩ Sollicitation refusée</div>
+      </div>
+    </td></tr>
+    <!-- Zigzag d'accent -->
+    <tr><td style="height:14px;background-image:linear-gradient(135deg,#FFFEF8 25%,transparent 25%,transparent 50%,#FFFEF8 50%,#FFFEF8 75%,transparent 75%);background-size:14px 14px;line-height:0;font-size:0;">&nbsp;</td></tr>
+  </table>
+
+<tr><td style="padding:24px 32px 8px;">
+  <h1 style="margin:0 0 12px;font-family:Georgia,serif;font-size:26px;line-height:1.25;color:#0F1629;font-weight:500;">
     Oups, ${escapeHtml(greet)} 🤔
   </h1>
   <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3A4150;">
@@ -87,19 +101,24 @@ export async function sendRelationRefused(
     pas de souci, on respecte votre choix.
   </p>
 
-  <div style="background:#FAF6E8;border:1px solid #EAE3D0;border-radius:10px;padding:14px 16px;margin-bottom:18px;">
-    <div style="font-size:11px;color:#6B7180;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Vous pouvez encore changer d'avis</div>
-    <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#0F1629;">
-      Tant que la campagne n'est pas clôturée (<strong>${escapeHtml(endsLabel)}</strong>), vous pouvez revenir sur votre
-      décision et accepter pour empocher vos <strong>${rewardStr} €</strong>.
-    </p>
-    <p style="margin:0;text-align:center;">
-      <a href="${RELATIONS_URL}" target="_blank" rel="noopener noreferrer"
-         style="display:inline-block;padding:10px 22px;background:#4596EC;color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:14px;">
-        Reprendre la main →
-      </a>
-    </p>
-  </div>
+  <!-- Bloc "vous pouvez encore changer d'avis" : carte accent doux -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;border-collapse:separate;">
+    <tr>
+      <td style="padding:18px 20px;background:#FAF6E8;border:1px solid #EAE3D0;border-left:4px solid #4596EC;border-radius:14px;position:relative;">
+        <div style="font-size:11px;color:#4596EC;text-transform:uppercase;letter-spacing:.14em;font-weight:600;">↺ Vous pouvez encore changer d'avis</div>
+        <p style="margin:8px 0 12px;font-size:14.5px;line-height:1.55;color:#0F1629;">
+          Tant que la campagne n'est pas clôturée (<strong>${escapeHtml(endsLabel)}</strong>), vous pouvez revenir sur votre
+          décision et accepter pour empocher vos <strong>${rewardStr} €</strong>.
+        </p>
+        <p style="margin:0;text-align:center;">
+          <a href="${RELATIONS_URL}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block;padding:11px 24px;background:#4596EC;background-image:linear-gradient(135deg,#4596EC 0%,#6D5BFF 100%);color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 4px 14px -4px rgba(69,150,236,.55);">
+            Reprendre la main →
+          </a>
+        </p>
+      </td>
+    </tr>
+  </table>
 
   <p style="margin:18px 0 10px;font-size:14px;line-height:1.55;color:#3A4150;">
     En quelques secondes — pouvez-vous nous aider à comprendre la raison de votre refus ?
@@ -116,17 +135,29 @@ export async function sendRelationRefused(
       </td>`).join("")}
     </tr>
   </table>
-  <p style="margin:14px 0 4px;font-size:11.5px;color:#6B7180;text-align:center;">
+  <!-- Petite ligne pointillée décorative -->
+  <div style="text-align:center;margin:14px 0 4px;font-size:10px;letter-spacing:.6em;color:#C9D2E0;">● ● ● ● ●</div>
+  <p style="margin:0;font-size:11.5px;color:#6B7180;text-align:center;">
     Un seul clic — votre choix nous parvient anonymement.
   </p>
 </td></tr>
-<tr><td style="padding:18px 32px;background:#F7F4EC;border-top:1px solid #EAE3D0;text-align:center;">
+
+<!-- Footer avec triangles décoratifs -->
+<tr><td style="padding:20px 32px 22px;background:#F7F4EC;border-top:1px solid #EAE3D0;text-align:center;">
+  <div style="margin-bottom:12px;font-size:0;line-height:0;">
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #4596EC;margin:0 4px;"></span>
+    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7C3AED;margin:0 4px;vertical-align:top;"></span>
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #F59E0B;margin:0 4px;"></span>
+    <span style="display:inline-block;width:8px;height:8px;background:#10B981;transform:rotate(45deg);margin:0 4px;vertical-align:top;"></span>
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #6D5BFF;margin:0 4px;"></span>
+  </div>
   <a href="${APP_URL}" target="_blank" rel="noopener noreferrer">
     <img src="${LOGO_URL}" alt="BUUPP" width="100" style="display:inline-block;border:0;height:auto;max-width:100px;"/>
   </a>
   <p style="margin:10px 0 0;font-size:11px;color:#6B7180;line-height:1.5;">
     BUUPP — Be Used, Paid &amp; Proud · Vos données vous appartiennent.
   </p>
+</td></tr>
 </td></tr>
 </table>
 </td></tr></table>

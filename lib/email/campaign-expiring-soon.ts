@@ -58,48 +58,80 @@ export async function sendCampaignExpiringSoon(
 <body style="margin:0;padding:0;background:#F7F4EC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0F1629;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7F4EC;padding:32px 16px;">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#FFFEF8;border-radius:16px;border:1px solid #EAE3D0;overflow:hidden;">
-<tr><td style="padding:28px 32px 12px;border-bottom:1px solid #F1ECDB;">
-  <div style="font-family:Georgia,serif;font-size:28px;font-weight:600;color:#0F1629;">BUUPP</div>
-  <div style="font-size:12px;color:#6B7180;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">Dernier rappel</div>
-</td></tr>
-<tr><td style="padding:28px 32px 8px;">
-  <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:26px;line-height:1.25;color:#0F1629;font-weight:500;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#FFFEF8;border-radius:18px;border:1px solid #EAE3D0;overflow:hidden;box-shadow:0 4px 24px -8px rgba(15,22,41,.08);">
+<tr><td style="padding:0;">
+  <!-- Bandeau header urgent : gradient ambre/orange + confettis -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(135deg,#FFF1D6 0%,#FFE0AB 50%,#FBC97A 100%);background-color:#FFE0AB;">
+    <tr><td style="padding:24px 32px 18px;position:relative;">
+      <!-- Confettis -->
+      <div style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#F59E0B;margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:10px;height:10px;background:#7C3AED;transform:rotate(45deg);margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #DC2626;margin-right:10px;vertical-align:middle;"></div>
+      <div style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4596EC;vertical-align:middle;"></div>
+      <div style="margin-top:14px;">
+        <div style="font-family:Georgia,serif;font-size:30px;font-weight:600;color:#0F1629;letter-spacing:-.01em;">BUUPP</div>
+        <div style="font-size:11px;color:#B45309;letter-spacing:0.14em;text-transform:uppercase;margin-top:4px;font-weight:600;">⏳ Dernier rappel</div>
+      </div>
+    </td></tr>
+    <!-- Zigzag d'accent -->
+    <tr><td style="height:14px;background-image:linear-gradient(135deg,#FFFEF8 25%,transparent 25%,transparent 50%,#FFFEF8 50%,#FFFEF8 75%,transparent 75%);background-size:14px 14px;line-height:0;font-size:0;">&nbsp;</td></tr>
+  </table>
+
+<tr><td style="padding:24px 32px 8px;">
+  <h1 style="margin:0 0 12px;font-family:Georgia,serif;font-size:26px;line-height:1.25;color:#0F1629;font-weight:500;">
     ⏳ ${escapeHtml(greet)}, la campagne expire bientôt
   </h1>
-  <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3A4150;">
+  <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#3A4150;">
     La campagne de <strong>${escapeHtml(proName)}</strong> se ferme à
     <strong>${escapeHtml(endsLabel)}</strong>. Profitez-en pour empocher
     vos <strong>${rewardStr} €</strong> BUUPP coins avant qu'elle ne se clôture.
   </p>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;">
+
+  <!-- Bloc à empocher : gradient ambre + cercles décoratifs -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;border-collapse:separate;">
     <tr>
-      <td style="padding:14px 16px;background:#0F1629;border-radius:10px;color:#FFFEF8;">
-        <div style="font-size:11px;color:#A8AFC0;text-transform:uppercase;letter-spacing:.12em;">À empocher</div>
-        <div style="font-family:Georgia,serif;font-size:32px;font-weight:600;line-height:1.1;margin-top:4px;">${rewardStr} €</div>
-        <div style="font-size:11.5px;color:#A8AFC0;margin-top:6px;">
-          Sans réponse, la sollicitation expire automatiquement.
+      <td style="padding:18px 20px;background:#F59E0B;background-image:linear-gradient(135deg,#F59E0B 0%,#DC2626 100%);border-radius:14px;color:#FFFEF8;position:relative;">
+        <!-- Cercles décoratifs -->
+        <div style="position:absolute;top:-10px;right:14px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.20);"></div>
+        <div style="position:absolute;bottom:-8px;right:46px;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.12);"></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.90);text-transform:uppercase;letter-spacing:.14em;font-weight:600;">💸 À empocher</div>
+        <div style="font-family:Georgia,serif;font-size:36px;font-weight:600;line-height:1.1;margin-top:6px;letter-spacing:-.01em;">${rewardStr} €</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.30);font-size:12px;color:rgba(255,255,255,0.95);">
+          ⏱ Sans réponse, la sollicitation expire automatiquement.
         </div>
       </td>
     </tr>
   </table>
-  <p style="margin:0 0 22px;text-align:center;">
+
+  <p style="margin:0 0 14px;text-align:center;">
     <a href="${RELATIONS_URL}" target="_blank" rel="noopener noreferrer"
-       style="display:inline-block;padding:14px 28px;background:#4596EC;color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;">
+       style="display:inline-block;padding:14px 32px;background:#4596EC;background-image:linear-gradient(135deg,#4596EC 0%,#6D5BFF 100%);color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;box-shadow:0 4px 14px -4px rgba(69,150,236,.55);">
       Accepter maintenant →
     </a>
   </p>
-  <p style="margin:0 0 4px;font-size:12px;color:#6B7180;text-align:center;">
+  <!-- Petite ligne pointillée décorative -->
+  <div style="text-align:center;margin:8px 0 4px;font-size:10px;letter-spacing:.6em;color:#C9D2E0;">● ● ● ● ●</div>
+  <p style="margin:0;font-size:12px;color:#6B7180;text-align:center;line-height:1.5;">
     Un seul clic suffit. ✨
   </p>
 </td></tr>
-<tr><td style="padding:18px 32px;background:#F7F4EC;border-top:1px solid #EAE3D0;text-align:center;">
+
+<!-- Footer avec triangles décoratifs -->
+<tr><td style="padding:20px 32px 22px;background:#F7F4EC;border-top:1px solid #EAE3D0;text-align:center;">
+  <div style="margin-bottom:12px;font-size:0;line-height:0;">
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #4596EC;margin:0 4px;"></span>
+    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7C3AED;margin:0 4px;vertical-align:top;"></span>
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #F59E0B;margin:0 4px;"></span>
+    <span style="display:inline-block;width:8px;height:8px;background:#10B981;transform:rotate(45deg);margin:0 4px;vertical-align:top;"></span>
+    <span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #6D5BFF;margin:0 4px;"></span>
+  </div>
   <a href="${APP_URL}" target="_blank" rel="noopener noreferrer">
     <img src="${LOGO_URL}" alt="BUUPP" width="100" style="display:inline-block;border:0;height:auto;max-width:100px;"/>
   </a>
   <p style="margin:10px 0 0;font-size:11px;color:#6B7180;line-height:1.5;">
     BUUPP — Be Used, Paid &amp; Proud · Vos données vous appartiennent.
   </p>
+</td></tr>
 </td></tr>
 </table>
 </td></tr></table>
