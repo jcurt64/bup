@@ -937,7 +937,57 @@ function Portefeuille() {
       <div className="card historique-card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20 }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique des mouvements</div>
-          <button className="btn btn-sm btn-ghost btn-export-csv"><Icon name="download" size={12}/> Exporter CSV</button>
+          {(() => {
+            const rows = movements?.movements || [];
+            const disabled = rows.length === 0;
+            const exportCsv = () => {
+              if (disabled) return;
+              // CSV séparé par `;` (convention fr-FR pour ouverture
+              // directe dans Excel) avec BOM UTF-8 pour préserver les
+              // accents. Les champs contenant `;`, `"` ou un saut de
+              // ligne sont entourés de guillemets doubles, les `"`
+              // intérieurs sont doublés.
+              const escape = (v) => {
+                const s = v == null ? '' : String(v);
+                return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+              };
+              const dateFmt = new Intl.DateTimeFormat('fr-FR', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+              });
+              const header = ['Date', 'Origine', 'Palier', 'Statut', 'Montant (€)'];
+              const lines = rows.map((m) => {
+                const date = m.date ? dateFmt.format(new Date(m.date)) : '';
+                const tier = m.tier == null ? '' : `Palier ${m.tier}`;
+                const amount =
+                  (m.sign || (Number(m.amountCents ?? 0) >= 0 ? '+' : '−')) +
+                  Number(Math.abs(m.amountEur ?? 0)).toFixed(2).replace('.', ',');
+                return [date, m.origin || '', tier, m.statusLabel || '', amount].map(escape).join(';');
+              });
+              const csv = '﻿' + [header.join(';'), ...lines].join('\r\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              const stamp = new Date().toISOString().slice(0, 10);
+              a.href = url;
+              a.download = `buupp-portefeuille-${stamp}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            };
+            return (
+              <button
+                className="btn btn-sm btn-ghost btn-export-csv"
+                onClick={exportCsv}
+                disabled={disabled}
+                title={disabled ? 'Aucun mouvement à exporter' : `Télécharger ${rows.length} ligne${rows.length > 1 ? 's' : ''}`}
+                style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              >
+                <Icon name="download" size={12}/> Exporter CSV
+              </button>
+            );
+          })()}
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
