@@ -4266,11 +4266,11 @@ function Prefs() {
           <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>
           <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Cochez uniquement les paliers que vous acceptez de voir transmis après double consentement.</div>
           {[
-            [1, 'Identification', '0,10 – 0,50 €'],
-            [2, 'Localisation', '0,50 – 2,00 €'],
-            [3, 'Style de vie', '2,00 – 5,00 €'],
-            [4, 'Données pro', '5,00 – 8,00 €'],
-            [5, 'Patrimoine', '8,00 – 10,00 €'],
+            [1, 'Identification', 'minimum 1,00 €'],
+            [2, 'Localisation', '1,00 – 2,00 €'],
+            [3, 'Style de vie', '2,00 – 3,50 €'],
+            [4, 'Données pro', '3,50 – 5,00 €'],
+            [5, 'Patrimoine', '5,00 – 10,00 €'],
           ].map(([n, name, range]) => (
             <label key={n} className="row center between" style={{ padding: '12px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
               <div className="row center gap-3">

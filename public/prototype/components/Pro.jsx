@@ -956,11 +956,11 @@ const OBJECTIVES = [
 ];
 
 const TIERS_DATA = [
-  {id:1, name:'Identification',            sub:'Email, nom, téléphone, date de naissance',        min:0.50, max:0.50,  pct:20},
-  {id:2, name:'Localisation',              sub:'Adresse postale, logement, mobilité',             min:0.50, max:2.00,  pct:40},
-  {id:3, name:'Style de vie',              sub:'Habitudes, famille, véhicule, sport',             min:2.00, max:5.00,  pct:58},
-  {id:4, name:'Données professionnelles',  sub:'Poste, revenus, statut, secteur',                 min:5.00, max:8.00,  pct:78},
-  {id:5, name:'Patrimoine & projets',      sub:'Immobilier, épargne, succession, création',       min:8.00, max:10.00, pct:100},
+  {id:1, name:'Identification',            sub:'Email, nom, téléphone, date de naissance',        min:1.00, max:1.00,  pct:20},
+  {id:2, name:'Localisation',              sub:'Adresse postale, logement, mobilité',             min:1.00, max:2.00,  pct:40},
+  {id:3, name:'Style de vie',              sub:'Habitudes, famille, véhicule, sport',             min:2.00, max:3.50,  pct:58},
+  {id:4, name:'Données professionnelles',  sub:'Poste, revenus, statut, secteur',                 min:3.50, max:5.00,  pct:78},
+  {id:5, name:'Patrimoine & projets',      sub:'Immobilier, épargne, succession, création',       min:5.00, max:10.00, pct:100},
 ];
 
 const GEO_ZONES = [

@@ -67,11 +67,11 @@ function RotatingHeadlineWord() {
 
 
 const TIERS = [
-  { n: 1, name: 'Identification', ex: 'email, nom, téléphone', range: 'minimum 0,50 €', low: 0.50, high: 0.50 },
-  { n: 2, name: 'Localisation', ex: 'adresse, logement', range: '0,50 € – 2,00 €', low: 0.50, high: 2.00 },
-  { n: 3, name: 'Style de vie', ex: 'habitudes, famille, véhicule', range: '2,00 € – 5,00 €', low: 2.00, high: 5.00 },
-  { n: 4, name: 'Données professionnelles', ex: 'poste, revenus, statut', range: '5,00 € – 8,00 €', low: 5.00, high: 8.00 },
-  { n: 5, name: 'Patrimoine & projets', ex: 'immobilier, épargne', range: '8,00 € – 10,00 €', low: 8.00, high: 10.00 },
+  { n: 1, name: 'Identification', ex: 'email, nom, téléphone', range: 'minimum 1,00 €', low: 1.00, high: 1.00 },
+  { n: 2, name: 'Localisation', ex: 'adresse, logement', range: '1,00 € – 2,00 €', low: 1.00, high: 2.00 },
+  { n: 3, name: 'Style de vie', ex: 'habitudes, famille, véhicule', range: '2,00 € – 3,50 €', low: 2.00, high: 3.50 },
+  { n: 4, name: 'Données professionnelles', ex: 'poste, revenus, statut', range: '3,50 € – 5,00 €', low: 3.50, high: 5.00 },
+  { n: 5, name: 'Patrimoine & projets', ex: 'immobilier, épargne', range: '5,00 € – 10,00 €', low: 5.00, high: 10.00 },
 ];
 
 function Landing({ go }) {

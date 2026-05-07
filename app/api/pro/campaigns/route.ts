@@ -25,6 +25,7 @@ import {
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
 import { sendRelationInvitation } from "@/lib/email/relation";
+import { rangeForRequiredTiers } from "@/lib/prospect/tier-rewards";
 
 export const runtime = "nodejs";
 
@@ -187,6 +188,38 @@ export async function POST(req: Request) {
     ? body.durationKey
     : "7d";
   const durationMeta = DURATION_MULTIPLIERS[durationKey];
+
+  // Garde-fou rémunération : `costPerContactCents` doit tomber dans la
+  // fourchette définie pour le palier le plus élevé requis. Cette grille
+  // est la même que celle exposée côté prospect dans /bareme et la home.
+  // Le multiplicateur de fenêtre (1h = ×3, 24h = ×2, etc.) s'applique en
+  // prime au-dessus du barème, donc la fourchette effective est étendue
+  // par ce facteur — un flash deal 1h à palier 5 peut donc atteindre 30 €.
+  const tierRange = rangeForRequiredTiers(body.requiredTiers);
+  if (tierRange) {
+    const { minCents, maxCents, tier } = tierRange;
+    const effMin = Math.round(minCents * durationMeta.mult);
+    const effMax = Math.round(maxCents * durationMeta.mult);
+    if (
+      body.costPerContactCents < effMin ||
+      body.costPerContactCents > effMax
+    ) {
+      const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
+      return NextResponse.json(
+        {
+          error: "cost_out_of_tier_range",
+          tier,
+          minCents: effMin,
+          maxCents: effMax,
+          costPerContactCents: body.costPerContactCents,
+          durationMultiplier: durationMeta.mult,
+          message: `Pour le palier ${tier} en ${durationKey}, la rémunération doit être comprise entre ${fmtEur(effMin)} € et ${fmtEur(effMax)} € par contact.`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   // Validation budget: doit couvrir contacts × cpc (et le cpc envoyé par le
   // front est censé déjà inclure le multiplicateur de durée — on vérifie
   // que budgetCents == contacts × costPerContactCents avec une tolérance

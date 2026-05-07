@@ -92,6 +92,31 @@ export async function POST(req: Request) {
   const prospectId = await getProspectId(userId);
   const admin = createSupabaseAdminClient();
 
+  // Garde-fou anti-fraude : un IBAN ne peut être associé qu'à un seul
+  // prospect. Vérification explicite avant l'upsert pour produire un
+  // message d'erreur clair côté client. La contrainte UNIQUE en base
+  // (`prospect_rib_iban_unique`) reste le filet de sécurité en cas de
+  // race condition — code Postgres `23505`.
+  const { data: existing, error: lookupError } = await admin
+    .from("prospect_rib")
+    .select("prospect_id")
+    .eq("iban", iban)
+    .maybeSingle();
+  if (lookupError) {
+    console.error("[/api/prospect/rib POST] lookup error:", lookupError);
+    return NextResponse.json({ error: "lookup_failed" }, { status: 500 });
+  }
+  if (existing && existing.prospect_id !== prospectId) {
+    return NextResponse.json(
+      {
+        error: "iban_already_used",
+        message:
+          "Ce compte bancaire est déjà enregistré par un autre utilisateur. Pour éviter la fraude, un même RIB ne peut être associé qu'à un seul profil BUUPP.",
+      },
+      { status: 409 },
+    );
+  }
+
   const { error } = await admin
     .from("prospect_rib")
     .upsert(
@@ -107,6 +132,22 @@ export async function POST(req: Request) {
     );
 
   if (error) {
+    // Filet de sécurité : si la pré-vérification a passé mais que
+    // l'unique index attrape l'IBAN (race entre deux soumissions
+    // simultanées par 2 comptes différents), on renvoie le même 409.
+    if (
+      (error as { code?: string }).code === "23505" ||
+      /prospect_rib_iban_unique/i.test(error.message ?? "")
+    ) {
+      return NextResponse.json(
+        {
+          error: "iban_already_used",
+          message:
+            "Ce compte bancaire est déjà enregistré par un autre utilisateur. Pour éviter la fraude, un même RIB ne peut être associé qu'à un seul profil BUUPP.",
+        },
+        { status: 409 },
+      );
+    }
     console.error("[/api/prospect/rib POST] upsert error:", error);
     return NextResponse.json({ error: "upsert_failed" }, { status: 500 });
   }
