@@ -1301,6 +1301,9 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
             ['Solde actuel', fmt(details.balance) + ' €'],
             ['Budget de la campagne', fmt(details.campaignTotal) + ' €'],
             ['Commission BUUPP max. (10 %)', fmt(details.commission) + ' €'],
+            ...(details.planFee > 0
+              ? [[`Frais cycle ${details.planLabel || 'Starter'} (1ʳᵉ campagne)`, fmt(details.planFee) + ' €']]
+              : []),
           ].map(([l, v], i) => (
             <div key={i} className="row between" style={{ padding: '4px 0' }}>
               <span className="muted">{l}</span>
@@ -1782,7 +1785,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // Commission BUUPP = 10 % du budget total. Le wallet doit couvrir
   // budget + commission au lancement (cf. /api/pro/campaigns).
   const commission = Math.round(total * 0.10 * 100) / 100;
-  const totalToDebit = Math.round((total + commission) * 100) / 100;
+  // Frais d'accès au cycle (Starter / Pro) : facturés UNE SEULE FOIS au
+  // démarrage d'un cycle (cycleCount === 0). Tant qu'il reste du quota,
+  // les campagnes suivantes du cycle ne le repayent pas. Au cap+1, le
+  // pro repick un mode → cycleCount remis à 0 → on repaye.
+  const isFirstOfCycle = cycleCount === 0;
+  const cycleStartFee = isFirstOfCycle
+    ? Number(planSpecs?.[plan]?.monthlyEur ?? (plan === "pro" ? 59 : 19))
+    : 0;
+  const planLabel = plan === "pro" ? "Pro" : "Starter";
+  const totalToDebit = Math.round((total + commission + cycleStartFee) * 100) / 100;
   const costPreview = cpc > 0 && (
     <div className="wizard-cost-preview" style={{
       background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
@@ -1816,8 +1828,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           </div>
           <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--accent)' }}>jusqu'à {fmtEur(commission)}</span>
         </div>
+        {cycleStartFee > 0 && (
+          <div className="row between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Frais cycle {planLabel}</span>{' '}
+              <span className="mono" style={{
+                fontSize: 11, padding: '2px 6px', borderRadius: 6,
+                background: 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
+                color: 'var(--ink-2)', fontWeight: 600, marginLeft: 4,
+              }}>1ʳᵉ campagne du cycle</span>
+            </div>
+            <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
+          </div>
+        )}
         <div className="row between" style={{ alignItems: 'center', gap: 12 }}>
-          <span style={{ color: 'var(--ink-3)' }}>Réservé sur votre solde (budget + commission max.)</span>
+          <span style={{ color: 'var(--ink-3)' }}>
+            Total à débiter de votre solde
+            {cycleStartFee > 0 ? ' (budget + commission max. + frais cycle)' : ' (budget + commission max.)'}
+          </span>
           <span className="mono tnum" style={{ fontWeight: 700, color: 'var(--ink)' }}>{fmtEur(totalToDebit)}</span>
         </div>
         <div className="row" style={{
@@ -2773,8 +2801,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 </span>
                 <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{total > 0 ? `jusqu'à ${fmtEur(commission)}` : '—'}</span>
               </div>
+              {cycleStartFee > 0 && (
+                <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    Frais cycle {planLabel}
+                    <span className="mono" style={{
+                      fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                      background: 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
+                      color: 'var(--ink-2)', fontWeight: 600,
+                    }}>1ʳᵉ campagne du cycle · prélevé immédiatement</span>
+                  </span>
+                  <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
+                </div>
+              )}
               <div className="row between" style={{ padding: '12px 0 4px' }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Réservé sur votre solde</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  Total à débiter
+                  {cycleStartFee > 0 && <span className="muted" style={{ fontWeight: 400, fontSize: 11 }}> · réserve + frais cycle</span>}
+                </span>
                 <span className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{total > 0 ? fmtEur(totalToDebit) : '—'}</span>
               </div>
               <div className="row" style={{
@@ -2833,12 +2877,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                   const balance = Number(walletBalanceEur ?? 0);
                   // Commission BUUPP = 10 % du budget (cf. backend).
                   const commission = Math.round(total * 0.10 * 100) / 100;
-                  const totalNeeded = total + commission;
+                  // Frais cycle facturés une seule fois quand cycleCount=0.
+                  const totalNeeded = total + commission + cycleStartFee;
                   if (balance < totalNeeded) {
                     setInsufficient({
                       balance,
                       campaignTotal: total,
                       commission,
+                      planFee: cycleStartFee,
+                      planLabel,
                       needed: totalNeeded,
                       missing: Math.max(0, totalNeeded - balance),
                     });
@@ -2872,10 +2919,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         const commission = j.commissionCents != null
                           ? j.commissionCents / 100
                           : Math.round(total * 0.10 * 100) / 100;
+                        const planFee = j.planFeeCents != null
+                          ? j.planFeeCents / 100
+                          : cycleStartFee;
                         setInsufficient({
                           balance: wallet,
                           campaignTotal: total,
                           commission,
+                          planFee,
+                          planLabel,
                           needed,
                           missing: Math.max(0, needed - wallet),
                         });
@@ -5501,7 +5553,7 @@ function PlanSwitcherSection() {
       badge: 'Recommandé',
       maxProspects: specs?.pro?.maxProspects ?? 500,
       maxCampaigns: specs?.pro?.maxCampaigns ?? 10,
-      monthlyEur: specs?.pro?.monthlyEur ?? 89,
+      monthlyEur: specs?.pro?.monthlyEur ?? 59,
       features: [
         "Jusqu'à 500 prospects par campagne",
         '10 campagnes par cycle',

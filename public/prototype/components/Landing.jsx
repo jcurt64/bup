@@ -882,7 +882,7 @@ function Pricing({ go }) {
           />
           <PricingCard
             name="Pro"
-            price="89"
+            price="59"
             priceSuffix="€ / 10 campagnes"
             featured
             features={[

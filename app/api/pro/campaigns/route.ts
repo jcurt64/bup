@@ -142,7 +142,16 @@ export async function POST(req: Request) {
   // les prospects acceptent). Le solde DISPONIBLE = wallet_balance -
   // wallet_reserved (les autres campagnes actives ont déjà réservé).
   const commissionCents = Math.round(body.budgetCents * 0.10);
-  const neededCents = body.budgetCents + commissionCents;
+
+  // Frais d'accès au cycle (Starter / Pro) : facturé UNE SEULE FOIS au
+  // démarrage d'un cycle (cycleCount === 0). Les campagnes 2..N du cycle
+  // réutilisent le quota déjà payé. Quand le pro (re)choisit un mode
+  // dans la popup, plan_cycle_count est remis à 0 → la prochaine
+  // campagne paye à nouveau les frais d'accès.
+  const isFirstOfCycle = cycleCount === 0;
+  const planFeeCents = isFirstOfCycle ? Number(planRow?.monthly_cents ?? 0) : 0;
+
+  const neededCents = body.budgetCents + commissionCents + planFeeCents;
   const walletAvailableCents =
     Number(pro.wallet_balance_cents) - Number(pro.wallet_reserved_cents ?? 0);
   if (walletAvailableCents < neededCents) {
@@ -154,6 +163,8 @@ export async function POST(req: Request) {
         walletAvailableCents,
         neededCents,
         commissionCents,
+        planFeeCents,
+        isFirstOfCycle,
         budgetCents: body.budgetCents,
       },
       { status: 402 },
@@ -236,16 +247,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "insert_campaign_failed" }, { status: 500 });
   }
 
-  // Incrémente la réservation du pro. Le wallet "disponible" affiché
-  // côté UI = wallet_balance_cents - wallet_reserved_cents.
+  // Incrémente la réservation du pro (budget + commission max). Le
+  // wallet "disponible" affiché côté UI = wallet_balance - wallet_reserved.
+  // En parallèle, si c'est la 1re campagne du cycle, on débite IMMÉDIAT
+  // les frais d'accès Starter/Pro (one-shot, non remboursables) — pas de
+  // réservation, c'est un paiement effectif au moment de l'achat du cycle.
+  const newReserved =
+    Number(pro.wallet_reserved_cents ?? 0) + reservedCents;
+  const newBalance =
+    Number(pro.wallet_balance_cents) - planFeeCents;
   const { error: reserveErr } = await admin
     .from("pro_accounts")
     .update({
-      wallet_reserved_cents: Number(pro.wallet_reserved_cents ?? 0) + reservedCents,
+      wallet_reserved_cents: newReserved,
+      wallet_balance_cents: newBalance,
     })
     .eq("id", proId);
   if (reserveErr) {
     console.error("[/api/pro/campaigns] reservation update failed", reserveErr);
+  }
+  if (planFeeCents > 0) {
+    await admin.from("transactions").insert({
+      account_id: proId,
+      account_kind: "pro",
+      type: "buupp_commission",
+      status: "completed",
+      amount_cents: -planFeeCents,
+      campaign_id: campaign.id,
+      description: `Frais cycle ${pro.plan === "pro" ? "Pro" : "Starter"} (${cycleCap} campagnes)`,
+    });
   }
 
   let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
