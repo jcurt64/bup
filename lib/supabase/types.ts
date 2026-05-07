@@ -16,17 +16,27 @@ export type Database = {
     Tables: {
       campaigns: {
         Row: {
+          auto_resume_at: string | null
           brief: string | null
           budget_cents: number
+          budget_reserved_cents: number
           code: string | null
+          commission_max_cents: number
+          commission_settled_cents: number
           cost_per_contact_cents: number
           created_at: string
           ends_at: string | null
           expiry_warning_sent: boolean
+          extended_at: string | null
+          extension_paid_cents: number
+          extension_used: boolean
           id: string
           matched_count: number
           name: string
+          pause_used: boolean
+          paused_at: string | null
           pro_account_id: string
+          settled_at: string | null
           spent_cents: number
           starts_at: string
           status: Database["public"]["Enums"]["campaign_status"]
@@ -35,17 +45,27 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_resume_at?: string | null
           brief?: string | null
           budget_cents: number
+          budget_reserved_cents?: number
           code?: string | null
+          commission_max_cents?: number
+          commission_settled_cents?: number
           cost_per_contact_cents: number
           created_at?: string
           ends_at?: string | null
           expiry_warning_sent?: boolean
+          extended_at?: string | null
+          extension_paid_cents?: number
+          extension_used?: boolean
           id?: string
           matched_count?: number
           name: string
+          pause_used?: boolean
+          paused_at?: string | null
           pro_account_id: string
+          settled_at?: string | null
           spent_cents?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["campaign_status"]
@@ -54,17 +74,27 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_resume_at?: string | null
           brief?: string | null
           budget_cents?: number
+          budget_reserved_cents?: number
           code?: string | null
+          commission_max_cents?: number
+          commission_settled_cents?: number
           cost_per_contact_cents?: number
           created_at?: string
           ends_at?: string | null
           expiry_warning_sent?: boolean
+          extended_at?: string | null
+          extension_paid_cents?: number
+          extension_used?: boolean
           id?: string
           matched_count?: number
           name?: string
+          pause_used?: boolean
+          paused_at?: string | null
           pro_account_id?: string
+          settled_at?: string | null
           spent_cents?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["campaign_status"]
@@ -84,18 +114,21 @@ export type Database = {
       }
       plan_pricing: {
         Row: {
+          max_campaigns: number
           max_prospects: number
           monthly_cents: number
           plan: Database["public"]["Enums"]["pro_plan"]
           updated_at: string
         }
         Insert: {
+          max_campaigns?: number
           max_prospects: number
           monthly_cents: number
           plan: Database["public"]["Enums"]["pro_plan"]
           updated_at?: string
         }
         Update: {
+          max_campaigns?: number
           max_prospects?: number
           monthly_cents?: number
           plan?: Database["public"]["Enums"]["pro_plan"]
@@ -114,6 +147,7 @@ export type Database = {
           forme_juridique: string | null
           id: string
           plan: Database["public"]["Enums"]["pro_plan"]
+          plan_cycle_count: number
           raison_sociale: string
           rcs_ville: string | null
           rm_number: string | null
@@ -124,6 +158,7 @@ export type Database = {
           updated_at: string
           ville: string | null
           wallet_balance_cents: number
+          wallet_reserved_cents: number
         }
         Insert: {
           adresse?: string | null
@@ -135,6 +170,7 @@ export type Database = {
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
+          plan_cycle_count?: number
           raison_sociale: string
           rcs_ville?: string | null
           rm_number?: string | null
@@ -145,6 +181,7 @@ export type Database = {
           updated_at?: string
           ville?: string | null
           wallet_balance_cents?: number
+          wallet_reserved_cents?: number
         }
         Update: {
           adresse?: string | null
@@ -156,6 +193,7 @@ export type Database = {
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
+          plan_cycle_count?: number
           raison_sociale?: string
           rcs_ville?: string | null
           rm_number?: string | null
@@ -166,6 +204,7 @@ export type Database = {
           updated_at?: string
           ville?: string | null
           wallet_balance_cents?: number
+          wallet_reserved_cents?: number
         }
         Relationships: []
       }
@@ -765,6 +804,16 @@ export type Database = {
         Returns: undefined
       }
       clerk_user_id: { Args: never; Returns: string }
+      close_campaign_settle: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          campaign_id: string
+          commission_cents: number
+          pro_account_id: string
+          released_reserve: number
+          rewards_cents: number
+        }[]
+      }
       refund_relation_tx: {
         Args: {
           p_new_status: Database["public"]["Enums"]["relation_status"]
@@ -818,6 +867,7 @@ export type Database = {
         | "campaign_charge"
         | "referral_bonus"
         | "refund"
+        | "buupp_commission"
       verification_level:
         | "basique"
         | "verifie"
@@ -972,6 +1022,7 @@ export const Constants = {
         "campaign_charge",
         "referral_bonus",
         "refund",
+        "buupp_commission",
       ],
       verification_level: [
         "basique",

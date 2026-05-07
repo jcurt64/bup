@@ -102,17 +102,66 @@ export async function processCampaignLifecycle(
     }
   }
 
-  // Étape 2 — closure. Marque les campagnes dont la fenêtre est terminée
-  // comme 'completed' (terminal). Le settle helper (settle_ripe_relations)
-  // est appelé indépendamment et matérialise les acceptations restantes
-  // → mail "vos X € sont disponibles" via lib/email/relation-settled.
-  const { error: closeErr } = await admin
+  // Étape 1.5 — auto-resume. Les campagnes 7d en pause depuis ≥ 48 h
+  // (paused_at + 48h <= now()) repassent automatiquement en 'active'.
+  // ends_at est décalé de la durée effective de la pause pour préserver
+  // le temps restant qu'il y avait au moment de la pause.
+  const { data: pausedRipe, error: pauseReadErr } = await admin
     .from("campaigns")
-    .update({ status: "completed" })
+    .select("id, paused_at, auto_resume_at, ends_at")
+    .eq("status", "paused")
+    .lte("auto_resume_at", nowIso);
+  if (pauseReadErr) {
+    console.error("[lifecycle/auto-resume] read failed", pauseReadErr);
+  } else if ((pausedRipe ?? []).length > 0) {
+    for (const c of pausedRipe!) {
+      const pausedAt = c.paused_at ? new Date(c.paused_at).getTime() : 0;
+      const pauseMs = pausedAt > 0 ? Math.max(0, Date.now() - pausedAt) : 0;
+      const newEndsAt = c.ends_at
+        ? new Date(new Date(c.ends_at).getTime() + pauseMs).toISOString()
+        : null;
+      const { error: updErr } = await admin
+        .from("campaigns")
+        .update({
+          status: "active",
+          paused_at: null,
+          auto_resume_at: null,
+          ...(newEndsAt ? { ends_at: newEndsAt } : {}),
+        })
+        .eq("id", c.id)
+        .eq("status", "paused");
+      if (updErr) {
+        console.error("[lifecycle/auto-resume] update failed", c.id, updErr);
+      }
+    }
+  }
+
+  // Étape 2 — closure. Pour chaque campagne dont `ends_at <= now()` et
+  // status='active', on appelle `close_campaign_settle` qui :
+  //   1. débite réellement le wallet pro de (rewards acceptés + 10 %
+  //      commission BUUPP) — premier vrai débit depuis la création ;
+  //   2. enregistre la commission BUUPP comme transaction
+  //      `buupp_commission` (créditée hors-plateforme : compte bancaire) ;
+  //   3. libère la réservation upfront (budget + commission max) ;
+  //   4. passe la campagne en `completed` avec `settled_at`.
+  // Les escrow prospect 'pending' sont ensuite matérialisés en credit
+  // par `settle_ripe_relations` (filtré sur `campaign.status='completed'`).
+  const { data: expiredCamps, error: expErr } = await admin
+    .from("campaigns")
+    .select("id")
     .eq("status", "active")
     .lte("ends_at", nowIso);
 
-  if (closeErr) {
-    console.error("[lifecycle/closure] status update failed", closeErr);
+  if (expErr) {
+    console.error("[lifecycle/closure] read expired failed", expErr);
+  } else if ((expiredCamps ?? []).length > 0) {
+    for (const c of expiredCamps!) {
+      const { error: rpcErr } = await admin.rpc("close_campaign_settle", {
+        p_campaign_id: c.id as string,
+      });
+      if (rpcErr) {
+        console.error("[lifecycle/closure] close_campaign_settle failed", c.id, rpcErr);
+      }
+    }
   }
 }

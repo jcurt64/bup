@@ -14,6 +14,11 @@ function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
   const [campDetail, setCampDetail] = useState(null);
+  // Source de duplication pour le wizard "Nouvelle campagne". Null pour
+  // une création vierge ; sinon contient l'`id` de la campagne à dupliquer.
+  // CreateCampaign hydrate alors tout son state depuis /api/pro/campaigns/:id
+  // et saute directement à l'étape Récap.
+  const [duplicateSourceId, setDuplicateSourceId] = useState(null);
   // Section vers laquelle ramener le pro automatiquement dès qu'il a complété
   // les champs obligatoires (raison sociale + ville). Posée quand un écran
   // bloque sur des informations société manquantes et redirige vers
@@ -121,15 +126,32 @@ function ProDashboard({ go }) {
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
       overrideName={companyInfo?.raisonSociale || ''}
-      header={<ProHeader companyInfo={companyInfo} onCreate={() => setSec('create')} onRecharge={() => setRecharge(true)}/>}>
-      {sec === 'overview' && <Overview onCreate={() => setSec('create')}/>}
-      {sec === 'campagnes' && !campDetail && <Campagnes onCreate={() => setSec('create')} onDetail={setCampDetail}/>}
-      {sec === 'campagnes' && campDetail && <CampaignDetail camp={campDetail} onBack={() => setCampDetail(null)}/>}
+      header={<ProHeader companyInfo={companyInfo} onCreate={() => { setDuplicateSourceId(null); setSec('create'); }} onRecharge={() => setRecharge(true)}/>}>
+      {sec === 'overview' && <Overview onCreate={() => { setDuplicateSourceId(null); setSec('create'); }}/>}
+      {sec === 'campagnes' && !campDetail && (
+        <Campagnes
+          onCreate={() => { setDuplicateSourceId(null); setSec('create'); }}
+          onDetail={setCampDetail}
+          onDuplicate={(id) => { setDuplicateSourceId(id); setSec('create'); }}
+        />
+      )}
+      {sec === 'campagnes' && campDetail && (
+        <CampaignDetail
+          camp={campDetail}
+          onBack={() => setCampDetail(null)}
+          onDuplicate={(id) => {
+            setCampDetail(null);
+            setDuplicateSourceId(id);
+            setSec('create');
+          }}
+        />
+      )}
       {sec === 'create' && (
         <CreateCampaign
-          onDone={() => setSec('campagnes')}
+          onDone={() => { setDuplicateSourceId(null); setSec('campagnes'); }}
           companyInfo={companyInfo}
           onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
+          duplicateSourceId={duplicateSourceId}
         />
       )}
       {sec === 'contacts' && <Contacts/>}
@@ -238,9 +260,15 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
   }, []);
 
+  // Affiche le solde DISPONIBLE (= balance - réservé). Le réservé
+  // correspond aux campagnes actives : montant déjà engagé qui ne
+  // quittera réellement le wallet qu'à la clôture (`close_campaign_settle`).
+  // Le pro voit ainsi "ce qu'il peut encore engager" pour de nouvelles
+  // campagnes.
   const balanceText = wallet
-    ? _eurFmt.format(Number(wallet.walletBalanceEur ?? 0))
+    ? _eurFmt.format(Number(wallet.walletAvailableEur ?? wallet.walletBalanceEur ?? 0))
     : '…';
+  const reservedEur = Number(wallet?.walletReservedEur ?? 0);
 
   // Overview stats — partagé via le cache module fetchProOverview pour
   // ne pas dupliquer la requête entre header et l'onglet Vue d'ensemble.
@@ -267,11 +295,22 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison}{secteur ? ' · ' + secteur : ''}</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
-            <em>{balanceText}</em> de crédit actif · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
+            <em>{balanceText}</em> de crédit disponible · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             {activeCampaigns ?? '…'} campagne{activeCampaigns === 1 ? '' : 's'} active{activeCampaigns === 1 ? '' : 's'} · taux d'acceptation moyen {acceptanceRate != null ? acceptanceRate + '%' : '…'} · ROI estimé {roi}
           </div>
+          {reservedEur > 0 && (
+            <div className="mono" style={{
+              fontSize: 11.5, marginTop: 6, color: 'var(--ink-4)',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '3px 8px', borderRadius: 6,
+              background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--accent) 22%, var(--line))',
+            }} title="Engagé dans des campagnes actives — débité réellement à la clôture">
+              {_eurFmt.format(reservedEur)} réservés sur campagnes actives
+            </div>
+          )}
         </div>
         <div className="row center gap-3 pro-header-actions">
           <button className="btn btn-ghost btn-sm" onClick={onRecharge}><Icon name="plus" size={12}/> Recharger le crédit</button>
@@ -472,21 +511,27 @@ function CampaignDurationBanner({ compact }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.005em' }}>
-          Durée de diffusion · 7 jours calendaires
+          Prolongation de la durée d'une campagne
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
-          Chaque campagne est active pendant 7 jours à compter de sa mise en ligne.
-          {' '}Prolongation possible <strong style={{ color: 'var(--ink)' }}>une fois, de 7 jours supplémentaires</strong>, pour <strong style={{ color: 'var(--ink)' }}>10 € HT</strong> — décision à prendre depuis la fiche campagne avant expiration.
+          Chaque campagne peut être prolongée <strong style={{ color: 'var(--ink)' }}>une seule fois</strong> moyennant{' '}
+          <strong style={{ color: 'var(--ink)' }}>10 € HT</strong>. La <strong style={{ color: 'var(--ink)' }}>durée de prolongation est identique à la durée initiale</strong> :
+          {' '}1 h flash deal → 1 h supplémentaire, 24 h → 24 h, 48 h → 48 h, 7 jours → 7 jours.
+          {' '}Décision à prendre depuis la fiche campagne avant expiration.
         </div>
       </div>
     </div>
   );
 }
 
-function Campagnes({ onCreate, onDetail }) {
+function Campagnes({ onCreate, onDetail, onDuplicate }) {
   const [filter, setFilter] = useState('all');
   const [camps, setCamps] = useState(null); // null = loading
   const [reloadKey, setReloadKey] = useState(0);
+  // Modale d'info pause 48h (s'ouvre quand le pro clique sur "Pause"
+  // pour une campagne 7d éligible). On stocke la campagne ciblée pour
+  // la confirmation ; null = modale fermée.
+  const [pausePromptCamp, setPausePromptCamp] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -497,6 +542,27 @@ function Campagnes({ onCreate, onDetail }) {
       .catch(() => { if (!cancelled) setCamps([]); });
     return () => { cancelled = true; };
   }, [reloadKey]);
+
+  const togglePauseStatus = async (campId, nextStatus) => {
+    try {
+      const r = await fetch(`/api/pro/campaigns/${campId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert("Échec : " + (j?.error || r.status));
+        return false;
+      }
+      try { window.dispatchEvent(new Event('pro:overview-changed')); } catch {}
+      setReloadKey(k => k + 1);
+      return true;
+    } catch (e) {
+      alert("Erreur réseau : " + (e.message || ''));
+      return false;
+    }
+  };
 
   const ALL = camps || [];
   // Bucket "done" regroupe completed + canceled (les deux sont terminales).
@@ -559,7 +625,14 @@ function Campagnes({ onCreate, onDetail }) {
           const dateStr = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(new Date(c.createdAt));
           const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
           const isActive = c.status === 'active';
-          const canToggle = c.status === 'active' || c.status === 'paused';
+          const isPaused = c.status === 'paused';
+          // Le bouton "Pause" n'est offert qu'aux campagnes 7d qui n'ont
+          // jamais été mises en pause (`pauseEligible`). Pour toutes les
+          // autres campagnes actives, on n'affiche tout simplement pas
+          // le bouton (cf. `showPauseAction`). Le bouton "Relancer" est
+          // toujours visible sur une campagne en pause.
+          const showPauseAction = isActive && c.pauseEligible;
+          const showResumeAction = isPaused;
           return (
             <div key={c.id} className="card" style={{ padding: 24 }}>
               <div className="row between" style={{ alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
@@ -593,54 +666,177 @@ function Campagnes({ onCreate, onDetail }) {
                     {c.objectiveLabel} · créée le {dateStr} · coût unitaire moyen {fmt2(c.avgCostEur)} €
                   </div>
                   <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
-                    <div><div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div><div className="serif tnum" style={{ fontSize: 20 }}>{fmt2(c.spentEur)} / {fmt2(c.budgetEur)} €</div></div>
-                    <div title="Prospects notifiés au lancement de la campagne">
-                      <div className="muted mono caps" style={{ fontSize: 10 }}>Touchés</div>
-                      <div className="serif tnum" style={{ fontSize: 20 }}>{Number(c.reachedCount ?? 0)}</div>
-                    </div>
-                    <div title="Prospects ayant accepté la sollicitation"><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
-                    <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
-                      <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé</div>
-                      <Progress value={c.budgetEur > 0 ? c.spentEur / c.budgetEur : 0}/>
-                    </div>
+                    {(() => {
+                      // Budget consommé = budget effectif (campagne + 10 % de
+                      // commission BUUPP) — le wallet est débité de l'intégralité.
+                      const budgetTotal = c.budgetEur * 1.10;
+                      const spentTotal = c.spentEur * 1.10;
+                      const ratio = budgetTotal > 0 ? spentTotal / budgetTotal : 0;
+                      return (
+                        <>
+                          <div title="Budget campagne + 10 % commission BUUPP — la commission n'est facturée qu'à l'acceptation d'un prospect">
+                            <div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div>
+                            <div className="serif tnum" style={{ fontSize: 20 }}>{fmt2(spentTotal)} / {fmt2(budgetTotal)} €</div>
+                            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>commission acquise sur acceptations</div>
+                          </div>
+                          <div title="Prospects notifiés au lancement de la campagne">
+                            <div className="muted mono caps" style={{ fontSize: 10 }}>Touchés</div>
+                            <div className="serif tnum" style={{ fontSize: 20 }}>{Number(c.reachedCount ?? 0)}</div>
+                          </div>
+                          <div title="Prospects ayant accepté la sollicitation"><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
+                          <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
+                            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé (commission incluse)</div>
+                            <Progress value={ratio}/>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="row gap-2">
+                  {showPauseAction && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setPausePromptCamp(c)}
+                      title="Mettre la campagne en pause 48 h (une seule fois)"
+                    >
+                      <Icon name="pause" size={12}/> Pause
+                    </button>
+                  )}
+                  {showResumeAction && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => togglePauseStatus(c.id, 'active')}
+                      title="Reprendre la campagne maintenant — le temps restant est préservé"
+                    >
+                      <Icon name="play" size={12}/> Relancer
+                    </button>
+                  )}
                   <button
                     className="btn btn-ghost btn-sm"
-                    disabled={!canToggle}
-                    style={!canToggle ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                    onClick={async () => {
-                      if (!canToggle) return;
-                      const next = isActive ? 'paused' : 'active';
-                      try {
-                        const r = await fetch(`/api/pro/campaigns/${c.id}`, {
-                          method: 'PATCH',
-                          headers: { 'content-type': 'application/json' },
-                          body: JSON.stringify({ status: next }),
-                        });
-                        if (!r.ok) {
-                          const j = await r.json().catch(() => ({}));
-                          alert("Échec : " + (j?.error || r.status));
-                          return;
-                        }
-                        try { window.dispatchEvent(new Event('pro:overview-changed')); } catch {}
-                        setReloadKey(k => k + 1);
-                      } catch (e) {
-                        alert("Erreur réseau : " + (e.message || ''));
-                      }
-                    }}
+                    onClick={() => onDuplicate?.(c.id)}
+                    title="Relancer la même campagne avec les mêmes paramètres"
                   >
-                    <Icon name={isActive ? 'pause' : 'play'} size={12}/>
-                    {isActive ? 'Pause' : 'Relancer'}
+                    <Icon name="copy" size={12}/> Dupliquer
                   </button>
-                  <button className="btn btn-ghost btn-sm"><Icon name="copy" size={12}/> Dupliquer</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => onDetail(c)}>Détails <Icon name="arrow" size={12}/></button>
                 </div>
               </div>
             </div>
           );
         })}
+      </div>
+      {pausePromptCamp && (
+        <PauseCampaignModal
+          camp={pausePromptCamp}
+          onCancel={() => setPausePromptCamp(null)}
+          onConfirm={async () => {
+            const ok = await togglePauseStatus(pausePromptCamp.id, 'paused');
+            setPausePromptCamp(null);
+            if (!ok) return;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Modale d'information affichée quand le pro clique sur "Pause" pour
+   une campagne 7d. Explique :
+     - durée fixe de 48 h, reprise automatique à l'expiration
+     - bouton "Relancer" pour reprendre avant les 48 h (= temps restant
+       préservé)
+     - une seule pause par campagne (action irréversible)
+     - les rémunérations déjà acceptées et la commission BUUPP
+       correspondante restent acquises */
+function PauseCampaignModal({ camp, onCancel, onConfirm }) {
+  const [submitting, setSubmitting] = useState(false);
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div role="dialog" aria-modal="true" className="pause-modal-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 220,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 16px 80px',
+    }}>
+      <div className="pause-modal-card" style={{
+        position: 'relative', maxWidth: 520, width: '100%',
+        background: 'var(--paper)', borderRadius: 18,
+        padding: 'clamp(20px, 4vw, 32px)',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0', borderTop: '4px solid var(--accent)',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 56, height: 56, margin: '0 auto 12px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--accent) 30%, var(--line))',
+            color: 'var(--accent)', fontSize: 30, lineHeight: 1,
+          }}>☕</div>
+          <div className="serif" style={{ fontSize: 'clamp(20px, 3vw, 24px)', lineHeight: 1.2, marginBottom: 6 }}>
+            Pause café · 48 h chrono
+          </div>
+          <div className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, maxWidth: 440, margin: '0 auto' }}>
+            Votre campagne <strong style={{ color: 'var(--ink)' }}>{camp?.name}</strong> s'octroie un mini week-end aux Bahamas.
+            Pendant ce temps, elle bronze, vous respirez.
+          </div>
+        </div>
+
+        <ul style={{
+          listStyle: 'none', padding: 0, margin: '0 0 18px',
+          background: 'var(--ivory-2)', border: '1px solid var(--line)', borderRadius: 12,
+          fontSize: 13, lineHeight: 1.55,
+        }}>
+          {[
+            ['🛑', <>Plus aucun prospect <strong>n'est sollicité</strong> pendant les 48 h.</>],
+            ['💰', <>Les acceptations <strong>déjà obtenues sont acquises</strong> — récompenses prospects + commission BUUPP <strong>restent dues</strong>.</>],
+            ['⏱️', <>À l'issue des 48 h, la campagne <strong>reprend automatiquement</strong>. Le temps restant au moment de la pause est <strong>intégralement préservé</strong>.</>],
+            ['▶️', <>Vous pouvez relancer manuellement <strong>avant 48 h</strong> via le bouton <em>Relancer</em>. Le temps restant reste préservé dans tous les cas.</>],
+            ['⚠️', <>Une campagne <strong>ne peut être mise en pause qu'une seule fois</strong>. On ne rejoue pas la sieste.</>],
+          ].map(([icon, text], i, arr) => (
+            <li key={i} className="row" style={{
+              gap: 12, padding: '10px 14px', alignItems: 'flex-start',
+              borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none',
+            }}>
+              <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>{icon}</span>
+              <span style={{ color: 'var(--ink-2)' }}>{text}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-ghost"
+            onClick={onCancel}
+            disabled={submitting}
+            style={{ flex: 1, minWidth: 120 }}
+          >
+            Finalement non
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleConfirm}
+            disabled={submitting}
+            style={{ flex: 2, minWidth: 200 }}
+          >
+            {submitting ? 'Pause en cours…' : <>Mettre en pause 48 h <Icon name="pause" size={12}/></>}
+          </button>
+        </div>
+
+        <style>{`
+          @media (max-width: 540px) {
+            .pause-modal-overlay { align-items: stretch !important; padding: 0 !important; }
+            .pause-modal-card { border-radius: 0 !important; min-height: 100vh; }
+          }
+        `}</style>
       </div>
     </div>
   );
@@ -774,10 +970,10 @@ const fmtDateLong = (iso) => {
 
 /* Popup de sélection de plan affichée à l'ouverture du wizard de
    création de campagne. Le plan choisi (Starter / Pro) est persisté
-   dans `pro_accounts.plan` via /api/pro/plan et conditionne le cap
-   du nombre de prospects (50 / 500). La popup ré-apparaît à chaque
-   nouvelle création — l'utilisateur peut donc changer de plan à
-   chaque campagne. */
+   dans `pro_accounts.plan` via /api/pro/plan et démarre un nouveau
+   cycle de quotas (Starter = 2 campagnes, Pro = 10). La popup
+   réapparaît automatiquement quand le quota du cycle en cours est
+   atteint, pour inviter le pro à choisir / renouveler son mode. */
 /* Les prix et caps des plans sont injectés dynamiquement depuis
    /api/pro/plan (qui lit `plan_pricing` en base). On garde ici les
    éléments statiques (features, couleur, badge) qui ne dépendent pas
@@ -789,7 +985,7 @@ const PLAN_DEFS_STATIC = [
     color: 'var(--ink)',
     features: [
       'Jusqu\'à 50 prospects par campagne',
-      '2 campagnes actives en parallèle',
+      '2 campagnes par cycle',
       'Ciblage par paliers 1 à 3',
     ],
   },
@@ -800,7 +996,7 @@ const PLAN_DEFS_STATIC = [
     badge: 'Recommandé',
     features: [
       'Jusqu\'à 500 prospects par campagne',
-      'Campagnes actives illimitées',
+      '10 campagnes par cycle',
       'Tous les paliers 1 à 5',
       'Accès anticipé aux nouvelles fonctionnalités',
     ],
@@ -813,8 +1009,8 @@ function PlanSelectorModal({
   onChoose,
   onClose,
   capReached = false,
-  activeCampaignsCount = null,
-  starterCap = 2,
+  cycleCount = null,
+  capPlan = null,
 }) {
   const [selecting, setSelecting] = useState(null);
   const [error, setError] = useState(null);
@@ -823,19 +1019,19 @@ function PlanSelectorModal({
   // alignées avec ce qui sera prélevé en base.
   const planDefs = PLAN_DEFS_STATIC.map(p => {
     const s = specs?.[p.id] || {};
+    const max = s.maxCampaigns ?? (p.id === 'pro' ? 10 : 2);
     return {
       ...p,
       monthly: s.monthlyEur != null
         ? Number(s.monthlyEur).toFixed(0).replace('.', ',') + ' €'
         : '—',
       maxProspects: s.maxProspects ?? null,
+      maxCampaigns: max,
+      priceSuffix: `€ / ${max} campagnes`,
     };
   });
 
   const choose = async (planId) => {
-    // Quand le cap Starter est atteint, on bloque tout retour à Starter :
-    // seul l'upgrade vers Pro débloque la création de campagne.
-    if (capReached && planId === 'starter') return;
     setSelecting(planId);
     setError(null);
     try {
@@ -880,15 +1076,15 @@ function PlanSelectorModal({
 
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div className="mono caps muted" style={{ fontSize: 11, letterSpacing: '.16em', marginBottom: 10 }}>
-            {capReached ? '— Limite atteinte' : '— Avant de lancer votre campagne'}
+            {capReached ? '— Quota atteint' : '— Avant de lancer votre campagne'}
           </div>
           <div className="serif" style={{ fontSize: 'clamp(22px, 3vw, 28px)', lineHeight: 1.2, marginBottom: 8 }}>
-            {capReached ? 'Vous avez atteint la limite Starter' : 'Choisissez votre plan'}
+            {capReached ? 'Quota du cycle atteint' : 'Choisissez votre plan'}
           </div>
           <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 560, margin: '0 auto' }}>
             {capReached
-              ? `La formule Starter autorise au maximum ${starterCap} campagnes actives en parallèle (vous en avez ${activeCampaignsCount ?? starterCap}). Passez à la formule Pro pour lancer une campagne supplémentaire — campagnes actives illimitées.`
-              : 'Le plan sélectionné détermine le nombre de prospects que vous pourrez cibler dans votre campagne. Vous pouvez changer à tout moment.'}
+              ? `Vous avez consommé l'intégralité de votre cycle ${capPlan === 'pro' ? 'Pro (10 campagnes)' : 'Starter (2 campagnes)'}. Choisissez un mode pour lancer un nouveau cycle.`
+              : 'Le mode sélectionné détermine le nombre de prospects par campagne et le nombre de campagnes incluses dans votre cycle. Vous pouvez changer à tout moment.'}
           </div>
         </div>
 
@@ -898,9 +1094,9 @@ function PlanSelectorModal({
           {planDefs.map(plan => {
             const isCurrent = plan.id === currentPlan;
             const isSubmitting = selecting === plan.id;
-            // Quand le cap Starter est atteint, la card Starter devient
-            // non-cliquable (l'utilisateur DOIT upgrader vers Pro).
-            const isLocked = capReached && plan.id === 'starter';
+            // Les deux modes restent toujours sélectionnables : choisir un
+            // mode (même le mode courant) démarre un nouveau cycle.
+            const isLocked = false;
             return (
               <div
                 key={plan.id}
@@ -939,7 +1135,7 @@ function PlanSelectorModal({
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
                     <span className="serif tnum" style={{ fontSize: 22, color: 'var(--ink)' }}>{plan.monthly}</span>
-                    <span className="muted"> / campagne</span>
+                    <span className="muted"> {plan.priceSuffix.replace('€ ', '')}</span>
                   </div>
                 </div>
 
@@ -965,21 +1161,20 @@ function PlanSelectorModal({
                 <button
                   className="btn"
                   onClick={() => choose(plan.id)}
-                  disabled={isSubmitting || isLocked}
-                  title={isLocked ? `Limite Starter atteinte (${starterCap} campagnes actives). Passez à Pro pour continuer.` : undefined}
+                  disabled={isSubmitting}
                   style={{
                     marginTop: 'auto',
-                    background: isLocked ? 'var(--ivory-2)' : (plan.id === 'pro' ? plan.color : 'var(--ink)'),
-                    color: isLocked ? 'var(--ink-4)' : 'white',
+                    background: plan.id === 'pro' ? plan.color : 'var(--ink)',
+                    color: 'white',
                     borderColor: 'transparent',
                     width: '100%',
                     opacity: isSubmitting ? 0.7 : 1,
-                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                   }}>
-                  {isLocked
-                    ? `Limite atteinte`
-                    : isSubmitting
-                      ? 'Activation…'
+                  {isSubmitting
+                    ? 'Activation…'
+                    : capReached
+                      ? `Démarrer un cycle ${plan.label}`
                       : isCurrent
                         ? `Continuer en ${plan.label}`
                         : `Choisir ${plan.label}`}
@@ -1079,7 +1274,7 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
             Solde insuffisant
           </div>
           <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 440, margin: '0 auto' }}>
-            Pour lancer cette campagne, vous devez disposer d'un crédit suffisant pour couvrir le budget de la campagne et les frais de votre plan.
+            Pour lancer cette campagne, votre solde doit couvrir le budget plus la commission BUUPP <strong>maximale</strong> (10 %) — celle-ci n'est facturée qu'aux acceptations effectives.
           </div>
         </div>
 
@@ -1090,7 +1285,7 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
           {[
             ['Solde actuel', fmt(details.balance) + ' €'],
             ['Budget de la campagne', fmt(details.campaignTotal) + ' €'],
-            ['Frais du plan', fmt(details.planFee) + ' €'],
+            ['Commission BUUPP max. (10 %)', fmt(details.commission) + ' €'],
           ].map(([l, v], i) => (
             <div key={i} className="row between" style={{ padding: '4px 0' }}>
               <span className="muted">{l}</span>
@@ -1100,6 +1295,16 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
           <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8 }} className="row between">
             <span style={{ fontWeight: 500 }}>Montant manquant</span>
             <span className="mono tnum" style={{ color: '#b45309', fontWeight: 600 }}>{fmt(details.missing)} €</span>
+          </div>
+          <div className="row" style={{
+            marginTop: 10, gap: 8, padding: '8px 10px', borderRadius: 8,
+            background: 'color-mix(in oklab, var(--good) 8%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--good) 25%, var(--line))',
+            color: 'color-mix(in oklab, var(--good) 60%, var(--ink-2))',
+            fontSize: 11.5, lineHeight: 1.5, alignItems: 'flex-start',
+          }}>
+            <span aria-hidden="true">ℹ︎</span>
+            <span>La commission n'est prélevée qu'à chaque acceptation. Sans acceptation, aucune commission n'est facturée.</span>
           </div>
         </div>
 
@@ -1168,7 +1373,7 @@ const DURATIONS = [
 ];
 const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
 
-function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
@@ -1180,38 +1385,38 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   const [plan, setPlan] = useState(null);
   const [planSpecs, setPlanSpecs] = useState(null);
   const [planChosen, setPlanChosen] = useState(false);
-  // `null` tant que plan + nb de campagnes actives ne sont pas chargés —
-  // on n'ouvre PAS le sélecteur tant qu'on ne sait pas s'il est nécessaire.
-  // Voir l'effet ci-dessous : le sélecteur ne s'ouvre que pour la 1re
-  // campagne (active === 0) ou quand le cap Starter est atteint.
+  // `null` tant que plan + cycle ne sont pas chargés — on n'ouvre PAS le
+  // sélecteur tant qu'on ne sait pas s'il est nécessaire. Voir l'effet
+  // ci-dessous : le sélecteur s'ouvre uniquement à la 1re campagne du
+  // cycle (cycleCount === 0) ou quand le quota du cycle est atteint.
   const [planModalOpen, setPlanModalOpen] = useState(false);
-  // Cap concurrent du plan Starter. Quand `capReached` est true, le modal
-  // affiche un bandeau bloquant et n'autorise plus que l'upgrade vers Pro.
-  const STARTER_ACTIVE_CAP = 2;
-  const [activeCampaignsCount, setActiveCampaignsCount] = useState(null);
+  // Quota du cycle en cours (Starter = 2, Pro = 10). Quand le compteur
+  // côté serveur atteint le cap, on rouvre la popup pour que le pro
+  // démarre un nouveau cycle.
+  const [cycleCount, setCycleCount] = useState(null);
+  const [cycleCap, setCycleCap] = useState(null);
   const [capReached, setCapReached] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    const load = () => Promise.all([
-      fetch('/api/pro/plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/api/pro/overview', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([p, o]) => {
+    const load = () => fetch('/api/pro/plan', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then((p) => {
       if (cancelled) return;
       const nextPlan = p?.plan || 'starter';
-      const nextActive = Number(o?.activeCampaignsCount ?? 0);
+      const nextCycle = Number(p?.cycleCount ?? 0);
+      const nextCap = Number(p?.cap ?? (nextPlan === 'pro' ? 10 : 2));
       setPlan(nextPlan);
       setPlanSpecs(p?.specs || null);
-      setActiveCampaignsCount(nextActive);
+      setCycleCount(nextCycle);
+      setCycleCap(nextCap);
       // Décide si le popup doit s'ouvrir :
-      //  - cap Starter atteint → ouvre en mode bloquant (upgrade Pro)
-      //  - 1re campagne (aucune active) → ouvre en mode normal
-      //  - sinon → skip et on considère le plan déjà choisi
-      const reached = nextPlan === 'starter' && nextActive >= STARTER_ACTIVE_CAP;
+      //  - quota du cycle atteint → ouvre en mode "renouveler cycle"
+      //  - 1re campagne du cycle (compteur = 0) → ouvre en mode normal
+      //  - sinon → skip silencieusement, le mode courant est conservé
+      const reached = Boolean(p?.capReached);
       setCapReached(reached);
-      if (reached) {
-        setPlanModalOpen(true);
-        setPlanChosen(false);
-      } else if (nextActive === 0) {
+      if (reached || nextCycle === 0) {
         setPlanModalOpen(true);
         setPlanChosen(false);
       } else {
@@ -1238,20 +1443,25 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
   // codés en dur ici. Fallback raisonnable si l'API n'a pas (encore)
   // répondu : le brouillon UI reste utilisable.
   const planMaxProspects = planSpecs?.[plan]?.maxProspects ?? (plan === 'pro' ? 500 : 50);
-  const planMonthlyEur = planSpecs?.[plan]?.monthlyEur ?? (plan === 'pro' ? 89 : 19);
   // Si l'utilisateur passe d'un plan Pro à Starter (ou si la valeur
   // initiale dépasse le cap), on rabote `contacts` au plafond du plan.
   useEffect(() => {
     setContacts(c => Math.min(c, planMaxProspects));
   }, [planMaxProspects]);
 
-  // Solde wallet pro (pour la validation budget à l'étape 7).
+  // Solde wallet pro (DISPONIBLE = balance - réservé). Le réservé est
+  // la somme des (budget + commission max) des campagnes actives non
+  // encore clôturées : ce montant n'a pas quitté le wallet, mais il
+  // est déjà engagé et ne peut pas servir à une nouvelle campagne.
   const [walletBalanceEur, setWalletBalanceEur] = useState(null);
   const refreshWalletBalance = React.useCallback(async () => {
     try {
       invalidateProWallet();
       const j = await fetchProWallet();
-      setWalletBalanceEur(Number(j?.walletBalanceEur ?? 0));
+      const available = j?.walletAvailableEur != null
+        ? Number(j.walletAvailableEur)
+        : Number(j?.walletBalanceEur ?? 0);
+      setWalletBalanceEur(available);
     } catch {}
   }, []);
   useEffect(() => { refreshWalletBalance(); }, [refreshWalletBalance]);
@@ -1328,6 +1538,54 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     document.querySelectorAll('main, .page').forEach(el => { el.scrollTop = 0; });
   }, [step]);
+
+  // ─── Duplication ─────────────────────────────────────────────────
+  // Quand le wizard est ouvert via "Dupliquer" sur une campagne, on
+  // hydrate tous les states depuis /api/pro/campaigns/:id puis on saute
+  // directement à l'étape Récap. Le contrôle quota (cycle Starter/Pro)
+  // reste actif : si le cap est atteint, le sélecteur de mode s'ouvre
+  // par-dessus comme pour une création vierge.
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [dupLoading, setDupLoading] = useState(false);
+  const [dupSourceName, setDupSourceName] = useState(null);
+  useEffect(() => {
+    if (!duplicateSourceId) return;
+    let cancelled = false;
+    setIsDuplicate(true);
+    setDupLoading(true);
+    fetch(`/api/pro/campaigns/${duplicateSourceId}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d) return;
+        const tg = d.targeting || {};
+        if (d.objectiveId) setSelectedObj(d.objectiveId);
+        if (Array.isArray(tg.subTypes)) setSelectedSubs(new Set(tg.subTypes));
+        if (Array.isArray(tg.requiredTiers)) {
+          setSelectedTiers(new Set(tg.requiredTiers.map((n) => Number(n)).filter((n) => n > 0)));
+        }
+        if (typeof tg.geo === 'string') setGeo(tg.geo);
+        if (Array.isArray(tg.ages) && tg.ages.length > 0) setAges(new Set(tg.ages));
+        if (typeof tg.verifLevel === 'string') setVerif(tg.verifLevel);
+        if (typeof tg.durationKey === 'string') setDurationKey(tg.durationKey);
+        if (typeof tg.poolMode === 'string') setPoolMode(tg.poolMode);
+        if (Array.isArray(tg.keywords)) setKeywords(tg.keywords);
+        if (typeof tg.kwFilter === 'boolean') setKwFilter(tg.kwFilter);
+        if (typeof tg.excludeCertified === 'boolean') setExcludeCertified(tg.excludeCertified);
+        if (typeof d.plannedContacts === 'number' && d.plannedContacts > 0) setContacts(d.plannedContacts);
+        if (typeof d.brief === 'string') setBrief(d.brief);
+        if (d.name) setDupSourceName(d.name);
+        // Le plan a déjà été choisi (la campagne d'origine existe), on
+        // saute la popup. Si le quota est atteint, l'effet `load()` ouvrira
+        // automatiquement le sélecteur de mode au-dessus du récap.
+        setPlanChosen(true);
+        setPlanModalOpen(false);
+        setStep(WIZ_TOTAL);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setDupLoading(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duplicateSourceId]);
   // raison sociale + ville sont obligatoires pour permettre aux prospects
   // d'identifier l'entreprise dans l'annonce → le lancement est bloqué tant
   // que ces deux champs ne sont pas renseignés.
@@ -1506,20 +1764,71 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
     </div>
   );
 
+  // Commission BUUPP = 10 % du budget total. Le wallet doit couvrir
+  // budget + commission au lancement (cf. /api/pro/campaigns).
+  const commission = Math.round(total * 0.10 * 100) / 100;
+  const totalToDebit = Math.round((total + commission) * 100) / 100;
   const costPreview = cpc > 0 && (
-    <div className="wizard-cost-preview" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
+    <div className="wizard-cost-preview" style={{
       background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
       border: '1px solid color-mix(in oklab, var(--accent) 20%, var(--line))',
       borderRadius: 14, padding: 20, marginBottom: 24 }}>
-      <div>
-        <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Coût par contact estimé</div>
-        <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(cpc)}</div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>selon paliers et vérification</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Coût par contact estimé</div>
+          <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(cpc)}</div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>selon paliers et vérification</div>
+        </div>
+        <div className="wizard-cost-right" style={{ textAlign: 'right' }}>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Budget total</div>
+          <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(total)}</div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>pour {contacts} contacts</div>
+        </div>
       </div>
-      <div className="wizard-cost-right" style={{ textAlign: 'right' }}>
-        <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Budget total</div>
-        <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(total)}</div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>pour {contacts} contacts</div>
+      <div style={{
+        marginTop: 18, paddingTop: 14,
+        borderTop: '1px dashed color-mix(in oklab, var(--accent) 25%, var(--line))',
+        display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13,
+      }}>
+        <div className="row between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Commission BUUPP</span>{' '}
+            <span className="mono" style={{
+              fontSize: 11, padding: '2px 6px', borderRadius: 6,
+              background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+              color: 'var(--accent)', fontWeight: 600, marginLeft: 4,
+            }}>10 % = commission BUUPP</span>
+          </div>
+          <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--accent)' }}>jusqu'à {fmtEur(commission)}</span>
+        </div>
+        <div className="row between" style={{ alignItems: 'center', gap: 12 }}>
+          <span style={{ color: 'var(--ink-3)' }}>Réservé sur votre solde (budget + commission max.)</span>
+          <span className="mono tnum" style={{ fontWeight: 700, color: 'var(--ink)' }}>{fmtEur(totalToDebit)}</span>
+        </div>
+        <div className="row" style={{
+          marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+          background: 'color-mix(in oklab, var(--good) 8%, var(--paper))',
+          border: '1px solid color-mix(in oklab, var(--good) 25%, var(--line))',
+          color: 'color-mix(in oklab, var(--good) 60%, var(--ink-2))',
+          fontSize: 12, lineHeight: 1.5, alignItems: 'flex-start',
+        }}>
+          <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+          <span>
+            Le solde affichera le budget comme <strong>déjà engagé dès le lancement</strong>. Les fonds ne quittent réellement votre compte qu'à la <strong>clôture de la campagne</strong> :
+            seules les acceptations effectives sont alors débitées (récompenses prospects + 10 % commission BUUPP).
+            Sans acceptation, <strong>aucun centime ne quitte votre wallet</strong>.
+          </span>
+        </div>
+        {walletBalanceEur != null && walletBalanceEur < totalToDebit && (
+          <div className="row" style={{
+            marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+            background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
+            fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+          }} role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis (budget + commission max.).</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2357,8 +2666,34 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
         {/* Étape 8 — Récap (anciennement étape 6) */}
         {step === 8 && (
           <div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Récapitulatif de votre campagne</div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Vérifiez tous les paramètres avant de lancer.</div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>
+              {isDuplicate ? 'Duplication de campagne' : 'Récapitulatif de votre campagne'}
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>
+              {isDuplicate
+                ? 'Vérifiez tous les paramètres avant de relancer.'
+                : 'Vérifiez tous les paramètres avant de lancer.'}
+            </div>
+
+            {isDuplicate && (
+              <div className="row" style={{
+                marginBottom: 18, gap: 12, padding: '12px 14px', borderRadius: 10,
+                background: 'color-mix(in oklab, var(--accent) 7%, var(--paper))',
+                border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))',
+                color: 'var(--ink-2)', fontSize: 13, lineHeight: 1.55,
+                alignItems: 'flex-start',
+              }}>
+                <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1, flexShrink: 0, color: 'var(--accent)' }}>
+                  <Icon name="copy" size={14}/>
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ color: 'var(--ink)' }}>Voici ce que vous aviez choisi lors de cette campagne</strong>
+                  {dupSourceName && <span className="muted"> — « {dupSourceName} »</span>}.
+                  {' '}Modifiez ce que vous voulez en cliquant sur <em>Modifier</em>, ou lancez tel quel.
+                  {dupLoading && <span className="muted"> · Chargement des paramètres…</span>}
+                </div>
+              </div>
+            )}
 
             {costPreview}
 
@@ -2408,10 +2743,50 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                 <span className="muted" style={{ fontSize: 12 }}>Coût par contact</span>
                 <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{cpc > 0 ? fmtEur(cpc) : '—'}</span>
               </div>
-              <div className="row between" style={{ padding: '10px 0' }}>
-                <span className="muted" style={{ fontSize: 12 }}>Budget total</span>
+              <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                <span className="muted" style={{ fontSize: 12 }}>Budget campagne</span>
                 <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{total > 0 ? fmtEur(total) : '—'}</span>
               </div>
+              <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  Commission BUUPP (max.)
+                  <span className="mono" style={{
+                    fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                    background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+                    color: 'var(--accent)', fontWeight: 600,
+                  }}>10 % = commission BUUPP</span>
+                </span>
+                <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{total > 0 ? `jusqu'à ${fmtEur(commission)}` : '—'}</span>
+              </div>
+              <div className="row between" style={{ padding: '12px 0 4px' }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Réservé sur votre solde</span>
+                <span className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{total > 0 ? fmtEur(totalToDebit) : '—'}</span>
+              </div>
+              <div className="row" style={{
+                marginTop: 4, gap: 8, padding: '10px 12px', borderRadius: 8,
+                background: 'color-mix(in oklab, var(--good) 8%, var(--paper))',
+                border: '1px solid color-mix(in oklab, var(--good) 25%, var(--line))',
+                color: 'color-mix(in oklab, var(--good) 60%, var(--ink-2))',
+                fontSize: 12, lineHeight: 1.5, alignItems: 'flex-start',
+              }}>
+                <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+                <span>
+                  Votre solde affichera ce montant comme <strong>déjà engagé dès le lancement</strong>, mais les fonds ne quittent
+                  réellement votre compte qu'à la <strong>clôture de la campagne</strong> (dans {durationMeta?.label?.toLowerCase?.() || 'la fenêtre choisie'}).
+                  Seules les <strong>acceptations effectives</strong> sont facturées (rewards + 10 % commission BUUPP) ; sans aucune acceptation,
+                  rien n'est prélevé et la réserve vous est restituée.
+                </span>
+              </div>
+              {walletBalanceEur != null && total > 0 && walletBalanceEur < totalToDebit && (
+                <div className="row" style={{
+                  marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+                  background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
+                  fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+                }} role="alert">
+                  <span aria-hidden="true">⚠</span>
+                  <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis.</span>
+                </div>
+              )}
             </div>
 
             <div className="alert-block" style={{ padding: 14, borderRadius: 10,
@@ -2441,12 +2816,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                   if (!canLaunch) return;
                   await refreshWalletBalance();
                   const balance = Number(walletBalanceEur ?? 0);
-                  const totalNeeded = total + planMonthlyEur;
+                  // Commission BUUPP = 10 % du budget (cf. backend).
+                  const commission = Math.round(total * 0.10 * 100) / 100;
+                  const totalNeeded = total + commission;
                   if (balance < totalNeeded) {
                     setInsufficient({
                       balance,
                       campaignTotal: total,
-                      planFee: planMonthlyEur,
+                      commission,
                       needed: totalNeeded,
                       missing: Math.max(0, totalNeeded - balance),
                     });
@@ -2475,20 +2852,26 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
                     const j = await r.json();
                     if (!r.ok) {
                       if (r.status === 402) {
+                        const wallet = (j.walletCents || 0) / 100;
+                        const needed = (j.neededCents || 0) / 100;
+                        const commission = j.commissionCents != null
+                          ? j.commissionCents / 100
+                          : Math.round(total * 0.10 * 100) / 100;
                         setInsufficient({
-                          balance: (j.walletCents || 0) / 100,
+                          balance: wallet,
                           campaignTotal: total,
-                          planFee: planMonthlyEur,
-                          needed: (j.neededCents || 0) / 100,
-                          missing: Math.max(0, ((j.neededCents || 0) - (j.walletCents || 0)) / 100),
+                          commission,
+                          needed,
+                          missing: Math.max(0, needed - wallet),
                         });
                         return;
                       }
-                      if (r.status === 403 && j?.error === 'starter_cap_reached') {
-                        // Le serveur a refusé : le cap Starter (2 campagnes
-                        // actives) est atteint. On ré-ouvre le sélecteur de
-                        // plan en mode bloquant pour proposer l'upgrade Pro.
-                        setActiveCampaignsCount(Number(j.activeCount ?? STARTER_ACTIVE_CAP));
+                      if (r.status === 403 && j?.error === 'mode_cap_reached') {
+                        // Le serveur a refusé : le quota du cycle est atteint.
+                        // On ré-ouvre le sélecteur de mode pour démarrer un
+                        // nouveau cycle (Starter : 2 / Pro : 10).
+                        setCycleCount(Number(j.cycleCount ?? cycleCap ?? 2));
+                        setCycleCap(Number(j.cap ?? cycleCap ?? 2));
                         setCapReached(true);
                         setPlanChosen(false);
                         setPlanModalOpen(true);
@@ -2566,15 +2949,18 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations }) {
           currentPlan={plan}
           specs={planSpecs}
           capReached={capReached}
-          activeCampaignsCount={activeCampaignsCount}
-          starterCap={STARTER_ACTIVE_CAP}
+          capPlan={plan}
+          cycleCount={cycleCount}
           onChoose={(p) => {
             setPlan(p);
             setPlanChosen(true);
             setPlanModalOpen(false);
-            // Le cap ne s'applique qu'au plan Starter — passer en Pro
-            // libère immédiatement la création de campagne.
-            if (p === 'pro') setCapReached(false);
+            // Choisir un mode (re)démarre un cycle : le compteur côté
+            // serveur a été remis à 0, on resynchronise localement.
+            setCycleCount(0);
+            setCapReached(false);
+            const nextCap = planSpecs?.[p]?.maxCampaigns ?? (p === 'pro' ? 10 : 2);
+            setCycleCap(nextCap);
           }}
           onClose={() => {
             // Refus de choisir → on retourne à l'écran précédent (campagnes)
@@ -3480,7 +3866,9 @@ function Facturation() {
           [
             'Abonnement actuel',
             planInfo ? planInfo.label : '…',
-            planInfo ? `${Number(planInfo.monthlyEur).toFixed(0)} € / mois` : '—',
+            planInfo
+              ? `${Number(planInfo.monthlyEur).toFixed(0)} € / ${planInfo.maxCampaigns ?? (planInfo.plan === 'pro' ? 10 : 2)} campagnes`
+              : '—',
           ],
           ['Renouvellement', '02 mai 2026', 'Prélèvement auto.'],
           ['Carte enregistrée', 'Visa ••4521', 'Expire 08/28'],
@@ -3952,11 +4340,37 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
   );
 }
 
-function CampaignDetail({ camp, onBack }) {
+function CampaignDetail({ camp, onBack, onDuplicate }) {
   const [tab, setTab] = useState('overview');
   // null = en cours de chargement, objet = data fetchée, string = erreur.
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  // Modale de confirmation prolongation (one-time +10 €).
+  const [extendOpen, setExtendOpen] = useState(false);
+  // Modale d'info pause 48 h (réservée aux campagnes 7d, une seule fois).
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const togglePauseStatus = async (campId, nextStatus) => {
+    try {
+      const r = await fetch(`/api/pro/campaigns/${campId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert("Échec : " + (j?.error || r.status));
+        return false;
+      }
+      try { window.dispatchEvent(new Event('pro:overview-changed')); } catch {}
+      setReloadKey(k => k + 1);
+      return true;
+    } catch (e) {
+      alert("Erreur réseau : " + (e.message || ''));
+      return false;
+    }
+  };
 
   // Camp est l'objet de la liste (cf. Campagnes → onDetail(c)). On l'utilise
   // pour des fallbacks d'affichage tant que le détail complet n'a pas répondu.
@@ -3980,7 +4394,7 @@ function CampaignDetail({ camp, onBack }) {
       .then(j => { if (!cancelled) setData(j); })
       .catch(e => { if (!cancelled) setLoadError(e.message || 'load_failed'); });
     return () => { cancelled = true; };
-  }, [campId]);
+  }, [campId, reloadKey]);
 
   // Remonte en haut à chaque changement d'onglet pour que l'utilisateur
   // n'atterrisse pas en bas du nouvel onglet après son clic.
@@ -4044,6 +4458,15 @@ function CampaignDetail({ camp, onBack }) {
   const budgetEur = Number(data.budgetEur ?? 0);
   const spentEur = Number(data.spentEur ?? 0);
   const remainingEur = Number(data.remainingEur ?? Math.max(0, budgetEur - spentEur));
+  // Commission BUUPP = 10 % du budget. Le solde du pro est débité de
+  // l'intégralité (campagne + commission), donc la consommation du budget
+  // intègre proportionnellement la commission.
+  const COMMISSION_RATE = 0.10;
+  const commissionTotalEur = budgetEur * COMMISSION_RATE;
+  const commissionSpentEur = spentEur * COMMISSION_RATE;
+  const budgetWithCommissionEur = budgetEur + commissionTotalEur;
+  const spentWithCommissionEur = spentEur + commissionSpentEur;
+  const remainingWithCommissionEur = Math.max(0, budgetWithCommissionEur - spentWithCommissionEur);
   const cpcEur = Number(data.costPerContactEur ?? 0);
   const avgCostEur = Number(data.avgCostEur ?? cpcEur);
   const winCount = Number(data.winCount ?? 0);
@@ -4118,13 +4541,31 @@ function CampaignDetail({ camp, onBack }) {
             </div>
           </div>
           <div className="row gap-2">
-            <button className="btn btn-ghost btn-sm"><Icon name="copy" size={12}/> Dupliquer</button>
-            <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Exporter</button>
-            <button className="btn btn-ghost btn-sm">
-              <Icon name={status === 'active' ? 'pause' : 'play'} size={12}/>
-              {status === 'active' ? 'Mettre en pause' : 'Relancer'}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onDuplicate?.(data.id)}
+              title="Relancer la même campagne avec les mêmes paramètres"
+            >
+              <Icon name="copy" size={12}/> Dupliquer
             </button>
-            <button className="btn btn-primary btn-sm"><Icon name="edit" size={12}/> Modifier</button>
+            {status === 'active' && data.pauseEligible && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setPauseOpen(true)}
+                title="Mettre la campagne en pause 48 h (une seule fois)"
+              >
+                <Icon name="pause" size={12}/> Mettre en pause
+              </button>
+            )}
+            {status === 'paused' && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => togglePauseStatus(data.id, 'active')}
+                title="Reprendre la campagne maintenant — le temps restant est préservé"
+              >
+                <Icon name="play" size={12}/> Relancer
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -4133,8 +4574,8 @@ function CampaignDetail({ camp, onBack }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
           ['Budget consommé',
-            fmt2(spentEur) + ' € / ' + fmt2(budgetEur) + ' €',
-            (budgetEur > 0 ? Math.round(spentEur / budgetEur * 100) : 0) + '% engagé',
+            fmt2(spentWithCommissionEur) + ' € / ' + fmt2(budgetWithCommissionEur) + ' €',
+            (budgetWithCommissionEur > 0 ? Math.round(spentWithCommissionEur / budgetWithCommissionEur * 100) : 0) + '% engagé · commission 10 % incluse',
             'wallet'],
           ['Contacts obtenus',
             String(winCount),
@@ -4142,7 +4583,20 @@ function CampaignDetail({ camp, onBack }) {
             'users'],
           ['Taux d\'acceptation',
             acceptanceRate == null ? '—' : `${acceptanceRate}%`,
-            acceptanceRate == null ? 'pas encore de décision' : `${data.funnel?.refused || 0} refus · ${data.funnel?.expired || 0} expirés`,
+            (() => {
+              if (acceptanceRate == null) return 'aucune sollicitation envoyée';
+              const sent = Number(data.funnel?.sent ?? 0);
+              const pending = Number(data.funnel?.pending ?? 0);
+              const refused = Number(data.funnel?.refused ?? 0);
+              const expired = Number(data.funnel?.expired ?? 0);
+              const parts = [`${winCount} / ${sent} sollicité${sent > 1 ? 's' : ''}`];
+              const tail = [];
+              if (pending > 0) tail.push(`${pending} en attente`);
+              if (refused > 0) tail.push(`${refused} refus`);
+              if (expired > 0) tail.push(`${expired} expiré${expired > 1 ? 's' : ''}`);
+              if (tail.length > 0) parts.push(tail.join(' · '));
+              return parts.join(' · ');
+            })(),
             'trend'],
           ['Coût moyen / contact',
             fmt2(avgCostEur) + ' €',
@@ -4198,9 +4652,26 @@ function CampaignDetail({ camp, onBack }) {
             )}
           </div>
         </div>
-        {status === 'active' && (
-          <button className="btn btn-primary btn-sm"><Icon name="plus" size={12}/> Prolonger · 10 €</button>
-        )}
+        {(() => {
+          if (data?.extensionUsed) {
+            return (
+              <span className="chip" style={{ fontSize: 11, padding: '6px 12px' }}>
+                Prolongée {data.extendedAtLabel ? `le ${data.extendedAtLabel}` : ''}
+              </span>
+            );
+          }
+          if (data?.extendEligible) {
+            return (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setExtendOpen(true)}
+              >
+                <Icon name="plus" size={12}/> Prolonger · 10 €
+              </button>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Tabs */}
@@ -4278,16 +4749,49 @@ function CampaignDetail({ camp, onBack }) {
             <div className="row between" style={{ marginBottom: 20 }}>
               <div>
                 <div className="serif" style={{ fontSize: 22 }}>Budget</div>
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{fmt2(spentEur)} € engagés sur un budget de {fmt2(budgetEur)} €</div>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  {fmt2(spentWithCommissionEur)} € engagés sur un budget de {fmt2(budgetWithCommissionEur)} €
+                  <span className="mono" style={{
+                    marginLeft: 8, fontSize: 11, padding: '2px 6px', borderRadius: 6,
+                    background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+                    color: 'var(--accent)', fontWeight: 600,
+                  }}>commission 10 % incluse</span>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono caps muted" style={{ fontSize: 10 }}>Reste à engager</div>
-                <div className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>{fmt2(remainingEur)} €</div>
+                <div className="serif tnum" style={{ fontSize: 22, color: 'var(--accent)' }}>{fmt2(remainingWithCommissionEur)} €</div>
               </div>
             </div>
-            <Progress value={budgetEur > 0 ? spentEur / budgetEur : 0}/>
+            <Progress value={budgetWithCommissionEur > 0 ? spentWithCommissionEur / budgetWithCommissionEur : 0}/>
             <div className="row between mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 8 }}>
-              <span>0 €</span><span>{fmt2(budgetEur)} €</span>
+              <span>0 €</span><span>{fmt2(budgetWithCommissionEur)} €</span>
+            </div>
+            <div style={{
+              marginTop: 14, paddingTop: 14, borderTop: '1px dashed var(--line)',
+              display: 'flex', flexDirection: 'column', gap: 10,
+              fontSize: 12, color: 'var(--ink-3)',
+            }}>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 16, justifyContent: 'space-between' }}>
+                <span>Budget campagne : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(budgetEur)} €</strong></span>
+                <span>Commission BUUPP max. (10 %) : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(commissionTotalEur)} €</strong></span>
+                <span>Commission engagée à ce jour : <strong className="mono tnum" style={{ color: 'var(--accent)' }}>{fmt2(commissionSpentEur)} €</strong></span>
+              </div>
+              <div className="row" style={{
+                gap: 8, padding: '8px 10px', borderRadius: 8,
+                background: 'color-mix(in oklab, var(--good) 8%, var(--paper))',
+                border: '1px solid color-mix(in oklab, var(--good) 25%, var(--line))',
+                color: 'color-mix(in oklab, var(--good) 60%, var(--ink-2))',
+                lineHeight: 1.5, alignItems: 'flex-start',
+              }}>
+                <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+                <span>
+                  La commission BUUPP n'est due qu'à l'acceptation d'un prospect.
+                  {winCount === 0
+                    ? ' Aucun prospect n\'a encore accepté → aucune commission n\'est acquise.'
+                    : ' Elle est calculée proportionnellement aux acceptations enregistrées.'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -4361,7 +4865,9 @@ function CampaignDetail({ camp, onBack }) {
               ['Contacts souhaités',  String(objectivePlannedContacts || '—')],
               ['Durée',               tg.days != null ? (tg.days + ' jour' + (tg.days > 1 ? 's' : '')) : '—'],
               ['Mode',                tg.poolLabel || '—'],
-              ['Budget total',        fmt2(budgetEur) + ' €'],
+              ['Budget campagne',     fmt2(budgetEur) + ' €'],
+              ['Commission BUUPP max. (10 %)', fmt2(commissionTotalEur) + ' € · prélevée uniquement sur acceptations'],
+              ['Réservé sur le solde', fmt2(budgetWithCommissionEur) + ' €'],
               ['Coût max / contact',  fmt2(cpcEur) + ' €'],
             ].map(([l, v], i, arr) => (
               <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
@@ -4407,17 +4913,46 @@ function CampaignDetail({ camp, onBack }) {
             </div>
             <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Relevé complet</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
             {[
-              ['Total débité',        fmt2(spentEur) + ' €'],
-              ['Contacts facturés',   `${winCount} / ${objectivePlannedContacts || '—'}`],
-              ['Moyenne / contact',   fmt2(avgCostEur) + ' €'],
-            ].map(([l, v], i) => (
+              ['Total débité',        fmt2(spentWithCommissionEur) + ' €', 'commission 10 % incluse'],
+              ['Contacts facturés',   `${winCount} / ${objectivePlannedContacts || '—'}`, ''],
+              ['Moyenne / contact',   fmt2(avgCostEur) + ' €', ''],
+            ].map(([l, v, sub], i) => (
               <div key={i} style={{ padding: 16, background: 'var(--ivory-2)', borderRadius: 10 }}>
                 <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{l}</div>
                 <div className="serif tnum" style={{ fontSize: 22 }}>{v}</div>
+                {sub && (
+                  <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4 }}>{sub}</div>
+                )}
               </div>
             ))}
+          </div>
+          <div style={{
+            padding: '12px 14px', borderRadius: 10,
+            background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--accent) 22%, var(--line))',
+            marginBottom: 16, fontSize: 13, lineHeight: 1.5, color: 'var(--ink-2)',
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8,
+          }}>
+            <div>Budget campagne consommé : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(spentEur)} €</strong></div>
+            <div>Commission BUUPP acquise (10 %) : <strong className="mono tnum" style={{ color: 'var(--accent)' }}>{fmt2(commissionSpentEur)} €</strong></div>
+            <div>Total débité du solde : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(spentWithCommissionEur)} €</strong></div>
+          </div>
+          <div className="row" style={{
+            gap: 8, padding: '10px 12px', borderRadius: 8,
+            background: 'color-mix(in oklab, var(--good) 8%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--good) 25%, var(--line))',
+            color: 'color-mix(in oklab, var(--good) 60%, var(--ink-2))',
+            fontSize: 12, lineHeight: 1.5, alignItems: 'flex-start', marginBottom: 24,
+          }}>
+            <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+            <span>
+              <strong>Aucune commission n'est due si aucun prospect n'accepte.</strong>{' '}
+              {winCount === 0
+                ? 'Cette campagne n\'a encore aucune acceptation enregistrée — aucune commission BUUPP n\'a été facturée.'
+                : `La commission est facturée à hauteur de 10 % du gain de chaque prospect ayant accepté (${winCount} acceptation${winCount > 1 ? 's' : ''} à ce jour).`}
+            </span>
           </div>
           {(data.contacts?.length || 0) === 0 ? (
             <div className="muted" style={{ fontSize: 13, padding: 16, textAlign: 'center' }}>
@@ -4443,6 +4978,146 @@ function CampaignDetail({ camp, onBack }) {
           )}
         </div>
       )}
+      {extendOpen && data && (
+        <ExtendCampaignModal
+          camp={data}
+          onCancel={() => setExtendOpen(false)}
+          onConfirm={async () => {
+            try {
+              const r = await fetch(`/api/pro/campaigns/${campId}/extend`, { method: 'POST' });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) {
+                alert("Échec de la prolongation : " + (j?.error || r.status));
+                return;
+              }
+              try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+              setExtendOpen(false);
+              setReloadKey(k => k + 1);
+            } catch (e) {
+              alert("Erreur réseau : " + (e.message || ''));
+            }
+          }}
+        />
+      )}
+      {pauseOpen && data && (
+        <PauseCampaignModal
+          camp={data}
+          onCancel={() => setPauseOpen(false)}
+          onConfirm={async () => {
+            const ok = await togglePauseStatus(data.id, 'paused');
+            setPauseOpen(false);
+            if (!ok) return;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Modale de confirmation pour la prolongation one-time d'une campagne.
+   Explique : durée ajoutée = durée initiale, action irréversible (10 €
+   débités du wallet pro non remboursables), une seule prolongation par
+   campagne. */
+function ExtendCampaignModal({ camp, onCancel, onConfirm }) {
+  const [submitting, setSubmitting] = useState(false);
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try { await onConfirm(); }
+    finally { setSubmitting(false); }
+  };
+  const durationKey = camp?.targeting?.durationKey;
+  const DURATION_LABEL = { '1h': '1 heure', '24h': '24 heures', '48h': '48 heures', '7d': '7 jours' };
+  const durationLabel = DURATION_LABEL[durationKey] || 'la durée initiale';
+  const fmtFr = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const currentEnd = camp?.endsAt ? fmtFr.format(new Date(camp.endsAt)) : '—';
+  const newEnd = (() => {
+    if (!camp?.endsAt) return '—';
+    const ms = { '1h': 3600e3, '24h': 86400e3, '48h': 172800e3, '7d': 7*86400e3 }[durationKey];
+    if (!ms) return '—';
+    return fmtFr.format(new Date(new Date(camp.endsAt).getTime() + ms));
+  })();
+  return (
+    <div role="dialog" aria-modal="true" className="extend-modal-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 230,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 16px 80px',
+    }}>
+      <div className="extend-modal-card" style={{
+        position: 'relative', maxWidth: 540, width: '100%',
+        background: 'var(--paper)', borderRadius: 18,
+        padding: 'clamp(20px, 4vw, 32px)',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0', borderTop: '4px solid var(--accent)',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 56, height: 56, margin: '0 auto 12px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--accent) 30%, var(--line))',
+            color: 'var(--accent)',
+          }}>
+            <Icon name="clock" size={26} stroke={2}/>
+          </div>
+          <div className="serif" style={{ fontSize: 'clamp(20px, 3vw, 24px)', lineHeight: 1.2, marginBottom: 6 }}>
+            Prolonger la campagne
+          </div>
+          <div className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, maxWidth: 460, margin: '0 auto' }}>
+            On ajoute <strong style={{ color: 'var(--ink)' }}>{durationLabel}</strong> supplémentaires à
+            <strong style={{ color: 'var(--ink)' }}> {camp?.name}</strong> moyennant <strong style={{ color: 'var(--ink)' }}>10 € HT</strong>.
+            La durée ajoutée est identique à la durée initiale choisie.
+          </div>
+        </div>
+
+        <ul style={{
+          listStyle: 'none', padding: 0, margin: '0 0 14px',
+          background: 'var(--ivory-2)', border: '1px solid var(--line)', borderRadius: 12,
+          fontSize: 13, lineHeight: 1.55,
+        }}>
+          {[
+            ['📅', <>Fin actuelle : <strong>{currentEnd}</strong></>],
+            ['⏩', <>Nouvelle fin : <strong style={{ color: 'var(--accent)' }}>{newEnd}</strong></>],
+            ['🔁', <><strong>Pas de nouvelle campagne</strong> : on prolonge celle-ci, code BUUPP, prospects matchés et brief restent identiques.</>],
+            ['⚠️', <>Action irréversible : <strong>une campagne ne peut être prolongée qu'une seule fois</strong>.</>],
+            ['💳', <>10 € HT débités immédiatement de votre solde — non remboursables.</>],
+          ].map(([icon, text], i, arr) => (
+            <li key={i} className="row" style={{
+              gap: 12, padding: '10px 14px', alignItems: 'flex-start',
+              borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none',
+            }}>
+              <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>{icon}</span>
+              <span style={{ color: 'var(--ink-2)' }}>{text}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-ghost"
+            onClick={onCancel}
+            disabled={submitting}
+            style={{ flex: 1, minWidth: 120 }}
+          >
+            Annuler
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleConfirm}
+            disabled={submitting}
+            style={{ flex: 2, minWidth: 200 }}
+          >
+            {submitting ? 'Prolongation…' : <>Confirmer · 10 € HT <Icon name="arrow" size={12}/></>}
+          </button>
+        </div>
+
+        <style>{`
+          @media (max-width: 540px) {
+            .extend-modal-overlay { align-items: stretch !important; padding: 0 !important; }
+            .extend-modal-card { border-radius: 0 !important; min-height: 100vh; }
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
@@ -4790,10 +5465,11 @@ function PlanSwitcherSection() {
       label: 'Starter',
       color: 'var(--ink)',
       maxProspects: specs?.starter?.maxProspects ?? 50,
+      maxCampaigns: specs?.starter?.maxCampaigns ?? 2,
       monthlyEur: specs?.starter?.monthlyEur ?? 19,
       features: [
         "Jusqu'à 50 prospects par campagne",
-        '2 campagnes actives en parallèle',
+        '2 campagnes par cycle',
         'Ciblage par paliers 1 à 3',
       ],
     },
@@ -4803,10 +5479,11 @@ function PlanSwitcherSection() {
       color: 'var(--accent)',
       badge: 'Recommandé',
       maxProspects: specs?.pro?.maxProspects ?? 500,
+      maxCampaigns: specs?.pro?.maxCampaigns ?? 10,
       monthlyEur: specs?.pro?.monthlyEur ?? 89,
       features: [
         "Jusqu'à 500 prospects par campagne",
-        'Campagnes actives illimitées',
+        '10 campagnes par cycle',
         'Tous les paliers 1 à 5',
         'Accès anticipé aux nouvelles fonctionnalités',
       ],
@@ -4819,7 +5496,7 @@ function PlanSwitcherSection() {
         <div style={{ minWidth: 0 }}>
           <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>Formule d'abonnement</div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>
-            La formule détermine le nombre de prospects par campagne, le nombre de campagnes actives en parallèle
+            La formule détermine le nombre de prospects par campagne, le nombre de campagnes incluses dans votre cycle
             et les paliers de données accessibles dans le wizard de création.
           </div>
         </div>
@@ -4859,7 +5536,7 @@ function PlanSwitcherSection() {
                 <div className="serif" style={{ fontSize: 22, color: p.color }}>{p.label}</div>
                 <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
                   <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
-                  <span className="muted"> / campagne</span>
+                  <span className="muted"> / {p.maxCampaigns} campagnes</span>
                 </div>
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>

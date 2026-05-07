@@ -34,14 +34,28 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data: pro } = await admin
     .from("pro_accounts")
-    .select("wallet_balance_cents, raison_sociale")
+    .select("wallet_balance_cents, wallet_reserved_cents, raison_sociale")
     .eq("id", proId)
     .single();
 
-  const cents = Number(pro?.wallet_balance_cents ?? 0);
+  // Solde réel (`walletBalanceCents`) — n'inclut PAS encore les débits
+  // des campagnes en cours (le pro les voit déjà mais le wallet n'a
+  // pas encore été ponctionné).
+  // Réservé (`walletReservedCents`) — somme des (budget + commission max)
+  // des campagnes actives non encore clôturées. Croisée à la création,
+  // libérée à la clôture (close_campaign_settle).
+  // Disponible (`walletAvailableCents`) = solde - réservé. C'est la
+  // valeur à utiliser pour gating des nouvelles campagnes.
+  const balance = Number(pro?.wallet_balance_cents ?? 0);
+  const reserved = Number(pro?.wallet_reserved_cents ?? 0);
+  const available = Math.max(0, balance - reserved);
   return NextResponse.json({
-    walletBalanceCents: cents,
-    walletBalanceEur: Math.round(cents) / 100,
+    walletBalanceCents: balance,
+    walletBalanceEur: Math.round(balance) / 100,
+    walletReservedCents: reserved,
+    walletReservedEur: Math.round(reserved) / 100,
+    walletAvailableCents: available,
+    walletAvailableEur: Math.round(available) / 100,
     raisonSociale: pro?.raison_sociale ?? null,
   });
 }

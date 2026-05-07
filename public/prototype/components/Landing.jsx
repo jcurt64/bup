@@ -871,9 +871,10 @@ function Pricing({ go }) {
           <PricingCard
             name="Starter"
             price="19"
+            priceSuffix="€ / 2 campagnes"
             features={[
               "Jusqu'à 50 prospects par campagne",
-              '2 campagnes actives en parallèle',
+              '2 campagnes par cycle',
               'Ciblage par paliers 1–3',
             ]}
             cta="Démarrer en Starter"
@@ -882,10 +883,11 @@ function Pricing({ go }) {
           <PricingCard
             name="Pro"
             price="89"
+            priceSuffix="€ / 10 campagnes"
             featured
             features={[
               "Jusqu'à 500 prospects par campagne",
-              'Campagnes actives illimitées',
+              '10 campagnes par cycle',
               'Tous les paliers 1–5',
               'Accès anticipé aux nouvelles fonctionnalités',
             ]}
@@ -898,7 +900,7 @@ function Pricing({ go }) {
   );
 }
 
-function PricingCard({ name, price, features, cta, featured, go }) {
+function PricingCard({ name, price, priceSuffix = '€ / campagne', features, cta, featured, go }) {
   return (
     <div className="card" style={{
       padding: 40,
@@ -917,7 +919,7 @@ function PricingCard({ name, price, features, cta, featured, go }) {
       <div className="serif" style={{ fontSize: 36, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{name}</div>
       <div className="row" style={{ alignItems: 'baseline', marginTop: 24, gap: 8 }}>
         <span className="serif tnum" style={{ fontSize: 80, lineHeight: 1, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{price}</span>
-        <span style={{ fontSize: 16, color: featured ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€ / campagne</span>
+        <span style={{ fontSize: 16, color: featured ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>{priceSuffix}</span>
       </div>
       <div style={{ marginTop: 32, borderTop: `1px solid ${featured ? 'rgba(255,255,255,.1)' : 'var(--line)'}`, paddingTop: 24 }}>
         {features.map((f, i) => (

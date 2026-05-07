@@ -42,6 +42,8 @@ type Targeting = {
   kwFilter?: boolean;
   poolMode?: string;
   days?: number;
+  durationKey?: string;
+  excludeCertified?: boolean;
 };
 
 const TIER_NUM_TO_LABEL: Record<number, string> = {
@@ -98,7 +100,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
     .select(
       `id, name, status, brief, targeting,
        budget_cents, spent_cents, cost_per_contact_cents, matched_count,
-       starts_at, ends_at, created_at, pro_account_id`,
+       starts_at, ends_at, created_at, pro_account_id,
+       extension_used, extended_at,
+       pause_used, paused_at, auto_resume_at`,
     )
     .eq("id", id)
     .single();
@@ -157,8 +161,14 @@ export async function GET(_req: Request, ctx: RouteContext) {
   // "Wins" = relations où le prospect a accepté (en séquestre OU déjà créditées).
   const winCount = funnel.accepted + funnel.settled;
   const decidedCount = winCount + funnel.refused + funnel.expired;
-  const acceptanceRate = decidedCount > 0
-    ? Math.round((winCount / decidedCount) * 1000) / 10
+  // Taux d'acceptation = acceptations / sollicitations envoyées.
+  // Bug corrigé : auparavant on divisait par decidedCount, ce qui faisait
+  // afficher 100 % alors qu'une seule personne sur 10 avait accepté
+  // (les 9 autres étaient encore "pending"). Le pro veut savoir combien
+  // de prospects qu'il a sollicités ont accepté, pas seulement le ratio
+  // parmi ceux ayant déjà tranché.
+  const acceptanceRate = funnel.sent > 0
+    ? Math.round((winCount / funnel.sent) * 1000) / 10
     : null;
 
   // Liste des contacts : seulement les relations gagnées (accepted/settled),
@@ -267,9 +277,33 @@ export async function GET(_req: Request, ctx: RouteContext) {
       poolMode: targeting?.poolMode ?? null,
       poolLabel: targeting?.poolMode ? POOL_LABEL[targeting.poolMode] ?? targeting.poolMode : "—",
       days: targeting?.days ?? null,
+      // Champs supplémentaires nécessaires à la duplication (pré-remplissage
+      // du wizard) : durée originale + flag exclusion certifié confiance.
+      durationKey: targeting?.durationKey ?? null,
+      excludeCertified: !!targeting?.excludeCertified,
     },
+    // Contacts cible originaux (= budget/cpc, arrondi à l'entier).
+    // Distinct de `contacts` (liste des prospects acceptés ci-dessous).
+    plannedContacts: cpcEur > 0 ? Math.round(budgetEur / cpcEur) : 0,
+    // Métadonnées de prolongation.
+    extensionUsed: Boolean(camp.extension_used),
+    extendedAtLabel: camp.extended_at ? fmtDate(camp.extended_at) : null,
+    extendEligible:
+      !camp.extension_used &&
+      (camp.status === "active" || camp.status === "paused") &&
+      !!camp.ends_at &&
+      new Date(camp.ends_at).getTime() > Date.now() &&
+      !!targeting?.durationKey,
+    // Métadonnées de pause 48 h (ouverte aux campagnes 7d uniquement,
+    // une seule fois par campagne — cf. Campagnes.tsx).
+    pauseUsed: Boolean(camp.pause_used),
+    pausedAt: camp.paused_at ?? null,
+    autoResumeAt: camp.auto_resume_at ?? null,
+    pauseEligible: targeting?.durationKey === "7d" && !camp.pause_used,
+    durationKey: targeting?.durationKey ?? null,
     funnel,
     acceptanceRate,
+    decidedCount,
     winCount,
     contacts,
     activity,
@@ -301,7 +335,9 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   const admin = createSupabaseAdminClient();
   const { data: camp, error: readErr } = await admin
     .from("campaigns")
-    .select("id, status, ends_at, pro_account_id")
+    .select(
+      "id, status, ends_at, pro_account_id, targeting, paused_at, pause_used",
+    )
     .eq("id", id)
     .single();
   if (readErr || !camp) {
@@ -317,19 +353,81 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   if (!valid) {
     return NextResponse.json({ error: "invalid_transition" }, { status: 409 });
   }
-  if (targetStatus === "active" && camp.ends_at && new Date(camp.ends_at).getTime() <= Date.now()) {
-    return NextResponse.json({ error: "campaign_expired" }, { status: 410 });
+
+  const targeting = (camp.targeting as { durationKey?: string } | null) ?? null;
+  const PAUSE_WINDOW_MS = 48 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+
+  // ─── PAUSE ──────────────────────────────────────────────────────
+  // Réservée aux campagnes 7d. Une seule pause autorisée par campagne.
+  // À la pause, on enregistre `paused_at` + `auto_resume_at = paused_at + 48h`,
+  // et on flag `pause_used=true`. ends_at n'est PAS modifié immédiatement :
+  // il sera décalé du temps réellement passé en pause au moment de la
+  // reprise (manuelle ou automatique).
+  if (targetStatus === "paused") {
+    if (targeting?.durationKey !== "7d") {
+      return NextResponse.json(
+        { error: "pause_not_allowed_duration", durationKey: targeting?.durationKey ?? null },
+        { status: 403 },
+      );
+    }
+    if (camp.pause_used) {
+      return NextResponse.json({ error: "pause_already_used" }, { status: 409 });
+    }
+    const pausedAt = new Date(nowMs).toISOString();
+    const autoResumeAt = new Date(nowMs + PAUSE_WINDOW_MS).toISOString();
+    const { error: updateErr } = await admin
+      .from("campaigns")
+      .update({
+        status: "paused",
+        paused_at: pausedAt,
+        auto_resume_at: autoResumeAt,
+        pause_used: true,
+      })
+      .eq("id", id)
+      .eq("status", "active"); // TOCTOU guard
+    if (updateErr) {
+      console.error("[/api/pro/campaigns/PATCH pause] update failed", updateErr);
+      return NextResponse.json({ error: "update_failed" }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      status: "paused",
+      pausedAt,
+      autoResumeAt,
+      pauseUsed: true,
+    });
   }
 
+  // ─── RESUME ────────────────────────────────────────────────────
+  // Manuelle (avant les 48 h). On préserve le temps restant : ends_at
+  // est décalé de la durée effective de la pause (now - paused_at).
+  if (!camp.paused_at) {
+    return NextResponse.json({ error: "missing_paused_at" }, { status: 500 });
+  }
+  const pausedMs = new Date(camp.paused_at).getTime();
+  const pauseDurationMs = Math.max(0, Math.min(PAUSE_WINDOW_MS, nowMs - pausedMs));
+  const newEndsAt = camp.ends_at
+    ? new Date(new Date(camp.ends_at).getTime() + pauseDurationMs).toISOString()
+    : null;
   const { error: updateErr } = await admin
     .from("campaigns")
-    .update({ status: targetStatus })
+    .update({
+      status: "active",
+      paused_at: null,
+      auto_resume_at: null,
+      ...(newEndsAt ? { ends_at: newEndsAt } : {}),
+    })
     .eq("id", id)
-    .eq("status", camp.status); // TOCTOU guard
+    .eq("status", "paused"); // TOCTOU guard
   if (updateErr) {
-    console.error("[/api/pro/campaigns/PATCH] update failed", updateErr);
+    console.error("[/api/pro/campaigns/PATCH resume] update failed", updateErr);
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, status: targetStatus });
+  return NextResponse.json({
+    ok: true,
+    status: "active",
+    endsAt: newEndsAt,
+    pauseDurationMs,
+  });
 }

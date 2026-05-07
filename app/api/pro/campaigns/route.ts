@@ -106,52 +106,55 @@ export async function POST(req: Request) {
 
   const { data: pro } = await admin
     .from("pro_accounts")
-    .select("wallet_balance_cents, raison_sociale, secteur, code_postal, plan")
+    .select(
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, secteur, code_postal, plan, plan_cycle_count",
+    )
     .eq("id", proId)
     .single();
   if (!pro) {
     return NextResponse.json({ error: "pro_not_found" }, { status: 404 });
   }
 
-  // Cap concurrent : 2 campagnes actives en parallèle pour Starter, illimité
-  // pour Pro. Aligné avec la card de tarif et la PlanSwitcherSection.
-  const STARTER_ACTIVE_CAP = 2;
-  if (pro.plan === "starter") {
-    const { count: activeCount, error: activeErr } = await admin
-      .from("campaigns")
-      .select("id", { count: "exact", head: true })
-      .eq("pro_account_id", proId)
-      .eq("status", "active");
-    if (activeErr) {
-      console.error("[/api/pro/campaigns] active count failed", activeErr);
-      return NextResponse.json({ error: "read_failed" }, { status: 500 });
-    }
-    if ((activeCount ?? 0) >= STARTER_ACTIVE_CAP) {
-      return NextResponse.json(
-        {
-          error: "starter_cap_reached",
-          plan: "starter",
-          activeCount: activeCount ?? 0,
-          cap: STARTER_ACTIVE_CAP,
-        },
-        { status: 403 },
-      );
-    }
-  }
-
+  // Quota par cycle (popup de mode) : 2 campagnes pour Starter, 10 pour Pro.
+  // Le compteur est remis à 0 quand le pro (re)sélectionne un mode dans le
+  // sélecteur. Quand `plan_cycle_count >= max_campaigns`, on bloque côté
+  // serveur et le client ré-ouvre la popup de mode.
   const { data: planRow } = await admin
     .from("plan_pricing")
-    .select("monthly_cents")
+    .select("monthly_cents, max_campaigns")
     .eq("plan", pro.plan)
     .single();
-  const planFeeCents = Number(planRow?.monthly_cents ?? 0);
+  const cycleCap = Number(planRow?.max_campaigns ?? (pro.plan === "pro" ? 10 : 2));
+  const cycleCount = Number(pro.plan_cycle_count ?? 0);
+  if (cycleCount >= cycleCap) {
+    return NextResponse.json(
+      {
+        error: "mode_cap_reached",
+        plan: pro.plan,
+        cycleCount,
+        cap: cycleCap,
+      },
+      { status: 403 },
+    );
+  }
 
-  if (Number(pro.wallet_balance_cents) < body.budgetCents + planFeeCents) {
+  // Commission BUUPP : 10 % du budget de la campagne (worst-case : tous
+  // les prospects acceptent). Le solde DISPONIBLE = wallet_balance -
+  // wallet_reserved (les autres campagnes actives ont déjà réservé).
+  const commissionCents = Math.round(body.budgetCents * 0.10);
+  const neededCents = body.budgetCents + commissionCents;
+  const walletAvailableCents =
+    Number(pro.wallet_balance_cents) - Number(pro.wallet_reserved_cents ?? 0);
+  if (walletAvailableCents < neededCents) {
     return NextResponse.json(
       {
         error: "insufficient_funds",
         walletCents: Number(pro.wallet_balance_cents),
-        neededCents: body.budgetCents + planFeeCents,
+        walletReservedCents: Number(pro.wallet_reserved_cents ?? 0),
+        walletAvailableCents,
+        neededCents,
+        commissionCents,
+        budgetCents: body.budgetCents,
       },
       { status: 402 },
     );
@@ -202,6 +205,10 @@ export async function POST(req: Request) {
   };
   const name = (body.name?.trim() || body.brief.trim()).slice(0, 120);
 
+  // Réservation upfront : (budget + commission max). Aucun centime ne
+  // quitte encore le wallet ; close_campaign_settle débitera réellement
+  // à la clôture (ends_at) selon les acceptations effectives.
+  const reservedCents = body.budgetCents + commissionCents;
   const { data: campaign, error: campErr } = await admin
     .from("campaigns")
     .insert({
@@ -212,6 +219,8 @@ export async function POST(req: Request) {
       targeting,
       cost_per_contact_cents: body.costPerContactCents,
       budget_cents: body.budgetCents,
+      budget_reserved_cents: reservedCents,
+      commission_max_cents: commissionCents,
       brief: body.brief.trim(),
       // Campagne ouverte immédiatement et fermée à la fin de la fenêtre
       // de réponse (= durationKey choisi par le pro). C'est exactement
@@ -225,6 +234,18 @@ export async function POST(req: Request) {
   if (campErr || !campaign) {
     console.error("[/api/pro/campaigns] insert campaign failed", campErr);
     return NextResponse.json({ error: "insert_campaign_failed" }, { status: 500 });
+  }
+
+  // Incrémente la réservation du pro. Le wallet "disponible" affiché
+  // côté UI = wallet_balance_cents - wallet_reserved_cents.
+  const { error: reserveErr } = await admin
+    .from("pro_accounts")
+    .update({
+      wallet_reserved_cents: Number(pro.wallet_reserved_cents ?? 0) + reservedCents,
+    })
+    .eq("id", proId);
+  if (reserveErr) {
+    console.error("[/api/pro/campaigns] reservation update failed", reserveErr);
   }
 
   let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
@@ -303,6 +324,16 @@ export async function POST(req: Request) {
     console.error("[/api/pro/campaigns] update matched_count/code failed", countErr);
   }
 
+  // Incrémente le compteur de cycle : à la cap+1-ème tentative, le client
+  // recevra `mode_cap_reached` (403) et ré-ouvrira la popup de mode.
+  const { error: cycleErr } = await admin
+    .from("pro_accounts")
+    .update({ plan_cycle_count: cycleCount + 1 })
+    .eq("id", proId);
+  if (cycleErr) {
+    console.error("[/api/pro/campaigns] cycle increment failed", cycleErr);
+  }
+
   // Mails fire-and-forget — Promise.allSettled non-awaité.
   const proSector = pro.secteur ?? null;
   const proName = pro.raison_sociale;
@@ -357,7 +388,12 @@ export async function GET() {
   const [{ data: camps, error: campErr }, { data: rels, error: relErr }] = await Promise.all([
     admin
       .from("campaigns")
-      .select("id, name, status, targeting, budget_cents, spent_cents, cost_per_contact_cents, created_at, code, matched_count")
+      .select(
+        `id, name, status, targeting, budget_cents, spent_cents,
+         cost_per_contact_cents, created_at, code, matched_count,
+         ends_at, paused_at, auto_resume_at, pause_used,
+         extension_used, extended_at`,
+      )
       .eq("pro_account_id", proId)
       .order("created_at", { ascending: false }),
     admin
@@ -381,9 +417,10 @@ export async function GET() {
     contactsByCampaign.set(r.campaign_id, (contactsByCampaign.get(r.campaign_id) ?? 0) + 1);
   }
 
-  type Targeting = { objectiveId?: string };
+  type Targeting = { objectiveId?: string; durationKey?: string };
   const campaigns = (camps ?? []).map((c) => {
     const targeting = (c.targeting as Targeting | null) ?? null;
+    const durationKey = targeting?.durationKey ?? null;
     return {
       id: c.id,
       name: c.name,
@@ -397,6 +434,24 @@ export async function GET() {
       avgCostEur: Number(c.cost_per_contact_cents ?? 0) / 100,
       code: c.code ?? null,
       authCode: c.code ? c.code.slice(-4) : null,
+      // Métadonnées pause/resume — la pause 48 h n'est ouverte qu'aux
+      // campagnes 7d, et seulement une fois (`pauseUsed`).
+      durationKey,
+      endsAt: c.ends_at ?? null,
+      pausedAt: c.paused_at ?? null,
+      autoResumeAt: c.auto_resume_at ?? null,
+      pauseUsed: Boolean(c.pause_used),
+      pauseEligible: durationKey === "7d" && !c.pause_used,
+      // Prolongation : disponible une seule fois, pour toutes les durées,
+      // tant que la campagne est encore active/en pause et non expirée.
+      extensionUsed: Boolean(c.extension_used),
+      extendedAt: c.extended_at ?? null,
+      extendEligible:
+        !c.extension_used &&
+        (c.status === "active" || c.status === "paused") &&
+        !!c.ends_at &&
+        new Date(c.ends_at).getTime() > Date.now() &&
+        !!durationKey,
     };
   });
 

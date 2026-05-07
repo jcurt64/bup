@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, Fragment, type CSSProperties, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  Fragment,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -758,7 +764,10 @@ function FlashDeal() {
   const load = async () => {
     try {
       const r = await fetch("/api/landing/flash-deals", { cache: "no-store" });
-      if (!r.ok) { setDeals([]); return; }
+      if (!r.ok) {
+        setDeals([]);
+        return;
+      }
       const j = await r.json();
       setDeals((j.deals || []) as Deal[]);
     } catch {
@@ -768,11 +777,17 @@ function FlashDeal() {
 
   useEffect(() => {
     let cancelled = false;
-    const safeLoad = () => { if (!cancelled) void load(); };
+    const safeLoad = () => {
+      if (!cancelled) void load();
+    };
     safeLoad();
     const t = setInterval(safeLoad, 60_000);
     const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => { cancelled = true; clearInterval(t); clearInterval(tick); };
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+      clearInterval(tick);
+    };
   }, []);
 
   // Filtre les deals dont le timer est déjà à 0 — on évite de garder à
@@ -793,7 +808,10 @@ function FlashDeal() {
   const trackItems = [...liveDeals, ...liveDeals];
 
   const fmtHms = (target: string) => {
-    const left = Math.max(0, Math.floor((new Date(target).getTime() - now) / 1000));
+    const left = Math.max(
+      0,
+      Math.floor((new Date(target).getTime() - now) / 1000),
+    );
     return `${String(Math.floor(left / 3600)).padStart(2, "0")}:${String(
       Math.floor((left % 3600) / 60),
     ).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
@@ -836,7 +854,9 @@ function FlashDeal() {
                         </>
                       ) : null}
                       <span className="sep">·</span>
-                      <strong style={{ color: "var(--ink)" }}>{reward} €</strong>
+                      <strong style={{ color: "var(--ink)" }}>
+                        {reward} €
+                      </strong>
                       <span className="flash-deal-item-timer">
                         <Icon name="clock" size={11} />
                         {hms}
@@ -845,7 +865,10 @@ function FlashDeal() {
                         Voir le détail <Icon name="arrow" size={11} />
                       </span>
                     </button>
-                    <span className="flash-deal-divider-dot" aria-hidden="true" />
+                    <span
+                      className="flash-deal-divider-dot"
+                      aria-hidden="true"
+                    />
                   </Fragment>
                 );
               })}
@@ -893,7 +916,9 @@ function FlashDealModal({
   goAuth: () => void;
   goDonnees: () => void;
 }) {
-  const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(null);
+  const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const multStr = fmtMultiplier(deal.multiplier);
   const rewardEur = (Number(deal.costPerContactCents ?? 0) / 100)
@@ -910,7 +935,10 @@ function FlashDealModal({
   if (!deal.isAuthenticated) mode = "auth";
   else if (deal.relationStatus === "pending") mode = "decide";
   else if (deal.relationStatus) mode = "already_" + deal.relationStatus;
-  else if (Array.isArray(deal.missingTierKeys) && deal.missingTierKeys.length > 0)
+  else if (
+    Array.isArray(deal.missingTierKeys) &&
+    deal.missingTierKeys.length > 0
+  )
     mode = "fill_data";
   else mode = "no_match";
 
@@ -919,11 +947,14 @@ function FlashDealModal({
     setSubmitting(action);
     setError(null);
     try {
-      const r = await fetch(`/api/prospect/relations/${deal.relationId}/decision`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
+      const r = await fetch(
+        `/api/prospect/relations/${deal.relationId}/decision`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j?.error || "Erreur");
@@ -1002,7 +1033,8 @@ function FlashDealModal({
           background: "var(--paper)",
           borderRadius: 16,
           padding: "clamp(20px, 4vw, 30px)",
-          boxShadow: "0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)",
+          boxShadow:
+            "0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)",
           margin: "auto 0",
           maxHeight: "90vh",
           overflowY: "auto",
@@ -1031,7 +1063,8 @@ function FlashDealModal({
                 padding: "3px 9px",
                 borderRadius: 999,
                 background: "color-mix(in oklab, #B91C1C 12%, var(--paper))",
-                border: "1px solid color-mix(in oklab, #B91C1C 30%, var(--line))",
+                border:
+                  "1px solid color-mix(in oklab, #B91C1C 30%, var(--line))",
                 color: "#B91C1C",
               }}
             >
@@ -1091,7 +1124,8 @@ function FlashDealModal({
           </div>
           <div style={{ fontSize: 12, color: "#A8AFC0", marginTop: 4 }}>
             Gains multipliés{" "}
-            <strong style={{ color: "#FFFEF8" }}>{multStr}</strong> — fenêtre éclair
+            <strong style={{ color: "#FFFEF8" }}>{multStr}</strong> — fenêtre
+            éclair
           </div>
         </div>
 
@@ -1101,7 +1135,8 @@ function FlashDealModal({
         >
           <Icon name="clock" size={14} />
           <span>
-            Plus que <strong className="mono tnum">{remainingHms}</strong> pour décider.
+            Plus que <strong className="mono tnum">{remainingHms}</strong> pour
+            décider.
           </span>
         </div>
 
@@ -1154,15 +1189,17 @@ function FlashDealModal({
               style={{
                 padding: "12px 14px",
                 borderRadius: 10,
-                background: "color-mix(in oklab, var(--accent) 7%, var(--paper))",
-                border: "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))",
+                background:
+                  "color-mix(in oklab, var(--accent) 7%, var(--paper))",
+                border:
+                  "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))",
                 fontSize: 13,
                 color: "var(--ink-2)",
                 marginBottom: 14,
               }}
             >
-              Pour accepter ou refuser cette offre, vous devez d&apos;abord créer
-              votre compte BUUPP.
+              Pour accepter ou refuser cette offre, vous devez d&apos;abord
+              créer votre compte BUUPP.
             </div>
             <button
               onClick={goAuth}
@@ -1245,7 +1282,8 @@ function FlashDealModal({
                 padding: "12px 14px",
                 borderRadius: 10,
                 background: "color-mix(in oklab, #B45309 7%, var(--paper))",
-                border: "1px solid color-mix(in oklab, #B45309 30%, var(--line))",
+                border:
+                  "1px solid color-mix(in oklab, #B45309 30%, var(--line))",
                 fontSize: 13,
                 color: "var(--ink-2)",
                 lineHeight: 1.55,
@@ -1293,9 +1331,10 @@ function FlashDealModal({
                 marginBottom: 12,
               }}
             >
-              Cette campagne ne correspond pas à votre profil (zone géographique,
-              tranche d&apos;âge ou centres d&apos;intérêt). Complétez vos
-              données pour augmenter vos chances d&apos;être éligible.
+              Cette campagne ne correspond pas à votre profil (zone
+              géographique, tranche d&apos;âge ou centres d&apos;intérêt).
+              Complétez vos données pour augmenter vos chances d&apos;être
+              éligible.
             </div>
             <button
               onClick={goDonnees}
@@ -1340,9 +1379,12 @@ function FlashDealModal({
                 marginBottom: 12,
               }}
             >
-              <div style={{ marginBottom: 4 }}>Vous avez refusé cette sollicitation.</div>
+              <div style={{ marginBottom: 4 }}>
+                Vous avez refusé cette sollicitation.
+              </div>
               <div className="muted" style={{ fontSize: 12 }}>
-                La campagne est encore active : vous pouvez changer d&apos;avis et accepter tant qu&apos;elle n&apos;est pas clôturée.
+                La campagne est encore active : vous pouvez changer d&apos;avis
+                et accepter tant qu&apos;elle n&apos;est pas clôturée.
               </div>
             </div>
             <button
@@ -1398,7 +1440,8 @@ function FlashDealModal({
           >
             {mode === "already_accepted" && "✓ Sollicitation déjà acceptée."}
             {mode === "already_expired" && "Cette sollicitation a expiré."}
-            {mode === "already_settled" && "✓ Sollicitation déjà acceptée — gains crédités."}
+            {mode === "already_settled" &&
+              "✓ Sollicitation déjà acceptée — gains crédités."}
           </div>
         )}
       </div>
@@ -1641,7 +1684,7 @@ function TiersTable() {
                   letterSpacing: "0.08em",
                 }}
               >
-                Prospect vérifié 100% → meilleurs gains 
+                Prospect vérifié 100% → meilleurs gains
               </span>
             </div>
             <div
@@ -2355,6 +2398,7 @@ function Stats() {
 function PricingCard({
   name,
   price,
+  priceSuffix = "€ / campagne",
   features,
   cta,
   featured,
@@ -2362,6 +2406,7 @@ function PricingCard({
 }: {
   name: string;
   price: string;
+  priceSuffix?: string;
   features: string[];
   cta: string;
   featured?: boolean;
@@ -2423,7 +2468,7 @@ function PricingCard({
             color: featured ? "rgba(255,255,255,.6)" : "var(--ink-4)",
           }}
         >
-          € / campagne
+          {priceSuffix}
         </span>
       </div>
       <div
@@ -2478,7 +2523,10 @@ function Pricing() {
     try {
       const r = await fetch("/api/me/is-pro", { cache: "no-store" });
       if (r.ok) {
-        const j = (await r.json()) as { authenticated?: boolean; isPro?: boolean };
+        const j = (await r.json()) as {
+          authenticated?: boolean;
+          isPro?: boolean;
+        };
         if (j.authenticated && j.isPro) {
           router.push("/pro");
           return;
@@ -2512,9 +2560,10 @@ function Pricing() {
           <PricingCard
             name="Starter"
             price="19"
+            priceSuffix="€ / 2 campagnes"
             features={[
               "Jusqu'à 50 prospects par campagne",
-              "2 campagnes actives en parallèle",
+              "2 campagnes par cycle",
               "Ciblage par paliers 1 à 3",
             ]}
             cta="Démarrer en Starter"
@@ -2523,10 +2572,11 @@ function Pricing() {
           <PricingCard
             name="Pro"
             price="89"
+            priceSuffix="€ / 10 campagnes"
             featured
             features={[
               "Jusqu'à 500 prospects par campagne",
-              "Campagnes actives illimitées",
+              "10 campagnes par cycle",
               "Tous les paliers 1 à 5",
               "Accès anticipé aux nouvelles fonctionnalités",
             ]}
