@@ -189,31 +189,27 @@ export async function POST(req: Request) {
     : "7d";
   const durationMeta = DURATION_MULTIPLIERS[durationKey];
 
-  // Garde-fou rémunération : `costPerContactCents` doit tomber dans la
-  // fourchette définie pour le palier le plus élevé requis. Cette grille
-  // est la même que celle exposée côté prospect dans /bareme et la home.
-  // Le multiplicateur de fenêtre (1h = ×3, 24h = ×2, etc.) s'applique en
-  // prime au-dessus du barème, donc la fourchette effective est étendue
-  // par ce facteur — un flash deal 1h à palier 5 peut donc atteindre 30 €.
+  // Garde-fou rémunération minimum : `costPerContactCents` ne peut pas
+  // tomber sous la borne basse du palier le plus élevé requis (× la
+  // durée). C'est une protection prospect : impossible pour un pro de
+  // payer moins que le minimum garanti pour les données qu'il demande.
+  // On ne fixe PAS de plafond — le wizard ajoute légitimement des sous-
+  // coûts (sous-objectif, bonus certifié confiance) qui peuvent porter
+  // le cpc au-dessus de la borne haute du barème.
   const tierRange = rangeForRequiredTiers(body.requiredTiers);
   if (tierRange) {
-    const { minCents, maxCents, tier } = tierRange;
+    const { minCents, tier } = tierRange;
     const effMin = Math.round(minCents * durationMeta.mult);
-    const effMax = Math.round(maxCents * durationMeta.mult);
-    if (
-      body.costPerContactCents < effMin ||
-      body.costPerContactCents > effMax
-    ) {
+    if (body.costPerContactCents < effMin) {
       const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
       return NextResponse.json(
         {
-          error: "cost_out_of_tier_range",
+          error: "cost_below_tier_minimum",
           tier,
           minCents: effMin,
-          maxCents: effMax,
           costPerContactCents: body.costPerContactCents,
           durationMultiplier: durationMeta.mult,
-          message: `Pour le palier ${tier} en ${durationKey}, la rémunération doit être comprise entre ${fmtEur(effMin)} € et ${fmtEur(effMax)} € par contact.`,
+          message: `Pour le palier ${tier} en ${durationKey}, la rémunération minimum est de ${fmtEur(effMin)} € par contact.`,
         },
         { status: 400 },
       );
