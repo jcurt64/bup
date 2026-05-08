@@ -211,6 +211,34 @@ export default function CguPage() {
           </p>
         </Section>
 
+        <Section title="Programme Fondateur·ice">
+          <p>
+            Toute personne s&apos;étant inscrite sur la liste d&apos;attente
+            avant la date officielle de lancement de BUUPP devient
+            <strong> fondateur·ice</strong> à la création de son compte. Ce
+            statut, permanent, ouvre droit à&nbsp;:
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+            <li>
+              une <strong>priorité de 10 minutes</strong> sur les sollicitations
+              «&nbsp;flash deal&nbsp;» (visibles aux fondateur·ices avant le
+              grand public)&nbsp;;
+            </li>
+            <li>
+              un <strong>doublement de la récompense</strong> versée pour chaque
+              sollicitation acceptée pendant le <strong>
+                1er mois suivant le lancement
+              </strong>
+              , sauf indication contraire du professionnel à l&apos;origine de
+              la sollicitation.
+            </li>
+          </ul>
+          <p>
+            Aucune action n&apos;est requise de la part du fondateur·ice : le
+            bénéfice est calculé automatiquement à l&apos;acceptation.
+          </p>
+        </Section>
+
         <div
           style={{
             marginTop: 16,
