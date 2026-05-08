@@ -462,13 +462,6 @@ function Navbar() {
           </button>
           <div className="drawer-ctas">
             <button
-              className="btn btn-lg btn-ghost"
-              style={{ justifyContent: "center" }}
-              onClick={() => go("/connexion")}
-            >
-              Se connecter
-            </button>
-            <button
               className="btn btn-lg btn-primary"
               style={{ justifyContent: "center" }}
               onClick={() => go("/inscription")}

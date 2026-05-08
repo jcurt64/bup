@@ -558,10 +558,10 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .route-nav {
     bottom: 14px !important;
     padding: 6px !important;
-    gap: 0 !important;
-    width: 78vw !important;
-    max-width: 78vw !important;
-    justify-content: space-between !important;
+    gap: 4px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    justify-content: center !important;
     overflow-x: visible !important;
   }
   /* Onglets carrés : la pastille active devient un cercle parfait
