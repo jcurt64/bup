@@ -790,6 +790,7 @@ type Deal = {
   brief: string | null;
   multiplier: number;
   costPerContactCents: number;
+  founderBonusApplied: boolean;
   requiredTiers: number[];
   requiredTierKeys: string[];
   proName: string | null;
@@ -898,6 +899,7 @@ function buildMockDeals(now: number): Deal[] {
         "Plombier-chauffagiste cherche propriétaires avec projet de remplacement chaudière dans les 6 mois.",
       multiplier: 3,
       costPerContactCents: 1200,
+      founderBonusApplied: false,
       requiredTiers: [1, 2],
       requiredTierKeys: ["identity", "localisation"],
       proName: "Plomberie Saint-Antoine",
@@ -915,6 +917,7 @@ function buildMockDeals(now: number): Deal[] {
         "Cabinet de gestion de patrimoine : prospects en projet d'achat immobilier dans les 12 mois.",
       multiplier: 4,
       costPerContactCents: 850,
+      founderBonusApplied: false,
       requiredTiers: [1, 2, 5],
       requiredTierKeys: ["identity", "localisation", "patrimoine"],
       proName: "Cap Conseil",
@@ -932,6 +935,7 @@ function buildMockDeals(now: number): Deal[] {
         "Cuisiniste artisan : recherche propriétaires en projet de rénovation cuisine, budget 8 000 € et plus.",
       multiplier: 2,
       costPerContactCents: 680,
+      founderBonusApplied: false,
       requiredTiers: [1, 2, 3],
       requiredTierKeys: ["identity", "localisation", "vie"],
       proName: "Atelier des Volets Bleus",
@@ -949,6 +953,7 @@ function buildMockDeals(now: number): Deal[] {
         "Installateur photovoltaïque : prospects propriétaires intéressés par l'auto-consommation solaire.",
       multiplier: 3,
       costPerContactCents: 1020,
+      founderBonusApplied: false,
       requiredTiers: [1, 2, 5],
       requiredTierKeys: ["identity", "localisation", "patrimoine"],
       proName: "Solaria",

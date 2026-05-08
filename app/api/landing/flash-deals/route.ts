@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
+import { getFounderContext } from "@/lib/founders";
 
 export const runtime = "nodejs";
 
@@ -24,21 +25,51 @@ type ProspectIdRow = { id: string } | null;
 export async function GET() {
   const admin = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
-  // Seules les campagnes `active` non expirées sont exposées.
-  // Les flash deals en pause sont automatiquement retirés de la home
-  // (filtre `.eq('status', 'active')` exclut le statut `paused`),
-  // ce qui garantit qu'aucun prospect ne reçoit de sollicitation
-  // pendant la fenêtre de pause 48 h.
-  const { data, error } = await admin
+
+  // ─── Optional auth context ─────────────────────────────────────
+  // Si l'utilisateur est connecté en tant que prospect, on charge ses
+  // 5 paliers de données et ses relations pour les flash deals visibles.
+  // Anonyme → on saute, le client gérera le redirect vers l'auth.
+  let prospect: ProspectIdRow = null;
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const { data: pRow } = await admin
+        .from("prospects")
+        .select("id")
+        .eq("clerk_user_id", userId)
+        .maybeSingle();
+      prospect = (pRow as ProspectIdRow) ?? null;
+    }
+  } catch (e) {
+    // Auth optionnelle — on log et continue en mode anonyme.
+    console.warn("[/api/landing/flash-deals] auth context failed", e);
+  }
+
+  const founder = await getFounderContext(admin, prospect?.id ?? null);
+
+  // Fenêtre +10 min : seuls les fondateurs voient un flash deal créé il
+  // y a moins de 10 min. Pour tout le monde d'autre, filtre serveur.
+  let campaignQuery = admin
     .from("campaigns")
     .select(
       `id, name, ends_at, brief, cost_per_contact_cents, targeting,
+       founder_bonus_enabled, created_at,
        pro_accounts ( raison_sociale, secteur )`,
     )
     .eq("status", "active")
     .gt("ends_at", nowIso)
     .order("ends_at", { ascending: true })
     .limit(20);
+
+  if (!founder.isFounder) {
+    campaignQuery = campaignQuery.lt(
+      "created_at",
+      new Date(Date.now() - 10 * 60_000).toISOString(),
+    );
+  }
+
+  const { data, error } = await campaignQuery;
 
   if (error) {
     console.error("[/api/landing/flash-deals] read failed", error);
@@ -51,6 +82,8 @@ export async function GET() {
     ends_at: string;
     brief: string | null;
     cost_per_contact_cents: number;
+    founder_bonus_enabled: boolean;
+    created_at: string;
     targeting: {
       durationKey?: string;
       durationMultiplier?: number;
@@ -65,63 +98,44 @@ export async function GET() {
     (r) => r.targeting?.durationKey === "1h",
   );
 
-  // ─── Optional auth context ─────────────────────────────────────
-  // Si l'utilisateur est connecté en tant que prospect, on charge ses
-  // 5 paliers de données et ses relations pour les flash deals visibles.
-  // Anonyme → on saute, le client gérera le redirect vers l'auth.
-  let prospect: ProspectIdRow = null;
+  // ─── Tier fill state + relations for authenticated prospects ────
   let tierFilled: Record<TierKey, boolean> | null = null;
   let relationsByCampaign: Map<string, { id: string; status: string }> | null = null;
-  try {
-    const { userId } = await auth();
-    if (userId && flashes.length > 0) {
-      const { data: pRow } = await admin
-        .from("prospects")
-        .select("id")
-        .eq("clerk_user_id", userId)
-        .maybeSingle();
-      prospect = (pRow as ProspectIdRow) ?? null;
+  if (prospect && flashes.length > 0) {
+    // Lecture parallèle des 5 tables de paliers.
+    const tierResults = await Promise.all(
+      TIER_KEYS.map((key) =>
+        admin
+          .from(TIERS[key].table)
+          .select("*")
+          .eq("prospect_id", prospect!.id)
+          .maybeSingle(),
+      ),
+    );
+    const filled: Record<string, boolean> = {};
+    TIER_KEYS.forEach((key, idx) => {
+      const row = tierResults[idx].data as Record<string, unknown> | null;
+      filled[key] = !!row && Object.values(TIERS[key].fields).some((dbCol) => {
+        const v = row[dbCol];
+        return typeof v === "string" && v.trim() !== "";
+      });
+    });
+    tierFilled = filled as Record<TierKey, boolean>;
 
-      if (prospect) {
-        // Lecture parallèle des 5 tables de paliers.
-        const tierResults = await Promise.all(
-          TIER_KEYS.map((key) =>
-            admin
-              .from(TIERS[key].table)
-              .select("*")
-              .eq("prospect_id", prospect!.id)
-              .maybeSingle(),
-          ),
-        );
-        const filled: Record<string, boolean> = {};
-        TIER_KEYS.forEach((key, idx) => {
-          const row = tierResults[idx].data as Record<string, unknown> | null;
-          filled[key] = !!row && Object.values(TIERS[key].fields).some((dbCol) => {
-            const v = row[dbCol];
-            return typeof v === "string" && v.trim() !== "";
-          });
-        });
-        tierFilled = filled as Record<TierKey, boolean>;
-
-        // Relations existantes pour ce prospect sur les flash deals visibles.
-        const ids = flashes.map((f) => f.id);
-        const { data: rels } = await admin
-          .from("relations")
-          .select("id, campaign_id, status")
-          .eq("prospect_id", prospect.id)
-          .in("campaign_id", ids);
-        relationsByCampaign = new Map();
-        (rels ?? []).forEach((r) => {
-          relationsByCampaign!.set(r.campaign_id as string, {
-            id: r.id as string,
-            status: r.status as string,
-          });
-        });
-      }
-    }
-  } catch (e) {
-    // Auth optionnelle — on log et continue en mode anonyme.
-    console.warn("[/api/landing/flash-deals] auth context failed", e);
+    // Relations existantes pour ce prospect sur les flash deals visibles.
+    const ids = flashes.map((f) => f.id);
+    const { data: rels } = await admin
+      .from("relations")
+      .select("id, campaign_id, status")
+      .eq("prospect_id", prospect.id)
+      .in("campaign_id", ids);
+    relationsByCampaign = new Map();
+    (rels ?? []).forEach((r) => {
+      relationsByCampaign!.set(r.campaign_id as string, {
+        id: r.id as string,
+        status: r.status as string,
+      });
+    });
   }
 
   const deals = flashes.map((r) => {
@@ -136,13 +150,22 @@ export async function GET() {
     const missingTierKeys = tierFilled
       ? requiredTierKeys.filter((k) => !tierFilled![k])
       : null;
+    const baseCostCents = Number(r.cost_per_contact_cents ?? 0);
+    const founderBonusEligible =
+      founder.isFounder &&
+      founder.isWithinBonusWindow &&
+      r.founder_bonus_enabled === true;
+    const displayedCostCents = founderBonusEligible
+      ? baseCostCents * 2
+      : baseCostCents;
     return {
       id: r.id,
       name: r.name,
       endsAt: r.ends_at,
       brief: r.brief,
       multiplier,
-      costPerContactCents: Number(r.cost_per_contact_cents ?? 0),
+      costPerContactCents: displayedCostCents,
+      founderBonusApplied: founderBonusEligible,
       requiredTiers,
       requiredTierKeys,
       proName: pro?.raison_sociale ?? null,
