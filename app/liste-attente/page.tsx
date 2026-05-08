@@ -1,41 +1,34 @@
-"use client";
+// Server Component : on lit searchParams côté serveur (pas de bail-out
+// du static generation contrairement à useSearchParams() qui exigerait
+// un <Suspense> wrapper). On délègue au composant client juste le
+// listener postMessage pour le retour vers la home depuis l'iframe.
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import WaitlistFrame from "./WaitlistFrame";
 
-export default function WaitlistPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+type SearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
 
-  useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
-      const data = e.data as { bupp?: string } | undefined;
-      if (data?.bupp === "goLanding") {
-        router.push("/");
-      }
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, [router]);
+export default async function WaitlistPage(props: {
+  searchParams: SearchParams;
+}) {
+  const sp = await props.searchParams;
 
-  // Propage les query params (notamment `simulate-launch=Xmin` pour les
-  // tests de countdown) au HTML statique chargé dans l'iframe.
-  const qs = searchParams.toString();
-  const src = qs ? `/prototype/waitlist.html?${qs}` : "/prototype/waitlist.html";
+  // Reconstruit la query string pour la propager à l'iframe statique
+  // (utile pour `?simulate-launch=Xmin` qui active la simulation
+  // côté waitlist.html).
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (typeof value === "string") {
+      qs.append(key, value);
+    } else if (Array.isArray(value)) {
+      for (const v of value) qs.append(key, v);
+    }
+  }
+  const queryString = qs.toString();
+  const src = queryString
+    ? `/prototype/waitlist.html?${queryString}`
+    : "/prototype/waitlist.html";
 
-  return (
-    <iframe
-      src={src}
-      title="BUUPP — Liste d'attente"
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        border: 0,
-        display: "block",
-        background: "#F7F4EC",
-      }}
-    />
-  );
+  return <WaitlistFrame src={src} />;
 }
