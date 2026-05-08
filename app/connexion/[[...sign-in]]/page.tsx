@@ -38,7 +38,7 @@ export default async function ConnexionPage(props: {
         signUpUrl="/inscription"
         {...(target
           ? { forceRedirectUrl: target }
-          : { fallbackRedirectUrl: "/prospect" })}
+          : { fallbackRedirectUrl: "/auth/post-login" })}
         appearance={{
           elements: {
             rootBox: { width: "100%", maxWidth: 440 },

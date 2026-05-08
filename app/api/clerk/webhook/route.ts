@@ -4,7 +4,8 @@
  * Endpoint signé par Clerk via Svix. Synchronise les utilisateurs vers
  * la table `prospects` de Supabase :
  *
- *   user.created → INSERT prospect (+ palier 1 si email/nom dispo)
+ *   user.created → no-op (la création de la row est déléguée à ensureRole()
+ *                  appelé à la 1ère visite de /prospect ou /pro)
  *   user.updated → UPDATE palier 1 (email)
  *   user.deleted → DELETE prospect (cascade sur les paliers)
  *
@@ -18,7 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "svix";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { deleteProspect, ensureProspect } from "@/lib/sync/prospects";
+import { deleteProspect } from "@/lib/sync/prospects";
 
 type ClerkUserEvent = {
   type: "user.created" | "user.updated" | "user.deleted";
@@ -58,16 +59,11 @@ export async function POST(request: NextRequest) {
 
   switch (event.type) {
     case "user.created": {
-      const { id, email_addresses, primary_email_address_id, first_name, last_name } = event.data;
-      const primary = email_addresses?.find(
-        (e) => e.id === primary_email_address_id,
-      ) ?? email_addresses?.[0];
-      await ensureProspect({
-        clerkUserId: id,
-        email: primary?.email_address ?? null,
-        prenom: first_name ?? null,
-        nom: last_name ?? null,
-      });
+      // No-op intentionnel : la création de la row prospect/pro est
+      // désormais déclenchée à la 1ère visite de /prospect ou /pro via
+      // ensureRole(). Auto-créer un prospect ici aurait pour effet
+      // d'empêcher l'inscription en /inscription/pro (le trigger
+      // d'exclusivité de rôle refuserait l'INSERT pro_accounts qui suit).
       break;
     }
 

@@ -2,6 +2,8 @@
  * /api/me — infos minimales sur l'utilisateur connecté + suppression de compte.
  *
  *   GET    → { prenom, nom, email, initials, role, displayName }
+ *            role peut être null (utilisateur Clerk valide mais inscription
+ *            interrompue avant /prospect ou /pro).
  *            Utilisé par le header du dashboard pour afficher les vraies
  *            initiales à la place du placeholder "ML"/"AM".
  *
@@ -44,9 +46,9 @@ export async function GET() {
 
   const admin = createSupabaseAdminClient();
 
-  // Détecte le rôle à partir des tables : on accepte qu'un même userId ait
-  // les deux profils (prospect + pro). On privilégie le rôle "pro" pour
-  // l'affichage si les deux existent (c'est lui qui paye 😉).
+  // DB = source de vérité. Depuis la migration 20260508140000, un userId
+  // ne peut avoir qu'un seul rôle (trigger d'exclusivité). Si une legacy
+  // row "double profil" persiste, on privilégie "pro" par prudence.
   const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
     admin
       .from("pro_accounts")
@@ -78,9 +80,12 @@ export async function GET() {
     }
   }
 
-  const role: "pro" | "prospect" = proRow ? "pro" : "prospect";
-  // Pour un compte pro avec une raison sociale déjà saisie, on préfère
-  // ses initiales (ex. "Atelier Mercier" → "AM"). Sinon, identité perso.
+  // Mutuellement exclusif depuis la migration 20260508140000.
+  // `role === null` = utilisateur Clerk valide mais qui n'a pas encore
+  // finalisé son inscription (tab fermé entre signup et /prospect|/pro).
+  const role: "pro" | "prospect" | null =
+    proRow ? "pro" : prospectRow ? "prospect" : null;
+
   let displayName: string;
   let initials: string;
 
@@ -93,6 +98,24 @@ export async function GET() {
     initials = makeInitials(prenom, nom, email ?? displayName);
   }
 
+  // Resync défensif du cache Clerk : si la DB a un rôle mais que Clerk
+  // ne le sait pas (ou vice versa), on aligne sur la DB (source de vérité).
+  const cachedRole = (user?.publicMetadata as { role?: "prospect" | "pro" } | undefined)?.role;
+  if (role !== null && cachedRole !== role) {
+    try {
+      const client = await clerkClient();
+      // Merge avec les autres clés déjà présentes (cache de `currentUser()`,
+      // pas de round-trip Clerk supplémentaire).
+      const merged = {
+        ...((user?.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
+        role,
+      };
+      await client.users.updateUser(userId, { publicMetadata: merged });
+    } catch (err) {
+      console.error("[/api/me] failed to resync Clerk publicMetadata", err);
+    }
+  }
+
   return NextResponse.json({
     prenom,
     nom,
@@ -100,8 +123,8 @@ export async function GET() {
     initials,
     role,
     displayName,
-    hasProspectProfile: Boolean(prospectRow),
-    hasProProfile: Boolean(proRow),
+    // hasProspectProfile / hasProProfile retirés — mutuellement exclusifs
+    // désormais. Les consommateurs lisent `role` directement.
   });
 }
 

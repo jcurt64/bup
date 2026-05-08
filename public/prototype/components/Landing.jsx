@@ -153,7 +153,6 @@ function Navbar({ go, onDark }) {
           </nav>
         </div>
         <div className="row center gap-3">
-          <button className="btn btn-sm btn-ghost" onClick={() => go('auth')}>Se connecter</button>
           <button className="btn btn-sm btn-primary" onClick={() => go('auth')}>
             Démarrer <Icon name="arrow" size={14}/>
           </button>

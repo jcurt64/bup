@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ensureProspect } from "@/lib/sync/prospects";
+import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
 import PrototypeFrame from "../_components/PrototypeFrame";
 
 export const metadata = { title: "BUUPP — Espace Prospect" };
@@ -20,12 +21,23 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
   const primary = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
   );
-  await ensureProspect({
-    clerkUserId: userId,
-    email: primary?.emailAddress ?? null,
-    prenom: user?.firstName ?? null,
-    nom: user?.lastName ?? null,
-  });
+
+  try {
+    await ensureRole(userId, primary?.emailAddress ?? null, "prospect", {
+      prenom: user?.firstName ?? null,
+      nom: user?.lastName ?? null,
+    });
+  } catch (err) {
+    if (err instanceof RoleConflictError) {
+      // Signale le conflit de rôle via query param (Next.js 16 interdit
+      // cookies().set() pendant le render d'un Server Component). La
+      // home lit searchParams.role_conflict et affiche un toast ; le
+      // toast strippe le param via router.replace au montage pour un
+      // comportement one-shot.
+      redirect(`/?role_conflict=${err.existingRole}`);
+    }
+    throw err;
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: prospect, error } = await supabase

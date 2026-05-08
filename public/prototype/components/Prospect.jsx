@@ -80,6 +80,7 @@ function ProspectProvider({ children }) {
   const [deleted, setDeleted] = useState({});
   const [removed, setRemoved] = useState({});
   const [hydrated, setHydrated] = useState(false);
+  const [isFounder, setIsFounder] = useState(false);
 
   // Hydratation `Mes données`. Refetch déclenché aussi par le bus
   // `prospect:profile-changed` pour répercuter les mutations qui
@@ -90,6 +91,7 @@ function ProspectProvider({ children }) {
       const r = await fetch('/api/prospect/donnees', { cache: 'no-store' });
       if (!r.ok) return;
       const data = await r.json();
+      setIsFounder(data.isFounder === true);
       setProfile(p => ({
         ...p,
         identity:    { ...p.identity,    ...data.identity },
@@ -352,6 +354,7 @@ function ProspectProvider({ children }) {
       acceptedRelations: accepted, refusedRelations: refused,
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
       pendingRelationsCount, relationsHydrated,
+      isFounder,
     }}>
       {children}
     </ProspectCtx.Provider>
@@ -1084,7 +1087,7 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 });
 
 function ProspectHeader() {
-  const { profile } = useProspect() || {};
+  const { profile, isFounder } = useProspect() || {};
   const prenom = profile?.identity?.prenom || 'Marie';
   const [parrainage, setParrainage] = useState(null);
   const [score, setScore] = useState(null);
@@ -1127,7 +1130,30 @@ function ProspectHeader() {
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
-          <div className="mono caps muted" style={{ marginBottom: 8 }}>— Bonjour {prenom || '—'}</div>
+          <div className="mono caps muted" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0 }}>
+            — Bonjour {prenom || '—'}
+            {isFounder && (
+              <span
+                title="Vous êtes fondateur·ice — priorité 10 min sur les flash deals + bonus 2× le 1er mois"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 10px',
+                  borderRadius: 999,
+                  background: '#FFF1B8',
+                  color: '#5C4400',
+                  border: '1px solid #F2C879',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '.04em',
+                  marginLeft: 8,
+                }}
+              >
+                🎖️ Fondateur·ice
+              </span>
+            )}
+          </div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
             Vos gains du mois : <em>{gainsText}</em>
           </div>

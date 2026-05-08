@@ -181,6 +181,7 @@ function ProDashboard({ go }) {
           companyInfo={companyInfo}
           onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
           duplicateSourceId={duplicateSourceId}
+          onRecharge={() => setRecharge(true)}
         />
       )}
       {sec === 'contacts' && <Contacts pendingContact={pendingContact} onPendingConsumed={() => setPendingContact(null)}/>}
@@ -255,13 +256,39 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     const refresh = () => fetchProWallet().then(j => !cancelled && setWallet(j));
     refresh();
 
-    // Stripe Checkout renvoie sur /pro?topup=success. Le webhook peut
-    // mettre 1-3 s à arriver (surtout en local via `stripe listen`),
-    // donc on POLL le wallet jusqu'à ce que le solde change OU max 12 s
-    // (16 essais espacés de 750 ms). Nettement plus réactif qu'un
-    // setTimeout unique, sans tape sur l'API quand le webhook est rapide.
+    // Stripe Checkout renvoie sur /pro?topup=success&session_id=cs_…
+    // Pour ne pas dépendre du webhook (qui n'arrive jamais en dev local
+    // sans `stripe listen`), on appelle d'abord /api/pro/topup/reconcile
+    // avec le session_id : il revérifie la session côté Stripe et
+    // crédite le wallet si pas encore fait. Le polling reste en filet
+    // de sécurité au cas où le reconcile a déjà été exécuté par un
+    // refresh précédent — il verra `alreadyCredited`.
     if (typeof window !== 'undefined' && window.location.search.includes('topup=success')) {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
       const initialBalance = Number(_proWalletCache?.walletBalanceCents ?? 0);
+
+      const cleanupUrl = () => {
+        try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+      };
+
+      const reconcile = async () => {
+        if (!sessionId) return;
+        try {
+          const r = await fetch('/api/pro/topup/reconcile', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            console.warn('[pro/topup/reconcile] failed', r.status, j);
+          }
+        } catch (e) {
+          console.warn('[pro/topup/reconcile] network error', e);
+        }
+      };
+
       let attempts = 0;
       const poll = async () => {
         if (cancelled || attempts >= 16) return;
@@ -272,21 +299,45 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
         setWallet(fresh);
         const newBalance = Number(fresh?.walletBalanceCents ?? 0);
         if (newBalance > initialBalance) {
-          // Crédit reçu → on prévient les autres consommateurs (Facturation, …)
           try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
-          // Nettoie l'URL pour ne pas re-poller à chaque navigation interne.
-          try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+          cleanupUrl();
           return;
         }
         setTimeout(poll, 750);
       };
-      // Petit délai initial : laisse le temps au webhook de partir.
-      setTimeout(poll, 600);
+
+      // Reconcile d'abord (réveille le wallet immédiatement si webhook
+      // raté), puis poll en filet de sécurité.
+      reconcile().then(() => setTimeout(poll, 200));
     }
 
     const onChange = () => { invalidateProWallet(); refresh(); };
     window.addEventListener('pro:wallet-changed', onChange);
-    return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
+
+    // Écoute des messages parent → iframe. Le composant TopupReconciler
+    // côté Next.js émet `{bupp:'wallet-refresh'}` après avoir crédité
+    // le wallet via /api/pro/topup/reconcile : on invalide le cache
+    // et on retire la valeur fraîche pour que l'en-tête s'actualise
+    // immédiatement. Pas de filtre origin — la même origine héberge
+    // shell.html et les pages parentes (sécurité Clerk côté serveur).
+    const onParentMsg = (e) => {
+      if (e?.data?.bupp === 'wallet-refresh') {
+        invalidateProWallet();
+        fetchProWallet().then(j => {
+          if (!cancelled) {
+            setWallet(j);
+            try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+          }
+        });
+      }
+    };
+    window.addEventListener('message', onParentMsg);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pro:wallet-changed', onChange);
+      window.removeEventListener('message', onParentMsg);
+    };
   }, []);
 
   // Affiche le solde DISPONIBLE (= balance - réservé). Le réservé
@@ -1420,7 +1471,7 @@ const DURATIONS = [
 ];
 const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
 
-function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
@@ -1656,6 +1707,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [excludeCertified, setExcludeCertified] = useState(false);
   // Affiche la confirmation quand le pro coche la case (false → true).
   const [confirmExcludeCertified, setConfirmExcludeCertified] = useState(false);
+  // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
+  // acceptation par un fondateur coûte 2× le tarif palier choisi.
+  const [founderBonusEnabled, setFounderBonusEnabled] = useState(true);
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
@@ -1892,13 +1946,31 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           </span>
         </div>
         {walletBalanceEur != null && walletBalanceEur < totalToDebit && (
-          <div className="row" style={{
-            marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+          <div style={{
+            marginTop: 6, padding: '8px 10px', borderRadius: 8,
             background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
-            fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
           }} role="alert">
-            <span aria-hidden="true">⚠</span>
-            <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis (budget + commission max.).</span>
+            <div className="row recharge-alert" style={{
+              gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+            }}>
+              <span aria-hidden="true">⚠</span>
+              <span style={{ flex: 1 }}>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis (budget + commission max.).</span>
+              {onRecharge && (
+                <button
+                  type="button"
+                  onClick={onRecharge}
+                  className="btn btn-sm recharge-alert-cta"
+                  style={{
+                    background: '#991b1b', color: '#fff', border: 'none',
+                    padding: '6px 12px', borderRadius: 6,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    flexShrink: 0, whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Icon name="plus" size={11}/> Recharger votre crédit
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -2521,6 +2593,44 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 );
               })}
             </div>
+
+            {/* Bonus fondateur */}
+            <div style={{
+              marginTop: 16, padding: 14, borderRadius: 10,
+              border: '1px solid var(--line)', background: 'var(--paper)',
+            }}>
+              <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                    Activer le bonus fondateur (+100% le 1er mois)
+                  </div>
+                  <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                    Pendant le mois suivant le lancement officiel de BUUPP, chaque
+                    acceptation par un fondateur vous coûtera <strong>2× le tarif
+                    palier choisi</strong>. Désactivable : vos campagnes restent
+                    visibles aux fondateurs, mais ils gagneront le tarif standard.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={founderBonusEnabled}
+                  onClick={() => setFounderBonusEnabled(v => !v)}
+                  style={{
+                    flexShrink: 0, width: 42, height: 24, borderRadius: 999,
+                    background: founderBonusEnabled ? 'var(--accent)' : 'var(--line-2)',
+                    border: 'none', cursor: 'pointer', position: 'relative',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 2,
+                    left: founderBonusEnabled ? 20 : 2,
+                    width: 20, height: 20, borderRadius: 999, background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,.18)', transition: 'left .18s',
+                  }}/>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -2866,13 +2976,50 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 </span>
               </div>
               {walletBalanceEur != null && total > 0 && walletBalanceEur < totalToDebit && (
-                <div className="row" style={{
-                  marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+                <div style={{
+                  marginTop: 6, padding: '8px 10px', borderRadius: 8,
                   background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
-                  fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
                 }} role="alert">
-                  <span aria-hidden="true">⚠</span>
-                  <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis.</span>
+                  <div className="row recharge-alert" style={{
+                    gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+                  }}>
+                    <span aria-hidden="true">⚠</span>
+                    <span style={{ flex: 1 }}>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis.</span>
+                    {onRecharge && (
+                      <button
+                        type="button"
+                        onClick={onRecharge}
+                        className="btn btn-sm recharge-alert-cta"
+                        style={{
+                          background: '#991b1b', color: '#fff', border: 'none',
+                          padding: '6px 12px', borderRadius: 6,
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          flexShrink: 0, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Icon name="plus" size={11}/> Recharger votre crédit
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 14, padding: 14, borderRadius: 10,
+                          background: 'var(--ivory-2)', border: '1px solid var(--line)' }}>
+              <div className="mono caps" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 6 }}>
+                Bonus fondateur (1er mois post-lancement)
+              </div>
+              {founderBonusEnabled ? (
+                <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                  Activé — chaque acceptation par un fondateur vous coûtera
+                  <strong> {fmtEur(cpc * 2)}</strong> au lieu de {fmtEur(cpc)}.
+                  Coût max si tous fondateurs : <strong>{fmtEur(cpc * 2 * contacts)}</strong>.
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                  Désactivé pour cette campagne — les fondateurs gagneront le tarif
+                  standard ({fmtEur(cpc)}).
                 </div>
               )}
             </div>
@@ -2938,6 +3085,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
                         excludeCertified,
+                        founder_bonus_enabled: founderBonusEnabled,
                       }),
                     });
                     const j = await r.json();

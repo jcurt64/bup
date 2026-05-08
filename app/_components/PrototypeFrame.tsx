@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 
-const ROUTE_TO_PATH: Record<string, string> = {
+const STATIC_ROUTES: Record<string, string> = {
   landing: "/",
   waitlist: "/liste-attente",
   auth: "/connexion",
-  prospect: "/prospect",
-  pro: "/pro",
 };
+
+// `prospect` et `pro` sont dynamiques : si l'utilisateur n'est pas connecté,
+// on l'envoie sur la page d'inscription dédiée (sinon le middleware Clerk
+// renverrait sur /connexion, ce qui rate la sélection de rôle).
+function resolveRoleRoute(intent: "prospect" | "pro", isSignedIn: boolean): string {
+  if (!isSignedIn) {
+    return intent === "prospect" ? "/inscription/prospect" : "/inscription/pro";
+  }
+  // L'utilisateur connecté est routé vers son espace. Si l'intent ne
+  // correspond pas à son rôle, le trigger BDD côté /{role} déclenche
+  // RoleConflictError → redirect / + toast. Pas besoin de connaître le
+  // rôle ici (simplification volontaire vs le plan).
+  return intent === "prospect" ? "/prospect" : "/pro";
+}
 
 export default function PrototypeFrame({
   route,
@@ -21,29 +33,48 @@ export default function PrototypeFrame({
 }) {
   const router = useRouter();
   const { signOut } = useClerk();
+  const { isSignedIn, isLoaded } = useUser();
 
   useEffect(() => {
     const onMsg = async (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
       const data = e.data as
         | { bupp?: string; route?: string }
         | undefined;
       if (!data?.bupp) return;
       if (data.bupp === "signOut") {
-        await signOut({ redirectUrl: "/" });
+        try {
+          await signOut({ redirectUrl: "/" });
+        } catch (err) {
+          console.error("[PrototypeFrame] signOut failed", err);
+        }
         return;
       }
       if (data.bupp === "goto") {
-        const target = data.route && ROUTE_TO_PATH[data.route];
-        if (!target) return;
-        if (target === "/liste-attente") {
+        const r = data.route;
+        if (!r) return;
+
+        if (r === "prospect" || r === "pro") {
+          // Pendant l'hydratation Clerk (`isSignedIn === undefined`), on ne route
+          // pas — un utilisateur connecté serait sinon envoyé sur /inscription/{role}.
+          // L'utilisateur peut recliquer une fois Clerk prêt (sub-200ms typiquement).
+          if (!isLoaded) return;
+          const target = resolveRoleRoute(r, !!isSignedIn);
+          router.push(target);
+          return;
+        }
+
+        const staticTarget = STATIC_ROUTES[r];
+        if (!staticTarget) return;
+        if (staticTarget === "/liste-attente") {
           try { sessionStorage.setItem("bupp:waitlist-ok", "1"); } catch {}
         }
-        router.push(target);
+        router.push(staticTarget);
       }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [router, signOut]);
+  }, [router, signOut, isSignedIn, isLoaded]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
   // Cache-bust uniquement côté client : `Date.now()` au render initial

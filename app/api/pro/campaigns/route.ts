@@ -50,6 +50,9 @@ type Body = {
   /** Optionnel : quand true, exclut les prospects `certifie_confiance`
    *  du pool de matching. Coché par le pro dans le wizard, étape Budget. */
   excludeCertified?: boolean;
+  /** Bonus fondateur : quand true (défaut), les acceptations par un fondateur
+   *  coûtent 2× le tarif palier pendant le 1er mois post-lancement. */
+  founder_bonus_enabled?: boolean;
 };
 
 const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
@@ -182,6 +185,8 @@ export async function POST(req: Request) {
     );
   }
 
+  const founderBonusEnabled = body.founder_bonus_enabled !== false;
+
   const campaignType = objectiveToCampaignType(body.objectiveId);
   const finalChannels = [...ALLOWED_CHANNELS];
   const durationKey = typeof body.durationKey === "string" && body.durationKey in DURATION_MULTIPLIERS
@@ -268,6 +273,7 @@ export async function POST(req: Request) {
       // mail prospect, l'UI et la DB convergent toujours.
       starts_at: new Date().toISOString(),
       ends_at: new Date(Date.now() + durationMeta.ms).toISOString(),
+      founder_bonus_enabled: founderBonusEnabled,
     })
     .select("id")
     .single();

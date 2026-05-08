@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
+import type { CSSProperties, ReactNode } from "react";
+import type { Role } from "@/lib/sync/ensureRole";
 
-type Tab = { href: string; label: string; icon: ReactNode };
+type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion" | "deconnexion";
+
+type Tab = {
+  id: TabId;
+  href?: string; // absent = bouton (deconnexion)
+  label: string;
+  icon: ReactNode;
+};
 
 const Svg = ({ children }: { children: ReactNode }) => (
   <svg
@@ -22,8 +31,9 @@ const Svg = ({ children }: { children: ReactNode }) => (
   </svg>
 );
 
-const TABS: Tab[] = [
-  {
+const TAB_DEFS: Record<TabId, Tab> = {
+  accueil: {
+    id: "accueil",
     href: "/",
     label: "Accueil",
     icon: (
@@ -34,7 +44,8 @@ const TABS: Tab[] = [
       </Svg>
     ),
   },
-  {
+  "liste-attente": {
+    id: "liste-attente",
     href: "/liste-attente",
     label: "Liste d'attente",
     icon: (
@@ -46,7 +57,8 @@ const TABS: Tab[] = [
       </Svg>
     ),
   },
-  {
+  prospect: {
+    id: "prospect",
     href: "/prospect",
     label: "Prospect",
     icon: (
@@ -56,7 +68,8 @@ const TABS: Tab[] = [
       </Svg>
     ),
   },
-  {
+  pro: {
+    id: "pro",
     href: "/pro",
     label: "Pro",
     icon: (
@@ -67,7 +80,8 @@ const TABS: Tab[] = [
       </Svg>
     ),
   },
-  {
+  connexion: {
+    id: "connexion",
     href: "/connexion",
     label: "Connexion",
     icon: (
@@ -78,61 +92,115 @@ const TABS: Tab[] = [
       </Svg>
     ),
   },
-];
+  deconnexion: {
+    id: "deconnexion",
+    label: "Déconnexion",
+    icon: (
+      <Svg>
+        <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" />
+        <path d="M14 17l5-5-5-5" />
+        <path d="M19 12H7" />
+      </Svg>
+    ),
+  },
+};
+
+const PUBLIC_TABS: TabId[] = ["accueil", "liste-attente", "connexion"];
+const PROSPECT_TABS: TabId[] = ["accueil", "liste-attente", "prospect", "deconnexion"];
+const PRO_TABS: TabId[] = ["accueil", "liste-attente", "pro", "deconnexion"];
+
+const containerStyle: CSSProperties = {
+  position: "fixed",
+  bottom: 20,
+  left: "50%",
+  transform: "translateX(-50%)",
+  background: "rgba(15, 23, 42, 0.92)",
+  color: "#FBF9F3",
+  padding: "6px 6px",
+  borderRadius: 999,
+  zIndex: 90,
+  backdropFilter: "blur(10px)",
+  boxShadow: "0 10px 30px -10px rgba(0,0,0,.4)",
+  display: "flex",
+  gap: 2,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+};
+
+function tabStyle(active: boolean): CSSProperties {
+  return {
+    padding: "12px 14px",
+    borderRadius: 999,
+    background: active ? "#FBF9F3" : "transparent",
+    color: active ? "#0F172A" : "rgba(255,255,255,.7)",
+    fontWeight: active ? 500 : 400,
+    transition: "all .15s",
+    fontFamily: "var(--mono)",
+    letterSpacing: ".04em",
+    textTransform: "uppercase",
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    cursor: "pointer",
+    border: 0,
+  };
+}
 
 export default function RouteNav() {
   const pathname = usePathname();
-  if (pathname === "/connexion") return null;
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+
+  // Masquer la nav sur les pages d'auth (full-screen Clerk).
+  if (pathname === "/connexion" || pathname.startsWith("/inscription")) return null;
+  // Évite le flash 3-tabs → 4-tabs pendant l'hydratation Clerk.
+  if (!isLoaded) return null;
+
+  const role = isSignedIn
+    ? ((user?.publicMetadata as { role?: Role } | undefined)?.role ?? null)
+    : null;
+
+  const visibleIds: TabId[] =
+    role === "pro" ? PRO_TABS : role === "prospect" ? PROSPECT_TABS : PUBLIC_TABS;
+
   return (
-    <div
-      className="route-nav"
-      style={{
-        position: "fixed",
-        bottom: 20,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "rgba(15, 23, 42, 0.92)",
-        color: "#FBF9F3",
-        padding: "6px 6px",
-        borderRadius: 999,
-        zIndex: 90,
-        backdropFilter: "blur(10px)",
-        boxShadow: "0 10px 30px -10px rgba(0,0,0,.4)",
-        display: "flex",
-        gap: 2,
-        fontSize: 12,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {TABS.map(({ href, label, icon }) => {
-        const active = pathname === href;
+    <div className="route-nav" style={containerStyle}>
+      {visibleIds.map((id) => {
+        const t = TAB_DEFS[id];
+        const active = t.href ? pathname === t.href : false;
+
+        if (id === "deconnexion") {
+          return (
+            <button
+              key={id}
+              type="button"
+              className="route-nav-tab"
+              aria-label={t.label}
+              title={t.label}
+              onClick={() => {
+                signOut({ redirectUrl: "/" }).catch((err) => console.error("[RouteNav] signOut failed", err));
+              }}
+              style={{ ...tabStyle(false), background: "transparent" }}
+            >
+              <span className="route-nav-icon" aria-hidden>{t.icon}</span>
+              <span className="route-nav-label">{t.label}</span>
+            </button>
+          );
+        }
+
         return (
           <Link
-            key={href}
-            href={href}
+            key={id}
+            href={t.href!}
             className="route-nav-tab"
-            aria-label={label}
-            title={label}
-            style={{
-              padding: "12px 14px",
-              borderRadius: 999,
-              background: active ? "#FBF9F3" : "transparent",
-              color: active ? "#0F172A" : "rgba(255,255,255,.7)",
-              fontWeight: active ? 500 : 400,
-              transition: "all .15s",
-              fontFamily: "var(--mono)",
-              letterSpacing: ".04em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              cursor: "pointer",
-            }}
+            aria-label={t.label}
+            title={t.label}
+            style={tabStyle(active)}
           >
-            <span className="route-nav-icon" aria-hidden>{icon}</span>
-            <span className="route-nav-label">{label}</span>
+            <span className="route-nav-icon" aria-hidden>{t.icon}</span>
+            <span className="route-nav-label">{t.label}</span>
           </Link>
         );
       })}
