@@ -126,6 +126,50 @@ function ProspectProvider({ children }) {
   const [pendingRelations, setPendingRelations] = useState([]);
   const [historyRelations, setHistoryRelations] = useState([]);
   const [relationsHydrated, setRelationsHydrated] = useState(false);
+  // Décisions prises sur les flash deals fictifs côté home (localStorage,
+  // clé alignée sur app/page.tsx). Fusionnées dans l'historique pour
+  // garder une UX cohérente : si l'utilisateur accepte/refuse un mock
+  // depuis la home, il le retrouve ici.
+  const [mockHistory, setMockHistory] = useState([]);
+
+  const readMockHistory = React.useCallback(() => {
+    try {
+      const raw = window.localStorage.getItem('bupp:mock-deal-decisions:v1');
+      if (!raw) return [];
+      const store = JSON.parse(raw) || {};
+      return Object.values(store).map((rec) => {
+        const reward = Number(rec.rewardCents || 0) / 100;
+        const tier = Math.min(5, Math.max(1, Math.max(...(rec.requiredTiers || [1])) || 1));
+        const isAccepted = rec.decision === 'accepted';
+        return {
+          id: rec.dealId,
+          campaignId: rec.dealId,
+          date: rec.decidedAt,
+          proName: rec.proName || '—',
+          pro: rec.proName || '—',
+          sector: rec.proSector || '',
+          motif: rec.name || '',
+          brief: rec.brief || null,
+          reward,
+          tier,
+          timer: 'Démo',
+          startDate: rec.decidedAt,
+          endDate: rec.endsAt,
+          decision: isAccepted ? 'Acceptée' : 'Refusée',
+          status: isAccepted ? 'En séquestre' : '—',
+          relationStatus: rec.decision,
+          gain: isAccepted ? reward : null,
+          campaignStatus: 'active',
+          campaignOpen: false,
+          campaignActive: false,
+          isFlashDeal: true,
+          isMockDemo: true,
+        };
+      });
+    } catch (e) {
+      return [];
+    }
+  }, []);
 
   const refetchRelations = React.useCallback(async () => {
     try {
@@ -138,6 +182,19 @@ function ProspectProvider({ children }) {
     finally { setRelationsHydrated(true); }
   }, []);
   useEffect(() => { refetchRelations(); }, [refetchRelations]);
+
+  // Hydratation initiale + écoute des changements (multi-tab via
+  // `storage`, même tab via `bupp:mock-deal-decisions-changed`).
+  useEffect(() => {
+    const sync = () => setMockHistory(readMockHistory());
+    sync();
+    window.addEventListener('bupp:mock-deal-decisions-changed', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('bupp:mock-deal-decisions-changed', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, [readMockHistory]);
 
   const postDecision = async (id, action) => {
     try {
@@ -276,11 +333,22 @@ function ProspectProvider({ children }) {
     n.has(c) ? n.delete(c) : n.add(c);
     return { ...p, categories: n };
   });
+  // Fusion API + mocks, triés par date de décision desc — l'ordre
+  // d'affichage de l'historique reste cohérent.
+  const mergedHistory = React.useMemo(() => {
+    const all = [...(historyRelations || []), ...mockHistory];
+    return all.sort((a, b) => {
+      const da = new Date(a.date || 0).getTime();
+      const db = new Date(b.date || 0).getTime();
+      return db - da;
+    });
+  }, [historyRelations, mockHistory]);
+
   return (
     <ProspectCtx.Provider value={{
       profile, deleted, removed, updateField, updateFields, suppressTemp, restore, deletePermanent, addField,
       setAllCampaignTypes, toggleCampaignType, toggleCategory,
-      pendingRelations, historyRelations,
+      pendingRelations, historyRelations: mergedHistory,
       acceptedRelations: accepted, refusedRelations: refused,
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
       pendingRelationsCount, relationsHydrated,
@@ -360,6 +428,10 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
   const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 900;
   const [collapsed, setCollapsed] = useState(() => isMobile());
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Confirmation explicite avant déconnexion : évite le clic accidentel
+  // dans la sidebar. La modale se contente de poster `bupp: 'signOut'`
+  // au parent (PrototypeFrame) si l'utilisateur confirme.
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const scrollTopEverywhere = () => {
     try { window.scrollTo(0, 0); } catch (e) {}
     try { document.documentElement.scrollTop = 0; } catch (e) {}
@@ -452,14 +524,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
         <div className="dash-logout" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
           <div
             className="side-item"
-            onClick={() => {
-              // Demande au parent Next.js de révoquer la session Clerk puis
-              // de rediriger vers la home. Le parent écoute ce message dans
-              // PrototypeFrame.tsx.
-              try {
-                window.parent.postMessage({ bupp: 'signOut' }, '*');
-              } catch (e) {}
-            }}
+            onClick={() => setSignOutOpen(true)}
           >
             <span className="side-icon"><Icon name="logout" size={16}/></span>
             {!collapsed && <span>Déconnexion</span>}
@@ -491,6 +556,88 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
       {deleteOpen && (
         <DeleteAccountModal role={role} onClose={() => setDeleteOpen(false)}/>
       )}
+      {signOutOpen && (
+        <SignOutConfirmModal
+          onClose={() => setSignOutOpen(false)}
+          onConfirm={() => {
+            // Délègue la révocation Clerk + redirection au parent
+            // (PrototypeFrame.tsx écoute ce message).
+            try { window.parent.postMessage({ bupp: 'signOut' }, '*'); } catch (e) {}
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Confirmation neutre (non destructive) avant déconnexion. Pattern
+// aligné sur DeleteAccountModal mais sans accent rouge — la
+// déconnexion est réversible (l'utilisateur peut se reconnecter).
+function SignOutConfirmModal({ onClose, onConfirm }) {
+  const [loading, setLoading] = useState(false);
+  const handleConfirm = () => {
+    setLoading(true);
+    onConfirm();
+  };
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: 16,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position: 'relative', maxWidth: 460, width: '100%',
+        background: 'var(--paper)', borderRadius: 16, padding: '28px 28px 22px',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 52, height: 52, margin: '0 auto 14px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
+            color: 'var(--ink-3)',
+          }}>
+            <Icon name="logout" size={22}/>
+          </div>
+          <div className="serif" style={{ fontSize: 22, lineHeight: 1.25, marginBottom: 6 }}>
+            Se déconnecter ?
+          </div>
+          <div style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+            Vous serez ramené sur la page d'accueil. Vous pourrez vous
+            reconnecter à tout moment avec votre identifiant.
+          </div>
+        </div>
+        <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 6 }}>
+          <button
+            type="button"
+            className="btn"
+            disabled={loading}
+            onClick={onClose}
+            style={{
+              flex: '1 1 160px', justifyContent: 'center',
+              background: 'var(--paper)', color: 'var(--ink)',
+              border: '1.5px solid var(--line-2)',
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={loading}
+            onClick={handleConfirm}
+            style={{
+              flex: '1 1 160px', justifyContent: 'center',
+              background: 'var(--ink)', color: 'var(--paper)',
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? 'Déconnexion…' : 'Se déconnecter'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

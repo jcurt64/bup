@@ -3,13 +3,16 @@
 import {
   useState,
   useEffect,
+  useMemo,
   Fragment,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
+import DemoModal from "./_components/DemoModal";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -811,11 +814,204 @@ function fmtMultiplier(m: number): string {
   return `×${String(m).replace(".", ",")}`;
 }
 
+// ─── Persistance des décisions sur les flash deals fictifs ────────
+// Les mocks ne créent pas de relation en base. Pour que (a) la modale
+// affiche "déjà acceptée" / "déjà refusée" si l'utilisateur reclique
+// dessus, et (b) le prototype prospect puisse afficher ces décisions
+// dans l'onglet "Mises en relation", on les persiste dans
+// localStorage. Même clé lue par /public/prototype/components/Prospect.jsx.
+const MOCK_DECISIONS_KEY = "bupp:mock-deal-decisions:v1";
+const MOCK_DECISIONS_EVENT = "bupp:mock-deal-decisions-changed";
+
+type MockDecisionRecord = {
+  decision: "accepted" | "refused";
+  decidedAt: string;
+  // Snapshot suffisant pour reconstruire un item d'historique côté
+  // prototype, sans dépendance directe au composant home.
+  dealId: string;
+  proName: string;
+  proSector: string;
+  name: string;
+  brief: string | null;
+  multiplier: number;
+  rewardCents: number;
+  requiredTiers: number[];
+  requiredTierKeys: string[];
+  endsAt: string;
+};
+type MockDecisionStore = Record<string, MockDecisionRecord>;
+
+function readMockDecisions(): MockDecisionStore {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(MOCK_DECISIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as MockDecisionStore)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeMockDecision(
+  deal: Deal,
+  decision: "accepted" | "refused" | null,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    const store = readMockDecisions();
+    if (decision === null) {
+      delete store[deal.id];
+    } else {
+      store[deal.id] = {
+        decision,
+        decidedAt: new Date().toISOString(),
+        dealId: deal.id,
+        proName: deal.proName ?? "",
+        proSector: deal.proSector ?? "",
+        name: deal.name,
+        brief: deal.brief,
+        multiplier: deal.multiplier,
+        rewardCents: deal.costPerContactCents,
+        requiredTiers: deal.requiredTiers,
+        requiredTierKeys: deal.requiredTierKeys,
+        endsAt: deal.endsAt,
+      };
+    }
+    window.localStorage.setItem(MOCK_DECISIONS_KEY, JSON.stringify(store));
+    window.dispatchEvent(new Event(MOCK_DECISIONS_EVENT));
+  } catch {
+    /* quota / storage indisponible — silencieux, c'est de la démo */
+  }
+}
+
+function buildMockDeals(now: number): Deal[] {
+  const inMin = (m: number) => new Date(now + m * 60_000).toISOString();
+  return [
+    {
+      id: "mock-plomberie-st-antoine",
+      name: "Prospects chauffage & sanitaires",
+      endsAt: inMin(47),
+      brief:
+        "Plombier-chauffagiste cherche propriétaires avec projet de remplacement chaudière dans les 6 mois.",
+      multiplier: 3,
+      costPerContactCents: 1200,
+      requiredTiers: [1, 2],
+      requiredTierKeys: ["identity", "localisation"],
+      proName: "Plomberie Saint-Antoine",
+      proSector: "Chauffage & sanitaires",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+    {
+      id: "mock-cap-conseil",
+      name: "Acquéreurs primo-accédants",
+      endsAt: inMin(53),
+      brief:
+        "Cabinet de gestion de patrimoine : prospects en projet d'achat immobilier dans les 12 mois.",
+      multiplier: 4,
+      costPerContactCents: 850,
+      requiredTiers: [1, 2, 5],
+      requiredTierKeys: ["identity", "localisation", "patrimoine"],
+      proName: "Cap Conseil",
+      proSector: "Immobilier & patrimoine",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+    {
+      id: "mock-volets-bleus",
+      name: "Cuisine équipée — devis sur mesure",
+      endsAt: inMin(38),
+      brief:
+        "Cuisiniste artisan : recherche propriétaires en projet de rénovation cuisine, budget 8 000 € et plus.",
+      multiplier: 2,
+      costPerContactCents: 680,
+      requiredTiers: [1, 2, 3],
+      requiredTierKeys: ["identity", "localisation", "vie"],
+      proName: "Atelier des Volets Bleus",
+      proSector: "Cuisine & aménagement",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+    {
+      id: "mock-solaria",
+      name: "Bilan énergétique solaire offert",
+      endsAt: inMin(42),
+      brief:
+        "Installateur photovoltaïque : prospects propriétaires intéressés par l'auto-consommation solaire.",
+      multiplier: 3,
+      costPerContactCents: 1020,
+      requiredTiers: [1, 2, 5],
+      requiredTierKeys: ["identity", "localisation", "patrimoine"],
+      proName: "Solaria",
+      proSector: "Énergies renouvelables",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+  ];
+}
+
 function FlashDeal() {
   const router = useRouter();
+  const { isSignedIn } = useAuth();
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [openDealId, setOpenDealId] = useState<string | null>(null);
+  // Mock deals générés une seule fois au montage — leurs timers
+  // décomptent normalement et restent stables entre re-renders.
+  const [mockSeedNow] = useState<number>(() => Date.now());
+  const mockDeals = useMemo(
+    () => buildMockDeals(mockSeedNow),
+    [mockSeedNow],
+  );
+  // Décisions déjà prises sur les mocks (localStorage). On rerend
+  // quand le store change pour que la modale, si on rouvre le même
+  // mock, reflète l'état "déjà acceptée" / "déjà refusée".
+  const [mockDecisions, setMockDecisions] = useState<MockDecisionStore>({});
+  useEffect(() => {
+    const sync = () => setMockDecisions(readMockDecisions());
+    sync();
+    window.addEventListener(MOCK_DECISIONS_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(MOCK_DECISIONS_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  // Reprise post-authentification : si la home est ouverte avec
+  // `?deal=<id>`, on ré-ouvre la modale correspondante dès que les
+  // deals sont chargés. Le param est consommé une seule fois et l'URL
+  // est nettoyée pour ne pas re-déclencher la modale après un refresh.
+  const searchParams = useSearchParams();
+  const requestedDealId = searchParams.get("deal");
+  const [autoOpenConsumed, setAutoOpenConsumed] = useState(false);
+  useEffect(() => {
+    if (autoOpenConsumed) return;
+    if (!requestedDealId) return;
+    if (deals === null) return;
+    // One-shot driven par un side-input externe (URL après auth Clerk) :
+    // setState ici est intentionnel, pas un dérivé de props/state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpenDealId(requestedDealId);
+    setAutoOpenConsumed(true);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("deal");
+      const cleaned = url.pathname + (url.search ? url.search : "") + url.hash;
+      window.history.replaceState({}, "", cleaned);
+    }
+  }, [autoOpenConsumed, requestedDealId, deals]);
 
   const load = async () => {
     try {
@@ -848,9 +1044,31 @@ function FlashDeal() {
 
   // Filtre les deals dont le timer est déjà à 0 — on évite de garder à
   // l'écran un item qui aurait expiré entre deux refetch.
-  const liveDeals = (deals ?? []).filter(
+  const realDeals = (deals ?? []).filter(
     (d) => new Date(d.endsAt).getTime() - now > 0,
   );
+  // Tant que l'API n'a pas répondu (`deals === null`), on attend.
+  // Une fois chargée, si aucune vraie campagne n'est active, on retombe
+  // sur 4 deals fictifs pour démo / mise en scène de la home.
+  const useFallback = deals !== null && realDeals.length === 0;
+  // Mocks injectés client-side : `isAuthenticated` est forcé à false
+  // dans buildMockDeals(). On le réaligne ici sur l'état Clerk réel
+  // pour que le modal n'affiche pas le bouton "Créer un compte" à un
+  // utilisateur déjà connecté. On hydrate également `relationStatus`
+  // depuis le store local pour qu'un mock déjà accepté/refusé bascule
+  // automatiquement en mode "already_*" dans la modale.
+  const liveDeals = useFallback
+    ? mockDeals
+        .filter((d) => new Date(d.endsAt).getTime() - now > 0)
+        .map((d) => {
+          const rec = mockDecisions[d.id];
+          return {
+            ...d,
+            isAuthenticated: !!isSignedIn,
+            relationStatus: rec ? rec.decision : null,
+          };
+        })
+    : realDeals;
   if (liveDeals.length === 0) return null;
 
   // Durée d'animation proportionnelle au nombre de deals — plus il y en a,
@@ -949,7 +1167,19 @@ function FlashDeal() {
             await load();
             setOpenDealId(null);
           }}
-          goAuth={() => router.push("/inscription")}
+          goAuth={() => {
+            // Après authentification (Clerk), revenir sur la home en
+            // ré-ouvrant la modale du flash deal cliqué via `?deal=<id>`.
+            // L'effet d'hydratation côté FlashDeal détecte ce param et
+            // appelle setOpenDealId, puis nettoie l'URL.
+            const dealId = openDeal?.id ?? "";
+            const redirect = dealId
+              ? `/?deal=${encodeURIComponent(dealId)}`
+              : "/";
+            router.push(
+              `/inscription?redirect_url=${encodeURIComponent(redirect)}`,
+            );
+          }}
           goDonnees={() => router.push("/prospect?tab=donnees")}
         />
       )}
@@ -972,6 +1202,10 @@ function FlashDealModal({
   goAuth: () => void;
   goDonnees: () => void;
 }) {
+  // Mock deals injectés sur la home quand aucune campagne réelle n'est
+  // active : ils n'existent pas en base, donc accept/refuse est simulé
+  // localement (cf. decide()) pour préserver l'UX complète.
+  const isMock = deal.id.startsWith("mock-");
   const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(
     null,
   );
@@ -991,6 +1225,7 @@ function FlashDealModal({
   if (!deal.isAuthenticated) mode = "auth";
   else if (deal.relationStatus === "pending") mode = "decide";
   else if (deal.relationStatus) mode = "already_" + deal.relationStatus;
+  else if (isMock) mode = "decide";
   else if (
     Array.isArray(deal.missingTierKeys) &&
     deal.missingTierKeys.length > 0
@@ -999,6 +1234,22 @@ function FlashDealModal({
   else mode = "no_match";
 
   const decide = async (action: "accept" | "refuse") => {
+    // Deals fictifs : pas de relation en base, on simule la décision
+    // pour rendre le flux complet utilisable en démo. La décision est
+    // persistée dans localStorage pour (a) afficher l'état "déjà
+    // acceptée/refusée" si la modale est rouverte et (b) que le
+    // prototype prospect puisse afficher ces décisions dans l'onglet
+    // Mises en relation.
+    if (isMock) {
+      setSubmitting(action);
+      setError(null);
+      setTimeout(() => {
+        writeMockDecision(deal, action === "accept" ? "accepted" : "refused");
+        setSubmitting(null);
+        onClose();
+      }, 400);
+      return;
+    }
     if (!deal.relationId) return;
     setSubmitting(action);
     setError(null);
@@ -1023,10 +1274,60 @@ function FlashDealModal({
     }
   };
 
+  // Bascule accepted → refused tant que la campagne tourne encore.
+  // Côté API, l'endpoint /decision accepte directement `refuse` depuis
+  // un statut accepted (RPC refund_relation_tx). Pour les mocks, on
+  // ré-écrit simplement la décision dans localStorage.
+  const refuseAfterAccepted = async () => {
+    if (isMock) {
+      setSubmitting("refuse");
+      setError(null);
+      setTimeout(() => {
+        writeMockDecision(deal, "refused");
+        setSubmitting(null);
+        onClose();
+      }, 400);
+      return;
+    }
+    if (!deal.relationId) return;
+    setSubmitting("refuse");
+    setError(null);
+    try {
+      const r = await fetch(
+        `/api/prospect/relations/${deal.relationId}/decision`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "refuse" }),
+        },
+      );
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || "Erreur");
+      }
+      await onAfterDecision();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
   // Reprend la main sur une relation refusée : undo (refused → pending),
   // puis accept (pending → accepted). Utilisé tant que la campagne est
   // toujours active.
   const acceptAfterRefused = async () => {
+    // Mock : on bascule directement la décision persistée en "accepted".
+    if (isMock) {
+      setSubmitting("accept");
+      setError(null);
+      setTimeout(() => {
+        writeMockDecision(deal, "accepted");
+        setSubmitting(null);
+        onClose();
+      }, 400);
+      return;
+    }
     if (!deal.relationId) return;
     setSubmitting("accept");
     setError(null);
@@ -1482,7 +1783,68 @@ function FlashDealModal({
           </>
         )}
 
-        {mode.startsWith("already_") && mode !== "already_refused" && (
+        {mode === "already_accepted" && (
+          <>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background:
+                  "color-mix(in oklab, var(--good, #16A34A) 8%, var(--paper))",
+                border:
+                  "1px solid color-mix(in oklab, var(--good, #16A34A) 35%, var(--line))",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                lineHeight: 1.55,
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ marginBottom: 4 }}>
+                ✓ Sollicitation déjà acceptée.
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                La campagne est encore active : vous pouvez changer
+                d&apos;avis et refuser tant qu&apos;elle n&apos;est pas
+                clôturée.
+              </div>
+            </div>
+            <button
+              onClick={refuseAfterAccepted}
+              disabled={!!submitting}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--paper)",
+                color: "var(--ink)",
+                border: "1.5px solid var(--line-2)",
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting === "refuse"
+                ? "Refus en cours…"
+                : "Refuser finalement"}
+            </button>
+            {error && (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "#FEF2F2",
+                  border: "1.5px solid #FECACA",
+                  color: "#991B1B",
+                  fontSize: 13,
+                }}
+              >
+                {error}
+              </div>
+            )}
+          </>
+        )}
+
+        {(mode === "already_expired" || mode === "already_settled") && (
           <div
             style={{
               padding: "12px 14px",
@@ -1494,7 +1856,6 @@ function FlashDealModal({
               lineHeight: 1.55,
             }}
           >
-            {mode === "already_accepted" && "✓ Sollicitation déjà acceptée."}
             {mode === "already_expired" && "Cette sollicitation a expiré."}
             {mode === "already_settled" &&
               "✓ Sollicitation déjà acceptée — gains crédités."}
@@ -1871,6 +2232,7 @@ function ScoreSection() {
 
 function ProsSection() {
   const router = useRouter();
+  const [demoOpen, setDemoOpen] = useState(false);
   const benefits: { ic: IconName; t: string; d: string; hi?: boolean }[] = [
     {
       ic: "check",
@@ -2005,6 +2367,7 @@ function ProsSection() {
             </button>
             <button
               className="btn btn-lg btn-ghost btn-block-mobile"
+              onClick={() => setDemoOpen(true)}
               style={{
                 color: "var(--paper)",
                 borderColor: "rgba(255,255,255,.28)",
@@ -2284,6 +2647,7 @@ function ProsSection() {
           </div>
         </div>
       </div>
+      <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </section>
   );
 }
