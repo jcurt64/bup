@@ -1656,6 +1656,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [excludeCertified, setExcludeCertified] = useState(false);
   // Affiche la confirmation quand le pro coche la case (false → true).
   const [confirmExcludeCertified, setConfirmExcludeCertified] = useState(false);
+  // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
+  // acceptation par un fondateur coûte 2× le tarif palier choisi.
+  const [founderBonusEnabled, setFounderBonusEnabled] = useState(true);
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
@@ -2521,6 +2524,44 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 );
               })}
             </div>
+
+            {/* Bonus fondateur */}
+            <div style={{
+              marginTop: 16, padding: 14, borderRadius: 10,
+              border: '1px solid var(--line)', background: 'var(--paper)',
+            }}>
+              <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                    Activer le bonus fondateur (+100% le 1er mois)
+                  </div>
+                  <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                    Pendant le mois suivant le lancement officiel de BUUPP, chaque
+                    acceptation par un fondateur vous coûtera <strong>2× le tarif
+                    palier choisi</strong>. Désactivable : vos campagnes restent
+                    visibles aux fondateurs, mais ils gagneront le tarif standard.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={founderBonusEnabled}
+                  onClick={() => setFounderBonusEnabled(v => !v)}
+                  style={{
+                    flexShrink: 0, width: 42, height: 24, borderRadius: 999,
+                    background: founderBonusEnabled ? 'var(--accent)' : 'var(--line-2)',
+                    border: 'none', cursor: 'pointer', position: 'relative',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 2,
+                    left: founderBonusEnabled ? 20 : 2,
+                    width: 20, height: 20, borderRadius: 999, background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,.18)', transition: 'left .18s',
+                  }}/>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -2877,6 +2918,25 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
               )}
             </div>
 
+            <div style={{ marginTop: 14, padding: 14, borderRadius: 10,
+                          background: 'var(--ivory-2)', border: '1px solid var(--line)' }}>
+              <div className="mono caps" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 6 }}>
+                Bonus fondateur (1er mois post-lancement)
+              </div>
+              {founderBonusEnabled ? (
+                <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                  Activé — chaque acceptation par un fondateur vous coûtera
+                  <strong> {fmtEur(cpc * 2)}</strong> au lieu de {fmtEur(cpc)}.
+                  Coût max si tous fondateurs : <strong>{fmtEur(cpc * 2 * contacts)}</strong>.
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                  Désactivé pour cette campagne — les fondateurs gagneront le tarif
+                  standard ({fmtEur(cpc)}).
+                </div>
+              )}
+            </div>
+
             <div className="alert-block" style={{ padding: 14, borderRadius: 10,
               background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
               border: '1px solid color-mix(in oklab, var(--warn) 25%, transparent)',
@@ -2938,6 +2998,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
                         excludeCertified,
+                        founder_bonus_enabled: founderBonusEnabled,
                       }),
                     });
                     const j = await r.json();
