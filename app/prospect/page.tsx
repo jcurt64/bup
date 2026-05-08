@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ensureProspect } from "@/lib/sync/prospects";
+import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
 import PrototypeFrame from "../_components/PrototypeFrame";
 
 export const metadata = { title: "BUUPP — Espace Prospect" };
@@ -20,12 +22,27 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
   const primary = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
   );
-  await ensureProspect({
-    clerkUserId: userId,
-    email: primary?.emailAddress ?? null,
-    prenom: user?.firstName ?? null,
-    nom: user?.lastName ?? null,
-  });
+
+  try {
+    await ensureRole(userId, primary?.emailAddress ?? null, "prospect", {
+      prenom: user?.firstName ?? null,
+      nom: user?.lastName ?? null,
+    });
+  } catch (err) {
+    if (err instanceof RoleConflictError) {
+      // Pose le cookie flash lu par app/page.tsx pour afficher un toast.
+      // 60s suffisent largement pour une redirection immédiate.
+      const c = await cookies();
+      c.set("role_conflict", err.existingRole, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 60,
+        path: "/",
+      });
+      redirect("/");
+    }
+    throw err;
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: prospect, error } = await supabase
