@@ -2,6 +2,8 @@
  * /api/me — infos minimales sur l'utilisateur connecté + suppression de compte.
  *
  *   GET    → { prenom, nom, email, initials, role, displayName }
+ *            role peut être null (utilisateur Clerk valide mais inscription
+ *            interrompue avant /prospect ou /pro).
  *            Utilisé par le header du dashboard pour afficher les vraies
  *            initiales à la place du placeholder "ML"/"AM".
  *
@@ -44,9 +46,9 @@ export async function GET() {
 
   const admin = createSupabaseAdminClient();
 
-  // Détecte le rôle à partir des tables : on accepte qu'un même userId ait
-  // les deux profils (prospect + pro). On privilégie le rôle "pro" pour
-  // l'affichage si les deux existent (c'est lui qui paye 😉).
+  // DB = source de vérité. Depuis la migration 20260508140000, un userId
+  // ne peut avoir qu'un seul rôle (trigger d'exclusivité). Si une legacy
+  // row "double profil" persiste, on privilégie "pro" par prudence.
   const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
     admin
       .from("pro_accounts")
@@ -102,10 +104,10 @@ export async function GET() {
   if (role !== null && cachedRole !== role) {
     try {
       const client = await clerkClient();
-      // Read-merge-write pour ne pas écraser les autres clés publicMetadata.
-      const existing = await client.users.getUser(userId);
+      // Merge avec les autres clés déjà présentes (cache de `currentUser()`,
+      // pas de round-trip Clerk supplémentaire).
       const merged = {
-        ...((existing.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
+        ...((user?.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
         role,
       };
       await client.users.updateUser(userId, { publicMetadata: merged });
