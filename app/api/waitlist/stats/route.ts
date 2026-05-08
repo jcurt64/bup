@@ -15,15 +15,30 @@ export const revalidate = 0;
 
 export async function GET() {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase.rpc("waitlist_stats").single();
+  // Stats waitlist + date de lancement (depuis app_config). On fait les
+  // deux lectures en parallèle. La date de lancement reste tolérante :
+  // si la table n'existe pas encore (migrations pas appliquées), on
+  // renvoie `launchAt: null` plutôt que de planter l'endpoint public.
+  const [statsRes, configRes] = await Promise.all([
+    supabase.rpc("waitlist_stats").single(),
+    supabase
+      .from("app_config")
+      .select("launch_at")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
 
-  if (error) {
-    console.error("[/api/waitlist/stats] RPC error:", error);
+  if (statsRes.error) {
+    console.error("[/api/waitlist/stats] RPC error:", statsRes.error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 
   return NextResponse.json(
-    { total: Number(data?.total ?? 0), villes: Number(data?.villes ?? 0) },
+    {
+      total: Number(statsRes.data?.total ?? 0),
+      villes: Number(statsRes.data?.villes ?? 0),
+      launchAt: configRes.data?.launch_at ?? null,
+    },
     { status: 200, headers: { "cache-control": "no-store" } },
   );
 }

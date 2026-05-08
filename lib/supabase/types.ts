@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          id: boolean
+          launch_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: boolean
+          launch_at: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: boolean
+          launch_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           auto_resume_at: string | null

@@ -2833,16 +2833,62 @@
         }).format(v);
 
       /* ── Countdown ──────────────────────────────────────────────────────── */
-      const launch = new Date();
-      launch.setDate(launch.getDate() + 23);
+      // Date de lancement hydratée depuis /api/waitlist/stats (champ
+      // launchAt). Fallback à null tant que la première requête n'a pas
+      // répondu — l'affichage reste "—" en attendant.
+      let launchDate = null;
+      function setLaunchAt(iso) {
+        if (!iso) return;
+        const d = new Date(iso);
+        if (!isNaN(d.getTime())) {
+          launchDate = d;
+          updateCountdown();
+        }
+      }
       function updateCountdown() {
-        const diff = launch - new Date();
-        const days = Math.max(0, Math.floor(diff / 86400000));
-        document.getElementById("countdown").textContent = days + " jours";
-        document.getElementById("ctr-days").textContent = days;
+        const cdEl = document.getElementById("countdown");
+        const ctrEl = document.getElementById("ctr-days");
+        if (!launchDate) {
+          if (cdEl) cdEl.textContent = "—";
+          if (ctrEl) ctrEl.textContent = "—";
+          return;
+        }
+        const diff = launchDate.getTime() - Date.now();
+        if (diff <= 0) {
+          if (cdEl) cdEl.textContent = "ouvert ✓";
+          if (ctrEl) ctrEl.textContent = "0";
+          return;
+        }
+        const days = Math.floor(diff / 86_400_000);
+        const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+        const mins = Math.floor((diff % 3_600_000) / 60_000);
+        const secs = Math.floor((diff % 60_000) / 1000);
+        // Format adaptatif : > 1 jour → "X jours" ; > 1 h → "X h Y min" ;
+        // < 1 h → "X min Y s" pour suivre le décompte minute par minute.
+        let label;
+        if (days >= 1) label = days + " jour" + (days > 1 ? "s" : "");
+        else if (hours >= 1)
+          label = hours + " h " + String(mins).padStart(2, "0") + " min";
+        else
+          label =
+            mins + " min " + String(secs).padStart(2, "0") + " s";
+        if (cdEl) cdEl.textContent = label;
+        if (ctrEl) ctrEl.textContent = days >= 1 ? String(days) : label;
       }
       updateCountdown();
-      setInterval(updateCountdown, 60000);
+      // Refresh chaque seconde quand on s'approche du lancement, chaque
+      // minute sinon — choisi dynamiquement à chaque tick.
+      setInterval(() => {
+        const cadence =
+          launchDate && launchDate.getTime() - Date.now() < 3_600_000
+            ? 1000
+            : 60_000;
+        updateCountdown();
+        // Note : on ne change pas dynamiquement le setInterval ici par
+        // simplicité ; à 1Hz tout le temps c'est 86 400 ticks/jour, soit
+        // négligeable pour le navigateur.
+        void cadence;
+      }, 1000);
 
       /* ── Animated counter ───────────────────────────────────────────────── */
       function animateCount(el, target, prefix = "", suffix = "") {
