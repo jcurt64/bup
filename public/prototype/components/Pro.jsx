@@ -255,13 +255,39 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     const refresh = () => fetchProWallet().then(j => !cancelled && setWallet(j));
     refresh();
 
-    // Stripe Checkout renvoie sur /pro?topup=success. Le webhook peut
-    // mettre 1-3 s à arriver (surtout en local via `stripe listen`),
-    // donc on POLL le wallet jusqu'à ce que le solde change OU max 12 s
-    // (16 essais espacés de 750 ms). Nettement plus réactif qu'un
-    // setTimeout unique, sans tape sur l'API quand le webhook est rapide.
+    // Stripe Checkout renvoie sur /pro?topup=success&session_id=cs_…
+    // Pour ne pas dépendre du webhook (qui n'arrive jamais en dev local
+    // sans `stripe listen`), on appelle d'abord /api/pro/topup/reconcile
+    // avec le session_id : il revérifie la session côté Stripe et
+    // crédite le wallet si pas encore fait. Le polling reste en filet
+    // de sécurité au cas où le reconcile a déjà été exécuté par un
+    // refresh précédent — il verra `alreadyCredited`.
     if (typeof window !== 'undefined' && window.location.search.includes('topup=success')) {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
       const initialBalance = Number(_proWalletCache?.walletBalanceCents ?? 0);
+
+      const cleanupUrl = () => {
+        try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+      };
+
+      const reconcile = async () => {
+        if (!sessionId) return;
+        try {
+          const r = await fetch('/api/pro/topup/reconcile', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            console.warn('[pro/topup/reconcile] failed', r.status, j);
+          }
+        } catch (e) {
+          console.warn('[pro/topup/reconcile] network error', e);
+        }
+      };
+
       let attempts = 0;
       const poll = async () => {
         if (cancelled || attempts >= 16) return;
@@ -272,16 +298,16 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
         setWallet(fresh);
         const newBalance = Number(fresh?.walletBalanceCents ?? 0);
         if (newBalance > initialBalance) {
-          // Crédit reçu → on prévient les autres consommateurs (Facturation, …)
           try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
-          // Nettoie l'URL pour ne pas re-poller à chaque navigation interne.
-          try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+          cleanupUrl();
           return;
         }
         setTimeout(poll, 750);
       };
-      // Petit délai initial : laisse le temps au webhook de partir.
-      setTimeout(poll, 600);
+
+      // Reconcile d'abord (réveille le wallet immédiatement si webhook
+      // raté), puis poll en filet de sécurité.
+      reconcile().then(() => setTimeout(poll, 200));
     }
 
     const onChange = () => { invalidateProWallet(); refresh(); };
