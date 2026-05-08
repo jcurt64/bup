@@ -22,12 +22,15 @@ export default async function ProPage() {
     await ensureRole(userId, primary?.emailAddress ?? null, "pro");
   } catch (err) {
     if (err instanceof RoleConflictError) {
+      // Pose le cookie flash lu par app/page.tsx pour afficher un toast.
+      // 60s suffisent largement pour une redirection immédiate.
       const c = await cookies();
       c.set("role_conflict", err.existingRole, {
         httpOnly: true,
         sameSite: "lax",
         maxAge: 60,
         path: "/",
+        secure: process.env.NODE_ENV === "production",
       });
       redirect("/");
     }

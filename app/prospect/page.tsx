@@ -38,6 +38,7 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
         sameSite: "lax",
         maxAge: 60,
         path: "/",
+        secure: process.env.NODE_ENV === "production",
       });
       redirect("/");
     }
