@@ -78,9 +78,12 @@ export async function GET() {
     }
   }
 
-  const role: "pro" | "prospect" = proRow ? "pro" : "prospect";
-  // Pour un compte pro avec une raison sociale déjà saisie, on préfère
-  // ses initiales (ex. "Atelier Mercier" → "AM"). Sinon, identité perso.
+  // Mutuellement exclusif depuis la migration 20260508140000.
+  // `role === null` = utilisateur Clerk valide mais qui n'a pas encore
+  // finalisé son inscription (tab fermé entre signup et /prospect|/pro).
+  const role: "pro" | "prospect" | null =
+    proRow ? "pro" : prospectRow ? "prospect" : null;
+
   let displayName: string;
   let initials: string;
 
@@ -93,6 +96,24 @@ export async function GET() {
     initials = makeInitials(prenom, nom, email ?? displayName);
   }
 
+  // Resync défensif du cache Clerk : si la DB a un rôle mais que Clerk
+  // ne le sait pas (ou vice versa), on aligne sur la DB (source de vérité).
+  const cachedRole = (user?.publicMetadata as { role?: "prospect" | "pro" } | undefined)?.role;
+  if (role !== null && cachedRole !== role) {
+    try {
+      const client = await clerkClient();
+      // Read-merge-write pour ne pas écraser les autres clés publicMetadata.
+      const existing = await client.users.getUser(userId);
+      const merged = {
+        ...((existing.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
+        role,
+      };
+      await client.users.updateUser(userId, { publicMetadata: merged });
+    } catch (err) {
+      console.error("[/api/me] failed to resync Clerk publicMetadata", err);
+    }
+  }
+
   return NextResponse.json({
     prenom,
     nom,
@@ -100,8 +121,8 @@ export async function GET() {
     initials,
     role,
     displayName,
-    hasProspectProfile: Boolean(prospectRow),
-    hasProProfile: Boolean(proRow),
+    // hasProspectProfile / hasProProfile retirés — mutuellement exclusifs
+    // désormais. Les consommateurs lisent `role` directement.
   });
 }
 
