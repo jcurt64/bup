@@ -18,9 +18,9 @@ function resolveRoleRoute(intent: "prospect" | "pro", isSignedIn: boolean): stri
     return intent === "prospect" ? "/inscription/prospect" : "/inscription/pro";
   }
   // L'utilisateur connecté est routé vers son espace. Si l'intent ne
-  // correspond pas à son rôle (cas théorique : CTA pas masqué côté
-  // Landing), le trigger BDD côté /{role} déclenchera RoleConflictError →
-  // redirect / + toast.
+  // correspond pas à son rôle, le trigger BDD côté /{role} déclenche
+  // RoleConflictError → redirect / + toast. Pas besoin de connaître le
+  // rôle ici (simplification volontaire vs le plan).
   return intent === "prospect" ? "/prospect" : "/pro";
 }
 
@@ -33,10 +33,11 @@ export default function PrototypeFrame({
 }) {
   const router = useRouter();
   const { signOut } = useClerk();
-  const { isSignedIn } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
 
   useEffect(() => {
     const onMsg = async (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
       const data = e.data as
         | { bupp?: string; route?: string }
         | undefined;
@@ -54,6 +55,10 @@ export default function PrototypeFrame({
         if (!r) return;
 
         if (r === "prospect" || r === "pro") {
+          // Pendant l'hydratation Clerk (`isSignedIn === undefined`), on ne route
+          // pas — un utilisateur connecté serait sinon envoyé sur /inscription/{role}.
+          // L'utilisateur peut recliquer une fois Clerk prêt (sub-200ms typiquement).
+          if (!isLoaded) return;
           const target = resolveRoleRoute(r, !!isSignedIn);
           router.push(target);
           return;
@@ -69,13 +74,15 @@ export default function PrototypeFrame({
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [router, signOut, isSignedIn]);
+  }, [router, signOut, isSignedIn, isLoaded]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
   // Cache-bust uniquement côté client : `Date.now()` au render initial
   // SSR donnerait un timestamp différent du client → mismatch
   // d'hydratation. On rend donc l'iframe avec une URL stable au premier
   // pass, puis on la remonte avec un suffixe `?v=...` après hydratation.
+  // Cela force le navigateur à recharger shell.html (et donc les
+  // scripts JSX qu'il référence) à chaque navigation client.
   const [cacheBust, setCacheBust] = useState<number | null>(null);
   useEffect(() => {
     setCacheBust(Date.now());
