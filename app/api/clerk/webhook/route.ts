@@ -4,7 +4,8 @@
  * Endpoint signé par Clerk via Svix. Synchronise les utilisateurs vers
  * la table `prospects` de Supabase :
  *
- *   user.created → INSERT prospect (+ palier 1 si email/nom dispo)
+ *   user.created → no-op (la création de la row est déléguée à ensureRole()
+ *                  appelé à la 1ère visite de /prospect ou /pro)
  *   user.updated → UPDATE palier 1 (email)
  *   user.deleted → DELETE prospect (cascade sur les paliers)
  *
