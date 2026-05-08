@@ -2985,6 +2985,11 @@
       const WAITLIST_TARGET = 500; // capacité places prioritaires
 
       function applyStats(stats) {
+        // launchAt n'est présent que dans le payload du GET (pas dans
+        // les responses POST de /api/waitlist) — on hydrate seulement
+        // quand le champ est fourni pour ne pas réinitialiser un
+        // launchDate déjà connu.
+        if (stats?.launchAt) setLaunchAt(stats.launchAt);
         const total = Number(stats?.total ?? 0);
         const villes = Number(stats?.villes ?? 0);
         animateCount(document.getElementById("ctr-inscrits"), total);
