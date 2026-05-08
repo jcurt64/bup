@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { clearRoleConflictCookie } from "../_actions/clearRoleConflict";
 
 type Role = "prospect" | "pro";
 
@@ -15,6 +16,13 @@ export default function RoleConflictToast({ existingRole }: { existingRole: Role
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
+    // Cookie one-shot : on demande au serveur de le supprimer dès que le
+    // toast s'affiche. Fire-and-forget : si l'appel échoue, le cookie a
+    // déjà maxAge=60s, il s'éteindra de lui-même.
+    clearRoleConflictCookie().catch((err) =>
+      console.error("[RoleConflictToast] clearRoleConflictCookie failed", err),
+    );
+
     const t = setTimeout(() => setOpen(false), 8000);
     return () => clearTimeout(t);
   }, []);
@@ -35,7 +43,7 @@ export default function RoleConflictToast({ existingRole }: { existingRole: Role
         padding: "14px 18px",
         borderRadius: 12,
         boxShadow: "0 18px 48px -12px rgba(0,0,0,.35)",
-        maxWidth: 520,
+        width: "min(520px, calc(100vw - 32px))",
         fontSize: 14,
         lineHeight: 1.45,
         display: "flex",
@@ -54,6 +62,9 @@ export default function RoleConflictToast({ existingRole }: { existingRole: Role
           cursor: "pointer",
           fontSize: 18,
           lineHeight: 1,
+          padding: "4px 8px",
+          minWidth: 32,
+          minHeight: 32,
         }}
       >
         ×

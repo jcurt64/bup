@@ -12,12 +12,10 @@ export default async function HomePage() {
       ? conflictCookie.value
       : null;
 
-  // Cookie flash : on supprime après lecture pour qu'il ne réapparaisse
-  // pas au prochain reload de /.
-  if (conflictRole) {
-    c.delete("role_conflict");
-  }
-
+  // La suppression du cookie est déléguée à `RoleConflictToast` (qui appelle
+  // une Server Action depuis useEffect). En Next.js 16, `cookies().delete()`
+  // est interdit pendant le render d'un Server Component (seulement en
+  // Server Action ou Route Handler).
   return (
     <>
       {conflictRole && <RoleConflictToast existingRole={conflictRole} />}
