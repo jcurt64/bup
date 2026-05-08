@@ -218,6 +218,25 @@ export default function CgvPage() {
           </p>
         </Section>
 
+        <Section title="Bonus Fondateur — Conséquence pour le Professionnel">
+          <p>
+            Pendant le 1er mois suivant le lancement officiel de BUUPP, chaque
+            acceptation d&apos;une sollicitation par un prospect fondateur·ice
+            donne lieu à un débit de <strong>2× le tarif palier choisi</strong>
+            {" "}sur le solde du Professionnel. Lors de la création d&apos;une
+            campagne, le Professionnel peut désactiver cette mécanique pour la
+            campagne concernée — ses sollicitations resteront alors visibles
+            aux fondateur·ices, mais ces dernier·ères gagneront le tarif
+            standard.
+          </p>
+          <p>
+            Le Professionnel reconnaît être dûment informé de ce surcoût avant
+            validation de la campagne. Le récapitulatif présenté à l&apos;étape
+            de validation indique explicitement le coût maximal projeté avec et
+            sans le bonus.
+          </p>
+        </Section>
+
         <div
           style={{
             marginTop: 16,
