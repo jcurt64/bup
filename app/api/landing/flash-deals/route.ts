@@ -26,10 +26,12 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
-  // ─── Optional auth context ─────────────────────────────────────
-  // Si l'utilisateur est connecté en tant que prospect, on charge ses
-  // 5 paliers de données et ses relations pour les flash deals visibles.
-  // Anonyme → on saute, le client gérera le redirect vers l'auth.
+  // ─── Auth (optionnel) — résolution du prospect ─────────────────
+  // Récupère uniquement l'id prospect courant si la session Clerk est
+  // valide. La lecture des paliers et des relations se fait plus bas
+  // (après la query campagnes), pas ici.
+  // Anonyme : on continue sans prospect — le contexte fondateur sera
+  // calculé en mode public.
   let prospect: ProspectIdRow = null;
   try {
     const { userId } = await auth();
@@ -46,7 +48,19 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] auth context failed", e);
   }
 
-  const founder = await getFounderContext(admin, prospect?.id ?? null);
+  // `getFounderContext` peut échouer si la migration fondateur n'est
+  // pas encore appliquée (RPC absente) ou en cas de hoquet réseau —
+  // on dégrade silencieusement vers un contexte non-fondateur pour
+  // éviter un 500 sur cet endpoint public.
+  let founder: { isFounder: boolean; isWithinBonusWindow: boolean } = {
+    isFounder: false,
+    isWithinBonusWindow: false,
+  };
+  try {
+    founder = await getFounderContext(admin, prospect?.id ?? null);
+  } catch (e) {
+    console.warn("[/api/landing/flash-deals] founder context failed", e);
+  }
 
   // Fenêtre +10 min : seuls les fondateurs voient un flash deal créé il
   // y a moins de 10 min. Pour tout le monde d'autre, filtre serveur.
