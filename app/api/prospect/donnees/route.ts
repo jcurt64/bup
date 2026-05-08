@@ -70,7 +70,7 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
 
   // Lecture parallèle des 5 tier rows + de la row maître (paliers cachés/supprimés, is_founder).
-  const [identity, localisation, vie, pro, patrimoine, prospect, prospectsRow] = await Promise.all([
+  const [identity, localisation, vie, pro, patrimoine, prospect] = await Promise.all([
     admin.from("prospect_identity").select("*").eq("prospect_id", prospectId).maybeSingle(),
     admin.from("prospect_localisation").select("*").eq("prospect_id", prospectId).maybeSingle(),
     admin.from("prospect_vie").select("*").eq("prospect_id", prospectId).maybeSingle(),
@@ -78,10 +78,9 @@ export async function GET() {
     admin.from("prospect_patrimoine").select("*").eq("prospect_id", prospectId).maybeSingle(),
     admin
       .from("prospects")
-      .select("hidden_tiers, removed_tiers")
+      .select("hidden_tiers, removed_tiers, is_founder")
       .eq("id", prospectId)
       .single(),
-    admin.from("prospects").select("is_founder").eq("id", prospectId).maybeSingle(),
   ]);
 
   return NextResponse.json({
@@ -99,7 +98,7 @@ export async function GET() {
     },
     hiddenTiers: (prospect.data?.hidden_tiers ?? []) as TierKey[],
     removedTiers: (prospect.data?.removed_tiers ?? []) as TierKey[],
-    isFounder: prospectsRow.data?.is_founder === true,
+    isFounder: prospect.data?.is_founder === true,
   });
 }
 
