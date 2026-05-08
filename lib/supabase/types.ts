@@ -30,6 +30,7 @@ export type Database = {
           extended_at: string | null
           extension_paid_cents: number
           extension_used: boolean
+          founder_bonus_enabled: boolean
           id: string
           matched_count: number
           name: string
@@ -59,6 +60,7 @@ export type Database = {
           extended_at?: string | null
           extension_paid_cents?: number
           extension_used?: boolean
+          founder_bonus_enabled?: boolean
           id?: string
           matched_count?: number
           name: string
@@ -88,6 +90,7 @@ export type Database = {
           extended_at?: string | null
           extension_paid_cents?: number
           extension_used?: boolean
+          founder_bonus_enabled?: boolean
           id?: string
           matched_count?: number
           name?: string
@@ -561,6 +564,7 @@ export type Database = {
           created_at: string
           hidden_tiers: Database["public"]["Enums"]["tier_key"][]
           id: string
+          is_founder: boolean
           removed_tiers: Database["public"]["Enums"]["tier_key"][]
           stripe_connect_account_id: string | null
           stripe_details_submitted: boolean
@@ -577,6 +581,7 @@ export type Database = {
           created_at?: string
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
+          is_founder?: boolean
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
@@ -593,6 +598,7 @@ export type Database = {
           created_at?: string
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
+          is_founder?: boolean
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
@@ -637,6 +643,7 @@ export type Database = {
           decided_at: string | null
           escrow_release_at: string | null
           expires_at: string
+          founder_bonus_applied: boolean
           id: string
           motif: string
           pro_account_id: string
@@ -651,6 +658,7 @@ export type Database = {
           decided_at?: string | null
           escrow_release_at?: string | null
           expires_at: string
+          founder_bonus_applied?: boolean
           id?: string
           motif: string
           pro_account_id: string
@@ -665,6 +673,7 @@ export type Database = {
           decided_at?: string | null
           escrow_release_at?: string | null
           expires_at?: string
+          founder_bonus_applied?: boolean
           id?: string
           motif?: string
           pro_account_id?: string
@@ -807,6 +816,10 @@ export type Database = {
         Returns: undefined
       }
       clerk_user_id: { Args: never; Returns: string }
+      is_within_founder_bonus_window: {
+        Args: never
+        Returns: boolean
+      }
       close_campaign_settle: {
         Args: { p_campaign_id: string }
         Returns: {
