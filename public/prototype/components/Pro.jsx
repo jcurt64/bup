@@ -312,7 +312,31 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
 
     const onChange = () => { invalidateProWallet(); refresh(); };
     window.addEventListener('pro:wallet-changed', onChange);
-    return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
+
+    // Écoute des messages parent → iframe. Le composant TopupReconciler
+    // côté Next.js émet `{bupp:'wallet-refresh'}` après avoir crédité
+    // le wallet via /api/pro/topup/reconcile : on invalide le cache
+    // et on retire la valeur fraîche pour que l'en-tête s'actualise
+    // immédiatement. Pas de filtre origin — la même origine héberge
+    // shell.html et les pages parentes (sécurité Clerk côté serveur).
+    const onParentMsg = (e) => {
+      if (e?.data?.bupp === 'wallet-refresh') {
+        invalidateProWallet();
+        fetchProWallet().then(j => {
+          if (!cancelled) {
+            setWallet(j);
+            try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+          }
+        });
+      }
+    };
+    window.addEventListener('message', onParentMsg);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pro:wallet-changed', onChange);
+      window.removeEventListener('message', onParentMsg);
+    };
   }, []);
 
   // Affiche le solde DISPONIBLE (= balance - réservé). Le réservé
