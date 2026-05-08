@@ -39,20 +39,26 @@ declare
   v_in_window        boolean;
   v_apply_bonus      boolean := false;
   v_reward_final     bigint;
+  -- Bonus existant : certifié confiance (×2)
+  v_verification     public.verification_level;
 begin
   -- Verrouille r, c, a + lit les colonnes fondateur en une seule requête.
   -- v_reward = tarif palier de la campagne (c.cost_per_contact_cents)
   -- et NON r.reward_cents — celui-ci est écrasé par le montant final
-  -- (potentiellement doublé) à la fin de la fonction. Le lire ici
+  -- (potentiellement doublé/quadruplé) à la fin de la fonction. Le lire ici
   -- créerait une boucle d'auto-doublage en cas de refund + re-accept.
+  -- v_verification permet de réappliquer le bonus certifie_confiance
+  -- (×2) à chaque acceptation à partir du tarif campaign — sinon ce
+  -- bonus, historiquement câblé via r.reward_cents au moment de
+  -- l'INSERT relation, serait perdu en passant par c.cost_per_contact_cents.
   select r.pro_account_id, r.prospect_id, r.campaign_id,
          c.cost_per_contact_cents, r.status,
          c.status, c.ends_at, a.wallet_balance_cents,
-         p.is_founder, c.founder_bonus_enabled
+         p.is_founder, c.founder_bonus_enabled, p.verification
     into v_pro_id, v_prospect_id, v_campaign_id,
          v_reward, v_status,
          v_camp_status, v_camp_ends_at, v_wallet,
-         v_is_founder, v_bonus_enabled
+         v_is_founder, v_bonus_enabled, v_verification
     from relations r
     join campaigns  c on c.id = r.campaign_id
     join pro_accounts a on a.id = r.pro_account_id
@@ -78,11 +84,19 @@ begin
     raise exception 'campaign_expired' using errcode = 'P0001';
   end if;
 
-  -- ── Calcul du montant final (avec bonus éventuel) ───────────────────
+  -- ── Calcul du montant final (avec bonus éventuels) ──────────────────
+  -- Ordre des bonus :
+  --   1. certifie_confiance : ×2 sur le tarif de base (existant historique)
+  --   2. founder bonus      : ×2 supplémentaire si dans la fenêtre 1 mois
+  -- Les deux peuvent se cumuler → un fondateur certifie_confiance touche
+  -- 4× le tarif palier pendant le 1er mois post-lancement.
   v_in_window   := public.is_within_founder_bonus_window();
   v_apply_bonus := v_is_founder and v_bonus_enabled and v_in_window;
 
   v_reward_final := v_reward;
+  if v_verification = 'certifie_confiance' then
+    v_reward_final := v_reward_final * 2;
+  end if;
   if v_apply_bonus then
     v_reward_final := v_reward_final * 2;
   end if;
