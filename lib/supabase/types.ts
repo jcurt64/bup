@@ -789,6 +789,7 @@ export type Database = {
           id: string
           interests: string[]
           ip_hash: string | null
+          launch_email_sent_at: string | null
           nom: string
           prenom: string
           ref_code: string | null
@@ -802,6 +803,7 @@ export type Database = {
           id?: string
           interests?: string[]
           ip_hash?: string | null
+          launch_email_sent_at?: string | null
           nom: string
           prenom: string
           ref_code?: string | null
@@ -815,6 +817,7 @@ export type Database = {
           id?: string
           interests?: string[]
           ip_hash?: string | null
+          launch_email_sent_at?: string | null
           nom?: string
           prenom?: string
           ref_code?: string | null

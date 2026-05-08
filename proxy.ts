@@ -37,6 +37,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/waitlist/stats",
   "/api/plan-pricing",
   "/api/landing/(.*)",
+  // ─── API admin : pas de session Clerk requise. Chaque handler
+  // valide lui-même un secret via le header `x-admin-secret`
+  // (cf. app/api/admin/waitlist/launch-email/route.ts).
+  "/api/admin/(.*)",
 ]);
 
 // `clerkMiddleware` retourne une fonction de signature compatible avec
