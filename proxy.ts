@@ -13,8 +13,23 @@ const isPublicRoute = createRouteMatcher([
   "/liste-attente",
   "/connexion(.*)",
   "/inscription(.*)",
+  // ─── Pages d'information publiques (footer "Ressources" et "Légal")
+  // Doivent être accessibles sans authentification : ce sont des pages
+  // institutionnelles (légales, support, statut, accessibilité, etc.).
   "/bareme",
+  "/aide",
+  "/status",
+  "/accessibilite",
+  "/minimisation",
+  "/cgu",
+  "/cgv",
   "/rgpd",
+  "/cookies",
+  "/contact-dpo",
+  // /feedback : atterrissage des liens dans les e-mails de relation
+  // refusée — explicitement public (cf. app/feedback/page.tsx).
+  "/feedback",
+  // ─── API publiques
   "/api/me/(.*)",
   "/api/clerk/webhook",
   "/api/stripe/webhook",
