@@ -2837,7 +2837,11 @@
       // launchAt). Fallback à null tant que la première requête n'a pas
       // répondu — l'affichage reste "—" en attendant.
       let launchDate = null;
-      function setLaunchAt(iso) {
+      // Simulation locale (?simulate-launch=Xmin) : verrouille launchDate
+      // pour que la réponse de /api/waitlist/stats ne l'écrase pas.
+      let launchDateLocked = false;
+      function setLaunchAt(iso, opts) {
+        if (launchDateLocked && !(opts && opts.force)) return;
         if (!iso) return;
         const d = new Date(iso);
         if (!isNaN(d.getTime())) {
@@ -2875,6 +2879,67 @@
         if (cdEl) cdEl.textContent = label;
         if (ctrEl) ctrEl.textContent = days >= 1 ? String(days) : label;
       }
+      // Override simulation : ?simulate-launch=3 → lance dans 3 minutes
+      // (testable sans toucher à la DB ; le verrou empêche la réponse de
+      // /api/waitlist/stats de l'écraser quand elle arrive).
+      (function applySimulateLaunch() {
+        const debug =
+          new URLSearchParams(window.location.search).get("debug") !== null;
+        const safeRun = (fn) => {
+          if (debug) {
+            fn();
+          } else {
+            try {
+              fn();
+            } catch (err) {
+              console.error("[waitlist] applySimulateLaunch failed", err);
+            }
+          }
+        };
+        safeRun(() => {
+          const raw = new URLSearchParams(window.location.search).get(
+            "simulate-launch",
+          );
+          if (raw == null) return;
+          const minutes = parseFloat(raw);
+          if (!Number.isFinite(minutes) || minutes <= 0) return;
+          const target = new Date(Date.now() + minutes * 60_000);
+          setLaunchAt(target.toISOString(), { force: true });
+          launchDateLocked = true;
+          console.log(
+            "[waitlist] Simulation : lancement dans " +
+              minutes +
+              " min — " +
+              target.toISOString(),
+          );
+
+          // Badge auto-suffisant en haut à droite : affiche son propre
+          // countdown sans dépendre de #countdown / #ctr-days.
+          const badge = document.createElement("div");
+          badge.style.cssText =
+            "position:fixed;top:8px;right:8px;z-index:10000;" +
+            "background:#B91C1C;color:#FBF9F3;font-family:monospace;" +
+            "font-size:13px;letter-spacing:.05em;padding:8px 14px;" +
+            "border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.25);";
+          const formatBadge = () => {
+            const diff = target.getTime() - Date.now();
+            if (diff <= 0) return "SIMU - ouvert";
+            const m = Math.floor(diff / 60_000);
+            const s = Math.floor((diff % 60_000) / 1000);
+            return (
+              "SIMU - " +
+              String(m).padStart(2, "0") +
+              ":" +
+              String(s).padStart(2, "0")
+            );
+          };
+          badge.textContent = formatBadge();
+          (document.body || document.documentElement).appendChild(badge);
+          setInterval(() => {
+            badge.textContent = formatBadge();
+          }, 1000);
+        });
+      })();
       updateCountdown();
       // Refresh chaque seconde quand on s'approche du lancement, chaque
       // minute sinon — choisi dynamiquement à chaque tick.

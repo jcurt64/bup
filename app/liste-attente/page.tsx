@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function WaitlistPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -17,9 +18,14 @@ export default function WaitlistPage() {
     return () => window.removeEventListener("message", onMsg);
   }, [router]);
 
+  // Propage les query params (notamment `simulate-launch=Xmin` pour les
+  // tests de countdown) au HTML statique chargé dans l'iframe.
+  const qs = searchParams.toString();
+  const src = qs ? `/prototype/waitlist.html?${qs}` : "/prototype/waitlist.html";
+
   return (
     <iframe
-      src="/prototype/waitlist.html"
+      src={src}
       title="BUUPP — Liste d'attente"
       style={{
         position: "fixed",
