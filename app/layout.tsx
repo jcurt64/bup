@@ -2,6 +2,17 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
+
+// Override de la traduction Clerk par défaut pour expliquer la règle
+// d'exclusivité de rôle (cf. trigger DB + ensureRole).
+const buppFrFR = {
+  ...frFR,
+  unstable__errors: {
+    ...frFR.unstable__errors,
+    form_identifier_exists__email_address:
+      "Cette adresse e-mail est déjà utilisée sur BUUPP. Une adresse mail = un seul compte, prospect ou professionnel. Connectez-vous avec ce compte ou utilisez une autre adresse pour créer le second.",
+  },
+};
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 import CookieConsent from "./_components/CookieConsent";
@@ -46,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={frFR}>
+    <ClerkProvider localization={buppFrFR}>
       <html
         lang="fr"
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}

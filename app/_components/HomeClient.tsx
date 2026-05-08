@@ -418,12 +418,6 @@ function Navbar() {
 
           <div className="row center gap-3 nav-desktop">
             <button
-              className="btn btn-sm btn-ghost"
-              onClick={() => router.push("/connexion")}
-            >
-              Se connecter
-            </button>
-            <button
               className="btn btn-sm btn-primary"
               onClick={() => router.push("/inscription")}
             >
