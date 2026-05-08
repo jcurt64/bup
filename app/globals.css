@@ -557,8 +557,8 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 @media (max-width: 600px) {
   .route-nav {
     bottom: 14px !important;
-    padding: 6px !important;
-    gap: 4px !important;
+    padding: 8px !important;
+    gap: 10px !important;
     width: auto !important;
     max-width: calc(100vw - 24px) !important;
     justify-content: center !important;
