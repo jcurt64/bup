@@ -181,6 +181,7 @@ function ProDashboard({ go }) {
           companyInfo={companyInfo}
           onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
           duplicateSourceId={duplicateSourceId}
+          onRecharge={() => setRecharge(true)}
         />
       )}
       {sec === 'contacts' && <Contacts pendingContact={pendingContact} onPendingConsumed={() => setPendingContact(null)}/>}
@@ -1470,7 +1471,7 @@ const DURATIONS = [
 ];
 const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
 
-function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
@@ -1945,13 +1946,31 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           </span>
         </div>
         {walletBalanceEur != null && walletBalanceEur < totalToDebit && (
-          <div className="row" style={{
-            marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+          <div style={{
+            marginTop: 6, padding: '8px 10px', borderRadius: 8,
             background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
-            fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
           }} role="alert">
-            <span aria-hidden="true">⚠</span>
-            <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis (budget + commission max.).</span>
+            <div className="row" style={{
+              gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+            }}>
+              <span aria-hidden="true">⚠</span>
+              <span style={{ flex: 1 }}>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis (budget + commission max.).</span>
+              {onRecharge && (
+                <button
+                  type="button"
+                  onClick={onRecharge}
+                  className="btn btn-sm"
+                  style={{
+                    background: '#991b1b', color: '#fff', border: 'none',
+                    padding: '6px 12px', borderRadius: 6,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    flexShrink: 0, whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Icon name="plus" size={11}/> Recharger votre crédit
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -2957,13 +2976,31 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 </span>
               </div>
               {walletBalanceEur != null && total > 0 && walletBalanceEur < totalToDebit && (
-                <div className="row" style={{
-                  marginTop: 6, gap: 8, padding: '8px 10px', borderRadius: 8,
+                <div style={{
+                  marginTop: 6, padding: '8px 10px', borderRadius: 8,
                   background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
-                  fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
                 }} role="alert">
-                  <span aria-hidden="true">⚠</span>
-                  <span>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis.</span>
+                  <div className="row" style={{
+                    gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
+                  }}>
+                    <span aria-hidden="true">⚠</span>
+                    <span style={{ flex: 1 }}>Solde indisponible — {fmtEur(walletBalanceEur)} disponibles, {fmtEur(totalToDebit)} requis.</span>
+                    {onRecharge && (
+                      <button
+                        type="button"
+                        onClick={onRecharge}
+                        className="btn btn-sm"
+                        style={{
+                          background: '#991b1b', color: '#fff', border: 'none',
+                          padding: '6px 12px', borderRadius: 6,
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          flexShrink: 0, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Icon name="plus" size={11}/> Recharger votre crédit
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
