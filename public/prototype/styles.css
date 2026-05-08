@@ -696,6 +696,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     gap: 12px !important;
   }
 
+  /* Alerte "solde insuffisant" du wizard de campagne : message + CTA
+     "Recharger" passent en colonne pour que le bouton prenne toute la
+     largeur disponible et reste lisible sur petit écran. */
+  .recharge-alert {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .recharge-alert .recharge-alert-cta {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
   .dash-shell main {
     padding: 16px 14px 110px !important;
   }

@@ -1950,7 +1950,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
             marginTop: 6, padding: '8px 10px', borderRadius: 8,
             background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
           }} role="alert">
-            <div className="row" style={{
+            <div className="row recharge-alert" style={{
               gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
             }}>
               <span aria-hidden="true">⚠</span>
@@ -1959,7 +1959,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 <button
                   type="button"
                   onClick={onRecharge}
-                  className="btn btn-sm"
+                  className="btn btn-sm recharge-alert-cta"
                   style={{
                     background: '#991b1b', color: '#fff', border: 'none',
                     padding: '6px 12px', borderRadius: 6,
@@ -2980,7 +2980,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                   marginTop: 6, padding: '8px 10px', borderRadius: 8,
                   background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b',
                 }} role="alert">
-                  <div className="row" style={{
+                  <div className="row recharge-alert" style={{
                     gap: 8, fontSize: 12, fontWeight: 500, alignItems: 'flex-start',
                   }}>
                     <span aria-hidden="true">⚠</span>
@@ -2989,7 +2989,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                       <button
                         type="button"
                         onClick={onRecharge}
-                        className="btn btn-sm"
+                        className="btn btn-sm recharge-alert-cta"
                         style={{
                           background: '#991b1b', color: '#fff', border: 'none',
                           padding: '6px 12px', borderRadius: 6,
