@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
 import { auth, clerkClient, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import type { Role } from "@/lib/sync/ensureRole";
 
-type Role = "prospect" | "pro";
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  robots: "noindex",
+  title: "BUUPP — Redirection",
+};
 
 export default async function PostLoginPage() {
   const { userId } = await auth();
@@ -26,11 +32,14 @@ export default async function PostLoginPage() {
 
   if (dbRole) {
     // Resync Clerk metadata avant la redirection (le client lira correctement
-    // au prochain render). Read-merge-write pour ne pas écraser les autres clés.
+    // au prochain render). Lecture fraîche via `getUser` (cohérent avec
+    // `ensureRole`) — la perf importe peu : ce path est rare (cache Clerk
+    // froid) et la route n'est traversée qu'une fois par login.
     try {
       const client = await clerkClient();
+      const fresh = await client.users.getUser(userId);
       const merged = {
-        ...((user?.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
+        ...((fresh.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
         role: dbRole,
       };
       await client.users.updateUser(userId, { publicMetadata: merged });
