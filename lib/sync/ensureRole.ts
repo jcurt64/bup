@@ -21,18 +21,25 @@ export class RoleConflictError extends Error {
   readonly existingRole: Role;
   constructor(existingRole: Role) {
     super(`role_conflict:${existingRole}`);
+    Object.setPrototypeOf(this, RoleConflictError.prototype);
     this.name = "RoleConflictError";
     this.existingRole = existingRole;
   }
 }
 
 function isPgUniqueViolation(err: unknown): boolean {
-  // Erreurs Supabase exposent un code SQLSTATE dans `code` (PostgrestError)
-  // ou via `message` (raw pg). 23505 = unique_violation, levé par notre trigger.
+  // Doit être 23505 ET le message du trigger d'exclusivité de rôle.
+  // Un simple unique-index race sur clerk_user_id (insert concurrent du
+  // même nouvel utilisateur) lèverait aussi 23505 — il ne faut surtout
+  // pas le classer comme conflit de rôle (le toast et le redirect /
+  // seraient incorrects).
   if (!err || typeof err !== "object") return false;
   const e = err as Partial<PostgrestError> & { message?: string };
-  if (e.code === "23505") return true;
-  return typeof e.message === "string" && e.message.includes("role_conflict");
+  return (
+    e.code === "23505" &&
+    typeof e.message === "string" &&
+    e.message.includes("role_conflict")
+  );
 }
 
 export type EnsureRoleIdentity = {
@@ -72,7 +79,15 @@ export async function ensureRole(
 
   try {
     const client = await clerkClient();
-    await client.users.updateUser(userId, { publicMetadata: { role } });
+    // Merge plutôt que replace : `updateUser({ publicMetadata })` REMPLACE
+    // l'objet entier côté Clerk. On lit d'abord pour préserver les autres
+    // clés que d'autres parties du code pourraient stocker.
+    const existing = await client.users.getUser(userId);
+    const merged = {
+      ...((existing.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
+      role,
+    };
+    await client.users.updateUser(userId, { publicMetadata: merged });
   } catch (err) {
     // Volontairement non-bloquant — la DB fait foi.
     console.error("[ensureRole] failed to update Clerk publicMetadata", err);
