@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { clearRoleConflictCookie } from "../_actions/clearRoleConflict";
+import { useRouter } from "next/navigation";
 
 type Role = "prospect" | "pro";
 
@@ -14,18 +14,17 @@ const COPY: Record<Role, string> = {
 
 export default function RoleConflictToast({ existingRole }: { existingRole: Role }) {
   const [open, setOpen] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    // Cookie one-shot : on demande au serveur de le supprimer dès que le
-    // toast s'affiche. Fire-and-forget : si l'appel échoue, le cookie a
-    // déjà maxAge=60s, il s'éteindra de lui-même.
-    clearRoleConflictCookie().catch((err) =>
-      console.error("[RoleConflictToast] clearRoleConflictCookie failed", err),
-    );
+    // One-shot : on retire le query param pour qu'un reload de / ne
+    // réaffiche pas le toast. `replace` (pas `push`) pour ne pas
+    // polluer l'historique.
+    router.replace("/", { scroll: false });
 
     const t = setTimeout(() => setOpen(false), 8000);
     return () => clearTimeout(t);
-  }, []);
+  }, [router]);
 
   if (!open) return null;
 

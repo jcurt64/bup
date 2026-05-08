@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
@@ -22,17 +21,12 @@ export default async function ProPage() {
     await ensureRole(userId, primary?.emailAddress ?? null, "pro");
   } catch (err) {
     if (err instanceof RoleConflictError) {
-      // Pose le cookie flash lu par app/page.tsx pour afficher un toast.
-      // 60s suffisent largement pour une redirection immédiate.
-      const c = await cookies();
-      c.set("role_conflict", err.existingRole, {
-        httpOnly: true,
-        sameSite: "lax",
-        maxAge: 60,
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      });
-      redirect("/");
+      // Signale le conflit de rôle via query param (Next.js 16 interdit
+      // cookies().set() pendant le render d'un Server Component). La
+      // home lit searchParams.role_conflict et affiche un toast ; le
+      // toast strippe le param via router.replace au montage pour un
+      // comportement one-shot.
+      redirect(`/?role_conflict=${err.existingRole}`);
     }
     throw err;
   }
