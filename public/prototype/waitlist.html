@@ -2711,13 +2711,6 @@
               </div>
               <div class="cb-row">
                 <span class="cb-label"
-                  ><span class="cb-dot" style="background: var(--gold)"></span
-                  >Parrainage (10% / niveau)</span
-                >
-                <span class="cb-val" id="cb-par">0,00€</span>
-              </div>
-              <div class="cb-row">
-                <span class="cb-label"
                   ><span class="cb-dot" style="background: var(--green)"></span
                   >Total revenus estimés</span
                 >
@@ -2744,8 +2737,8 @@
           <div class="ss-label">Prospects inscrits</div>
         </div>
         <div class="ss-item">
-          <div class="ss-val">68%</div>
-          <div class="ss-label">Taux d'acceptation moyen</div>
+          <div class="ss-val">Gains x 2</div>
+          <div class="ss-label">Gains doublés le premier mois</div>
         </div>
         <div class="ss-item">
           <div class="ss-val">5€</div>
@@ -2799,15 +2792,14 @@
             <div class="perk-title">Accès prioritaire VIP</div>
             <div class="perk-desc">
               Vous êtes les premiers à recevoir les sollicitations les mieux
-              rémunérées lors de la première semaine de lancement.
+              rémunérées lors du premier mois de lancement.
             </div>
           </div>
           <div class="perk-card">
             <div class="perk-icon">🤝</div>
-            <div class="perk-title">Parrainage x1,5 à vie</div>
+            <div class="perk-title">Parrainage = prioritaire aux deals</div>
             <div class="perk-desc">
-              Les fondateurs bénéficient d'un taux de commission de parrainage
-              majoré de 50% — à vie, pour chaque filleul actif.
+              Les fondateurs seront prioritaires pour recevoir les flash deal (gains doublés).
             </div>
           </div>
         </div>
@@ -3403,9 +3395,7 @@
         const minCpc = palier ? palier.min : 0;
         const maxCpc = palier ? palier.max : 0;
 
-        const mrTotal = cpc * contacts;
-        const parTotal = filleuls * cpc * 0.1 * 2;
-        const total = mrTotal + parTotal;
+        const total = cpc * contacts;
 
         const totalEl = document.getElementById("calc-total");
         const subEl = document.getElementById("calc-total-sub");
@@ -3423,8 +3413,7 @@
             fmt(minCpc) +
             " – " +
             fmt(maxCpc) +
-            ")" +
-            (filleuls > 0 ? " + " + filleuls + " filleul(s)" : "");
+            ")";
         } else {
           totalEl.textContent = "0€";
           totalEl.classList.add("zero");
@@ -3436,17 +3425,9 @@
           total > 0
             ? fmt(minCpc * contacts) + " – " + fmt(maxCpc * contacts)
             : "0,00€";
-        document.getElementById("cb-par").textContent =
-          total > 0
-            ? fmt(filleuls * minCpc * 0.2) +
-              " – " +
-              fmt(filleuls * maxCpc * 0.2)
-            : "0,00€";
         document.getElementById("cb-total").textContent =
           total > 0
-            ? fmt(minCpc * contacts + filleuls * minCpc * 0.2) +
-              " – " +
-              fmt(maxCpc * contacts + filleuls * maxCpc * 0.2)
+            ? fmt(minCpc * contacts) + " – " + fmt(maxCpc * contacts)
             : "0,00€";
       }
 
