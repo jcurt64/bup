@@ -17,6 +17,12 @@ create table public.app_config (
   updated_at timestamptz default now()
 );
 
+-- RLS : la table reste fermée à toute lecture/écriture côté client.
+-- Seuls les fonctions SECURITY DEFINER (ex: is_within_founder_bonus_window)
+-- ou le service_role (admin) y accèdent. Pas de policy → aucun rôle
+-- authentifié n'a de droit direct sur la table.
+alter table public.app_config enable row level security;
+
 -- Seed initial : date placeholder très éloignée → fenêtre 1 mois
 -- déjà expirée, donc aucun bonus n'est appliqué tant qu'un admin
 -- n'a pas explicitement UPDATE la valeur (fail-safe).
@@ -76,6 +82,7 @@ begin
 end;
 $$;
 
+drop trigger if exists prospect_identity_sync_founder_status on public.prospect_identity;
 create trigger prospect_identity_sync_founder_status
   after insert or update of email on public.prospect_identity
   for each row execute function public.sync_founder_status();
