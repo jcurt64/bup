@@ -1484,6 +1484,26 @@ function FlashDealModal({
           >
             {rewardEur} €
           </div>
+          {deal.founderBonusApplied && (
+            <div
+              className="mono caps"
+              style={{
+                marginTop: 6,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "3px 10px",
+                borderRadius: 999,
+                background: "#FFF1B8",
+                color: "#5C4400",
+                border: "1px solid #F2C879",
+                fontSize: 11,
+                letterSpacing: ".06em",
+              }}
+            >
+              🎖️ Bonus fondateur ×2
+            </div>
+          )}
           <div style={{ fontSize: 12, color: "#A8AFC0", marginTop: 4 }}>
             Gains multipliés{" "}
             <strong style={{ color: "#FFFEF8" }}>{multStr}</strong> — fenêtre
