@@ -179,7 +179,9 @@ export default function RouteNav() {
               className="route-nav-tab"
               aria-label={t.label}
               title={t.label}
-              onClick={() => signOut({ redirectUrl: "/" })}
+              onClick={() => {
+                signOut({ redirectUrl: "/" }).catch((err) => console.error("[RouteNav] signOut failed", err));
+              }}
               style={{ ...tabStyle(false), background: "transparent" }}
             >
               <span className="route-nav-icon" aria-hidden>{t.icon}</span>
