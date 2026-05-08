@@ -41,8 +41,12 @@ declare
   v_reward_final     bigint;
 begin
   -- Verrouille r, c, a + lit les colonnes fondateur en une seule requête.
+  -- v_reward = tarif palier de la campagne (c.cost_per_contact_cents)
+  -- et NON r.reward_cents — celui-ci est écrasé par le montant final
+  -- (potentiellement doublé) à la fin de la fonction. Le lire ici
+  -- créerait une boucle d'auto-doublage en cas de refund + re-accept.
   select r.pro_account_id, r.prospect_id, r.campaign_id,
-         r.reward_cents, r.status,
+         c.cost_per_contact_cents, r.status,
          c.status, c.ends_at, a.wallet_balance_cents,
          p.is_founder, c.founder_bonus_enabled
     into v_pro_id, v_prospect_id, v_campaign_id,
@@ -54,7 +58,10 @@ begin
     join pro_accounts a on a.id = r.pro_account_id
     join prospects  p on p.id = r.prospect_id
    where r.id = p_relation_id
-   for update of r, c, a;
+   -- p (prospects) est aussi verrouillé : le trigger sync_founder_status
+   -- peut flipper is_founder entre notre SELECT et notre UPDATE — sans
+   -- ce verrou, une race produirait un bonus appliqué/raté incorrect.
+   for update of r, c, a, p;
 
   -- ── Validations (identiques à 20260505010000) ───────────────────────
   if v_status is null then
