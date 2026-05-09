@@ -57,7 +57,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={buppFrFR}>
+    <ClerkProvider
+      localization={buppFrFR}
+      // Garantie globale : toute auth (sign-in OU sign-up) atterrit
+      // sur /auth/post-login qui aiguille par rôle DB. Domine les env
+      // CLERK_SIGN_*_FALLBACK_REDIRECT_URL ainsi que les transitions
+      // internes Clerk (auto-conversion signup→signin sur email pris).
+      // Les <SignIn>/<SignUp> page-level peuvent encore préciser un
+      // forceRedirectUrl (ex. redirect_url custom) qui prévaudra.
+      signInForceRedirectUrl="/auth/post-login"
+      signUpForceRedirectUrl="/auth/post-login"
+    >
       <html
         lang="fr"
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}

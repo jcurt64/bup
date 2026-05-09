@@ -5,13 +5,30 @@ export const metadata = {
   title: "BUUPP — Connexion",
 };
 
-type SearchParams = Promise<{ redirect_url?: string | string[] }>;
+type SearchParams = Promise<{
+  redirect_url?: string | string[];
+  intent?: string | string[];
+}>;
+
+function parseIntent(raw: string | string[] | undefined): "prospect" | "pro" | null {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v === "prospect" || v === "pro") return v;
+  return null;
+}
 
 export default async function ConnexionPage(props: {
   searchParams: SearchParams;
 }) {
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
+  // L'intent est propagé depuis /inscription/{prospect,pro} quand Clerk
+  // renvoie sur /connexion (typiquement quand l'email existe déjà). On
+  // le repasse à /auth/post-login pour qu'il puisse détecter une
+  // contradiction intent vs rôle DB.
+  const intent = parseIntent(sp.intent);
+  const postLoginUrl = intent
+    ? `/auth/post-login?intent=${intent}`
+    : "/auth/post-login";
   return (
     <main
       style={{
@@ -30,7 +47,7 @@ export default async function ConnexionPage(props: {
         // forceRedirectUrl (pas fallback) pour dominer les env vars
         // qui peuvent prendre le pas dans certaines transitions Clerk
         // internes. Cible : /auth/post-login → aiguillage par rôle DB.
-        forceRedirectUrl={target ?? "/auth/post-login"}
+        forceRedirectUrl={target ?? postLoginUrl}
         appearance={{
           elements: {
             rootBox: { width: "100%", maxWidth: 440 },

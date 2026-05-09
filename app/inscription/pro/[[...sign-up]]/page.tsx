@@ -27,11 +27,14 @@ export default async function InscriptionProPage(props: {
       <SignUp
         path="/inscription/pro"
         routing="path"
-        signInUrl="/connexion"
-        // Cf. /inscription/prospect : forceRedirectUrl pour dominer les
-        // env CLERK_SIGN_IN_FALLBACK_REDIRECT_URL quand Clerk convertit
-        // signup → signin (email déjà utilisé). Aiguillage via
-        // /auth/post-login + intent.
+        // signInUrl propage l'intent : si Clerk redirige vers la page
+        // de connexion (typiquement quand l'email est déjà pris),
+        // /connexion lit `?intent=pro` et le passe à /auth/post-login
+        // pour qu'il puisse détecter une éventuelle contradiction
+        // intent vs rôle DB.
+        signInUrl="/connexion?intent=pro"
+        // forceRedirectUrl pour dominer les env Clerk même quand le
+        // signup est auto-converti en signin sur la même page.
         forceRedirectUrl={target ?? "/auth/post-login?intent=pro"}
         appearance={clerkAuthAppearance}
       />
