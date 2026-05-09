@@ -7,9 +7,9 @@ type Role = "prospect" | "pro";
 
 const COPY: Record<Role, string> = {
   prospect:
-    "Cette adresse email est déjà associée à un compte prospect. Connectez-vous avec ce compte ou utilisez une autre adresse pour créer un compte pro.",
+    "Votre compte est associé à un profil prospect. L'espace professionnel n'est pas accessible depuis ce compte — déconnectez-vous puis reconnectez-vous avec un compte pro.",
   pro:
-    "Cette adresse email est déjà associée à un compte professionnel. Connectez-vous avec ce compte ou utilisez une autre adresse pour créer un compte prospect.",
+    "Votre compte est associé à un profil professionnel. L'espace prospect n'est pas accessible depuis ce compte — déconnectez-vous puis reconnectez-vous avec un compte prospect.",
 };
 
 export default function RoleConflictToast({ existingRole }: { existingRole: Role }) {

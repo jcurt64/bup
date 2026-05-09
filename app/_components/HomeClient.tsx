@@ -12,6 +12,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
+import { useRoleGuard } from "./RoleGuard";
 import DemoModal from "./DemoModal";
 
 type Router = ReturnType<typeof useRouter>;
@@ -477,6 +478,7 @@ function Navbar() {
 
 function Hero() {
   const router = useRouter();
+  const { guard, modal: roleModal } = useRoleGuard();
   return (
     <section
       className="hero-section"
@@ -641,14 +643,14 @@ function Hero() {
             </button>
             <button
               className="btn btn-lg btn-block-mobile"
-              onClick={() => router.push("/prospect")}
+              onClick={() => guard("prospect", "/prospect")}
               style={{ background: "var(--paper)", color: "var(--ink)" }}
             >
               Je suis prospect <Icon name="arrow" size={16} />
             </button>
             <button
               className="btn btn-lg btn-ghost btn-block-mobile"
-              onClick={() => router.push("/pro")}
+              onClick={() => guard("pro", "/pro")}
               style={{
                 color: "var(--paper)",
                 borderColor: "rgba(255,255,255,.28)",
@@ -671,6 +673,7 @@ function Hero() {
           <LiveRelationsTicker />
         </div>
       </div>
+      {roleModal}
     </section>
   );
 }
@@ -950,12 +953,67 @@ function buildMockDeals(now: number): Deal[] {
       relationStatus: null,
       missingTierKeys: null,
     },
+    {
+      id: "mock-mutuelle-aquitania",
+      name: "Mutuelle santé senior — devis gratuit",
+      endsAt: inMin(56),
+      brief:
+        "Courtier en assurance recherche prospects 55-70 ans souhaitant comparer leur mutuelle santé actuelle.",
+      multiplier: 3,
+      costPerContactCents: 940,
+      founderBonusApplied: false,
+      requiredTiers: [1, 2, 4],
+      requiredTierKeys: ["identity", "localisation", "professionnel"],
+      proName: "Aquitania Mutuelle",
+      proSector: "Assurance & prévoyance",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+    {
+      id: "mock-autoplus",
+      name: "Reprise véhicule — offre cash sous 24 h",
+      endsAt: inMin(34),
+      brief:
+        "Concession multimarque : prospects propriétaires d'un véhicule de moins de 8 ans envisageant une revente.",
+      multiplier: 2,
+      costPerContactCents: 720,
+      founderBonusApplied: false,
+      requiredTiers: [1, 2, 3],
+      requiredTierKeys: ["identity", "localisation", "vie"],
+      proName: "AutoPlus Béarn",
+      proSector: "Automobile",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
+    {
+      id: "mock-coach-attitude",
+      name: "Coaching nutrition — bilan offert",
+      endsAt: inMin(49),
+      brief:
+        "Coach nutrition diplômée : prospects 30-50 ans en quête d'un suivi alimentaire personnalisé.",
+      multiplier: 4,
+      costPerContactCents: 580,
+      founderBonusApplied: false,
+      requiredTiers: [1, 2, 3],
+      requiredTierKeys: ["identity", "localisation", "vie"],
+      proName: "Coach Attitude",
+      proSector: "Bien-être & santé",
+      isAuthenticated: false,
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: null,
+    },
   ];
 }
 
 function FlashDeal() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
+  const { guard, modal: roleModal } = useRoleGuard();
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [openDealId, setOpenDealId] = useState<string | null>(null);
@@ -1172,9 +1230,10 @@ function FlashDeal() {
               `/inscription?redirect_url=${encodeURIComponent(redirect)}`,
             );
           }}
-          goDonnees={() => router.push("/prospect?tab=donnees")}
+          goDonnees={() => guard("prospect", "/prospect?tab=donnees")}
         />
       )}
+      {roleModal}
     </>
   );
 }
@@ -2243,7 +2302,7 @@ function ScoreSection() {
 }
 
 function ProsSection() {
-  const router = useRouter();
+  const { guard, modal: roleModal } = useRoleGuard();
   const [demoOpen, setDemoOpen] = useState(false);
   const benefits: { ic: IconName; t: string; d: string; hi?: boolean }[] = [
     {
@@ -2372,7 +2431,7 @@ function ProsSection() {
           <div className="row gap-3 wrap">
             <button
               className="btn btn-lg btn-block-mobile"
-              onClick={() => router.push("/pro")}
+              onClick={() => guard("pro", "/pro")}
               style={{ background: "var(--paper)", color: "var(--ink)" }}
             >
               Ouvrir un compte pro <Icon name="arrow" size={14} />
@@ -2660,6 +2719,7 @@ function ProsSection() {
         </div>
       </div>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
+      {roleModal}
     </section>
   );
 }
@@ -2949,21 +3009,24 @@ function PricingCard({
 
 function Pricing() {
   const router = useRouter();
+  const { guard, modal: roleModal } = useRoleGuard();
   // Routage conditionnel des CTA tarifaires :
-  //   - utilisateur déjà identifié comme pro → `/pro`
-  //   - sinon (anonyme ou prospect) → `/inscription` pour inviter à créer
-  //     un compte professionnel
-  // Le check est fait à la volée pour ne pas pénaliser le LCP de la home.
+  //   - utilisateur anonyme → `/inscription` pour créer un compte pro
+  //   - utilisateur connecté → `guard("pro", "/pro")` :
+  //       • si pro → /pro
+  //       • si prospect → modal de conflit (déconnexion requise)
+  // Le check anonymous se fait via /api/me/role pour éviter de pousser
+  // un prospect déjà connecté vers /inscription par erreur.
   const goToProOrSignup = async () => {
     try {
-      const r = await fetch("/api/me/is-pro", { cache: "no-store" });
+      const r = await fetch("/api/me/role", { cache: "no-store" });
       if (r.ok) {
         const j = (await r.json()) as {
           authenticated?: boolean;
-          isPro?: boolean;
+          role?: "pro" | "prospect" | null;
         };
-        if (j.authenticated && j.isPro) {
-          router.push("/pro");
+        if (j.authenticated) {
+          guard("pro", "/pro");
           return;
         }
       }
@@ -3020,12 +3083,13 @@ function Pricing() {
           />
         </div>
       </div>
+      {roleModal}
     </section>
   );
 }
 
 function FinalCTA() {
-  const router = useRouter();
+  const { guard, modal: roleModal } = useRoleGuard();
   return (
     <section
       className="section"
@@ -3055,18 +3119,19 @@ function FinalCTA() {
         >
           <button
             className="btn btn-lg btn-primary btn-block-mobile"
-            onClick={() => router.push("/prospect")}
+            onClick={() => guard("prospect", "/prospect")}
           >
             Créer mon profil prospect
           </button>
           <button
             className="btn btn-lg btn-ghost btn-block-mobile"
-            onClick={() => router.push("/pro")}
+            onClick={() => guard("pro", "/pro")}
           >
             Ouvrir un compte pro
           </button>
         </div>
       </div>
+      {roleModal}
     </section>
   );
 }
