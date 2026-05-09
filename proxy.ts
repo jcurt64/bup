@@ -7,6 +7,8 @@
  */
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { Role } from "@/lib/sync/ensureRole";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -57,11 +59,45 @@ const isPublicRoute = createRouteMatcher([
 // retrouvait alors sur /pro au lieu de /prospect. On redirige donc
 // nous-mêmes en passant returnBackUrl pour que /connexion sache où
 // renvoyer après auth.
+// Helper : extrait le premier segment du pathname pour matcher exactement
+// /prospect ou /pro (pas leurs préfixes). split("/")[1] sur "/prospect/x"
+// renvoie "prospect", sur "/pro" renvoie "pro" — pas de faux positif.
+function pathRoleSegment(pathname: string): Role | null {
+  const seg = pathname.split("/")[1] ?? "";
+  if (seg === "prospect") return "prospect";
+  if (seg === "pro") return "pro";
+  return null;
+}
+
 export default clerkMiddleware(async (auth, request) => {
   if (isPublicRoute(request)) return;
-  const { userId, redirectToSignIn } = await auth();
+  const { userId, sessionClaims, redirectToSignIn } = await auth();
   if (!userId) {
     return redirectToSignIn({ returnBackUrl: request.url });
+  }
+
+  // Garde de rôle au niveau middleware — fast path basé sur les claims
+  // du session token Clerk (publicMetadata.role). Évite que le rendu
+  // RSC de /prospect ou /pro démarre alors qu'on sait déjà qu'il y a
+  // mismatch — l'utilisateur voyait sinon une page blanche le temps
+  // que la redirection serveur du page.tsx soit prise en compte.
+  // Si le metadata est stale (ex. role vient d'être resync côté DB
+  // mais le token client n'a pas été rafraîchi), la garde DB côté
+  // page.tsx reste la dernière ligne — on ne refuse une cible QUE si
+  // les claims affirment positivement un rôle qui contredit la cible.
+  const targetRole = pathRoleSegment(request.nextUrl.pathname);
+  if (targetRole) {
+    const claimedRole = (
+      sessionClaims?.publicMetadata as { role?: Role } | undefined
+    )?.role;
+    if (
+      (targetRole === "prospect" && claimedRole === "pro") ||
+      (targetRole === "pro" && claimedRole === "prospect")
+    ) {
+      return NextResponse.redirect(
+        new URL(`/?role_conflict=${claimedRole}`, request.url),
+      );
+    }
   }
 });
 

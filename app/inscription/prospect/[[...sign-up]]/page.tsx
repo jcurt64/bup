@@ -30,7 +30,16 @@ export default async function InscriptionProspectPage(props: {
         signInUrl="/connexion"
         {...(target
           ? { forceRedirectUrl: target }
-          : { fallbackRedirectUrl: "/prospect" })}
+          : {
+              // On passe par /auth/post-login pour faire valider le
+              // rôle DB avant d'aiguiller — un user dont l'email existe
+              // déjà comme pro voit Clerk auto-convertir le signup en
+              // signin, et atterrirait sinon sur /prospect blanc avant
+              // que la garde page-level ait pu rediriger. L'intent
+              // "prospect" est passé pour que post-login détecte la
+              // contradiction et affiche le toast role_conflict.
+              fallbackRedirectUrl: "/auth/post-login?intent=prospect",
+            })}
         appearance={clerkAuthAppearance}
       />
     </main>
