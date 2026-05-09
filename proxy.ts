@@ -8,6 +8,7 @@
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import type { Role } from "@/lib/sync/ensureRole";
 
 const isPublicRoute = createRouteMatcher([
@@ -120,15 +121,24 @@ export default clerkMiddleware(async (auth, request) => {
     return redirectToSignIn({ returnBackUrl: request.url });
   }
 
-  // Garde de rôle au niveau middleware — fast path basé sur les claims
-  // du session token Clerk (publicMetadata.role). Évite que le rendu
-  // RSC de /prospect ou /pro démarre alors qu'on sait déjà qu'il y a
-  // mismatch — l'utilisateur voyait sinon une page blanche le temps
-  // que la redirection serveur du page.tsx soit prise en compte.
-  // Si le metadata est stale (ex. role vient d'être resync côté DB
-  // mais le token client n'a pas été rafraîchi), la garde DB côté
-  // page.tsx reste la dernière ligne — on ne refuse une cible QUE si
-  // les claims affirment positivement un rôle qui contredit la cible.
+  // Garde de rôle au niveau middleware — DB-authoritative.
+  //
+  // On a besoin que le redirect parte AVANT que /prospect ou /pro ne
+  // démarre leur rendu RSC, sinon on observait : URL /prospect, page
+  // blanche, bottom nav qui affiche le rôle réel du user (via
+  // /api/me/role côté client). La garde page-level dans page.tsx
+  // ferait le travail mais peut être lente, et streaming RSC affiche
+  // déjà la layout (incluant la nav) avant que le redirect ne prenne
+  // effet — d'où l'incohérence visuelle.
+  //
+  // Première tentative : claims du session token Clerk
+  // (publicMetadata.role). Instantané, mais nécessite que le JWT
+  // template Clerk inclue publicMetadata — ce n'est pas le cas par
+  // défaut, donc claimedRole est souvent undefined.
+  //
+  // Fallback : query DB directe via fetch sur l'API REST Supabase
+  // (PostgREST). Fonctionne en runtime Edge, ajoute ~50 ms qu'on
+  // accepte volontiers vu le bug que ça résout.
   const targetRole = pathRoleSegment(request.nextUrl.pathname);
   if (targetRole) {
     const claimedRole = (
@@ -142,8 +152,41 @@ export default clerkMiddleware(async (auth, request) => {
         new URL(`/?role_conflict=${claimedRole}`, request.url),
       );
     }
+    // Pas de claim disponible (cas par défaut sans JWT template
+    // custom) → on demande à la DB.
+    if (!claimedRole) {
+      const dbRole = await getRoleFromDB(userId);
+      if (
+        (targetRole === "prospect" && dbRole === "pro") ||
+        (targetRole === "pro" && dbRole === "prospect")
+      ) {
+        return NextResponse.redirect(
+          new URL(`/?role_conflict=${dbRole}`, request.url),
+        );
+      }
+    }
   }
 });
+
+async function getRoleFromDB(clerkUserId: string): Promise<Role | null> {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
+      supabase.from("pro_accounts").select("id").eq("clerk_user_id", clerkUserId).maybeSingle(),
+      supabase.from("prospects").select("id").eq("clerk_user_id", clerkUserId).maybeSingle(),
+    ]);
+    if (proRow) return "pro";
+    if (prospectRow) return "prospect";
+    return null;
+  } catch (err) {
+    console.error("[proxy] getRoleFromDB failed", err);
+    return null;
+  }
+}
 
 export const config = {
   matcher: [
