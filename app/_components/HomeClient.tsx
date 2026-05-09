@@ -11,8 +11,9 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser, useClerk } from "@clerk/nextjs";
 import { useRoleGuard } from "./RoleGuard";
+import LogoutConfirmModal from "./LogoutConfirmModal";
 import DemoModal from "./DemoModal";
 
 type Router = ReturnType<typeof useRouter>;
@@ -347,8 +348,25 @@ function RotatingHeadlineWord() {
 
 function Navbar() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
+  // Tant que Clerk n'a pas terminé l'hydratation, on ne sait pas s'il
+  // faut afficher "Démarrer" ou "Se déconnecter" — on opte pour
+  // l'affichage par défaut (Démarrer) afin d'éviter un flash visuel
+  // côté visiteurs anonymes (cas le plus fréquent sur la home).
+  const showLogout = isLoaded && !!isSignedIn;
+
+  const askLogout = () => {
+    setOpen(false); // ferme le drawer mobile si ouvert
+    setLogoutOpen(true);
+  };
+  const doLogout = async () => {
+    await signOut({ redirectUrl: "/" });
+  };
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 10);
@@ -418,12 +436,21 @@ function Navbar() {
           </div>
 
           <div className="row center gap-3 nav-desktop">
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => router.push("/inscription")}
-            >
-              Démarrer <Icon name="arrow" size={14} />
-            </button>
+            {showLogout ? (
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={askLogout}
+              >
+                Se déconnecter <Icon name="arrow" size={14} />
+              </button>
+            ) : (
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() => router.push("/inscription")}
+              >
+                Démarrer <Icon name="arrow" size={14} />
+              </button>
+            )}
           </div>
 
           <button
@@ -462,16 +489,31 @@ function Navbar() {
             Tarifs
           </button>
           <div className="drawer-ctas">
-            <button
-              className="btn btn-lg btn-primary"
-              style={{ justifyContent: "center" }}
-              onClick={() => go("/inscription")}
-            >
-              Démarrer <Icon name="arrow" size={14} />
-            </button>
+            {showLogout ? (
+              <button
+                className="btn btn-lg btn-primary"
+                style={{ justifyContent: "center" }}
+                onClick={askLogout}
+              >
+                Se déconnecter <Icon name="arrow" size={14} />
+              </button>
+            ) : (
+              <button
+                className="btn btn-lg btn-primary"
+                style={{ justifyContent: "center" }}
+                onClick={() => go("/inscription")}
+              >
+                Démarrer <Icon name="arrow" size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
+      <LogoutConfirmModal
+        open={logoutOpen}
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={doLogout}
+      />
     </>
   );
 }

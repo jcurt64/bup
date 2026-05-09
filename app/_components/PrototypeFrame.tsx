@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
+import LogoutConfirmModal from "./LogoutConfirmModal";
 
 const STATIC_ROUTES: Record<string, string> = {
   landing: "/",
@@ -34,6 +35,10 @@ export default function PrototypeFrame({
   const router = useRouter();
   const { signOut } = useClerk();
   const { isSignedIn, isLoaded } = useUser();
+  // Le shell iframe (sidebar /pro et /prospect) demande la déconnexion
+  // via postMessage `bupp:signOut`. On intercale ici une confirmation
+  // modale — cohérente avec le bouton "Se déconnecter" du header.
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     const onMsg = async (e: MessageEvent) => {
@@ -43,11 +48,7 @@ export default function PrototypeFrame({
         | undefined;
       if (!data?.bupp) return;
       if (data.bupp === "signOut") {
-        try {
-          await signOut({ redirectUrl: "/" });
-        } catch (err) {
-          console.error("[PrototypeFrame] signOut failed", err);
-        }
+        setLogoutOpen(true);
         return;
       }
       if (data.bupp === "goto") {
@@ -74,7 +75,7 @@ export default function PrototypeFrame({
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [router, signOut, isSignedIn, isLoaded]);
+  }, [router, isSignedIn, isLoaded]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
   // Cache-bust uniquement côté client : `Date.now()` au render initial
@@ -92,14 +93,27 @@ export default function PrototypeFrame({
   const src = cacheBust ? `/prototype/shell.html?v=${cacheBust}#${hash}` : baseSrc;
 
   return (
-    <iframe
-      key={cacheBust ?? "ssr"}
-      src={src}
-      title={`BUUPP — ${route}`}
-      style={{
-        position: "fixed", inset: 0, width: "100%", height: "100%",
-        border: 0, display: "block", background: "#F7F4EC",
-      }}
-    />
+    <>
+      <iframe
+        key={cacheBust ?? "ssr"}
+        src={src}
+        title={`BUUPP — ${route}`}
+        style={{
+          position: "fixed", inset: 0, width: "100%", height: "100%",
+          border: 0, display: "block", background: "#F7F4EC",
+        }}
+      />
+      <LogoutConfirmModal
+        open={logoutOpen}
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={async () => {
+          try {
+            await signOut({ redirectUrl: "/" });
+          } catch (err) {
+            console.error("[PrototypeFrame] signOut failed", err);
+          }
+        }}
+      />
+    </>
   );
 }
