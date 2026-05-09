@@ -2940,6 +2940,40 @@
           }, 1000);
         });
       })();
+
+      // Fallback fictif : période de lancement de 14 h persistée en
+      // localStorage. Activé uniquement si aucune date n'est encore
+      // connue (ni ?simulate-launch=, ni réponse API). Permet d'avoir
+      // un counter visible côté header + encart « Lancement » même
+      // quand le backend ne fournit pas encore launchAt.
+      // Une fois posée la première fois, la cible reste stable entre
+      // les rechargements pour offrir un vrai décompte qui descend.
+      (function applyFictiveLaunchFallback() {
+        if (launchDateLocked) return;
+        if (launchDate) return;
+        const KEY = "bupp:fictive-launch-target";
+        const FALLBACK_MS = 14 * 60 * 60 * 1000; // 14 h
+        let target = null;
+        try {
+          const raw = localStorage.getItem(KEY);
+          if (raw) {
+            const t = parseInt(raw, 10);
+            // On invalide le cache si la cible est déjà passée depuis
+            // plus d'1 h (sinon la fenêtre "ouvert ✓" reste figée).
+            if (Number.isFinite(t) && t - Date.now() > -3_600_000) {
+              target = t;
+            }
+          }
+          if (target == null) {
+            target = Date.now() + FALLBACK_MS;
+            localStorage.setItem(KEY, String(target));
+          }
+        } catch {
+          target = Date.now() + FALLBACK_MS;
+        }
+        setLaunchAt(new Date(target).toISOString());
+      })();
+
       updateCountdown();
       // Refresh chaque seconde quand on s'approche du lancement, chaque
       // minute sinon — choisi dynamiquement à chaque tick.

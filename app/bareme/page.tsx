@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import BackHomeButton from "../_components/BackHomeButton";
 
 type Category = { name: string; value: number; desc: string };
 type Tier = {
@@ -232,6 +234,20 @@ export default function BaremePage() {
       }}
     >
       <div style={{ position: "relative", maxWidth: 980, margin: "0 auto" }}>
+        {/* Logo — cohérence avec les autres pages du footer (CGU, CGV, RGPD…) */}
+        <Link
+          href="/"
+          aria-label="Retour à l'accueil BUUPP"
+          style={{ display: "inline-block", marginBottom: 32, lineHeight: 0 }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="BUUPP"
+            style={{ height: 44, width: "auto", display: "block" }}
+          />
+        </Link>
+
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div
@@ -755,6 +771,17 @@ export default function BaremePage() {
           }}
         >
           BUUPP Platform — MATRICE D&apos;EVALUATION DES DONNÉES v1.0
+        </div>
+
+        {/* Bouton retour — cohérence avec CGU, CGV, RGPD, Contact DPO */}
+        <div
+          style={{
+            marginTop: 32,
+            paddingTop: 28,
+            borderTop: "1px solid var(--line)",
+          }}
+        >
+          <BackHomeButton />
         </div>
       </div>
     </div>
