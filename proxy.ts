@@ -47,9 +47,21 @@ const isPublicRoute = createRouteMatcher([
 // la nouvelle convention `proxy` : Next.js 16 l'invoque exactement comme
 // l'ancien middleware. Le rename n'affecte que le NOM du fichier et de
 // l'export ; la signature handler reste identique.
+//
+// On n'utilise PAS `auth.protect()` car son redirectToSignIn interne
+// est appelé sans `returnBackUrl` (cf. @clerk/nextjs/dist/esm/server/
+// protect.js → `redirectToSignIn()` sans args). Conséquence : la page
+// /connexion reçoit une URL sans `?redirect_url=…`, son `target` est
+// undefined, on retombe sur fallback /auth/post-login qui route par
+// rôle existant — un user pro qui cliquait « Je suis prospect » se
+// retrouvait alors sur /pro au lieu de /prospect. On redirige donc
+// nous-mêmes en passant returnBackUrl pour que /connexion sache où
+// renvoyer après auth.
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+  if (isPublicRoute(request)) return;
+  const { userId, redirectToSignIn } = await auth();
+  if (!userId) {
+    return redirectToSignIn({ returnBackUrl: request.url });
   }
 });
 
