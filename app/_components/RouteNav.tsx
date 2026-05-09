@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import type { CSSProperties, ReactNode } from "react";
 import type { Role } from "@/lib/sync/ensureRole";
 
-type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion" | "deconnexion";
+type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion";
 
 type Tab = {
   id: TabId;
-  href?: string; // absent = bouton (deconnexion)
+  href: string;
   label: string;
   icon: ReactNode;
 };
@@ -92,22 +92,11 @@ const TAB_DEFS: Record<TabId, Tab> = {
       </Svg>
     ),
   },
-  deconnexion: {
-    id: "deconnexion",
-    label: "Déconnexion",
-    icon: (
-      <Svg>
-        <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" />
-        <path d="M14 17l5-5-5-5" />
-        <path d="M19 12H7" />
-      </Svg>
-    ),
-  },
 };
 
 const PUBLIC_TABS: TabId[] = ["accueil", "liste-attente", "connexion"];
-const PROSPECT_TABS: TabId[] = ["accueil", "liste-attente", "prospect", "deconnexion"];
-const PRO_TABS: TabId[] = ["accueil", "liste-attente", "pro", "deconnexion"];
+const PROSPECT_TABS: TabId[] = ["accueil", "liste-attente", "prospect"];
+const PRO_TABS: TabId[] = ["accueil", "liste-attente", "pro"];
 
 const containerStyle: CSSProperties = {
   position: "fixed",
@@ -151,11 +140,10 @@ function tabStyle(active: boolean): CSSProperties {
 export default function RouteNav() {
   const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useUser();
-  const { signOut } = useClerk();
 
   // Masquer la nav sur les pages d'auth (full-screen Clerk).
   if (pathname === "/connexion" || pathname.startsWith("/inscription")) return null;
-  // Évite le flash 3-tabs → 4-tabs pendant l'hydratation Clerk.
+  // Évite un flash de tabs incorrects pendant l'hydratation Clerk.
   if (!isLoaded) return null;
 
   const role = isSignedIn
@@ -169,31 +157,11 @@ export default function RouteNav() {
     <div className="route-nav" style={containerStyle}>
       {visibleIds.map((id) => {
         const t = TAB_DEFS[id];
-        const active = t.href ? pathname === t.href : false;
-
-        if (id === "deconnexion") {
-          return (
-            <button
-              key={id}
-              type="button"
-              className="route-nav-tab"
-              aria-label={t.label}
-              title={t.label}
-              onClick={() => {
-                signOut({ redirectUrl: "/" }).catch((err) => console.error("[RouteNav] signOut failed", err));
-              }}
-              style={{ ...tabStyle(false), background: "transparent" }}
-            >
-              <span className="route-nav-icon" aria-hidden>{t.icon}</span>
-              <span className="route-nav-label">{t.label}</span>
-            </button>
-          );
-        }
-
+        const active = pathname === t.href;
         return (
           <Link
             key={id}
-            href={t.href!}
+            href={t.href}
             className="route-nav-tab"
             aria-label={t.label}
             title={t.label}
