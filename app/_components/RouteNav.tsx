@@ -180,11 +180,26 @@ export default function RouteNav() {
   // Évite un flash de tabs incorrects pendant l'hydratation Clerk.
   if (!isLoaded) return null;
 
-  // Priorité au rôle DB (vérifié) sur le cache Clerk (peut être stale).
-  // Tant que /api/me/role n'a pas répondu, on utilise le cache pour ne
-  // pas faire flasher des tabs publiques entre temps.
+  // Le pathname est un signal de rôle FIABLE : si le user est sur
+  // /prospect (resp. /pro), c'est que le garde serveur de cette page
+  // l'a laissé passer — donc son rôle DB matche. Avant que /api/me/role
+  // ait répondu, on évite ainsi la contradiction "URL=/prospect mais
+  // onglet pro affiché" que provoquait le cache Clerk stale.
+  // On compare le premier segment exact pour ne pas que /prospect
+  // matche aussi le préfixe /pro.
+  const firstSegment = pathname.split("/")[1] ?? "";
+  const inferredFromPath: Role | null =
+    firstSegment === "prospect" ? "prospect"
+    : firstSegment === "pro" ? "pro"
+    : null;
+
+  // Priorité : DB si vérifié → URL inférée → cache Clerk (potentiellement
+  // stale). Tant qu'on n'a aucun signal, on retombe sur les tabs publics
+  // — préférable à un onglet incorrect.
   const role: Role | null = isSignedIn
-    ? (dbChecked ? (dbRole ?? cachedRole) : cachedRole)
+    ? (dbChecked
+        ? (dbRole ?? inferredFromPath ?? cachedRole)
+        : (inferredFromPath ?? cachedRole))
     : null;
 
   const visibleIds: TabId[] =

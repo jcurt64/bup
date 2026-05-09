@@ -92,17 +92,55 @@ export default function PrototypeFrame({
   const baseSrc = `/prototype/shell.html#${hash}`;
   const src = cacheBust ? `/prototype/shell.html?v=${cacheBust}#${hash}` : baseSrc;
 
+  // Loader le temps que l'iframe charge shell.html + Babel + JSX scripts
+  // (1-2 s typiquement). Sans ça l'utilisateur perçoit la page comme
+  // "vide" pendant le chargement et croit à un bug.
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  useEffect(() => {
+    // Reset si on change de route → on remontre le loader pendant le
+    // re-mount (le `key` change avec cacheBust).
+    setIframeLoaded(false);
+  }, [cacheBust, hash]);
+
   return (
     <>
       <iframe
         key={cacheBust ?? "ssr"}
         src={src}
         title={`BUUPP — ${route}`}
+        onLoad={() => setIframeLoaded(true)}
         style={{
           position: "fixed", inset: 0, width: "100%", height: "100%",
           border: 0, display: "block", background: "#F7F4EC",
         }}
       />
+      {!iframeLoaded && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#F7F4EC",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "3px solid rgba(15, 22, 41, 0.12)",
+              borderTopColor: "#4F46E5",
+              animation: "bupp-spin .8s linear infinite",
+            }}
+          />
+          <style>{`@keyframes bupp-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
       <LogoutConfirmModal
         open={logoutOpen}
         onCancel={() => setLogoutOpen(false)}
