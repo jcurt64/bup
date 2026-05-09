@@ -1709,7 +1709,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [confirmExcludeCertified, setConfirmExcludeCertified] = useState(false);
   // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
   // acceptation par un fondateur coûte 2× le tarif palier choisi.
-  const [founderBonusEnabled, setFounderBonusEnabled] = useState(true);
+  // Désactivé par défaut — opt-in volontaire.
+  const [founderBonusEnabled, setFounderBonusEnabled] = useState(false);
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
@@ -1724,6 +1725,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // affiche la bordure rouge + le message obligatoire. Reset dès qu'il
   // commence à saisir quelque chose.
   const [briefError, setBriefError] = useState(false);
+  // Étape 8 : acceptation des CGU / CGV / Politique RGPD. Le bouton de
+  // lancement est bloqué tant que la case n'est pas cochée. Si le pro
+  // tente de lancer sans cocher, on affiche la bordure rouge + l'erreur.
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
   const objAllowedTiers = obj?.allowedTiers || [1,2,3,4,5];
@@ -2605,10 +2611,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                     Activer le bonus fondateur (+100% le 1er mois)
                   </div>
                   <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-                    Pendant le mois suivant le lancement officiel de BUUPP, chaque
-                    acceptation par un fondateur vous coûtera <strong>2× le tarif
-                    palier choisi</strong>. Désactivable : vos campagnes restent
-                    visibles aux fondateurs, mais ils gagneront le tarif standard.
+                    Les fondateurs sont des <strong>prospects de confiance</strong>,
+                    inscrits avant le lancement officiel : ils sont engagés,
+                    qualitatifs, et seront les premiers à <strong>promouvoir
+                    leur expérience</strong> de votre sollicitation auprès de leur
+                    entourage. Activez le bonus pour récompenser une acceptation
+                    par un fondateur à <strong>2× le tarif palier choisi</strong>{' '}
+                    pendant le 1<sup>er</sup> mois post-lancement. Désactivé,
+                    vos campagnes leur restent visibles au tarif standard.
                   </div>
                 </div>
                 <button
@@ -3024,31 +3034,82 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
               )}
             </div>
 
-            <div className="alert-block" style={{ padding: 14, borderRadius: 10,
-              background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
-              border: '1px solid color-mix(in oklab, var(--warn) 25%, transparent)',
-              fontSize: 11, lineHeight: 1.55, color: 'color-mix(in oklab, var(--warn) 55%, var(--ink-3))',
-              marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <span style={{
-                minWidth: 22, width: 22, height: 22, borderRadius: '50%',
-                background: 'var(--good)', color: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginTop: 1, boxShadow: '0 0 0 3px color-mix(in oklab, var(--good) 18%, transparent)'
-              }}>
-                <Icon name="check" size={12} stroke={2.5}/>
-              </span>
+            <label
+              htmlFor="terms-accept"
+              className="terms-block"
+              style={{
+                padding: 14, borderRadius: 10,
+                background: termsError
+                  ? '#FEF2F2'
+                  : 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
+                border: termsError
+                  ? '1.5px solid #B91C1C'
+                  : '1px solid color-mix(in oklab, var(--warn) 25%, transparent)',
+                fontSize: 12, lineHeight: 1.55,
+                color: termsError
+                  ? '#991B1B'
+                  : 'color-mix(in oklab, var(--warn) 55%, var(--ink-3))',
+                marginBottom: termsError ? 8 : 20,
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                cursor: 'pointer',
+                transition: 'border-color .18s, background .18s',
+              }}
+            >
+              <input
+                id="terms-accept"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={e => {
+                  setTermsAccepted(e.target.checked);
+                  if (e.target.checked) setTermsError(false);
+                }}
+                style={{
+                  marginTop: 2, width: 18, height: 18, flexShrink: 0,
+                  accentColor: termsError ? '#B91C1C' : 'var(--accent)',
+                  cursor: 'pointer',
+                }}
+              />
               <span>
-                En lançant cette campagne, vous acceptez les conditions de licence des données BUUPP. Les coordonnées
-                des prospects ne sont transmises qu'après double consentement explicite. Vos données sont
-                watermarkées — toute revente est juridiquement poursuivable.
+                En lançant cette campagne, vous acceptez les{' '}
+                <a href="/cgu" target="_blank" rel="noopener noreferrer"
+                   style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                   onClick={e => e.stopPropagation()}>
+                  conditions générales d'utilisation du service BUUPP
+                </a>
+                , les{' '}
+                <a href="/cgv" target="_blank" rel="noopener noreferrer"
+                   style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                   onClick={e => e.stopPropagation()}>
+                  conditions générales de vente
+                </a>
+                , et reconnaissez avoir pris connaissance de la{' '}
+                <a href="/rgpd" target="_blank" rel="noopener noreferrer"
+                   style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                   onClick={e => e.stopPropagation()}>
+                  politique de gestion des données personnelles
+                </a>
+                .
               </span>
-            </div>
+            </label>
+            {termsError && (
+              <div role="alert" style={{
+                marginBottom: 20, fontSize: 12, color: '#B91C1C', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <Icon name="alert" size={12}/> Vous devez accepter les conditions
+                pour lancer la campagne.
+              </div>
+            )}
 
             <div className="row gap-3">
               <button onClick={() => setStep(1)} className="btn btn-ghost" style={{ flex: 1 }}>Modifier</button>
               <button
                 onClick={async () => {
                   if (!canLaunch) return;
+                  if (!termsAccepted) {
+                    setTermsError(true);
+                    return;
+                  }
                   await refreshWalletBalance();
                   const balance = Number(walletBalanceEur ?? 0);
                   // Commission BUUPP = 10 % du budget (cf. backend).
