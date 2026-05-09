@@ -69,7 +69,51 @@ function pathRoleSegment(pathname: string): Role | null {
   return null;
 }
 
+// Détecte si la requête entre dans /inscription/prospect ou
+// /inscription/pro. On utilise ça pour poser un cookie d'intent
+// que /auth/post-login pourra lire si Clerk perd la query string
+// pendant ses redirections internes.
+function inscriptionIntent(pathname: string): Role | null {
+  if (pathname === "/inscription/prospect" || pathname.startsWith("/inscription/prospect/")) {
+    return "prospect";
+  }
+  if (pathname === "/inscription/pro" || pathname.startsWith("/inscription/pro/")) {
+    return "pro";
+  }
+  return null;
+}
+
+const INTENT_COOKIE = "bupp_auth_intent";
+
 export default clerkMiddleware(async (auth, request) => {
+  // Étape 1 — pose le cookie d'intent dès qu'on entre dans
+  // /inscription/{prospect,pro}. Le cookie survit aux redirections
+  // Clerk (auto-conversion signup→signin, navigation vers /connexion,
+  // etc.) qui peuvent perdre la query string du forceRedirectUrl.
+  // /auth/post-login lit ensuite ce cookie en fallback de ?intent=.
+  const intentToSet = inscriptionIntent(request.nextUrl.pathname);
+  if (intentToSet) {
+    const res = NextResponse.next();
+    res.cookies.set(INTENT_COOKIE, intentToSet, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 30, // 30 min — couvre largement un flow d'auth
+      path: "/",
+    });
+    return res;
+  }
+
+  // Étape 2 — quand /auth/post-login va s'exécuter, on programme la
+  // suppression du cookie SUR LA RÉPONSE (pas la requête : la page
+  // doit encore pouvoir le lire pour décider du redirect). Ça évite
+  // qu'un intent stale d'un flow précédent soit réutilisé par
+  // erreur sur une connexion ultérieure via /connexion.
+  if (request.nextUrl.pathname === "/auth/post-login") {
+    const res = NextResponse.next();
+    res.cookies.set(INTENT_COOKIE, "", { path: "/", maxAge: 0 });
+    return res;
+  }
+
   if (isPublicRoute(request)) return;
   const { userId, sessionClaims, redirectToSignIn } = await auth();
   if (!userId) {

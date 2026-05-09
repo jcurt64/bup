@@ -20,6 +20,7 @@
  */
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/clerk/server";
 import { getCurrentRole } from "@/lib/sync/currentRole";
 import type { Role } from "@/lib/sync/ensureRole";
@@ -46,7 +47,15 @@ export default async function PostLoginPage(props: {
   if (!userId) redirect("/connexion");
 
   const sp = await props.searchParams;
-  const intent = parseIntent(sp.intent);
+  // Source de l'intent : d'abord la query string (cas normal — page-level
+  // forceRedirectUrl). Fallback sur le cookie posé par le middleware
+  // quand l'utilisateur est passé par /inscription/{prospect,pro} —
+  // ce cookie survit aux redirections Clerk qui peuvent perdre la
+  // query (notamment quand un signup est auto-converti en signin
+  // pour cause d'email déjà pris).
+  const intent =
+    parseIntent(sp.intent) ??
+    parseIntent((await cookies()).get("bupp_auth_intent")?.value);
 
   let role: Role | null = null;
   try {
