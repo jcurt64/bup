@@ -27,9 +27,10 @@ export default async function ConnexionPage(props: {
         path="/connexion"
         routing="path"
         signUpUrl="/inscription"
-        {...(target
-          ? { forceRedirectUrl: target }
-          : { fallbackRedirectUrl: "/auth/post-login" })}
+        // forceRedirectUrl (pas fallback) pour dominer les env vars
+        // qui peuvent prendre le pas dans certaines transitions Clerk
+        // internes. Cible : /auth/post-login → aiguillage par rôle DB.
+        forceRedirectUrl={target ?? "/auth/post-login"}
         appearance={{
           elements: {
             rootBox: { width: "100%", maxWidth: 440 },
