@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { SignIn } from "@clerk/nextjs";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { auth } from "@/lib/clerk/server";
 
 export const metadata = {
   title: "BUUPP — Connexion",
@@ -19,16 +21,21 @@ function parseIntent(raw: string | string[] | undefined): "prospect" | "pro" | n
 export default async function ConnexionPage(props: {
   searchParams: SearchParams;
 }) {
+  // Court-circuit pour les déjà-signés : on les envoie sur
+  // /auth/post-login (avec intent si propagé) au lieu d'afficher le
+  // formulaire SignIn. Évite que Clerk gère un user déjà connecté
+  // avec sa propre logique qui peut perdre l'intent.
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
-  // L'intent est propagé depuis /inscription/{prospect,pro} quand Clerk
-  // renvoie sur /connexion (typiquement quand l'email existe déjà). On
-  // le repasse à /auth/post-login pour qu'il puisse détecter une
-  // contradiction intent vs rôle DB.
   const intent = parseIntent(sp.intent);
   const postLoginUrl = intent
     ? `/auth/post-login?intent=${intent}`
     : "/auth/post-login";
+
+  const { userId } = await auth();
+  if (userId) {
+    redirect(target ?? postLoginUrl);
+  }
   return (
     <main
       style={{

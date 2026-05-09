@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { auth } from "@/lib/clerk/server";
 
 export const metadata = {
   title: "BUUPP — Inscription",
@@ -166,6 +168,15 @@ const PAGE_CSS = `
 export default async function InscriptionAiguillagePage(props: {
   searchParams: SearchParams;
 }) {
+  // Si l'utilisateur est déjà signé, pas besoin de lui montrer la
+  // page d'aiguillage prospect/pro — on l'envoie directement à
+  // /auth/post-login qui résout par rôle DB. Évite qu'il choisisse
+  // un rôle qui contredit son compte existant.
+  const { userId } = await auth();
+  if (userId) {
+    redirect("/auth/post-login");
+  }
+
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
   const qs = target ? `?redirect_url=${encodeURIComponent(target)}` : "";

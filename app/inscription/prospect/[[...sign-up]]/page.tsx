@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { SignUp } from "@clerk/nextjs";
 import { clerkAuthAppearance } from "../../_clerkAppearance";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { auth } from "@/lib/clerk/server";
 
 export const metadata = {
   title: "BUUPP — Inscription prospect",
@@ -11,6 +13,16 @@ type SearchParams = Promise<{ redirect_url?: string | string[] }>;
 export default async function InscriptionProspectPage(props: {
   searchParams: SearchParams;
 }) {
+  // Si l'utilisateur est DÉJÀ authentifié quand il arrive ici (session
+  // Clerk persistée d'un précédent flow, navigation depuis le footer,
+  // etc.), on n'affiche PAS le <SignUp> — on l'envoie directement à
+  // /auth/post-login qui aiguille par rôle DB. Évite que Clerk gère
+  // lui-même l'auto-conversion (qui peut perdre l'intent dans l'URL).
+  const { userId } = await auth();
+  if (userId) {
+    redirect("/auth/post-login?intent=prospect");
+  }
+
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
   return (

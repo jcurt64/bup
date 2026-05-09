@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { SignUp } from "@clerk/nextjs";
 import { clerkAuthAppearance } from "../../_clerkAppearance";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { auth } from "@/lib/clerk/server";
 
 export const metadata = {
   title: "BUUPP — Inscription pro",
@@ -11,6 +13,14 @@ type SearchParams = Promise<{ redirect_url?: string | string[] }>;
 export default async function InscriptionProPage(props: {
   searchParams: SearchParams;
 }) {
+  // Cf. /inscription/prospect : on court-circuite Clerk si l'utilisateur
+  // est déjà signé pour éviter qu'il se débrouille avec sa logique
+  // interne d'auto-conversion qui peut perdre l'intent.
+  const { userId } = await auth();
+  if (userId) {
+    redirect("/auth/post-login?intent=pro");
+  }
+
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
   return (
