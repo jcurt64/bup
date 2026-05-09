@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
-import LogoutConfirmModal from "./LogoutConfirmModal";
 
 const STATIC_ROUTES: Record<string, string> = {
   landing: "/",
@@ -35,10 +34,6 @@ export default function PrototypeFrame({
   const router = useRouter();
   const { signOut } = useClerk();
   const { isSignedIn, isLoaded } = useUser();
-  // Le shell iframe (sidebar /pro et /prospect) demande la déconnexion
-  // via postMessage `bupp:signOut`. On intercale ici une confirmation
-  // modale — cohérente avec le bouton "Se déconnecter" du header.
-  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     const onMsg = async (e: MessageEvent) => {
@@ -48,7 +43,14 @@ export default function PrototypeFrame({
         | undefined;
       if (!data?.bupp) return;
       if (data.bupp === "signOut") {
-        setLogoutOpen(true);
+        // La sidebar du proto (Pro.jsx / Prospect.jsx) affiche déjà sa
+        // propre SignOutConfirmModal AVANT d'envoyer ce message. Pas
+        // besoin de re-confirmer ici — sinon double modale.
+        try {
+          await signOut({ redirectUrl: "/" });
+        } catch (err) {
+          console.error("[PrototypeFrame] signOut failed", err);
+        }
         return;
       }
       if (data.bupp === "goto") {
@@ -75,7 +77,7 @@ export default function PrototypeFrame({
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [router, isSignedIn, isLoaded]);
+  }, [router, signOut, isSignedIn, isLoaded]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
   // Cache-bust uniquement côté client : `Date.now()` au render initial
@@ -141,17 +143,6 @@ export default function PrototypeFrame({
           <style>{`@keyframes bupp-spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
-      <LogoutConfirmModal
-        open={logoutOpen}
-        onCancel={() => setLogoutOpen(false)}
-        onConfirm={async () => {
-          try {
-            await signOut({ redirectUrl: "/" });
-          } catch (err) {
-            console.error("[PrototypeFrame] signOut failed", err);
-          }
-        }}
-      />
     </>
   );
 }
