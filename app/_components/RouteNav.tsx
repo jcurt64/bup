@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { Role } from "@/lib/sync/ensureRole";
 
 type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion";
@@ -140,14 +140,51 @@ function tabStyle(active: boolean): CSSProperties {
 export default function RouteNav() {
   const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useUser();
+  // Cache instant : publicMetadata.role lu depuis le session token Clerk.
+  // Peut être stale juste après une re-synchro côté serveur (ex.
+  // ensureRole vient de basculer le rôle, le token n'a pas encore été
+  // rafraîchi côté client). On prend donc /api/me/role comme source
+  // de vérité et on l'utilise dès qu'il a répondu.
+  const cachedRole =
+    isSignedIn
+      ? ((user?.publicMetadata as { role?: Role } | undefined)?.role ?? null)
+      : null;
+  const [dbRole, setDbRole] = useState<Role | null>(null);
+  const [dbChecked, setDbChecked] = useState(false);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      setDbRole(null);
+      setDbChecked(true);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/me/role", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { role?: Role | null } | null) => {
+        if (cancelled) return;
+        setDbRole(j?.role ?? null);
+        setDbChecked(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDbChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn]);
 
   // Masquer la nav sur les pages d'auth (full-screen Clerk).
   if (pathname === "/connexion" || pathname.startsWith("/inscription")) return null;
   // Évite un flash de tabs incorrects pendant l'hydratation Clerk.
   if (!isLoaded) return null;
 
-  const role = isSignedIn
-    ? ((user?.publicMetadata as { role?: Role } | undefined)?.role ?? null)
+  // Priorité au rôle DB (vérifié) sur le cache Clerk (peut être stale).
+  // Tant que /api/me/role n'a pas répondu, on utilise le cache pour ne
+  // pas faire flasher des tabs publiques entre temps.
+  const role: Role | null = isSignedIn
+    ? (dbChecked ? (dbRole ?? cachedRole) : cachedRole)
     : null;
 
   const visibleIds: TabId[] =

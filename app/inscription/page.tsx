@@ -1,20 +1,11 @@
 import Link from "next/link";
+import { safeRedirect } from "@/lib/auth/safeRedirect";
 
 export const metadata = {
   title: "BUUPP — Inscription",
 };
 
 type SearchParams = Promise<{ redirect_url?: string | string[] }>;
-
-function safeRedirect(raw: string | string[] | undefined): string | undefined {
-  // Sécurise le redirect_url reçu en query param : on n'autorise que les
-  // chemins relatifs (commençant par / mais pas //) pour éviter une
-  // redirection ouverte vers un domaine externe.
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof v !== "string") return undefined;
-  if (!v.startsWith("/") || v.startsWith("//")) return undefined;
-  return v;
-}
 
 // Palette empruntée à l'email de sollicitation (lib/email/relation.ts) :
 // bleu BUUPP → violet, ambre, rose/lavande, vert. Réutilisée ici pour
