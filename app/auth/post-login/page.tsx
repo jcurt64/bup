@@ -1,7 +1,23 @@
+/**
+ * Aiguillage post-authentification : on lit le rôle DB et on redirige.
+ *
+ * On garde ce point de passage minimal :
+ *   - 1 appel `auth()` (instantané)
+ *   - 1 appel `getCurrentRole()` (2 SELECT parallèles avec maybeSingle)
+ *   - redirect()
+ *
+ * Ancienne version : on appelait aussi `currentUser()` puis
+ * `clerkClient.users.getUser()` + `updateUser()` pour resyncer
+ * publicMetadata. Cette resync n'est PAS nécessaire ici — `ensureRole()`
+ * sur /prospect et /pro la fait déjà — et chaque appel Clerk Admin
+ * ajoutait un point de défaillance : sur hoquet réseau la page restait
+ * blanche au lieu de rediriger. Le rôle metadata Clerk est juste un
+ * cache ; la DB fait foi.
+ */
+
 import { redirect } from "next/navigation";
-import { auth, clerkClient, currentUser } from "@/lib/clerk/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import type { Role } from "@/lib/sync/ensureRole";
+import { auth } from "@/lib/clerk/server";
+import { getCurrentRole } from "@/lib/sync/currentRole";
 
 export const dynamic = "force-dynamic";
 
@@ -14,42 +30,21 @@ export default async function PostLoginPage() {
   const { userId } = await auth();
   if (!userId) redirect("/connexion");
 
-  const user = await currentUser();
-  const cached = (user?.publicMetadata as { role?: Role } | undefined)?.role;
-
-  if (cached === "prospect") redirect("/prospect");
-  if (cached === "pro") redirect("/pro");
-
-  // Fallback DB : signup interrompu avant ensureRole, ou metadata pas
-  // encore propagée par Clerk. On lit la vérité côté Supabase.
-  const admin = createSupabaseAdminClient();
-  const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
-    admin.from("pro_accounts").select("id").eq("clerk_user_id", userId).maybeSingle(),
-    admin.from("prospects").select("id").eq("clerk_user_id", userId).maybeSingle(),
-  ]);
-
-  const dbRole: Role | null = proRow ? "pro" : prospectRow ? "prospect" : null;
-
-  if (dbRole) {
-    // Resync Clerk metadata avant la redirection (le client lira correctement
-    // au prochain render). Lecture fraîche via `getUser` (cohérent avec
-    // `ensureRole`) — la perf importe peu : ce path est rare (cache Clerk
-    // froid) et la route n'est traversée qu'une fois par login.
-    try {
-      const client = await clerkClient();
-      const fresh = await client.users.getUser(userId);
-      const merged = {
-        ...((fresh.publicMetadata as Record<string, unknown> | null | undefined) ?? {}),
-        role: dbRole,
-      };
-      await client.users.updateUser(userId, { publicMetadata: merged });
-    } catch (err) {
-      console.error("[/auth/post-login] failed to resync publicMetadata", err);
-    }
-    redirect(dbRole === "pro" ? "/pro" : "/prospect");
+  let role: "prospect" | "pro" | null = null;
+  try {
+    role = await getCurrentRole(userId);
+  } catch (err) {
+    // En cas d'erreur DB, on n'écrase pas la session : on envoie le user
+    // sur la page d'aiguillage pour qu'il rechoisisse explicitement.
+    console.error("[/auth/post-login] getCurrentRole failed", err);
+    redirect("/inscription");
   }
 
-  // User Clerk valide mais sans rôle (rare : tab fermé entre signup et
-  // /prospect|/pro). On l'envoie sur l'aiguillage pour qu'il choisisse.
+  if (role === "pro") redirect("/pro");
+  if (role === "prospect") redirect("/prospect");
+
+  // User Clerk valide mais aucune row DB encore (signup juste avant
+  // que /prospect ou /pro ait pu appeler ensureRole). On envoie sur
+  // l'aiguillage pour qu'il choisisse son rôle explicitement.
   redirect("/inscription");
 }
