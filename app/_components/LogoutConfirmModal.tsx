@@ -46,6 +46,11 @@ export default function LogoutConfirmModal({
     setBusy(true);
     try {
       await onConfirm();
+      // Si onConfirm n'a pas démonté ce composant (ex. signOut déclenché
+      // depuis la home : `redirectUrl:"/"` est un no-op puisqu'on y est
+      // déjà), on referme nous-mêmes la modale. Sinon le loader resterait
+      // figé indéfiniment.
+      onCancel();
     } catch (err) {
       console.error("[LogoutConfirmModal] confirm failed", err);
       setBusy(false);
