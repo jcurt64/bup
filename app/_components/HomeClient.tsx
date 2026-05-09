@@ -2473,7 +2473,7 @@ function ProsSection() {
           <div className="row gap-3 wrap">
             <button
               className="btn btn-lg btn-block-mobile"
-              onClick={() => guard("pro", "/pro")}
+              onClick={() => guard("pro", "/pro", "/inscription/pro")}
               style={{ background: "var(--paper)", color: "var(--ink)" }}
             >
               Ouvrir un compte pro <Icon name="arrow" size={14} />
@@ -3161,13 +3161,13 @@ function FinalCTA() {
         >
           <button
             className="btn btn-lg btn-primary btn-block-mobile"
-            onClick={() => guard("prospect", "/prospect")}
+            onClick={() => guard("prospect", "/prospect", "/inscription/prospect")}
           >
             Créer mon profil prospect
           </button>
           <button
             className="btn btn-lg btn-ghost btn-block-mobile"
-            onClick={() => guard("pro", "/pro")}
+            onClick={() => guard("pro", "/pro", "/inscription/pro")}
           >
             Ouvrir un compte pro
           </button>

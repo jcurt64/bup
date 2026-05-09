@@ -60,14 +60,20 @@ function useCurrentRole(): { signedIn: boolean; role: Role | null; ready: boolea
 }
 
 /**
- * Hook principal : retourne `guard(targetRole, href)` à utiliser sur
- * tous les boutons qui mènent à /prospect ou /pro. Si l'utilisateur
- * est connecté avec un rôle incompatible, on ouvre le modal au lieu
- * de naviguer ; sinon on suit l'URL.
+ * Hook principal : retourne `guard(targetRole, href, anonymousHref?)` à
+ * utiliser sur les boutons qui mènent à /prospect ou /pro.
+ *   - signed-in et rôle compatible → router.push(href)
+ *   - signed-in et rôle incompatible → ouvre le modal de conflit
+ *   - anonyme → router.push(anonymousHref ?? href)
  *
- * Usage typique :
+ * Le 3e arg `anonymousHref` est utile pour les CTA "Ouvrir un compte"
+ * qui doivent envoyer un visiteur sur /inscription/{role} (sign-up)
+ * plutôt que sur /connexion (sign-in) imposé par le middleware quand
+ * on push directement /pro ou /prospect sur un user anonyme.
+ *
+ * Usage :
  *   const { guard, modal } = useRoleGuard();
- *   <button onClick={() => guard("prospect", "/prospect")}>…</button>
+ *   <button onClick={() => guard("pro", "/pro", "/inscription/pro")}/>
  *   {modal}
  */
 export function useRoleGuard() {
@@ -80,7 +86,7 @@ export function useRoleGuard() {
   } | null>(null);
 
   const guard = useCallback(
-    (targetRole: Role, intendedHref: string) => {
+    (targetRole: Role, intendedHref: string, anonymousHref?: string) => {
       if (!ready) {
         // Tant que le rôle n'est pas chargé, on laisse passer — le
         // garde serveur dans /prospect|/pro reste la dernière ligne
@@ -88,7 +94,11 @@ export function useRoleGuard() {
         router.push(intendedHref);
         return;
       }
-      if (!signedIn || !role || role === targetRole) {
+      if (!signedIn) {
+        router.push(anonymousHref ?? intendedHref);
+        return;
+      }
+      if (!role || role === targetRole) {
         router.push(intendedHref);
         return;
       }
