@@ -14,6 +14,7 @@
  */
 
 import nodemailer, { type Transporter } from "nodemailer";
+import type { SendMailOptions } from "nodemailer";
 
 // On cache uniquement les transports VALIDES (non-null). Si la config était
 // absente au démarrage et a été ajoutée depuis, on retentera la création
@@ -60,4 +61,32 @@ export function getTransport(): Transporter | null {
 export function getFromAddress(): string {
   // Permet de personnaliser le "from" (ex: "BUUPP <jjlex64@gmail.com>") via env.
   return process.env.MAIL_FROM ?? `BUUPP <${process.env.SMTP_USER ?? "jjlex64@gmail.com"}>`;
+}
+
+/**
+ * Envoie un mail en avalant les erreurs : trace l'incident côté admin
+ * via `system.email_failed` (warning) et continue. À utiliser depuis
+ * tous les chemins métier qui veulent envoyer un mail sans risquer de
+ * planter la requête principale.
+ */
+export async function safeSendMail(opts: SendMailOptions): Promise<void> {
+  const transport = getTransport();
+  if (!transport) return;
+  try {
+    await transport.sendMail(opts);
+  } catch (err) {
+    console.error("[email/transport] sendMail failed", err);
+    void (async () => {
+      const { recordEvent } = await import("@/lib/admin/events/record");
+      await recordEvent({
+        type: "system.email_failed",
+        severity: "warning",
+        payload: {
+          subject: String(opts.subject ?? ""),
+          to: String(opts.to ?? ""),
+          err: String(err),
+        },
+      });
+    })();
+  }
 }
