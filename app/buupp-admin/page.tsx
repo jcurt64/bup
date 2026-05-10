@@ -4,7 +4,7 @@
  *
  * Les 3 timeseries arrivent en Task 2.5.
  */
-import { fetchOverviewKpis } from "@/lib/admin/queries/overview";
+import { fetchOverviewKpisCached } from "@/lib/admin/queries/overview";
 import { fetchOverviewTimeseries } from "@/lib/admin/queries/overview-timeseries";
 import {
   PERIOD_KEYS,
@@ -44,8 +44,8 @@ export default async function OverviewPage({
   const cur = rangeFor(period, now);
   const prev = previousRangeOf(cur);
   const [c, p] = await Promise.all([
-    fetchOverviewKpis(cur),
-    fetchOverviewKpis(prev),
+    fetchOverviewKpisCached(cur),
+    fetchOverviewKpisCached(prev),
   ]);
   const points = await fetchOverviewTimeseries(cur);
   const labels = points.map((pt) => pt.label);

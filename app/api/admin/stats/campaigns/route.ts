@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { PERIOD_KEYS, rangeFor, type PeriodKey } from "@/lib/admin/periods";
 import { fetchCampaignsKpis } from "@/lib/admin/queries/campaigns";
+import { rateLimit } from "@/lib/admin/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const limited = rateLimit(req);
+  if (limited) return limited;
   const denied = await requireAdminRequest(req);
   if (denied) return denied;
   const url = new URL(req.url);

@@ -6,11 +6,15 @@ import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { PERIOD_KEYS, rangeFor, type PeriodKey } from "@/lib/admin/periods";
 import { fetchOverviewTimeseries } from "@/lib/admin/queries/overview-timeseries";
+import { rateLimit } from "@/lib/admin/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const limited = rateLimit(req);
+  if (limited) return limited;
+
   const denied = await requireAdminRequest(req);
   if (denied) return denied;
 

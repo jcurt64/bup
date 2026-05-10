@@ -8,11 +8,14 @@ import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/admin/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const limited = rateLimit(req);
+  if (limited) return limited;
   const denied = await requireAdminRequest(req);
   if (denied) return denied;
   const { id } = await ctx.params;

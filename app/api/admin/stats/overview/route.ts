@@ -4,13 +4,17 @@
  */
 import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
-import { fetchOverviewKpis } from "@/lib/admin/queries/overview";
+import { fetchOverviewKpisCached } from "@/lib/admin/queries/overview";
 import { PERIOD_KEYS, rangeFor, previousRangeOf, type PeriodKey } from "@/lib/admin/periods";
+import { rateLimit } from "@/lib/admin/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const limited = rateLimit(req);
+  if (limited) return limited;
+
   const denied = await requireAdminRequest(req);
   if (denied) return denied;
 
@@ -25,8 +29,8 @@ export async function GET(req: Request) {
   const prev = previousRangeOf(cur);
 
   const [current, previous] = await Promise.all([
-    fetchOverviewKpis(cur),
-    fetchOverviewKpis(prev),
+    fetchOverviewKpisCached(cur),
+    fetchOverviewKpisCached(prev),
   ]);
 
   return NextResponse.json(

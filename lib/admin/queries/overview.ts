@@ -61,3 +61,19 @@ export async function fetchOverviewKpis(range: DateRange): Promise<OverviewKpis>
     estimatedRevenueCents,
   };
 }
+
+// Cache process-local 30 s par fenêtre temporelle. Évite de spammer la
+// RPC sur des rafraîchissements rapprochés (overview est appelée à
+// chaque navigation côté admin). Une instance par worker → suffisant
+// en V1 ; à remplacer par Redis/Upstash si on déploie à plusieurs.
+const cache = new Map<string, { at: number; data: OverviewKpis }>();
+const TTL_MS = 30_000;
+
+export async function fetchOverviewKpisCached(range: DateRange): Promise<OverviewKpis> {
+  const key = `${range.start.toISOString()}|${range.end.toISOString()}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
+  const data = await fetchOverviewKpis(range);
+  cache.set(key, { at: Date.now(), data });
+  return data;
+}
