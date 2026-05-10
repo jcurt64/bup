@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import PeriodPicker from "./PeriodPicker";
 import NotificationBell from "./NotificationBell";
 
@@ -25,6 +25,9 @@ export default function AdminShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const sp = useSearchParams();
+  const period = sp.get("period");
+  const suffix = period ? `?period=${period}` : "";
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 grid grid-cols-[240px_1fr]">
       <aside className="border-r border-neutral-200 bg-white p-4 flex flex-col gap-2">
@@ -37,7 +40,7 @@ export default function AdminShell({
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={`${item.href}${suffix}`}
               className={`rounded px-3 py-2 text-sm ${active ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
             >
               {item.label}
