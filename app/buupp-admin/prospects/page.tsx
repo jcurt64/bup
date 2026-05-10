@@ -6,6 +6,7 @@
  */
 import { fetchProspectsKpis } from "@/lib/admin/queries/prospects";
 import { PERIOD_KEYS, rangeFor, type PeriodKey } from "@/lib/admin/periods";
+import ProspectsTable from "../_components/ProspectsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,10 @@ export default async function ProspectsAdminPage({
 
       <Section title="Top parrains (refCode → conversions)">
         <Table rows={data.topReferrers.map((r) => [r.refCode, fmt.format(r.n)])} />
+      </Section>
+
+      <Section title="Liste prospects (50 plus récents)">
+        <ProspectsTable />
       </Section>
     </div>
   );
