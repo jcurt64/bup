@@ -10,6 +10,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Role } from "@/lib/sync/ensureRole";
+import { isAdminEmail } from "@/lib/admin/access";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -116,6 +117,28 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   if (isPublicRoute(request)) return;
+
+  // ─── Garde back-office /buupp-admin ──────────────────────────────
+  // 404 (et pas 403/redirect signin) pour ne pas révéler l'existence
+  // du dashboard. La page elle-même re-vérifie via
+  // requireAdminUserOrNotFound() (ceinture + bretelles).
+  if (request.nextUrl.pathname.startsWith("/buupp-admin")) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.rewrite(new URL("/404", request.url));
+    }
+    // Email primaire : pas de claim custom dans le JWT par défaut → on
+    // appelle Clerk côté serveur. Edge runtime OK pour clerkClient.
+    const { clerkClient } = await import("@clerk/nextjs/server");
+    const cc = await clerkClient();
+    const u = await cc.users.getUser(userId);
+    const email = u.emailAddresses.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress ?? null;
+    if (!isAdminEmail(email)) {
+      return NextResponse.rewrite(new URL("/404", request.url));
+    }
+    return; // admin OK, laisser passer
+  }
+
   const { userId, sessionClaims, redirectToSignIn } = await auth();
   if (!userId) {
     return redirectToSignIn({ returnBackUrl: request.url });
