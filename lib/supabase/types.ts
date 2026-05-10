@@ -933,6 +933,10 @@ export type Database = {
           credited_cents: number
         }[]
       }
+      admin_prospects_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
       clerk_user_id: { Args: never; Returns: string }
       is_within_founder_bonus_window: {
         Args: never
