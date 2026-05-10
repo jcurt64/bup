@@ -25,7 +25,13 @@ export default function PeriodPicker() {
         next.set("period", e.target.value);
         router.push(`${pathname}?${next.toString()}`);
       }}
-      className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm"
+      className="rounded-md text-sm h-10 px-3 cursor-pointer"
+      style={{
+        background: "var(--paper)",
+        color: "var(--ink)",
+        border: "1px solid var(--line)",
+        fontFamily: "var(--sans)",
+      }}
     >
       {OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>

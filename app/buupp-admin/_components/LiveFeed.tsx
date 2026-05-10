@@ -9,10 +9,10 @@ type AdminEvent = {
   created_at: string;
 };
 
-const TONE: Record<string, string> = {
-  info: "border-l-neutral-300 bg-white",
-  warning: "border-l-amber-400 bg-amber-50",
-  critical: "border-l-rose-500 bg-rose-50",
+const SEVERITY_STYLES: Record<AdminEvent["severity"], { borderColor: string; bg: string }> = {
+  info: { borderColor: "var(--line-2)", bg: "var(--paper)" },
+  warning: { borderColor: "var(--warn)", bg: "rgba(180, 83, 9, 0.06)" },
+  critical: { borderColor: "var(--danger)", bg: "rgba(185, 28, 28, 0.06)" },
 };
 
 export default function LiveFeed() {
@@ -38,26 +38,64 @@ export default function LiveFeed() {
   const visible = filter ? events.filter((e) => e.severity === filter) : events;
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-4 max-h-[600px] flex flex-col">
+    <div
+      className="rounded-lg p-4 max-h-[600px] flex flex-col"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-1)",
+      }}
+    >
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium">Live feed</div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="text-xs border px-2 py-1 rounded">
-          <option value="">Tout</option><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
+        <div
+          className="text-[11px] uppercase"
+          style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+        >
+          Live feed
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="text-xs rounded px-2 py-1 cursor-pointer"
+          style={{ background: "var(--ivory)", color: "var(--ink-3)", border: "1px solid var(--line)" }}
+        >
+          <option value="">Tout</option>
+          <option value="info">Info</option>
+          <option value="warning">Warning</option>
+          <option value="critical">Critical</option>
         </select>
       </div>
-      <ul className="space-y-1 overflow-auto">
-        {visible.map((e) => (
-          <li key={e.id} className={`border-l-4 ${TONE[e.severity]} px-2 py-1 text-xs`}>
-            <div className="flex justify-between">
-              <span className="font-mono">{e.type}</span>
-              <span className="text-neutral-500">{new Date(e.created_at).toLocaleTimeString("fr-FR")}</span>
-            </div>
-            {Object.keys(e.payload).length > 0 && (
-              <pre className="text-[10px] text-neutral-600 truncate">{JSON.stringify(e.payload)}</pre>
-            )}
+      <ul className="space-y-1.5 overflow-auto">
+        {visible.map((e) => {
+          const tone = SEVERITY_STYLES[e.severity];
+          return (
+            <li
+              key={e.id}
+              className="px-2 py-1.5 text-xs rounded"
+              style={{
+                borderLeft: `3px solid ${tone.borderColor}`,
+                background: tone.bg,
+              }}
+            >
+              <div className="flex justify-between gap-2">
+                <span style={{ fontFamily: "var(--mono)", color: "var(--ink)" }}>{e.type}</span>
+                <span style={{ color: "var(--ink-5)" }}>
+                  {new Date(e.created_at).toLocaleTimeString("fr-FR")}
+                </span>
+              </div>
+              {Object.keys(e.payload).length > 0 && (
+                <pre className="text-[10px] mt-0.5 truncate" style={{ color: "var(--ink-4)" }}>
+                  {JSON.stringify(e.payload)}
+                </pre>
+              )}
+            </li>
+          );
+        })}
+        {visible.length === 0 && (
+          <li className="text-xs" style={{ color: "var(--ink-5)" }}>
+            Aucun event pour le moment.
           </li>
-        ))}
-        {visible.length === 0 && <li className="text-xs text-neutral-500">Aucun event pour le moment.</li>}
+        )}
       </ul>
     </div>
   );

@@ -20,7 +20,7 @@ export default function Sparkline({
     })
     .join(" ");
   return (
-    <svg width={width} height={height} className="text-neutral-700">
+    <svg width={width} height={height} style={{ color: "var(--accent)" }}>
       <path d={path} fill="none" stroke="currentColor" strokeWidth={1.5} />
     </svg>
   );

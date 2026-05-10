@@ -6,10 +6,23 @@ export default function Delta({
   previous: number;
 }) {
   if (previous === 0) {
-    return <span className="text-xs text-neutral-400">—</span>;
+    return (
+      <span className="text-xs" style={{ color: "var(--ink-5)" }}>
+        —
+      </span>
+    );
   }
   const pct = Math.round(((current - previous) / previous) * 100);
   const sign = pct > 0 ? "+" : "";
-  const tone = pct > 0 ? "text-emerald-600" : pct < 0 ? "text-rose-600" : "text-neutral-500";
-  return <span className={`text-xs font-medium ${tone}`}>{sign}{pct}%</span>;
+  const color =
+    pct > 0 ? "var(--good)" : pct < 0 ? "var(--danger)" : "var(--ink-5)";
+  return (
+    <span
+      className="text-xs font-medium tabular-nums"
+      style={{ color, fontFamily: "var(--mono)" }}
+    >
+      {sign}
+      {pct}%
+    </span>
+  );
 }

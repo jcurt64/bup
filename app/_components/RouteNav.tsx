@@ -175,8 +175,10 @@ export default function RouteNav() {
     };
   }, [isLoaded, isSignedIn]);
 
-  // Masquer la nav sur les pages d'auth (full-screen Clerk).
+  // Masquer la nav sur les pages d'auth (full-screen Clerk) et sur le
+  // back-office /buupp-admin (qui a son propre AdminShell + sidebar).
   if (pathname === "/connexion" || pathname.startsWith("/inscription")) return null;
+  if (pathname.startsWith("/buupp-admin")) return null;
   // Évite un flash de tabs incorrects pendant l'hydratation Clerk.
   if (!isLoaded) return null;
 
