@@ -34,7 +34,10 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 export function hasAdminSecret(req: Request): boolean {
   const expected = process.env.BUUPP_ADMIN_SECRET;
   if (!expected) return false;
-  const provided = req.headers.get("x-admin-secret");
+  const provided =
+    req.headers.get("x-admin-secret") ??
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+    null;
   return Boolean(provided) && provided === expected;
 }
 
