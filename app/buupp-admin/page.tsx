@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin/periods";
 import KpiCard from "./_components/KpiCard";
 import TimeseriesChart from "./_components/TimeseriesChart";
+import LiveFeed from "./_components/LiveFeed";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,8 @@ export default async function OverviewPage({
   const labels = points.map((pt) => pt.label);
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+      <div className="space-y-6">
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard label="Inscrits prospects" value={fmtInt(c.prospects)} current={c.prospects} previous={p.prospects} />
         <KpiCard label="Inscrits pros" value={fmtInt(c.pros)} current={c.pros} previous={p.pros} />
@@ -93,6 +95,8 @@ export default async function OverviewPage({
           ]}
         />
       </section>
+      </div>
+      <aside><LiveFeed /></aside>
     </div>
   );
 }
