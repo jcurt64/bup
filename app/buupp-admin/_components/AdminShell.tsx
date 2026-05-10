@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import PeriodPicker from "./PeriodPicker";
+import NotificationBell from "./NotificationBell";
 
 const NAV = [
   { href: "/buupp-admin", label: "Vue d'ensemble" },
@@ -16,9 +17,11 @@ const NAV = [
 
 export default function AdminShell({
   adminEmail,
+  adminUserId,
   children,
 }: {
   adminEmail: string;
+  adminUserId: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -46,7 +49,10 @@ export default function AdminShell({
       <main className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold">{NAV.find((n) => n.href === pathname)?.label ?? "Admin"}</h1>
-          <PeriodPicker />
+          <div className="flex items-center gap-2">
+            <NotificationBell adminUserId={adminUserId} />
+            <PeriodPicker />
+          </div>
         </div>
         {children}
       </main>

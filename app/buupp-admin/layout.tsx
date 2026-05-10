@@ -18,6 +18,6 @@ export default async function BuuppAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { email } = await requireAdminUserOrNotFound();
-  return <AdminShell adminEmail={email}>{children}</AdminShell>;
+  const { userId, email } = await requireAdminUserOrNotFound();
+  return <AdminShell adminEmail={email} adminUserId={userId}>{children}</AdminShell>;
 }
