@@ -229,6 +229,14 @@ export async function POST(req: Request) {
     rowFor(email),
   ]);
 
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    await recordEvent({
+      type: "waitlist.signup",
+      payload: { email, ville },
+    });
+  })();
+
   // Envoi du mail de confirmation : on AWAIT (avec timeout de sécurité)
   // pour garantir que SMTP termine avant que la fonction Next.js soit
   // suspendue (en serverless le runtime peut couper l'event loop dès

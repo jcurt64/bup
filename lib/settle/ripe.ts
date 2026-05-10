@@ -38,6 +38,17 @@ export async function settleRipeRelationsAndNotify(
 
   console.log(`[settle/ripe] ${rows.length} relation(s) settled`);
 
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    for (const r of rows) {
+      await recordEvent({
+        type: "relation.settled",
+        relationId: r.relation_id,
+        payload: { rewardCents: Number(r.reward_cents) },
+      });
+    }
+  })();
+
   // Mails fire-and-forget — un échec d'envoi ne doit ni bloquer ni faire
   // remonter d'erreur dans la requête API qui a déclenché le settle.
   void Promise.allSettled(

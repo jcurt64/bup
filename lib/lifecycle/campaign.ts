@@ -162,6 +162,14 @@ export async function processCampaignLifecycle(
       });
       if (rpcErr) {
         console.error("[lifecycle/closure] close_campaign_settle failed", c.id, rpcErr);
+      } else {
+        void (async () => {
+          const { recordEvent } = await import("@/lib/admin/events/record");
+          await recordEvent({
+            type: "campaign.completed",
+            campaignId: c.id as string,
+          });
+        })();
       }
     }
   }
