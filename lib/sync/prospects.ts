@@ -46,6 +46,14 @@ export async function ensureProspect(input: EnsureProspectInput) {
     });
   }
 
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    await recordEvent({
+      type: "prospect.signup",
+      prospectId: created.id,
+    });
+  })();
+
   return created.id;
 }
 

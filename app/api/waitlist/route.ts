@@ -14,6 +14,12 @@ import crypto from "node:crypto";
 
 export const runtime = "nodejs";
 
+function villeHashFor(ville: string): string {
+  // 8 hex chars : suffisant pour distinguer les villes dans les logs
+  // sans permettre de retrouver le nom (collision-tolérant à l'échelle).
+  return crypto.createHash("sha256").update(ville.toLowerCase()).digest("hex").slice(0, 8);
+}
+
 type WaitlistPayload = {
   prenom?: string;
   nom?: string;
@@ -228,6 +234,17 @@ export async function POST(req: Request) {
     supabase.rpc("waitlist_stats").single(),
     rowFor(email),
   ]);
+
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    await recordEvent({
+      type: "waitlist.signup",
+      payload: {
+        emailDomain: email.split("@")[1] ?? null,
+        villeHash: villeHashFor(ville),
+      },
+    });
+  })();
 
   // Envoi du mail de confirmation : on AWAIT (avec timeout de sécurité)
   // pour garantir que SMTP termine avant que la fonction Next.js soit

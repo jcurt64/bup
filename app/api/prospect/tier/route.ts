@@ -143,6 +143,15 @@ export async function POST(req: Request) {
     console.warn("[/api/prospect/tier] score recompute failed", e);
   }
 
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    await recordEvent({
+      type: "prospect.tier_completed",
+      prospectId,
+      payload: { tier, action },
+    });
+  })();
+
   return NextResponse.json({
     ok: true,
     hiddenTiers: Array.from(hidden),

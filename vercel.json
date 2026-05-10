@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/admin/digest?severity=warning", "schedule": "55 * * * *" },
+    { "path": "/api/admin/digest?severity=info", "schedule": "0 8,18 * * *" }
+  ]
+}

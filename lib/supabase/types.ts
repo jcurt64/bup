@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_events: {
+        Row: {
+          id: string
+          type: string
+          severity: Database["public"]["Enums"]["admin_event_severity"]
+          payload: Json
+          prospect_id: string | null
+          pro_account_id: string | null
+          campaign_id: string | null
+          relation_id: string | null
+          transaction_id: string | null
+          read_by: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          type: string
+          severity?: Database["public"]["Enums"]["admin_event_severity"]
+          payload?: Json
+          prospect_id?: string | null
+          pro_account_id?: string | null
+          campaign_id?: string | null
+          relation_id?: string | null
+          transaction_id?: string | null
+          read_by?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          type?: string
+          severity?: Database["public"]["Enums"]["admin_event_severity"]
+          payload?: Json
+          prospect_id?: string | null
+          pro_account_id?: string | null
+          campaign_id?: string | null
+          relation_id?: string | null
+          transaction_id?: string | null
+          read_by?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_events_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_events_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_events_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_events_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       app_config: {
         Row: {
           id: boolean
@@ -836,6 +914,37 @@ export type Database = {
         Args: { p_relation_id: string }
         Returns: undefined
       }
+      admin_campaigns_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
+      admin_overview_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
+      admin_overview_timeseries: {
+        Args: { p_start: string; p_end: string }
+        Returns: {
+          d: string
+          prospects: number
+          pros: number
+          relations_sent: number
+          relations_accepted: number
+          relations_refused: number
+          relations_expired: number
+          budget_cents: number
+          spent_cents: number
+          credited_cents: number
+        }[]
+      }
+      admin_pros_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
+      admin_prospects_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
       clerk_user_id: { Args: never; Returns: string }
       is_within_founder_bonus_window: {
         Args: never
@@ -879,6 +988,7 @@ export type Database = {
       }
     }
     Enums: {
+      admin_event_severity: "info" | "warning" | "critical"
       account_kind: "prospect" | "pro"
       campaign_status: "draft" | "active" | "paused" | "completed" | "canceled"
       campaign_type:

@@ -45,5 +45,14 @@ export async function ensureProAccount(input: EnsureProInput): Promise<string> {
     .select("id")
     .single();
   if (insertError) throw insertError;
+
+  void (async () => {
+    const { recordEvent } = await import("@/lib/admin/events/record");
+    await recordEvent({
+      type: "pro.signup",
+      proAccountId: created.id,
+    });
+  })();
+
   return created.id;
 }
