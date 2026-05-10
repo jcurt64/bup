@@ -34,7 +34,7 @@ export async function recordEvent(input: RecordEventInput): Promise<void> {
     const { error } = await admin.from("admin_events").insert({
       type: input.type,
       severity: input.severity ?? "info",
-      payload: input.payload ?? {},
+      payload: (input.payload ?? {}) as Database["public"]["Tables"]["admin_events"]["Insert"]["payload"],
       prospect_id: input.prospectId ?? null,
       pro_account_id: input.proAccountId ?? null,
       campaign_id: input.campaignId ?? null,
