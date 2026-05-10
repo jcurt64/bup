@@ -933,6 +933,10 @@ export type Database = {
           credited_cents: number
         }[]
       }
+      admin_pros_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
       admin_prospects_kpis: {
         Args: { p_start: string; p_end: string }
         Returns: Json
