@@ -56,6 +56,9 @@ describe("recordEvent", () => {
       recordEvent({ type: "system.cron_failed", severity: "critical" }),
     ).resolves.toBeUndefined();
     expect(err).toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: "critical", type: "system.cron_failed" }),
+    );
     err.mockRestore();
   });
 });
