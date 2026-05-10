@@ -37,12 +37,14 @@ export default function AdminShell({
             item.href === "/buupp-admin"
               ? pathname === item.href
               : pathname.startsWith(item.href);
+          // Tailwind 4 ne détecte pas toujours les classes dans les
+          // ternaires interpolés ; on écrit chaque branche en chaîne
+          // statique complète pour garantir l'extraction.
+          const linkClass = active
+            ? "rounded px-3 py-2 text-sm bg-neutral-900 text-white font-medium"
+            : "rounded px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900";
           return (
-            <Link
-              key={item.href}
-              href={`${item.href}${suffix}`}
-              className={`rounded px-3 py-2 text-sm ${active ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
-            >
+            <Link key={item.href} href={`${item.href}${suffix}`} className={linkClass}>
               {item.label}
             </Link>
           );
