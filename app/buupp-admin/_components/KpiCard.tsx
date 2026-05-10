@@ -36,8 +36,8 @@ export default function KpiCard({
           className="tabular-nums"
           style={{
             fontFamily: "var(--serif)",
-            fontSize: "26px",
-            fontWeight: 400,
+            fontSize: "20px",
+            fontWeight: 500,
             color: "var(--ink)",
             letterSpacing: "-0.01em",
           }}

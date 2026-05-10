@@ -79,15 +79,18 @@ export default function AdminShell({
         >
           <div
             className="hidden lg:block mb-6"
-            style={{ fontFamily: "var(--serif)", fontSize: "20px", fontWeight: 500, letterSpacing: "-0.01em" }}
+            style={{ fontFamily: "var(--serif)", fontSize: "16px", fontWeight: 500, letterSpacing: "-0.01em", color: "var(--ink-3)" }}
           >
             BUUPP Admin
           </div>
           {NAV.map((item) => {
+            // Boundary check : `/buupp-admin/prospects`.startsWith(`/buupp-admin/pros`)
+            // est true à tort. On exige soit l'égalité stricte, soit un `/`
+            // juste après le préfixe.
             const active =
               item.href === "/buupp-admin"
                 ? pathname === item.href
-                : pathname.startsWith(item.href);
+                : pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
@@ -125,9 +128,9 @@ export default function AdminShell({
           <h1
             style={{
               fontFamily: "var(--serif)",
-              fontSize: "26px",
-              fontWeight: 400,
-              letterSpacing: "-0.015em",
+              fontSize: "20px",
+              fontWeight: 500,
+              letterSpacing: "-0.01em",
               color: "var(--ink)",
             }}
           >
