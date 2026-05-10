@@ -7,6 +7,11 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+import { sendAdminCriticalAlert } from "@/lib/email/admin-alert";
+vi.mock("@/lib/email/admin-alert", () => ({
+  sendAdminCriticalAlert: vi.fn(async () => {}),
+}));
+
 import { recordEvent } from "@/lib/admin/events/record";
 
 describe("recordEvent", () => {
@@ -60,5 +65,34 @@ describe("recordEvent", () => {
       expect.objectContaining({ severity: "critical", type: "system.cron_failed" }),
     );
     err.mockRestore();
+  });
+
+  it("envoie un mail critical quand severity = critical", async () => {
+    await recordEvent({
+      type: "system.cron_failed",
+      severity: "critical",
+      payload: { what: "settle" },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sendAdminCriticalAlert).toHaveBeenCalledWith({
+      type: "system.cron_failed",
+      payload: { what: "settle" },
+      createdAt: expect.any(String),
+    });
+  });
+
+  it("n'envoie PAS de mail pour severity info ou warning", async () => {
+    (sendAdminCriticalAlert as unknown as { mockClear: () => void }).mockClear();
+    await recordEvent({ type: "prospect.signup" });
+    await recordEvent({ type: "relation.expired", severity: "warning" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sendAdminCriticalAlert).not.toHaveBeenCalled();
+  });
+
+  it("ne déclenche JAMAIS de mail pour system.email_failed (anti-boucle)", async () => {
+    (sendAdminCriticalAlert as unknown as { mockClear: () => void }).mockClear();
+    await recordEvent({ type: "system.email_failed", severity: "warning" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sendAdminCriticalAlert).not.toHaveBeenCalled();
   });
 });

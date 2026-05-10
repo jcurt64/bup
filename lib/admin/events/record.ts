@@ -47,6 +47,18 @@ export async function recordEvent(input: RecordEventInput): Promise<void> {
         error,
       });
     }
+    // Critical → mail immédiat (fire-and-forget). Garde anti-boucle :
+    // les events `system.email_failed` ne doivent JAMAIS déclencher d'envoi
+    // (sinon on aggrave la panne SMTP qu'on essaie de tracer).
+    if (input.severity === "critical" && input.type !== "system.email_failed") {
+      void import("@/lib/email/admin-alert").then(({ sendAdminCriticalAlert }) =>
+        sendAdminCriticalAlert({
+          type: input.type,
+          payload: input.payload ?? {},
+          createdAt: new Date().toISOString(),
+        }),
+      );
+    }
   } catch (err) {
     console.error("[admin/events/record] unexpected", {
       type: input.type,
