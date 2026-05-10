@@ -105,6 +105,15 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", proAccountId);
         }
+
+        void (async () => {
+          const { recordEvent } = await import("@/lib/admin/events/record");
+          await recordEvent({
+            type: "transaction.topup",
+            proAccountId,
+            payload: { amountCents },
+          });
+        })();
         break;
       }
 
@@ -163,6 +172,14 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error("[stripe webhook] handler crash:", err);
+    void (async () => {
+      const { recordEvent } = await import("@/lib/admin/events/record");
+      await recordEvent({
+        type: "system.stripe_webhook_failed",
+        severity: "critical",
+        payload: { eventType: event.type, eventId: event.id, err: String(err) },
+      });
+    })();
     return NextResponse.json({ error: "handler_failed" }, { status: 500 });
   }
 

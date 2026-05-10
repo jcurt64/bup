@@ -154,6 +154,15 @@ export async function POST(request: NextRequest) {
         transactionId: txRow.id,
       },
     });
+    void (async () => {
+      const { recordEvent } = await import("@/lib/admin/events/record");
+      await recordEvent({
+        type: "transaction.withdrawal",
+        prospectId,
+        transactionId: txRow.id,
+        payload: { amountCents },
+      });
+    })();
     return NextResponse.json({
       ok: true,
       transferId: transfer.id,
