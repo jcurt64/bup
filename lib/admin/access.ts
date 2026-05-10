@@ -16,6 +16,7 @@
  * Politique fail-closed : si une env est manquante, l'accès est refusé.
  */
 
+import { notFound } from "next/navigation";
 import { auth, currentUser } from "@/lib/clerk/server";
 
 export function isAdminEmail(email: string | null | undefined): boolean {
@@ -45,15 +46,14 @@ export async function requireAdminUserOrNotFound(): Promise<{
   userId: string;
   email: string;
 }> {
-  const { notFound } = await import("next/navigation");
   const { userId } = await auth();
   if (!userId) notFound();
   const user = await currentUser();
   const email = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
-  )?.emailAddress ?? null;
-  if (!isAdminEmail(email)) notFound();
-  return { userId: userId!, email: email! };
+  )?.emailAddress;
+  if (!email || !isAdminEmail(email)) notFound();
+  return { userId, email };
 }
 
 /**
@@ -71,7 +71,7 @@ export async function requireAdminRequest(req: Request): Promise<Response | null
   const user = await currentUser();
   const email = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
-  )?.emailAddress ?? null;
-  if (!isAdminEmail(email)) return new Response("Not Found", { status: 404 });
+  )?.emailAddress;
+  if (!email || !isAdminEmail(email)) return new Response("Not Found", { status: 404 });
   return null;
 }
