@@ -58,7 +58,7 @@ export function bucketize(range: DateRange): Bucket[] {
   const span = range.end.getTime() - range.start.getTime();
   const days = Math.ceil(span / DAY_MS);
 
-  if (days <= 30) {
+  if (days <= 31) {
     const buckets: Bucket[] = [];
     let cursor = startOfDay(range.start);
     const last = startOfDay(range.end);

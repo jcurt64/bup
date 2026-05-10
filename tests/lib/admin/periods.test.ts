@@ -61,6 +61,13 @@ describe("bucketize", () => {
     expect(buckets.at(-1)!.label).toBe("2026-05-10");
   });
 
+  it("30d → buckets jour (cas charnière, span = 31 jours inclusif)", () => {
+    const buckets = bucketize(rangeFor("30d", REF));
+    expect(buckets).toHaveLength(31);
+    expect(buckets[0].label).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(buckets.at(-1)!.label).toBe("2026-05-10");
+  });
+
   it("≤90 j → buckets semaine (label W##)", () => {
     const buckets = bucketize(rangeFor("quarter", REF));
     expect(buckets.length).toBeGreaterThan(0);
