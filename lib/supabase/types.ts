@@ -914,6 +914,10 @@ export type Database = {
         Args: { p_relation_id: string }
         Returns: undefined
       }
+      admin_campaigns_kpis: {
+        Args: { p_start: string; p_end: string }
+        Returns: Json
+      }
       admin_overview_kpis: {
         Args: { p_start: string; p_end: string }
         Returns: Json
