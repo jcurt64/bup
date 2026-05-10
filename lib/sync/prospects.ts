@@ -51,7 +51,6 @@ export async function ensureProspect(input: EnsureProspectInput) {
     await recordEvent({
       type: "prospect.signup",
       prospectId: created.id,
-      payload: { email: input.email ?? null },
     });
   })();
 

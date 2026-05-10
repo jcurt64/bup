@@ -51,7 +51,6 @@ export async function ensureProAccount(input: EnsureProInput): Promise<string> {
     await recordEvent({
       type: "pro.signup",
       proAccountId: created.id,
-      payload: { email: input.email ?? null },
     });
   })();
 

@@ -14,6 +14,12 @@ import crypto from "node:crypto";
 
 export const runtime = "nodejs";
 
+function villeHashFor(ville: string): string {
+  // 8 hex chars : suffisant pour distinguer les villes dans les logs
+  // sans permettre de retrouver le nom (collision-tolérant à l'échelle).
+  return crypto.createHash("sha256").update(ville.toLowerCase()).digest("hex").slice(0, 8);
+}
+
 type WaitlistPayload = {
   prenom?: string;
   nom?: string;
@@ -233,7 +239,10 @@ export async function POST(req: Request) {
     const { recordEvent } = await import("@/lib/admin/events/record");
     await recordEvent({
       type: "waitlist.signup",
-      payload: { email, ville },
+      payload: {
+        emailDomain: email.split("@")[1] ?? null,
+        villeHash: villeHashFor(ville),
+      },
     });
   })();
 
