@@ -918,6 +918,21 @@ export type Database = {
         Args: { p_start: string; p_end: string }
         Returns: Json
       }
+      admin_overview_timeseries: {
+        Args: { p_start: string; p_end: string }
+        Returns: {
+          d: string
+          prospects: number
+          pros: number
+          relations_sent: number
+          relations_accepted: number
+          relations_refused: number
+          relations_expired: number
+          budget_cents: number
+          spent_cents: number
+          credited_cents: number
+        }[]
+      }
       clerk_user_id: { Args: never; Returns: string }
       is_within_founder_bonus_window: {
         Args: never

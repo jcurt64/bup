@@ -5,6 +5,7 @@
  * Les 3 timeseries arrivent en Task 2.5.
  */
 import { fetchOverviewKpis } from "@/lib/admin/queries/overview";
+import { fetchOverviewTimeseries } from "@/lib/admin/queries/overview-timeseries";
 import {
   PERIOD_KEYS,
   rangeFor,
@@ -12,6 +13,7 @@ import {
   type PeriodKey,
 } from "@/lib/admin/periods";
 import KpiCard from "./_components/KpiCard";
+import TimeseriesChart from "./_components/TimeseriesChart";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,8 @@ export default async function OverviewPage({
     fetchOverviewKpis(cur),
     fetchOverviewKpis(prev),
   ]);
+  const points = await fetchOverviewTimeseries(cur);
+  const labels = points.map((pt) => pt.label);
 
   return (
     <div className="space-y-6">
@@ -60,8 +64,34 @@ export default async function OverviewPage({
         <KpiCard label="Recharges Stripe" value={fmtEur(c.topupCents)} current={c.topupCents} previous={p.topupCents} />
         <KpiCard label="Revenu BUUPP estimé" value={fmtEur(c.estimatedRevenueCents)} current={c.estimatedRevenueCents} previous={p.estimatedRevenueCents} />
       </section>
-      <section className="text-sm text-neutral-600">
-        Les 3 timeseries (inscriptions / sollicitations / money flow) arrivent en Task 2.5.
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <TimeseriesChart
+          title="Inscriptions"
+          labels={labels}
+          series={[
+            { label: "Prospects", values: points.map((pt) => pt.prospects), color: "#0ea5e9" },
+            { label: "Pros", values: points.map((pt) => pt.pros), color: "#f59e0b" },
+          ]}
+        />
+        <TimeseriesChart
+          title="Sollicitations"
+          labels={labels}
+          series={[
+            { label: "Envoyées", values: points.map((pt) => pt.relationsSent), color: "#64748b" },
+            { label: "Acceptées", values: points.map((pt) => pt.relationsAccepted), color: "#10b981" },
+            { label: "Refusées", values: points.map((pt) => pt.relationsRefused), color: "#ef4444" },
+            { label: "Expirées", values: points.map((pt) => pt.relationsExpired), color: "#a3a3a3" },
+          ]}
+        />
+        <TimeseriesChart
+          title="Money flow (€)"
+          labels={labels}
+          series={[
+            { label: "Budget", values: points.map((pt) => pt.budgetCents / 100), color: "#7c3aed" },
+            { label: "Dépensé", values: points.map((pt) => pt.spentCents / 100), color: "#0ea5e9" },
+            { label: "Crédité prospects", values: points.map((pt) => pt.creditedCents / 100), color: "#10b981" },
+          ]}
+        />
       </section>
     </div>
   );
