@@ -4963,6 +4963,100 @@ function Prefs() {
           ))}
         </div>
       </div>
+
+      <EmailTrackingConsentCard/>
+    </div>
+  );
+}
+
+/* Carte de consentement au pixel de tracking dans les broadcasts.
+   Mise en conformité avec la recommandation CNIL n° 2026-042 (cf.
+   /cookies §5 et /rgpd §9). État géré via /api/me/email-tracking
+   (GET pour lire, PATCH pour modifier). Loading optimiste : on flip
+   la valeur localement immédiatement, le PATCH se fait en arrière-plan
+   et on revient à la vraie valeur si erreur réseau. */
+function EmailTrackingConsentCard() {
+  const [consent, setConsent] = useState(null); // null = pas encore chargé
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/me/email-tracking', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j && typeof j.consent === 'boolean') setConsent(j.consent); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const toggle = async () => {
+    if (consent === null || saving) return;
+    const next = !consent;
+    setConsent(next);
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/me/email-tracking', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consent: next }),
+      });
+      if (!r.ok) {
+        setConsent(!next);
+        setError('Impossible de mettre à jour pour le moment.');
+      }
+    } catch (e) {
+      setConsent(!next);
+      setError('Erreur réseau. Réessayez.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const active = consent === true;
+  const disabled = consent === null || saving;
+
+  return (
+    <div className="card" style={{ padding: 28 }}>
+      <div className="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>
+            Suivi des emails BUUPP
+          </div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 8 }}>
+            Les communications de l'équipe BUUPP (mises à jour CGU, annonces produit)
+            peuvent inclure un pixel transparent pour mesurer le taux d'ouverture de
+            façon agrégée. Aucune adresse IP, aucun fingerprint stocké.
+          </div>
+          <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            Recommandation CNIL n° 2026-042 — vous pouvez l'activer ou le désactiver à
+            tout moment. <a href="/cookies" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Détails dans la politique cookies §5</a>.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={disabled}
+          aria-pressed={active}
+          aria-label={active ? 'Désactiver le suivi' : 'Activer le suivi'}
+          style={{
+            width: 52, height: 30, borderRadius: 999, position: 'relative',
+            background: active ? 'var(--accent)' : 'var(--line-2)',
+            border: 0, cursor: disabled ? 'wait' : 'pointer',
+            transition: 'background .2s', flexShrink: 0,
+            opacity: disabled ? 0.7 : 1,
+          }}>
+          <span style={{
+            position: 'absolute', top: 3, left: active ? 25 : 3,
+            width: 24, height: 24, borderRadius: '50%', background: 'white',
+            transition: 'left .2s cubic-bezier(0.4,0,0.2,1)',
+            boxShadow: '0 1px 4px rgba(0,0,0,.18)'
+          }}/>
+        </button>
+      </div>
+      {error && (
+        <div style={{ marginTop: 14, fontSize: 12, color: '#dc2626' }}>{error}</div>
+      )}
     </div>
   );
 }

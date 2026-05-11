@@ -5735,6 +5735,11 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
         `}</style>
       </div>
 
+      {/* Consentement RGPD/CNIL au pixel de tracking dans les broadcasts.
+          Composant partagé avec le côté prospect (défini dans Prospect.jsx
+          → scope global après transpile Babel-standalone). */}
+      <EmailTrackingConsentCard/>
+
       {editing && (
         <ProInfoEditModal edit={editing}
           onSave={(v) => {

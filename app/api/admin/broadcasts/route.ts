@@ -16,11 +16,19 @@ import { requireAdminRequest } from "@/lib/admin/access";
 import { auth, clerkClient } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
+import { signOptOutToken } from "@/lib/email-tracking/token";
 
 // Liste de destinataires AVANT insertion en base (sans recipient_id). Une
 // fois en base, on enrichit avec l'UUID retourné pour pouvoir embarquer
 // l'id dans le pixel de tracking côté email.
-type RawRecipient = { email: string; role: "prospect" | "pro" };
+type RawRecipient = {
+  email: string;
+  role: "prospect" | "pro";
+  /** clerk_user_id — utilisé pour signer le token d'opt-out 1-clic. */
+  clerkUserId: string;
+  /** Consentement actuel au pixel de tracking (CNIL n° 2026-042). */
+  trackingConsent: boolean;
+};
 
 export const runtime = "nodejs";
 
@@ -145,7 +153,13 @@ export async function POST(req: Request) {
   //     AVANT l'envoi mail pour passer les ids au sender. Si l'insert
   //     échoue (très rare), on continue sans tracking — l'envoi mail
   //     reste la priorité.
-  type RecipientRow = { id: string; email: string; role: "prospect" | "pro" };
+  type RecipientRow = {
+    id: string;
+    email: string;
+    role: "prospect" | "pro";
+    clerkUserId: string;
+    trackingConsent: boolean;
+  };
   let recipientRows: RecipientRow[] = [];
   if (recipients.length > 0) {
     const { data: inserted, error: insErr } = await admin
@@ -162,13 +176,30 @@ export async function POST(req: Request) {
       console.error("[/api/admin/broadcasts POST] recipient insert failed", insErr);
       // Fallback : on simule des ids vides pour ne pas bloquer le tracking
       // côté email (le pixel répondra silencieusement sans incrémenter).
-      recipientRows = recipients.map((r) => ({ id: "00000000-0000-0000-0000-000000000000", email: r.email, role: r.role }));
-    } else {
-      recipientRows = (inserted ?? []).map((r) => ({
-        id: r.id,
+      recipientRows = recipients.map((r) => ({
+        id: "00000000-0000-0000-0000-000000000000",
         email: r.email,
-        role: r.role as "prospect" | "pro",
+        role: r.role,
+        clerkUserId: r.clerkUserId,
+        trackingConsent: r.trackingConsent,
       }));
+    } else {
+      // Re-zip avec les recipients pour récupérer clerkUserId + consent
+      // (collectRecipients les a déjà rassemblés). On matche par email.
+      const consentByEmail = new Map<string, { clerkUserId: string; trackingConsent: boolean }>(
+        recipients.map((r) => [r.email.toLowerCase(), { clerkUserId: r.clerkUserId, trackingConsent: r.trackingConsent }]),
+      );
+      recipientRows = (inserted ?? []).map((r) => {
+        const extra = consentByEmail.get(r.email.toLowerCase());
+        return {
+          id: r.id,
+          email: r.email,
+          role: r.role as "prospect" | "pro",
+          clerkUserId: extra?.clerkUserId ?? "",
+          // Si extra manquant (cas marginal), défaut = true (régime transition).
+          trackingConsent: extra?.trackingConsent ?? true,
+        };
+      });
       // Snapshot du total sur la row parent pour les calculs de taux ultérieurs.
       await admin
         .from("admin_broadcasts")
@@ -189,6 +220,11 @@ export async function POST(req: Request) {
       email: r.email,
       role: r.role,
       recipientId: r.id,
+      trackingConsent: r.trackingConsent,
+      // Token signé pour l'opt-out 1-clic depuis l'email. Stable par
+      // utilisateur (même token = mêmes claims), donc utilisable depuis
+      // n'importe quel mail reçu.
+      optOutToken: signOptOutToken({ userId: r.clerkUserId, role: r.role }),
     })),
   })
     .then(async () => {
@@ -294,37 +330,52 @@ async function collectRecipients(
   const recipients: RawRecipient[] = [];
   const seenEmails = new Set<string>();
 
-  const addUnique = (email: string | null, role: "prospect" | "pro") => {
-    if (!email) return;
+  const addUnique = (
+    email: string | null,
+    role: "prospect" | "pro",
+    clerkUserId: string | null,
+    trackingConsent: boolean,
+  ) => {
+    if (!email || !clerkUserId) return;
     const key = email.toLowerCase();
     if (seenEmails.has(key)) return;
     seenEmails.add(key);
-    recipients.push({ email, role });
+    recipients.push({ email, role, clerkUserId, trackingConsent });
   };
 
   if (audience === "prospects" || audience === "all") {
-    // Emails prospects = `prospect_identity.email` (copie persistée).
+    // Prospects : join prospect_identity ↔ prospects pour récupérer
+    // l'email, le clerk_user_id (pour le token opt-out) et le flag de
+    // consentement au tracking (CNIL n° 2026-042).
     const { data: rows, error } = await admin
       .from("prospect_identity")
-      .select("email")
+      .select("email, email_tracking_consent, prospects(clerk_user_id)")
       .not("email", "is", null);
     if (error) {
       console.error("[broadcasts] prospect_identity read failed", error);
     } else {
-      for (const r of rows ?? []) addUnique(r.email, "prospect");
+      for (const r of rows ?? []) {
+        // La jointure renvoie `prospects` comme objet (one-to-one via FK).
+        const clerkUserId =
+          (r.prospects as { clerk_user_id: string } | null)?.clerk_user_id ?? null;
+        addUnique(r.email, "prospect", clerkUserId, r.email_tracking_consent);
+      }
     }
   }
 
   if (audience === "pros" || audience === "all") {
-    // Aucune colonne email persistée sur pro_accounts → on lit les
-    // clerk_user_id puis on les résout via Clerk (getUserList, page 500).
+    // Pros : on lit clerk_user_id + flag tracking côté DB, l'email vient
+    // de Clerk via getUserList (pas de colonne email persistée).
     const { data: pros, error } = await admin
       .from("pro_accounts")
-      .select("clerk_user_id");
+      .select("clerk_user_id, email_tracking_consent");
     if (error) {
       console.error("[broadcasts] pro_accounts read failed", error);
     } else {
       const proIds = (pros ?? []).map((p) => p.clerk_user_id);
+      const consentByClerkId = new Map<string, boolean>(
+        (pros ?? []).map((p) => [p.clerk_user_id, p.email_tracking_consent]),
+      );
       if (proIds.length > 0) {
         try {
           const client = await clerkClient();
@@ -333,7 +384,12 @@ async function collectRecipients(
           const res = await client.users.getUserList({ userId: proIds, limit: 500 });
           for (const u of res.data) {
             const primary = u.emailAddresses.find((e) => e.id === u.primaryEmailAddressId);
-            addUnique(primary?.emailAddress ?? null, "pro");
+            addUnique(
+              primary?.emailAddress ?? null,
+              "pro",
+              u.id,
+              consentByClerkId.get(u.id) ?? true,
+            );
           }
         } catch (err) {
           console.error("[broadcasts] clerk getUserList failed", err);

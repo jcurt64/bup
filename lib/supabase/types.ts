@@ -346,6 +346,7 @@ export type Database = {
           clerk_user_id: string
           code_postal: string | null
           created_at: string
+          email_tracking_consent: boolean
           forme_juridique: string | null
           id: string
           plan: Database["public"]["Enums"]["pro_plan"]
@@ -369,6 +370,7 @@ export type Database = {
           clerk_user_id: string
           code_postal?: string | null
           created_at?: string
+          email_tracking_consent?: boolean
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
@@ -392,6 +394,7 @@ export type Database = {
           clerk_user_id?: string
           code_postal?: string | null
           created_at?: string
+          email_tracking_consent?: boolean
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
@@ -452,6 +455,7 @@ export type Database = {
       prospect_identity: {
         Row: {
           email: string | null
+          email_tracking_consent: boolean
           genre: string | null
           naissance: string | null
           nom: string | null
@@ -463,6 +467,7 @@ export type Database = {
         }
         Insert: {
           email?: string | null
+          email_tracking_consent?: boolean
           genre?: string | null
           naissance?: string | null
           nom?: string | null
@@ -474,6 +479,7 @@ export type Database = {
         }
         Update: {
           email?: string | null
+          email_tracking_consent?: boolean
           genre?: string | null
           naissance?: string | null
           nom?: string | null

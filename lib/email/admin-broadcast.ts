@@ -26,6 +26,12 @@ export type BroadcastEmailRecipient = {
   /** UUID de la row `admin_broadcast_recipients` — incrusté dans le pixel
    *  de tracking pour identifier qui a ouvert le mail. */
   recipientId: string;
+  /** Consentement au tracking (CNIL n° 2026-042). Si false : pas de pixel
+   *  embarqué dans cet email, seule la mention CNIL + lien opt-out reste. */
+  trackingConsent: boolean;
+  /** Token HMAC signé pour le lien opt-out 1-clic (généré côté
+   *  /api/admin/broadcasts via lib/email-tracking/token.ts). */
+  optOutToken: string;
 };
 
 export type SendBroadcastParams = {
@@ -59,8 +65,15 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
       : null;
     // URL unique par destinataire — quand le client mail charge l'image,
     // /api/broadcasts/track/[recipientId] pose opened_at + incrémente
-    // open_count sur la row correspondante (cf. lib/supabase/types).
-    const pixelUrl = `${APP_URL}/api/broadcasts/track/${encodeURIComponent(r.recipientId)}`;
+    // open_count. Embarquée uniquement si le destinataire a consenti
+    // (CNIL n° 2026-042 — pas de tracking sans consentement).
+    const pixelUrl = r.trackingConsent
+      ? `${APP_URL}/api/broadcasts/track/${encodeURIComponent(r.recipientId)}`
+      : null;
+    // Lien d'opposition 1-clic, présent dans TOUS les emails (même ceux
+    // sans pixel), pour rester conforme à "opposition facilement accessible
+    // dès la 1re communication".
+    const optOutUrl = `${APP_URL}/api/me/email-tracking/opt-out?t=${encodeURIComponent(r.optOutToken)}`;
 
     const text = [
       `Bonjour,`,
@@ -80,9 +93,13 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
       "",
       // Mention CNIL n° 2026-042 — information dès la 1re communication.
       "—",
-      "Ce message contient un pixel de mesure d'audience agrégée",
-      "(CNIL n° 2026-042). Pour vous y opposer :",
-      `${APP_URL}/cookies (§5) ou ${APP_URL}/contact-dpo`,
+      r.trackingConsent
+        ? "Ce message contient un pixel de mesure d'audience agrégée (CNIL n° 2026-042)."
+        : "Vous vous êtes opposé(e) au pixel de mesure d'audience — aucun suivi dans ce mail.",
+      r.trackingConsent
+        ? `Pour vous y opposer en un clic : ${optOutUrl}`
+        : `Pour réactiver le suivi : ${APP_URL}/${r.role === "pro" ? "pro" : "prospect"}?tab=prefs`,
+      `Détails : ${APP_URL}/cookies (§5)`,
     ]
       .filter((l) => l !== null)
       .join("\n");
@@ -94,6 +111,8 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
       attachmentUrl,
       attachmentFilename,
       pixelUrl,
+      optOutUrl,
+      trackingConsent: r.trackingConsent,
     });
 
     try {
@@ -123,9 +142,11 @@ function renderHtml(params: {
   dashUrl: string;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
-  pixelUrl: string;
+  pixelUrl: string | null;
+  optOutUrl: string;
+  trackingConsent: boolean;
 }): string {
-  const { title, body, dashUrl, attachmentUrl, attachmentFilename, pixelUrl } = params;
+  const { title, body, dashUrl, attachmentUrl, attachmentFilename, pixelUrl, optOutUrl, trackingConsent } = params;
   return `
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"/>
@@ -209,23 +230,27 @@ function renderHtml(params: {
     BUUPP — Be Used, Paid &amp; Proud · Vos données vous appartiennent.
   </p>
   <!-- Mention CNIL n° 2026-042 : information à chaque envoi + droit d'opposition
-       facile dès la 1re communication. Texte affiché aux destinataires (≠ commentaire). -->
-  <p style="margin:10px 0 0;font-size:10px;color:#9CA3AF;line-height:1.5;">
-    Ce message contient un pixel de mesure d'audience agrégée (CNIL n°&nbsp;2026-042).
-    Aucune adresse IP ni fingerprint stocké.
-    Pour vous y opposer&nbsp;:
-    <a href="${APP_URL}/cookies" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">politique des cookies §5</a>
-    ou écrivez à
-    <a href="${APP_URL}/contact-dpo" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">notre DPO</a>.
+       facile dès la 1re communication. Texte affiché aux destinataires (≠ commentaire).
+       Le contenu varie selon le consentement actuel du destinataire. -->
+  <p style="margin:10px 0 0;font-size:10px;color:#9CA3AF;line-height:1.55;">
+    ${
+      trackingConsent
+        ? `Ce message contient un pixel de mesure d'audience agrégée (CNIL n°&nbsp;2026-042). Aucune IP ni fingerprint stocké. <a href="${optOutUrl}" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">M'opposer en 1 clic</a> · <a href="${APP_URL}/cookies" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">politique cookies §5</a>`
+        : `Vous vous êtes opposé(e) au pixel de mesure d'audience — aucun suivi dans ce mail. <a href="${APP_URL}/${optOutUrl.includes("pro") ? "pro" : "prospect"}?tab=prefs" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">Réactiver le suivi</a> · <a href="${APP_URL}/cookies" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">politique cookies §5</a>`
+    }
   </p>
 </td></tr>
 </td></tr>
 </table>
 </td></tr></table>
-<!-- Pixel de mesure d'audience — image transparente 1×1. Aucune IP, user-agent
+${
+  pixelUrl
+    ? `<!-- Pixel de mesure d'audience — image transparente 1×1. Aucune IP, user-agent
      ni fingerprint stocké. Conformité CNIL n° 2026-042 : information dans
-     le pied du mail ci-dessus + droit d'opposition via /contact-dpo. -->
-<img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;border:0;outline:none;text-decoration:none;width:1px;height:1px;opacity:0;" referrerpolicy="no-referrer"/>
+     le pied du mail ci-dessus + opt-out 1-clic via optOutUrl. -->
+<img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;border:0;outline:none;text-decoration:none;width:1px;height:1px;opacity:0;" referrerpolicy="no-referrer"/>`
+    : `<!-- Pas de pixel : destinataire opt-out (trackingConsent=false). -->`
+}
 </body></html>
   `.trim();
 }
