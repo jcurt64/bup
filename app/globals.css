@@ -171,6 +171,22 @@ h2 { font-size: clamp(28px, 4.5vw, 56px); line-height: 1.05; }
 h3 { font-size: clamp(20px, 2.4vw, 28px); line-height: 1.15; }
 h4 { font-size: clamp(16px, 1.8vw, 20px); line-height: 1.25; }
 
+/* Back-office /buupp-admin : annule les tailles éditoriales du site
+   public pour h1-h4 (qui polluent les Section/Box helpers admin où on
+   veut des titres calmes en text-sm/base, pas du clamp 28-56px). Les
+   composants admin re-stylent ensuite via Tailwind/inline styles. */
+.buupp-admin-scope h1,
+.buupp-admin-scope h2,
+.buupp-admin-scope h3,
+.buupp-admin-scope h4 {
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
 .italic { font-style: italic; }
 em { font-style: italic; color: var(--accent); font-family: var(--serif); font-weight: 400; }
 

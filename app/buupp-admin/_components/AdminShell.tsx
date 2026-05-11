@@ -35,7 +35,7 @@ export default function AdminShell({
 
   return (
     <div
-      className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]"
+      className="buupp-admin-scope min-h-screen lg:grid lg:grid-cols-[260px_1fr]"
       style={{ background: "var(--ivory)", color: "var(--ink)", fontFamily: "var(--sans)" }}
     >
       {/* ─── Topbar mobile (hamburger + titre) ───────────────────── */}
