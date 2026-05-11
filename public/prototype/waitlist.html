@@ -2808,12 +2808,17 @@
       <!-- FOOTER -->
       <footer class="footer">
         <div class="footer-copy">
-          © 2026 BUUPP · MAJELINK SASU · Pau, France
+          © 2026 BUUPP · MAJELINK · France
         </div>
+        <!-- target="_top" : la waitlist tourne dans un iframe imbriqué
+             (shell.html → waitlist.html). Pour que les liens légaux
+             ouvrent la vraie route Next.js dans la fenêtre principale
+             (et non dans l'iframe), on force la navigation au niveau
+             du top window. -->
         <div class="footer-links">
-          <a href="#">CGU</a>
-          <a href="#">RGPD</a>
-          <a href="#">Contact</a>
+          <a href="/cgu" target="_top">CGU</a>
+          <a href="/rgpd" target="_top">RGPD</a>
+          <a href="/contact-dpo" target="_top">Contact</a>
         </div>
       </footer>
     </div>
