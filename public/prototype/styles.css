@@ -219,6 +219,7 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   display: flex;
   gap: 6px;
   padding: 2px 8px 6px;
+  transition: gap .2s ease, padding .25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .dash-social-btn {
   display: inline-flex;
@@ -238,6 +239,23 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   color: var(--paper);
   border-color: var(--ink);
   transform: translateY(-1px);
+}
+
+/* Sidebar repliée (icônes seules, 72 px de large) : les 3 boutons sociaux
+   ne tiennent plus côte à côte → on les empile verticalement et on les
+   centre. Le label "Suivez-nous" est déjà masqué par la condition
+   `!collapsed` côté JSX, on n'a donc pas à le toucher ici. */
+.dash-shell > aside.is-collapsed .dash-social-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 6px;
+}
+.dash-shell > aside.is-collapsed .dash-social-btn {
+  /* Les onglets repliés ont une icône centrée dans une zone ~48 px ; on
+     reprend la même empreinte visuelle pour rester aligné. */
+  width: 36px;
+  height: 36px;
 }
 
 /* ---------- Messages panel (onglet « Mes messages ») ---------- */

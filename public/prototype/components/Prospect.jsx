@@ -495,11 +495,14 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
       >
         <Icon name={menuOpen ? 'close' : 'menu'} size={18}/>
       </button>
-      <aside style={{
-        borderRight: '1px solid var(--line)', background: 'var(--paper)',
-        padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: 4,
-        position: 'sticky', top: 0, height: '100vh'
-      }}>
+      <aside
+        className={collapsed ? 'is-collapsed' : undefined}
+        style={{
+          borderRight: '1px solid var(--line)', background: 'var(--paper)',
+          padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: 4,
+          position: 'sticky', top: 0, height: '100vh'
+        }}
+      >
         <div className="row between center" style={{ padding: '4px 8px 20px' }}>
           {!collapsed && <Logo size={23} onClick={() => go('landing')}/>}
           <button onClick={() => setCollapsed(!collapsed)} style={{ padding: 4, color: 'var(--ink-4)' }}>
