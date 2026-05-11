@@ -15,12 +15,24 @@ export const runtime = "nodejs";
 const SIGNED_URL_TTL_SEC = 300; // 5 min
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    // Cas typique : l'URL a été cliquée depuis un email broadcast dans
+    // un navigateur où Clerk n'a pas de session. Plutôt qu'un 401 JSON
+    // brut (page blanche `{"error":"unauthorized"}`), on redirige vers
+    // /connexion avec le path courant en `redirect_url` ; après auth,
+    // Clerk renvoie ici → le handler tourne à nouveau, signe l'URL
+    // Supabase et fait le 302 vers le download.
+    const url = new URL(req.url);
+    const redirectAfter = url.pathname; // chemin seul, pas l'origine (anti open-redirect)
+    const target = new URL(
+      `/connexion?redirect_url=${encodeURIComponent(redirectAfter)}`,
+      url.origin,
+    );
+    return NextResponse.redirect(target, { status: 302 });
   }
 
   const { id } = await ctx.params;
