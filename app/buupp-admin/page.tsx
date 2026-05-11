@@ -57,7 +57,7 @@ export default async function OverviewPage({
         <KpiCard label="Inscrits prospects" value={fmtInt(c.prospects)} current={c.prospects} previous={p.prospects} />
         <KpiCard label="Inscrits pros" value={fmtInt(c.pros)} current={c.pros} previous={p.pros} />
         <KpiCard label="Waitlist" value={fmtInt(c.waitlist)} current={c.waitlist} previous={p.waitlist} />
-        <KpiCard label="Campagnes actives" value={fmtInt(c.activeCampaigns)} current={c.activeCampaigns} previous={p.activeCampaigns} />
+        <KpiCard label="Campagnes créées" value={fmtInt(c.campaignsCreated)} current={c.campaignsCreated} previous={p.campaignsCreated} />
         <KpiCard label="Sollicitations envoyées" value={fmtInt(c.relationsSent)} current={c.relationsSent} previous={p.relationsSent} />
         <KpiCard label="Taux d'acceptation" value={`${c.acceptanceRatePct}`} unit="%" current={c.acceptanceRatePct} previous={p.acceptanceRatePct} />
         <KpiCard label="Budget engagé" value={fmtEur(c.budgetCents)} current={c.budgetCents} previous={p.budgetCents} />
