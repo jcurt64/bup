@@ -22,12 +22,13 @@ export default function KpiCard({
       style={{
         background: "var(--paper)",
         border: "1px solid var(--line)",
+        borderLeft: "3px solid var(--accent)",
         boxShadow: "var(--shadow-1)",
       }}
     >
       <div
-        className="text-[11px] uppercase"
-        style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+        className="text-[11px] font-bold uppercase"
+        style={{ color: "var(--accent-ink)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
       >
         {label}
       </div>

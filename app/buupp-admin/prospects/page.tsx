@@ -99,16 +99,48 @@ export default async function ProspectsAdminPage({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">{title}</h2>
-      <div className="rounded-lg border border-neutral-200 bg-white p-4">{children}</div>
+      <h2
+        className="text-[12px] font-bold uppercase"
+        style={{ color: "var(--accent-ink)", fontFamily: "var(--mono)", letterSpacing: "0.08em" }}
+      >
+        {title}
+      </h2>
+      <div
+        className="rounded-lg p-4"
+        style={{
+          background: "var(--paper)",
+          border: "1px solid var(--line)",
+          borderLeft: "3px solid var(--accent)",
+          boxShadow: "var(--shadow-1)",
+        }}
+      >
+        {children}
+      </div>
     </section>
   );
 }
 function Box({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-neutral-200 bg-white p-3">
-      <div className="text-xs text-neutral-500">{label}</div>
-      <div className="text-base font-medium tabular-nums">{value}</div>
+    <div
+      className="rounded p-3"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        borderLeft: "3px solid var(--accent)",
+      }}
+    >
+      <div
+        className="text-[11px] font-bold uppercase"
+        style={{ color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-base font-semibold tabular-nums mt-0.5"
+        style={{ color: "var(--ink)" }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -141,11 +173,11 @@ function Histo({
     <div className="space-y-1">
       {entries.map(([k, n]) => (
         <div key={k} className="flex items-center gap-2">
-          <div className="w-24 text-xs text-neutral-600">{labelFor(k)}</div>
-          <div className="flex-1 bg-neutral-100 h-3 rounded">
-            <div className="bg-neutral-700 h-3 rounded" style={{ width: `${(n / max) * 100}%` }} />
+          <div className="w-24 text-xs font-medium" style={{ color: "var(--ink-3)" }}>{labelFor(k)}</div>
+          <div className="flex-1 h-3 rounded" style={{ background: "var(--ivory-2)" }}>
+            <div className="h-3 rounded" style={{ width: `${(n / max) * 100}%`, background: "var(--accent)" }} />
           </div>
-          <div className="w-12 text-right text-xs tabular-nums">{n}</div>
+          <div className="w-12 text-right text-xs font-semibold tabular-nums" style={{ color: "var(--ink)" }}>{n}</div>
         </div>
       ))}
     </div>

@@ -43,10 +43,52 @@ export default async function ProsAdminPage({ searchParams }: { searchParams: Pr
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="space-y-2"><h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">{title}</h2><div className="rounded-lg border border-neutral-200 bg-white p-4">{children}</div></section>;
+  return (
+    <section className="space-y-2">
+      <h2
+        className="text-[12px] font-bold uppercase"
+        style={{ color: "var(--accent-ink)", fontFamily: "var(--mono)", letterSpacing: "0.08em" }}
+      >
+        {title}
+      </h2>
+      <div
+        className="rounded-lg p-4"
+        style={{
+          background: "var(--paper)",
+          border: "1px solid var(--line)",
+          borderLeft: "3px solid var(--accent)",
+          boxShadow: "var(--shadow-1)",
+        }}
+      >
+        {children}
+      </div>
+    </section>
+  );
 }
 function Box({ label, value }: { label: string; value: string }) {
-  return <div className="rounded border border-neutral-200 bg-white p-3"><div className="text-xs text-neutral-500">{label}</div><div className="text-base font-medium tabular-nums">{value}</div></div>;
+  return (
+    <div
+      className="rounded p-3"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        borderLeft: "3px solid var(--accent)",
+      }}
+    >
+      <div
+        className="text-[11px] font-bold uppercase"
+        style={{ color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-base font-semibold tabular-nums mt-0.5"
+        style={{ color: "var(--ink)" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
 }
 function Table({ rows }: { rows: [string, string][] }) {
   if (rows.length === 0) return <div className="text-sm text-neutral-500">Aucune donnée.</div>;

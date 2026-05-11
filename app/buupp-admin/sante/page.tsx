@@ -15,5 +15,27 @@ export default async function HealthAdminPage() {
   );
 }
 function Box({ label, value, bad }: { label: string; value: number | string; bad?: boolean }) {
-  return <div className={`rounded border p-3 ${bad ? "border-rose-300 bg-rose-50" : "border-neutral-200 bg-white"}`}><div className="text-xs text-neutral-500">{label}</div><div className="text-base font-medium tabular-nums">{value}</div></div>;
+  return (
+    <div
+      className="rounded p-3"
+      style={{
+        background: bad ? "rgba(185,28,28,0.06)" : "var(--paper)",
+        border: "1px solid var(--line)",
+        borderLeft: bad ? "3px solid var(--danger)" : "3px solid var(--good)",
+      }}
+    >
+      <div
+        className="text-[11px] font-bold uppercase"
+        style={{ color: bad ? "var(--danger)" : "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-base font-semibold tabular-nums mt-0.5"
+        style={{ color: bad ? "var(--danger)" : "var(--ink)" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
 }
