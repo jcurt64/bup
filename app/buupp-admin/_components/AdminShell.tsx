@@ -14,6 +14,7 @@ const NAV = [
   { href: "/buupp-admin/campagnes", label: "Campagnes" },
   { href: "/buupp-admin/transactions", label: "Transactions" },
   { href: "/buupp-admin/waitlist", label: "Waitlist" },
+  { href: "/buupp-admin/notifications", label: "Notifications" },
   { href: "/buupp-admin/sante", label: "Santé" },
 ];
 

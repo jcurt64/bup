@@ -435,6 +435,15 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
   // dans la sidebar. La modale se contente de poster `bupp: 'signOut'`
   // au parent (PrototypeFrame) si l'utilisateur confirme.
   const [signOutOpen, setSignOutOpen] = useState(false);
+  // Email du souscripteur affiché en bas de la sidebar. Source = /api/me
+  // qui lit `prospect_identity.email` (DB) côté prospect, et l'email Clerk
+  // côté pro (aucune colonne email persistée sur pro_accounts).
+  const [userEmail, setUserEmail] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe().then(j => { if (!cancelled && j?.email) setUserEmail(j.email); });
+    return () => { cancelled = true; };
+  }, []);
   const scrollTopEverywhere = () => {
     try { window.scrollTo(0, 0); } catch (e) {}
     try { document.documentElement.scrollTop = 0; } catch (e) {}
@@ -525,6 +534,20 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
         })}
         <div style={{ flex: 1 }}/>
         <div className="dash-logout" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
+          {/* Adresse mail du souscripteur — alignée sur le pattern AdminShell
+              (petit texte mono tronqué, hover = email complet via title).
+              Masquée en mode sidebar repliée (icônes seules) : il n'y a pas
+              de place pour un texte. Sur mobile, la classe `dash-user-email`
+              + les règles CSS responsive transforment cet item en chip
+              compact dans la barre horizontale. */}
+          {userEmail && !collapsed && (
+            <div
+              className="dash-user-email"
+              title={userEmail}
+            >
+              {userEmail}
+            </div>
+          )}
           <div
             className="side-item"
             onClick={() => setSignOutOpen(true)}
@@ -839,15 +862,206 @@ function TopBar({ role, overrideName }) {
         <HeaderSearch role={role}/>
       </div>
       <div className="row center gap-3">
-        <button style={{ padding: 8, borderRadius: 999, color: 'var(--ink-3)' }}>
-          <Icon name="bell" size={16}/>
-        </button>
+        <NotificationsBell role={role}/>
         <div title={displayName}>
           <Avatar name={initials.split('').join(' ')} size={32}/>
         </div>
       </div>
     </div>
   );
+}
+
+/* Cloche des notifications broadcast (messages admin → utilisateurs).
+   - Bouton avec badge rouge = nombre de non lus
+   - Clic → dropdown ancré à droite (desktop) ou bottom-sheet (mobile)
+   - Clic sur un item → modal popup avec corps + bouton download éventuel
+   - Polling : initial au mount, toutes les 60 s, au retour au foreground.
+   Le marquage lu est optimiste : on update le state local puis on POST
+   (idempotent côté serveur). */
+function NotificationsBell({ role }) {
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [openItem, setOpenItem] = useState(null);
+  const wrapRef = React.useRef(null);
+
+  const fetchList = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/me/notifications', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      setItems(Array.isArray(j?.notifications) ? j.notifications : []);
+    } catch (e) {
+      // Erreur réseau silencieuse : on garde l'état courant, on retentera
+      // au prochain tick ou au prochain foreground.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchList();
+    const id = setInterval(fetchList, 60_000);
+    const onVis = () => { if (document.visibilityState === 'visible') fetchList(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [fetchList]);
+
+  // Click extérieur ferme le dropdown. Ne s'attache que si dropdown ouvert.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const unread = items.filter(i => i.unread).length;
+
+  const onItemClick = async (item) => {
+    setOpenItem(item);
+    setOpen(false);
+    if (item.unread) {
+      // Optimistic : on flag lu localement immédiatement. Le POST est
+      // idempotent ; en cas d'échec, le prochain fetch corrigera.
+      setItems(cur => cur.map(i => i.id === item.id ? { ...i, unread: false } : i));
+      try {
+        await fetch(`/api/me/notifications/${encodeURIComponent(item.id)}/read`, { method: 'POST' });
+      } catch (e) {}
+    }
+  };
+
+  const markAll = async (e) => {
+    e.stopPropagation();
+    const unreadIds = items.filter(i => i.unread).map(i => i.id);
+    if (unreadIds.length === 0) return;
+    setItems(cur => cur.map(i => ({ ...i, unread: false })));
+    await Promise.all(unreadIds.map(id =>
+      fetch(`/api/me/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => null)
+    ));
+  };
+
+  return (
+    <div ref={wrapRef} className="notif-wrap">
+      <button
+        className="notif-bell"
+        aria-label={unread > 0 ? `${unread} notifications non lues` : 'Notifications'}
+        aria-haspopup="dialog"
+        aria-expanded={open ? 'true' : 'false'}
+        onClick={() => setOpen(o => !o)}
+      >
+        <Icon name="bell" size={16}/>
+        {unread > 0 && (
+          <span className="notif-badge" aria-hidden>
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          {/* Backdrop mobile uniquement (CSS) — clic ferme le sheet. */}
+          <div className="notif-backdrop" onClick={() => setOpen(false)} aria-hidden/>
+          <div className="notif-dropdown" role="dialog" aria-label="Notifications">
+            <div className="notif-dropdown-header">
+              <div className="notif-dropdown-title">Notifications</div>
+              {unread > 0 && (
+                <button className="notif-mark-all" onClick={markAll}>
+                  Tout marquer comme lu
+                </button>
+              )}
+            </div>
+            <div className="notif-list">
+              {items.length === 0 ? (
+                <div className="notif-empty">Aucune notification pour l'instant.</div>
+              ) : items.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onItemClick(item)}
+                  className={'notif-item' + (item.unread ? ' is-unread' : '')}
+                >
+                  <span className="notif-dot" aria-hidden/>
+                  <span className="notif-item-body">
+                    <span className="notif-item-title">{item.title}</span>
+                    <span className="notif-item-preview">
+                      {String(item.body || '').slice(0, 90)}{(item.body || '').length > 90 ? '…' : ''}
+                    </span>
+                    <span className="notif-item-meta">{formatRelativeFr(item.createdAt)}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {openItem && (
+        <NotificationModal item={openItem} role={role} onClose={() => setOpenItem(null)}/>
+      )}
+    </div>
+  );
+}
+
+function NotificationModal({ item, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: 16,
+    }}>
+      <div className="notif-modal" onClick={e => e.stopPropagation()}>
+        <button className="notif-modal-close" type="button" onClick={onClose} aria-label="Fermer">
+          <Icon name="close" size={16}/>
+        </button>
+        <div className="notif-modal-date">{formatAbsoluteFr(item.createdAt)}</div>
+        <h2 className="notif-modal-title">{item.title}</h2>
+        <div className="notif-modal-body">{item.body}</div>
+        {item.hasAttachment && (
+          <a
+            href={`/api/me/notifications/${encodeURIComponent(item.id)}/attachment`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="notif-modal-attachment"
+          >
+            <Icon name="download" size={14}/>
+            <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
+          </a>
+        )}
+        <div className="notif-modal-actions">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatRelativeFr(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  const min = Math.round(diff / 60_000);
+  if (min < 1) return "À l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const days = Math.round(h / 24);
+  if (days < 7) return `il y a ${days} j`;
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+function formatAbsoluteFr(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('fr-FR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 /* Champ de recherche du header — autocomplétion plein-texte sur les

@@ -62,6 +62,23 @@ export async function GET() {
       .maybeSingle(),
   ]);
 
+  // Email côté prospect : on lit la copie stockée dans `prospect_identity`
+  // (alimentée par `ensureProspect` à la première visite). Évite de dépendre
+  // de Clerk côté front pour un champ qui est aussi en base. Fallback Clerk
+  // si la row palier 1 n'existe pas encore (cas marginal d'une création
+  // partielle). Côté pro, aucune colonne email n'est persistée → Clerk reste
+  // l'unique source.
+  let dbEmail: string | null = null;
+  if (prospectRow?.id) {
+    const { data: identity } = await admin
+      .from("prospect_identity")
+      .select("email")
+      .eq("prospect_id", prospectRow.id)
+      .maybeSingle();
+    dbEmail = identity?.email ?? null;
+  }
+  const resolvedEmail = dbEmail ?? email;
+
   // Récupère prénom/nom depuis Clerk d'abord, fallback sur la row waitlist
   // pour les utilisateurs qui se sont inscrits via la liste d'attente avant
   // d'avoir un compte Clerk avec firstName/lastName renseignés.
@@ -119,7 +136,7 @@ export async function GET() {
   return NextResponse.json({
     prenom,
     nom,
-    email,
+    email: resolvedEmail,
     initials,
     role,
     displayName,

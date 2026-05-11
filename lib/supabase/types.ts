@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_broadcasts: {
+        Row: {
+          id: string
+          title: string
+          body: string
+          attachment_path: string | null
+          attachment_filename: string | null
+          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
+          created_by_admin_id: string
+          created_at: string
+          sent_email_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          body: string
+          attachment_path?: string | null
+          attachment_filename?: string | null
+          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
+          created_by_admin_id: string
+          created_at?: string
+          sent_email_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          body?: string
+          attachment_path?: string | null
+          attachment_filename?: string | null
+          audience?: Database["public"]["Enums"]["admin_broadcast_audience"]
+          created_by_admin_id?: string
+          created_at?: string
+          sent_email_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_broadcast_reads: {
+        Row: {
+          broadcast_id: string
+          clerk_user_id: string
+          read_at: string
+        }
+        Insert: {
+          broadcast_id: string
+          clerk_user_id: string
+          read_at?: string
+        }
+        Update: {
+          broadcast_id?: string
+          clerk_user_id?: string
+          read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_broadcast_reads_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "admin_broadcasts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       admin_events: {
         Row: {
           id: string
@@ -988,6 +1050,7 @@ export type Database = {
       }
     }
     Enums: {
+      admin_broadcast_audience: "prospects" | "pros" | "all"
       admin_event_severity: "info" | "warning" | "critical"
       account_kind: "prospect" | "pro"
       campaign_status: "draft" | "active" | "paused" | "completed" | "canceled"
