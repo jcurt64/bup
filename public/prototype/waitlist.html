@@ -3189,10 +3189,17 @@
             ? `Basé sur vos ${selectedInterests.size} centre(s) d'intérêt + profil de base`
             : "Estimation sur profil de base — ajoutez des centres d'intérêt pour affiner";
 
-        // Palier breakdown
+        // Palier breakdown — basé sur le barème officiel (TIER_REWARDS).
+        // Pour 5 sollicitations type :
+        //   - palier 1 (1,00 € fixe) → 5,00 €
+        //   - palier 2 (moyenne 1,50 €) → 7,50 €
+        // Le bonus centre d'intérêt × contact (0,40 €) reste un add-on
+        // marketing, indépendant du barème palier.
+        const PALIER_1_GAIN = PALIERS[0].gain; // 1.00
+        const PALIER_2_GAIN = PALIERS[1].gain; // 1.50 (moyenne 1–2)
         const paliers = [
-          { name: "Palier 1 — Identification", v: fmt(0.3 * 5) },
-          { name: "Palier 2 — Localisation", v: fmt(1.25 * 5) },
+          { name: "Palier 1 — Identification", v: fmt(PALIER_1_GAIN * 5) },
+          { name: "Palier 2 — Localisation", v: fmt(PALIER_2_GAIN * 5) },
           {
             name: "Centre d'intérêt × contact",
             v: fmt(selectedInterests.size * 0.4 * 5),
@@ -3438,13 +3445,19 @@
       /* ── Calculator ─────────────────────────────────────────────────────── */
       let activeTiers = new Set();
 
-      /* ── Palier data — gain = valeur unique du palier (non cumulée) ── */
+      /* ── Palier data — alignement strict sur le barème officiel
+         `lib/prospect/tier-rewards.ts` (source de vérité utilisée par
+         /api/pro/campaigns pour valider les `cost_per_contact_cents`).
+         Convention : palier 1 a un prix fixe à 1,00 € → min === max ;
+         les paliers 2-5 ont une fourchette dans laquelle le pro choisit.
+         `gain` = milieu de fourchette, sert au check "total > 0" et au
+         résumé step-3 ci-dessous. */
       const PALIERS = [
-        { tier: 1, gain: 0.3, min: 0.1, max: 0.5 },
-        { tier: 2, gain: 1.25, min: 0.5, max: 2.0 },
-        { tier: 3, gain: 3.5, min: 2.0, max: 5.0 },
-        { tier: 4, gain: 6.5, min: 5.0, max: 8.0 },
-        { tier: 5, gain: 9.0, min: 8.0, max: 10.0 },
+        { tier: 1, gain: 1.0,  min: 1.0, max: 1.0 },
+        { tier: 2, gain: 1.5,  min: 1.0, max: 2.0 },
+        { tier: 3, gain: 2.75, min: 2.0, max: 3.5 },
+        { tier: 4, gain: 4.25, min: 3.5, max: 5.0 },
+        { tier: 5, gain: 7.5,  min: 5.0, max: 10.0 },
       ];
 
       let selectedTierLevel = 0;
@@ -3544,15 +3557,22 @@
         const cpc = palier ? palier.gain : 0;
         const minCpc = palier ? palier.min : 0;
         const maxCpc = palier ? palier.max : 0;
+        // Palier 1 : prix fixe (1,00 €) — min et max sont identiques en
+        // base. On affiche un montant unique au lieu d'une fourchette
+        // « 1,00 € – 1,00 € » qui n'a pas de sens visuel.
+        const isFixed = palier && palier.min === palier.max;
 
         const total = cpc * contacts;
 
         const totalEl = document.getElementById("calc-total");
         const subEl = document.getElementById("calc-total-sub");
 
+        // Helpers d'affichage : range "X – Y" ou prix unique "X" selon
+        // que min === max.
+        const fmtRange = (a, b) => (a === b ? fmt(a) : fmt(a) + " – " + fmt(b));
+
         if (total > 0) {
-          totalEl.textContent =
-            fmt(minCpc * contacts) + " – " + fmt(maxCpc * contacts);
+          totalEl.textContent = fmtRange(minCpc * contacts, maxCpc * contacts);
           totalEl.classList.remove("zero");
           totalEl.classList.add("rising");
           subEl.textContent =
@@ -3560,9 +3580,7 @@
             " sollicitation(s) × palier " +
             selectedTierLevel +
             " (" +
-            fmt(minCpc) +
-            " – " +
-            fmt(maxCpc) +
+            (isFixed ? fmt(minCpc) : fmt(minCpc) + " – " + fmt(maxCpc)) +
             ")";
         } else {
           totalEl.textContent = "0€";
@@ -3572,13 +3590,9 @@
         }
 
         document.getElementById("cb-mr").textContent =
-          total > 0
-            ? fmt(minCpc * contacts) + " – " + fmt(maxCpc * contacts)
-            : "0,00€";
+          total > 0 ? fmtRange(minCpc * contacts, maxCpc * contacts) : "0,00€";
         document.getElementById("cb-total").textContent =
-          total > 0
-            ? fmt(minCpc * contacts) + " – " + fmt(maxCpc * contacts)
-            : "0,00€";
+          total > 0 ? fmtRange(minCpc * contacts, maxCpc * contacts) : "0,00€";
       }
 
       /* ── Referral copy ──────────────────────────────────────────────────── */
