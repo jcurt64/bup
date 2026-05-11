@@ -141,19 +141,22 @@ export default async function NotificationsAdminPage() {
               className="mt-3 text-[11px] leading-relaxed"
               style={{ color: "var(--ink-4)" }}
             >
-              <strong>Ouverts email</strong> = mesure via pixel transparent
-              (RGPD/CNIL — voir{" "}
+              <strong>Ouverts email</strong> = mesure via pixel transparent.
+              Conformité CNIL n°&nbsp;2026-042 (cf.{" "}
               <a href="/cookies" className="underline" style={{ color: "var(--ink-3)" }}>
-                politique cookies
+                politique cookies §5
               </a>
-              ). Métrique approximative : Apple Mail Privacy Protection
-              pré-charge toutes les images → surévaluation pour les utilisateurs
-              Apple ; Gmail/Outlook bloquent par défaut → sous-évaluation.
-              Utile en relatif entre broadcasts.
+              ) : régime transitoire jusqu'au 14 juillet 2026 — information
+              dans chaque email + opposition par message au DPO. Mécanisme
+              de consentement opt-in à déployer avant l'échéance. Métrique
+              approximative : Apple Mail Privacy Protection pré-charge toutes
+              les images → surévaluation ; Gmail/Outlook bloquent par défaut
+              → sous-évaluation. Utile en relatif entre broadcasts.
               <br />
               <strong>Lus in-app</strong> = clic sur la notification depuis la
               cloche ou l'onglet « Mes messages » du dashboard. Plus précis,
-              mais ne compte pas les lectures faites directement dans l'email.
+              base légale : intérêt légitime / exécution du service (pas
+              concerné par la recommandation pixel courriels).
             </p>
           </>
         )}

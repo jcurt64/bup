@@ -133,7 +133,70 @@ export default function RgpdPage() {
           </p>
         </Section>
 
-        <Section title="9. Modifications">
+        <Section title="9. Pixels de suivi dans les emails BUUPP">
+          <p>
+            Les broadcasts envoyés par l’équipe BUUPP depuis le back-office
+            (mises à jour CGU, communications produit, annonces) peuvent
+            contenir un <strong>pixel de mesure d’audience</strong> —
+            image 1×1 transparente dont le chargement par votre client mail
+            permet de comptabiliser, de manière agrégée, le taux d’ouverture
+            du broadcast.
+          </p>
+          <ul>
+            <li>
+              <strong>Finalité.</strong> Pilotage interne de la qualité de
+              nos communications (fréquence, objet, contenu). Aucune
+              utilisation commerciale, aucune relance ciblée, aucun
+              croisement avec un traitement tiers.
+            </li>
+            <li>
+              <strong>Base légale.</strong> Consentement préalable, en
+              application de l’article 82 de la loi Informatique et Libertés
+              et de la{" "}
+              <a
+                href="https://www.cnil.fr/fr/recommandation-pixel-suivi-courriels"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "var(--accent)",
+                  textDecoration: "underline",
+                }}
+              >
+                recommandation CNIL n°&nbsp;2026-042
+              </a>
+              . Tant que le mécanisme de recueil du consentement n’est pas
+              déployé (échéance au 14 juillet 2026), nous appliquons les
+              mesures transitoires détaillées dans la{" "}
+              <Link
+                href="/cookies"
+                style={{
+                  color: "var(--accent)",
+                  textDecoration: "underline",
+                }}
+              >
+                politique des cookies §5
+              </Link>{" "}
+              : information à chaque envoi + droit d’opposition immédiat
+              par simple message au DPO.
+            </li>
+            <li>
+              <strong>Données collectées.</strong> Identifiant opaque de
+              destinataire (UUID non énumérable), date de première
+              ouverture, compteur d’ouvertures. Aucune adresse IP, aucun
+              user-agent, aucune géolocalisation, aucun fingerprint.
+            </li>
+            <li>
+              <strong>Durée.</strong> 13 mois après l’envoi du broadcast.
+            </li>
+            <li>
+              <strong>Droits.</strong> Opposition, accès, effacement,
+              portabilité, limitation. À exercer auprès du DPO (voir §7).
+              Réclamation possible auprès de la CNIL.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="10. Modifications">
           <p>
             La présente politique peut être mise à jour. La date de dernière
             modification est indiquée ci-dessous : <em>à compléter</em>.

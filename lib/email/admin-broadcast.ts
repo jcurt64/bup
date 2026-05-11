@@ -77,6 +77,12 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
       `Retrouvez ce message dans votre espace : ${dashUrl}`,
       "",
       "— L'équipe BUUPP",
+      "",
+      // Mention CNIL n° 2026-042 — information dès la 1re communication.
+      "—",
+      "Ce message contient un pixel de mesure d'audience agrégée",
+      "(CNIL n° 2026-042). Pour vous y opposer :",
+      `${APP_URL}/cookies (§5) ou ${APP_URL}/contact-dpo`,
     ]
       .filter((l) => l !== null)
       .join("\n");
@@ -202,13 +208,23 @@ function renderHtml(params: {
   <p style="margin:10px 0 0;font-size:11px;color:#6B7180;line-height:1.5;">
     BUUPP — Be Used, Paid &amp; Proud · Vos données vous appartiennent.
   </p>
+  <!-- Mention CNIL n° 2026-042 : information à chaque envoi + droit d'opposition
+       facile dès la 1re communication. Texte affiché aux destinataires (≠ commentaire). -->
+  <p style="margin:10px 0 0;font-size:10px;color:#9CA3AF;line-height:1.5;">
+    Ce message contient un pixel de mesure d'audience agrégée (CNIL n°&nbsp;2026-042).
+    Aucune adresse IP ni fingerprint stocké.
+    Pour vous y opposer&nbsp;:
+    <a href="${APP_URL}/cookies" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">politique des cookies §5</a>
+    ou écrivez à
+    <a href="${APP_URL}/contact-dpo" target="_blank" rel="noopener noreferrer" style="color:#9CA3AF;text-decoration:underline;">notre DPO</a>.
+  </p>
 </td></tr>
 </td></tr>
 </table>
 </td></tr></table>
 <!-- Pixel de mesure d'audience — image transparente 1×1. Aucune IP, user-agent
-     ni fingerprint stocké. Mesure agrégée du taux d'ouverture broadcast.
-     Conformité CNIL / RGPD : cf. politique cookies §"Pixels de tracking email". -->
+     ni fingerprint stocké. Conformité CNIL n° 2026-042 : information dans
+     le pied du mail ci-dessus + droit d'opposition via /contact-dpo. -->
 <img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;border:0;outline:none;text-decoration:none;width:1px;height:1px;opacity:0;" referrerpolicy="no-referrer"/>
 </body></html>
   `.trim();

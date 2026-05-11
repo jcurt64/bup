@@ -166,83 +166,109 @@ export default function CookiesPage() {
           <CategoryBlock key={cat.id} category={cat} />
         ))}
 
-        <Section title="5. Pixels de tracking dans les emails BUUPP">
+        <Section title="5. Pixels de suivi dans les emails BUUPP">
           <p>
-            En complément des cookies déposés sur le site, BUUPP utilise un{" "}
-            <strong>pixel de tracking</strong> — une image transparente de
-            1×1 pixel incluse dans le HTML de certains emails que nous vous
-            envoyons depuis votre dashboard (messages publiés par
-            l&apos;équipe BUUPP, notifications produit). Quand votre client
-            mail charge l&apos;image, notre serveur enregistre que
-            l&apos;email a été ouvert.
+            Un <strong>pixel de suivi</strong> est une image transparente de
+            1×1 pixel incluse dans le HTML d&apos;un email. Quand votre client
+            mail charge l&apos;image, notre serveur peut enregistrer que
+            l&apos;email a été ouvert. BUUPP utilise ce mécanisme dans les{" "}
+            <strong>broadcasts publiés depuis le back-office</strong>{" "}
+            (informations produit, mises à jour CGU, communications de
+            l&apos;équipe BUUPP), uniquement à fin de mesure d&apos;audience
+            agrégée.
           </p>
           <p style={{ marginTop: 10 }}>
-            <strong>Finalité.</strong> Mesurer de façon agrégée le taux
-            d&apos;ouverture de chaque message pour piloter la qualité de nos
-            communications (fréquence, objet, contenu). Aucun usage
-            commercial, aucun croisement avec un traitement tiers, aucune
-            relance ciblée.
-          </p>
-          <p style={{ marginTop: 10 }}>
-            <strong>Données collectées.</strong> Uniquement
-            l&apos;identifiant interne du destinataire (généré à
-            l&apos;envoi, opaque, non énumérable), la date de première
-            ouverture et un compteur d&apos;ouvertures. Nous{" "}
-            <strong>ne stockons ni l&apos;adresse IP, ni l&apos;user-agent,
-            ni la géolocalisation, ni aucun identifiant de fingerprint</strong>{" "}
-            associé à l&apos;ouverture. Les données ne servent qu&apos;à
-            agréger des taux globaux par broadcast.
-          </p>
-          <p style={{ marginTop: 10 }}>
-            <strong>Conformité CNIL/RGPD.</strong> Conformément aux{" "}
+            <strong>Cadre légal applicable.</strong> La{" "}
             <a
-              href="https://www.cnil.fr/fr/cookies-et-traceurs-comment-mettre-mon-site-web-en-conformite"
+              href="https://www.cnil.fr/fr/recommandation-pixel-suivi-courriels"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              recommandations de la CNIL sur les cookies et traceurs
+              recommandation CNIL n°&nbsp;2026-042 du 12 mars 2026
             </a>{" "}
-            (cf. lignes directrices et recommandation du 17 septembre 2020,
-            mises à jour), ce traceur s&apos;inscrit dans la finalité de{" "}
-            <em>mesure d&apos;audience strictement nécessaire à la
-            fourniture du service</em> et limité à un usage interne
-            agrégé — il est donc exempté de consentement préalable. Vous en
-            êtes néanmoins informé par la présente politique, et un droit
-            d&apos;opposition vous est ouvert (voir ci-dessous).
+            (publiée le 14 avril 2026) précise les conditions de licéité des
+            pixels de suivi dans les courriels au regard de l&apos;article 82
+            de la loi Informatique et Libertés. Le principe est le{" "}
+            <strong>consentement préalable de la personne</strong>, sauf
+            exemption strictement encadrée pour la mesure individuelle de la
+            délivrabilité d&apos;emails transactionnels (alertes de compte,
+            confirmations de commande, factures, rappels de mot de passe,
+            alertes de sécurité). Les broadcasts BUUPP{" "}
+            <em>ne relèvent pas</em> de cette exemption — ils nécessitent
+            donc votre consentement.
           </p>
           <p style={{ marginTop: 10 }}>
-            <strong>Comment vous y opposer.</strong> Trois options :
+            <strong>Mise en conformité en cours.</strong> Nous mettons
+            actuellement en place le mécanisme de recueil du consentement
+            prévu par la recommandation, dans le délai de transition de 3
+            mois ouvert par la CNIL (échéance au 14 juillet 2026). Tant que
+            ce mécanisme n&apos;est pas déployé, nous appliquons les mesures
+            transitoires suivantes :
           </p>
           <ul>
             <li>
-              <strong>Bloquer le chargement d&apos;images</strong> dans votre
-              client mail (la plupart le proposent : Gmail web, Outlook,
-              Apple Mail Privacy Protection, Thunderbird…). Les pixels ne
-              seront jamais chargés et aucune ouverture ne sera enregistrée.
+              <strong>Information à chaque envoi</strong> — un encart dans le
+              pied de chaque broadcast vous informe de la présence du pixel
+              et indique le moyen de vous y opposer.
             </li>
             <li>
-              <strong>Lire le contenu dans votre dashboard</strong> via la
-              cloche de notifications ou l&apos;onglet «&nbsp;Mes
-              messages&nbsp;» — aucun pixel n&apos;est servi dans
-              l&apos;application.
-            </li>
-            <li>
-              <strong>Demander la suppression de vos données</strong> de
-              tracking auprès de notre{" "}
+              <strong>Opposition par simple demande</strong> — vous pouvez à
+              tout moment écrire à notre{" "}
               <Link
                 href="/contact-dpo"
                 style={{ color: "var(--accent)", textDecoration: "underline" }}
               >
                 Délégué à la protection des données
-              </Link>
-              .
+              </Link>{" "}
+              pour qu&apos;aucun pixel ne soit inséré dans les broadcasts qui
+              vous seront adressés. L&apos;opposition est immédiate et
+              définitive (sauf demande explicite de réactivation).
+            </li>
+            <li>
+              <strong>Blocage côté client mail</strong> — toutes les
+              messageries permettent de désactiver le chargement automatique
+              des images (Gmail web, Outlook, Apple Mail, Thunderbird…). Un
+              pixel non chargé n&apos;est pas comptabilisé.
+            </li>
+            <li>
+              <strong>Lecture dans votre dashboard</strong> — la cloche de
+              notifications et l&apos;onglet «&nbsp;Mes messages&nbsp;»
+              affichent le même contenu sans pixel. Aucune mesure
+              d&apos;ouverture n&apos;est faite côté application.
             </li>
           </ul>
           <p style={{ marginTop: 10 }}>
-            <strong>Durée de conservation.</strong> 13 mois après envoi du
-            broadcast, conformément à la durée recommandée par la CNIL pour
-            les traceurs de mesure d&apos;audience.
+            <strong>Données collectées par le pixel.</strong> Strictement
+            limitées : un identifiant opaque de destinataire (UUID généré au
+            moment de l&apos;envoi, non énumérable), la date de première
+            ouverture, et un compteur d&apos;ouvertures. Nous{" "}
+            <strong>
+              ne stockons ni adresse IP, ni user-agent, ni
+              géolocalisation, ni fingerprint
+            </strong>
+            . Les statistiques ne sont consultables qu&apos;en agrégat dans
+            le back-office BUUPP, jamais à l&apos;échelle d&apos;un
+            destinataire identifié.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Durée de conservation.</strong> 13 mois à compter de
+            l&apos;envoi du broadcast, durée alignée sur la recommandation
+            CNIL relative aux traceurs.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Vos droits.</strong> Outre l&apos;opposition décrite
+            ci-dessus, vous disposez du droit d&apos;accès, d&apos;effacement
+            et de réclamation auprès de la{" "}
+            <a
+              href="https://www.cnil.fr"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              CNIL
+            </a>
+            .
           </p>
         </Section>
 
