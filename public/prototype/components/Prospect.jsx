@@ -517,6 +517,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           if (s.featured) {
             return (
               <button key={s.id} onClick={() => handleNav(s.id)}
+                data-label={s.label}
                 className="row center gap-2"
                 style={{
                   margin: '2px 0 10px',
@@ -539,7 +540,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           }
           const hasBadge = typeof s.badge === 'number' && s.badge > 0;
           return (
-            <div key={s.id} className={'side-item' + (active ? ' active' : '')} onClick={() => handleNav(s.id)}>
+            <div key={s.id} className={'side-item' + (active ? ' active' : '')} data-label={s.label} onClick={() => handleNav(s.id)}>
               <span className="side-icon" style={{ position: 'relative' }}>
                 <Icon name={s.icon} size={16}/>
                 {hasBadge && collapsed && <span className="side-badge-dot" aria-hidden/>}
@@ -573,7 +574,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook BUUPP"
-              title="Facebook"
+              data-label="Facebook"
             >
               <Icon name="facebook" size={16}/>
             </a>
@@ -583,7 +584,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram BUUPP"
-              title="Instagram"
+              data-label="Instagram"
             >
               <Icon name="instagram" size={16}/>
             </a>
@@ -593,15 +594,15 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TikTok BUUPP"
-              title="TikTok"
+              data-label="TikTok"
             >
               <Icon name="tiktok" size={16}/>
             </a>
           </div>
           <div
             className={'side-item' + (current === 'suggestions' ? ' active' : '')}
+            data-label="Vos suggestions"
             onClick={() => handleNav('suggestions')}
-            title="Faites-nous part de vos suggestions"
           >
             <span className="side-icon"><Icon name="sparkle" size={16}/></span>
             {!collapsed && <span>Vos suggestions</span>}
@@ -624,6 +625,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           )}
           <div
             className="side-item"
+            data-label="Déconnexion"
             onClick={() => setSignOutOpen(true)}
           >
             <span className="side-icon"><Icon name="logout" size={16}/></span>
@@ -633,6 +635,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
               Ouvre la modale de confirmation (DeleteAccountModal). */}
           <div
             className="side-item"
+            data-label="Supprimer mon compte"
             onClick={() => setDeleteOpen(true)}
             style={{ color: '#dc2626' }}
             title="Supprimer définitivement mon compte"

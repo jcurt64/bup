@@ -258,6 +258,89 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   height: 36px;
 }
 
+/* ---------- Tooltips sur sidebar repliée ----------
+   Quand la sidebar est en mode icônes-seules (.is-collapsed), il faut
+   pouvoir identifier chaque icône au survol. On lit le libellé depuis
+   l'attribut `data-label="..."` posé sur chaque item (côté JSX). Le
+   tooltip apparaît à droite du chip, ancré au centre vertical.
+   Le browser-native `title` est trop lent (~700 ms) et ne respecte
+   pas le design — on s'en passe. */
+.dash-shell > aside.is-collapsed .side-item[data-label],
+.dash-shell > aside.is-collapsed > button[data-label],
+.dash-shell > aside.is-collapsed .dash-social-btn[data-label] {
+  position: relative;
+}
+.dash-shell > aside.is-collapsed .side-item[data-label]::after,
+.dash-shell > aside.is-collapsed > button[data-label]::after,
+.dash-shell > aside.is-collapsed .dash-social-btn[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  /* Ancrage à droite de la sidebar. `calc(100% + 14px)` laisse 14 px
+     entre l'icône et le tooltip. */
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--sans);
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .15s ease, visibility .15s ease, transform .18s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 60;
+  box-shadow: 0 6px 18px -8px rgba(15, 22, 41, 0.45);
+}
+/* Petite flèche pointant vers l'icône (pseudo-élément ::before sur la
+   même cible). On ne montre la flèche que quand le tooltip est visible. */
+.dash-shell > aside.is-collapsed .side-item[data-label]::before,
+.dash-shell > aside.is-collapsed > button[data-label]::before,
+.dash-shell > aside.is-collapsed .dash-social-btn[data-label]::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 6px solid var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .15s ease, visibility .15s ease;
+  z-index: 60;
+}
+.dash-shell > aside.is-collapsed .side-item[data-label]:hover::after,
+.dash-shell > aside.is-collapsed .side-item[data-label]:hover::before,
+.dash-shell > aside.is-collapsed > button[data-label]:hover::after,
+.dash-shell > aside.is-collapsed > button[data-label]:hover::before,
+.dash-shell > aside.is-collapsed .dash-social-btn[data-label]:hover::after,
+.dash-shell > aside.is-collapsed .dash-social-btn[data-label]:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+/* En mobile la sidebar n'a pas de mode "repliée" (c'est une barre
+   horizontale), et les chips affichent déjà leur label → on neutralise
+   ces tooltips pour éviter qu'ils ne flashent au resize. */
+@media (max-width: 900px) {
+  .dash-shell > aside.is-collapsed .side-item[data-label]::after,
+  .dash-shell > aside.is-collapsed .side-item[data-label]::before,
+  .dash-shell > aside.is-collapsed > button[data-label]::after,
+  .dash-shell > aside.is-collapsed > button[data-label]::before,
+  .dash-shell > aside.is-collapsed .dash-social-btn[data-label]::after,
+  .dash-shell > aside.is-collapsed .dash-social-btn[data-label]::before {
+    display: none !important;
+  }
+}
+
 /* ---------- Messages panel (onglet « Mes messages ») ---------- */
 .messages-panel {
   display: flex;
@@ -832,10 +915,17 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 }
 .dash-shell > aside {
   /* Permet à l'aside de suivre la nouvelle largeur sans à-coup quand le
-     contenu (logo, labels) se remonte. Le `overflow: hidden` évite que
-     les labels qui n'ont pas encore disparu débordent pendant l'animation. */
+     contenu (logo, labels) se remonte. `overflow: hidden` quand la
+     sidebar est étalée évite que les labels en cours de remontage
+     débordent pendant l'animation d'agrandissement. */
   overflow: hidden;
   transition: padding .25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Sidebar repliée : on libère l'overflow pour que les tooltips puissent
+   s'échapper à droite. À ce moment-là il n'y a plus de labels à clipper
+   (React les a unmount), donc aucun risque d'artefact visuel. */
+.dash-shell > aside.is-collapsed {
+  overflow: visible;
 }
 /* Eyebrow "Espace prospect/pro" : déjà animée par l'inline style (opacity
    0/1) — on ajoute juste la transition CSS pour la rendre progressive. */
