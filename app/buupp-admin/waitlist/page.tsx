@@ -33,10 +33,59 @@ export default async function WaitlistAdminPage() {
         <WaitlistLaunchButton />
       </Section>
       <Section title="50 inscrits les plus récents">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs text-neutral-500 uppercase"><tr><th>Quand</th><th>Email</th><th>Prénom</th><th>Ville</th><th>RefCode</th></tr></thead>
-          <tbody>{(recent ?? []).map((r) => (<tr key={r.email + r.created_at}><td className="py-1 text-xs text-neutral-500">{new Date(r.created_at).toLocaleString("fr-FR")}</td><td>{r.email}</td><td>{r.prenom}</td><td>{r.ville}</td><td>{r.ref_code ?? "—"}</td></tr>))}</tbody>
-        </table>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm border-collapse min-w-[640px]">
+            <thead>
+              <tr style={{ background: "var(--ivory-2)" }}>
+                {["Quand", "Email", "Prénom", "Ville", "RefCode"].map((h) => (
+                  <th
+                    key={h}
+                    className="text-[11px] font-bold uppercase px-3 py-2 text-left"
+                    style={{
+                      color: "var(--accent-ink)",
+                      fontFamily: "var(--mono)",
+                      letterSpacing: "0.06em",
+                      borderBottom: "1px solid var(--line)",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(recent ?? []).map((r, i) => (
+                <tr
+                  key={r.email + r.created_at}
+                  style={{
+                    background: i % 2 === 1 ? "var(--ivory)" : "transparent",
+                    borderBottom: "1px solid var(--line)",
+                  }}
+                >
+                  <td
+                    className="px-3 py-2 text-xs whitespace-nowrap"
+                    style={{ color: "var(--ink-4)", fontFamily: "var(--mono)" }}
+                  >
+                    {new Date(r.created_at).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>{r.email}</td>
+                  <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>{r.prenom}</td>
+                  <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>{r.ville}</td>
+                  <td
+                    className="px-3 py-2 text-xs"
+                    style={{ color: "var(--ink-3)", fontFamily: "var(--mono)" }}
+                  >
+                    {r.ref_code ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Section>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ALL_ACCEPTED,
   CONSENT_DURATION_MS,
@@ -78,6 +79,13 @@ function subscribeConsent(cb: () => void) {
 }
 
 export default function CookieConsent() {
+  // Le back-office /buupp-admin n'a pas vocation à recueillir un
+  // consentement public — on masque le bouton/bandeau cookies. La
+  // décision est calculée après les hooks pour respecter les Rules
+  // of Hooks (early return uniquement avant le JSX).
+  const pathname = usePathname();
+  const isAdminScope = pathname?.startsWith("/buupp-admin") ?? false;
+
   const consent = useSyncExternalStore(
     subscribeConsent,
     readConsent,
@@ -130,6 +138,7 @@ export default function CookieConsent() {
   }, [openModal]);
 
   if (!hydrated) return null;
+  if (isAdminScope) return null;
 
   const bannerOpen = !consent;
 

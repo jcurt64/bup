@@ -25,39 +25,91 @@ export default function ProspectsTable() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-sm text-neutral-500">Chargement…</div>;
-  if (rows.length === 0) return <div className="text-sm text-neutral-500">Aucun prospect.</div>;
+  if (loading)
+    return <div className="text-sm" style={{ color: "var(--ink-4)" }}>Chargement…</div>;
+  if (rows.length === 0)
+    return <div className="text-sm" style={{ color: "var(--ink-4)" }}>Aucun prospect.</div>;
 
   return (
-    <table className="w-full text-sm">
-      <thead className="text-left text-xs text-neutral-500 uppercase">
-        <tr>
-          <th className="py-2">Email</th>
-          <th>Prénom</th>
-          <th>Ville</th>
-          <th className="text-right">Score</th>
-          <th>Vérif</th>
-          <th>Founder</th>
-          <th>Créé le</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id} className="border-b border-neutral-100">
-            <td className="py-1">
-              <Link className="underline" href={`/buupp-admin/prospects/${r.id}`}>
-                {r.email ?? "(sans email)"}
-              </Link>
-            </td>
-            <td>{r.prenom ?? "—"}</td>
-            <td>{r.ville ?? "—"}</td>
-            <td className="text-right tabular-nums">{r.score}</td>
-            <td>{r.verification}</td>
-            <td>{r.founder ? "✓" : ""}</td>
-            <td className="text-xs text-neutral-500">{new Date(r.createdAt).toLocaleDateString("fr-FR")}</td>
+    <div className="overflow-x-auto -mx-4 sm:mx-0">
+      <table className="w-full text-sm border-collapse min-w-[680px]">
+        <thead>
+          <tr style={{ background: "var(--ivory-2)" }}>
+            {["Email", "Prénom", "Ville", "Score", "Vérif", "Founder", "Créé le"].map((h, i) => (
+              <th
+                key={h}
+                className={`text-[11px] font-bold uppercase px-3 py-2 ${i === 3 ? "text-right" : "text-left"}`}
+                style={{
+                  color: "var(--accent-ink)",
+                  fontFamily: "var(--mono)",
+                  letterSpacing: "0.06em",
+                  borderBottom: "1px solid var(--line)",
+                }}
+              >
+                {h}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr
+              key={r.id}
+              style={{
+                background: i % 2 === 1 ? "var(--ivory)" : "transparent",
+                borderBottom: "1px solid var(--line)",
+              }}
+            >
+              <td className="px-3 py-2">
+                <Link
+                  href={`/buupp-admin/prospects/${r.id}`}
+                  className="underline"
+                  style={{ color: "var(--accent-ink)" }}
+                >
+                  {r.email ?? "(sans email)"}
+                </Link>
+              </td>
+              <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>
+                {r.prenom ?? "—"}
+              </td>
+              <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>
+                {r.ville ?? "—"}
+              </td>
+              <td
+                className="px-3 py-2 text-right tabular-nums font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
+                {r.score}
+              </td>
+              <td className="px-3 py-2">
+                <span
+                  className="text-[11px] font-bold uppercase rounded px-2 py-0.5"
+                  style={{
+                    background: "var(--accent-soft)",
+                    color: "var(--accent-ink)",
+                    fontFamily: "var(--mono)",
+                  }}
+                >
+                  {r.verification}
+                </span>
+              </td>
+              <td className="px-3 py-2 text-center">
+                {r.founder ? (
+                  <span style={{ color: "var(--gold)", fontWeight: 700 }}>★</span>
+                ) : (
+                  <span style={{ color: "var(--ink-5)" }}>—</span>
+                )}
+              </td>
+              <td
+                className="px-3 py-2 text-xs whitespace-nowrap"
+                style={{ color: "var(--ink-4)", fontFamily: "var(--mono)" }}
+              >
+                {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

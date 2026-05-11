@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useClerk } from "@clerk/nextjs";
 import PeriodPicker from "./PeriodPicker";
 import NotificationBell from "./NotificationBell";
 
@@ -30,8 +31,14 @@ export default function AdminShell({
   const period = sp.get("period");
   const suffix = period ? `?period=${period}` : "";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { signOut } = useClerk();
 
   const currentLabel = NAV.find((n) => n.href === pathname)?.label ?? "Admin";
+
+  async function handleSignOut() {
+    if (!confirm("Se déconnecter du back-office ?")) return;
+    await signOut({ redirectUrl: "/" });
+  }
 
   return (
     <div
@@ -114,10 +121,53 @@ export default function AdminShell({
             );
           })}
           <div
-            className="mt-auto pt-4 text-xs"
-            style={{ color: "var(--ink-5)", borderTop: "1px solid var(--line)", fontFamily: "var(--mono)" }}
+            className="mt-auto pt-4 flex flex-col gap-2"
+            style={{ borderTop: "1px solid var(--line)" }}
           >
-            {adminEmail}
+            <div
+              className="text-xs truncate"
+              style={{ color: "var(--ink-5)", fontFamily: "var(--mono)" }}
+              title={adminEmail}
+            >
+              {adminEmail}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-md text-sm font-medium inline-flex items-center justify-center gap-2 h-9 px-3 transition-colors cursor-pointer"
+              style={{
+                background: "var(--ivory-2)",
+                color: "var(--ink-2)",
+                border: "1px solid var(--line)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--danger)";
+                e.currentTarget.style.color = "var(--paper)";
+                e.currentTarget.style.borderColor = "var(--danger)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--ivory-2)";
+                e.currentTarget.style.color = "var(--ink-2)";
+                e.currentTarget.style.borderColor = "var(--line)";
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Se déconnecter
+            </button>
           </div>
         </nav>
       </aside>
