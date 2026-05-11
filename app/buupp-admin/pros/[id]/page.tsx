@@ -24,7 +24,7 @@ export default async function ProDetailAdminPage({ params }: { params: Promise<{
     .limit(50);
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">Fiche pro</h2>
+      <h2 className="text-base font-medium">Fiche pro</h2>
       <pre className="text-xs bg-white border rounded p-4 overflow-auto">{JSON.stringify(pro, null, 2)}</pre>
       <h3 className="text-sm font-semibold">Campagnes</h3>
       <pre className="text-xs bg-white border rounded p-4 overflow-auto">{JSON.stringify(campaigns, null, 2)}</pre>

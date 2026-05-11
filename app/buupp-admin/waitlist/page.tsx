@@ -46,5 +46,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <section className="space-y-2"><h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">{title}</h2><div className="rounded-lg border border-neutral-200 bg-white p-4">{children}</div></section>;
 }
 function Box({ label, value }: { label: string; value: string }) {
-  return <div className="rounded border border-neutral-200 bg-white p-3"><div className="text-xs text-neutral-500">{label}</div><div className="text-lg font-semibold tabular-nums">{value}</div></div>;
+  return <div className="rounded border border-neutral-200 bg-white p-3"><div className="text-xs text-neutral-500">{label}</div><div className="text-base font-medium tabular-nums">{value}</div></div>;
 }

@@ -21,7 +21,7 @@ export default async function CampaignDetailAdminPage({ params }: { params: Prom
     .limit(100);
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">Fiche campagne</h2>
+      <h2 className="text-base font-medium">Fiche campagne</h2>
       <pre className="text-xs bg-white border rounded p-4 overflow-auto">{JSON.stringify(campaign, null, 2)}</pre>
       <h3 className="text-sm font-semibold">Relations (100 dernières)</h3>
       <pre className="text-xs bg-white border rounded p-4 overflow-auto">{JSON.stringify(relations, null, 2)}</pre>

@@ -34,7 +34,7 @@ export default async function ProspectDetailAdminPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">Fiche prospect</h2>
+      <h2 className="text-base font-medium">Fiche prospect</h2>
       <pre className="text-xs bg-white border rounded p-4 overflow-auto">
         {JSON.stringify(p, null, 2)}
       </pre>
