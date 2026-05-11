@@ -177,7 +177,9 @@ export default function RouteNav() {
 
   // Masquer la nav sur les pages d'auth (full-screen Clerk) et sur le
   // back-office /buupp-admin (qui a son propre AdminShell + sidebar).
-  if (pathname === "/connexion" || pathname.startsWith("/inscription")) return null;
+  // startsWith pour /connexion : Clerk peut servir des sous-routes
+  // (ex /connexion/factor-one) pendant le flow OTP/2FA.
+  if (pathname.startsWith("/connexion") || pathname.startsWith("/inscription")) return null;
   if (pathname.startsWith("/buupp-admin")) return null;
   // Évite un flash de tabs incorrects pendant l'hydratation Clerk.
   if (!isLoaded) return null;

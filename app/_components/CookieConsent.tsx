@@ -80,11 +80,17 @@ function subscribeConsent(cb: () => void) {
 
 export default function CookieConsent() {
   // Le back-office /buupp-admin n'a pas vocation à recueillir un
-  // consentement public — on masque le bouton/bandeau cookies. La
-  // décision est calculée après les hooks pour respecter les Rules
-  // of Hooks (early return uniquement avant le JSX).
+  // consentement public — on masque le bouton/bandeau cookies. Idem
+  // sur les pages d'auth Clerk (full-screen) pour ne pas polluer le
+  // formulaire de connexion. La décision est calculée après les hooks
+  // pour respecter les Rules of Hooks (early return uniquement avant
+  // le JSX).
   const pathname = usePathname();
-  const isAdminScope = pathname?.startsWith("/buupp-admin") ?? false;
+  const skipScope =
+    pathname?.startsWith("/buupp-admin") ||
+    pathname?.startsWith("/connexion") ||
+    pathname?.startsWith("/inscription") ||
+    false;
 
   const consent = useSyncExternalStore(
     subscribeConsent,
@@ -138,7 +144,7 @@ export default function CookieConsent() {
   }, [openModal]);
 
   if (!hydrated) return null;
-  if (isAdminScope) return null;
+  if (skipScope) return null;
 
   const bannerOpen = !consent;
 
