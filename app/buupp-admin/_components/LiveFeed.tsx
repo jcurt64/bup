@@ -56,7 +56,7 @@ export default function LiveFeed() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="text-xs rounded px-2 py-1 cursor-pointer"
+          className="admin-select text-xs rounded px-2 py-1 cursor-pointer"
           style={{ background: "var(--ivory)", color: "var(--ink-3)", border: "1px solid var(--line)" }}
         >
           <option value="">Tout</option>

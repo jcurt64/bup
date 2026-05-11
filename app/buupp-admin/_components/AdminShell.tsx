@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import PeriodPicker from "./PeriodPicker";
 import NotificationBell from "./NotificationBell";
@@ -31,14 +31,32 @@ export default function AdminShell({
   const period = sp.get("period");
   const suffix = period ? `?period=${period}` : "";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const { signOut } = useClerk();
 
   const currentLabel = NAV.find((n) => n.href === pathname)?.label ?? "Admin";
 
-  async function handleSignOut() {
-    if (!confirm("Se déconnecter du back-office ?")) return;
-    await signOut({ redirectUrl: "/" });
+  async function doSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut({ redirectUrl: "/" });
+    } catch {
+      setSigningOut(false);
+    }
   }
+
+  // Fermeture du modal de logout sur Escape (sauf si déjà en train de
+  // se déconnecter — on évite que l'utilisateur annule l'action en cours).
+  useEffect(() => {
+    if (!confirmLogout) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !signingOut) setConfirmLogout(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmLogout, signingOut]);
 
   return (
     <div
@@ -133,7 +151,7 @@ export default function AdminShell({
             </div>
             <button
               type="button"
-              onClick={handleSignOut}
+              onClick={() => setConfirmLogout(true)}
               className="rounded-md text-sm font-medium inline-flex items-center justify-center gap-2 h-9 px-3 transition-colors cursor-pointer"
               style={{
                 background: "var(--ivory-2)",
@@ -171,6 +189,91 @@ export default function AdminShell({
           </div>
         </nav>
       </aside>
+
+      {/* ─── Modal de confirmation de déconnexion ────────────────── */}
+      {confirmLogout && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(15,23,42,0.55)" }}
+          onClick={() => !signingOut && setConfirmLogout(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-title"
+            className="w-full max-w-sm rounded-lg p-6"
+            style={{
+              background: "var(--paper)",
+              border: "1px solid var(--line)",
+              boxShadow: "0 18px 48px -16px rgba(15,22,41,.35)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              id="logout-title"
+              style={{
+                fontFamily: "var(--serif)",
+                fontSize: "20px",
+                fontWeight: 500,
+                color: "var(--ink)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Se déconnecter du back-office&nbsp;?
+            </div>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: "var(--ink-3)", lineHeight: 1.5 }}
+            >
+              Tu seras redirigé vers la page d'accueil. Tu pourras te reconnecter
+              en revenant sur <span style={{ fontFamily: "var(--mono)" }}>/buupp-admin</span>.
+            </p>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmLogout(false)}
+                disabled={signingOut}
+                className="rounded-md text-sm font-medium h-10 px-4 inline-flex items-center justify-center cursor-pointer transition-colors"
+                style={{
+                  background: "var(--paper)",
+                  color: "var(--ink-2)",
+                  border: "1px solid var(--line)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--ivory-2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--paper)";
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={doSignOut}
+                disabled={signingOut}
+                className="rounded-md text-sm font-medium h-10 px-4 inline-flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-60"
+                style={{
+                  background: "var(--danger)",
+                  color: "var(--paper)",
+                  border: "1px solid var(--danger)",
+                }}
+              >
+                {signingOut ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="animate-spin">
+                      <path d="M21 12a9 9 0 1 1-6.2-8.55" />
+                    </svg>
+                    Déconnexion…
+                  </>
+                ) : (
+                  "Confirmer"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Main ────────────────────────────────────────────────── */}
       <main className="px-4 py-5 lg:px-8 lg:py-8">

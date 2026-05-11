@@ -25,7 +25,7 @@ export default function PeriodPicker() {
         next.set("period", e.target.value);
         router.push(`${pathname}?${next.toString()}`);
       }}
-      className="rounded-md text-sm h-10 px-3 cursor-pointer"
+      className="admin-select rounded-md text-sm h-10 px-3 cursor-pointer"
       style={{
         background: "var(--paper)",
         color: "var(--ink)",

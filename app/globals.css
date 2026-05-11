@@ -187,6 +187,19 @@ h4 { font-size: clamp(16px, 1.8vw, 20px); line-height: 1.25; }
   color: inherit;
 }
 
+/* Selects admin : on enlève la flèche native (qui colle au bord) et on
+   pose une flèche SVG en background-image, avec un padding-right
+   suffisant pour qu'elle respire. */
+.admin-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23334155' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px !important;
+}
+
 .italic { font-style: italic; }
 em { font-style: italic; color: var(--accent); font-family: var(--serif); font-weight: 400; }
 

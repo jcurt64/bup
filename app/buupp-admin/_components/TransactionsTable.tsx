@@ -85,7 +85,7 @@ export default function TransactionsTable() {
         <select
           value={accountKind}
           onChange={(e) => setAccountKind(e.target.value)}
-          className="rounded-md text-sm h-10 px-3 cursor-pointer"
+          className="admin-select rounded-md text-sm h-10 px-3 cursor-pointer"
           style={SELECT_STYLE}
         >
           <option value="">Tous comptes</option>
@@ -95,7 +95,7 @@ export default function TransactionsTable() {
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="rounded-md text-sm h-10 px-3 cursor-pointer"
+          className="admin-select rounded-md text-sm h-10 px-3 cursor-pointer"
           style={SELECT_STYLE}
         >
           <option value="">Tous types</option>
@@ -106,7 +106,7 @@ export default function TransactionsTable() {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-md text-sm h-10 px-3 cursor-pointer"
+          className="admin-select rounded-md text-sm h-10 px-3 cursor-pointer"
           style={SELECT_STYLE}
         >
           <option value="">Tous statuts</option>
