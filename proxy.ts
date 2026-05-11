@@ -119,13 +119,16 @@ export default clerkMiddleware(async (auth, request) => {
   if (isPublicRoute(request)) return;
 
   // ─── Garde back-office /buupp-admin ──────────────────────────────
-  // 404 (et pas 403/redirect signin) pour ne pas révéler l'existence
-  // du dashboard. La page elle-même re-vérifie via
-  // requireAdminUserOrNotFound() (ceinture + bretelles).
+  // Anonyme → redirige vers /connexion avec returnBackUrl. Le formulaire
+  // /connexion respecte forceRedirectUrl (cf. app/connexion/[[...]]/page.tsx)
+  // et ramène l'utilisateur sur /buupp-admin après login.
+  // Connecté mais pas admin → 404 (ne révèle pas l'existence du dashboard
+  // à un user non habilité qui aurait deviné l'URL).
+  // La layout /buupp-admin re-vérifie côté RSC (ceinture + bretelles).
   if (request.nextUrl.pathname.startsWith("/buupp-admin")) {
-    const { userId } = await auth();
+    const { userId, redirectToSignIn } = await auth();
     if (!userId) {
-      return NextResponse.rewrite(new URL("/404", request.url));
+      return redirectToSignIn({ returnBackUrl: request.url });
     }
     // Email primaire : pas de claim custom dans le JWT par défaut → on
     // appelle Clerk côté serveur. Edge runtime OK pour clerkClient.
