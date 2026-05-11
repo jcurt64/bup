@@ -803,12 +803,61 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   display: none;
 }
 
+/* ---------- Sidebar collapse animation (desktop) ----------
+   Le `gridTemplateColumns` est posé inline par React (`${collapsed ? 72 : 248}px 1fr`) :
+   on ne le surcharge donc pas en CSS, on se contente d'ajouter la transition
+   pour que la bascule glisse au lieu de claquer. La même easing est reprise
+   par l'eyebrow (qui passe d'opacité 1 → 0 via inline style) et par les
+   éléments enfants susceptibles de bouger en même temps. */
+.dash-shell {
+  transition: grid-template-columns .25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dash-shell > aside {
+  /* Permet à l'aside de suivre la nouvelle largeur sans à-coup quand le
+     contenu (logo, labels) se remonte. Le `overflow: hidden` évite que
+     les labels qui n'ont pas encore disparu débordent pendant l'animation. */
+  overflow: hidden;
+  transition: padding .25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Eyebrow "Espace prospect/pro" : déjà animée par l'inline style (opacity
+   0/1) — on ajoute juste la transition CSS pour la rendre progressive. */
+.dash-shell > aside > .mono.caps {
+  transition: opacity .2s ease;
+}
+/* Bouton hamburger : feedback de clic discret (légère bascule à l'appui)
+   en plus du hover. Rend l'action plus tangible sans changer le markup. */
+.dash-shell > aside .row.between.center > button {
+  transition: transform .18s ease, color .15s ease, background .15s ease;
+}
+.dash-shell > aside .row.between.center > button:active {
+  transform: scale(0.9);
+}
+/* Les onglets dans la sidebar : leur largeur change implicitement quand
+   la colonne parent rétrécit. On rend les changements internes (texte
+   qui disparaît, badge qui se replie) plus doux via une transition
+   générique sur padding + gap. La transition de bg/color existe déjà
+   sur `.side-item` (cf. règle de base ligne 142). */
+.dash-shell > aside .side-item,
+.dash-shell > aside .dash-social-btn,
+.dash-shell > aside .dash-user-email {
+  transition: background .15s, color .15s, border-color .15s, padding .25s cubic-bezier(0.4, 0, 0.2, 1), opacity .2s ease;
+}
+/* L'item "Créer une campagne" en variante featured (uniquement côté pro)
+   change sa taille selon `collapsed` (padding 10 ↔ '12px 14px'). On adoucit
+   ces sauts. */
+.dash-shell > aside > button {
+  transition: padding .25s cubic-bezier(0.4, 0, 0.2, 1), background .15s, transform .12s, box-shadow .25s ease;
+}
+
 @media (max-width: 900px) {
   /* Page layout: collapse two-column grid into a single block. The original
      inline `gridTemplateColumns: "<NN>px 1fr"` is overridden with !important. */
   .dash-shell {
     display: block !important;
     grid-template-columns: 1fr !important;
+    /* Sur mobile la grille n'existe plus, on annule la transition (elle ne
+       sert plus à rien et pourrait causer un flash au resize). */
+    transition: none !important;
   }
 
   /* The vertical sidebar becomes a horizontal floating bar pinned to the top.
