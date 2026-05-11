@@ -23,6 +23,9 @@ const LOGO_URL = `${APP_URL}/logo.png`;
 export type BroadcastEmailRecipient = {
   email: string;
   role: "prospect" | "pro";
+  /** UUID de la row `admin_broadcast_recipients` — incrusté dans le pixel
+   *  de tracking pour identifier qui a ouvert le mail. */
+  recipientId: string;
 };
 
 export type SendBroadcastParams = {
@@ -54,6 +57,10 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
     const attachmentUrl = hasAttachment
       ? `${APP_URL}/api/me/notifications/${encodeURIComponent(broadcastId)}/attachment`
       : null;
+    // URL unique par destinataire — quand le client mail charge l'image,
+    // /api/broadcasts/track/[recipientId] pose opened_at + incrémente
+    // open_count sur la row correspondante (cf. lib/supabase/types).
+    const pixelUrl = `${APP_URL}/api/broadcasts/track/${encodeURIComponent(r.recipientId)}`;
 
     const text = [
       `Bonjour,`,
@@ -80,6 +87,7 @@ export async function sendBroadcastEmails(params: SendBroadcastParams): Promise<
       dashUrl,
       attachmentUrl,
       attachmentFilename,
+      pixelUrl,
     });
 
     try {
@@ -109,8 +117,9 @@ function renderHtml(params: {
   dashUrl: string;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
+  pixelUrl: string;
 }): string {
-  const { title, body, dashUrl, attachmentUrl, attachmentFilename } = params;
+  const { title, body, dashUrl, attachmentUrl, attachmentFilename, pixelUrl } = params;
   return `
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"/>
@@ -197,6 +206,10 @@ function renderHtml(params: {
 </td></tr>
 </table>
 </td></tr></table>
+<!-- Pixel de mesure d'audience — image transparente 1×1. Aucune IP, user-agent
+     ni fingerprint stocké. Mesure agrégée du taux d'ouverture broadcast.
+     Conformité CNIL / RGPD : cf. politique cookies §"Pixels de tracking email". -->
+<img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;border:0;outline:none;text-decoration:none;width:1px;height:1px;opacity:0;" referrerpolicy="no-referrer"/>
 </body></html>
   `.trim();
 }

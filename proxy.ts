@@ -41,6 +41,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/waitlist/stats",
   "/api/plan-pricing",
   "/api/landing/(.*)",
+  // Pixel de tracking des broadcasts admin : fetch depuis le client mail
+  // du destinataire, qui ne porte évidemment aucune session Clerk. Le
+  // recipient_id (UUID v4) sert d'identifiant opaque non énumérable.
+  "/api/broadcasts/track/(.*)",
   // ─── API admin : pas de session Clerk requise. Chaque handler
   // valide lui-même un secret via le header `x-admin-secret`
   // (cf. app/api/admin/waitlist/launch-email/route.ts).

@@ -15,10 +15,12 @@ import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { auth, clerkClient } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import {
-  sendBroadcastEmails,
-  type BroadcastEmailRecipient,
-} from "@/lib/email/admin-broadcast";
+import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
+
+// Liste de destinataires AVANT insertion en base (sans recipient_id). Une
+// fois en base, on enrichit avec l'UUID retourné pour pouvoir embarquer
+// l'id dans le pixel de tracking côté email.
+type RawRecipient = { email: string; role: "prospect" | "pro" };
 
 export const runtime = "nodejs";
 
@@ -138,6 +140,43 @@ export async function POST(req: Request) {
   // 3. Construction de la liste des destinataires.
   const recipients = await collectRecipients(admin, audience);
 
+  // 3.b Insert d'une row par destinataire — l'`id` (UUID) sert ensuite
+  //     d'identifiant opaque dans l'URL du pixel de tracking. On le fait
+  //     AVANT l'envoi mail pour passer les ids au sender. Si l'insert
+  //     échoue (très rare), on continue sans tracking — l'envoi mail
+  //     reste la priorité.
+  type RecipientRow = { id: string; email: string; role: "prospect" | "pro" };
+  let recipientRows: RecipientRow[] = [];
+  if (recipients.length > 0) {
+    const { data: inserted, error: insErr } = await admin
+      .from("admin_broadcast_recipients")
+      .insert(
+        recipients.map((r) => ({
+          broadcast_id: broadcastId,
+          email: r.email,
+          role: r.role,
+        })),
+      )
+      .select("id, email, role");
+    if (insErr) {
+      console.error("[/api/admin/broadcasts POST] recipient insert failed", insErr);
+      // Fallback : on simule des ids vides pour ne pas bloquer le tracking
+      // côté email (le pixel répondra silencieusement sans incrémenter).
+      recipientRows = recipients.map((r) => ({ id: "00000000-0000-0000-0000-000000000000", email: r.email, role: r.role }));
+    } else {
+      recipientRows = (inserted ?? []).map((r) => ({
+        id: r.id,
+        email: r.email,
+        role: r.role as "prospect" | "pro",
+      }));
+      // Snapshot du total sur la row parent pour les calculs de taux ultérieurs.
+      await admin
+        .from("admin_broadcasts")
+        .update({ total_recipients: recipientRows.length })
+        .eq("id", broadcastId);
+    }
+  }
+
   // 4. Envoi email fire-and-forget — on ne fait PAS attendre la réponse HTTP
   //    sur la boucle de mails (peut être long si > 50 destinataires).
   const sendPromise = sendBroadcastEmails({
@@ -146,7 +185,11 @@ export async function POST(req: Request) {
     body,
     hasAttachment: !!attachmentPath,
     attachmentFilename,
-    recipients,
+    recipients: recipientRows.map((r) => ({
+      email: r.email,
+      role: r.role,
+      recipientId: r.id,
+    })),
   })
     .then(async () => {
       await admin
@@ -169,7 +212,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     id: broadcastId,
-    recipientCount: recipients.length,
+    recipientCount: recipientRows.length,
     hasAttachment: !!attachmentPath,
   });
 }
@@ -181,7 +224,7 @@ export async function GET(req: Request) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("admin_broadcasts")
-    .select("id, title, audience, attachment_filename, created_at, sent_email_at")
+    .select("id, title, audience, attachment_filename, created_at, sent_email_at, total_recipients")
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) {
@@ -189,15 +232,54 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
 
+  const broadcasts = data ?? [];
+  const ids = broadcasts.map((b) => b.id);
+
+  // Stats agrégées par broadcast : nombre d'emails ouverts (pixel) + nombre
+  // de lectures in-app. Deux requêtes parallèles regroupées par broadcast_id.
+  const openCounts = new Map<string, number>();
+  const readCounts = new Map<string, number>();
+  if (ids.length > 0) {
+    const [openRes, readRes] = await Promise.all([
+      admin
+        .from("admin_broadcast_recipients")
+        .select("broadcast_id")
+        .in("broadcast_id", ids)
+        .not("opened_at", "is", null),
+      admin
+        .from("admin_broadcast_reads")
+        .select("broadcast_id")
+        .in("broadcast_id", ids),
+    ]);
+    for (const r of openRes.data ?? []) {
+      openCounts.set(r.broadcast_id, (openCounts.get(r.broadcast_id) ?? 0) + 1);
+    }
+    for (const r of readRes.data ?? []) {
+      readCounts.set(r.broadcast_id, (readCounts.get(r.broadcast_id) ?? 0) + 1);
+    }
+  }
+
   return NextResponse.json({
-    broadcasts: (data ?? []).map((b) => ({
-      id: b.id,
-      title: b.title,
-      audience: b.audience,
-      attachmentFilename: b.attachment_filename,
-      createdAt: b.created_at,
-      sentEmailAt: b.sent_email_at,
-    })),
+    broadcasts: broadcasts.map((b) => {
+      const total = b.total_recipients ?? 0;
+      const opens = openCounts.get(b.id) ?? 0;
+      const reads = readCounts.get(b.id) ?? 0;
+      return {
+        id: b.id,
+        title: b.title,
+        audience: b.audience,
+        attachmentFilename: b.attachment_filename,
+        createdAt: b.created_at,
+        sentEmailAt: b.sent_email_at,
+        totalRecipients: total,
+        emailOpenCount: opens,
+        inAppReadCount: reads,
+        // Taux arrondis à l'entier pour l'affichage admin — pas besoin de
+        // décimales sur ces métriques approximatives (cf. caveat Apple MPP).
+        emailOpenRate: total > 0 ? Math.round((opens * 100) / total) : null,
+        inAppReadRate: total > 0 ? Math.round((reads * 100) / total) : null,
+      };
+    }),
   });
 }
 
@@ -208,8 +290,8 @@ export async function GET(req: Request) {
 async function collectRecipients(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   audience: Audience,
-): Promise<BroadcastEmailRecipient[]> {
-  const recipients: BroadcastEmailRecipient[] = [];
+): Promise<RawRecipient[]> {
+  const recipients: RawRecipient[] = [];
   const seenEmails = new Set<string>();
 
   const addUnique = (email: string | null, role: "prospect" | "pro") => {

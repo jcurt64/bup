@@ -166,7 +166,87 @@ export default function CookiesPage() {
           <CategoryBlock key={cat.id} category={cat} />
         ))}
 
-        <Section title="5. Comment refuser ou supprimer les cookies ?">
+        <Section title="5. Pixels de tracking dans les emails BUUPP">
+          <p>
+            En complément des cookies déposés sur le site, BUUPP utilise un{" "}
+            <strong>pixel de tracking</strong> — une image transparente de
+            1×1 pixel incluse dans le HTML de certains emails que nous vous
+            envoyons depuis votre dashboard (messages publiés par
+            l&apos;équipe BUUPP, notifications produit). Quand votre client
+            mail charge l&apos;image, notre serveur enregistre que
+            l&apos;email a été ouvert.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Finalité.</strong> Mesurer de façon agrégée le taux
+            d&apos;ouverture de chaque message pour piloter la qualité de nos
+            communications (fréquence, objet, contenu). Aucun usage
+            commercial, aucun croisement avec un traitement tiers, aucune
+            relance ciblée.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Données collectées.</strong> Uniquement
+            l&apos;identifiant interne du destinataire (généré à
+            l&apos;envoi, opaque, non énumérable), la date de première
+            ouverture et un compteur d&apos;ouvertures. Nous{" "}
+            <strong>ne stockons ni l&apos;adresse IP, ni l&apos;user-agent,
+            ni la géolocalisation, ni aucun identifiant de fingerprint</strong>{" "}
+            associé à l&apos;ouverture. Les données ne servent qu&apos;à
+            agréger des taux globaux par broadcast.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Conformité CNIL/RGPD.</strong> Conformément aux{" "}
+            <a
+              href="https://www.cnil.fr/fr/cookies-et-traceurs-comment-mettre-mon-site-web-en-conformite"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              recommandations de la CNIL sur les cookies et traceurs
+            </a>{" "}
+            (cf. lignes directrices et recommandation du 17 septembre 2020,
+            mises à jour), ce traceur s&apos;inscrit dans la finalité de{" "}
+            <em>mesure d&apos;audience strictement nécessaire à la
+            fourniture du service</em> et limité à un usage interne
+            agrégé — il est donc exempté de consentement préalable. Vous en
+            êtes néanmoins informé par la présente politique, et un droit
+            d&apos;opposition vous est ouvert (voir ci-dessous).
+          </p>
+          <p style={{ marginTop: 10 }}>
+            <strong>Comment vous y opposer.</strong> Trois options :
+          </p>
+          <ul>
+            <li>
+              <strong>Bloquer le chargement d&apos;images</strong> dans votre
+              client mail (la plupart le proposent : Gmail web, Outlook,
+              Apple Mail Privacy Protection, Thunderbird…). Les pixels ne
+              seront jamais chargés et aucune ouverture ne sera enregistrée.
+            </li>
+            <li>
+              <strong>Lire le contenu dans votre dashboard</strong> via la
+              cloche de notifications ou l&apos;onglet «&nbsp;Mes
+              messages&nbsp;» — aucun pixel n&apos;est servi dans
+              l&apos;application.
+            </li>
+            <li>
+              <strong>Demander la suppression de vos données</strong> de
+              tracking auprès de notre{" "}
+              <Link
+                href="/contact-dpo"
+                style={{ color: "var(--accent)", textDecoration: "underline" }}
+              >
+                Délégué à la protection des données
+              </Link>
+              .
+            </li>
+          </ul>
+          <p style={{ marginTop: 10 }}>
+            <strong>Durée de conservation.</strong> 13 mois après envoi du
+            broadcast, conformément à la durée recommandée par la CNIL pour
+            les traceurs de mesure d&apos;audience.
+          </p>
+        </Section>
+
+        <Section title="6. Comment refuser ou supprimer les cookies ?">
           <p>
             Outre le panneau de préférences BUUPP, vous pouvez bloquer ou
             supprimer les cookies directement depuis votre navigateur. Le
@@ -198,7 +278,7 @@ export default function CookiesPage() {
           </p>
         </Section>
 
-        <Section title="6. Cookies tiers et transferts hors UE">
+        <Section title="7. Cookies tiers et transferts hors UE">
           <p>
             Certains cookies sont déposés par des prestataires tiers
             (Cloudflare pour la protection anti-bot, Google Analytics pour la
@@ -212,7 +292,7 @@ export default function CookiesPage() {
           </p>
         </Section>
 
-        <Section title="7. Vos droits et nous contacter">
+        <Section title="8. Vos droits et nous contacter">
           <p>
             Conformément au RGPD et à la Loi Informatique et Libertés, vous
             disposez de droits d&apos;accès, de rectification,
@@ -249,7 +329,7 @@ export default function CookiesPage() {
           </p>
         </Section>
 
-        <Section title="8. Mise à jour de la politique">
+        <Section title="9. Mise à jour de la politique">
           <p>
             La présente politique des cookies peut être mise à jour pour
             refléter l&apos;évolution des outils que nous utilisons ou des

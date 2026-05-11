@@ -25,6 +25,7 @@ export type Database = {
           created_by_admin_id: string
           created_at: string
           sent_email_at: string | null
+          total_recipients: number
         }
         Insert: {
           id?: string
@@ -36,6 +37,7 @@ export type Database = {
           created_by_admin_id: string
           created_at?: string
           sent_email_at?: string | null
+          total_recipients?: number
         }
         Update: {
           id?: string
@@ -47,8 +49,47 @@ export type Database = {
           created_by_admin_id?: string
           created_at?: string
           sent_email_at?: string | null
+          total_recipients?: number
         }
         Relationships: []
+      }
+      admin_broadcast_recipients: {
+        Row: {
+          id: string
+          broadcast_id: string
+          email: string
+          role: string
+          sent_at: string
+          opened_at: string | null
+          open_count: number
+        }
+        Insert: {
+          id?: string
+          broadcast_id: string
+          email: string
+          role: string
+          sent_at?: string
+          opened_at?: string | null
+          open_count?: number
+        }
+        Update: {
+          id?: string
+          broadcast_id?: string
+          email?: string
+          role?: string
+          sent_at?: string
+          opened_at?: string | null
+          open_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "admin_broadcasts"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       admin_broadcast_reads: {
         Row: {
