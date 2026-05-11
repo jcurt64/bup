@@ -634,7 +634,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           {/* Action destructive — couleur rouge pour signaler le danger.
               Ouvre la modale de confirmation (DeleteAccountModal). */}
           <div
-            className="side-item"
+            className="side-item side-item-danger"
             data-label="Supprimer mon compte"
             onClick={() => setDeleteOpen(true)}
             style={{ color: '#dc2626' }}

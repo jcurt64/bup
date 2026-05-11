@@ -327,6 +327,16 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   visibility: visible;
   transform: translateY(-50%) translateX(0);
 }
+/* Variante danger : "Supprimer mon compte" reprend le rouge BUUPP pour
+   rester cohérent avec la couleur du libellé inline (var #dc2626).
+   La flèche du tooltip suit la même couleur. */
+.dash-shell > aside.is-collapsed .side-item-danger[data-label]::after {
+  background: #dc2626;
+  box-shadow: 0 6px 18px -8px rgba(220, 38, 38, 0.55);
+}
+.dash-shell > aside.is-collapsed .side-item-danger[data-label]::before {
+  border-right-color: #dc2626;
+}
 /* En mobile la sidebar n'a pas de mode "repliée" (c'est une barre
    horizontale), et les chips affichent déjà leur label → on neutralise
    ces tooltips pour éviter qu'ils ne flashent au resize. */
