@@ -372,6 +372,7 @@ const PROSPECT_SECTIONS = [
   { id: 'prefs',        icon: 'sliders', label: 'Préférences' },
   { id: 'parrainage',   icon: 'gift',   label: 'Parrainage' },
   { id: 'fiscal',       icon: 'doc',    label: 'Informations fiscales' },
+  { id: 'messages',     icon: 'inbox',  label: 'Mes messages' },
 ];
 
 function ProspectDashboard({ go, initialTab }) {
@@ -401,6 +402,21 @@ function ProspectDashboardInner({ go, initialTab }) {
     window.addEventListener('bupp:search-select', onPick);
     return () => window.removeEventListener('bupp:search-select', onPick);
   }, []);
+
+  // Bridge cloche → onglet Messages. La NotificationsBell dispatch cet
+  // évènement quand on clique sur une notif (ou sur la cloche elle-même)
+  // → on bascule sur l'onglet « Mes messages », qui s'auto-fetche et
+  // surlignera le message ouvert via le payload { id }.
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
+  useEffect(() => {
+    const onOpenMsg = (e) => {
+      const id = e?.detail?.id ?? null;
+      setHighlightMessageId(id);
+      setSec('messages');
+    };
+    window.addEventListener('bupp:open-message', onOpenMsg);
+    return () => window.removeEventListener('bupp:open-message', onOpenMsg);
+  }, []);
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific
   // logic into the generic DashShell.
@@ -421,6 +437,8 @@ function ProspectDashboardInner({ go, initialTab }) {
       {sec === 'prefs' && <Prefs />}
       {sec === 'parrainage' && <Parrainage />}
       {sec === 'fiscal' && <Fiscal />}
+      {sec === 'messages' && <MessagesPanel role="prospect" highlightId={highlightMessageId} onHighlightConsumed={() => setHighlightMessageId(null)}/>}
+      {sec === 'suggestions' && <SuggestionsPanel role="prospect"/>}
     </DashShell>
   );
 }
@@ -533,6 +551,59 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           );
         })}
         <div style={{ flex: 1 }}/>
+        {/* Groupe secondaire — placé entre les onglets principaux et le
+            bloc déconnexion. Contient :
+              1. "Suivez-nous" : 3 boutons icônes (Facebook, Instagram,
+                 TikTok) pointant vers les pages sociales BUUPP.
+              2. "Vos suggestions" : item de navigation qui bascule sur
+                 l'onglet correspondant pour afficher le formulaire.
+            URLs sociales centralisées ici → simple à mettre à jour quand
+            les comptes officiels seront créés. */}
+        <div className="dash-secondary">
+          {!collapsed && (
+            <div className="mono caps muted dash-secondary-label">Suivez-nous</div>
+          )}
+          <div className="dash-social-row">
+            <a
+              className="dash-social-btn"
+              href="https://www.facebook.com/buupp"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook BUUPP"
+              title="Facebook"
+            >
+              <Icon name="facebook" size={16}/>
+            </a>
+            <a
+              className="dash-social-btn"
+              href="https://www.instagram.com/buupp"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram BUUPP"
+              title="Instagram"
+            >
+              <Icon name="instagram" size={16}/>
+            </a>
+            <a
+              className="dash-social-btn"
+              href="https://www.tiktok.com/@buupp"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="TikTok BUUPP"
+              title="TikTok"
+            >
+              <Icon name="tiktok" size={16}/>
+            </a>
+          </div>
+          <div
+            className={'side-item' + (current === 'suggestions' ? ' active' : '')}
+            onClick={() => handleNav('suggestions')}
+            title="Faites-nous part de vos suggestions"
+          >
+            <span className="side-icon"><Icon name="sparkle" size={16}/></span>
+            {!collapsed && <span>Vos suggestions</span>}
+          </div>
+        </div>
         <div className="dash-logout" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
           {/* Adresse mail du souscripteur — alignée sur le pattern AdminShell
               (petit texte mono tronqué, hover = email complet via title).
@@ -874,14 +945,19 @@ function TopBar({ role, overrideName }) {
 /* Cloche des notifications broadcast (messages admin → utilisateurs).
    - Bouton avec badge rouge = nombre de non lus
    - Clic → dropdown ancré à droite (desktop) ou bottom-sheet (mobile)
-   - Clic sur un item → modal popup avec corps + bouton download éventuel
+   - Clic sur un item → bascule sur l'onglet « Mes messages » via
+     l'évènement `bupp:open-message` (le dashboard parent l'écoute) et
+     ferme le dropdown. Le marquage lu est délégué à l'onglet, qui le
+     fait au montage si l'item est highlight.
    - Polling : initial au mount, toutes les 60 s, au retour au foreground.
-   Le marquage lu est optimiste : on update le state local puis on POST
-   (idempotent côté serveur). */
+   On garde le dropdown comme aperçu rapide, mais la lecture détaillée
+   se fait dans l'onglet — meilleur pour les messages longs et permet
+   à l'utilisateur d'y revenir. */
 function NotificationsBell({ role }) {
+  // `role` accepté pour compat — le routage tab/event est universel.
+  void role;
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
-  const [openItem, setOpenItem] = useState(null);
   const wrapRef = React.useRef(null);
 
   const fetchList = React.useCallback(async () => {
@@ -901,7 +977,15 @@ function NotificationsBell({ role }) {
     const id = setInterval(fetchList, 60_000);
     const onVis = () => { if (document.visibilityState === 'visible') fetchList(); };
     document.addEventListener('visibilitychange', onVis);
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+    // L'onglet Mes messages peut marquer des items lus → on rafraîchit
+    // le badge quand il signale un changement (event custom local).
+    const onRefresh = () => fetchList();
+    window.addEventListener('bupp:notifications-changed', onRefresh);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('bupp:notifications-changed', onRefresh);
+    };
   }, [fetchList]);
 
   // Click extérieur ferme le dropdown. Ne s'attache que si dropdown ouvert.
@@ -916,27 +1000,22 @@ function NotificationsBell({ role }) {
 
   const unread = items.filter(i => i.unread).length;
 
-  const onItemClick = async (item) => {
-    setOpenItem(item);
+  // Aperçu rapide → bascule sur l'onglet Mes messages (et highlight le
+  // message ciblé pour qu'il soit visible/auto-marqué-lu à l'arrivée).
+  const onItemClick = (item) => {
     setOpen(false);
-    if (item.unread) {
-      // Optimistic : on flag lu localement immédiatement. Le POST est
-      // idempotent ; en cas d'échec, le prochain fetch corrigera.
-      setItems(cur => cur.map(i => i.id === item.id ? { ...i, unread: false } : i));
-      try {
-        await fetch(`/api/me/notifications/${encodeURIComponent(item.id)}/read`, { method: 'POST' });
-      } catch (e) {}
-    }
+    try {
+      window.dispatchEvent(new CustomEvent('bupp:open-message', { detail: { id: item.id } }));
+    } catch (e) {}
   };
 
-  const markAll = async (e) => {
-    e.stopPropagation();
-    const unreadIds = items.filter(i => i.unread).map(i => i.id);
-    if (unreadIds.length === 0) return;
-    setItems(cur => cur.map(i => ({ ...i, unread: false })));
-    await Promise.all(unreadIds.map(id =>
-      fetch(`/api/me/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => null)
-    ));
+  // Si on clique sur "Voir tous les messages" sans cible précise, on
+  // bascule juste sur l'onglet sans highlight.
+  const goToTab = () => {
+    setOpen(false);
+    try {
+      window.dispatchEvent(new CustomEvent('bupp:open-message', { detail: { id: null } }));
+    } catch (e) {}
   };
 
   return (
@@ -962,16 +1041,14 @@ function NotificationsBell({ role }) {
           <div className="notif-dropdown" role="dialog" aria-label="Notifications">
             <div className="notif-dropdown-header">
               <div className="notif-dropdown-title">Notifications</div>
-              {unread > 0 && (
-                <button className="notif-mark-all" onClick={markAll}>
-                  Tout marquer comme lu
-                </button>
-              )}
+              <button className="notif-mark-all" onClick={goToTab}>
+                Voir tous les messages
+              </button>
             </div>
             <div className="notif-list">
               {items.length === 0 ? (
                 <div className="notif-empty">Aucune notification pour l'instant.</div>
-              ) : items.map(item => (
+              ) : items.slice(0, 8).map(item => (
                 <button
                   key={item.id}
                   type="button"
@@ -992,49 +1069,6 @@ function NotificationsBell({ role }) {
           </div>
         </>
       )}
-      {openItem && (
-        <NotificationModal item={openItem} role={role} onClose={() => setOpenItem(null)}/>
-      )}
-    </div>
-  );
-}
-
-function NotificationModal({ item, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div role="dialog" aria-modal="true" onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
-      padding: 16,
-    }}>
-      <div className="notif-modal" onClick={e => e.stopPropagation()}>
-        <button className="notif-modal-close" type="button" onClick={onClose} aria-label="Fermer">
-          <Icon name="close" size={16}/>
-        </button>
-        <div className="notif-modal-date">{formatAbsoluteFr(item.createdAt)}</div>
-        <h2 className="notif-modal-title">{item.title}</h2>
-        <div className="notif-modal-body">{item.body}</div>
-        {item.hasAttachment && (
-          <a
-            href={`/api/me/notifications/${encodeURIComponent(item.id)}/attachment`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="notif-modal-attachment"
-          >
-            <Icon name="download" size={14}/>
-            <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
-          </a>
-        )}
-        <div className="notif-modal-actions">
-          <button type="button" className="btn btn-primary" onClick={onClose}>Fermer</button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1062,6 +1096,253 @@ function formatAbsoluteFr(iso) {
     day: '2-digit', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Onglet « Mes messages » — liste des broadcasts admin reçus par
+   l'utilisateur. Remplace l'ancien popup : la lecture détaillée se
+   fait inline (chaque carte affiche le corps complet). Les items
+   non lus sont marqués (pastille rouge + border-left accentuée) et
+   passent en « lu » au premier clic. Le highlightId vient de la
+   cloche : on scrolle dessus et on auto-marque-lu si non lu.
+   ───────────────────────────────────────────────────────────────── */
+function MessagesPanel({ highlightId, onHighlightConsumed }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const itemRefs = React.useRef({});
+
+  const refresh = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/me/notifications', { cache: 'no-store' });
+      if (!r.ok) throw new Error('fetch_failed');
+      const j = await r.json();
+      setItems(Array.isArray(j?.notifications) ? j.notifications : []);
+      setError(null);
+    } catch (e) {
+      setError('Impossible de charger vos messages pour l’instant.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Si la cloche nous a passé un id à highlighter : scroll + auto-mark-read.
+  useEffect(() => {
+    if (!highlightId || items.length === 0) return;
+    const target = items.find(i => i.id === highlightId);
+    if (!target) return;
+    // Scroll doux jusqu'à la carte, avec un léger délai pour laisser
+    // le navigateur layouter après le switch d'onglet.
+    requestAnimationFrame(() => {
+      const node = itemRefs.current[highlightId];
+      if (node && typeof node.scrollIntoView === 'function') {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+    if (target.unread) markRead(highlightId);
+    if (onHighlightConsumed) onHighlightConsumed();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId, items.length]);
+
+  async function markRead(id) {
+    // Optimistic — on flag lu immédiatement côté UI, le POST est
+    // idempotent et le badge cloche se synchronise via l'event ci-dessous.
+    setItems(cur => cur.map(i => i.id === id ? { ...i, unread: false } : i));
+    try {
+      await fetch(`/api/me/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+      window.dispatchEvent(new CustomEvent('bupp:notifications-changed'));
+    } catch (e) {}
+  }
+
+  const unreadCount = items.filter(i => i.unread).length;
+
+  async function markAll() {
+    const unreadIds = items.filter(i => i.unread).map(i => i.id);
+    if (unreadIds.length === 0) return;
+    setItems(cur => cur.map(i => ({ ...i, unread: false })));
+    await Promise.all(unreadIds.map(id =>
+      fetch(`/api/me/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => null)
+    ));
+    window.dispatchEvent(new CustomEvent('bupp:notifications-changed'));
+  }
+
+  return (
+    <div className="messages-panel">
+      <div className="messages-header">
+        <div>
+          <div className="serif" style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Mes messages
+          </div>
+          <div className="mono caps muted" style={{ fontSize: 11, letterSpacing: '0.1em', marginTop: 4 }}>
+            {items.length === 0
+              ? 'Aucun message'
+              : `${items.length} message${items.length > 1 ? 's' : ''} · ${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`}
+          </div>
+        </div>
+        {unreadCount > 0 && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={markAll}>
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="messages-empty">Chargement…</div>
+      )}
+      {!loading && error && (
+        <div className="messages-empty messages-error">{error}</div>
+      )}
+      {!loading && !error && items.length === 0 && (
+        <div className="messages-empty">
+          <div style={{ fontSize: 28, marginBottom: 8 }}>📭</div>
+          Aucun message pour le moment. Les annonces de l'équipe BUUPP s'afficheront ici.
+        </div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <div className="messages-list">
+          {items.map(item => (
+            <article
+              key={item.id}
+              ref={el => { itemRefs.current[item.id] = el; }}
+              className={'message-card' + (item.unread ? ' is-unread' : '')}
+              onClick={() => item.unread && markRead(item.id)}
+            >
+              <header className="message-card-head">
+                <span className="message-card-dot" aria-hidden/>
+                <div className="message-card-meta">
+                  <span className="message-card-date">{formatAbsoluteFr(item.createdAt)}</span>
+                  {item.unread && <span className="message-card-badge">Non lu</span>}
+                </div>
+              </header>
+              <h3 className="message-card-title">{item.title}</h3>
+              <div className="message-card-body">{item.body}</div>
+              {item.hasAttachment && (
+                <a
+                  href={`/api/me/notifications/${encodeURIComponent(item.id)}/attachment`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="message-card-attachment"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Icon name="download" size={14}/>
+                  <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Onglet « Vos suggestions » — formulaire pour envoyer une remarque
+   ou idée à l'équipe BUUPP. POST /api/me/suggestions → email vers
+   jjlex64@gmail.com (paramétrable via env côté API). Toast inline
+   de confirmation, reset du formulaire après succès.
+   ───────────────────────────────────────────────────────────────── */
+function SuggestionsPanel() {
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null); // { kind: 'ok'|'err', text }
+  const MAX_SUBJECT = 120;
+  const MAX_MESSAGE = 4000;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    if (submitting) return;
+    setFeedback(null);
+    const m = message.trim();
+    if (!m) {
+      setFeedback({ kind: 'err', text: 'Veuillez écrire votre message avant d’envoyer.' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await fetch('/api/me/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: subject.trim() || null, message: m }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setFeedback({ kind: 'err', text: j?.message || 'Envoi impossible. Réessayez.' });
+        return;
+      }
+      setFeedback({ kind: 'ok', text: 'Merci ! Votre message a été transmis à l’équipe BUUPP.' });
+      setSubject('');
+      setMessage('');
+    } catch (err) {
+      setFeedback({ kind: 'err', text: 'Erreur réseau. Réessayez dans un instant.' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="suggestions-panel">
+      <div>
+        <div className="serif" style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          Faites-nous part de vos suggestions
+        </div>
+        <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 6, maxWidth: 560 }}>
+          Une idée, un bug, une demande de fonctionnalité ? L'équipe BUUPP lit chaque
+          message. Plus c'est précis, plus on peut agir vite.
+        </p>
+      </div>
+
+      <form className="suggestions-form" onSubmit={onSubmit}>
+        <label className="suggestions-field">
+          <span className="suggestions-label">Sujet (optionnel)</span>
+          <input
+            type="text"
+            value={subject}
+            onChange={e => setSubject(e.target.value.slice(0, MAX_SUBJECT))}
+            placeholder="Ex. Suggestion sur les notifications"
+            maxLength={MAX_SUBJECT}
+            disabled={submitting}
+            className="suggestions-input"
+          />
+        </label>
+        <label className="suggestions-field">
+          <span className="suggestions-label">
+            Votre message <span className="suggestions-count">{message.length} / {MAX_MESSAGE}</span>
+          </span>
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value.slice(0, MAX_MESSAGE))}
+            placeholder="Décrivez votre idée ou votre retour. Les retours à la ligne sont préservés."
+            rows={8}
+            maxLength={MAX_MESSAGE}
+            disabled={submitting}
+            required
+            className="suggestions-textarea"
+          />
+        </label>
+
+        {feedback && (
+          <div className={'suggestions-feedback suggestions-feedback-' + feedback.kind}>
+            {feedback.text}
+          </div>
+        )}
+
+        <div className="suggestions-actions">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={submitting || !message.trim()}
+          >
+            {submitting ? 'Envoi…' : 'Envoyer à l’équipe BUUPP'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 /* Champ de recherche du header — autocomplétion plein-texte sur les

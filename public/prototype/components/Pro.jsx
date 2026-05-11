@@ -8,6 +8,7 @@ const PRO_SECTIONS = [
   { id: 'analytics',    icon: 'trend',     label: 'Analytics' },
   { id: 'informations', icon: 'briefcase', label: 'Mes informations' },
   { id: 'facturation',  icon: 'money',     label: 'Facturation' },
+  { id: 'messages',     icon: 'inbox',     label: 'Mes messages' },
 ];
 
 function ProDashboard({ go }) {
@@ -151,6 +152,20 @@ function ProDashboard({ go }) {
     return () => window.removeEventListener('bupp:search-select', onPick);
   }, []);
 
+  // Bridge cloche → onglet Messages. Symétrique du prospect. Cf.
+  // ProspectDashboardInner pour le pattern complet (event listener +
+  // highlightId passé à MessagesPanel).
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
+  useEffect(() => {
+    const onOpenMsg = (e) => {
+      const id = e?.detail?.id ?? null;
+      setHighlightMessageId(id);
+      setSec('messages');
+    };
+    window.addEventListener('bupp:open-message', onOpenMsg);
+    return () => window.removeEventListener('bupp:open-message', onOpenMsg);
+  }, []);
+
   return (
     <>
     <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
@@ -195,6 +210,8 @@ function ProDashboard({ go }) {
         />
       )}
       {sec === 'facturation' && <Facturation onRecharge={() => setRecharge(true)}/>}
+      {sec === 'messages' && <MessagesPanel role="pro" highlightId={highlightMessageId} onHighlightConsumed={() => setHighlightMessageId(null)}/>}
+      {sec === 'suggestions' && <SuggestionsPanel role="pro"/>}
     </DashShell>
     {recharge && <RechargeModal onClose={() => setRecharge(false)}/>}
     </>
