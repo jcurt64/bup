@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { PERIOD_KEYS, rangeFor, type PeriodKey } from "@/lib/admin/periods";
 
 type Tx = {
   id: string;
@@ -60,6 +62,12 @@ function Badge({ tone, children }: { tone: { bg: string; fg: string }; children:
 }
 
 export default function TransactionsTable() {
+  const sp = useSearchParams();
+  const rawPeriod = sp.get("period") ?? "30d";
+  const period: PeriodKey = (PERIOD_KEYS as readonly string[]).includes(rawPeriod)
+    ? (rawPeriod as PeriodKey)
+    : "30d";
+
   const [rows, setRows] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountKind, setAccountKind] = useState("");
@@ -72,11 +80,16 @@ export default function TransactionsTable() {
     if (accountKind) params.set("accountKind", accountKind);
     if (type) params.set("type", type);
     if (status) params.set("status", status);
+    if (period !== "all") {
+      const range = rangeFor(period, new Date());
+      params.set("from", range.start.toISOString());
+      params.set("to", range.end.toISOString());
+    }
     fetch(`/api/admin/stats/transactions?${params}`)
       .then((r) => r.json())
       .then((d) => setRows(d.rows ?? []))
       .finally(() => setLoading(false));
-  }, [accountKind, type, status]);
+  }, [accountKind, type, status, period]);
 
   return (
     <div className="space-y-4">
