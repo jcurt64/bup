@@ -41,7 +41,10 @@ export default function AdminShell({
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await signOut({ redirectUrl: "/" });
+      // Renvoie sur l'écran de connexion du back-office avec un
+      // redirect_url qui ramène automatiquement sur /buupp-admin après
+      // une nouvelle authentification — pas besoin de retaper l'URL.
+      await signOut({ redirectUrl: "/connexion?redirect_url=/buupp-admin" });
     } catch {
       setSigningOut(false);
     }
@@ -225,8 +228,8 @@ export default function AdminShell({
               className="mt-2 text-sm"
               style={{ color: "var(--ink-3)", lineHeight: 1.5 }}
             >
-              Tu seras redirigé vers la page d'accueil. Tu pourras te reconnecter
-              en revenant sur <span style={{ fontFamily: "var(--mono)" }}>/buupp-admin</span>.
+              Tu seras redirigé vers l'écran de connexion du back-office.
+              Une fois reconnecté, tu reviendras automatiquement ici.
             </p>
             <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button
