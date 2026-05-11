@@ -1,14 +1,47 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { PERIOD_KEYS, rangeFor, type PeriodKey } from "@/lib/admin/periods";
 import WaitlistLaunchButton from "../_components/WaitlistLaunchButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function WaitlistAdminPage() {
+export default async function WaitlistAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const sp = await searchParams;
+  const rawPeriod = sp.period ?? "30d";
+  const period: PeriodKey = (PERIOD_KEYS as readonly string[]).includes(rawPeriod)
+    ? (rawPeriod as PeriodKey)
+    : "30d";
+  const range = rangeFor(period, new Date());
+  const startIso = range.start.toISOString();
+  const endIso = range.end.toISOString();
+
   const admin = createSupabaseAdminClient();
-  const { count: total } = await admin.from("waitlist").select("id", { count: "exact", head: true });
-  const { count: notified } = await admin
-    .from("waitlist").select("id", { count: "exact", head: true })
-    .not("launch_email_sent_at", "is", null);
+  // Flux période — alignés sur la convention de la Vue d'ensemble :
+  // [range.start, range.end[ via gte/lt comme la RPC admin_overview_kpis.
+  const { count: newSignups } = await admin
+    .from("waitlist")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", startIso)
+    .lt("created_at", endIso);
+  const { count: notifiedInPeriod } = await admin
+    .from("waitlist")
+    .select("id", { count: "exact", head: true })
+    .gte("launch_email_sent_at", startIso)
+    .lt("launch_email_sent_at", endIso);
+  // « Restant à notifier » = snapshot d'état absolu (= combien il reste de
+  // mails à envoyer, tous inscrits confondus), insensible à la période.
+  const [{ count: totalGlobal }, { count: notifiedGlobal }] = await Promise.all([
+    admin.from("waitlist").select("id", { count: "exact", head: true }),
+    admin
+      .from("waitlist")
+      .select("id", { count: "exact", head: true })
+      .not("launch_email_sent_at", "is", null),
+  ]);
+  const remaining = (totalGlobal ?? 0) - (notifiedGlobal ?? 0);
+
   const { data: topVilles } = await admin
     .from("waitlist").select("ville").not("ville", "is", null).limit(1000);
   const villeCounts: Record<string, number> = {};
@@ -22,9 +55,9 @@ export default async function WaitlistAdminPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
-        <Box label="Total inscrits" value={String(total ?? 0)} />
-        <Box label="Mails de lancement envoyés" value={String(notified ?? 0)} />
-        <Box label="Restant à notifier" value={String((total ?? 0) - (notified ?? 0))} />
+        <Box label="Nouveaux inscrits" value={String(newSignups ?? 0)} />
+        <Box label="Mails de lancement envoyés" value={String(notifiedInPeriod ?? 0)} />
+        <Box label="Restant à notifier" value={String(remaining)} />
       </div>
       <Section title="Top 10 villes">
         <ul className="text-sm">{top.map(([v, n]) => <li key={v} className="border-b border-neutral-100 py-1 flex justify-between"><span>{v}</span><span className="tabular-nums">{n}</span></li>)}</ul>
