@@ -20,6 +20,7 @@ import { hasAdminSecret } from "@/lib/admin/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendAdminDigest } from "@/lib/email/admin-digest";
 import { recordEvent } from "@/lib/admin/events/record";
+import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,5 +85,24 @@ export async function POST(req: Request) {
     payload: { mode, count: data?.length ?? 0 },
   });
 
-  return NextResponse.json({ mode, count: data?.length ?? 0 });
+  // Piggyback CNIL : la bascule du 15 juillet 2026 (reset des consentements
+  // implicites) ne peut pas avoir son propre cron sur le plan Hobby (limite
+  // 1/jour, déjà utilisé). On l'attache donc à ce cron quotidien qui tourne
+  // tous les jours à 18:00 UTC. La fonction est gardée par date + idempotence
+  // (event admin), donc elle ne fait rien tant qu'on n'est pas le 15/07/2026,
+  // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
+  let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
+  if (mode === "daily") {
+    try {
+      bascule = await applyCnilBasculeIfDue(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] CNIL bascule failed", err);
+    }
+  }
+
+  return NextResponse.json({
+    mode,
+    count: data?.length ?? 0,
+    cnilBascule: bascule ?? null,
+  });
 }

@@ -122,6 +122,12 @@ export async function GET(req: Request) {
     });
   }
 
+  // Horodatage d'audit : timestamp quand opt-IN (consentement explicite),
+  // null quand opt-OUT. Indispensable pour la bascule CNIL du 15 juillet
+  // 2026 — sans ça impossible de distinguer "présumé consentant" de
+  // "explicitement consentant" (cf. lib/cnil/bascule.ts).
+  const consentGivenAt = consent ? new Date().toISOString() : null;
+
   const admin = createSupabaseAdminClient();
   try {
     if (payload.role === "prospect") {
@@ -137,13 +143,20 @@ export async function GET(req: Request) {
       await admin
         .from("prospect_identity")
         .upsert(
-          { prospect_id: prospectRow.id, email_tracking_consent: consent },
+          {
+            prospect_id: prospectRow.id,
+            email_tracking_consent: consent,
+            email_tracking_consent_given_at: consentGivenAt,
+          },
           { onConflict: "prospect_id" },
         );
     } else {
       await admin
         .from("pro_accounts")
-        .update({ email_tracking_consent: consent })
+        .update({
+          email_tracking_consent: consent,
+          email_tracking_consent_given_at: consentGivenAt,
+        })
         .eq("clerk_user_id", payload.userId);
     }
   } catch (err) {

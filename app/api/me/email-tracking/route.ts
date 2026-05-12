@@ -81,13 +81,23 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "no_role" }, { status: 404 });
   }
 
+  // Horodatage d'audit : timestamp quand consentement EXPLICITE (true),
+  // null quand opt-out. La bascule CNIL du 15 juillet 2026 utilise ce
+  // champ pour distinguer "default acquis en transition" de "consentement
+  // positif documenté" (cf. lib/cnil/bascule.ts).
+  const consentGivenAt = body.consent ? new Date().toISOString() : null;
+
   if (resolved.role === "prospect") {
     // Upsert palier 1 — au cas où la row n'existerait pas encore. On
     // n'écrase rien d'autre.
     const { error } = await admin
       .from("prospect_identity")
       .upsert(
-        { prospect_id: resolved.ownerId, email_tracking_consent: body.consent },
+        {
+          prospect_id: resolved.ownerId,
+          email_tracking_consent: body.consent,
+          email_tracking_consent_given_at: consentGivenAt,
+        },
         { onConflict: "prospect_id" },
       );
     if (error) {
@@ -97,7 +107,10 @@ export async function PATCH(req: Request) {
   } else {
     const { error } = await admin
       .from("pro_accounts")
-      .update({ email_tracking_consent: body.consent })
+      .update({
+        email_tracking_consent: body.consent,
+        email_tracking_consent_given_at: consentGivenAt,
+      })
       .eq("id", resolved.ownerId);
     if (error) {
       console.error("[/api/me/email-tracking PATCH] pro update failed", error);

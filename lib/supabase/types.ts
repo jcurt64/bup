@@ -347,6 +347,7 @@ export type Database = {
           code_postal: string | null
           created_at: string
           email_tracking_consent: boolean
+          email_tracking_consent_given_at: string | null
           forme_juridique: string | null
           id: string
           plan: Database["public"]["Enums"]["pro_plan"]
@@ -371,6 +372,7 @@ export type Database = {
           code_postal?: string | null
           created_at?: string
           email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
@@ -395,6 +397,7 @@ export type Database = {
           code_postal?: string | null
           created_at?: string
           email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
           forme_juridique?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["pro_plan"]
@@ -456,6 +459,7 @@ export type Database = {
         Row: {
           email: string | null
           email_tracking_consent: boolean
+          email_tracking_consent_given_at: string | null
           genre: string | null
           naissance: string | null
           nom: string | null
@@ -468,6 +472,7 @@ export type Database = {
         Insert: {
           email?: string | null
           email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
           genre?: string | null
           naissance?: string | null
           nom?: string | null
@@ -480,6 +485,7 @@ export type Database = {
         Update: {
           email?: string | null
           email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
           genre?: string | null
           naissance?: string | null
           nom?: string | null
