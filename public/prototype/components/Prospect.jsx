@@ -21,11 +21,15 @@ const EMPTY_TIER = {
 
 const INITIAL_PROFILE = {
   ...EMPTY_TIER,
-  // Preference: true = all campaign types, else selected subset
-  allCampaignTypes: true,
+  // Préférences par défaut volontairement restrictives — le prospect
+  // n'est pré-coché que sur les 2 types/catégories les plus généralistes ;
+  // libre à lui d'élargir explicitement via le bouton "Tous types" /
+  // "Toutes catégories" ou de cocher davantage de chips à la main.
+  allCampaignTypes: false,
   campaignTypes: new Set(['Prise de contact', 'Prise de rendez-vous']),
   // Categories authorised (mirrored in Préférences)
-  categories: new Set(['Bien-être', 'Artisanat', 'Coaching']),
+  allCategories: false,
+  categories: new Set(['Bien-être', 'Coaching']),
   // Métadonnées identité non éditables directement (gérées par le flow
   // dédié `/api/prospect/phone/verify`). `null` = jamais vérifié.
   identityMeta: { phoneVerifiedAt: null },
@@ -330,10 +334,16 @@ function ProspectProvider({ children }) {
     n.has(t) ? n.delete(t) : n.add(t);
     return { ...p, campaignTypes: n, allCampaignTypes: false };
   });
+  // Symétrique de setAllCampaignTypes : permet d'activer/désactiver
+  // d'un coup le mode "Toutes catégories" depuis le bouton dédié dans
+  // Préférences. Quand on toggle une catégorie individuelle (ci-dessous),
+  // on quitte automatiquement le mode "Toutes" pour refléter la sélection
+  // partielle qui en résulte.
+  const setAllCategories = (on) => setProfile(p => ({ ...p, allCategories: on }));
   const toggleCategory = (c) => setProfile(p => {
     const n = new Set(p.categories);
     n.has(c) ? n.delete(c) : n.add(c);
-    return { ...p, categories: n };
+    return { ...p, categories: n, allCategories: false };
   });
   // Fusion API + mocks, triés par date de décision desc — l'ordre
   // d'affichage de l'historique reste cohérent.
@@ -349,7 +359,7 @@ function ProspectProvider({ children }) {
   return (
     <ProspectCtx.Provider value={{
       profile, deleted, removed, updateField, updateFields, suppressTemp, restore, deletePermanent, addField,
-      setAllCampaignTypes, toggleCampaignType, toggleCategory,
+      setAllCampaignTypes, toggleCampaignType, setAllCategories, toggleCategory,
       pendingRelations, historyRelations: mergedHistory,
       acceptedRelations: accepted, refusedRelations: refused,
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
@@ -4849,6 +4859,7 @@ function ScoreChart({ points, loading, range }) {
 function Prefs() {
   const ctx = useProspect();
   const cats = ctx?.profile?.categories || new Set();
+  const allCats_ = ctx?.profile?.allCategories;
   const allTypes = ctx?.profile?.allCampaignTypes;
   const selectedTypes = ctx?.profile?.campaignTypes || new Set();
   const [radius, setRadius] = useState(25);
@@ -4901,21 +4912,46 @@ function Prefs() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Catégories autorisées</div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 18 }}>Seuls les professionnels de ces secteurs pourront vous adresser une demande.</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-          {allCats.map(c => (
+        <div className="row between" style={{ marginBottom: 12, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Catégories autorisées</div>
+            <div className="muted" style={{ fontSize: 13 }}>Seuls les professionnels de ces secteurs pourront vous adresser une demande.</div>
+          </div>
+          <button
+            onClick={() => ctx?.setAllCategories(!allCats_)}
+            className="row center gap-2"
+            style={{
+              padding: '10px 16px', borderRadius: 999, fontSize: 13, fontWeight: 500,
+              background: allCats_ ? 'var(--accent)' : 'var(--paper)',
+              color: allCats_ ? 'white' : 'var(--ink)',
+              border: '1.5px solid ' + (allCats_ ? 'var(--accent)' : 'var(--line-2)'),
+              boxShadow: allCats_ ? '0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent)' : 'none',
+              cursor: 'pointer', transition: 'all .15s'
+            }}>
+            <Icon name="check" size={13} stroke={2}/> Toutes catégories
+          </button>
+        </div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          {allCats.map(c => {
+            // Un chip est "actif" soit parce que le mode "Toutes catégories"
+            // est sur ON, soit parce que l'utilisateur l'a coché individuel-
+            // lement. Cliquer un chip dans le mode "Toutes" désactive ce
+            // mode et conserve uniquement les chips déjà présents dans le
+            // Set côté state — moins le toggle qui vient d'être cliqué.
+            const active = allCats_ || cats.has(c);
+            return (
             <button key={c} onClick={() => ctx?.toggleCategory(c)} style={{
               padding: '8px 14px', borderRadius: 999, fontSize: 13,
-              background: cats.has(c) ? 'var(--ink)' : 'var(--paper)',
-              color: cats.has(c) ? 'var(--paper)' : 'var(--ink-3)',
-              border: '1px solid ' + (cats.has(c) ? 'var(--ink)' : 'var(--line-2)'),
+              background: active ? 'var(--ink)' : 'var(--paper)',
+              color: active ? 'var(--paper)' : 'var(--ink-3)',
+              border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line-2)'),
               transition: 'all .15s', cursor: 'pointer'
             }}>
-              {cats.has(c) && <span style={{ marginRight: 6 }}>✓</span>}
+              {active && <span style={{ marginRight: 6 }}>✓</span>}
               {c}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
