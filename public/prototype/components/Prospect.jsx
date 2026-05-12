@@ -5028,7 +5028,7 @@ function Prefs() {
             disabled={zoneLocked}
             onChange={e => setRadius(+e.target.value)}
             style={{ width: '100%', accentColor: 'var(--accent)', opacity: zoneLocked ? 0.4 : 1, cursor: zoneLocked ? 'not-allowed' : 'pointer' }}/>
-          <MapThumb radius={radius}/>
+          <RealMapThumb ville={ville} codePostal={codePostal} radius={radius} fallback={<MapThumb radius={radius}/>}/>
           {zoneLocked && (
             /* Verrou — bannière + overlay semi-transparent qui couvre la
                carte sans masquer l'info principale. Le clic sur le bouton
@@ -5179,6 +5179,90 @@ function EmailTrackingConsentCard() {
       {error && (
         <div style={{ marginTop: 14, fontSize: 12, color: '#dc2626' }}>{error}</div>
       )}
+    </div>
+  );
+}
+
+/* Carte OpenStreetMap réelle (embed iframe) centrée sur la ville du
+   prospect, avec un marker et un bbox calculé depuis le rayon. Le
+   géocodage utilise `api-adresse.data.gouv.fr` (BAN, gouvernement
+   français — aucune clé API requise, déjà utilisée dans le projet
+   pour l'autocomplete code postal côté donnees).
+
+   Stratégie de chargement :
+   1. Au mount/change ville+CP : fetch BAN → coords lat/lng.
+   2. Pendant le fetch ou en cas d'échec : on retombe sur `fallback`
+      (la MapThumb stylisée d'origine — pas de plage blanche).
+   3. Le radius re-déclenche un re-render du iframe via un calcul de
+      bbox (latDelta = rayon/111 km, lngDelta corrigé par cos(lat)).
+      Pour éviter le clignotement à chaque tick du slider, on
+      `useDeferredValue`-ise le radius manuellement (debounce 350 ms).
+   La iframe OSM est gratuite mais rate-limitée — pour un usage léger
+   (un user qui consulte sa carte) c'est largement suffisant. */
+function RealMapThumb({ ville, codePostal, radius, fallback }) {
+  const [coords, setCoords] = useState(null); // { lat, lng } | null
+  const [failed, setFailed] = useState(false);
+  const [appliedRadius, setAppliedRadius] = useState(radius);
+
+  // Debounce radius : évite de recharger l'iframe à chaque tick du
+  // slider. 350 ms = même délai qu'on utilise pour la persistance API.
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedRadius(radius), 350);
+    return () => clearTimeout(t);
+  }, [radius]);
+
+  // Géocodage : déclenché par tout changement de ville ou CP.
+  useEffect(() => {
+    if (!ville) { setCoords(null); setFailed(false); return; }
+    let cancelled = false;
+    setFailed(false);
+    const q = encodeURIComponent(ville);
+    const cp = codePostal ? `&postcode=${encodeURIComponent(codePostal)}` : '';
+    fetch(`https://api-adresse.data.gouv.fr/search/?q=${q}${cp}&limit=1`, { cache: 'force-cache' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled) return;
+        const c = j?.features?.[0]?.geometry?.coordinates;
+        if (Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
+          setCoords({ lng: c[0], lat: c[1] });
+        } else {
+          setFailed(true);
+        }
+      })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [ville, codePostal]);
+
+  // Pas (encore) de coords → on rend le fallback (MapThumb stylisée).
+  // Évite le flash plage blanche et garde une carte décorative cohérente.
+  if (!coords || failed) return fallback || null;
+
+  // Bbox carré centré sur le marker, demi-côté = rayon en km.
+  // 1° lat ≈ 111 km partout ; 1° lng ≈ 111 * cos(lat) km (Mercator).
+  const latDelta = appliedRadius / 111;
+  const lngDelta = appliedRadius / (111 * Math.max(0.1, Math.cos((coords.lat * Math.PI) / 180)));
+  const minLat = coords.lat - latDelta;
+  const maxLat = coords.lat + latDelta;
+  const minLng = coords.lng - lngDelta;
+  const maxLng = coords.lng + lngDelta;
+  const src =
+    `https://www.openstreetmap.org/export/embed.html` +
+    `?bbox=${minLng},${minLat},${maxLng},${maxLat}` +
+    `&layer=mapnik` +
+    `&marker=${coords.lat},${coords.lng}`;
+
+  return (
+    <div style={{
+      height: 220, position: 'relative', marginTop: 18, borderRadius: 10,
+      overflow: 'hidden', border: '1px solid var(--line-2)', background: 'var(--ivory-2)',
+    }}>
+      <iframe
+        key={src /* force unmount/remount sur changement de bbox pour reset des contrôles OSM */}
+        title={`Carte de ${ville}`}
+        src={src}
+        loading="lazy"
+        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+      />
     </div>
   );
 }
