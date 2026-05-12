@@ -55,10 +55,13 @@ export async function POST(req: Request) {
   const denied = await requireAdminRequest(req);
   if (denied) return denied;
 
-  const { userId: adminUserId } = await auth();
-  if (!adminUserId) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // `requireAdminRequest` accepte deux modes : session Clerk admin OU
+  // header `x-admin-secret`. Dans le 2e cas (M2M : cron, script CLI,
+  // test via curl) il n'y a pas de session Clerk → on retombe sur un
+  // identifiant sentinelle pour `created_by_admin_id`, ce qui rend la
+  // row traçable comme broadcast machine sans planter l'insert.
+  const { userId: clerkAdminId } = await auth();
+  const adminUserId = clerkAdminId ?? "system:admin-secret";
 
   let form: FormData;
   try {
