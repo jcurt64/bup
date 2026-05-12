@@ -12,6 +12,10 @@
  * français — pas besoin d'embarquer une TTF.
  */
 import PDFDocument from "pdfkit";
+import {
+  DGFIP_THRESHOLD_EUR,
+  DGFIP_THRESHOLD_TRANSACTIONS,
+} from "./data";
 
 export type ProspectFiscalIdentity = {
   prenom: string | null;
@@ -245,7 +249,7 @@ export async function buildAnnualRecapPdf(
     { width: doc.page.width - 56 * 2 },
   );
   doc.text(
-    "• Au-delà de 3 000 € OU 20 transactions sur l'année, BUUPP transmet automatiquement votre récapitulatif à la DGFiP au plus tard le 31 janvier de l'année suivante (article 242 bis du CGI).",
+    `• Au-delà de ${DGFIP_THRESHOLD_EUR.toLocaleString("fr-FR")} € OU ${DGFIP_THRESHOLD_TRANSACTIONS} transactions sur l'année (seuils DAC7), BUUPP transmet automatiquement votre récapitulatif à la DGFiP au plus tard le 31 janvier de l'année suivante (article 242 bis du CGI).`,
     { width: doc.page.width - 56 * 2 },
   );
 
@@ -296,7 +300,7 @@ export async function buildDgfipReceiptPdf(
     doc.text(`Date de transmission : ${formatDate(options.transmittedAt)}`, { width: doc.page.width - 56 * 2 });
   } else if (!options.reportedToDgfip) {
     doc.text(
-      "Les seuils déclaratifs (3 000 € ou 20 transactions) n'ont pas été dépassés sur l'exercice. Aucune transmission DGFiP n'a été effectuée.",
+      `Les seuils déclaratifs DAC7 (${DGFIP_THRESHOLD_EUR.toLocaleString("fr-FR")} € ou ${DGFIP_THRESHOLD_TRANSACTIONS} transactions) n'ont pas été dépassés sur l'exercice. Aucune transmission DGFiP n'a été effectuée.`,
       { width: doc.page.width - 56 * 2 },
     );
   }

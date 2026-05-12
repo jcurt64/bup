@@ -1,12 +1,19 @@
 /**
  * Helpers fiscaux partagés entre /api/prospect/fiscal et les routes
  * /api/prospect/fiscal/[year]/{recap,dgfip-receipt}.
+ *
+ * Seuils DAC7 (directive UE transposée art. 242 bis du CGI) — source
+ * unique de vérité pour toute la stack (API + UI + PDF). La règle
+ * officielle (cf. impots.gouv.fr) est inversée par rapport à l'intuition :
+ *   - DÉROGATION (pas de déclaration) : montant ≤ 2 000 € ET nb tx < 30
+ *   - DÉCLARATION obligatoire        : montant > 2 000 € OU nb tx ≥ 30
+ * D'où le `>` strict sur l'euro (et non `>=`) côté logique `reportedToDgfip`.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
-export const DGFIP_THRESHOLD_EUR = 3000;
-export const DGFIP_THRESHOLD_TRANSACTIONS = 20;
+export const DGFIP_THRESHOLD_EUR = 2000;
+export const DGFIP_THRESHOLD_TRANSACTIONS = 30;
 
 export function yearBoundsIso(year: number): { startIso: string; endIso: string } {
   const startIso = new Date(Date.UTC(year, 0, 1, 0, 0, 0)).toISOString();
@@ -54,7 +61,7 @@ export async function loadFiscalYear(
   );
   const transactionCount = count ?? 0;
   const reportedToDgfip =
-    totalCents >= DGFIP_THRESHOLD_EUR * 100 ||
+    totalCents > DGFIP_THRESHOLD_EUR * 100 ||
     transactionCount >= DGFIP_THRESHOLD_TRANSACTIONS;
 
   return { year, totalCents, transactionCount, reportedToDgfip };

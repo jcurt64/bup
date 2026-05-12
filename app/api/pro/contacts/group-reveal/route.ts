@@ -7,9 +7,14 @@
  * accès dans pro_contact_reveals (field='email'). Utilisé par le
  * bouton "Message groupé" de l'onglet Mes contacts.
  *
- * 200 → { items: [{ relationId, email | null }] }
+ * 200 → { items: [{ relationId, email | null }], proEmail }
  *       email = null si la relation n'appartient pas au pro / n'est
  *       pas en bon statut / l'email n'est pas partagé. Le client filtre.
+ *       proEmail = email primaire Clerk du pro authentifié — utilisé
+ *       par le client pour pré-remplir le champ `to:` du mailto (les
+ *       prospects sont en BCC). Évite un `to:` vide qui peut être rejeté
+ *       par certains serveurs SMTP et garantit la même UX sur tous les
+ *       clients mail.
  * 400 → body invalide ou vide
  * 401 → non authentifié
  */
@@ -114,5 +119,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, proEmail: email });
 }

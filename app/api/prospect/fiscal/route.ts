@@ -11,9 +11,9 @@
  *   - type ∈ {'credit', 'referral_bonus'}
  *   - status = 'completed'
  *
- * Seuils fiscaux (constantes produit) :
- *   - thresholdEur          : 3 000 € — déclaration DGFiP des plateformes
- *   - thresholdTransactions : 20      — seuil de cumul transactionnel DGFiP
+ * Seuils fiscaux DAC7 (cf. lib/fiscal/data.ts — source unique) :
+ *   - thresholdEur          : 2 000 € — montant déclencheur DGFiP (strict >)
+ *   - thresholdTransactions : 30      — nb transactions déclencheur (≥)
  */
 
 import { NextResponse } from "next/server";
@@ -21,17 +21,13 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import {
+  DGFIP_THRESHOLD_EUR,
+  DGFIP_THRESHOLD_TRANSACTIONS,
+  yearBoundsIso,
+} from "@/lib/fiscal/data";
 
 export const runtime = "nodejs";
-
-const DGFIP_THRESHOLD_EUR = 3000;
-const DGFIP_THRESHOLD_TRANSACTIONS = 20;
-
-function yearBoundsIso(year: number): { startIso: string; endIso: string } {
-  const startIso = new Date(Date.UTC(year, 0, 1, 0, 0, 0)).toISOString();
-  const endIso = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0)).toISOString();
-  return { startIso, endIso };
-}
 
 const sumAmounts = (rows: { amount_cents: number | null }[] | null) =>
   (rows ?? []).reduce((acc, r) => acc + Number(r.amount_cents ?? 0), 0);
@@ -119,10 +115,10 @@ export async function GET() {
   const previousEur = Math.round(prevCents) / 100;
 
   // La transmission à la DGFiP n'a lieu que si le prospect a dépassé l'un
-  // des deux seuils (montant OU nombre de transactions). Sinon on n'a rien
-  // transmis et on l'affiche côté UI.
+  // des deux seuils DAC7 (montant > 2 000 € strict OU ≥ 30 transactions).
+  // Sinon : dérogation, rien transmis, on l'affiche côté UI.
   const previousReported =
-    previousEur >= DGFIP_THRESHOLD_EUR ||
+    previousEur > DGFIP_THRESHOLD_EUR ||
     (prevCount.count ?? 0) >= DGFIP_THRESHOLD_TRANSACTIONS;
 
   return NextResponse.json({
@@ -134,7 +130,7 @@ export async function GET() {
       totalEur: currentEur,
       transactionCount: curCount.count ?? 0,
       thresholdReached:
-        currentEur >= DGFIP_THRESHOLD_EUR ||
+        currentEur > DGFIP_THRESHOLD_EUR ||
         (curCount.count ?? 0) >= DGFIP_THRESHOLD_TRANSACTIONS,
     },
     previousYear: {

@@ -1143,7 +1143,20 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Set des IDs de messages actuellement dépliés. Par défaut tous repliés
+  // (date + titre + chevron). Permet à l'utilisateur d'avoir plusieurs
+  // messages ouverts simultanément s'il le souhaite.
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
   const itemRefs = React.useRef({});
+
+  const toggleExpanded = React.useCallback((id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -1161,11 +1174,18 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Si la cloche nous a passé un id à highlighter : scroll + auto-mark-read.
+  // Si la cloche nous a passé un id à highlighter : auto-déplie le message,
+  // scroll dessus, et marque comme lu si non lu.
   useEffect(() => {
     if (!highlightId || items.length === 0) return;
     const target = items.find(i => i.id === highlightId);
     if (!target) return;
+    setExpandedIds((prev) => {
+      if (prev.has(highlightId)) return prev;
+      const next = new Set(prev);
+      next.add(highlightId);
+      return next;
+    });
     // Scroll doux jusqu'à la carte, avec un léger délai pour laisser
     // le navigateur layouter après le switch d'onglet.
     requestAnimationFrame(() => {
@@ -1236,36 +1256,63 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
 
       {!loading && !error && items.length > 0 && (
         <div className="messages-list">
-          {items.map(item => (
-            <article
-              key={item.id}
-              ref={el => { itemRefs.current[item.id] = el; }}
-              className={'message-card' + (item.unread ? ' is-unread' : '')}
-              onClick={() => item.unread && markRead(item.id)}
-            >
-              <header className="message-card-head">
-                <span className="message-card-dot" aria-hidden/>
-                <div className="message-card-meta">
-                  <span className="message-card-date">{formatAbsoluteFr(item.createdAt)}</span>
-                  {item.unread && <span className="message-card-badge">Non lu</span>}
-                </div>
-              </header>
-              <h3 className="message-card-title">{item.title}</h3>
-              <div className="message-card-body">{item.body}</div>
-              {item.hasAttachment && (
-                <a
-                  href={`/api/me/notifications/${encodeURIComponent(item.id)}/attachment`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="message-card-attachment"
-                  onClick={(e) => e.stopPropagation()}
+          {items.map(item => {
+            const isExpanded = expandedIds.has(item.id);
+            const bodyId = `message-body-${item.id}`;
+            return (
+              <article
+                key={item.id}
+                ref={el => { itemRefs.current[item.id] = el; }}
+                className={
+                  'message-card' +
+                  (item.unread ? ' is-unread' : '') +
+                  (isExpanded ? ' is-expanded' : '')
+                }
+              >
+                {/* Header cliquable : déplie/replie le message. Marque
+                    aussi comme lu si non lu et qu'on l'ouvre. */}
+                <button
+                  type="button"
+                  className="message-card-toggle"
+                  aria-expanded={isExpanded}
+                  aria-controls={bodyId}
+                  onClick={() => {
+                    toggleExpanded(item.id);
+                    if (item.unread && !isExpanded) markRead(item.id);
+                  }}
                 >
-                  <Icon name="download" size={14}/>
-                  <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
-                </a>
-              )}
-            </article>
-          ))}
+                  <span className="message-card-dot" aria-hidden/>
+                  <div className="message-card-summary">
+                    <div className="message-card-meta">
+                      <span className="message-card-date">{formatAbsoluteFr(item.createdAt)}</span>
+                      {item.unread && <span className="message-card-badge">Non lu</span>}
+                    </div>
+                    <h3 className="message-card-title">{item.title}</h3>
+                  </div>
+                  <span className="message-card-chevron" aria-hidden>
+                    <Icon name="chevronDown" size={18} stroke={2}/>
+                  </span>
+                </button>
+
+                {isExpanded && (
+                  <div id={bodyId} className="message-card-content">
+                    <div className="message-card-body">{item.body}</div>
+                    {item.hasAttachment && (
+                      <a
+                        href={`/api/me/notifications/${encodeURIComponent(item.id)}/attachment`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="message-card-attachment"
+                      >
+                        <Icon name="download" size={14}/>
+                        <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
@@ -5581,8 +5628,9 @@ function Fiscal() {
     return [intFormatted, decPart];
   };
 
-  const thresholdEur = fiscal?.thresholdEur ?? 3000;
-  const thresholdTx = fiscal?.thresholdTransactions ?? 20;
+  // Fallbacks alignés sur les constantes DAC7 (cf. lib/fiscal/data.ts).
+  const thresholdEur = fiscal?.thresholdEur ?? 2000;
+  const thresholdTx = fiscal?.thresholdTransactions ?? 30;
   const cur = fiscal?.currentYear ?? null;
   const prev = fiscal?.previousYear ?? null;
 

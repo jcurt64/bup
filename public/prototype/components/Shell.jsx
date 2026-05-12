@@ -28,6 +28,7 @@ const Icon = ({ name, size = 16, stroke = 1.5 }) => {
     arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
     arrowRight: <path d="M4 12h16M14 6l6 6-6 6" />,
     arrowLeft: <path d="M20 12H4M10 6l-6 6 6 6" />,
+    chevronDown: <path d="M6 9l6 6 6-6" />,
     check: <path d="M20 6L9 17l-5-5" />,
     close: <path d="M18 6L6 18M6 6l12 12" />,
     lock: <><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></>,

@@ -87,6 +87,15 @@ export async function PATCH(req: Request) {
   // positif documenté" (cf. lib/cnil/bascule.ts).
   const consentGivenAt = body.consent ? new Date().toISOString() : null;
 
+  // Helper local : Supabase renvoie un PostgrestError dont les
+  // propriétés sont non-énumérables → console.error(..., err) loggue
+  // `{}`. On extrait explicitement les champs utiles pour pouvoir
+  // diagnostiquer (colonne manquante, contrainte violée, etc.).
+  const fmtErr = (e: { message?: string; code?: string; details?: string; hint?: string } | null) =>
+    e
+      ? `code=${e.code ?? "?"} message=${e.message ?? "?"} details=${e.details ?? "?"} hint=${e.hint ?? "?"}`
+      : "(no error)";
+
   if (resolved.role === "prospect") {
     // Upsert palier 1 — au cas où la row n'existerait pas encore. On
     // n'écrase rien d'autre.
@@ -101,7 +110,7 @@ export async function PATCH(req: Request) {
         { onConflict: "prospect_id" },
       );
     if (error) {
-      console.error("[/api/me/email-tracking PATCH] prospect update failed", error);
+      console.error("[/api/me/email-tracking PATCH] prospect update failed →", fmtErr(error));
       return NextResponse.json({ error: "update_failed" }, { status: 500 });
     }
   } else {
@@ -113,7 +122,7 @@ export async function PATCH(req: Request) {
       })
       .eq("id", resolved.ownerId);
     if (error) {
-      console.error("[/api/me/email-tracking PATCH] pro update failed", error);
+      console.error("[/api/me/email-tracking PATCH] pro update failed →", fmtErr(error));
       return NextResponse.json({ error: "update_failed" }, { status: 500 });
     }
   }

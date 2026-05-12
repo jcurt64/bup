@@ -370,25 +370,40 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 .message-card {
   position: relative;
-  padding: 18px 22px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-left: 3px solid transparent;
   border-radius: 12px;
   transition: border-color .15s, box-shadow .15s;
-  cursor: default;
 }
-/* Item non lu : accent bleu + ombre douce + curseur pointer (clic = mark read). */
+/* Item non lu : accent bleu + ombre douce. */
 .message-card.is-unread {
   border-left-color: var(--accent);
   box-shadow: 0 4px 18px -10px color-mix(in oklab, var(--accent) 60%, transparent);
-  cursor: pointer;
 }
-.message-card-head {
+/* Header cliquable (date + titre + chevron). Bouton plein-largeur, reset
+   du style natif, cursor pointer. C'est la zone par défaut quand replié. */
+.message-card-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background .15s;
+}
+.message-card-toggle:hover {
+  background: color-mix(in oklab, var(--ink) 3%, transparent);
+}
+.message-card-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .message-card-dot {
   width: 8px;
@@ -399,6 +414,13 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 .message-card.is-unread .message-card-dot {
   background: #DC2626;
+}
+.message-card-summary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .message-card-meta {
   display: flex;
@@ -428,12 +450,37 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 }
 .message-card-title {
   font-family: var(--serif);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--ink);
   letter-spacing: -0.01em;
-  margin: 0 0 10px;
+  margin: 0;
+}
+.message-card-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--ink-3);
+  background: color-mix(in oklab, var(--ink) 4%, transparent);
+  flex-shrink: 0;
+  transition: transform .2s ease, background .15s, color .15s;
+}
+.message-card.is-expanded .message-card-chevron {
+  transform: rotate(180deg);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+}
+.message-card-content {
+  padding: 0 20px 18px 42px;
+  animation: bupp-msg-reveal .18s ease-out;
+}
+@keyframes bupp-msg-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .message-card-body {
   font-size: 14.5px;
@@ -1148,11 +1195,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     flex-direction: column !important;
     align-items: stretch !important;
   }
-  .message-card {
-    padding: 14px 16px !important;
+  .message-card-toggle {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+  .message-card-content {
+    padding: 0 14px 14px 36px !important;
   }
   .message-card-title {
-    font-size: 17px !important;
+    font-size: 15.5px !important;
+  }
+  .message-card-chevron {
+    width: 28px !important;
+    height: 28px !important;
   }
 
   /* Suggestions panel : le formulaire prend toute la largeur (max-width

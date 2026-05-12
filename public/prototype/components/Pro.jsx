@@ -3269,11 +3269,25 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
               }
               setStep(step + 1);
             }}
+            // Bloque la navigation tant que raison sociale + ville ne sont
+            // pas renseignées — l'alerte rouge en haut explique pourquoi et
+            // pointe vers « Mes informations ».
             disabled={
+              !canLaunch ||
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
               (step === 2 && !datesValid) ||
               (step === 3 && !selectedTiers.size)
-            }>
+            }
+            title={
+              !canLaunch
+                ? 'Renseignez ' + missingCompanyFields.join(' et ') + ' dans Mes informations avant de continuer.'
+                : undefined
+            }
+            style={{
+              opacity: !canLaunch ? 0.55 : undefined,
+              cursor: !canLaunch ? 'not-allowed' : undefined,
+            }}
+          >
             Continuer <Icon name="arrow" size={14}/>
           </button>
         )}
@@ -3636,8 +3650,27 @@ function Contacts({ pendingContact, onPendingConsumed }) {
       if (skipped > 0) {
         alert(`${skipped} prospect${skipped > 1 ? 's' : ''} ignoré${skipped > 1 ? 's' : ''} (email non partagé).`);
       }
+      // Hardening anti-fuite :
+      //  - `to:` = email du pro lui-même → garantit que le mail part même
+      //    sur les clients/serveurs SMTP qui refusent un To: vide.
+      //  - `bcc:` = tous les prospects → chacun reçoit le mail sans voir
+      //    les autres destinataires (protocole SMTP).
+      //  - Body pré-rempli avec un rappel pour dissuader le pro de
+      //    déplacer les destinataires de BCC vers TO/CC.
       const bcc = emails.map(encodeURIComponent).join(',');
-      window.location.href = `mailto:?bcc=${bcc}`;
+      const toAddr = encodeURIComponent(j.proEmail || '');
+      const subject = encodeURIComponent('Message — BUUPP');
+      const body = encodeURIComponent(
+        '\n\n— — — — — — — — — — — — — — — — — — — — — — — — — —\n' +
+        "Envoi groupé via BUUPP — chaque destinataire est en Cci :\n" +
+        "il ne verra pas les emails des autres prospects.\n" +
+        "Ne déplacez pas les adresses dans « À » ou « Cc » avant\n" +
+        "d'envoyer : cela exposerait les emails de tous à tous, ce qui\n" +
+        "constitue une fuite de données personnelles (RGPD).\n" +
+        "Rédigez votre message au-dessus de cette ligne.\n"
+      );
+      window.location.href =
+        `mailto:${toAddr}?bcc=${bcc}&subject=${subject}&body=${body}`;
     } catch {
       alert("Impossible de récupérer les emails. Réessayez.");
     } finally {
