@@ -4879,7 +4879,7 @@ function Prefs() {
             <div className="muted" style={{ fontSize: 13 }}>Choisissez pour quels types de campagne vous acceptez d'être sollicité.</div>
           </div>
           <button
-            onClick={() => ctx?.setAllCampaignTypes(true)}
+            onClick={() => ctx?.setAllCampaignTypes(!allTypes)}
             className="row center gap-2"
             style={{
               padding: '10px 16px', borderRadius: 999, fontSize: 13, fontWeight: 500,
