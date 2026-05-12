@@ -5419,6 +5419,10 @@ function Parrainage() {
   const cap = data?.cap ?? 10;
   const filleuls = data?.filleuls || [];
   const count = data?.count ?? filleuls.length;
+  const vipThreshold = data?.vipThreshold ?? 10;
+  const vipBudgetMinEur = data?.vipBudgetMinEur ?? 300;
+  const vipFlatBonusEur = data?.vipFlatBonusEur ?? 5;
+  const vipEligible = data?.vipEligible === true;
   const link = 'buupp.fr/ref/' + refCode;
 
   const formatDate = (iso) => {
@@ -5430,7 +5434,35 @@ function Parrainage() {
 
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Parrainage" title="Recommandez, gagnez en cascade" desc={`10% sur vos filleuls directs, 3% sur le niveau 2, 1% sur le niveau 3. Limite : ${cap} filleuls par parrain sur la liste d'attente.`}/>
+      <SectionTitle
+        eyebrow="Parrainage = statut Fondateur·ice"
+        title="Recommandez, débloquez le palier VIP"
+        desc={`Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Bonus ×2 sur vos gains pendant 1 mois post-lancement. À ${vipThreshold} filleuls (cap), vous passez VIP : +${vipFlatBonusEur} € exceptionnels par acceptation sur les campagnes dont le budget dépasse ${vipBudgetMinEur} €.`}
+      />
+
+      {vipEligible && !loading && (
+        <div className="card" style={{
+          padding: 18,
+          background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 60%, #FCD34D 100%)',
+          border: '1px solid #F59E0B',
+          color: '#78350F',
+          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+        }}>
+          <div style={{
+            fontSize: 28, lineHeight: 1, flexShrink: 0,
+          }} aria-hidden="true">🏆</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 4 }}>
+              Palier VIP atteint
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.55 }}>
+              Bravo — vous avez {count} filleuls. Sur les campagnes &gt; {vipBudgetMinEur} €,
+              chaque acceptation vous rapporte <strong>+{vipFlatBonusEur} € exceptionnels</strong>
+              {' '}(à la place du ×2 standard), pendant le 1er mois post-lancement.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 28, background: 'var(--ink)', color: 'var(--paper)' }}>
         <div className="row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
@@ -5463,20 +5495,25 @@ function Parrainage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="parrainage-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
           ['Filleuls actifs', loading ? '…' : String(count), `/ ${cap} max`],
           ['Places restantes', loading ? '…' : String(Math.max(0, cap - count)), 'avant plafond'],
-          ['Gains parrainage', '0,00 €', 'liste d\'attente'],
-          ['Statut', count >= cap ? 'Plein' : (count > 0 ? 'Actif' : 'En attente'), count >= cap ? 'Plafond atteint' : 'Invitez vos proches'],
+          ['Bonus actuel', loading ? '…' : (vipEligible ? `+${vipFlatBonusEur} €` : '×2'), vipEligible ? `flat (budget > ${vipBudgetMinEur} €)` : '1er mois post-lancement'],
+          ['Statut', vipEligible ? 'VIP' : (count > 0 ? 'Actif' : 'En attente'), vipEligible ? 'Palier débloqué' : (count >= cap ? 'Plafond atteint' : 'Invitez vos proches')],
         ].map(([l, v, s], i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{l}</div>
-            <div className="serif tnum" style={{ fontSize: 30 }}>{v}</div>
+            <div className="serif tnum" style={{ fontSize: 30, color: (i === 3 && vipEligible) || (i === 2 && vipEligible) ? '#B45309' : undefined }}>{v}</div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{s}</div>
           </div>
         ))}
       </div>
+      <style>{`
+        @media (max-width: 720px) {
+          .parrainage-stats { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between center" style={{ marginBottom: 20 }}>

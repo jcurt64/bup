@@ -157,6 +157,7 @@ type DecisionRelationRow = {
   id: string;
   reward_cents: number | string;
   founder_bonus_applied: boolean;
+  founder_vip_bonus_applied: boolean;
   campaigns: { ends_at: string | null; code: string | null } | null;
   pro_accounts: {
     raison_sociale: string | null;
@@ -178,7 +179,7 @@ async function sendDecisionEmail(
   const { data, error } = await admin
     .from("relations")
     .select(
-      `id, reward_cents, motif, founder_bonus_applied,
+      `id, reward_cents, motif, founder_bonus_applied, founder_vip_bonus_applied,
        campaigns ( ends_at, code ),
        pro_accounts ( raison_sociale, secteur ),
        prospects ( prospect_identity ( email, prenom ) )`,
@@ -206,6 +207,7 @@ async function sendDecisionEmail(
       motif: r.motif ?? null,
       rewardEur, campaignEndsAt, authCode,
       founderBonusApplied: r.founder_bonus_applied === true,
+      founderVipBonusApplied: r.founder_vip_bonus_applied === true,
     });
   } else {
     void sendRelationRefused({

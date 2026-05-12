@@ -25,9 +25,10 @@ export type RelationAcceptedParams = {
   proSector: string | null;
   motif: string | null;
   rewardEur: number;
-  campaignEndsAt: string | null; // ISO — date de clôture estimée
-  authCode: string | null;       // 4 derniers caractères du code campagne
-  founderBonusApplied?: boolean; // true si le 2x bonus fondateur a été appliqué
+  campaignEndsAt: string | null;     // ISO — date de clôture estimée
+  authCode: string | null;           // 4 derniers caractères du code campagne
+  founderBonusApplied?: boolean;     // ×2 standard appliqué
+  founderVipBonusApplied?: boolean;  // +5,00 € flat appliqué (palier VIP, 10 filleul·es, budget > 300 €)
 };
 
 export async function sendRelationAccepted(
@@ -38,7 +39,7 @@ export async function sendRelationAccepted(
 
   const {
     email, prenom, proName, proSector, motif, rewardEur, campaignEndsAt, authCode,
-    founderBonusApplied,
+    founderBonusApplied, founderVipBonusApplied,
   } = params;
 
   const greet = prenom?.trim() || "Bonjour";
@@ -59,10 +60,12 @@ export async function sendRelationAccepted(
       ? `Code d'authentification BUUPP : ${authCode}\nCe code vous sera communiqué par ${proName} lors de la prise de contact afin de confirmer l'authenticité de la sollicitation BUUPP. Une seule sollicitation par prospect est autorisée dans le cadre du service BUUPP.`
       : null,
     "",
-    founderBonusApplied === true
-      ? `🎖️ Bonus fondateur appliqué\nVous touchez ${rewardStr} € au lieu de ${(rewardEur / 2).toFixed(2).replace(".", ",")} € grâce à votre statut de fondateur·ice (+100 % sur le 1er mois post-lancement).`
-      : null,
-    founderBonusApplied === true ? "" : null,
+    founderVipBonusApplied === true
+      ? `🏆 Bonus parrain VIP appliqué\nVous touchez ${rewardStr} € au lieu de ${(rewardEur - 5).toFixed(2).replace(".", ",")} € grâce à votre palier VIP (10 filleul·es atteints) — bonus exceptionnel de +5,00 € par acceptation sur les campagnes > 300 €, pendant le 1er mois post-lancement.`
+      : founderBonusApplied === true
+        ? `🎖️ Bonus fondateur appliqué\nVous touchez ${rewardStr} € au lieu de ${(rewardEur / 2).toFixed(2).replace(".", ",")} € grâce à votre statut de fondateur·ice (+100 % sur le 1er mois post-lancement).`
+        : null,
+    (founderBonusApplied === true || founderVipBonusApplied === true) ? "" : null,
     "Vous pouvez suivre votre solde à tout moment sur :",
     PORTEFEUILLE_URL,
     "",
@@ -150,8 +153,25 @@ export async function sendRelationAccepted(
       : ""
   }
   ${
-    founderBonusApplied === true
+    founderVipBonusApplied === true
       ? `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;">
+    <tr>
+      <td style="padding:14px 16px;background:linear-gradient(135deg,#FEF3C7 0%,#FDE68A 60%,#FCD34D 100%);background-color:#FEF3C7;border:1px solid #F59E0B;border-left:4px solid #B45309;border-radius:10px;">
+        <div style="font-size:11px;color:#78350F;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;font-weight:700;">🏆 Bonus parrain VIP appliqué</div>
+        <div style="font-size:14px;line-height:1.6;color:#0F1629;">
+          Vous touchez <strong>${rewardStr} €</strong> au lieu de
+          ${(rewardEur - 5).toFixed(2).replace(".", ",")} €
+          grâce à votre <strong>palier VIP</strong> (10 filleul·es atteints) :
+          <span style="color:#78350F;font-weight:700;">+5,00 € exceptionnels</span>
+          par acceptation, pendant le 1er mois post-lancement, sur les
+          campagnes &gt; 300 €.
+        </div>
+      </td>
+    </tr>
+  </table>`
+      : founderBonusApplied === true
+        ? `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;">
     <tr>
       <td style="padding:14px 16px;background:#FFFBEB;border:1px solid #F5D97E;border-left:4px solid #D97706;border-radius:10px;">
@@ -165,7 +185,7 @@ export async function sendRelationAccepted(
       </td>
     </tr>
   </table>`
-      : ""
+        : ""
   }
   <p style="margin:0 0 14px;text-align:center;">
     <a href="${PORTEFEUILLE_URL}" target="_blank" rel="noopener noreferrer"

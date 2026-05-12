@@ -858,6 +858,7 @@ export type Database = {
           escrow_release_at: string | null
           expires_at: string
           founder_bonus_applied: boolean
+          founder_vip_bonus_applied: boolean
           id: string
           motif: string
           pro_account_id: string
@@ -873,6 +874,7 @@ export type Database = {
           escrow_release_at?: string | null
           expires_at: string
           founder_bonus_applied?: boolean
+          founder_vip_bonus_applied?: boolean
           id?: string
           motif: string
           pro_account_id: string
@@ -888,6 +890,7 @@ export type Database = {
           escrow_release_at?: string | null
           expires_at?: string
           founder_bonus_applied?: boolean
+          founder_vip_bonus_applied?: boolean
           id?: string
           motif?: string
           pro_account_id?: string
@@ -1064,6 +1067,10 @@ export type Database = {
         Returns: Json
       }
       clerk_user_id: { Args: never; Returns: string }
+      count_founder_filleuls: {
+        Args: { p_prospect_id: string }
+        Returns: number
+      }
       is_within_founder_bonus_window: {
         Args: never
         Returns: boolean

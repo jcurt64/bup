@@ -218,22 +218,41 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="Bonus Fondateur — Conséquence pour le Professionnel">
+        <Section title="Bonus Parrain / Fondateur·ice — Conséquence pour le Professionnel">
           <p>
-            Pendant le 1er mois suivant le lancement officiel de BUUPP, chaque
-            acceptation d&apos;une sollicitation par un prospect fondateur·ice
-            donne lieu à un débit de <strong>2× le tarif palier choisi</strong>
-            {" "}sur le solde du Professionnel. Lors de la création d&apos;une
-            campagne, le Professionnel peut désactiver cette mécanique pour la
-            campagne concernée — ses sollicitations resteront alors visibles
-            aux fondateur·ices, mais ces dernier·ères gagneront le tarif
-            standard.
+            Les termes <strong>«&nbsp;parrain·e&nbsp;»</strong> et{" "}
+            <strong>«&nbsp;fondateur·ice&nbsp;»</strong> désignent, dans les
+            présentes, une seule et même qualité (cf. Programme Parrain —
+            Fondateur·ice des CGU).
           </p>
           <p>
-            Le Professionnel reconnaît être dûment informé de ce surcoût avant
-            validation de la campagne. Le récapitulatif présenté à l&apos;étape
-            de validation indique explicitement le coût maximal projeté avec et
-            sans le bonus.
+            Pendant le 1er mois suivant le lancement officiel de BUUPP, chaque
+            acceptation d&apos;une sollicitation par un prospect parrain·e /
+            fondateur·ice donne lieu à un débit de{" "}
+            <strong>2× le tarif palier choisi</strong> sur le solde du
+            Professionnel. Lors de la création d&apos;une campagne, le
+            Professionnel peut désactiver cette mécanique pour la campagne
+            concernée — ses sollicitations resteront alors visibles aux
+            parrain·es / fondateur·ices, mais ces dernier·ères gagneront le
+            tarif standard.
+          </p>
+          <p>
+            <strong>Palier VIP (10 filleul·es) — surcoût forfaitaire.</strong>{" "}
+            Lorsqu&apos;un parrain·e ayant atteint le plafond de 10&nbsp;filleul·es
+            accepte une sollicitation, le bonus standard ×2 est remplacé par un{" "}
+            <strong>débit forfaitaire de +5,00&nbsp;€</strong> par acceptation
+            (en sus du tarif palier). Ce surcoût n&apos;est appliqué que sur
+            les campagnes dont le <strong>budget total dépasse
+            300,00&nbsp;€</strong>&nbsp;; en deçà, c&apos;est le doublement
+            standard qui s&apos;applique. Cette mécanique n&apos;est active que
+            pendant le 1er mois suivant le lancement officiel.
+          </p>
+          <p>
+            Le Professionnel reconnaît être dûment informé de ces surcoûts
+            avant validation de la campagne. Le récapitulatif présenté à
+            l&apos;étape de validation indique explicitement le coût maximal
+            projeté avec et sans bonus, ainsi qu&apos;un avertissement dédié
+            lorsque le budget dépasse 300&nbsp;€ (déclencheur du palier VIP).
           </p>
         </Section>
 

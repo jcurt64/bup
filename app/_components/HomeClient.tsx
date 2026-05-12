@@ -823,6 +823,7 @@ type Deal = {
   multiplier: number;
   costPerContactCents: number;
   founderBonusApplied: boolean;
+  founderVipBonusApplied: boolean;
   requiredTiers: number[];
   requiredTierKeys: string[];
   proName: string | null;
@@ -932,6 +933,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 3,
       costPerContactCents: 1200,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2],
       requiredTierKeys: ["identity", "localisation"],
       proName: "Plomberie Saint-Antoine",
@@ -950,6 +952,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 4,
       costPerContactCents: 850,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 5],
       requiredTierKeys: ["identity", "localisation", "patrimoine"],
       proName: "Cap Conseil",
@@ -968,6 +971,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 2,
       costPerContactCents: 680,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 3],
       requiredTierKeys: ["identity", "localisation", "vie"],
       proName: "Atelier des Volets Bleus",
@@ -986,6 +990,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 3,
       costPerContactCents: 1020,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 5],
       requiredTierKeys: ["identity", "localisation", "patrimoine"],
       proName: "Solaria",
@@ -1004,6 +1009,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 3,
       costPerContactCents: 940,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 4],
       requiredTierKeys: ["identity", "localisation", "professionnel"],
       proName: "Aquitania Mutuelle",
@@ -1022,6 +1028,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 2,
       costPerContactCents: 720,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 3],
       requiredTierKeys: ["identity", "localisation", "vie"],
       proName: "AutoPlus Béarn",
@@ -1040,6 +1047,7 @@ function buildMockDeals(now: number): Deal[] {
       multiplier: 4,
       costPerContactCents: 580,
       founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers: [1, 2, 3],
       requiredTierKeys: ["identity", "localisation", "vie"],
       proName: "Coach Attitude",
@@ -1572,7 +1580,27 @@ function FlashDealModal({
           >
             {rewardEur} €
           </div>
-          {deal.founderBonusApplied && (
+          {deal.founderVipBonusApplied ? (
+            <div
+              className="mono caps"
+              style={{
+                marginTop: 6,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "3px 10px",
+                borderRadius: 999,
+                background: "linear-gradient(135deg,#FEF3C7,#FCD34D)",
+                color: "#78350F",
+                border: "1px solid #B45309",
+                fontSize: 11,
+                letterSpacing: ".06em",
+                fontWeight: 700,
+              }}
+            >
+              🏆 Bonus parrain VIP +5 €
+            </div>
+          ) : deal.founderBonusApplied ? (
             <div
               className="mono caps"
               style={{
@@ -1591,7 +1619,7 @@ function FlashDealModal({
             >
               🎖️ Bonus fondateur ×2
             </div>
-          )}
+          ) : null}
           <div style={{ fontSize: 12, color: "#A8AFC0", marginTop: 4 }}>
             Gains multipliés{" "}
             <strong style={{ color: "#FFFEF8" }}>{multStr}</strong> — fenêtre

@@ -2628,14 +2628,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                     Activer le bonus fondateur (+100% le 1er mois)
                   </div>
                   <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-                    Les fondateurs sont des <strong>prospects de confiance</strong>,
-                    inscrits avant le lancement officiel : ils sont engagés,
-                    qualitatifs, et seront les premiers à <strong>promouvoir
-                    leur expérience</strong> de votre sollicitation auprès de leur
-                    entourage. Activez le bonus pour récompenser une acceptation
-                    par un fondateur à <strong>2× le tarif palier choisi</strong>{' '}
-                    pendant le 1<sup>er</sup> mois post-lancement. Désactivé,
-                    vos campagnes leur restent visibles au tarif standard.
+                    Les fondateurs (aussi appelés <strong>parrains</strong>) sont des
+                    <strong> prospects de confiance</strong>, inscrits avant le lancement
+                    officiel : engagés, qualitatifs, et premiers à <strong>promouvoir
+                    leur expérience</strong> de votre sollicitation. Activez le bonus
+                    pour les rémunérer à <strong>2× le tarif palier</strong> pendant le
+                    1<sup>er</sup> mois post-lancement. Désactivé, vos campagnes leur
+                    restent visibles au tarif standard.{' '}
+                    <strong>Palier VIP :</strong> un parrain ayant atteint 10 filleuls
+                    bascule sur un bonus forfaitaire de <strong>+5,00 €</strong> par
+                    acceptation (à la place du ×2) — uniquement si votre budget total
+                    dépasse <strong>300 €</strong>. Détail au récap.
                   </div>
                 </div>
                 <button
@@ -3050,6 +3053,33 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 </div>
               )}
             </div>
+
+            {/* Encart palier VIP : déclenché si budget > 300 € ET bonus fondateur ON.
+                Prévient le pro qu'un parrain ayant atteint le plafond de 10 filleuls
+                touche +5 € flat à la place du ×2 — débit pris sur son budget. */}
+            {founderBonusEnabled && total > 300 && (
+              <div style={{
+                marginTop: 10, padding: 14, borderRadius: 10,
+                background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+                border: '1px solid #F59E0B',
+                color: '#78350F',
+              }}>
+                <div className="mono caps" style={{
+                  fontSize: 10, color: '#92400E', marginBottom: 6,
+                  letterSpacing: '.12em', fontWeight: 700,
+                }}>
+                  🏆 Palier parrain VIP — surcoût éventuel
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+                  Votre budget dépasse <strong>300 €</strong> : si un parrain ayant atteint
+                  le plafond de <strong>10 filleuls</strong> accepte votre campagne, il
+                  bascule sur un bonus exceptionnel de <strong>+5,00 € forfaitaires</strong>{' '}
+                  (à la place du ×2 standard). Chaque acceptation de ce type vous coûtera
+                  donc <strong>{fmtEur(cpc + 5)}</strong> au lieu de {fmtEur(cpc * 2)} —
+                  uniquement pendant le 1er mois suivant le lancement officiel.
+                </div>
+              </div>
+            )}
 
             <label
               htmlFor="terms-accept"

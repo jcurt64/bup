@@ -17,6 +17,11 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
+import {
+  VIP_FILLEUL_THRESHOLD,
+  VIP_BUDGET_MIN_CENTS,
+  VIP_FLAT_BONUS_CENTS,
+} from "@/lib/founders";
 
 export const runtime = "nodejs";
 
@@ -62,11 +67,21 @@ export async function GET() {
 
   const list = filleuls ?? [];
 
+  // Palier VIP : seuil à 10 filleuls (= cap). Le bonus exceptionnel
+  // +5,00 € s'applique en lieu et place du ×2 fondateur, uniquement
+  // sur les campagnes dont le budget total dépasse 300,00 €.
+  // Le UI dashboard utilise ces 4 champs pour expliquer la mécanique.
+  const vipEligible = list.length >= VIP_FILLEUL_THRESHOLD;
+
   return NextResponse.json({
     refCode,
     cap: REFERRER_CAP,
     count: list.length,
     remaining: Math.max(0, REFERRER_CAP - list.length),
+    vipEligible,
+    vipThreshold: VIP_FILLEUL_THRESHOLD,
+    vipBudgetMinEur: VIP_BUDGET_MIN_CENTS / 100,
+    vipFlatBonusEur: VIP_FLAT_BONUS_CENTS / 100,
     filleuls: list.map((f) => ({
       prenom: f.prenom,
       nom: f.nom,

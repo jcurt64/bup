@@ -16,7 +16,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
-import { getFounderContext } from "@/lib/founders";
+import {
+  getFounderContext,
+  VIP_BUDGET_MIN_CENTS,
+  VIP_FLAT_BONUS_CENTS,
+} from "@/lib/founders";
 
 export const runtime = "nodejs";
 
@@ -52,9 +56,11 @@ export async function GET() {
   // pas encore appliquée (RPC absente) ou en cas de hoquet réseau —
   // on dégrade silencieusement vers un contexte non-fondateur pour
   // éviter un 500 sur cet endpoint public.
-  let founder: { isFounder: boolean; isWithinBonusWindow: boolean } = {
+  let founder = {
     isFounder: false,
     isWithinBonusWindow: false,
+    filleulCount: 0,
+    isVipEligible: false,
   };
   try {
     founder = await getFounderContext(admin, prospect?.id ?? null);
@@ -68,7 +74,7 @@ export async function GET() {
     .from("campaigns")
     .select(
       `id, name, ends_at, brief, cost_per_contact_cents, targeting,
-       founder_bonus_enabled, created_at,
+       founder_bonus_enabled, budget_cents, created_at,
        pro_accounts ( raison_sociale, secteur )`,
     )
     .eq("status", "active")
@@ -97,6 +103,7 @@ export async function GET() {
     brief: string | null;
     cost_per_contact_cents: number;
     founder_bonus_enabled: boolean;
+    budget_cents: number;
     created_at: string;
     targeting: {
       durationKey?: string;
@@ -165,13 +172,24 @@ export async function GET() {
       ? requiredTierKeys.filter((k) => !tierFilled![k])
       : null;
     const baseCostCents = Number(r.cost_per_contact_cents ?? 0);
+    const campaignBudgetCents = Number(r.budget_cents ?? 0);
+    // Bonus fondateur éligible globalement (toggle pro + fenêtre + statut).
     const founderBonusEligible =
       founder.isFounder &&
       founder.isWithinBonusWindow &&
       r.founder_bonus_enabled === true;
-    const displayedCostCents = founderBonusEligible
-      ? baseCostCents * 2
-      : baseCostCents;
+    // Palier VIP : 10 filleuls atteints ET budget campagne > 300 €.
+    // Remplace le ×2 standard par un +5 € flat (cf. RPC accept_relation_tx).
+    const founderVipEligible =
+      founderBonusEligible &&
+      founder.isVipEligible &&
+      campaignBudgetCents > VIP_BUDGET_MIN_CENTS;
+    let displayedCostCents = baseCostCents;
+    if (founderVipEligible) {
+      displayedCostCents = baseCostCents + VIP_FLAT_BONUS_CENTS;
+    } else if (founderBonusEligible) {
+      displayedCostCents = baseCostCents * 2;
+    }
     return {
       id: r.id,
       name: r.name,
@@ -179,7 +197,8 @@ export async function GET() {
       brief: r.brief,
       multiplier,
       costPerContactCents: displayedCostCents,
-      founderBonusApplied: founderBonusEligible,
+      founderBonusApplied: founderBonusEligible && !founderVipEligible,
+      founderVipBonusApplied: founderVipEligible,
       requiredTiers,
       requiredTierKeys,
       proName: pro?.raison_sociale ?? null,

@@ -41,12 +41,17 @@ export async function sendWaitlistLaunched(
     "maintenant créer votre compte et commencer à gagner de l'argent",
     "à chaque sollicitation acceptée.",
     "",
-    "Vos avantages de fondateur·ice (réservés aux inscrits waitlist)",
-    "----------------------------------------------------------------",
+    "Vos avantages de parrain·e / fondateur·ice (réservés aux inscrits waitlist)",
+    "----------------------------------------------------------------------------",
     "  •  Priorité de 10 minutes sur les flash deals — vous voyez les",
     "     meilleures sollicitations 10 min avant tout le monde.",
     "  •  Doublement des gains pendant le 1er mois — sur chaque",
     "     sollicitation acceptée, vous touchez 2× la récompense standard.",
+    "  •  Code de parrainage personnel — invitez jusqu'à 10 filleul·es,",
+    "     qui deviendront fondateur·ices à leur tour.",
+    "  •  Palier VIP au plafond de 10 filleul·es — bonus forfaitaire de",
+    "     +5,00 € par acceptation (à la place du ×2), sur les campagnes",
+    "     de plus de 300 €, pendant le 1er mois post-lancement.",
     "  •  Badge fondateur·ice permanent sur votre profil.",
     "",
     "Comment activer vos avantages",
@@ -100,7 +105,7 @@ export async function sendWaitlistLaunched(
         <tr><td style="padding:24px 32px 8px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(120deg,#FFF8E1 0%,#FFF1B8 100%);border:1px solid #F2C879;border-radius:12px;">
             <tr><td style="padding:22px 26px;">
-              <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5C4400;margin-bottom:6px;font-weight:700;">🎖️ Vos avantages fondateur·ice</div>
+              <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5C4400;margin-bottom:6px;font-weight:700;">🎖️ Vos avantages parrain·e / fondateur·ice</div>
               <div style="font-size:13px;line-height:1.55;color:#5C4400;">
                 Parce que vous étiez là dès le début, vous gardez un statut spécial :
               </div>
@@ -112,6 +117,14 @@ export async function sendWaitlistLaunched(
                 <tr><td style="padding:6px 0;">
                   <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">×2</span>
                   <span style="font-size:13.5px;color:#5C4400;"><strong>Doublement des gains</strong> pendant le 1er mois — chaque sollicitation acceptée vous rapporte 2× la récompense standard.</span>
+                </td></tr>
+                <tr><td style="padding:6px 0;">
+                  <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">👥</span>
+                  <span style="font-size:13.5px;color:#5C4400;"><strong>Code de parrainage personnel</strong> — invitez jusqu'à 10 filleul·es, qui deviendront fondateur·ices à leur tour.</span>
+                </td></tr>
+                <tr><td style="padding:6px 0;">
+                  <span style="display:inline-block;width:18px;color:#B45309;font-weight:700;">🏆</span>
+                  <span style="font-size:13.5px;color:#5C4400;"><strong>Palier VIP</strong> au plafond de 10 filleul·es — bonus forfaitaire de <strong>+5,00 €</strong> par acceptation (à la place du ×2), sur les campagnes &gt; 300 €.</span>
                 </td></tr>
                 <tr><td style="padding:6px 0;">
                   <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">🏷️</span>

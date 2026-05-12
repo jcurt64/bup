@@ -211,31 +211,53 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="Programme Fondateur·ice">
+        <Section title="Programme Parrain — Fondateur·ice">
           <p>
-            Toute personne s&apos;étant inscrite sur la liste d&apos;attente
-            avant la date officielle de lancement de BUUPP devient
-            <strong> fondateur·ice</strong> à la création de son compte. Ce
-            statut, permanent, ouvre droit à&nbsp;:
+            Les termes <strong>«&nbsp;parrain·e&nbsp;»</strong> et{" "}
+            <strong>«&nbsp;fondateur·ice&nbsp;»</strong> désignent
+            indifféremment la même qualité&nbsp;: toute personne s&apos;étant
+            inscrite sur la liste d&apos;attente avant la date officielle de
+            lancement de BUUPP. Ce statut, permanent, est confirmé à la
+            création du compte et ouvre droit à&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
               une <strong>priorité de 10 minutes</strong> sur les sollicitations
-              «&nbsp;flash deal&nbsp;» (visibles aux fondateur·ices avant le
-              grand public)&nbsp;;
+              «&nbsp;flash deal&nbsp;» (visibles aux parrain·es / fondateur·ices
+              avant le grand public)&nbsp;;
             </li>
             <li>
               un <strong>doublement de la récompense</strong> versée pour chaque
-              sollicitation acceptée pendant le <strong>
-                1er mois suivant le lancement
-              </strong>
-              , sauf indication contraire du professionnel à l&apos;origine de
-              la sollicitation.
+              sollicitation acceptée pendant le{" "}
+              <strong>1er mois suivant le lancement officiel</strong>, sauf
+              indication contraire du professionnel à l&apos;origine de la
+              sollicitation&nbsp;;
+            </li>
+            <li>
+              un <strong>code de parrainage personnel</strong> permettant
+              d&apos;inviter jusqu&apos;à <strong>10&nbsp;filleul·es</strong>{" "}
+              maximum sur la liste d&apos;attente. Au-delà, le lien n&apos;est
+              plus utilisable et tout nouvel inscrit utilisant ce code reçoit
+              le message «&nbsp;Nombre maximal de filleul·es déjà
+              atteint&nbsp;».
             </li>
           </ul>
           <p>
-            Aucune action n&apos;est requise de la part du fondateur·ice : le
-            bénéfice est calculé automatiquement à l&apos;acceptation.
+            <strong>Palier VIP au plafond de 10 filleul·es.</strong> Lorsqu&apos;un
+            parrain·e atteint le plafond de 10&nbsp;filleul·es inscrit·es sur la
+            liste d&apos;attente, il/elle accède à un palier VIP&nbsp;: chaque
+            sollicitation acceptée pendant le 1er mois suivant le lancement
+            donne droit à un bonus exceptionnel <strong>forfaitaire de
+            +5,00&nbsp;€</strong>, en lieu et place du doublement standard. Ce
+            bonus n&apos;est appliqué que sur les campagnes dont le budget
+            total dépasse <strong>300,00&nbsp;€</strong>&nbsp;; en deçà, le
+            doublement standard (×2) demeure applicable.
+          </p>
+          <p>
+            Aucune action n&apos;est requise de la part du parrain·e /
+            fondateur·ice&nbsp;: le bénéfice (×2 standard ou +5&nbsp;€ VIP) est
+            calculé automatiquement à l&apos;acceptation et notifié par
+            courriel.
           </p>
         </Section>
 

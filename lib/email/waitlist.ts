@@ -47,21 +47,24 @@ export async function sendWaitlistConfirmation(
     "-----------------------",
     "  •  Accès prioritaire dès l'ouverture officielle",
     "  •  5 € de BUUPP Coins offerts à la création de votre compte",
-    "  •  Statut « Prospect prioritaire » — gains doublés ×2 sur les premières",
-    "     mises en relation",
+    "  •  Statut Parrain·e / Fondateur·ice — gains doublés ×2 à chaque",
+    "     acceptation pendant le 1er mois post-lancement",
+    "  •  Priorité de 10 min sur les sollicitations « flash deal »",
     "",
     "À retenir",
     "----------",
     "Au lancement officiel, créez votre compte BUUPP avec EXACTEMENT cette",
     `même adresse e-mail (${email}). C'est la seule façon pour nous de`,
-    "rattacher votre compte à votre place sur la liste — sinon les avantages",
-    "de prospect prioritaire seront perdus.",
+    "rattacher votre compte à votre statut de fondateur·ice — sinon les",
+    "avantages seront perdus.",
     "",
-    "Faire monter votre rang",
-    "------------------------",
-    "Chaque ami qui s'inscrit avec votre lien de parrainage vous fait gagner",
-    "des places sur la liste — top 500 dès 1 ami, top 100 dès 3 amis,",
-    "statut VIP +20 € dès 10 amis.",
+    "Parrainez vos proches — palier VIP à la clé",
+    "--------------------------------------------",
+    "Chaque personne qui s'inscrit avec votre lien de parrainage devient",
+    "fondateur·ice à son tour. Vous pouvez en parrainer jusqu'à 10. Au",
+    "plafond (10 filleul·es), vous débloquez le palier VIP : un bonus",
+    "forfaitaire de +5,00 € par acceptation à la place du ×2, sur les",
+    "campagnes de plus de 300 €, pendant le 1er mois post-lancement.",
     "",
     "Nous vous préviendrons dès l'ouverture des inscriptions définitives.",
     "Restez à l'écoute, ça arrive très vite.",
@@ -128,9 +131,13 @@ export async function sendWaitlistConfirmation(
               <span style="display:inline-block;width:20px;color:#4596EC;font-weight:700;">✓</span>
               <span style="font-size:14px;color:#3A4150;"><strong>5 €</strong> de BUUPP Coins offerts à la création de votre compte</span>
             </td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #F1ECDB;">
+              <span style="display:inline-block;width:20px;color:#4596EC;font-weight:700;">✓</span>
+              <span style="font-size:14px;color:#3A4150;">Statut <strong>Parrain·e / Fondateur·ice</strong> — gains <strong>doublés ×2</strong> à chaque acceptation pendant le 1<sup>er</sup> mois post-lancement</span>
+            </td></tr>
             <tr><td style="padding:8px 0;">
               <span style="display:inline-block;width:20px;color:#4596EC;font-weight:700;">✓</span>
-              <span style="font-size:14px;color:#3A4150;">Gains <strong>doublés ×2</strong> sur vos premières mises en relation</span>
+              <span style="font-size:14px;color:#3A4150;"><strong>Priorité 10 min</strong> sur les sollicitations « flash deal »</span>
             </td></tr>
           </table>
         </td></tr>
@@ -147,15 +154,21 @@ export async function sendWaitlistConfirmation(
           </table>
         </td></tr>
 
-        <!-- Parrainage -->
+        <!-- Parrainage / Palier VIP -->
         <tr><td style="padding:20px 32px 0;">
-          <h2 style="margin:0 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#0F1629;font-weight:500;">Faites monter votre rang</h2>
-          <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#3A4150;">
-            Chaque ami qui s'inscrit avec votre lien vous fait gagner des places :
+          <h2 style="margin:0 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#0F1629;font-weight:500;">Parrainez vos proches — palier VIP à la clé</h2>
+          <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#3A4150;">
+            Chaque personne inscrite avec votre lien devient <strong>fondateur·ice</strong> à son tour. Vous pouvez en parrainer jusqu'à <strong>10</strong>.
           </p>
-          <p style="margin:0;font-size:13px;line-height:1.6;color:#6B7180;">
-            • <strong>1 ami</strong> → top 500 &nbsp;&nbsp; • <strong>3 amis</strong> → top 100 &nbsp;&nbsp; • <strong>10 amis</strong> → statut VIP <strong>+20 €</strong>
-          </p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(135deg,#FEF3C7 0%,#FDE68A 60%,#FCD34D 100%);border:1px solid #F59E0B;border-radius:10px;">
+            <tr><td style="padding:12px 16px;">
+              <div style="font-size:11px;color:#78350F;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:4px;">🏆 Palier VIP — au plafond de 10 filleul·es</div>
+              <div style="font-size:13px;line-height:1.55;color:#78350F;">
+                Bonus exceptionnel <strong>+5,00 €</strong> par acceptation (à la place du ×2),
+                sur les campagnes &gt; 300 €, pendant le 1<sup>er</sup> mois post-lancement.
+              </div>
+            </td></tr>
+          </table>
         </td></tr>
 
         <!-- Footer -->

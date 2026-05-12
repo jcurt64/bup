@@ -177,14 +177,50 @@ const CATEGORIES: Category[] = [
         tags: ["téléphone", "sms", "vérification", "otp"],
       },
       {
-        q: "Le programme de parrainage",
+        q: "Le programme Parrain / Fondateur·ice",
         a: (
-          <p>
-            Chaque prospect dispose d&apos;un code de parrainage personnel. Lorsqu&apos;un
-            filleul s&apos;inscrit avec votre code, vous touchez{" "}
-            <strong>10 % de ses gains à vie</strong> sans que cela ne diminue les siens.
-            Plusieurs niveaux sont prévus selon le nombre de filleuls actifs.
-          </p>
+          <>
+            <p>
+              Sur BUUPP, <strong>parrain·e = fondateur·ice</strong> : c&apos;est
+              le même statut, ouvert à toute personne inscrite sur la liste
+              d&apos;attente avant la date officielle de lancement. Il est
+              permanent.
+            </p>
+            <p>
+              Vous disposez d&apos;un <strong>code de parrainage personnel</strong>{" "}
+              (visible dans votre tableau de bord, onglet «&nbsp;Parrainage&nbsp;»).
+              Chaque personne qui s&apos;inscrit sur la liste d&apos;attente
+              avec votre code devient à son tour parrain·e / fondateur·ice. Vous
+              pouvez parrainer au maximum <strong>10&nbsp;filleul·es</strong>{" "}
+              ; au-delà, le lien affiche un message «&nbsp;quota atteint&nbsp;»
+              au nouvel inscrit.
+            </p>
+            <p>
+              <strong>Vos avantages.</strong> Pendant le 1er mois suivant le
+              lancement&nbsp;:
+            </p>
+            <ul style={{ paddingLeft: 22, marginTop: 4 }}>
+              <li>
+                <strong>×2 sur vos gains</strong> à chaque sollicitation
+                acceptée (financé par le pro sauf opt-out de sa part)&nbsp;;
+              </li>
+              <li>
+                <strong>priorité de 10&nbsp;min</strong> sur les flash deals
+                (vous les voyez avant le grand public)&nbsp;;
+              </li>
+              <li>
+                au <strong>plafond de 10 filleul·es</strong>, vous passez{" "}
+                <strong>VIP</strong>&nbsp;: à la place du ×2, vous touchez un{" "}
+                <strong>bonus forfaitaire de +5&nbsp;€</strong> par acceptation,
+                sur les campagnes dont le budget dépasse 300&nbsp;€ (sinon le
+                ×2 standard s&apos;applique).
+              </li>
+            </ul>
+            <p>
+              Aucune action n&apos;est requise&nbsp;: tout est calculé
+              automatiquement et notifié par e-mail à chaque acceptation.
+            </p>
+          </>
         ),
       },
       {
