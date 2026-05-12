@@ -174,6 +174,32 @@ export async function PATCH(req: Request) {
     }
   }
 
+  // Rayon de ciblage (km) — int 5-100. uiToRow l'a déjà sérialisé en
+  // string ; on parse + valide + on re-injecte la bonne valeur typée
+  // dans le patch pour que l'upsert respecte le check constraint DB.
+  if (
+    tier === "localisation" &&
+    Object.prototype.hasOwnProperty.call(patch, "targeting_radius_km")
+  ) {
+    const raw = patch.targeting_radius_km;
+    if (raw != null && raw !== "") {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 5 || n > 100) {
+        return NextResponse.json(
+          {
+            error: "invalid_targeting_radius_km",
+            message: "Le rayon doit être un entier entre 5 et 100 km.",
+          },
+          { status: 400 },
+        );
+      }
+      // Override stringifié par un nombre — pas de cast TS car le
+      // patch est typé `Record<string, string | null>` (cf. uiToRow).
+      // L'upsert Postgres accepte JSON int directement.
+      (patch as unknown as Record<string, number>).targeting_radius_km = n;
+    }
+  }
+
   // Revenus — chiffres uniquement (montant en euros, sans séparateur).
   // Le front affiche un message d'erreur en temps réel ; ici on bloque
   // toute écriture non conforme (lettres, ponctuation…).

@@ -13,7 +13,10 @@ var { useState, useEffect } = React;
    - les onglets Préférences / Score                              */
 const EMPTY_TIER = {
   identity:    { prenom: '', nom: '', email: '', telephone: '', naissance: '' },
-  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '' },
+  // `targetingRadiusKm` est stocké en string (cohérence avec les autres
+  // champs du tier — rowToUi serialize tout en string). Le slider Prefs
+  // fait le parseInt à la lecture.
+  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25' },
   vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
   pro:         { poste: '', statut: '', secteur: '', revenus: '' },
   patrimoine:  { residence: '', epargne: '', projets: '' },
@@ -426,6 +429,20 @@ function ProspectDashboardInner({ go, initialTab }) {
     };
     window.addEventListener('bupp:open-message', onOpenMsg);
     return () => window.removeEventListener('bupp:open-message', onOpenMsg);
+  }, []);
+
+  // Bridge cross-onglet pour les CTAs internes (ex. "Ouvrir Mes données"
+  // depuis la carte Zone géographique de l'onglet Préférences). Le tab
+  // ciblé doit exister dans PROSPECT_SECTIONS — sinon on ignore.
+  useEffect(() => {
+    const onGotoTab = (e) => {
+      const tab = e?.detail?.tab;
+      if (typeof tab === 'string' && PROSPECT_SECTIONS.some(s => s.id === tab)) {
+        setSec(tab);
+      }
+    };
+    window.addEventListener('bupp:goto-tab', onGotoTab);
+    return () => window.removeEventListener('bupp:goto-tab', onGotoTab);
   }, []);
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific
@@ -4862,7 +4879,42 @@ function Prefs() {
   const allCats_ = ctx?.profile?.allCategories;
   const allTypes = ctx?.profile?.allCampaignTypes;
   const selectedTypes = ctx?.profile?.campaignTypes || new Set();
-  const [radius, setRadius] = useState(25);
+
+  // Ville / CP / rayon désormais source-of-truthés via le profile
+  // (synchro `Mes données` ↔ `Préférences`). Si la ville est vide,
+  // on grise la carte et on affiche le message demandant de la
+  // renseigner avant de pouvoir modifier la zone.
+  const ville = (ctx?.profile?.localisation?.ville || '').trim();
+  const codePostal = (ctx?.profile?.localisation?.codePostal || '').trim();
+  const persistedRadius = parseInt(ctx?.profile?.localisation?.targetingRadiusKm, 10);
+  const initialRadius = Number.isFinite(persistedRadius) && persistedRadius >= 5 && persistedRadius <= 100
+    ? persistedRadius
+    : 25;
+  const [radius, setRadius] = useState(initialRadius);
+  // Resync local quand le profile arrive de l'API (hydratation async).
+  useEffect(() => {
+    if (Number.isFinite(persistedRadius) && persistedRadius !== radius) {
+      setRadius(persistedRadius);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedRadius]);
+  // Debounce la persistance : on attend que l'utilisateur arrête de
+  // bouger le slider 400 ms avant de PATCHer (sinon = 1 requête par
+  // tick du curseur sur Chrome qui émet en continu).
+  useEffect(() => {
+    if (!ville) return; // pas de persistance si la zone n'est pas activée
+    if (radius === persistedRadius) return;
+    const t = setTimeout(() => {
+      if (ctx?.updateField) {
+        ctx.updateField('localisation', 'targetingRadiusKm', String(radius));
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radius, ville]);
+
+  const zoneLocked = !ville;
+
   const [tierShare, setTierShare] = useState({1: true, 2: true, 3: true, 4: false, 5: false});
 
   const allCats = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
@@ -4956,21 +5008,55 @@ function Prefs() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 20 }}>
-        <div className="card" style={{ padding: 28 }}>
+        <div className="card" style={{ padding: 28, position: 'relative' }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 18 }}>Zone géographique</div>
           <div className="row between center" style={{ marginBottom: 14 }}>
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Centrée sur</div>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>Lyon 3e, 69003</div>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>
+                {zoneLocked
+                  ? <span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>Ville non renseignée</span>
+                  : (codePostal ? `${ville}, ${codePostal}` : ville)}
+              </div>
             </div>
             <div>
               <div className="muted" style={{ fontSize: 12, textAlign: 'right' }}>Rayon</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></div>
+              <div className="serif tnum" style={{ fontSize: 28, color: zoneLocked ? 'var(--ink-4)' : 'var(--accent)' }}>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></div>
             </div>
           </div>
-          <input type="range" min="5" max="100" step="5" value={radius} onChange={e => setRadius(+e.target.value)}
-            style={{ width: '100%', accentColor: 'var(--accent)' }}/>
+          <input type="range" min="5" max="100" step="5" value={radius}
+            disabled={zoneLocked}
+            onChange={e => setRadius(+e.target.value)}
+            style={{ width: '100%', accentColor: 'var(--accent)', opacity: zoneLocked ? 0.4 : 1, cursor: zoneLocked ? 'not-allowed' : 'pointer' }}/>
           <MapThumb radius={radius}/>
+          {zoneLocked && (
+            /* Verrou — bannière + overlay semi-transparent qui couvre la
+               carte sans masquer l'info principale. Le clic sur le bouton
+               renvoie sur l'onglet "Mes données" pour saisir la ville. */
+            <div style={{
+              position: 'absolute', inset: 14, borderRadius: 14,
+              background: 'color-mix(in oklab, var(--paper) 86%, transparent)',
+              backdropFilter: 'blur(2px)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', textAlign: 'center', padding: 24, gap: 10,
+              border: '1px dashed var(--line-2)',
+            }}>
+              <Icon name="mapPin" size={22}/>
+              <div className="serif" style={{ fontSize: 17, lineHeight: 1.3, maxWidth: 320 }}>
+                Renseignez votre ville pour activer cette section
+              </div>
+              <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.45, maxWidth: 340 }}>
+                Le rayon de ciblage dépend de votre ville. Allez dans <strong style={{ color: 'var(--ink)' }}>Mes données</strong> → palier <em>Localisation</em> pour la saisir.
+              </div>
+              <button
+                type="button"
+                onClick={() => { try { window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'donnees' } })); } catch (e) {} }}
+                className="btn btn-primary btn-sm"
+                style={{ marginTop: 4 }}>
+                Ouvrir Mes données <Icon name="arrow" size={12}/>
+              </button>
+            </div>
+          )}
         </div>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>

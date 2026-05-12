@@ -94,6 +94,34 @@ export function geoCodePostalPrefix(
   return null;
 }
 
+/**
+ * Rayon minimum (km) que le prospect doit avoir activé dans ses Préférences
+ * pour être éligible à une campagne de portée donnée. Cf. champ
+ * `prospect_localisation.targeting_radius_km` (5-100 km, default 25).
+ *
+ * - 'ville'     → 25 km : couvre une agglomération, équivalent du
+ *                 default prospect.
+ * - 'dept'      → 50 km : ouverture département, prospect doit avoir
+ *                 explicitement élargi sa zone.
+ * - 'region'    → 100 km : couverture régionale.
+ * - 'national'  → null   : pas de plancher (un prospect en zone
+ *                 5 km reçoit aussi le national, c'est son choix
+ *                 d'avoir paramétré ce minimum).
+ */
+export function geoRadiusFloorKm(geo: string): number | null {
+  switch (geo) {
+    case "ville":
+      return 25;
+    case "dept":
+      return 50;
+    case "region":
+      return 100;
+    case "national":
+    default:
+      return null;
+  }
+}
+
 const AGE_BUCKETS: Record<string, [number, number]> = {
   "18–25": [18, 25],
   "26–35": [26, 35],

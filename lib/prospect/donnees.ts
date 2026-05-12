@@ -57,6 +57,12 @@ export const TIERS: Record<TierKey, TierMap> = {
       adresse: "adresse",
       ville: "ville",
       codePostal: "code_postal",
+      // Préférence "Zone géographique" (rayon en km autour de la ville
+      // déclarée, 5-100 km — slider dans /prospect → Préférences).
+      // Stocké côté localisation parce qu'il n'a de sens que conjugué
+      // à la ville. Utilisé par lib/campaigns/matching.ts pour filtrer
+      // le pool quand un pro lance une campagne.
+      targetingRadiusKm: "targeting_radius_km",
     },
   },
   vie: {

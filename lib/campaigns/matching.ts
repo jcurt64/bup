@@ -17,6 +17,7 @@ import {
   ageMatchesAny,
   ageRangesToBounds,
   geoCodePostalPrefix,
+  geoRadiusFloorKm,
   objectiveToCampaignType,
   tierNumsToKeys,
   type CampaignTypeDb,
@@ -58,6 +59,11 @@ export async function findMatchingProspects(
     );
   }
   const cpPrefix = geoCodePostalPrefix(input.geo, input.proCodePostal);
+  // Plancher de rayon : un prospect doit avoir réglé son rayon
+  // (`prospect_localisation.targeting_radius_km`) >= ce plancher pour
+  // accepter une campagne de la portée demandée. Null = national → on
+  // ne filtre pas, le prospect reçoit même avec un rayon de 5 km.
+  const radiusFloorKm = geoRadiusFloorKm(input.geo);
   const ageBounds = ageRangesToBounds(input.ages);
   const wantsTier1 = input.requiredTiers.includes(1);
   const campaignType: CampaignTypeDb = objectiveToCampaignType(input.objectiveId);
@@ -78,7 +84,7 @@ export async function findMatchingProspects(
       removed_tiers,
       hidden_tiers,
       prospect_identity ( email, prenom, naissance ),
-      prospect_localisation ( code_postal )
+      prospect_localisation ( code_postal, targeting_radius_km )
     `,
     )
     .in("verification", acceptableLevels)
@@ -121,6 +127,15 @@ export async function findMatchingProspects(
 
     const localisation = row.prospect_localisation;
     if (cpPrefix && !localisation?.code_postal) continue;
+
+    // Filtre rayon prospect : le prospect doit avoir réglé son rayon
+    // de ciblage >= au plancher imposé par la portée de la campagne.
+    // Si la row palier 2 (localisation) n'existe pas, on suppose le
+    // default DB (25 km) — cohérent avec le check constraint.
+    if (radiusFloorKm != null) {
+      const prospectRadius = localisation?.targeting_radius_km ?? 25;
+      if (prospectRadius < radiusFloorKm) continue;
+    }
 
     // Filtre âge — uniquement applicable si tier 1 requis (sinon on ne
     // peut pas connaître la naissance, on laisse passer).

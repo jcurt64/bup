@@ -510,6 +510,7 @@ export type Database = {
           adresse: string | null
           code_postal: string | null
           prospect_id: string
+          targeting_radius_km: number
           updated_at: string
           ville: string | null
         }
@@ -517,6 +518,7 @@ export type Database = {
           adresse?: string | null
           code_postal?: string | null
           prospect_id: string
+          targeting_radius_km?: number
           updated_at?: string
           ville?: string | null
         }
@@ -524,6 +526,7 @@ export type Database = {
           adresse?: string | null
           code_postal?: string | null
           prospect_id?: string
+          targeting_radius_km?: number
           updated_at?: string
           ville?: string | null
         }
