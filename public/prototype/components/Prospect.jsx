@@ -5183,35 +5183,58 @@ function EmailTrackingConsentCard() {
   );
 }
 
-/* Carte OpenStreetMap réelle (embed iframe) centrée sur la ville du
-   prospect, avec un marker et un bbox calculé depuis le rayon. Le
-   géocodage utilise `api-adresse.data.gouv.fr` (BAN, gouvernement
-   français — aucune clé API requise, déjà utilisée dans le projet
-   pour l'autocomplete code postal côté donnees).
+/* Carte OpenStreetMap réelle via Leaflet (chargé en lazy depuis CDN
+   unpkg, comme React/Babel), avec marker + cercle bleu redimensionnable
+   matérialisant la zone de couverture du prospect. Le géocodage utilise
+   `api-adresse.data.gouv.fr` (BAN, gouvernement français — pas de clé
+   API requise, déjà utilisée dans le projet pour l'autocomplete CP).
 
-   Stratégie de chargement :
-   1. Au mount/change ville+CP : fetch BAN → coords lat/lng.
-   2. Pendant le fetch ou en cas d'échec : on retombe sur `fallback`
-      (la MapThumb stylisée d'origine — pas de plage blanche).
-   3. Le radius re-déclenche un re-render du iframe via un calcul de
-      bbox (latDelta = rayon/111 km, lngDelta corrigé par cos(lat)).
-      Pour éviter le clignotement à chaque tick du slider, on
-      `useDeferredValue`-ise le radius manuellement (debounce 350 ms).
-   La iframe OSM est gratuite mais rate-limitée — pour un usage léger
-   (un user qui consulte sa carte) c'est largement suffisant. */
+   Avantage Leaflet vs iframe embed :
+   - cercle natif (L.circle) avec setRadius en temps réel sur le slider
+   - pas de rechargement à chaque tick (l'iframe rechargeait toute la map)
+   - fitBounds auto pour qu'on voie toujours toute la zone de couverture
+
+   Fallback gracieux : si Leaflet ou le géocodage échoue, on rend
+   `fallback` (la MapThumb stylisée d'origine — pas de plage blanche). */
 function RealMapThumb({ ville, codePostal, radius, fallback }) {
   const [coords, setCoords] = useState(null); // { lat, lng } | null
   const [failed, setFailed] = useState(false);
-  const [appliedRadius, setAppliedRadius] = useState(radius);
+  const [leafletReady, setLeafletReady] = useState(
+    typeof window !== 'undefined' && !!window.L,
+  );
+  const containerRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+  const circleRef = React.useRef(null);
 
-  // Debounce radius : évite de recharger l'iframe à chaque tick du
-  // slider. 350 ms = même délai qu'on utilise pour la persistance API.
+  // 1. Lazy-load Leaflet CSS + JS depuis unpkg (singleton — si plusieurs
+  //    RealMapThumb sont montés en parallèle on attend la même promesse).
   useEffect(() => {
-    const t = setTimeout(() => setAppliedRadius(radius), 350);
-    return () => clearTimeout(t);
-  }, [radius]);
+    if (typeof window === 'undefined') return;
+    if (window.L) { setLeafletReady(true); return; }
+    if (!document.getElementById('buupp-leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'buupp-leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    const existing = document.getElementById('buupp-leaflet-js');
+    if (existing) {
+      const onLoad = () => setLeafletReady(true);
+      existing.addEventListener('load', onLoad);
+      return () => existing.removeEventListener('load', onLoad);
+    }
+    const script = document.createElement('script');
+    script.id = 'buupp-leaflet-js';
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.onload = () => setLeafletReady(true);
+    script.onerror = () => setFailed(true);
+    document.head.appendChild(script);
+  }, []);
 
-  // Géocodage : déclenché par tout changement de ville ou CP.
+  // 2. Géocodage ville + CP via BAN.
   useEffect(() => {
     if (!ville) { setCoords(null); setFailed(false); return; }
     let cancelled = false;
@@ -5233,36 +5256,96 @@ function RealMapThumb({ ville, codePostal, radius, fallback }) {
     return () => { cancelled = true; };
   }, [ville, codePostal]);
 
-  // Pas (encore) de coords → on rend le fallback (MapThumb stylisée).
-  // Évite le flash plage blanche et garde une carte décorative cohérente.
-  if (!coords || failed) return fallback || null;
+  // 3. Init Leaflet quand prêt (une seule fois). On préfère gardé le
+  //    scrollWheelZoom OFF pour ne pas hijacker le scroll de la page.
+  useEffect(() => {
+    if (!leafletReady || !coords || !containerRef.current || mapRef.current) return;
+    const L = window.L;
+    const map = L.map(containerRef.current, {
+      scrollWheelZoom: false,
+      attributionControl: true,
+      zoomControl: true,
+    }).setView([coords.lat, coords.lng], 11);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+    markerRef.current = L.marker([coords.lat, coords.lng]).addTo(map);
+    circleRef.current = L.circle([coords.lat, coords.lng], {
+      radius: radius * 1000,
+      color: '#4596EC',
+      weight: 2,
+      fillColor: '#4596EC',
+      fillOpacity: 0.18,
+    }).addTo(map);
+    map.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
+    mapRef.current = map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leafletReady, coords]);
 
-  // Bbox carré centré sur le marker, demi-côté = rayon en km.
-  // 1° lat ≈ 111 km partout ; 1° lng ≈ 111 * cos(lat) km (Mercator).
-  const latDelta = appliedRadius / 111;
-  const lngDelta = appliedRadius / (111 * Math.max(0.1, Math.cos((coords.lat * Math.PI) / 180)));
-  const minLat = coords.lat - latDelta;
-  const maxLat = coords.lat + latDelta;
-  const minLng = coords.lng - lngDelta;
-  const maxLng = coords.lng + lngDelta;
-  const src =
-    `https://www.openstreetmap.org/export/embed.html` +
-    `?bbox=${minLng},${minLat},${maxLng},${maxLat}` +
-    `&layer=mapnik` +
-    `&marker=${coords.lat},${coords.lng}`;
+  // 4. Déplacement marker+circle si la ville change après init.
+  useEffect(() => {
+    if (!mapRef.current || !coords) return;
+    if (markerRef.current) markerRef.current.setLatLng([coords.lat, coords.lng]);
+    if (circleRef.current) {
+      circleRef.current.setLatLng([coords.lat, coords.lng]);
+      mapRef.current.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
+    }
+  }, [coords]);
+
+  // 5. Redimensionne le cercle en temps réel sur le slider (Leaflet est
+  //    rapide → pas besoin de debounce sur setRadius).
+  useEffect(() => {
+    if (!circleRef.current) return;
+    circleRef.current.setRadius(radius * 1000);
+  }, [radius]);
+
+  // 6. fitBounds debounced 350 ms : on évite que la carte zoome à chaque
+  //    tick du slider, mais elle se recadre proprement quand l'utilisateur
+  //    relâche.
+  useEffect(() => {
+    if (!mapRef.current || !circleRef.current) return;
+    const t = setTimeout(() => {
+      try {
+        mapRef.current.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
+      } catch (e) { /* ignore */ }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [radius]);
+
+  // 7. Cleanup : détruit l'instance Leaflet à l'unmount (sinon fuite
+  //    mémoire + handlers détachés qui persistent).
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        try { mapRef.current.remove(); } catch (e) {}
+        mapRef.current = null;
+        circleRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Pas (encore) de coords ou erreur de chargement → on rend le fallback
+  // (MapThumb stylisée d'origine). Évite le flash plage blanche.
+  if (failed || !coords) return fallback || null;
 
   return (
     <div style={{
       height: 220, position: 'relative', marginTop: 18, borderRadius: 10,
       overflow: 'hidden', border: '1px solid var(--line-2)', background: 'var(--ivory-2)',
     }}>
-      <iframe
-        key={src /* force unmount/remount sur changement de bbox pour reset des contrôles OSM */}
-        title={`Carte de ${ville}`}
-        src={src}
-        loading="lazy"
-        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-      />
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }}/>
+      {!leafletReady && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, color: 'var(--ink-4)',
+          background: 'var(--ivory-2)',
+        }}>
+          Chargement de la carte…
+        </div>
+      )}
     </div>
   );
 }
