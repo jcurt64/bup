@@ -4162,6 +4162,10 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
   const canRefuse =
     (!isHistory && !alreadyAccepted && !alreadyRefused) ||
     (isHistory && alreadyAccepted && !!r.campaignActive);
+  const [reportOpen, setReportOpen] = useState(false);
+  // Statut local "reported" pour basculer l'UI immédiatement après
+  // soumission sans attendre le re-fetch parent.
+  const [reportedLocal, setReportedLocal] = useState(!!relation.reported);
   return (
     <ModalShell title="Détails de l'offre" onClose={onClose} width={520}>
       <div className="col gap-4">
@@ -4285,6 +4289,28 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           </div>
         </div>
 
+        {/* Footer secondaire : signalement (action discrète, mise en
+            retrait au-dessus des actions principales) */}
+        <div style={{
+          borderTop: '1px solid var(--line)',
+          paddingTop: 12, marginTop: 4,
+          display: 'flex', justifyContent: 'flex-start',
+        }}>
+          {reportedLocal ? (
+            <span className="chip" style={{ background: 'var(--ivory-2)', color: 'var(--ink-4)', fontSize: 11 }}>
+              <Icon name="flag" size={11}/> Signalement déjà transmis
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className="btn btn-ghost btn-sm"
+              style={{ color: 'var(--danger)', fontSize: 12 }}>
+              <Icon name="flag" size={12}/> Signaler ce professionnel
+            </button>
+          )}
+        </div>
+
         {/* Actions
             Layout desktop (flex-end) :
               - pending           : [Refuser]  [Accepter]
@@ -4342,6 +4368,180 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           {isHistory && !alreadyAccepted && !canAccept && (
             <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
           )}
+        </div>
+      </div>
+      {reportOpen && (
+        <ReportProModal
+          relation={relation}
+          onClose={() => setReportOpen(false)}
+          onSubmitted={() => setReportedLocal(true)}/>
+      )}
+    </ModalShell>
+  );
+}
+
+/* ─── ReportProModal — signalement d'un pro depuis la modale relation
+   ────────────────────────────────────────────────────────────────────
+   3 motifs fixes (cf. spec) + commentaire optionnel ≤ 1000 chars.
+   Appel POST /api/prospect/relations/[id]/report. En succès, affiche
+   un état confirmatif et notifie le parent via onSubmitted() pour
+   qu'il bascule l'UI sur "Signalement déjà transmis". */
+const REPORT_REASONS = [
+  {
+    key: 'sollicitation_multiple',
+    label: 'Sollicitation multiple',
+    help: "Ce professionnel m'a contacté plus d'une fois. C'est interdit par le règlement BUUPP.",
+  },
+  {
+    key: 'faux_compte',
+    label: 'Faux compte',
+    help: "Je doute qu'il s'agisse d'une vraie société. Le pro ne semble pas légitime.",
+  },
+  {
+    key: 'echange_abusif',
+    label: 'Échange abusif',
+    help: "L'attitude du professionnel n'a pas été correcte (ton, propos, pression…).",
+  },
+];
+
+function ReportProModal({ relation, onClose, onSubmitted }) {
+  const [reason, setReason] = useState(null);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (!reason || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/prospect/relations/${relation.id}/report`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason, comment: comment.trim() || undefined }),
+      });
+      if (r.ok || r.status === 409) {
+        // 409 = already_reported : on le traite comme un succès silencieux
+        // (le bouton va passer en "Signalement déjà transmis" au prochain
+        // render parent).
+        setDone(true);
+        onSubmitted && onSubmitted();
+        setTimeout(() => onClose(), 1800);
+        return;
+      }
+      const j = await r.json().catch(() => null);
+      console.warn('[prospect/report] failed', r.status, j);
+      setError("Une erreur est survenue, merci de réessayer.");
+    } catch (e) {
+      console.warn('[prospect/report] error', e);
+      setError("Une erreur est survenue, merci de réessayer.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <ModalShell title="Signalement transmis" onClose={onClose} width={460}>
+        <div className="col gap-3" style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: 'var(--good)', color: 'white',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto',
+          }}>
+            <Icon name="check" size={22} stroke={2.5}/>
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Signalement transmis. Notre équipe le traitera.
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell title="Signaler un comportement" onClose={onClose} width={520}>
+      <div className="col gap-4">
+        <div className="row center gap-3" style={{ alignItems: 'center' }}>
+          <Avatar name={relation.pro} size={36}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{relation.pro}</div>
+            <div className="muted" style={{ fontSize: 12 }}>{relation.sector}</div>
+          </div>
+        </div>
+
+        <div className="col gap-2">
+          {REPORT_REASONS.map(opt => {
+            const active = reason === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setReason(opt.key)}
+                className="card"
+                style={{
+                  padding: 14, textAlign: 'left',
+                  border: '1.5px solid ' + (active ? 'var(--accent)' : 'var(--line)'),
+                  background: active
+                    ? 'color-mix(in oklab, var(--accent) 8%, var(--paper))'
+                    : 'var(--paper)',
+                  cursor: 'pointer',
+                }}>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.45 }}>
+                  {opt.help}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div>
+          <label
+            className="mono caps muted"
+            style={{ fontSize: 10, display: 'block', marginBottom: 6 }}>
+            Détail facultatif
+          </label>
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value.slice(0, 1000))}
+            placeholder="Ajouter un détail à l'attention de l'équipe BUUPP (facultatif)"
+            rows={3}
+            style={{
+              width: '100%', padding: 10, borderRadius: 8,
+              border: '1px solid var(--line)', background: 'var(--paper)',
+              fontFamily: 'inherit', fontSize: 13, resize: 'vertical',
+            }}/>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', textAlign: 'right', marginTop: 4 }}>
+            {comment.length} / 1000
+          </div>
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: 'color-mix(in oklab, var(--danger) 8%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
+            color: 'var(--danger)', fontSize: 13,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" disabled={submitting}>
+            Annuler
+          </button>
+          <button
+            onClick={submit}
+            className="btn btn-primary btn-sm"
+            disabled={!reason || submitting}>
+            {submitting ? 'Envoi…' : 'Envoyer le signalement'}
+          </button>
         </div>
       </div>
     </ModalShell>
