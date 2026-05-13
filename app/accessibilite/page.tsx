@@ -347,6 +347,8 @@ function Section({
           fontSize: 15,
           lineHeight: 1.7,
           color: "var(--ink-3)",
+          textAlign: "justify",
+          hyphens: "auto",
         }}
       >
         {children}

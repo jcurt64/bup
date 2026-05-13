@@ -393,7 +393,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       >
         {title}
       </h2>
-      <div style={{ fontSize: 15, lineHeight: 1.7, color: "var(--ink-3)" }}>
+      <div style={{ fontSize: 15, lineHeight: 1.7, color: "var(--ink-3)", textAlign: "justify", hyphens: "auto" }}>
         {children}
       </div>
     </section>

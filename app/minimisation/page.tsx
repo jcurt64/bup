@@ -57,7 +57,7 @@ const OBJECTIVES: Objective[] = [
     name: "Événementiel & inscription",
     icon: "⚑",
     short: "Webinar, atelier, conférence",
-    allowedTiers: [1],
+    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "webinar", name: "Webinar / conférence web", desc: "Événement en ligne éducatif ou commercial" },
       { id: "portes", name: "Portes ouvertes", desc: "Visite libre des locaux" },
@@ -122,7 +122,7 @@ const OBJECTIVES: Objective[] = [
     name: "Publicité digitale",
     icon: "◐",
     short: "Audiences réseaux sociaux",
-    allowedTiers: [1],
+    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "meta", name: "Audience Meta (FB / IG)", desc: "Liste d'emails / téléphones hashés" },
       { id: "google", name: "Google Customer Match", desc: "Audience pour Google Ads, YouTube" },

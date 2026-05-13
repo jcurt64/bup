@@ -770,7 +770,7 @@ export default function BaremePage() {
             textTransform: "uppercase",
           }}
         >
-          BUUPP Platform — MATRICE D&apos;EVALUATION DES DONNÉES v1.0
+          PLATEFORME BUUPP — MATRICE D&apos;EVALUATION DES DONNÉES v1.0
         </div>
 
         {/* Bouton retour — cohérence avec CGU, CGV, RGPD, Contact DPO */}

@@ -30,6 +30,7 @@ const isPublicRoute = createRouteMatcher([
   "/rgpd",
   "/cookies",
   "/contact-dpo",
+  "/contact-dpo/formulaire",
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
@@ -39,6 +40,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook",
   "/api/waitlist",
   "/api/waitlist/stats",
+  // Endpoint du formulaire DPO : accessible aux visiteurs anonymes (cas
+  // d'un ancien utilisateur dont le compte a été supprimé et qui veut
+  // exercer un droit RGPD résiduel). Honeypot + validation côté handler.
+  "/api/contact-dpo",
   "/api/plan-pricing",
   "/api/landing/(.*)",
   // Pixel de tracking des broadcasts admin : fetch depuis le client mail
