@@ -37,16 +37,56 @@ export async function GET() {
       ? ["prospects", "all"]
       : ["all"];
 
-  const { data: broadcasts, error } = await admin
-    .from("admin_broadcasts")
-    .select("id, title, body, attachment_path, attachment_filename, audience, created_at")
-    .in("audience", audiences)
-    .order("created_at", { ascending: false })
-    .limit(LIST_CAP);
-  if (error) {
-    console.error("[/api/me/notifications GET] read failed", error);
+  // Deux sources de broadcasts visibles à l'utilisateur :
+  //  - les broadcasts d'audience large (prospects / pros / all) ET sans
+  //    target_clerk_user_id (= broadcasts classiques pour tout le monde)
+  //  - les broadcasts ciblés où target_clerk_user_id = userId courant
+  //    (ex. message automatique "non joignable" envoyé par le système).
+  // Deux queries indépendantes puis merge JS — plus robuste qu'un .or()
+  // imbriqué (PostgREST gère mal les virgules dans `audience.in.(…)`
+  // quand on les met dans un and(...) imbriqué dans un or(...)).
+  const SELECT_COLS =
+    "id, title, body, attachment_path, attachment_filename, audience, created_at, target_clerk_user_id";
+  const [audienceRes, targetedRes] = await Promise.all([
+    admin
+      .from("admin_broadcasts")
+      .select(SELECT_COLS)
+      .is("target_clerk_user_id", null)
+      .in("audience", audiences)
+      .order("created_at", { ascending: false })
+      .limit(LIST_CAP),
+    admin
+      .from("admin_broadcasts")
+      .select(SELECT_COLS)
+      .eq("target_clerk_user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(LIST_CAP),
+  ]);
+
+  if (audienceRes.error || targetedRes.error) {
+    console.error(
+      "[/api/me/notifications GET] read failed",
+      audienceRes.error ?? targetedRes.error,
+    );
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
+
+  // Merge + dédup par id (sécurité : un broadcast peut techniquement
+  // matcher les deux requêtes si quelqu'un édite manuellement) + tri
+  // par created_at desc + cap à LIST_CAP.
+  const merged = [...(targetedRes.data ?? []), ...(audienceRes.data ?? [])];
+  const seen = new Set<string>();
+  const broadcasts = merged
+    .filter((b) => {
+      if (seen.has(b.id)) return false;
+      seen.add(b.id);
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    .slice(0, LIST_CAP);
 
   const ids = (broadcasts ?? []).map((b) => b.id);
   const readSet = new Set<string>();

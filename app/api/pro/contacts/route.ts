@@ -52,7 +52,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("relations")
     .select(
-      `id, decided_at, status, campaign_id,
+      `id, decided_at, status, campaign_id, evaluation, evaluated_at,
        campaigns ( id, name, targeting ),
        prospects:prospect_id ( id, bupp_score,
          prospect_identity ( prenom, nom, email, telephone )
@@ -73,6 +73,8 @@ export async function GET() {
     decided_at: string | null;
     status: string;
     campaign_id: string;
+    evaluation: "atteint" | "non_atteint" | null;
+    evaluated_at: string | null;
     campaigns: { id: string; name: string; targeting: { requiredTiers?: number[]; channels?: string[] } | null } | null;
     prospects: {
       id: string;
@@ -111,7 +113,8 @@ export async function GET() {
       emailAvailable: !!ident?.email,
       telephoneAvailable: !!ident?.telephone,
       receivedAt: r.decided_at,
-      evaluation: null as null | "valide" | "difficile" | "invalide",
+      evaluation: r.evaluation,
+      evaluatedAt: r.evaluated_at,
     };
   });
 

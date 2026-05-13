@@ -3588,10 +3588,37 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   }, [pendingContact, onPendingConsumed]);
 
   const FILTERS = {
-    f1: { label: 'Score ≥ 720',        test: r => Number(r.score) >= 720 },
-    f2: { label: "Évaluation validée", test: r => r.evaluation === 'valide' },
-    f3: { label: 'Palier 2',            test: r => Number(r.tier) === 2 },
+    f1: { label: 'Score ≥ 720',          test: r => Number(r.score) >= 720 },
+    f2: { label: "Contact atteint",      test: r => r.evaluation === 'atteint' },
+    f3: { label: 'Palier 2',             test: r => Number(r.tier) === 2 },
   };
+
+  // POST /api/pro/contacts/[relationId]/evaluation — optimistic.
+  // On flip immédiatement `allRows` puis on appelle l'API ; en cas
+  // d'erreur on revert et on alerte.
+  const [evalSubmitting, setEvalSubmitting] = React.useState(new Set());
+  const submitEvaluation = React.useCallback(async (relationId, evaluation) => {
+    setAllRows(prev => (prev || []).map(r =>
+      r.relationId === relationId ? { ...r, evaluation } : r
+    ));
+    setEvalSubmitting(s => { const n = new Set(s); n.add(relationId); return n; });
+    try {
+      const r = await fetch(`/api/pro/contacts/${encodeURIComponent(relationId)}/evaluation`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ evaluation }),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) {
+      // Revert optimistic update.
+      setAllRows(prev => (prev || []).map(row =>
+        row.relationId === relationId ? { ...row, evaluation: null } : row
+      ));
+      alert("Impossible d'enregistrer l'évaluation. Réessayez.");
+    } finally {
+      setEvalSubmitting(s => { const n = new Set(s); n.delete(relationId); return n; });
+    }
+  }, []);
   const [active, setActive] = useState(new Set());
   const toggle = (k) => setActive(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const clear = () => setActive(new Set());
@@ -3864,13 +3891,67 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                           <td className="mono" style={{ fontSize: 12 }}>{r.telephone}</td>
                           <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
                           <td>
-                            {r.evaluation === 'valide' ? <span className="chip chip-good">✓ Valide</span>
-                              : r.evaluation === 'difficile' ? <span className="chip chip-warn">Difficile</span>
-                              : <div className="row gap-1">
-                                <button className="chip" style={{ cursor:'pointer' }}>Valide</button>
-                                <button className="chip" style={{ cursor:'pointer' }}>Diff.</button>
-                                <button className="chip" style={{ cursor:'pointer' }}>Invalide</button>
-                              </div>}
+                            {(() => {
+                              const busy = evalSubmitting.has(r.relationId);
+                              if (r.evaluation === 'atteint') {
+                                return (
+                                  <div className="row gap-1 center" style={{ flexWrap: 'wrap' }}>
+                                    <span className="chip chip-good">✓ Atteint</span>
+                                    <button
+                                      type="button"
+                                      className="chip"
+                                      onClick={() => submitEvaluation(r.relationId, null)}
+                                      disabled={busy}
+                                      title="Réinitialiser l'évaluation"
+                                      style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, fontSize: 10 }}
+                                    >
+                                      ↺
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              if (r.evaluation === 'non_atteint') {
+                                return (
+                                  <div className="row gap-1 center" style={{ flexWrap: 'wrap' }}>
+                                    <span className="chip chip-warn">Non atteint</span>
+                                    <button
+                                      type="button"
+                                      className="chip"
+                                      onClick={() => submitEvaluation(r.relationId, null)}
+                                      disabled={busy}
+                                      title="Réinitialiser l'évaluation"
+                                      style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, fontSize: 10 }}
+                                    >
+                                      ↺
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="row gap-1" style={{ flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => submitEvaluation(r.relationId, 'atteint')}
+                                    disabled={busy}
+                                    title="Vous avez joint le prospect (échange constructif)"
+                                    style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
+                                  >
+                                    Atteint
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => submitEvaluation(r.relationId, 'non_atteint')}
+                                    disabled={busy}
+                                    title="Le prospect n'a pas répondu à vos sollicitations"
+                                    style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
+                                  >
+                                    Non atteint
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <ContactActionButtons row={r} onIntent={(intent) => setReveal({ relationId: r.relationId, intent, name: r.name })}/>

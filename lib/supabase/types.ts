@@ -26,6 +26,7 @@ export type Database = {
           created_at: string
           sent_email_at: string | null
           total_recipients: number
+          target_clerk_user_id: string | null
         }
         Insert: {
           id?: string
@@ -38,6 +39,7 @@ export type Database = {
           created_at?: string
           sent_email_at?: string | null
           total_recipients?: number
+          target_clerk_user_id?: string | null
         }
         Update: {
           id?: string
@@ -50,6 +52,7 @@ export type Database = {
           created_at?: string
           sent_email_at?: string | null
           total_recipients?: number
+          target_clerk_user_id?: string | null
         }
         Relationships: []
       }
@@ -856,6 +859,9 @@ export type Database = {
           campaign_id: string
           decided_at: string | null
           escrow_release_at: string | null
+          evaluated_at: string | null
+          evaluated_by_pro_id: string | null
+          evaluation: Database["public"]["Enums"]["relation_evaluation"] | null
           expires_at: string
           founder_bonus_applied: boolean
           founder_vip_bonus_applied: boolean
@@ -872,6 +878,9 @@ export type Database = {
           campaign_id: string
           decided_at?: string | null
           escrow_release_at?: string | null
+          evaluated_at?: string | null
+          evaluated_by_pro_id?: string | null
+          evaluation?: Database["public"]["Enums"]["relation_evaluation"] | null
           expires_at: string
           founder_bonus_applied?: boolean
           founder_vip_bonus_applied?: boolean
@@ -888,6 +897,9 @@ export type Database = {
           campaign_id?: string
           decided_at?: string | null
           escrow_release_at?: string | null
+          evaluated_at?: string | null
+          evaluated_by_pro_id?: string | null
+          evaluation?: Database["public"]["Enums"]["relation_evaluation"] | null
           expires_at?: string
           founder_bonus_applied?: boolean
           founder_vip_bonus_applied?: boolean
@@ -1124,6 +1136,7 @@ export type Database = {
         | "devis_chiffrage"
       pro_billing_status: "active" | "past_due" | "canceled" | "trialing"
       pro_plan: "starter" | "pro"
+      relation_evaluation: "atteint" | "non_atteint"
       relation_status:
         | "pending"
         | "accepted"
