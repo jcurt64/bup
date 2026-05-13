@@ -610,7 +610,7 @@ function Hero() {
         </div>
 
         <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
-          Le marketing,
+          Le marketing
           <br />
           <RotatingHeadlineWord />
         </h1>
