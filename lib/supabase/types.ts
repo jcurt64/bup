@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -12,88 +13,33 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      admin_broadcasts: {
-        Row: {
-          id: string
-          title: string
-          body: string
-          attachment_path: string | null
-          attachment_filename: string | null
-          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
-          created_by_admin_id: string
-          created_at: string
-          sent_email_at: string | null
-          total_recipients: number
-          target_clerk_user_id: string | null
-        }
-        Insert: {
-          id?: string
-          title: string
-          body: string
-          attachment_path?: string | null
-          attachment_filename?: string | null
-          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
-          created_by_admin_id: string
-          created_at?: string
-          sent_email_at?: string | null
-          total_recipients?: number
-          target_clerk_user_id?: string | null
-        }
-        Update: {
-          id?: string
-          title?: string
-          body?: string
-          attachment_path?: string | null
-          attachment_filename?: string | null
-          audience?: Database["public"]["Enums"]["admin_broadcast_audience"]
-          created_by_admin_id?: string
-          created_at?: string
-          sent_email_at?: string | null
-          total_recipients?: number
-          target_clerk_user_id?: string | null
-        }
-        Relationships: []
-      }
-      admin_broadcast_recipients: {
-        Row: {
-          id: string
-          broadcast_id: string
-          email: string
-          role: string
-          sent_at: string
-          opened_at: string | null
-          open_count: number
-        }
-        Insert: {
-          id?: string
-          broadcast_id: string
-          email: string
-          role: string
-          sent_at?: string
-          opened_at?: string | null
-          open_count?: number
-        }
-        Update: {
-          id?: string
-          broadcast_id?: string
-          email?: string
-          role?: string
-          sent_at?: string
-          opened_at?: string | null
-          open_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_broadcast_recipients_broadcast_id_fkey"
-            columns: ["broadcast_id"]
-            isOneToOne: false
-            referencedRelation: "admin_broadcasts"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       admin_broadcast_reads: {
         Row: {
           broadcast_id: string
@@ -117,55 +63,135 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_broadcasts"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
-      admin_events: {
+      admin_broadcast_recipients: {
         Row: {
+          broadcast_id: string
+          email: string
           id: string
-          type: string
-          severity: Database["public"]["Enums"]["admin_event_severity"]
-          payload: Json
-          prospect_id: string | null
-          pro_account_id: string | null
-          campaign_id: string | null
-          relation_id: string | null
-          transaction_id: string | null
-          read_by: Json
-          created_at: string
+          open_count: number
+          opened_at: string | null
+          role: string
+          sent_at: string
         }
         Insert: {
+          broadcast_id: string
+          email: string
           id?: string
-          type: string
-          severity?: Database["public"]["Enums"]["admin_event_severity"]
-          payload?: Json
-          prospect_id?: string | null
-          pro_account_id?: string | null
-          campaign_id?: string | null
-          relation_id?: string | null
-          transaction_id?: string | null
-          read_by?: Json
-          created_at?: string
+          open_count?: number
+          opened_at?: string | null
+          role: string
+          sent_at?: string
         }
         Update: {
+          broadcast_id?: string
+          email?: string
           id?: string
-          type?: string
-          severity?: Database["public"]["Enums"]["admin_event_severity"]
-          payload?: Json
-          prospect_id?: string | null
-          pro_account_id?: string | null
-          campaign_id?: string | null
-          relation_id?: string | null
-          transaction_id?: string | null
-          read_by?: Json
-          created_at?: string
+          open_count?: number
+          opened_at?: string | null
+          role?: string
+          sent_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "admin_events_prospect_id_fkey"
-            columns: ["prospect_id"]
+            foreignKeyName: "admin_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
             isOneToOne: false
-            referencedRelation: "prospects"
+            referencedRelation: "admin_broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_broadcasts: {
+        Row: {
+          attachment_filename: string | null
+          attachment_path: string | null
+          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
+          body: string
+          created_at: string
+          created_by_admin_id: string
+          id: string
+          sent_email_at: string | null
+          target_clerk_user_id: string | null
+          title: string
+          total_recipients: number
+        }
+        Insert: {
+          attachment_filename?: string | null
+          attachment_path?: string | null
+          audience: Database["public"]["Enums"]["admin_broadcast_audience"]
+          body: string
+          created_at?: string
+          created_by_admin_id: string
+          id?: string
+          sent_email_at?: string | null
+          target_clerk_user_id?: string | null
+          title: string
+          total_recipients?: number
+        }
+        Update: {
+          attachment_filename?: string | null
+          attachment_path?: string | null
+          audience?: Database["public"]["Enums"]["admin_broadcast_audience"]
+          body?: string
+          created_at?: string
+          created_by_admin_id?: string
+          id?: string
+          sent_email_at?: string | null
+          target_clerk_user_id?: string | null
+          title?: string
+          total_recipients?: number
+        }
+        Relationships: []
+      }
+      admin_events: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          id: string
+          payload: Json
+          pro_account_id: string | null
+          prospect_id: string | null
+          read_by: Json
+          relation_id: string | null
+          severity: Database["public"]["Enums"]["admin_event_severity"]
+          transaction_id: string | null
+          type: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          pro_account_id?: string | null
+          prospect_id?: string | null
+          read_by?: Json
+          relation_id?: string | null
+          severity?: Database["public"]["Enums"]["admin_event_severity"]
+          transaction_id?: string | null
+          type: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          pro_account_id?: string | null
+          prospect_id?: string | null
+          read_by?: Json
+          relation_id?: string | null
+          severity?: Database["public"]["Enums"]["admin_event_severity"]
+          transaction_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
           {
@@ -176,10 +202,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "admin_events_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "admin_events_prospect_id_fkey"
+            columns: ["prospect_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
           {
@@ -195,7 +221,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "transactions"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       app_config: {
@@ -854,6 +880,67 @@ export type Database = {
           },
         ]
       }
+      relation_reports: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          pro_account_id: string
+          prospect_id: string
+          reason: Database["public"]["Enums"]["relation_report_reason"]
+          relation_id: string
+          resolved_at: string | null
+          resolved_by_clerk_id: string | null
+          resolved_note: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          pro_account_id: string
+          prospect_id: string
+          reason: Database["public"]["Enums"]["relation_report_reason"]
+          relation_id: string
+          resolved_at?: string | null
+          resolved_by_clerk_id?: string | null
+          resolved_note?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          pro_account_id?: string
+          prospect_id?: string
+          reason?: Database["public"]["Enums"]["relation_report_reason"]
+          relation_id?: string
+          resolved_at?: string | null
+          resolved_by_clerk_id?: string | null
+          resolved_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relation_reports_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relation_reports_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relation_reports_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: true
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relations: {
         Row: {
           campaign_id: string
@@ -918,6 +1005,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relations_evaluated_by_pro_id_fkey"
+            columns: ["evaluated_by_pro_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -1048,45 +1142,37 @@ export type Database = {
         Returns: undefined
       }
       admin_campaigns_kpis: {
-        Args: { p_start: string; p_end: string }
+        Args: { p_end: string; p_start: string }
         Returns: Json
       }
       admin_overview_kpis: {
-        Args: { p_start: string; p_end: string }
+        Args: { p_end: string; p_start: string }
         Returns: Json
       }
       admin_overview_timeseries: {
-        Args: { p_start: string; p_end: string }
+        Args: { p_end: string; p_start: string }
         Returns: {
-          d: string
-          prospects: number
-          pros: number
-          relations_sent: number
-          relations_accepted: number
-          relations_refused: number
-          relations_expired: number
           budget_cents: number
-          spent_cents: number
           credited_cents: number
+          d: string
+          pros: number
+          prospects: number
+          relations_accepted: number
+          relations_expired: number
+          relations_refused: number
+          relations_sent: number
+          spent_cents: number
         }[]
       }
       admin_pros_kpis: {
-        Args: { p_start: string; p_end: string }
+        Args: { p_end: string; p_start: string }
         Returns: Json
       }
       admin_prospects_kpis: {
-        Args: { p_start: string; p_end: string }
+        Args: { p_end: string; p_start: string }
         Returns: Json
       }
       clerk_user_id: { Args: never; Returns: string }
-      count_founder_filleuls: {
-        Args: { p_prospect_id: string }
-        Returns: number
-      }
-      is_within_founder_bonus_window: {
-        Args: never
-        Returns: boolean
-      }
       close_campaign_settle: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -1097,6 +1183,11 @@ export type Database = {
           rewards_cents: number
         }[]
       }
+      count_founder_filleuls: {
+        Args: { p_prospect_id: string }
+        Returns: number
+      }
+      is_within_founder_bonus_window: { Args: never; Returns: boolean }
       refund_relation_tx: {
         Args: {
           p_new_status: Database["public"]["Enums"]["relation_status"]
@@ -1125,9 +1216,9 @@ export type Database = {
       }
     }
     Enums: {
+      account_kind: "prospect" | "pro"
       admin_broadcast_audience: "prospects" | "pros" | "all"
       admin_event_severity: "info" | "warning" | "critical"
-      account_kind: "prospect" | "pro"
       campaign_status: "draft" | "active" | "paused" | "completed" | "canceled"
       campaign_type:
         | "prise_de_contact"
@@ -1137,6 +1228,10 @@ export type Database = {
       pro_billing_status: "active" | "past_due" | "canceled" | "trialing"
       pro_plan: "starter" | "pro"
       relation_evaluation: "atteint" | "non_atteint"
+      relation_report_reason:
+        | "sollicitation_multiple"
+        | "faux_compte"
+        | "echange_abusif"
       relation_status:
         | "pending"
         | "accepted"
@@ -1285,9 +1380,14 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       account_kind: ["prospect", "pro"],
+      admin_broadcast_audience: ["prospects", "pros", "all"],
+      admin_event_severity: ["info", "warning", "critical"],
       campaign_status: ["draft", "active", "paused", "completed", "canceled"],
       campaign_type: [
         "prise_de_contact",
@@ -1297,6 +1397,12 @@ export const Constants = {
       ],
       pro_billing_status: ["active", "past_due", "canceled", "trialing"],
       pro_plan: ["starter", "pro"],
+      relation_evaluation: ["atteint", "non_atteint"],
+      relation_report_reason: [
+        "sollicitation_multiple",
+        "faux_compte",
+        "echange_abusif",
+      ],
       relation_status: ["pending", "accepted", "refused", "expired", "settled"],
       tier_key: ["identity", "localisation", "vie", "pro", "patrimoine"],
       transaction_status: ["pending", "completed", "failed", "canceled"],
@@ -1320,3 +1426,6 @@ export const Constants = {
     },
   },
 } as const
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+A new version of Supabase CLI is available: v2.98.2 (currently installed v2.98.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
