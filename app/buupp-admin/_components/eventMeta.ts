@@ -73,5 +73,19 @@ export const EVENT_META: Record<string, EventMeta> = {
     },
     link: () => "/buupp-admin/non-atteint",
   },
+  "prospect.report": {
+    icon: "🚩",
+    label: "Signalement prospect",
+    subLine: (ev) => {
+      const reasonLabels: Record<string, string> = {
+        sollicitation_multiple: "Sollicitation multiple",
+        faux_compte: "Faux compte",
+        echange_abusif: "Échange abusif",
+      };
+      const reason = String(ev.payload?.reason ?? "");
+      return reasonLabels[reason] ?? "Signalement";
+    },
+    link: () => "/buupp-admin/signalements?status=open",
+  },
   // Ajoute ici d'autres types quand pertinents.
 };
