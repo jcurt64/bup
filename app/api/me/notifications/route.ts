@@ -42,6 +42,14 @@ export async function GET() {
   //    target_clerk_user_id (= broadcasts classiques pour tout le monde)
   //  - les broadcasts ciblés où target_clerk_user_id = userId courant
   //    (ex. message automatique "non joignable" envoyé par le système).
+  //
+  // ⚠️ Les deux queries filtrent par audience pour garantir que le rôle
+  // est respecté même sur les broadcasts ciblés : un message à audience
+  // 'prospects' ne fuit pas vers un user connecté en pro, même si la
+  // ligne `prospects.clerk_user_id` collide avec `pro_accounts.clerk_user_id`
+  // (cas observé en environnement de dev malgré la migration role
+  // exclusivity, et par sécurité défensive de toute façon).
+  //
   // Deux queries indépendantes puis merge JS — plus robuste qu'un .or()
   // imbriqué (PostgREST gère mal les virgules dans `audience.in.(…)`
   // quand on les met dans un and(...) imbriqué dans un or(...)).
@@ -59,6 +67,7 @@ export async function GET() {
       .from("admin_broadcasts")
       .select(SELECT_COLS)
       .eq("target_clerk_user_id", userId)
+      .in("audience", audiences)
       .order("created_at", { ascending: false })
       .limit(LIST_CAP),
   ]);
