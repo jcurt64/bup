@@ -87,14 +87,13 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: insErr } = await (admin as any)
+  const { data: inserted, error: insErr } = await admin
     .from("relation_reports")
     .insert({
       relation_id: relation.id,
       prospect_id: prospectId,
       pro_account_id: relation.pro_account_id,
-      reason,
+      reason: reason as "sollicitation_multiple" | "faux_compte" | "echange_abusif",
       comment,
     })
     .select("id, created_at")
@@ -121,10 +120,8 @@ export async function POST(req: Request, ctx: RouteContext) {
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ins = inserted as any;
   return NextResponse.json({
-    id: ins.id,
-    createdAt: ins.created_at,
+    id: inserted.id,
+    createdAt: inserted.created_at,
   });
 }

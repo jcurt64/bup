@@ -77,8 +77,7 @@ export async function fetchReportsList(opts: {
   page: number;
 }): Promise<ReportListItem[]> {
   const admin = createSupabaseAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = (admin as any)
+  let q = admin
     .from("relation_reports")
     .select(
       `id, reason, comment, created_at, resolved_at, resolved_by_clerk_id, resolved_note,
@@ -153,30 +152,22 @@ export async function fetchReportsKpis(opts: {
   const cutoff = periodCutoffIso(opts.period);
   const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const baseCount = (filterFn: (q: any) => any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q: any = (admin as any)
-      .from("relation_reports")
-      .select("id", { count: "exact", head: true });
-    q = filterFn(q);
-    if (cutoff) q = q.gte("created_at", cutoff);
-    return q;
-  };
+  // Helper : applique le filtre de période s'il est présent. Évite de
+  // dupliquer la branche `.gte("created_at", cutoff)` sur chaque count.
+  const withPeriod = <T extends { gte: (col: string, val: string) => T }>(q: T): T =>
+    cutoff ? q.gte("created_at", cutoff) : q;
+
+  const baseQuery = () =>
+    admin.from("relation_reports").select("id", { count: "exact", head: true });
 
   const [openRes, resolved30dRes, totalRes, multRes, fauxRes, abusRes] =
     await Promise.all([
-      baseCount((q) => q.is("resolved_at", null)),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (admin as any)
-        .from("relation_reports")
-        .select("id", { count: "exact", head: true })
-        .not("resolved_at", "is", null)
-        .gte("resolved_at", cutoff30d),
-      baseCount((q) => q),
-      baseCount((q) => q.eq("reason", "sollicitation_multiple")),
-      baseCount((q) => q.eq("reason", "faux_compte")),
-      baseCount((q) => q.eq("reason", "echange_abusif")),
+      withPeriod(baseQuery().is("resolved_at", null)),
+      baseQuery().not("resolved_at", "is", null).gte("resolved_at", cutoff30d),
+      withPeriod(baseQuery()),
+      withPeriod(baseQuery().eq("reason", "sollicitation_multiple")),
+      withPeriod(baseQuery().eq("reason", "faux_compte")),
+      withPeriod(baseQuery().eq("reason", "echange_abusif")),
     ]);
 
   return {

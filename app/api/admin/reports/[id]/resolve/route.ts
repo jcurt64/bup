@@ -64,8 +64,7 @@ export async function POST(req: Request, ctx: RouteContext) {
           resolved_note: null,
         };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from("relation_reports")
     .update(patch)
     .eq("id", reportId)
