@@ -135,7 +135,7 @@ export async function GET() {
        relations:relation_id (
          id, motif, reward_cents, status, sent_at, expires_at, decided_at,
          campaigns ( status, brief, starts_at, ends_at, targeting ),
-         pro_accounts ( raison_sociale, secteur, ville )
+         pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )
        )`,
     )
     .eq("account_kind", "prospect")

@@ -4290,26 +4290,30 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
         </div>
 
         {/* Footer secondaire : signalement (action discrète, mise en
-            retrait au-dessus des actions principales) */}
-        <div style={{
-          borderTop: '1px solid var(--line)',
-          paddingTop: 12, marginTop: 4,
-          display: 'flex', justifyContent: 'flex-start',
-        }}>
-          {reportedLocal ? (
-            <span className="chip" style={{ background: 'var(--ivory-2)', color: 'var(--ink-4)', fontSize: 11 }}>
-              <Icon name="flag" size={11}/> Signalement déjà transmis
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setReportOpen(true)}
-              className="btn btn-ghost btn-sm"
-              style={{ color: 'var(--danger)', fontSize: 12 }}>
-              <Icon name="flag" size={12}/> Signaler ce professionnel
-            </button>
-          )}
-        </div>
+            retrait au-dessus des actions principales). Masqué sur les
+            démos flash deal (isMockDemo) — ces "relations" sont stockées
+            uniquement en localStorage, l'API DB ne les connaît pas. */}
+        {!relation.isMockDemo && (
+          <div style={{
+            borderTop: '1px solid var(--line)',
+            paddingTop: 12, marginTop: 4,
+            display: 'flex', justifyContent: 'flex-start',
+          }}>
+            {reportedLocal ? (
+              <span className="chip" style={{ background: 'var(--ivory-2)', color: 'var(--ink-4)', fontSize: 11 }}>
+                <Icon name="flag" size={11}/> Signalement déjà transmis
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setReportOpen(true)}
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--danger)', fontSize: 12 }}>
+                <Icon name="flag" size={12}/> Signaler ce professionnel
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Actions
             Layout desktop (flex-end) :

@@ -94,12 +94,16 @@ export async function GET() {
   // "Crédité" des relations dont la campagne a été lancée il y a > 3 min.
   await settleRipeRelationsAndNotify(admin);
 
+  // Désambiguïsation FK : depuis la migration relation_evaluation, relations
+  // a une seconde FK vers pro_accounts (evaluated_by_pro_id). PostgREST
+  // refuse l'embedding implicite (PGRST201) → on précise la FK historique
+  // (pro_account_id), qui est l'auteur de la sollicitation.
   const { data, error } = await admin
     .from("relations")
     .select(
       `id, campaign_id, motif, reward_cents, status, sent_at, expires_at, decided_at,
        campaigns ( name, status, brief, starts_at, ends_at, targeting ),
-       pro_accounts ( raison_sociale, secteur, ville )`,
+       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )`,
     )
     .eq("prospect_id", prospectId)
     .order("sent_at", { ascending: false });

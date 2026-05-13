@@ -36,6 +36,12 @@ export async function POST(req: Request, ctx: RouteContext) {
   if (!relationId) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
+  // Garde anti-mock : les ids non-UUID (e.g. "mock-solaria" depuis les
+  // démos flash deal stockées en localStorage) doivent renvoyer 404
+  // proprement plutôt que de propager une erreur Postgres 22P02 en 500.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(relationId)) {
+    return NextResponse.json({ error: "relation_not_found" }, { status: 404 });
+  }
 
   let body: { reason?: string; comment?: string };
   try {
