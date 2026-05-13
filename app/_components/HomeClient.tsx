@@ -278,8 +278,8 @@ function Progress({ value = 0.5, color }: { value?: number; color?: string }) {
 }
 
 const ROTATING_WORDS = [
-  { t: "inversée.", color: "#A5B4FC" },
-  { t: "transparente.", color: "#FB923C" },
+  { t: "gagnant-gagnant.", color: "#A5B4FC" },
+  { t: "win-win.", color: "#FB923C" },
   { t: "équitable.", color: "#16a34a" },
 ];
 
@@ -610,7 +610,7 @@ function Hero() {
         </div>
 
         <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
-          La publicité,
+          Le marketing,
           <br />
           <RotatingHeadlineWord />
         </h1>
@@ -3180,7 +3180,7 @@ function FinalCTA() {
             margin: "20px auto 0",
           }}
         >
-          La publicité qui vous rémunère, enfin. Sans spam, sans fuite, sans le
+          Le marketing qui vous rémunère, enfin. Sans spam, sans fuite, sans le
           sentiment d&apos;être le produit.
         </p>
         <div
