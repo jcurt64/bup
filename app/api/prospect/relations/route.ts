@@ -13,6 +13,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { reportedRelationIds } from "@/lib/prospect/reports";
 
 export const runtime = "nodejs";
 
@@ -109,6 +110,8 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as unknown as RelationRow[];
+  const allRelationIds = rows.map((r) => r.id);
+  const reportedSet = await reportedRelationIds(admin, prospectId, allRelationIds);
   const now = Date.now();
 
   const pending = rows
@@ -132,6 +135,7 @@ export async function GET() {
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        reported: reportedSet.has(r.id),
       };
     });
 
@@ -198,6 +202,7 @@ export async function GET() {
         campaignOpen,
         campaignActive,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        reported: reportedSet.has(r.id),
       };
     });
 
