@@ -32,7 +32,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("relations")
     .select(
-      `status,
+      `status, decided_at,
        campaigns ( targeting ),
        prospects:prospect_id (
          prospect_identity ( naissance, genre ),
@@ -48,6 +48,7 @@ export async function GET() {
 
   type Row = {
     status: string;
+    decided_at: string | null;
     campaigns: { targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       prospect_identity: { naissance: string | null; genre: string | null } | null;
@@ -65,6 +66,7 @@ export async function GET() {
       : null;
     return {
       status: r.status,
+      decidedAt: r.decided_at,
       tiers: (camp?.targeting?.requiredTiers ?? []) as number[],
       naissance: pi?.naissance ?? null,
       genre: pi?.genre ?? null,
@@ -133,8 +135,66 @@ export async function GET() {
     { label: "Autre / non précisé", pct: genreTotal === 0 ? 0 : Math.round((genres.autre / genreTotal) * 100) },
   ];
 
+  // 5. Heatmap "Meilleurs créneaux" : compte des acceptations par
+  //    (jour × heure) sur `decided_at`. Buckets de 2h alignés sur les
+  //    libellés affichés côté UI (8, 10, 12, 14, 16, 18, 20). Heure de
+  //    Paris pour cohérence avec l'expérience utilisateur. Jours en
+  //    convention française (0=Lundi → 6=Dimanche).
+  const HOUR_BUCKETS = [8, 10, 12, 14, 16, 18, 20] as const; // start of bucket
+  const creneauCounts: number[][] = Array.from({ length: 7 }, () =>
+    Array.from({ length: HOUR_BUCKETS.length }, () => 0),
+  );
+  // Intl.DateTimeFormat pour conversion fiable vers Europe/Paris,
+  // robuste aux changements d'heure été/hiver.
+  const parisFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const WEEKDAY_FR: Record<string, number> = {
+    Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6,
+  };
+  function bucketIndexForHour(hour: number): number | null {
+    // Tout ce qui est avant 7h ou après 21h59 est ignoré (pas de bucket).
+    if (hour < 7 || hour > 21) return null;
+    // Bucket centré sur 8 (7-9), 10 (9-11), 12 (11-13)... 20 (19-21)
+    const idx = Math.round((hour - 8) / 2);
+    return idx >= 0 && idx < HOUR_BUCKETS.length ? idx : null;
+  }
+  for (const r of rows) {
+    if (!isWin(r.status) || !r.decidedAt) continue;
+    const d = new Date(r.decidedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const parts = parisFmt.formatToParts(d);
+    const weekdayPart = parts.find((p) => p.type === "weekday")?.value ?? "";
+    const hourPart = parts.find((p) => p.type === "hour")?.value ?? "0";
+    const dayIdx = WEEKDAY_FR[weekdayPart];
+    const hour = Number(hourPart);
+    if (dayIdx == null || Number.isNaN(hour)) continue;
+    const hourIdx = bucketIndexForHour(hour);
+    if (hourIdx === null) continue;
+    creneauCounts[dayIdx][hourIdx]++;
+  }
+  const totalCreneau = creneauCounts.reduce(
+    (acc, row) => acc + row.reduce((a, b) => a + b, 0),
+    0,
+  );
+  const maxCreneau = creneauCounts.reduce(
+    (acc, row) => Math.max(acc, ...row),
+    0,
+  );
+
   return NextResponse.json({
     acceptanceByTier, geoBreakdown, ageBreakdown, sexBreakdown,
+    creneauHeatmap: {
+      hourLabels: HOUR_BUCKETS.map(String),
+      // Matrice 7 jours × N heures avec le nombre brut d'acceptations.
+      // La UI normalise par maxCreneau pour calibrer l'intensité.
+      counts: creneauCounts,
+      total: totalCreneau,
+      max: maxCreneau,
+    },
     sampleSize: { rows: rows.length, wins: rows.filter((r) => isWin(r.status)).length },
   });
 }

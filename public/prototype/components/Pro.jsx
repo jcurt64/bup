@@ -4439,8 +4439,10 @@ function Analytics() {
         </div>
         <div className="card analytics-creneaux" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Meilleurs créneaux</div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>Heatmap du taux d'acceptation heure × jour</div>
-          <Heatmap/>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
+            Concentration des acceptations heure × jour (heure de Paris)
+          </div>
+          <Heatmap heatmap={data?.creneauHeatmap || null}/>
         </div>
       </div>
       <div className="card" style={{ padding: 28 }}>
@@ -4507,28 +4509,79 @@ function Analytics() {
   );
 }
 
-function Heatmap() {
+function Heatmap({ heatmap }) {
+  // Convention française : lundi → dimanche (≠ Date.getDay() qui démarre
+  // dimanche). Doit correspondre à l'ordre renvoyé par /api/pro/analytics.
   const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-  const hours = ['8', '10', '12', '14', '16', '18', '20'];
-  const grid = days.map((_, d) => hours.map((_, h) => {
-    const peak = (h === 2 || h === 4 || h === 5) && d < 5 ? 0.7 : 0.15;
-    return Math.min(1, peak + (Math.sin(d * 7 + h * 3) + 1) * 0.15);
-  }));
+  const dayLabels = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  // Si l'API n'a pas encore répondu ou si aucune acceptation, on reste
+  // sur la grille vide (toutes cellules à intensité 0). L'utilisateur
+  // verra des cases pâles + le message "Aucune acceptation" sous la grille.
+  const hours = heatmap?.hourLabels || ['8', '10', '12', '14', '16', '18', '20'];
+  const counts = heatmap?.counts || days.map(() => hours.map(() => 0));
+  const max = heatmap?.max || 0;
+  const total = heatmap?.total || 0;
+
+  // Repérage des 3 meilleurs créneaux pour le résumé textuel sous la
+  // grille — utile car l'œil ne capte pas toujours la cellule la plus
+  // chaude au premier regard.
+  const allCells = [];
+  for (let di = 0; di < days.length; di++) {
+    for (let hi = 0; hi < hours.length; hi++) {
+      if (counts[di]?.[hi] > 0) {
+        allCells.push({ di, hi, count: counts[di][hi] });
+      }
+    }
+  }
+  allCells.sort((a, b) => b.count - a.count);
+  const top = allCells.slice(0, 3);
+
   return (
-    <div className="heatmap-grid" style={{ display: 'grid', gridTemplateColumns: '18px repeat(7, 1fr)', gap: 4 }}>
-      <div/>
-      {hours.map(h => <div key={h} className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center' }}>{h}h</div>)}
-      {days.map((d, di) => (
-        <React.Fragment key={di}>
-          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{d}</div>
-          {hours.map((_, hi) => (
-            <div key={hi} style={{
-              aspectRatio: '1', borderRadius: 4,
-              background: `color-mix(in oklab, var(--accent) ${Math.round(grid[di][hi] * 80)}%, var(--ivory-2))`
-            }}/>
+    <div>
+      <div className="heatmap-grid" style={{ display: 'grid', gridTemplateColumns: '18px repeat(7, 1fr)', gap: 4 }}>
+        <div/>
+        {hours.map(h => <div key={h} className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center' }}>{h}h</div>)}
+        {days.map((d, di) => (
+          <React.Fragment key={di}>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{d}</div>
+            {hours.map((_, hi) => {
+              const c = counts[di]?.[hi] ?? 0;
+              // Intensité 0–1 normalisée sur le max de la grille pour que
+              // la couleur soit comparable entre cellules du même pro.
+              const intensity = max > 0 ? c / max : 0;
+              return (
+                <div key={hi}
+                  title={`${dayLabels[di]} ${hours[hi]}h : ${c} acceptation${c > 1 ? 's' : ''}`}
+                  style={{
+                    aspectRatio: '1', borderRadius: 4,
+                    background: `color-mix(in oklab, var(--accent) ${Math.round(intensity * 80)}%, var(--ivory-2))`,
+                    border: c > 0 && intensity < 0.1 ? '1px solid color-mix(in oklab, var(--accent) 20%, transparent)' : 'none',
+                  }}/>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Résumé textuel — soit message vide soit top 3 des créneaux */}
+      {total === 0 ? (
+        <div className="muted" style={{ fontSize: 12, marginTop: 14, lineHeight: 1.5 }}>
+          Aucune acceptation enregistrée pour le moment. La heatmap s'animera dès vos premiers contacts.
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, marginTop: 14, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+          <span className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.12em' }}>
+            Top créneaux ·
+          </span>{' '}
+          {top.map((c, i) => (
+            <span key={i}>
+              <strong>{dayLabels[c.di]} {hours[c.hi]}h</strong>
+              {' '}({c.count}){i < top.length - 1 ? ', ' : ''}
+            </span>
           ))}
-        </React.Fragment>
-      ))}
+          <span className="muted"> — sur {total} acceptation{total > 1 ? 's' : ''} au total</span>
+        </div>
+      )}
     </div>
   );
 }
