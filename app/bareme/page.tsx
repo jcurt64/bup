@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 
 type Category = { name: string; value: number; desc: string };
 type Tier = {
@@ -286,6 +287,9 @@ export default function BaremePage() {
           >
             Grille de valorisation des données personnelles par catégorie — 5
             paliers de rémunération prospect.
+          </div>
+          <div style={{ marginTop: 20, display: "flex", justifyContent: "center" }}>
+            <PageVersion version="1.0" />
           </div>
         </div>
 

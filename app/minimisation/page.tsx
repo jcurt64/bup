@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 
 /* ─── Source unique : objectifs + paliers de minimisation ───────────
    Données dupliquées depuis le wizard de création de campagne
@@ -209,6 +210,7 @@ export default function MinimisationPage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Principe de minimisation
         </div>
+        <PageVersion version="1.0" />
 
         <h1
           className="serif"

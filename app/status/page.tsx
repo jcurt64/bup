@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 
 type Status = "operational" | "degraded" | "down";
 type ComponentResult = {
@@ -129,6 +130,7 @@ export default function StatusPage() {
         >
           État du service
         </div>
+        <PageVersion version="1.0" />
         <h1
           className="serif"
           style={{

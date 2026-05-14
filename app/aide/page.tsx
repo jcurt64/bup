@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 
 type Article = {
   q: string;
@@ -603,6 +604,7 @@ export default function AidePage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Centre d&apos;aide
         </div>
+        <PageVersion version="1.0" />
         <h1
           className="serif"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.05, marginBottom: 18 }}

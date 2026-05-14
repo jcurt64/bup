@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 
 export const metadata: Metadata = {
   title: "Accessibilité — BUUPP",
@@ -36,6 +37,7 @@ export default function AccessibilitePage() {
         >
           Accessibilité — non conforme (audit en cours)
         </div>
+        <PageVersion version="1.0" />
         <h1
           className="serif"
           style={{

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import BackHomeButton from "../_components/BackHomeButton";
+import PageVersion from "../_components/PageVersion";
 import {
   COOKIE_CATEGORIES,
   type CookieCategory,
@@ -41,6 +42,7 @@ export default function CookiesPage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Politique des cookies
         </div>
+        <PageVersion version="1.0" />
         <h1
           className="serif"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.05, marginBottom: 18 }}
