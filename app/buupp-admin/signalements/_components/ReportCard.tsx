@@ -26,6 +26,37 @@ const REASON_TONE: Record<
   },
 };
 
+function buildWarnMailto(report: ReportListItem): string {
+  const reasonText = REASON_LABEL[report.reason];
+  const proName = report.pro?.raisonSociale ?? "—";
+  const campaignName = report.campaign?.name ?? "—";
+  const sentAt = report.relation?.sentAt
+    ? new Date(report.relation.sentAt).toLocaleDateString("fr-FR")
+    : "—";
+  const subject = `[BUUPP] Signalement reçu — ${reasonText}`;
+  const body = [
+    `Bonjour ${proName},`,
+    "",
+    "L'équipe BUUPP vous contacte au sujet d'un signalement que nous avons reçu concernant l'une de vos sollicitations.",
+    "",
+    `Motif du signalement : ${reasonText}`,
+    `Campagne concernée  : ${campaignName}`,
+    `Date de sollicitation : ${sentAt}`,
+    "",
+    "Nous vous rappelons les règles d'usage du service BUUPP :",
+    "  • Une seule sollicitation par prospect et par campagne.",
+    "  • Échanges respectueux et conformes aux engagements pris.",
+    "  • Identité et activité de la société conformes à votre inscription.",
+    "",
+    "Merci de bien vouloir nous répondre par retour de mail pour nous donner votre version, ou de nous indiquer si vous souhaitez des éclaircissements.",
+    "",
+    "Bien cordialement,",
+    "L'équipe BUUPP",
+  ].join("\n");
+  const params = new URLSearchParams({ subject, body });
+  return `mailto:${encodeURIComponent(report.pro!.email!)}?${params.toString()}`;
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   try {
@@ -190,7 +221,22 @@ export default function ReportCard({ report }: { report: ReportListItem }) {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {report.pro?.email && (
+          <a
+            href={buildWarnMailto(report)}
+            className="text-xs rounded px-3 py-1.5 inline-flex items-center transition-colors"
+            style={{
+              background: "var(--paper)",
+              color: "var(--ink-2)",
+              border: "1px solid var(--line)",
+              textDecoration: "none",
+            }}
+            title={`Ouvre votre client mail avec un brouillon adressé à ${report.pro.email}`}
+          >
+            Avertir ce pro
+          </a>
+        )}
         <ResolveButton
           reportId={report.id}
           action={isResolved ? "reopen" : "resolve"}

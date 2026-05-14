@@ -7,6 +7,7 @@
 import {
   fetchReportsList,
   fetchReportsKpis,
+  enrichReportsWithProEmails,
   type ReportStatus,
   type ReportReason,
   type ReportPeriod,
@@ -69,10 +70,11 @@ export default async function SignalementsAdminPage({
   const pageRaw = Number(sp.page ?? "0");
   const page = Number.isFinite(pageRaw) && pageRaw >= 0 ? Math.floor(pageRaw) : 0;
 
-  const [items, kpis] = await Promise.all([
+  const [itemsRaw, kpis] = await Promise.all([
     fetchReportsList({ status, reason, period, page }),
     fetchReportsKpis({ period }),
   ]);
+  const items = await enrichReportsWithProEmails(itemsRaw);
 
   return (
     <div className="space-y-6">

@@ -34,6 +34,10 @@ export type ReportListItem = {
   pro: {
     id: string;
     raisonSociale: string;
+    // Email récupéré côté serveur via Clerk pour alimenter le bouton
+    // "Avertir ce pro" (mailto: pré-rempli). Null si pas trouvé.
+    email: string | null;
+    clerkUserId: string | null;
   } | null;
   prospect: {
     id: string;
@@ -82,8 +86,10 @@ export async function fetchReportsList(opts: {
     .select(
       // prenom/nom du prospect vivent sur prospect_identity (1:1) depuis
       // la migration move_lifestyle_fields — on traverse via l'embedding.
+      // clerk_user_id du pro est récupéré pour batcher l'appel Clerk plus
+      // bas et récupérer les emails pour le bouton "Avertir ce pro".
       `id, reason, comment, created_at, resolved_at, resolved_by_clerk_id, resolved_note,
-       pro_accounts ( id, raison_sociale ),
+       pro_accounts ( id, raison_sociale, clerk_user_id ),
        prospects ( id, prospect_identity ( prenom, nom ) ),
        relations ( id, sent_at, motif, campaign_id, campaigns ( id, name ) )`,
     )
@@ -119,6 +125,9 @@ export async function fetchReportsList(opts: {
       ? {
           id: r.pro_accounts.id,
           raisonSociale: r.pro_accounts.raison_sociale ?? "—",
+          // Rempli en post-traitement par enrichReportsWithProEmails().
+          email: null,
+          clerkUserId: r.pro_accounts.clerk_user_id ?? null,
         }
       : null,
     prospect: r.prospects
@@ -191,4 +200,49 @@ export async function fetchReportsKpis(opts: {
       echange_abusif: abusRes.count ?? 0,
     },
   };
+}
+
+/**
+ * Enrichit chaque report avec l'email du pro (depuis Clerk) — utilisé
+ * par la page admin pour alimenter le bouton "Avertir ce pro" (mailto:).
+ * Batch unique : getUserList prend tous les clerk_user_id uniques d'un
+ * coup, puis on remappe sur les items. Si Clerk échoue (rate-limit,
+ * réseau, etc.) on laisse `email: null` et la carte UI dégrade
+ * gracieusement (bouton mailto: désactivé).
+ */
+export async function enrichReportsWithProEmails(
+  items: ReportListItem[],
+): Promise<ReportListItem[]> {
+  const clerkIds = Array.from(
+    new Set(
+      items
+        .map((r) => r.pro?.clerkUserId ?? null)
+        .filter((v): v is string => !!v),
+    ),
+  );
+  if (clerkIds.length === 0) return items;
+  let emailByClerkId = new Map<string, string>();
+  try {
+    const { clerkClient } = await import("@/lib/clerk/server");
+    const client = await clerkClient();
+    const res = await client.users.getUserList({
+      userId: clerkIds,
+      limit: Math.max(50, clerkIds.length),
+    });
+    for (const u of res.data) {
+      const primary = u.emailAddresses.find(
+        (e) => e.id === u.primaryEmailAddressId,
+      );
+      const email = primary?.emailAddress ?? u.emailAddresses[0]?.emailAddress;
+      if (email) emailByClerkId.set(u.id, email);
+    }
+  } catch (err) {
+    console.error("[reports/enrichWithProEmails] clerk getUserList failed", err);
+    emailByClerkId = new Map();
+  }
+  return items.map((r) =>
+    r.pro && r.pro.clerkUserId
+      ? { ...r, pro: { ...r.pro, email: emailByClerkId.get(r.pro.clerkUserId) ?? null } }
+      : r,
+  );
 }
