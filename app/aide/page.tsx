@@ -293,10 +293,15 @@ const CATEGORIES: Category[] = [
             </p>
             <ul>
               <li>la fourchette du palier le plus élevé requis (1 € à 10 €) ;</li>
-              <li>le coût lié au sous-objectif choisi (RDV physique, livre blanc, etc.) ;</li>
               <li>le multiplicateur de durée (×3 en flash deal 1 h jusqu&apos;à ×1 en 7 jours) ;</li>
               <li>le bonus ×2 « certifié confiance » quand le prospect matché a son profil 100 % vérifié.</li>
             </ul>
+            <p>
+              Le <strong>sous-type d&apos;opération</strong> (RDV physique, livre blanc, SMS…)
+              que vous choisissez à l&apos;étape 1 du wizard n&apos;influe <strong>pas</strong>
+              {" "}sur le tarif : c&apos;est une information descriptive du contexte de la
+              campagne, pas un paramètre de prix.
+            </p>
             <p>
               À cela s&apos;ajoute la <strong>commission BUUPP de 10 %</strong>{" "}
               calculée sur le budget de la campagne — elle n&apos;est facturée que sur

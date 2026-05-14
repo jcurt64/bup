@@ -194,17 +194,23 @@ export async function POST(req: Request) {
     : "7d";
   const durationMeta = DURATION_MULTIPLIERS[durationKey];
 
-  // Garde-fou rémunération minimum : `costPerContactCents` ne peut pas
-  // tomber sous la borne basse du palier le plus élevé requis (× la
-  // durée). C'est une protection prospect : impossible pour un pro de
-  // payer moins que le minimum garanti pour les données qu'il demande.
-  // On ne fixe PAS de plafond — le wizard ajoute légitimement des sous-
-  // coûts (sous-objectif, bonus certifié confiance) qui peuvent porter
-  // le cpc au-dessus de la borne haute du barème.
+  // Garde-fou rémunération : `costPerContactCents` doit être dans le
+  // barème du palier le plus élevé requis (× la durée).
+  //   - Borne basse : protection prospect, le pro ne peut pas payer moins
+  //     que le minimum garanti pour les données qu'il demande.
+  //   - Borne haute : protection plateforme — le wizard ne calcule
+  //     désormais le cpc qu'à partir des paliers (les sous-types choisis
+  //     à l'étape 1 sont informatifs et ne participent plus au prix).
+  //     Un cpc qui dépasse la borne max du palier est forcément un bug
+  //     ou une manipulation côté client → on rejette.
+  //   - Le bonus "verif certifié confiance" (×1.2) reste autorisé, donc
+  //     on applique la même marge sur le plafond.
   const tierRange = rangeForRequiredTiers(body.requiredTiers);
   if (tierRange) {
-    const { minCents, tier } = tierRange;
+    const { minCents, maxCents, tier } = tierRange;
     const effMin = Math.round(minCents * durationMeta.mult);
+    const VERIF_BONUS_MAX = 1.2;
+    const effMax = Math.round(maxCents * durationMeta.mult * VERIF_BONUS_MAX);
     if (body.costPerContactCents < effMin) {
       const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
       return NextResponse.json(
@@ -215,6 +221,20 @@ export async function POST(req: Request) {
           costPerContactCents: body.costPerContactCents,
           durationMultiplier: durationMeta.mult,
           message: `Pour le palier ${tier} en ${durationKey}, la rémunération minimum est de ${fmtEur(effMin)} € par contact.`,
+        },
+        { status: 400 },
+      );
+    }
+    if (body.costPerContactCents > effMax) {
+      const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
+      return NextResponse.json(
+        {
+          error: "cost_above_tier_maximum",
+          tier,
+          maxCents: effMax,
+          costPerContactCents: body.costPerContactCents,
+          durationMultiplier: durationMeta.mult,
+          message: `Pour le palier ${tier} en ${durationKey}, la rémunération maximum est de ${fmtEur(effMax)} € par contact (les sous-types ne participent plus au prix).`,
         },
         { status: 400 },
       );

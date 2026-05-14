@@ -1767,13 +1767,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
 
   const baseCpc = (() => {
     if (!selectedTiers.size) return 0;
+    // Seul le coût des paliers est retenu — les sous-types choisis à
+    // l'étape 1 sont purement informatifs (nature de l'opération
+    // marketing) et n'affectent pas le tarif. Le pro paie pour la
+    // donnée, pas pour le canal utilisé.
     let base = 0;
     selectedTiers.forEach(tid => { const t = TIERS_DATA.find(t => t.id === tid); base += (t.min + t.max) / 2; });
-    if (obj && selectedSubs.size) {
-      let subAdd = 0;
-      selectedSubs.forEach(sid => { const s = obj.sub.find(s => s.id === sid); if (s) subAdd += s.cost; });
-      base += subAdd / selectedSubs.size;
-    }
     const mult = VERIF_LEVELS.find(v => v.id === verif)?.mult || 1;
     return Math.round(base * mult * 100) / 100;
   })();
@@ -2110,7 +2109,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                           </span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 500 }}>{s.name}</div>
-                            <div className="mono" style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{fmtEur(s.cost)}/contact</div>
+                            {/* La description du sous-type sert d'info à
+                                titre indicatif — le tarif final dépend
+                                uniquement du palier de données sélectionné. */}
+                            <div className="muted" style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>{s.desc}</div>
                           </div>
                         </button>
                       );
