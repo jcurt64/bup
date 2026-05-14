@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReportListItem } from "@/lib/admin/queries/reports";
 import ResolveButton from "./ResolveButton";
+import NotifyProButton from "./NotifyProButton";
 
 const REASON_LABEL: Record<ReportListItem["reason"], string> = {
   sollicitation_multiple: "Sollicitation multiple",
@@ -25,51 +26,6 @@ const REASON_TONE: Record<
     color: "var(--ink-2)",
   },
 };
-
-// Phrases d'accroche selon le motif — chacune amène le sujet en douceur,
-// sans tonalité accusatoire. L'idée est d'ouvrir le dialogue, pas de
-// poser une sanction.
-const REASON_INTRO: Record<ReportListItem["reason"], string> = {
-  sollicitation_multiple:
-    "un membre nous a indiqué avoir reçu plusieurs sollicitations de votre part sur la même campagne. On voulait simplement vous prévenir, car le règlement BUUPP prévoit une seule prise de contact par prospect.",
-  faux_compte:
-    "un membre nous a fait remonter un doute sur la légitimité de votre compte. Rien d'alarmant à ce stade, mais on préfère vous en parler pour clarifier ensemble.",
-  echange_abusif:
-    "un membre nous a partagé un ressenti négatif après un échange avec vous. On préfère vous en parler directement plutôt que de tirer des conclusions à votre place.",
-};
-
-function buildWarnMailto(report: ReportListItem): string {
-  const reasonText = REASON_LABEL[report.reason];
-  const proName = report.pro?.raisonSociale ?? "—";
-  const campaignName = report.campaign?.name ?? "—";
-  const sentAt = report.relation?.sentAt
-    ? new Date(report.relation.sentAt).toLocaleDateString("fr-FR")
-    : "—";
-  const intro = REASON_INTRO[report.reason];
-
-  const subject = `Petit point sur l'une de vos sollicitations BUUPP`;
-  const body = [
-    `Bonjour ${proName},`,
-    "",
-    `Ici l'équipe BUUPP — ${intro}`,
-    "",
-    `Pour le contexte :`,
-    `  • Campagne : ${campaignName}`,
-    `  • Sollicitation envoyée le : ${sentAt}`,
-    `  • Type de retour reçu : ${reasonText}`,
-    "",
-    "On ne tire évidemment aucune conclusion à votre place : il arrive qu'un membre nous remonte quelque chose de très ponctuel, parfois mal interprété. C'est précisément pour ça qu'on prend contact avec vous avant tout.",
-    "",
-    "Si vous voulez nous donner votre version, ou si vous avez besoin d'éclaircissements de notre côté, répondez simplement à ce mail — on lit tout.",
-    "",
-    "Merci pour votre attention, et continuez de faire vivre la communauté BUUPP.",
-    "",
-    "Chaleureusement,",
-    "L'équipe BUUPP",
-  ].join("\n");
-  const params = new URLSearchParams({ subject, body });
-  return `mailto:${encodeURIComponent(report.pro!.email!)}?${params.toString()}`;
-}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -236,20 +192,11 @@ export default function ReportCard({ report }: { report: ReportListItem }) {
       )}
 
       <div className="flex flex-wrap justify-end gap-2">
-        {report.pro?.email && (
-          <a
-            href={buildWarnMailto(report)}
-            className="text-xs rounded px-3 py-1.5 inline-flex items-center transition-colors"
-            style={{
-              background: "var(--paper)",
-              color: "var(--ink-2)",
-              border: "1px solid var(--line)",
-              textDecoration: "none",
-            }}
-            title={`Ouvre votre client mail avec un brouillon adressé à ${report.pro.email}`}
-          >
-            Avertir ce pro
-          </a>
+        {report.pro?.clerkUserId && (
+          <NotifyProButton
+            reportId={report.id}
+            notifiedAt={report.notifiedAt}
+          />
         )}
         <ResolveButton
           reportId={report.id}

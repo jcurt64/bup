@@ -884,6 +884,8 @@ export type Database = {
           comment: string | null
           created_at: string
           id: string
+          notified_at: string | null
+          notified_by_clerk_id: string | null
           pro_account_id: string
           prospect_id: string
           reason: Database["public"]["Enums"]["relation_report_reason"]
@@ -896,6 +898,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          notified_at?: string | null
+          notified_by_clerk_id?: string | null
           pro_account_id: string
           prospect_id: string
           reason: Database["public"]["Enums"]["relation_report_reason"]
@@ -908,6 +912,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          notified_at?: string | null
+          notified_by_clerk_id?: string | null
           pro_account_id?: string
           prospect_id?: string
           reason?: Database["public"]["Enums"]["relation_report_reason"]
