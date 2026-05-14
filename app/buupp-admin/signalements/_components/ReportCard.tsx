@@ -26,6 +26,18 @@ const REASON_TONE: Record<
   },
 };
 
+// Phrases d'accroche selon le motif — chacune amène le sujet en douceur,
+// sans tonalité accusatoire. L'idée est d'ouvrir le dialogue, pas de
+// poser une sanction.
+const REASON_INTRO: Record<ReportListItem["reason"], string> = {
+  sollicitation_multiple:
+    "un membre nous a indiqué avoir reçu plusieurs sollicitations de votre part sur la même campagne. On voulait simplement vous prévenir, car le règlement BUUPP prévoit une seule prise de contact par prospect.",
+  faux_compte:
+    "un membre nous a fait remonter un doute sur la légitimité de votre compte. Rien d'alarmant à ce stade, mais on préfère vous en parler pour clarifier ensemble.",
+  echange_abusif:
+    "un membre nous a partagé un ressenti négatif après un échange avec vous. On préfère vous en parler directement plutôt que de tirer des conclusions à votre place.",
+};
+
 function buildWarnMailto(report: ReportListItem): string {
   const reasonText = REASON_LABEL[report.reason];
   const proName = report.pro?.raisonSociale ?? "—";
@@ -33,24 +45,26 @@ function buildWarnMailto(report: ReportListItem): string {
   const sentAt = report.relation?.sentAt
     ? new Date(report.relation.sentAt).toLocaleDateString("fr-FR")
     : "—";
-  const subject = `[BUUPP] Signalement reçu — ${reasonText}`;
+  const intro = REASON_INTRO[report.reason];
+
+  const subject = `Petit point sur l'une de vos sollicitations BUUPP`;
   const body = [
     `Bonjour ${proName},`,
     "",
-    "L'équipe BUUPP vous contacte au sujet d'un signalement que nous avons reçu concernant l'une de vos sollicitations.",
+    `Ici l'équipe BUUPP — ${intro}`,
     "",
-    `Motif du signalement : ${reasonText}`,
-    `Campagne concernée  : ${campaignName}`,
-    `Date de sollicitation : ${sentAt}`,
+    `Pour le contexte :`,
+    `  • Campagne : ${campaignName}`,
+    `  • Sollicitation envoyée le : ${sentAt}`,
+    `  • Type de retour reçu : ${reasonText}`,
     "",
-    "Nous vous rappelons les règles d'usage du service BUUPP :",
-    "  • Une seule sollicitation par prospect et par campagne.",
-    "  • Échanges respectueux et conformes aux engagements pris.",
-    "  • Identité et activité de la société conformes à votre inscription.",
+    "On ne tire évidemment aucune conclusion à votre place : il arrive qu'un membre nous remonte quelque chose de très ponctuel, parfois mal interprété. C'est précisément pour ça qu'on prend contact avec vous avant tout.",
     "",
-    "Merci de bien vouloir nous répondre par retour de mail pour nous donner votre version, ou de nous indiquer si vous souhaitez des éclaircissements.",
+    "Si vous voulez nous donner votre version, ou si vous avez besoin d'éclaircissements de notre côté, répondez simplement à ce mail — on lit tout.",
     "",
-    "Bien cordialement,",
+    "Merci pour votre attention, et continuez de faire vivre la communauté BUUPP.",
+    "",
+    "Chaleureusement,",
     "L'équipe BUUPP",
   ].join("\n");
   const params = new URLSearchParams({ subject, body });
