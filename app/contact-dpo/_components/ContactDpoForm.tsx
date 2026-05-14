@@ -216,6 +216,23 @@ export default function ContactDpoForm() {
   // revient en mode libre. Vide tant que l'utilisateur n'a rien tapé.
   const [customSubject, setCustomSubject] = useState("");
   const [customMessage, setCustomMessage] = useState("");
+  // Popup de confirmation après envoi réussi. On capture email + libellé
+  // type au moment du submit pour que la modale puisse les afficher
+  // même après le reset du form (state remis à zéro juste après).
+  const [successInfo, setSuccessInfo] = useState<{
+    email: string;
+    requestLabel: string;
+  } | null>(null);
+
+  // Fermeture de la modale de succès via Escape — UX standard.
+  useEffect(() => {
+    if (!successInfo) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSuccessInfo(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [successInfo]);
 
   // Synchronise message + objet avec le modèle quand on change de type
   // de demande, à condition d'être en mode "modèle".
@@ -311,9 +328,14 @@ export default function ContactDpoForm() {
         });
         return;
       }
-      setFeedback({
-        kind: "ok",
-        text: "Votre demande a bien été transmise au DPO. Vous recevrez une réponse sous un mois.",
+      // Ouvre la modale de confirmation — on capture email + libellé
+      // AVANT le reset pour pouvoir les afficher dans le popup.
+      setFeedback(null);
+      setSuccessInfo({
+        email: email.trim(),
+        requestLabel:
+          REQUEST_TYPES.find((rt) => rt.id === requestType)?.label ??
+          "demande RGPD",
       });
       // Reset : on remet l'état initial. Si on est en mode modèle,
       // le useEffect re-remplira automatiquement message + sujet à
@@ -503,6 +525,64 @@ export default function ContactDpoForm() {
         </div>
       )}
 
+      {successInfo && (
+        <div
+          className="dpo-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dpo-success-title"
+          onClick={() => setSuccessInfo(null)}
+        >
+          <div
+            className="dpo-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSuccessInfo(null)}
+              className="dpo-modal-close"
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
+            <div className="dpo-modal-check" aria-hidden="true">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="5 12 10 17 19 8" />
+              </svg>
+            </div>
+            <h2 id="dpo-success-title" className="dpo-modal-title">
+              Votre demande a bien été transmise
+            </h2>
+            <p className="dpo-modal-text">
+              Un mail récapitulatif vient d&apos;être envoyé à{" "}
+              <strong>{successInfo.email}</strong>. Notre DPO traitera votre
+              demande (<em>{successInfo.requestLabel}</em>) et reviendra vers
+              vous dans un délai d&apos;un mois maximum, conformément au RGPD.
+            </p>
+            <p className="dpo-modal-text-sm">
+              Pensez à vérifier vos spams si vous ne voyez rien arriver dans
+              les minutes qui viennent.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSuccessInfo(null)}
+              className="dpo-modal-cta"
+            >
+              C&apos;est noté, merci
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .dpo-form {
           display: flex;
@@ -658,6 +738,105 @@ export default function ContactDpoForm() {
           background: #fef2f2;
           border: 1px solid #fecaca;
           color: #991b1b;
+        }
+
+        /* ─── Modale de confirmation après envoi réussi ──────────── */
+        .dpo-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          background: rgba(15, 22, 41, 0.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 16px;
+          animation: dpo-fade-in 180ms ease-out;
+        }
+        @keyframes dpo-fade-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes dpo-pop-in {
+          from { opacity: 0; transform: translateY(8px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dpo-modal {
+          position: relative;
+          width: 100%;
+          max-width: 460px;
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 32px 28px 24px;
+          text-align: center;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+          animation: dpo-pop-in 200ms ease-out;
+        }
+        .dpo-modal-close {
+          position: absolute;
+          top: 12px;
+          right: 14px;
+          background: transparent;
+          border: 0;
+          color: var(--ink-4);
+          font-size: 18px;
+          line-height: 1;
+          padding: 6px;
+          cursor: pointer;
+          border-radius: 6px;
+        }
+        .dpo-modal-close:hover {
+          background: var(--ivory-2);
+          color: var(--ink);
+        }
+        .dpo-modal-check {
+          width: 56px;
+          height: 56px;
+          margin: 0 auto 14px;
+          border-radius: 50%;
+          background: color-mix(in oklab, #22c55e 14%, var(--paper));
+          color: #15803d;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1.5px solid color-mix(in oklab, #22c55e 40%, transparent);
+        }
+        .dpo-modal-title {
+          margin: 0 0 10px;
+          font-family: var(--serif, Georgia, serif);
+          font-size: 22px;
+          line-height: 1.25;
+          color: var(--ink);
+          font-weight: 500;
+          letter-spacing: -0.01em;
+        }
+        .dpo-modal-text {
+          margin: 0 0 12px;
+          font-size: 14px;
+          line-height: 1.55;
+          color: var(--ink-3, #3A4150);
+        }
+        .dpo-modal-text-sm {
+          margin: 0 0 18px;
+          font-size: 12.5px;
+          line-height: 1.5;
+          color: var(--ink-4, #6B7180);
+        }
+        .dpo-modal-cta {
+          display: inline-block;
+          padding: 10px 22px;
+          background: var(--ink);
+          color: var(--paper);
+          border: 1px solid var(--ink);
+          border-radius: 999px;
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          transition: transform 120ms ease, box-shadow 120ms ease;
+        }
+        .dpo-modal-cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px -8px rgba(15, 22, 41, 0.45);
         }
       `}</style>
     </form>
