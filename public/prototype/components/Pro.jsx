@@ -4419,11 +4419,15 @@ function Analytics() {
     {label:'Femmes',pct:0},{label:'Hommes',pct:0},{label:'Autre / non précisé',pct:0},
   ];
 
+  // Nombre d'acceptations sur lequel reposent les agrégats — utile pour
+  // contextualiser les pourcentages (3 wins ⇒ chaque ligne ≈ 33 %).
+  const winsTotal = data?.sampleSize?.wins ?? 0;
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Analytics" title="Performance fine" desc={empty
         ? "Aucune mise en relation acceptée pour le moment — les graphiques s'animent dès le premier contact."
-        : "Analyses sur 30 derniers jours · mise à jour toutes les 15 minutes"}/>
+        : `Analyses cumulées depuis l'ouverture du compte · calculées sur ${winsTotal} acceptation${winsTotal > 1 ? 's' : ''}`}/>
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Taux d'acceptation par palier</div>
