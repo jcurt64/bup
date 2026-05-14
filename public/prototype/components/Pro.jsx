@@ -3775,6 +3775,10 @@ function formatRelativeFr(iso) {
 function Contacts({ pendingContact, onPendingConsumed }) {
   const [allRows, setAllRows] = React.useState(null); // null = loading
   const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
+  // Modale de composition d'email (envoi serveur via BUUPP). Ouverte
+  // quand le pro clique le bouton "email" pour un prospect qui n'a pas
+  // encore atteint son quota.
+  const [emailCompose, setEmailCompose] = React.useState(null); // row | null
   const [collapsed, setCollapsed] = React.useState(new Set()); // Set<campaignId>
   const [selected, setSelected] = React.useState(new Set()); // Set<relationId>
   const [groupSending, setGroupSending] = React.useState(false);
@@ -4178,7 +4182,29 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                             })()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <ContactActionButtons row={r} onIntent={(intent) => setReveal({ relationId: r.relationId, intent, name: r.name })}/>
+                            <ContactActionButtons row={r} onIntent={(intent) => {
+                              // L'email passe par la modale de composition
+                              // intégrée à BUUPP (envoi serveur, quota 1/campagne).
+                              // Les autres canaux ouvrent toujours le client externe
+                              // via le RevealContactModal historique.
+                              if (intent === 'email') {
+                                if ((r.emailsSent ?? 0) >= 1) return; // quota atteint
+                                setEmailCompose(r);
+                                return;
+                              }
+                              // Click-to-call : on enregistre l'intention en base
+                              // (audit) avant que le RevealContactModal n'ouvre
+                              // tel:// dans le navigateur. Fire-and-forget : on
+                              // ne bloque pas l'UX si l'audit échoue.
+                              if (intent === 'call' || intent === 'sms' || intent === 'whatsapp') {
+                                if (intent === 'call') {
+                                  fetch(`/api/pro/contacts/${r.relationId}/call-log`, {
+                                    method: 'POST',
+                                  }).catch(() => {});
+                                }
+                              }
+                              setReveal({ relationId: r.relationId, intent, name: r.name });
+                            }}/>
                           </td>
                         </tr>
                       );
@@ -4207,6 +4233,26 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           onClose={() => setReveal(null)}
         />
       )}
+
+      {emailCompose && (
+        <EmailComposerModal
+          row={emailCompose}
+          onClose={() => setEmailCompose(null)}
+          onSent={() => {
+            // Optimistic update : marque le quota atteint sur la ligne
+            // pour que le bouton se grise immédiatement sans attendre
+            // un re-fetch complet.
+            setAllRows((rows) =>
+              rows ? rows.map((x) =>
+                x.relationId === emailCompose.relationId
+                  ? { ...x, emailsSent: (x.emailsSent ?? 0) + 1 }
+                  : x,
+              ) : rows,
+            );
+            setEmailCompose(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -4227,11 +4273,13 @@ function ContactActionButtons({ row, onIntent }) {
   const channelAllowed = (k) => channels === null || channels.includes(k);
   const phoneOk = !!row.telephoneAvailable;
   const emailOk = !!row.emailAvailable;
+  // Quota email atteint (1 envoi max par campagne) → bouton désactivé.
+  const emailQuotaReached = (row.emailsSent ?? 0) >= 1;
   // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
   // relations acceptées), donc la donnée "name" est toujours dispo.
   const buttons = [
     { key: 'call',     channel: 'phone',     enabled: phoneOk && channelAllowed('phone'),     icon: 'phone',    color: '#0F1629', title: 'Appeler ce prospect',     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email'),     icon: 'email',    color: '#EA4335', title: 'Envoyer un email',         missingDataMsg: "Le prospect n'a pas partagé son email" },
+    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email') && !emailQuotaReached,     icon: 'email',    color: '#EA4335', title: emailQuotaReached ? 'Quota atteint (1 email envoyé)' : 'Envoyer un email via BUUPP',         missingDataMsg: "Le prospect n'a pas partagé son email" },
     { key: 'sms',      channel: 'sms',       enabled: phoneOk && channelAllowed('sms'),       icon: 'sms',      color: '#34B7F1', title: 'Envoyer un SMS',           missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
     { key: 'whatsapp', channel: 'whatsapp',  enabled: phoneOk && channelAllowed('whatsapp'),  icon: 'whatsapp', color: '#25D366', title: 'Écrire sur WhatsApp',      missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
     { key: 'facebook', channel: 'facebook',  enabled: channelAllowed('facebook'),             icon: 'facebook', color: '#1877F2', title: 'Rechercher sur Facebook',  missingDataMsg: '' },
@@ -4392,6 +4440,154 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── EmailComposerModal — envoi serveur via BUUPP ──────────────────
+   Ouverte depuis l'onglet Contacts au clic du bouton "email" sur une
+   ligne non bloquée par le quota. Le pro saisit objet + message, l'envoi
+   passe par /api/pro/contacts/[id]/email (template HTML BUUPP, Reply-To
+   = email du pro). Le quota 1 email par campagne est appliqué côté API,
+   l'UI cache simplement le bouton après envoi.
+
+   Conformité RGPD : le pro ne voit JAMAIS l'email du prospect dans
+   cette modale — il est résolu serveur-side. Le prospect garde son
+   adresse cachée, et toute réponse est routée par Reply-To. */
+function EmailComposerModal({ row, onClose, onSent }) {
+  const [subject, setSubject] = React.useState('');
+  const [body, setBody] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  // Ferme sur Escape — UX standard.
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !sending) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, sending]);
+
+  const submit = async () => {
+    const subj = subject.trim();
+    const bod = body.trim();
+    if (!subj) { setError("L'objet est requis."); return; }
+    if (!bod) { setError("Le message ne peut pas être vide."); return; }
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/pro/contacts/${row.relationId}/email`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ subject: subj, body: bod }),
+      });
+      if (r.ok) {
+        if (onSent) onSent();
+        return;
+      }
+      const j = await r.json().catch(() => null);
+      const codeMap = {
+        quota_reached: 'Vous avez déjà envoyé un email à ce prospect pour cette campagne.',
+        prospect_email_missing: "Le prospect n'a pas partagé son email.",
+        relation_not_accepted: "Cette relation n'est plus active.",
+        forbidden: 'Action non autorisée sur ce contact.',
+        subject_too_long: "L'objet est trop long (200 caractères max).",
+        body_too_long: 'Le message est trop long (10 000 caractères max).',
+        pro_email_missing: "Votre email Clerk est introuvable.",
+      };
+      setError(codeMap[String(j?.error ?? '')] ?? 'Échec — réessayez.');
+    } catch {
+      setError('Erreur réseau — réessayez.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        zIndex: 1000, padding: '40px 20px 60px', overflowY: 'auto',
+      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        style={{ width: '100%', maxWidth: 560, padding: 26 }}>
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 14 }}>
+          <div className="serif" style={{ fontSize: 20 }}>Envoyer un email à {row.name}</div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" disabled={sending}>
+            <Icon name="close" size={12}/>
+          </button>
+        </div>
+
+        <div style={{
+          padding: '10px 12px', borderRadius: 8, marginBottom: 14,
+          background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+          border: '1px solid color-mix(in oklab, var(--accent) 24%, var(--line))',
+          fontSize: 12, lineHeight: 1.5, color: 'var(--ink-3)',
+        }}>
+          <strong style={{ color: 'var(--ink) ' }}>Envoi via BUUPP.</strong>{' '}
+          Votre message part depuis nos serveurs avec votre adresse en
+          <em> Reply-To</em> — le prospect répondra directement chez vous.
+          L'adresse email du prospect reste cachée. Quota : 1 envoi par campagne.
+        </div>
+
+        <label className="label" style={{ marginBottom: 4, display: 'block' }}>Objet</label>
+        <input
+          type="text"
+          className="input"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value.slice(0, 200))}
+          maxLength={200}
+          placeholder="Ex. : Suite à votre intérêt pour notre cuisine sur-mesure"
+          style={{ width: '100%', fontSize: 14, padding: '10px 12px', marginBottom: 14 }}
+          disabled={sending}
+          autoFocus/>
+
+        <label className="label" style={{ marginBottom: 4, display: 'block' }}>
+          Message
+          <span className="mono muted" style={{ float: 'right', fontSize: 11 }}>{body.length} / 10000</span>
+        </label>
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value.slice(0, 10000))}
+          rows={9}
+          maxLength={10000}
+          placeholder={`Bonjour,\n\nMerci d'avoir accepté ma sollicitation. Je vous recontacte pour…`}
+          style={{
+            width: '100%', padding: 10, borderRadius: 8,
+            border: '1px solid var(--line)', background: 'var(--paper)',
+            fontFamily: 'inherit', fontSize: 13, resize: 'vertical', marginBottom: 6,
+          }}
+          disabled={sending}/>
+
+        <div className="muted" style={{ fontSize: 11, marginBottom: 14, lineHeight: 1.45 }}>
+          Votre message sera intégré dans un email aux couleurs BUUPP, en mentionnant la campagne {row.campaign ? <><em>«&nbsp;{row.campaign}&nbsp;»</em></> : 'concernée'}.
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8, marginBottom: 12,
+            background: 'color-mix(in oklab, var(--danger) 8%, var(--paper))',
+            border: '1px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
+            color: 'var(--danger)', fontSize: 13,
+          }}>{error}</div>
+        )}
+
+        <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" disabled={sending}>
+            Annuler
+          </button>
+          <button onClick={submit} className="btn btn-primary btn-sm"
+            disabled={sending || !subject.trim() || !body.trim()}>
+            {sending ? 'Envoi…' : 'Envoyer via BUUPP'}
+          </button>
+        </div>
       </div>
     </div>
   );

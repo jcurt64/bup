@@ -444,6 +444,71 @@ export type Database = {
         }
         Relationships: []
       }
+      pro_contact_actions: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          email_body: string | null
+          email_subject: string | null
+          id: string
+          kind: Database["public"]["Enums"]["pro_contact_action_kind"]
+          pro_account_id: string
+          prospect_id: string
+          relation_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          email_body?: string | null
+          email_subject?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["pro_contact_action_kind"]
+          pro_account_id: string
+          prospect_id: string
+          relation_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          email_body?: string | null
+          email_subject?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["pro_contact_action_kind"]
+          pro_account_id?: string
+          prospect_id?: string
+          relation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_contact_actions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_actions_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_actions_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_actions_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_contact_reveals: {
         Row: {
           field: string
@@ -1231,6 +1296,7 @@ export type Database = {
         | "information_sondage"
         | "devis_chiffrage"
       pro_billing_status: "active" | "past_due" | "canceled" | "trialing"
+      pro_contact_action_kind: "call_clicked" | "email_sent"
       pro_plan: "starter" | "pro"
       relation_evaluation: "atteint" | "non_atteint"
       relation_report_reason:
@@ -1401,6 +1467,7 @@ export const Constants = {
         "devis_chiffrage",
       ],
       pro_billing_status: ["active", "past_due", "canceled", "trialing"],
+      pro_contact_action_kind: ["call_clicked", "email_sent"],
       pro_plan: ["starter", "pro"],
       relation_evaluation: ["atteint", "non_atteint"],
       relation_report_reason: [

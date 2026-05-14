@@ -85,6 +85,39 @@ export async function GET() {
 
   const ALL_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"];
 
+  // Pré-calcul des compteurs d'emails déjà envoyés via BUUPP par couple
+  // (prospect_id × campaign_id) pour ce pro. Un email_sent par couple
+  // suffit à plafonner le quota côté UI (bouton "Écrire" désactivé).
+  const relationFK = (data ?? []).map((r) => ({
+    relationId: r.id,
+    prospectId: r.prospects && !Array.isArray(r.prospects)
+      ? (r.prospects as { id?: string }).id ?? null
+      : Array.isArray(r.prospects) ? (r.prospects[0] as { id?: string })?.id ?? null : null,
+    campaignId: r.campaign_id,
+  }));
+  const emailsSentByRel = new Map<string, number>();
+  const prospectIds = Array.from(
+    new Set(relationFK.map((x) => x.prospectId).filter((v): v is string => !!v)),
+  );
+  if (prospectIds.length > 0) {
+    const { data: actions } = await admin
+      .from("pro_contact_actions")
+      .select("prospect_id, campaign_id, kind")
+      .eq("pro_account_id", proId)
+      .eq("kind", "email_sent")
+      .in("prospect_id", prospectIds);
+    const cnt = new Map<string, number>();
+    for (const a of actions ?? []) {
+      const key = `${a.prospect_id}|${a.campaign_id ?? ""}`;
+      cnt.set(key, (cnt.get(key) ?? 0) + 1);
+    }
+    for (const f of relationFK) {
+      if (!f.prospectId) continue;
+      const key = `${f.prospectId}|${f.campaignId ?? ""}`;
+      emailsSentByRel.set(f.relationId, cnt.get(key) ?? 0);
+    }
+  }
+
   const rows = ((data ?? []) as unknown as Row[]).map((r) => {
     const id = (Array.isArray(r.prospects) ? r.prospects[0] : r.prospects) ?? null;
     const ident = id?.prospect_identity
@@ -115,6 +148,9 @@ export async function GET() {
       receivedAt: r.decided_at,
       evaluation: r.evaluation,
       evaluatedAt: r.evaluated_at,
+      // Compteur quota email — front masque/désactive le bouton "Écrire"
+      // quand emailsSent atteint 1 (cf. /api/pro/contacts/[id]/email).
+      emailsSent: emailsSentByRel.get(r.id) ?? 0,
     };
   });
 
