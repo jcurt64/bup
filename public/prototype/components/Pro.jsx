@@ -428,6 +428,9 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
 
 function Overview({ onCreate }) {
   const [data, setData] = React.useState(null);
+  // Popup d'explication du ROI (déclenché par l'icône "i" dans la carte
+  // ROI). Boolean simple, fermé par défaut.
+  const [roiInfoOpen, setRoiInfoOpen] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     const refresh = () => fetchProOverview().then(j => { if (!cancelled) setData(j); });
@@ -436,6 +439,13 @@ function Overview({ onCreate }) {
     window.addEventListener('pro:overview-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('pro:overview-changed', onChange); };
   }, []);
+  // Fermeture sur Escape — UX standard pour les modales.
+  React.useEffect(() => {
+    if (!roiInfoOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setRoiInfoOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [roiInfoOpen]);
   const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
   const k1 = data?.contactsAccepted30d ?? 0;
   const k2 = (data?.acceptanceRate ?? 0) + '%';
@@ -468,9 +478,35 @@ function Overview({ onCreate }) {
           ['Coût moyen / contact', k3, '', 'money', null],
           ['ROI estimé', roiDisplay, '', 'sparkle', roiTooltip],
         ].map((k, i) => (
-          <div key={i} className="card" style={{ padding: 20 }} title={k[4] || undefined}>
+          <div key={i} className="card" style={{ padding: 20, position: 'relative' }} title={k[4] || undefined}>
             <div className="row between center" style={{ marginBottom: 14 }}>
-              <div className="mono caps muted" style={{ fontSize: 10 }}>{k[0]}</div>
+              <div className="row center gap-1" style={{ minWidth: 0 }}>
+                <div className="mono caps muted" style={{ fontSize: 10 }}>{k[0]}</div>
+                {/* Icône "info" cliquable uniquement sur la carte ROI —
+                    ouvre une modale qui explique simplement la formule. */}
+                {i === 3 && (
+                  <button
+                    type="button"
+                    aria-label="Comment ce ROI est-il calculé ?"
+                    title="Comment ce ROI est-il calculé ?"
+                    onClick={() => setRoiInfoOpen(true)}
+                    style={{
+                      padding: 0, width: 16, height: 16, borderRadius: 999,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'transparent', border: 0,
+                      color: 'var(--ink-4)', cursor: 'pointer', lineHeight: 1,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-4)'; }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="11" x2="12" y2="16"/>
+                      <circle cx="12" cy="8" r="0.6" fill="currentColor"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
               <span style={{ color: 'var(--accent)' }}><Icon name={k[3]} size={14}/></span>
             </div>
             <div
@@ -539,6 +575,156 @@ function Overview({ onCreate }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {roiInfoOpen && (
+        <RoiInfoModal
+          roiPct={roiPct}
+          conversionPct={roiConvPct}
+          valueEur={roiValueEur}
+          spentEur={roiSpentEur}
+          potentialEur={roiPotentialEur}
+          acceptedCount={k1}
+          fmt2={fmt2}
+          onClose={() => setRoiInfoOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── RoiInfoModal — explication simple de la formule ROI ──────────
+   Ouverte par l'icône "i" de la carte ROI estimé. Contenu pédagogique :
+   formule en langage clair, exemple appliqué aux chiffres réels du pro,
+   et avertissement honnête sur les hypothèses. */
+function RoiInfoModal({ roiPct, conversionPct, valueEur, spentEur, potentialEur, acceptedCount, fmt2, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="roi-info-title"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 250,
+        background: 'rgba(15, 22, 41, 0.55)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        overflowY: 'auto', padding: '40px 20px 60px',
+      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--paper)', borderRadius: 16, padding: 28,
+          maxWidth: 480, width: '100%',
+          boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+          margin: 'auto 0',
+        }}>
+        <div className="row between" style={{ marginBottom: 6 }}>
+          <div id="roi-info-title" className="serif" style={{ fontSize: 22, lineHeight: 1.25 }}>
+            Comment on calcule votre ROI ?
+          </div>
+          <button onClick={onClose} aria-label="Fermer"
+            style={{
+              background: 'transparent', border: 0, color: 'var(--ink-4)',
+              fontSize: 20, lineHeight: 1, padding: 4, cursor: 'pointer',
+            }}>✕</button>
+        </div>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+          Une estimation honnête de la rentabilité de vos campagnes BUUPP sur les 30 derniers jours.
+        </div>
+
+        {/* Étape 1 — la formule en mots simples */}
+        <div style={{
+          padding: '14px 16px', borderRadius: 10, marginBottom: 14,
+          background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+          border: '1px solid color-mix(in oklab, var(--accent) 22%, var(--line))',
+        }}>
+          <div className="mono caps" style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: '.14em', marginBottom: 8 }}>
+            La formule en clair
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+            <strong>ROI</strong> = (ce que les contacts pourraient vous rapporter <strong>−</strong> ce que vous avez dépensé) <strong>÷</strong> ce que vous avez dépensé.
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.5 }}>
+            Le résultat est exprimé en pourcentage. <strong>+100&nbsp;%</strong> veut dire que vous gagnez le double de ce que vous avez investi.
+          </div>
+        </div>
+
+        {/* Étape 2 — les hypothèses */}
+        <div style={{ marginBottom: 14 }}>
+          <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.14em', marginBottom: 8 }}>
+            Nos deux hypothèses
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-2)' }}>
+            <li>
+              <strong>{conversionPct}&nbsp;%</strong> des contacts acceptés deviennent vraiment clients
+              <span className="muted"> — moyenne tous secteurs confondus.</span>
+            </li>
+            <li>
+              Un client vous rapporte en moyenne <strong>{fmt2(valueEur)}&nbsp;€</strong>
+              <span className="muted"> — panier moyen générique.</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Étape 3 — application sur les chiffres du pro */}
+        <div style={{
+          padding: '14px 16px', borderRadius: 10, marginBottom: 14,
+          background: 'var(--ivory)', border: '1px solid var(--line)',
+        }}>
+          <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.14em', marginBottom: 10 }}>
+            Appliqué à vos chiffres (30 derniers jours)
+          </div>
+          {acceptedCount === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+              Vous n'avez pas encore d'acceptation sur les 30 derniers jours — le ROI sera affiché dès la première.
+            </div>
+          ) : (
+            <table cellPadding="0" cellSpacing="0" style={{ width: '100%', fontSize: 13.5, lineHeight: 1.7 }}>
+              <tbody>
+                <tr>
+                  <td style={{ color: 'var(--ink-4)', padding: '2px 0' }}>Contacts acceptés</td>
+                  <td style={{ textAlign: 'right', fontWeight: 500 }}>{acceptedCount}</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--ink-4)', padding: '2px 0' }}>Gains potentiels estimés</td>
+                  <td style={{ textAlign: 'right', fontWeight: 500 }}>
+                    {acceptedCount} × {conversionPct}&nbsp;% × {fmt2(valueEur)}&nbsp;€ = <strong>{fmt2(potentialEur)}&nbsp;€</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--ink-4)', padding: '2px 0' }}>Dépense réelle</td>
+                  <td style={{ textAlign: 'right', fontWeight: 500 }}>{fmt2(spentEur)}&nbsp;€</td>
+                </tr>
+                <tr>
+                  <td colSpan={2} style={{ borderTop: '1px dashed var(--line)', paddingTop: 8, marginTop: 4 }}>
+                    <div className="row between center">
+                      <span style={{ color: 'var(--ink-2)', fontWeight: 600 }}>ROI</span>
+                      <span className="serif tnum" style={{
+                        fontSize: 22,
+                        color: roiPct === null
+                          ? 'var(--ink-4)'
+                          : roiPct >= 0 ? 'var(--good)' : 'var(--danger)',
+                      }}>
+                        {roiPct === null ? '—' : (roiPct > 0 ? '+' : '') + roiPct + ' %'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Étape 4 — honnêteté */}
+        <div style={{ fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.55, marginBottom: 18 }}>
+          <strong style={{ color: 'var(--ink-3)' }}>À garder en tête :</strong> c'est une estimation. Si votre secteur convertit plus que la moyenne (services premium, immobilier…), votre ROI réel sera meilleur. À l'inverse en e-commerce, il sera plus faible. Bientôt vous pourrez personnaliser ces deux hypothèses dans vos paramètres.
+        </div>
+
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn btn-primary btn-sm">
+            J'ai compris
+          </button>
         </div>
       </div>
     </div>
