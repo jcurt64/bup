@@ -449,34 +449,40 @@ export type Database = {
           campaign_id: string | null
           created_at: string
           email_body: string | null
+          email_opened_at: string | null
           email_subject: string | null
           id: string
           kind: Database["public"]["Enums"]["pro_contact_action_kind"]
           pro_account_id: string
           prospect_id: string
           relation_id: string
+          tracking_token: string | null
         }
         Insert: {
           campaign_id?: string | null
           created_at?: string
           email_body?: string | null
+          email_opened_at?: string | null
           email_subject?: string | null
           id?: string
           kind: Database["public"]["Enums"]["pro_contact_action_kind"]
           pro_account_id: string
           prospect_id: string
           relation_id: string
+          tracking_token?: string | null
         }
         Update: {
           campaign_id?: string | null
           created_at?: string
           email_body?: string | null
+          email_opened_at?: string | null
           email_subject?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["pro_contact_action_kind"]
           pro_account_id?: string
           prospect_id?: string
           relation_id?: string
+          tracking_token?: string | null
         }
         Relationships: [
           {

@@ -38,14 +38,30 @@ export type ProToProspectParams = {
   subject: string;
   /** Corps du mail (saisi par le pro). */
   body: string;
+  /**
+   * Token UUID d'ouverture. Si fourni ET que `trackingConsent` est true,
+   * un pixel 1×1 référençant `/api/email-pixel/[token]` est inséré dans
+   * le HTML. Sinon, aucun pixel — conformité CNIL stricte.
+   */
+  trackingToken?: string | null;
+  /**
+   * Consentement explicite du prospect au tracking des ouvertures
+   * (champ `prospect_identity.email_tracking_consent`). Si false, le
+   * pixel N'EST PAS inséré même si le token est fourni.
+   */
+  trackingConsent?: boolean;
 };
 
 export async function sendProToProspectEmail(
   params: ProToProspectParams,
 ): Promise<void> {
-  const { to, proReplyTo, proName, prospectFirstName, campaignName, subject, body } =
+  const { to, proReplyTo, proName, prospectFirstName, campaignName, subject, body, trackingToken, trackingConsent } =
     params;
   const greet = prospectFirstName?.trim() || "Bonjour";
+  // Pixel uniquement si consentement explicite — conformité CNIL.
+  const pixelHtml = trackingConsent && trackingToken
+    ? `<img src="${APP_URL}/api/email-pixel/${encodeURIComponent(trackingToken)}" alt="" width="1" height="1" border="0" style="display:block;width:1px;height:1px;border:0;line-height:0;font-size:0;"/>`
+    : "";
 
   const text = [
     `Bonjour ${greet},`,
@@ -137,6 +153,7 @@ export async function sendProToProspectEmail(
 </td></tr>
 </table>
 </td></tr></table>
+${pixelHtml}
 </body></html>
   `.trim();
 

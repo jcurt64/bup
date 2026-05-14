@@ -73,8 +73,8 @@ export async function POST(req: Request, ctx: RouteContext) {
   const admin = createSupabaseAdminClient();
 
   // Ownership + récupération des coordonnées du prospect (email,
-  // prénom) + raison sociale du pro + nom de campagne. Tout est
-  // recopié côté serveur — jamais lu du body client.
+  // prénom, consentement tracking) + raison sociale du pro + nom de
+  // campagne. Tout est recopié côté serveur — jamais lu du body client.
   const { data: rel, error: readErr } = await admin
     .from("relations")
     .select(
@@ -82,7 +82,7 @@ export async function POST(req: Request, ctx: RouteContext) {
        pro_accounts!relations_pro_account_id_fkey ( raison_sociale ),
        campaigns ( name ),
        prospects:prospect_id (
-         prospect_identity ( prenom, email )
+         prospect_identity ( prenom, email, email_tracking_consent )
        )`,
     )
     .eq("id", relationId)
@@ -113,6 +113,8 @@ export async function POST(req: Request, ctx: RouteContext) {
     : null;
   const prospectEmail = ident?.email ?? null;
   const prospectFirstName = ident?.prenom ?? null;
+  const trackingConsent = (ident as { email_tracking_consent?: boolean | null } | null)
+    ?.email_tracking_consent === true;
   if (!prospectEmail) {
     return NextResponse.json({ error: "prospect_email_missing" }, { status: 422 });
   }
@@ -140,7 +142,31 @@ export async function POST(req: Request, ctx: RouteContext) {
     );
   }
 
+  // Insertion préalable de l'audit pour obtenir le tracking_token
+  // généré par défaut côté DB. Si on envoyait avant d'insérer, on
+  // perdrait la traçabilité en cas d'échec de l'INSERT — l'email
+  // serait parti sans trace.
+  const { data: insertedAction, error: insErr } = await admin
+    .from("pro_contact_actions")
+    .insert({
+      pro_account_id: proId,
+      relation_id: rel.id,
+      prospect_id: rel.prospect_id,
+      campaign_id: rel.campaign_id,
+      kind: "email_sent",
+      email_subject: subject,
+      email_body: bodyText,
+    })
+    .select("id, tracking_token")
+    .single();
+  if (insErr || !insertedAction) {
+    console.error("[/api/pro/contacts/[id]/email] audit insert failed", insErr);
+    return NextResponse.json({ error: "audit_failed" }, { status: 500 });
+  }
+
   // Envoi via le template BUUPP (Reply-To = email du pro).
+  // Pixel d'ouverture inséré uniquement si le prospect a consenti au
+  // tracking (CNIL — recommandations pixels 2025).
   await sendProToProspectEmail({
     to: prospectEmail,
     proReplyTo: proEmail,
@@ -149,24 +175,9 @@ export async function POST(req: Request, ctx: RouteContext) {
     campaignName,
     subject,
     body: bodyText,
+    trackingToken: insertedAction.tracking_token,
+    trackingConsent,
   });
-
-  // Persistance dans pro_contact_actions (avec sujet + corps pour audit).
-  const { error: insErr } = await admin.from("pro_contact_actions").insert({
-    pro_account_id: proId,
-    relation_id: rel.id,
-    prospect_id: rel.prospect_id,
-    campaign_id: rel.campaign_id,
-    kind: "email_sent",
-    email_subject: subject,
-    email_body: bodyText,
-  });
-  if (insErr) {
-    // L'email est parti, on log et on continue — pas la peine de
-    // rejeter le client puisque le travail est fait. Mais on signale
-    // dans les logs pour qu'un admin remette l'audit à plat.
-    console.error("[/api/pro/contacts/[id]/email] audit insert failed", insErr);
-  }
 
   return NextResponse.json({ ok: true, quotaRemaining: Math.max(0, EMAIL_QUOTA - (alreadySent ?? 0) - 1) });
 }

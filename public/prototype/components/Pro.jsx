@@ -4445,6 +4445,108 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
   );
 }
 
+/* ─── Templates email pré-remplis par type de campagne ─────────────
+   Chaque objectif (campaign.targeting.objectiveId) propose 1-2
+   templates de départ. Le pro clique un template, ça remplit subject +
+   body, il édite ensuite. Tokens supportés dans body :
+     {{prenom}} → prénom du prospect (ou "vous" si inconnu)
+     {{pro}}   → raison sociale du pro
+     {{camp}}  → nom de la campagne
+   Les tokens sont remplacés au clic d'application, pas à l'envoi
+   (l'API reçoit le texte déjà résolu côté front). */
+const EMAIL_TEMPLATES_BY_OBJECTIVE = {
+  contact: [
+    {
+      label: "Premier contact — neutre",
+      subject: "Suite à votre acceptation sur BUUPP",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Merci d'avoir accepté notre sollicitation dans le cadre de la campagne « {{camp}} ».\n\n"
+        + "Je reviens vers vous pour échanger plus en détail sur vos besoins et voir comment {{pro}} peut vous aider concrètement.\n\n"
+        + "Quel serait le meilleur moment pour échanger ?\n\n"
+        + "Très bonne journée,",
+    },
+  ],
+  rdv: [
+    {
+      label: "Proposition de RDV",
+      subject: "Fixons un rendez-vous — {{camp}}",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Suite à votre acceptation de la campagne « {{camp}} », je vous propose un échange pour avancer concrètement.\n\n"
+        + "Quelques créneaux que je peux vous réserver cette semaine :\n"
+        + "  • Mardi 10h – 11h\n"
+        + "  • Jeudi 14h – 15h\n"
+        + "  • Vendredi 16h – 17h\n\n"
+        + "Vous pouvez aussi me proposer un autre horaire qui vous arrange — je m'adapte.\n\n"
+        + "À très bientôt,",
+    },
+  ],
+  evt: [
+    {
+      label: "Invitation à un événement",
+      subject: "Invitation — {{camp}}",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Merci d'avoir manifesté votre intérêt pour notre campagne « {{camp}} » !\n\n"
+        + "Comme convenu, voici le détail de l'événement auquel vous êtes convié(e) :\n\n"
+        + "  📅 Date :\n"
+        + "  📍 Lieu :\n"
+        + "  ⏰ Horaire :\n\n"
+        + "Merci de confirmer votre présence en répondant simplement à ce mail. Au plaisir de vous y retrouver !\n\n"
+        + "Cordialement,",
+    },
+  ],
+  dl: [
+    {
+      label: "Envoi du contenu téléchargeable",
+      subject: "Votre contenu BUUPP — {{camp}}",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Merci de l'intérêt que vous portez à la campagne « {{camp}} » !\n\n"
+        + "Vous trouverez ci-dessous le lien pour télécharger le contenu :\n"
+        + "  → [insérer le lien ici]\n\n"
+        + "N'hésitez pas à me dire ce que vous en pensez — vos retours nous aident à améliorer nos prochains contenus.\n\n"
+        + "Bonne lecture,",
+    },
+  ],
+  devis: [
+    {
+      label: "Demande d'informations pour devis",
+      subject: "Préparons votre devis — {{camp}}",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Merci d'avoir accepté notre proposition de devis dans le cadre de la campagne « {{camp}} ».\n\n"
+        + "Pour préparer une estimation précise, j'aurais besoin de quelques informations :\n"
+        + "  • Votre besoin principal :\n"
+        + "  • Vos contraintes (délai, budget approximatif) :\n"
+        + "  • Le meilleur moyen de vous joindre (téléphone, email) :\n\n"
+        + "Une fois ces éléments en main, je vous reviens sous 48 h avec une proposition chiffrée.\n\n"
+        + "Bien à vous,",
+    },
+  ],
+  survey: [
+    {
+      label: "Lancement du sondage",
+      subject: "Votre avis compte — {{camp}}",
+      body:
+        "Bonjour {{prenom}},\n\n"
+        + "Merci d'avoir accepté de participer à notre sondage dans le cadre de « {{camp}} ».\n\n"
+        + "Le questionnaire prend environ 5 minutes :\n"
+        + "  → [insérer le lien]\n\n"
+        + "Vos réponses sont entièrement anonymes et nous aideront à mieux comprendre vos besoins.\n\n"
+        + "Merci d'avance pour votre temps !",
+    },
+  ],
+};
+
+function applyTemplateTokens(text, { prenom, pro, camp }) {
+  return text
+    .replaceAll('{{prenom}}', (prenom || '').trim() || 'vous')
+    .replaceAll('{{pro}}', (pro || '').trim() || 'BUUPP')
+    .replaceAll('{{camp}}', (camp || '').trim() || 'la campagne en cours');
+}
+
 /* ─── EmailComposerModal — envoi serveur via BUUPP ──────────────────
    Ouverte depuis l'onglet Contacts au clic du bouton "email" sur une
    ligne non bloquée par le quota. Le pro saisit objet + message, l'envoi
@@ -4458,6 +4560,27 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
 function EmailComposerModal({ row, onClose, onSent }) {
   const [subject, setSubject] = React.useState('');
   const [body, setBody] = React.useState('');
+  // Templates disponibles selon le type de campagne. Si l'objectiveId
+  // n'est pas reconnu, on retombe sur les templates "contact" génériques.
+  const templates = React.useMemo(() => {
+    const obj = row.campaignObjective || 'contact';
+    return EMAIL_TEMPLATES_BY_OBJECTIVE[obj] || EMAIL_TEMPLATES_BY_OBJECTIVE.contact;
+  }, [row.campaignObjective]);
+  // Sépare le prénom du masque "Prénom N." pour l'utiliser dans les
+  // tokens. row.name est de la forme "Marie L." → prénom = "Marie".
+  const prospectFirstName = ((row.name || '').split(/\s+/)[0] || '').replace(/\.$/, '');
+  const applyTemplate = (tpl) => {
+    setSubject(applyTemplateTokens(tpl.subject, {
+      prenom: prospectFirstName,
+      pro: row.proName || '',
+      camp: row.campaign || '',
+    }));
+    setBody(applyTemplateTokens(tpl.body, {
+      prenom: prospectFirstName,
+      pro: row.proName || '',
+      camp: row.campaign || '',
+    }));
+  };
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState(null);
 
@@ -4536,6 +4659,30 @@ function EmailComposerModal({ row, onClose, onSent }) {
           <em> Reply-To</em> — le prospect répondra directement chez vous.
           L'adresse email du prospect reste cachée. Quota : 1 envoi par campagne.
         </div>
+
+        {/* Sélecteur de template adapté à l'objectif de la campagne */}
+        {templates.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, letterSpacing: '.12em' }}>
+              Templates suggérés
+            </div>
+            <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+              {templates.map((tpl, i) => (
+                <button key={i} type="button"
+                  onClick={() => applyTemplate(tpl)}
+                  className="btn btn-ghost btn-sm"
+                  disabled={sending}
+                  style={{
+                    fontSize: 12,
+                    border: '1px solid var(--line)',
+                    padding: '6px 12px',
+                  }}>
+                  <Icon name="sparkle" size={11}/> {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <label className="label" style={{ marginBottom: 4, display: 'block' }}>Objet</label>
         <input

@@ -49,6 +49,15 @@ export async function GET() {
   const proId = await ensureProAccount({ clerkUserId: userId, email });
 
   const admin = createSupabaseAdminClient();
+  // Raison sociale du pro courant — partagée par toutes les lignes,
+  // utilisée par les templates email côté UI ({{pro}}).
+  const { data: proRow } = await admin
+    .from("pro_accounts")
+    .select("raison_sociale")
+    .eq("id", proId)
+    .maybeSingle();
+  const proName = (proRow?.raison_sociale ?? "").trim() || "Notre équipe";
+
   const { data, error } = await admin
     .from("relations")
     .select(
@@ -75,7 +84,7 @@ export async function GET() {
     campaign_id: string;
     evaluation: "atteint" | "non_atteint" | null;
     evaluated_at: string | null;
-    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[]; channels?: string[] } | null } | null;
+    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
@@ -139,7 +148,9 @@ export async function GET() {
       score: id?.bupp_score ?? 0,
       campaignId: camp?.id ?? r.campaign_id,
       campaign: camp?.name ?? "—",
+      campaignObjective: camp?.targeting?.objectiveId ?? null,
       campaignChannels,
+      proName,
       tier,
       email: maskEmail(ident?.email),
       telephone: maskPhone(ident?.telephone),
