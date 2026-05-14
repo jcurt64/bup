@@ -381,10 +381,16 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
   const contactsThisMonth = overview?.contactsAcceptedThisMonth ?? null;
   const activeCampaigns = overview?.activeCampaignsCount ?? null;
   const acceptanceRate = overview?.acceptanceRate ?? null;
-  const k1 = overview?.contactsAccepted30d ?? 0;
+  // ROI 30j servi par /api/pro/overview avec la vraie formule
+  //   (gains_potentiels − coût) / coût × 100
+  // gains_potentiels = contacts_acceptés × tauxConv × valeurClient
+  // Hypothèses partagées dans lib/pro/roi.ts.
+  const roiPct = overview?.roi?.pct ?? null;
   const roi = overview === null
     ? '…'
-    : k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ',');
+    : roiPct === null
+      ? '—'
+      : (roiPct > 0 ? '+' : '') + roiPct + ' %';
 
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
@@ -434,6 +440,22 @@ function Overview({ onCreate }) {
   const k1 = data?.contactsAccepted30d ?? 0;
   const k2 = (data?.acceptanceRate ?? 0) + '%';
   const k3 = fmt2((data?.avgCostCents ?? 0) / 100) + ' €';
+  // ROI 30j calculé côté serveur — (gains_potentiels − coût) / coût × 100.
+  // pct = null ⇒ dépense nulle ⇒ on n'affiche rien de chiffré ("—").
+  const roiPct = data?.roi?.pct ?? null;
+  const roiDisplay = roiPct === null
+    ? '—'
+    : (roiPct > 0 ? '+' : '') + roiPct + ' %';
+  const roiConvPct = data?.roi?.assumedConversionPct ?? 10;
+  const roiValueEur = (data?.roi?.assumedValuePerClientCents ?? 10_000) / 100;
+  const roiSpentEur = (data?.roi?.spentCents ?? 0) / 100;
+  const roiPotentialEur = (data?.roi?.potentialRevenueCents ?? 0) / 100;
+  const roiTooltip = roiPct === null
+    ? "Aucune dépense sur les 30 derniers jours — le ROI sera calculé dès la première acceptation."
+    : `Hypothèses : ${roiConvPct} % des contacts deviennent clients (estimation moyenne), valeur d'un client estimée à ${fmt2(roiValueEur)} €.\n`
+      + `Gains potentiels 30j : ${fmt2(roiPotentialEur)} €.\n`
+      + `Dépense réelle 30j : ${fmt2(roiSpentEur)} €.\n`
+      + `ROI = (gains − dépense) / dépense × 100.`;
   const last = data?.lastAcceptances || [];
   const tiers = data?.tierBreakdown || [];
 
@@ -441,18 +463,32 @@ function Overview({ onCreate }) {
     <div className="col gap-6">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          ['Contacts acceptés (30j)', String(k1), '', 'trend'],
-          ["Taux d'acceptation", k2, '', 'check'],
-          ['Coût moyen / contact', k3, '', 'money'],
-          ['ROI estimé', k1 === 0 ? '—' : '×' + (1 + k1 * 0.15).toFixed(1).replace('.', ','), '', 'sparkle'],
+          ['Contacts acceptés (30j)', String(k1), '', 'trend', null],
+          ["Taux d'acceptation", k2, '', 'check', null],
+          ['Coût moyen / contact', k3, '', 'money', null],
+          ['ROI estimé', roiDisplay, '', 'sparkle', roiTooltip],
         ].map((k, i) => (
-          <div key={i} className="card" style={{ padding: 20 }}>
+          <div key={i} className="card" style={{ padding: 20 }} title={k[4] || undefined}>
             <div className="row between center" style={{ marginBottom: 14 }}>
               <div className="mono caps muted" style={{ fontSize: 10 }}>{k[0]}</div>
               <span style={{ color: 'var(--accent)' }}><Icon name={k[3]} size={14}/></span>
             </div>
-            <div className="serif tnum" style={{ fontSize: 36 }}>{k[1]}</div>
+            <div
+              className="serif tnum"
+              style={{
+                fontSize: 36,
+                color: i === 3 && roiPct !== null
+                  ? (roiPct >= 0 ? 'var(--good)' : 'var(--danger)')
+                  : undefined,
+              }}>
+              {k[1]}
+            </div>
             {k[2] && <div className="mono" style={{ fontSize: 12, color: 'var(--good)', marginTop: 4 }}>{k[2]} vs mois dernier</div>}
+            {i === 3 && roiPct !== null && (
+              <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-4)', marginTop: 6, lineHeight: 1.45 }}>
+                base&nbsp;: {roiConvPct}&nbsp;% conversion × {fmt2(roiValueEur)}&nbsp;€/client
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { computeRoi } from "@/lib/pro/roi";
 
 export const runtime = "nodejs";
 
@@ -111,12 +112,16 @@ export async function GET() {
   const wins = rows.filter((r) => isWin(r.status));
   const acceptanceRate =
     finals.length === 0 ? 0 : Math.round((wins.length / finals.length) * 100);
+  const spent30dCents = wins30d.reduce((acc, r) => acc + r.reward_cents, 0);
   const avgCostCents =
     wins30d.length === 0
       ? 0
-      : Math.round(
-          wins30d.reduce((acc, r) => acc + r.reward_cents, 0) / wins30d.length,
-        );
+      : Math.round(spent30dCents / wins30d.length);
+  // ROI estimé 30j : vraie formule (gains potentiels − coût) / coût, calculée
+  // à partir des hypothèses partagées dans lib/pro/roi.ts (taux conversion +
+  // valeur client moyenne). Renvoyée brute pour que la UI puisse afficher
+  // les hypothèses dans un tooltip de transparence.
+  const roi = computeRoi(spent30dCents, wins30d.length);
 
   const lastAcceptances = wins.slice(0, 4).map((r) => ({
     name: r.name, score: r.score, campaign: r.campaign, tier: r.tier,
@@ -139,6 +144,8 @@ export async function GET() {
     activeCampaignsCount: activeCampaignsCount ?? 0,
     acceptanceRate,
     avgCostCents,
+    spent30dCents,
+    roi,
     lastAcceptances,
     tierBreakdown,
   });
