@@ -211,6 +211,11 @@ export default function ContactDpoForm() {
   // message". Quand true, tout changement de requestType remplit auto le
   // textarea avec le modèle correspondant.
   const [useTemplate, setUseTemplate] = useState(true);
+  // Buffer du texte rédigé en mode "libre" : on garde la dernière saisie
+  // de l'utilisateur pour la restituer s'il bascule vers un modèle puis
+  // revient en mode libre. Vide tant que l'utilisateur n'a rien tapé.
+  const [customSubject, setCustomSubject] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
 
   // Synchronise message + objet avec le modèle quand on change de type
   // de demande, à condition d'être en mode "modèle".
@@ -224,14 +229,17 @@ export default function ContactDpoForm() {
 
   function toggleTemplate() {
     if (useTemplate) {
-      // Passage en mode "rédaction libre" — on vide le contenu pour
-      // laisser une feuille blanche.
+      // Passage en mode "rédaction libre" — on restitue le brouillon
+      // précédemment saisi (s'il existe), sinon feuille blanche.
       setUseTemplate(false);
-      setSubject("");
-      setMessage("");
+      setSubject(customSubject);
+      setMessage(customMessage);
       setFeedback(null);
     } else {
-      // Retour au modèle — on resynchronise.
+      // Retour au modèle — on mémorise d'abord la saisie libre courante
+      // pour pouvoir la restituer plus tard si l'utilisateur rebascule.
+      setCustomSubject(subject);
+      setCustomMessage(message);
       setUseTemplate(true);
       const tpl = TEMPLATES[requestType];
       if (tpl) {
@@ -313,6 +321,10 @@ export default function ContactDpoForm() {
       setRequestType("access");
       setEmail("");
       setConsent(false);
+      // Vide aussi le brouillon libre — un nouveau cycle de saisie
+      // libre repart d'une feuille blanche.
+      setCustomSubject("");
+      setCustomMessage("");
       if (useTemplate) {
         setSubject(TEMPLATES.access.subject);
         setMessage(TEMPLATES.access.body);
@@ -375,7 +387,12 @@ export default function ContactDpoForm() {
           id="dpo-subject"
           type="text"
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          onChange={(e) => {
+            setSubject(e.target.value);
+            // En mode libre, on persiste le brouillon en temps réel pour
+            // qu'un aller-retour modèle ↔ libre n'efface pas la saisie.
+            if (!useTemplate) setCustomSubject(e.target.value);
+          }}
           placeholder="Ex. : demande d'effacement de mon compte"
           required
           maxLength={200}
@@ -393,7 +410,10 @@ export default function ContactDpoForm() {
           id="dpo-message"
           rows={11}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            if (!useTemplate) setCustomMessage(e.target.value);
+          }}
           placeholder="Décrivez votre demande aussi précisément que possible. Vous pouvez aussi cliquer sur « Choisir ce modèle » ci-dessous pour pré-remplir un courrier type adapté au type de demande sélectionné."
           required
           maxLength={MAX_MESSAGE}
