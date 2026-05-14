@@ -59,16 +59,15 @@ const REASON_META: Record<
   },
 };
 
-export async function sendProReportWarning(
-  params: ProReportWarningParams,
-): Promise<{ ok: boolean; messageId: string | null }> {
-  const transport = getTransport();
-  if (!transport) {
-    console.warn("[email/pro-report-warning] transport absent — skip");
-    return { ok: false, messageId: null };
-  }
-
-  const { email, proName, reason, campaignName, sentAt } = params;
+/**
+ * Compose le contenu du mail (subject + text + html) sans envoyer. Utilisé
+ * par le handler de send ET par le handler de preview pour garantir que
+ * l'aperçu admin == ce qui sera réellement envoyé.
+ */
+export function buildProReportWarningContent(
+  params: Omit<ProReportWarningParams, "email">,
+): { subject: string; text: string; html: string } {
+  const { proName, reason, campaignName, sentAt } = params;
   const meta = REASON_META[reason];
   const sentAtLabel = formatDate(sentAt);
   const campaignLabel = (campaignName ?? "").trim() || "—";
@@ -197,6 +196,26 @@ export async function sendProReportWarning(
 </td></tr></table>
 </body></html>
   `.trim();
+
+  return { subject, text, html };
+}
+
+/**
+ * Envoie effectivement le mail via le transport SMTP configuré.
+ * S'appuie sur buildProReportWarningContent pour garantir parité avec
+ * l'aperçu admin.
+ */
+export async function sendProReportWarning(
+  params: ProReportWarningParams,
+): Promise<{ ok: boolean; messageId: string | null }> {
+  const transport = getTransport();
+  if (!transport) {
+    console.warn("[email/pro-report-warning] transport absent — skip");
+    return { ok: false, messageId: null };
+  }
+
+  const { email, reason } = params;
+  const { subject, text, html } = buildProReportWarningContent(params);
 
   try {
     const info = await transport.sendMail({
