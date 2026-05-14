@@ -13,6 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { safeSendMail, getFromAddress } from "@/lib/email/transport";
+import { sendDpoRequestConfirmation } from "@/lib/email/dpo-request-confirmation";
 
 export const runtime = "nodejs";
 
@@ -131,6 +132,16 @@ export async function POST(req: Request) {
     replyTo: email,
     subject: mailSubject,
     text,
+  });
+
+  // Envoi en parallèle d'un accusé de réception à l'utilisateur (HTML
+  // BUUPP avec récap de sa demande). Ne bloque pas la réponse API si
+  // l'envoi échoue — safeSendMail trace l'incident via admin_events.
+  void sendDpoRequestConfirmation({
+    to: email,
+    requestTypeLabel: typeLabel,
+    subject,
+    message,
   });
 
   return NextResponse.json({ ok: true });
