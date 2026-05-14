@@ -80,9 +80,11 @@ export async function fetchReportsList(opts: {
   let q = admin
     .from("relation_reports")
     .select(
+      // prenom/nom du prospect vivent sur prospect_identity (1:1) depuis
+      // la migration move_lifestyle_fields — on traverse via l'embedding.
       `id, reason, comment, created_at, resolved_at, resolved_by_clerk_id, resolved_note,
        pro_accounts ( id, raison_sociale ),
-       prospects ( id, prenom, nom ),
+       prospects ( id, prospect_identity ( prenom, nom ) ),
        relations ( id, sent_at, motif, campaign_id, campaigns ( id, name ) )`,
     )
     .order("created_at", { ascending: false });
@@ -120,14 +122,23 @@ export async function fetchReportsList(opts: {
         }
       : null,
     prospect: r.prospects
-      ? {
-          id: r.prospects.id,
-          prenom: r.prospects.prenom ?? null,
-          nomInitial:
-            typeof r.prospects.nom === "string" && r.prospects.nom.length > 0
-              ? r.prospects.nom[0].toUpperCase() + "."
-              : null,
-        }
+      ? (() => {
+          // PostgREST renvoie prospect_identity comme objet (1:1) ou parfois
+          // comme tableau selon la détection de cardinalité — on couvre les
+          // deux cas pour rester robuste.
+          const idRaw = r.prospects.prospect_identity;
+          const ident = Array.isArray(idRaw) ? idRaw[0] : idRaw;
+          const prenom = ident?.prenom ?? null;
+          const nom = ident?.nom ?? null;
+          return {
+            id: r.prospects.id,
+            prenom,
+            nomInitial:
+              typeof nom === "string" && nom.length > 0
+                ? nom[0].toUpperCase() + "."
+                : null,
+          };
+        })()
       : null,
     campaign: r.relations?.campaigns
       ? {
