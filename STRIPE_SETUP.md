@@ -66,7 +66,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_…
 STRIPE_WEBHOOK_SECRET=whsec_…
 
 # URL publique de l'app (utilisée pour les success/cancel URLs Stripe)
-NEXT_PUBLIC_APP_URL=https://VOTRE-DOMAINE   # ex. https://buupp.fr
+NEXT_PUBLIC_APP_URL=https://VOTRE-DOMAINE   # ex. https://buupp.com
 ```
 
 > En dev local, mettre `NEXT_PUBLIC_APP_URL=http://localhost:3000`.

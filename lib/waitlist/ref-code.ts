@@ -5,7 +5,7 @@
  *   - Même email (insensible à la casse) → toujours le même code.
  *   - Code court (7 caractères), URL-safe, base36 majuscule.
  *   - Pas un secret : c'est un identifiant public destiné à apparaître
- *     dans des liens partagés (`buupp.fr/ref/<code>`). L'algorithme peut
+ *     dans des liens partagés (`buupp.com/ref/<code>`). L'algorithme peut
  *     être reproduit côté client sans risque.
  *
  * Algo : 5 premiers octets du SHA-1 de l'email normalisé → entier 40 bits

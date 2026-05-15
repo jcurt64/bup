@@ -37,7 +37,7 @@ export default function AccessibilitePage() {
         >
           Accessibilité — non conforme (audit en cours)
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="accessibilite" />
         <h1
           className="serif"
           style={{
@@ -59,7 +59,7 @@ export default function AccessibilitePage() {
           BUUPP est une plateforme de mise en relation à double consentement
           entre prospects et professionnels, éditée par la société Majelink.
           La présente déclaration s&apos;applique à l&apos;ensemble du site{" "}
-          <strong>buupp.fr</strong> ainsi qu&apos;aux espaces connectés
+          <strong>buupp.com</strong> ainsi qu&apos;aux espaces connectés
           prospect et professionnel.
         </p>
       </div>

@@ -5674,7 +5674,7 @@ function Parrainage() {
   const vipBudgetMinEur = data?.vipBudgetMinEur ?? 300;
   const vipFlatBonusEur = data?.vipFlatBonusEur ?? 5;
   const vipEligible = data?.vipEligible === true;
-  const link = 'buupp.fr/ref/' + refCode;
+  const link = 'buupp.com/ref/' + refCode;
 
   const formatDate = (iso) => {
     if (!iso) return '—';
@@ -5720,7 +5720,7 @@ function Parrainage() {
           <div>
             <div className="mono caps" style={{ color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>— Votre lien unique</div>
             <div className="serif" style={{ fontSize: 28 }}>
-              buupp.fr/ref/<em style={{ color: '#A5B4FC' }}>{loading ? '…' : refCode}</em>
+              buupp.com/ref/<em style={{ color: '#A5B4FC' }}>{loading ? '…' : refCode}</em>
             </div>
           </div>
           <div className="row gap-2">

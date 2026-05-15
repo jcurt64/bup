@@ -123,7 +123,7 @@ export async function POST(req: Request) {
     message,
     "",
     "—",
-    "Envoyé depuis le formulaire de la page /contact-dpo de buupp.fr",
+    "Envoyé depuis le formulaire de la page /contact-dpo de buupp.com",
   ].join("\n");
 
   await safeSendMail({
