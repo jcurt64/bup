@@ -679,6 +679,7 @@ export type Database = {
         Row: {
           adresse: string | null
           code_postal: string | null
+          national_opt_in: boolean
           prospect_id: string
           targeting_radius_km: number
           updated_at: string
@@ -687,6 +688,7 @@ export type Database = {
         Insert: {
           adresse?: string | null
           code_postal?: string | null
+          national_opt_in?: boolean
           prospect_id: string
           targeting_radius_km?: number
           updated_at?: string
@@ -695,6 +697,7 @@ export type Database = {
         Update: {
           adresse?: string | null
           code_postal?: string | null
+          national_opt_in?: boolean
           prospect_id?: string
           targeting_radius_km?: number
           updated_at?: string

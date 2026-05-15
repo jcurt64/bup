@@ -144,7 +144,7 @@ export async function PATCH(req: Request) {
     Object.prototype.hasOwnProperty.call(patch, "naissance")
   ) {
     const raw = patch.naissance;
-    if (raw != null && raw !== "" && !isValidNaissance(raw)) {
+    if (typeof raw === "string" && raw !== "" && !isValidNaissance(raw)) {
       return NextResponse.json(
         {
           error: "invalid_naissance_format",
@@ -163,11 +163,30 @@ export async function PATCH(req: Request) {
     Object.prototype.hasOwnProperty.call(patch, "code_postal")
   ) {
     const raw = patch.code_postal;
-    if (raw != null && raw !== "" && !/^\d{5}$/.test(raw)) {
+    if (typeof raw === "string" && raw !== "" && !/^\d{5}$/.test(raw)) {
       return NextResponse.json(
         {
           error: "invalid_code_postal_format",
           message: "Format attendu : 5 chiffres (ex. 75001).",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  // Opt-in « niveau national » — boolean strict. uiToRow laisse passer
+  // les booleans tels quels ; on rejette tout autre type pour bloquer
+  // les payloads malicieux (string "true", number 1, etc.).
+  if (
+    tier === "localisation" &&
+    Object.prototype.hasOwnProperty.call(patch, "national_opt_in")
+  ) {
+    const raw = patch.national_opt_in;
+    if (raw !== true && raw !== false) {
+      return NextResponse.json(
+        {
+          error: "invalid_national_opt_in",
+          message: "national_opt_in doit être un booléen strict.",
         },
         { status: 400 },
       );
@@ -208,7 +227,7 @@ export async function PATCH(req: Request) {
     Object.prototype.hasOwnProperty.call(patch, "revenus")
   ) {
     const raw = patch.revenus;
-    if (raw != null && raw !== "" && !/^\d+$/.test(raw)) {
+    if (typeof raw === "string" && raw !== "" && !/^\d+$/.test(raw)) {
       return NextResponse.json(
         {
           error: "invalid_revenus_format",

@@ -84,7 +84,7 @@ export async function findMatchingProspects(
       removed_tiers,
       hidden_tiers,
       prospect_identity ( email, prenom, naissance ),
-      prospect_localisation ( code_postal, targeting_radius_km )
+      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in )
     `,
     )
     .in("verification", acceptableLevels)
@@ -99,9 +99,14 @@ export async function findMatchingProspects(
     `all_campaign_types.eq.true,campaign_types.cs.{${campaignType}}`,
   );
 
-  if (cpPrefix) {
-    query = query.like("prospect_localisation.code_postal", cpPrefix);
-  }
+  // ⚠ Plus de `query.like("prospect_localisation.code_postal", cpPrefix)` :
+  // ce filtre PostgREST ne filtrait que l'embed (nullify la localisation
+  // si CP non matché), pas le parent. On le perdait au profit du check JS
+  // ci-dessous. Désormais on ramène tout, et le filtre CP/national est
+  // appliqué en JS pour pouvoir gérer `national_opt_in=true` (bypass).
+  // Le préfixe est rendu plus strict côté JS via `startsWith` (le `%` du
+  // pattern PostgREST n'est plus pertinent).
+  const cpPrefixRaw = cpPrefix ? cpPrefix.replace(/%$/, "") : null;
 
   const { data, error } = await query;
   if (error) throw error;
@@ -126,13 +131,25 @@ export async function findMatchingProspects(
     if (requiredKeys.includes("identity") && !identity) continue;
 
     const localisation = row.prospect_localisation;
-    if (cpPrefix && !localisation?.code_postal) continue;
+    const nationalOptIn = localisation?.national_opt_in === true;
+
+    // Filtre CP : le prospect doit habiter dans le département ciblé,
+    // SAUF s'il a coché « Étendre au niveau national » dans ses
+    // préférences (auquel cas il est éligible quelle que soit la
+    // portée du pro). Pour les campagnes nationales, cpPrefixRaw est
+    // déjà null donc on n'entre pas dans cette branche.
+    if (cpPrefixRaw && !nationalOptIn) {
+      const cp = localisation?.code_postal;
+      if (!cp || !cp.startsWith(cpPrefixRaw)) continue;
+    }
 
     // Filtre rayon prospect : le prospect doit avoir réglé son rayon
     // de ciblage >= au plancher imposé par la portée de la campagne.
-    // Si la row palier 2 (localisation) n'existe pas, on suppose le
-    // default DB (25 km) — cohérent avec le check constraint.
-    if (radiusFloorKm != null) {
+    // Le flag « national » l'exempte aussi de ce plancher (sémantique
+    // « j'accepte n'importe où »). Si la row palier 2 (localisation)
+    // n'existe pas, on suppose le default DB (25 km) — cohérent avec
+    // le check constraint.
+    if (radiusFloorKm != null && !nationalOptIn) {
       const prospectRadius = localisation?.targeting_radius_km ?? 25;
       if (prospectRadius < radiusFloorKm) continue;
     }

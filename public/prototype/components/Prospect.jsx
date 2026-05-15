@@ -16,23 +16,30 @@ const EMPTY_TIER = {
   // `targetingRadiusKm` est stocké en string (cohérence avec les autres
   // champs du tier — rowToUi serialize tout en string). Le slider Prefs
   // fait le parseInt à la lecture.
-  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25' },
+  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'false' },
   vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
   pro:         { poste: '', statut: '', secteur: '', revenus: '' },
   patrimoine:  { residence: '', epargne: '', projets: '' },
 };
 
+// Sources de vérité pour les listes complètes — utilisées par les toggle
+// handlers du contexte (pour calculer "tout sauf X" quand on désactive
+// un chip depuis le mode `allXxx = true`) ET par le rendu des chips dans
+// le composant Prefs. Tenir les deux usages synchronisés.
+const CAMPAIGN_TYPE_LIST = ['Prise de contact', 'Prise de rendez-vous', 'Événement', 'Téléchargement', 'Enquête & avis', 'Promotion'];
+const CATEGORY_LIST = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
+
 const INITIAL_PROFILE = {
   ...EMPTY_TIER,
-  // Préférences par défaut volontairement restrictives — le prospect
-  // n'est pré-coché que sur les 2 types/catégories les plus généralistes ;
-  // libre à lui d'élargir explicitement via le bouton "Tous types" /
-  // "Toutes catégories" ou de cocher davantage de chips à la main.
-  allCampaignTypes: false,
-  campaignTypes: new Set(['Prise de contact', 'Prise de rendez-vous']),
-  // Categories authorised (mirrored in Préférences)
-  allCategories: false,
-  categories: new Set(['Bien-être', 'Coaching']),
+  // Préférences par défaut volontairement larges — opt-OUT plutôt qu'opt-IN.
+  // Le prospect part sur "tous les types & toutes les catégories acceptés"
+  // (= valeur par défaut côté DB `prospects.all_campaign_types = true`),
+  // libre à lui de décocher ce qu'il ne veut pas via les chips ou de basculer
+  // explicitement en sélection partielle.
+  allCampaignTypes: true,
+  campaignTypes: new Set(),
+  allCategories: true,
+  categories: new Set(),
   // Métadonnées identité non éditables directement (gérées par le flow
   // dédié `/api/prospect/phone/verify`). `null` = jamais vérifié.
   identityMeta: { phoneVerifiedAt: null },
@@ -333,6 +340,15 @@ function ProspectProvider({ children }) {
   const addField = (category, field, value) => updateField(category, field, value);
   const setAllCampaignTypes = (on) => setProfile(p => ({ ...p, allCampaignTypes: on }));
   const toggleCampaignType = (t) => setProfile(p => {
+    // Si on était en mode "Tous" (= allCampaignTypes true), un clic sur
+    // un chip signifie "désélectionner celui-ci" (et conserver les autres).
+    // On bascule donc en mode partiel en remplissant le Set avec toute la
+    // liste SAUF le chip cliqué. Sans cette branche, on tomberait sur un
+    // mode partiel ne contenant QUE ce chip, ce qui inverse l'intention.
+    if (p.allCampaignTypes) {
+      const n = new Set(CAMPAIGN_TYPE_LIST.filter(x => x !== t));
+      return { ...p, campaignTypes: n, allCampaignTypes: false };
+    }
     const n = new Set(p.campaignTypes);
     n.has(t) ? n.delete(t) : n.add(t);
     return { ...p, campaignTypes: n, allCampaignTypes: false };
@@ -344,6 +360,13 @@ function ProspectProvider({ children }) {
   // partielle qui en résulte.
   const setAllCategories = (on) => setProfile(p => ({ ...p, allCategories: on }));
   const toggleCategory = (c) => setProfile(p => {
+    // Idem toggleCampaignType : un clic sur un chip depuis le mode "Toutes"
+    // signifie "désélectionner uniquement ce chip" — on bascule en mode
+    // partiel avec toute la liste sauf celui-ci.
+    if (p.allCategories) {
+      const n = new Set(CATEGORY_LIST.filter(x => x !== c));
+      return { ...p, categories: n, allCategories: false };
+    }
     const n = new Set(p.categories);
     n.has(c) ? n.delete(c) : n.add(c);
     return { ...p, categories: n, allCategories: false };
@@ -5142,6 +5165,13 @@ function Prefs() {
     ? persistedRadius
     : 25;
   const [radius, setRadius] = useState(initialRadius);
+  // National opt-in — case à cocher "Étendre au niveau national". Quand
+  // cochée, le matching ignore les filtres CP préfixe + plancher rayon
+  // pour ce prospect (cf. lib/campaigns/matching.ts). Le slider de rayon
+  // devient inopérant (grisé) mais reste affiché pour que l'utilisateur
+  // retrouve sa préférence en cas de décochage. Persisté côté DB en
+  // boolean — la valeur côté UI est sérialisée en string par rowToUi.
+  const nationalOptIn = String(ctx?.profile?.localisation?.nationalOptIn ?? '') === 'true';
   // Resync local quand le profile arrive de l'API (hydratation async).
   useEffect(() => {
     if (Number.isFinite(persistedRadius) && persistedRadius !== radius) {
@@ -5168,8 +5198,10 @@ function Prefs() {
 
   const [tierShare, setTierShare] = useState({1: true, 2: true, 3: true, 4: false, 5: false});
 
-  const allCats = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
-  const allCampaignTypes = ['Prise de contact', 'Prise de rendez-vous', 'Événement', 'Téléchargement', 'Enquête & avis', 'Promotion'];
+  // Source-of-truth des listes : module-level CAMPAIGN_TYPE_LIST / CATEGORY_LIST
+  // (utilisé aussi par les toggle handlers du contexte pour le "tout sauf X").
+  const allCats = CATEGORY_LIST;
+  const allCampaignTypes = CAMPAIGN_TYPE_LIST;
 
   return (
     <div className="col gap-6">
@@ -5272,14 +5304,54 @@ function Prefs() {
             </div>
             <div>
               <div className="muted" style={{ fontSize: 12, textAlign: 'right' }}>Rayon</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: zoneLocked ? 'var(--ink-4)' : 'var(--accent)' }}>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></div>
+              <div className="serif tnum" style={{ fontSize: 28, color: (zoneLocked || nationalOptIn) ? 'var(--ink-4)' : 'var(--accent)' }}>
+                {nationalOptIn
+                  ? <span style={{ fontSize: 16 }}>National</span>
+                  : <>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></>}
+              </div>
             </div>
           </div>
           <input type="range" min="5" max="100" step="5" value={radius}
-            disabled={zoneLocked}
+            disabled={zoneLocked || nationalOptIn}
             onChange={e => setRadius(+e.target.value)}
-            style={{ width: '100%', accentColor: 'var(--accent)', opacity: zoneLocked ? 0.4 : 1, cursor: zoneLocked ? 'not-allowed' : 'pointer' }}/>
-          <RealMapThumb ville={ville} codePostal={codePostal} radius={radius} fallback={<MapThumb radius={radius}/>}/>
+            style={{ width: '100%', accentColor: 'var(--accent)',
+              opacity: (zoneLocked || nationalOptIn) ? 0.4 : 1,
+              cursor: (zoneLocked || nationalOptIn) ? 'not-allowed' : 'pointer' }}/>
+          {/* Case à cocher "Étendre au niveau national" — quand activée,
+              le matching ignore la portée géographique du pro et le rayon
+              local (le prospect accepte les sollicitations partout en
+              France). Désactivable à tout moment pour revenir au rayon. */}
+          <label className={'row center gap-2 ' + (zoneLocked ? '' : '')}
+            style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10,
+              border: '1px solid ' + (nationalOptIn ? 'var(--accent)' : 'var(--line-2)'),
+              background: nationalOptIn ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--paper)',
+              cursor: zoneLocked ? 'not-allowed' : 'pointer',
+              opacity: zoneLocked ? 0.5 : 1,
+              transition: 'all .15s' }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+              border: '1.5px solid ' + (nationalOptIn ? 'var(--accent)' : 'var(--line-2)'),
+              background: nationalOptIn ? 'var(--accent)' : 'var(--paper)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>{nationalOptIn && <span style={{ color: 'white', fontSize: 11 }}>✓</span>}</span>
+            <input type="checkbox"
+              checked={nationalOptIn}
+              disabled={zoneLocked}
+              onChange={(e) => {
+                if (zoneLocked) return;
+                ctx?.updateField?.('localisation', 'nationalOptIn', e.target.checked);
+              }}
+              style={{ display: 'none' }}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>Étendre au niveau national</div>
+              <div className="muted" style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>
+                J'accepte d'être contacté par des pros partout en France, indépendamment du rayon local.
+              </div>
+            </div>
+          </label>
+          <div style={{ marginTop: 14 }}>
+            <RealMapThumb ville={ville} codePostal={codePostal} radius={nationalOptIn ? 9999 : radius} fallback={<MapThumb radius={nationalOptIn ? 9999 : radius}/>}/>
+          </div>
           {zoneLocked && (
             /* Verrou — bannière + overlay semi-transparent qui couvre la
                carte sans masquer l'info principale. Le clic sur le bouton
