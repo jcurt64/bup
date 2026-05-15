@@ -221,7 +221,7 @@ export default function CookiesPage() {
                 href="/contact-dpo"
                 style={{ color: "var(--accent)", textDecoration: "underline" }}
               >
-                Délégué à la protection des données
+                Chargé à la protection des données
               </Link>{" "}
               pour qu&apos;aucun pixel ne soit inséré dans les broadcasts qui
               vous seront adressés. L&apos;opposition est immédiate et
@@ -338,7 +338,7 @@ export default function CookiesPage() {
               href="/contact-dpo"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              Délégué à la protection des données
+              Chargé à la protection des données
             </Link>
             .
           </p>

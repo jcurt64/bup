@@ -53,7 +53,7 @@ function confirmationHtml(
       ? `Le suivi des ouvertures de vos broadcasts BUUPP est réactivé. Vos prochains emails inclueront à nouveau le pixel transparent de mesure d'audience. Vous pouvez vous y opposer à nouveau à tout moment.`
       : `Vous n'apparaîtrez plus dans les statistiques d'ouverture des prochains broadcasts BUUPP. Vous pouvez réactiver le suivi à tout moment via le bouton ci-dessous, ou depuis votre espace ${role === "pro" ? "« Mes informations »" : "« Préférences »"}.`
     : status === "invalid"
-      ? "Ce lien n'est plus valide ou a été modifié. Recliquez sur le lien depuis un email récent ou écrivez à notre Délégué à la protection des données."
+      ? "Ce lien n'est plus valide ou a été modifié. Recliquez sur le lien depuis un email récent ou écrivez à notre Chargé à la protection des données."
       : "Impossible d'enregistrer votre choix pour le moment. Réessayez dans quelques minutes ou écrivez à notre DPO.";
   const accent = isOk ? "#10B981" : "#DC2626";
 

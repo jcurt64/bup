@@ -6,7 +6,7 @@ import ContactDpoForm from "../_components/ContactDpoForm";
 export const metadata: Metadata = {
   title: "Formulaire de demande au DPO — BUUPP",
   description:
-    "Formulaire en ligne pour adresser une demande RGPD (accès, rectification, effacement, opposition, portabilité) au Délégué à la protection des données de BUUPP.",
+    "Formulaire en ligne pour adresser une demande RGPD (accès, rectification, effacement, opposition, portabilité) au Chargé à la protection des données de BUUPP.",
   robots: { index: true, follow: true },
 };
 
@@ -65,7 +65,7 @@ export default function DpoFormulairePage() {
           }}
         >
           Utilisez ce formulaire pour transmettre votre demande au
-          Délégué à la protection des données de BUUPP. Un accusé de
+          Chargé à la protection des données de BUUPP. Un accusé de
           réception est envoyé immédiatement à l&apos;adresse renseignée
           ci-dessous&nbsp;; une réponse motivée vous est adressée dans un
           délai d&apos;<strong>un mois</strong> à compter de la réception

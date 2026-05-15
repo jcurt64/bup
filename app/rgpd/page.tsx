@@ -85,7 +85,7 @@ export default function RgpdPage() {
             par son représentant légal.
           </p>
           <p>
-            <strong>Délégué à la protection des données (DPO).</strong>{" "}
+            <strong>Chargé à la protection des données.</strong>{" "}
             Vous pouvez contacter notre DPO pour toute question relative à
             vos données ou à l&apos;exercice de vos droits&nbsp;:
           </p>

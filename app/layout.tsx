@@ -128,7 +128,7 @@ const organizationJsonLd = {
   contactPoint: [
     {
       "@type": "ContactPoint",
-      contactType: "Délégué à la protection des données (DPO)",
+      contactType: "Chargé à la protection des données",
       email: "dp.buupp@buupp.com",
       availableLanguage: "French",
     },

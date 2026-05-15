@@ -6,7 +6,7 @@ import PageVersion from "../_components/PageVersion";
 export const metadata: Metadata = {
   title: "Contact DPO — BUUPP",
   description:
-    "Coordonnées du Délégué à la protection des données (DPO) de BUUPP et exercice de vos droits RGPD.",
+    "Coordonnées du Chargé à la protection des données de BUUPP et exercice de vos droits RGPD.",
 };
 
 export default function ContactDpoPage() {
@@ -46,7 +46,7 @@ export default function ContactDpoPage() {
             marginBottom: 18,
           }}
         >
-          Délégué à la protection des données
+          Chargé à la protection des données
         </h1>
         <p
           style={{
@@ -56,7 +56,7 @@ export default function ContactDpoPage() {
             maxWidth: 680,
           }}
         >
-          BUUPP a désigné un Délégué à la protection des données (DPO),
+          BUUPP a désigné un Chargé à la protection des données,
           interlocuteur privilégié pour toute question relative à la
           confidentialité, à la sécurité de vos informations ou à
           l&apos;exercice de vos droits RGPD.
@@ -75,7 +75,7 @@ export default function ContactDpoPage() {
       >
         <Section title="1. Coordonnées du DPO">
           <p>
-            Vous pouvez contacter notre Délégué à la protection des
+            Vous pouvez contacter notre Chargé à la protection des
             données par l&apos;un des moyens suivants&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
@@ -93,7 +93,7 @@ export default function ContactDpoPage() {
               <strong>Courrier postal</strong> (recommandé conseillé pour
               les demandes nécessitant une preuve de réception)&nbsp;:{" "}
               <em>
-                Majelink — À l&apos;attention du Délégué à la protection
+                Majelink — À l&apos;attention du Chargé à la protection
                 des données — 12 Impasse des Étriers, 64140 Lons, France
               </em>
             </li>
