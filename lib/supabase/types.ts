@@ -515,6 +515,32 @@ export type Database = {
           },
         ]
       }
+      relation_email_aliases: {
+        Row: {
+          alias_short: string
+          created_at: string
+          relation_id: string
+        }
+        Insert: {
+          alias_short: string
+          created_at?: string
+          relation_id: string
+        }
+        Update: {
+          alias_short?: string
+          created_at?: string
+          relation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relation_email_aliases_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: true
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_contact_reveals: {
         Row: {
           field: string

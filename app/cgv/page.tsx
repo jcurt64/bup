@@ -37,7 +37,7 @@ export default function CgvPage() {
         >
           Conditions générales de vente
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="cgv" />
         <h1
           className="serif"
           style={{
@@ -146,8 +146,12 @@ export default function CgvPage() {
             <li>
               d&apos;accéder, après <strong>double consentement</strong>{" "}
               (acceptation du prospect via son tableau de bord), aux
-              coordonnées révélées dans l&apos;interface BUUPP
-              (one-shot par prospect, watermarking individuel)&nbsp;;
+              coordonnées révélées dans l&apos;interface BUUPP&nbsp;:
+              l&apos;email est révélé sous forme d&apos;<strong>alias unique{" "}
+              <code>prospect+rXXX@buupp.com</code></strong> propre à la relation
+              (le vrai email du prospect n&apos;est jamais exposé) ; le téléphone
+              et le nom complet sont révélés en clair, chaque accès étant tracé
+              dans le journal d&apos;audit BUUPP&nbsp;;
             </li>
             <li>
               de gérer la facturation, l&apos;historique des campagnes,

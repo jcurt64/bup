@@ -41,7 +41,7 @@ export default function RgpdPage() {
         >
           Politique de confidentialité
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="rgpd" />
         <h1
           className="serif"
           style={{
@@ -239,9 +239,16 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Prévention de la fraude</strong>&nbsp;: anti-doublon
-              (IBAN, téléphone, e-mail), exclusivité de rôle, détection
-              de freeloaders (signalements «&nbsp;non atteint&nbsp;»),
-              alertes anti-exfiltration côté pro (watermarking).
+              déterministe (contraintes d&apos;unicité base sur l&apos;IBAN,
+              le téléphone E.164 et l&apos;e-mail), exclusivité de rôle
+              prospect / pro, détection de freeloaders (signalements
+              «&nbsp;non atteint&nbsp;»), <strong>watermark cryptographique
+              des emails révélés</strong> (alias unique{" "}
+              <code>prospect+rXXX@buupp.com</code> propre à chaque relation,
+              routé via Cloudflare Email Routing) qui rend toute fuite
+              imputable nominativement au Pro émetteur, et journal
+              d&apos;audit verrouillé des révélations (lecture admin
+              uniquement).
             </li>
           </ul>
         </Section>

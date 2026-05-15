@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+# Dependencies des Cloudflare Workers (chacun a son propre package.json)
+cloudflare-workers/*/node_modules/
+cloudflare-workers/*/.wrangler/
 /.pnp
 .pnp.*
 .yarn/*

@@ -4396,9 +4396,18 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
             >
               <Icon name={iconName} size={14}/> {ctaLabel}
             </a>
-            <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'center' }}>
-              ⓘ Cet accès a été enregistré dans votre historique de consultations.
-            </div>
+            {field === 'email' ? (
+              <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'left', lineHeight: 1.5 }}>
+                ⓘ <strong>Alias unique BUUPP.</strong> Cet email est un alias propre
+                à cette relation : tout message envoyé à cette adresse est routé
+                vers le vrai email du prospect. Si le prospect reçoit un mail venant
+                d'une autre source, il remontera instantanément à votre compte.
+              </div>
+            ) : (
+              <div className="muted" style={{ fontSize: 11, marginTop: 14, textAlign: 'center' }}>
+                ⓘ Cet accès a été enregistré dans votre historique de consultations.
+              </div>
+            )}
             <div
               role="alert"
               style={{

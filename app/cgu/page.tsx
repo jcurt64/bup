@@ -37,7 +37,7 @@ export default function CguPage() {
         >
           Conditions générales d&apos;utilisation
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="cgu" />
         <h1
           className="serif"
           style={{
@@ -84,10 +84,10 @@ export default function CguPage() {
             particuliers (ci-après «&nbsp;Prospects&nbsp;») et professionnels
             (ci-après «&nbsp;Pros&nbsp;») accessible à l&apos;adresse{" "}
             <a
-              href="https://buupp.fr"
+              href="https://buupp.com"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              buupp.fr
+              buupp.com
             </a>{" "}
             (ci-après le «&nbsp;Service&nbsp;»).
           </p>
@@ -287,12 +287,16 @@ export default function CguPage() {
             </li>
             <li>
               ne <strong>pas exfiltrer, copier, exporter ou revendre</strong>{" "}
-              les coordonnées révélées. Toutes les fiches contact sont
-              affichées dans l&apos;interface BUUPP avec watermarking
-              individuel — tout export, capture massif ou diffusion à des
-              tiers expose le Pro à une résiliation immédiate et à une
-              enquête (les watermarks sont uniques par fiche et permettent
-              de tracer la source d&apos;une fuite) ;
+              les coordonnées révélées. L&apos;email du Prospect révélé au Pro
+              est un <strong>alias unique de la forme{" "}
+              <code>prospect+rXXX@buupp.com</code></strong>, propre à la relation,
+              routé vers le vrai email du Prospect par BUUPP : tout mail reçu
+              par le Prospect en dehors de cet alias remonte instantanément au
+              Pro émetteur. Le téléphone et le nom complet sont révélés en clair,
+              mais chaque révélation est consignée dans un journal d&apos;audit
+              serveur (horodatage, identification du Pro et de la relation).
+              Tout export, capture massif ou diffusion à des tiers expose le Pro
+              à une résiliation immédiate et à une enquête ;
             </li>
             <li>
               limiter ses contacts à <strong>une seule sollicitation</strong>

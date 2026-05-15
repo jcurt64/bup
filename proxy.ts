@@ -50,6 +50,11 @@ const isPublicRoute = createRouteMatcher([
   // du destinataire, qui ne porte évidemment aucune session Clerk. Le
   // recipient_id (UUID v4) sert d'identifiant opaque non énumérable.
   "/api/broadcasts/track/(.*)",
+  // Endpoint appelé par le Cloudflare Email Worker (relation-email-router)
+  // pour résoudre un alias `prospect+rXXX@buupp.com` vers le vrai email du
+  // prospect. Pas de session Clerk : le Worker authentifie via le header
+  // `x-inbound-secret` (vérifié dans le handler).
+  "/api/inbound/relation/(.*)",
   // ─── API admin : pas de session Clerk requise. Chaque handler
   // valide lui-même un secret via le header `x-admin-secret`
   // (cf. app/api/admin/waitlist/launch-email/route.ts).

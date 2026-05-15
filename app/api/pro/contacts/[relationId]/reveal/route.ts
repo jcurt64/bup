@@ -18,6 +18,10 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import {
+  buildAliasAddress,
+  getOrCreateRelationAlias,
+} from "@/lib/aliases/relation-email";
 
 export const runtime = "nodejs";
 
@@ -94,7 +98,23 @@ export async function POST(req: Request, ctx: RouteContext) {
   const ident = Array.isArray(identRaw) ? identRaw[0] ?? null : identRaw;
   let value: string | null;
   if (field === "email") {
-    value = ident?.email ?? null;
+    // Watermark cryptographique : on ne révèle JAMAIS le vrai email du
+    // prospect. À la place, on génère/réutilise un alias unique
+    // `prospect+r{slug}@buupp.com` rattaché à la relation. Les mails
+    // envoyés à cet alias sont routés vers le vrai email par le
+    // Cloudflare Email Worker (cf. cloudflare-workers/relation-email-router).
+    // Si le prospect détecte un mail venant d'une autre source, on
+    // remonte instantanément au pro émetteur via la relation.
+    if (!ident?.email) {
+      return NextResponse.json({ error: "not_shared" }, { status: 404 });
+    }
+    try {
+      const slug = await getOrCreateRelationAlias(admin, relationId);
+      value = buildAliasAddress(slug);
+    } catch (err) {
+      console.error("[/api/pro/contacts/reveal] alias gen failed", err);
+      return NextResponse.json({ error: "alias_gen_failed" }, { status: 500 });
+    }
   } else if (field === "telephone") {
     value = ident?.telephone ?? null;
   } else {

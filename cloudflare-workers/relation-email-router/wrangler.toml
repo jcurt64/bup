@@ -1,0 +1,14 @@
+name = "relation-email-router"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+
+# Ce Worker est un Email Worker (déclenché par les routes Email Routing
+# de Cloudflare, pas par HTTP). On désactive le workers.dev subdomain
+# pour qu'il ne soit pas exposé en HTTP — il n'est invoqué que par les
+# routing rules Email.
+workers_dev = false
+
+# Pas de variables non-secrètes hardcodées — BUUPP_API_BASE et
+# INBOUND_RELAY_SECRET sont définis via :
+#   npx wrangler secret put BUUPP_API_BASE
+#   npx wrangler secret put INBOUND_RELAY_SECRET

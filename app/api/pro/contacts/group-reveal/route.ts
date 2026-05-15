@@ -23,6 +23,10 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import {
+  buildAliasAddress,
+  getOrCreateRelationAlias,
+} from "@/lib/aliases/relation-email";
 
 export const runtime = "nodejs";
 
@@ -103,13 +107,21 @@ export async function POST(req: Request) {
     const prospects = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
     const identRaw = prospects?.prospect_identity ?? null;
     const ident = Array.isArray(identRaw) ? identRaw[0] ?? null : identRaw;
-    const value = ident?.email ?? null;
-    if (!value) {
+    if (!ident?.email) {
       items.push({ relationId: id, email: null });
       continue;
     }
-    items.push({ relationId: id, email: value });
-    auditPayload.push({ pro_account_id: proId, relation_id: id, field: "email" });
+    // Watermark cryptographique : on retourne l'alias `prospect+rXXX@buupp.com`
+    // au lieu du vrai email. Cf. /api/pro/contacts/[relationId]/reveal et
+    // lib/aliases/relation-email.ts pour le détail.
+    try {
+      const slug = await getOrCreateRelationAlias(admin, id);
+      items.push({ relationId: id, email: buildAliasAddress(slug) });
+      auditPayload.push({ pro_account_id: proId, relation_id: id, field: "email" });
+    } catch (err) {
+      console.error("[/api/pro/contacts/group-reveal] alias gen failed", { id, err });
+      items.push({ relationId: id, email: null });
+    }
   }
 
   if (auditPayload.length > 0) {
