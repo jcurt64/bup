@@ -1907,7 +1907,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setSelectedSubs(new Set(d.selectedSubs || []));
       setSelectedTiers(new Set(d.selectedTiers || [1]));
       setGeo(d.geo ?? 'ville');
-      setAges(new Set(d.ages || ['Tous']));
+      setAges(new Set(d.ages || []));
       setVerif(d.verif ?? 'p0');
       setContacts(Number(d.contacts ?? 10));
       setDurationKey(typeof d.durationKey === 'string' ? d.durationKey : '7d');
@@ -1994,7 +1994,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
   const [geo, setGeo] = useState('ville');
-  const [ages, setAges] = useState(new Set(['Tous']));
+  const [ages, setAges] = useState(new Set());
   const [verif, setVerif] = useState('p0');
   const [contacts, setContacts] = useState(10);
   const [durationKey, setDurationKey] = useState('7d');
@@ -2082,30 +2082,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     return next;
   });
   const toggleTier = (tid) => setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
-  // "Tous" agit comme un raccourci "tout cocher" : un premier clic active
-  // toutes les tranches d'âge en plus de la pill "Tous", un second clic
-  // (quand tout est déjà coché) revient au défaut "Tous" seul. Les clics
-  // sur les tranches individuelles synchronisent la pill "Tous" avec
-  // l'état réel — elle reste cochée si et seulement si toutes les tranches
-  // le sont. Le backend traite "Tous" et la liste complète comme un
-  // synonyme (cf. lib/campaigns/mapping.ts → ageRangesToBounds).
+  // "Tous" agit comme un raccourci "tout cocher" — pas de pré-sélection
+  // au démarrage : toutes les pills sont vides (y compris "Tous"). Cliquer
+  // "Tous" coche les 6 tranches d'un coup ; re-cliquer dessus tout décoche.
+  // Les clics sur les tranches individuelles synchronisent la pill "Tous"
+  // (cochée ssi les 6 tranches le sont). Le backend traite "Tous", la
+  // liste complète et la liste vide comme un synonyme = aucun filtre
+  // (cf. lib/campaigns/mapping.ts → ageRangesToBounds).
   const ALL_AGE_RANGES_NO_TOUS = AGE_RANGES.filter(x => x !== 'Tous');
   const toggleAge = (a) => setAges(p => {
     if (a === 'Tous') {
       const allOn = ALL_AGE_RANGES_NO_TOUS.every(r => p.has(r));
-      return allOn ? new Set(['Tous']) : new Set(AGE_RANGES);
+      return allOn ? new Set() : new Set(AGE_RANGES);
     }
     const n = new Set(p);
-    // En mode "Tous seul", un clic individuel passe en sélection explicite
-    // sur ce seul âge (l'utilisateur restreint la sélection initiale).
-    if (n.has('Tous') && !ALL_AGE_RANGES_NO_TOUS.every(r => n.has(r))) {
-      return new Set([a]);
-    }
     n.has(a) ? n.delete(a) : n.add(a);
     // Synchro de la pill "Tous" — cochée ssi toutes les tranches le sont.
     if (ALL_AGE_RANGES_NO_TOUS.every(r => n.has(r))) n.add('Tous');
     else n.delete('Tous');
-    if (n.size === 0) n.add('Tous');
     return n;
   });
   const addKw = (val) => {
@@ -3202,7 +3196,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
                 ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
-                ["Tranches d'âge", Array.from(ages).join(', ')],
+                ["Tranches d'âge", ages.size === 0 ? 'Toutes (aucune restriction)' : Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
