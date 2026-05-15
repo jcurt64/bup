@@ -19,8 +19,11 @@ const nextConfig: NextConfig = {
   // à toutes les routes (cf. audit sécurité 15/05/2026) :
   //
   // - HSTS : force HTTPS pendant 2 ans, includeSubDomains pour buupp.com.
-  // - X-Frame-Options=DENY : interdit l'embed du site dans une iframe
-  //   tierce (anti-clickjacking sur /buupp-admin et /pro).
+  // - X-Frame-Options=SAMEORIGIN : interdit l'embed dans un domaine TIERS
+  //   (anti-clickjacking sur /buupp-admin et /pro), tout en autorisant les
+  //   iframes same-origin (nécessaires pour /liste-attente qui embed
+  //   /prototype/waitlist.html, et PrototypeFrame qui embed shell.html).
+  //   `DENY` casserait ces pages côté navigateur (iframe bloquée).
   // - X-Content-Type-Options=nosniff : désactive le MIME-sniffing.
   // - Referrer-Policy : ne fuite pas l'URL exacte vers les domaines tiers
   //   (les liens cliqués depuis BUUPP n'envoient que l'origine).
@@ -38,7 +41,7 @@ const nextConfig: NextConfig = {
         key: "Strict-Transport-Security",
         value: "max-age=63072000; includeSubDomains; preload",
       },
-      { key: "X-Frame-Options", value: "DENY" },
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       {
