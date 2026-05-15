@@ -1698,6 +1698,63 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
   );
 }
 
+// Modal d'erreur de lancement (autre cas que solde insuffisant — qui a
+// son propre modal avec recharge Stripe). Affiche le message lisible
+// renvoyé par le backend, plutôt que l'alert() natif. Le style suit
+// le pattern d'InsufficientBalanceModal : overlay, carte centrée,
+// bandeau coloré, bouton "Compris".
+function LaunchErrorModal({ title, message, onClose }) {
+  return (
+    <div role="dialog" aria-modal="true" className="launchErr-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 230,
+      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
+      padding: '24px 16px 80px',
+    }} onClick={onClose}>
+      <div className="launchErr-card" onClick={(e) => e.stopPropagation()} style={{
+        position: 'relative', maxWidth: 480, width: '100%',
+        background: 'var(--paper)', borderRadius: 18,
+        padding: 'clamp(20px, 4vw, 32px)',
+        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
+        margin: 'auto 0', borderTop: '4px solid #dc2626',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{
+            width: 56, height: 56, margin: '0 auto 12px', borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+            fontSize: 26, fontWeight: 700,
+          }}>!</div>
+          <div className="serif" style={{ fontSize: 'clamp(20px, 3vw, 24px)', lineHeight: 1.2, marginBottom: 6 }}>
+            {title || 'Lancement impossible'}
+          </div>
+        </div>
+
+        <div style={{
+          padding: 14, borderRadius: 10, background: 'var(--ivory-2)',
+          border: '1px solid var(--line)', fontSize: 13, lineHeight: 1.55,
+          color: 'var(--ink)', marginBottom: 18,
+        }}>
+          {message || 'Une erreur est survenue lors du lancement de la campagne.'}
+        </div>
+
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 10 }}>
+          <button className="btn btn-primary" onClick={onClose} style={{ minWidth: 140 }}>
+            Compris
+          </button>
+        </div>
+
+        <style>{`
+          @media (max-width: 480px) {
+            .launchErr-overlay { align-items: stretch !important; padding: 0 !important; }
+            .launchErr-card { border-radius: 0 !important; min-height: 100vh; }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
 // Durées de campagne. Le multiplicateur s'applique au coût par contact
 // (= gains du prospect) : plus la fenêtre est courte, plus le pro paie
 // pour attirer une décision rapide. La durée 1h est une "flash deal"
@@ -1714,6 +1771,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
+  // Erreur de lancement (autre que solde insuffisant) — affichée dans
+  // un modal stylé plutôt qu'un alert() natif. Forme: {title, message}.
+  const [launchError, setLaunchError] = useState(null);
   // ─── Plan tarifaire ─────────────────────────────────────────────
   // Au montage du wizard on récupère le plan actuel et on ouvre la
   // popup de sélection. Tant que `planChosen=false`, on bloque le
@@ -3453,7 +3513,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         setPlanModalOpen(true);
                         return;
                       }
-                      throw new Error(j?.error || 'launch_failed');
+                      // Le backend renvoie {error: <code>, message: <texte
+                      // lisible}. On préfère le message s'il est présent —
+                      // sinon on traduit le code en libellé humain.
+                      const friendly = j?.message || ({
+                        launch_failed: 'Erreur inconnue, réessayez dans un instant.',
+                        invalid_body: 'Certains champs sont invalides ou manquants.',
+                        invalid_dates: 'Les dates choisies sont invalides.',
+                        invalid_json: 'Requête mal formée.',
+                        budget_mismatch: 'Le budget ne correspond pas au coût × nombre de contacts.',
+                        tiers_above_plan_cap: `Votre plan ${j?.plan || ''} ne donne pas accès à ce palier (cap : ${j?.planTierCap ?? '?'}). Passez en Pro pour débloquer.`,
+                        unauthorized: 'Session expirée — reconnectez-vous.',
+                      })[j?.error] || `Erreur (${j?.error || r.status}).`;
+                      setLaunchError({ title: 'Lancement impossible', message: friendly });
+                      return;
                     }
                     // Wallet a été lu/contrôlé côté serveur — on invalide
                     // pour que le header et la facturation se rafraîchissent.
@@ -3461,7 +3534,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                     try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
                     setLaunched({ code: j.code, name: obj?.name, matched: j.matchedCount });
                   } catch (e) {
-                    alert("Échec du lancement : " + (e.message || 'inconnu'));
+                    // Réseau / parse / inattendu — pas d'erreur backend
+                    // structurée, on affiche un message générique.
+                    setLaunchError({
+                      title: 'Lancement impossible',
+                      message: e?.message
+                        ? `Problème réseau ou inattendu : ${e.message}`
+                        : 'Problème réseau ou inattendu — réessayez dans un instant.',
+                    });
                   }
                 }}
                 disabled={!canLaunch}
@@ -3532,6 +3612,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           details={insufficient}
           onCancel={() => setInsufficient(null)}
           onTopup={() => { saveDraft(); }}
+        />
+      )}
+      {launchError && (
+        <LaunchErrorModal
+          title={launchError.title}
+          message={launchError.message}
+          onClose={() => setLaunchError(null)}
         />
       )}
       {planModalOpen && plan && (

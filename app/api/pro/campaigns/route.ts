@@ -25,7 +25,7 @@ import {
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
 import { sendRelationInvitation } from "@/lib/email/relation";
-import { rangeForRequiredTiers } from "@/lib/prospect/tier-rewards";
+import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
 
 export const runtime = "nodejs";
 
@@ -194,23 +194,34 @@ export async function POST(req: Request) {
     : "7d";
   const durationMeta = DURATION_MULTIPLIERS[durationKey];
 
-  // Garde-fou rémunération : `costPerContactCents` doit être dans le
-  // barème du palier le plus élevé requis (× la durée).
-  //   - Borne basse : protection prospect, le pro ne peut pas payer moins
-  //     que le minimum garanti pour les données qu'il demande.
-  //   - Borne haute : protection plateforme — le wizard ne calcule
-  //     désormais le cpc qu'à partir des paliers (les sous-types choisis
-  //     à l'étape 1 sont informatifs et ne participent plus au prix).
-  //     Un cpc qui dépasse la borne max du palier est forcément un bug
-  //     ou une manipulation côté client → on rejette.
-  //   - Le bonus "verif certifié confiance" (×1.2) reste autorisé, donc
-  //     on applique la même marge sur le plafond.
+  // Garde-fou rémunération : `costPerContactCents` doit correspondre à
+  // la formule du wizard (Pro.jsx → baseCpc), qui est la source de
+  // vérité côté UX. Le backend miroite cette formule pour rester
+  // cohérent : tout écart = bug ou manipulation client → on rejette.
+  //   - Borne basse : protection prospect, le pro ne peut pas payer
+  //     moins que le minimum garanti pour le palier le plus élevé
+  //     qu'il demande (× la durée).
+  //   - Borne haute : formule wizard = somme des midpoints (min+max)/2
+  //     de CHAQUE palier sélectionné, × multiplicateur de vérification
+  //     (p0=1, p1=1.5, p2=2 — cf. VERIF_LEVELS), × multiplicateur de
+  //     durée. Le ×2 pour les prospects certifie_confiance s'applique
+  //     ensuite automatiquement à chaque relation (cf. rewardForProspect).
+  //   - Tolérance : 2 cents — couvre les rounds successifs du wizard
+  //     (Math.round(x * 100) / 100 répété deux fois).
   const tierRange = rangeForRequiredTiers(body.requiredTiers);
   if (tierRange) {
-    const { minCents, maxCents, tier } = tierRange;
+    const { minCents, tier } = tierRange;
     const effMin = Math.round(minCents * durationMeta.mult);
-    const VERIF_BONUS_MAX = 1.2;
-    const effMax = Math.round(maxCents * durationMeta.mult * VERIF_BONUS_MAX);
+    const VERIF_MULT: Record<string, number> = { p0: 1, p1: 1.5, p2: 2 };
+    const verifMult = VERIF_MULT[body.verifLevel] ?? 1;
+    // Somme des midpoints (min+max)/2 sur les paliers sélectionnés —
+    // miroir exact de la boucle `selectedTiers.forEach` du wizard.
+    const tierMidpointSumCents = body.requiredTiers.reduce<number>((sum, t) => {
+      const n = Number(t);
+      const r = TIER_REWARDS[n as TierNum];
+      return r ? sum + (r.minCents + r.maxCents) / 2 : sum;
+    }, 0);
+    const effMax = Math.round(tierMidpointSumCents * verifMult * durationMeta.mult) + 2;
     if (body.costPerContactCents < effMin) {
       const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
       return NextResponse.json(
@@ -234,7 +245,8 @@ export async function POST(req: Request) {
           maxCents: effMax,
           costPerContactCents: body.costPerContactCents,
           durationMultiplier: durationMeta.mult,
-          message: `Pour le palier ${tier} en ${durationKey}, la rémunération maximum est de ${fmtEur(effMax)} € par contact (les sous-types ne participent plus au prix).`,
+          verifMult,
+          message: `Le coût par contact (${fmtEur(body.costPerContactCents)} €) dépasse le plafond calculé pour vos paliers + vérification + durée (${fmtEur(effMax)} €).`,
         },
         { status: 400 },
       );
