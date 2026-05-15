@@ -4,7 +4,9 @@ import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { auth } from "@/lib/clerk/server";
 
 export const metadata = {
-  title: "BUUPP — Connexion",
+  title: "Connexion",
+  // Pas d'intérêt SEO : page d'auth, ne doit pas apparaître dans les SERP.
+  robots: { index: false, follow: false },
 };
 
 type SearchParams = Promise<{
