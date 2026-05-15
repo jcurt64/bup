@@ -4953,14 +4953,30 @@ function EmailComposerModal({ row, onClose, onSent }) {
 
 function Analytics() {
   const [data, setData] = React.useState(null);
+  // Filtres : 'all' = pas de filtre. campaignId = UUID d'une campagne.
+  // period = '7d' | '30d' | '90d' | 'all'.
+  const [campaignFilter, setCampaignFilter] = React.useState('all');
+  const [periodFilter, setPeriodFilter] = React.useState('all');
+  // Loading distinct du data===null pour éviter le clignotement à chaque
+  // changement de filtre (on garde l'ancien rendu en arrière-plan).
+  const [loading, setLoading] = React.useState(false);
+
   React.useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/analytics', { cache: 'no-store' })
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (campaignFilter !== 'all') params.set('campaignId', campaignFilter);
+    if (periodFilter !== 'all') params.set('period', periodFilter);
+    const qs = params.toString();
+    const url = qs ? `/api/pro/analytics?${qs}` : '/api/pro/analytics';
+    fetch(url, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled) setData(j); })
-      .catch(() => { if (!cancelled) setData(null); });
+      .then(j => { if (!cancelled) { setData(j); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setData(null); setLoading(false); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [campaignFilter, periodFilter]);
+
+  const campaigns = data?.campaigns || [];
   const empty = !data || data.sampleSize?.wins === 0;
   const acceptance = data?.acceptanceByTier || [
     {tier:1,label:'Identification',pct:0},{tier:2,label:'Localisation',pct:0},
@@ -4977,12 +4993,100 @@ function Analytics() {
   // contextualiser les pourcentages (3 wins ⇒ chaque ligne ≈ 33 %).
   const winsTotal = data?.sampleSize?.wins ?? 0;
 
+  // Sous-titre dynamique : reflète les filtres actifs pour ne PAS
+  // mentir sur le périmètre des chiffres affichés (cf. correctif
+  // 74b1cf8 qui avait déjà supprimé le faux "30 derniers jours").
+  function describeScope() {
+    const periodLabel = ({
+      all: "depuis l'ouverture du compte",
+      '7d': 'sur les 7 derniers jours',
+      '30d': 'sur les 30 derniers jours',
+      '90d': 'sur les 90 derniers jours',
+    })[periodFilter] || "depuis l'ouverture du compte";
+    if (campaignFilter === 'all') {
+      return `Analyses cumulées ${periodLabel} · calculées sur ${winsTotal} acceptation${winsTotal > 1 ? 's' : ''}`;
+    }
+    const camp = campaigns.find(c => c.id === campaignFilter);
+    const campLabel = camp ? `« ${camp.name} »` : 'la campagne sélectionnée';
+    return `Analyses de ${campLabel} ${periodLabel} · calculées sur ${winsTotal} acceptation${winsTotal > 1 ? 's' : ''}`;
+  }
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Analytics" title="Performance fine" desc={empty
-        ? "Aucune mise en relation acceptée pour le moment — les graphiques s'animent dès le premier contact."
-        : `Analyses cumulées depuis l'ouverture du compte · calculées sur ${winsTotal} acceptation${winsTotal > 1 ? 's' : ''}`}/>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
+        ? (loading ? "Chargement…" : "Aucune mise en relation acceptée pour ce périmètre — modifiez les filtres pour élargir la sélection.")
+        : describeScope()}/>
+
+      {/* Filtres : campagne + période. Responsive : 2 colonnes en
+          desktop, empilés sur mobile (≤640px) via grid auto-fit. */}
+      <div
+        className="card analytics-filters"
+        style={{
+          padding: 16,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 12,
+          alignItems: 'center',
+        }}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <span className="mono caps muted" style={{ fontSize: 10, letterSpacing: '0.08em' }}>
+            Campagne
+          </span>
+          <select
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--line)',
+              background: 'var(--paper)',
+              color: 'var(--ink)',
+              fontFamily: 'inherit',
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Toutes les campagnes</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <span className="mono caps muted" style={{ fontSize: 10, letterSpacing: '0.08em' }}>
+            Période
+          </span>
+          <select
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--line)',
+              background: 'var(--paper)',
+              color: 'var(--ink)',
+              fontFamily: 'inherit',
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Tout l&apos;historique</option>
+            <option value="7d">7 derniers jours</option>
+            <option value="30d">30 derniers jours</option>
+            <option value="90d">90 derniers jours</option>
+          </select>
+        </label>
+      </div>
+      <div style={{
+        display: 'grid',
+        // Auto-fit : 2 colonnes côte à côte si ≥720px de large, sinon
+        // empilement vertical (1 colonne pleine largeur).
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+        gap: 20,
+      }}>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Taux d'acceptation par palier</div>
           {acceptance.map(r => (
@@ -5006,7 +5110,11 @@ function Analytics() {
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition géographique</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Pourcentage de contacts acceptés par zone</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: 12,
+        }}>
           {geo.length === 0 && (
             <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 13, padding: 16 }}>
               Aucune ville renseignée chez vos prospects acceptés pour le moment.
@@ -5024,7 +5132,11 @@ function Analytics() {
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par tranche d'âge</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par segment</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+          gap: 12,
+        }}>
           {ages.map(({ label: l, pct: v }, i) => (
             <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
               <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>{l}</div>
@@ -5039,7 +5151,11 @@ function Analytics() {
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par sexe</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par genre déclaré</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: 16,
+        }}>
           {[
             [sex[0].label, sex[0].pct, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
             [sex[1].label, sex[1].pct, 'var(--accent)'],

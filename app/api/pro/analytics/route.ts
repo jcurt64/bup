@@ -5,6 +5,16 @@
  * campagnes ciblant chaque palier). Pour les 4 breakdowns (palier, géo,
  * âge, sexe), la base est : `relations` du pro avec status `accepted` ou
  * `settled` (ce qui se compte comme "réussite") joint sur prospects.
+ *
+ * Query params optionnels :
+ * - `?campaignId=<uuid>` : filtre sur une campagne spécifique. "all" ou
+ *   absent = toutes les campagnes du pro.
+ * - `?period=7d|30d|90d|all` : filtre sur created_at (date de la
+ *   sollicitation) ; "all" ou absent = pas de filtre.
+ *
+ * La liste complète des campagnes du pro (`campaigns`) est TOUJOURS
+ * renvoyée pour alimenter le sélecteur, indépendamment des filtres
+ * appliqués.
  */
 
 import { NextResponse } from "next/server";
@@ -20,19 +30,58 @@ const AGE_BUCKETS: Array<[string, number, number]> = [
   ["46–55", 46, 55], ["56–64", 56, 64], ["65+", 65, 200],
 ];
 
-export async function GET() {
+const PERIOD_DAYS: Record<string, number | null> = {
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+  all: null,
+};
+
+export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const user = await currentUser();
   const email = user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null;
   const proId = await ensureProAccount({ clerkUserId: userId, email });
 
+  const url = new URL(req.url);
+  // Validation stricte : campaignId doit être un UUID, sinon ignoré.
+  // period doit être dans la liste des valeurs autorisées, sinon "all".
+  const rawCampaignId = (url.searchParams.get("campaignId") ?? "").trim();
+  const campaignFilter =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawCampaignId)
+      ? rawCampaignId
+      : null;
+  const rawPeriod = (url.searchParams.get("period") ?? "all").toLowerCase();
+  const periodKey = rawPeriod in PERIOD_DAYS ? rawPeriod : "all";
+  const periodDays = PERIOD_DAYS[periodKey];
+  const sinceIso =
+    periodDays !== null
+      ? new Date(Date.now() - periodDays * 86_400_000).toISOString()
+      : null;
+
   const admin = createSupabaseAdminClient();
 
-  const { data, error } = await admin
+  // Liste complète des campagnes du pro — TOUJOURS retournée pour le
+  // sélecteur, indépendante des filtres appliqués aux analytics.
+  const { data: campaignsList, error: campErr } = await admin
+    .from("campaigns")
+    .select("id, name, created_at, status")
+    .eq("pro_account_id", proId)
+    .order("created_at", { ascending: false });
+  if (campErr) {
+    console.error("[/api/pro/analytics] campaigns list failed", campErr);
+  }
+  const campaigns = (campaignsList ?? []).map((c) => ({
+    id: c.id,
+    name: c.name ?? "(sans nom)",
+    status: c.status ?? null,
+  }));
+
+  let query = admin
     .from("relations")
     .select(
-      `status, decided_at,
+      `status, decided_at, created_at,
        campaigns ( targeting ),
        prospects:prospect_id (
          prospect_identity ( naissance, genre ),
@@ -40,6 +89,15 @@ export async function GET() {
        )`,
     )
     .eq("pro_account_id", proId);
+
+  if (campaignFilter) {
+    query = query.eq("campaign_id", campaignFilter);
+  }
+  if (sinceIso) {
+    query = query.gte("created_at", sinceIso);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[/api/pro/analytics] read failed", error);
@@ -49,6 +107,7 @@ export async function GET() {
   type Row = {
     status: string;
     decided_at: string | null;
+    created_at: string | null;
     campaigns: { targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       prospect_identity: { naissance: string | null; genre: string | null } | null;
@@ -196,5 +255,11 @@ export async function GET() {
       max: maxCreneau,
     },
     sampleSize: { rows: rows.length, wins: rows.filter((r) => isWin(r.status)).length },
+    // Métadonnées des filtres appliqués + liste des campagnes pour le UI.
+    campaigns,
+    filters: {
+      campaignId: campaignFilter,
+      period: periodKey,
+    },
   });
 }
