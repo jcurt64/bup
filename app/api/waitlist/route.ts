@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendWaitlistConfirmation } from "@/lib/email/waitlist";
 import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
+import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
@@ -64,6 +65,22 @@ function parseReferrerCode(input: unknown): string | null {
 }
 
 export async function POST(req: Request) {
+  // Rate limit anti-flood : 5 inscriptions par IP / 60 secondes. Évite
+  // qu'un attaquant inonde la table waitlist + saturise SMTP/Brevo. La
+  // limite est suffisante pour les réinscriptions légitimes (déjà
+  // inscrit → réponse OK rapide) et un usage bureau partagé (NAT).
+  const ipRl = await checkRateLimit({
+    key: `waitlist:ip:${hashIp(getClientIp(req))}`,
+    limit: 5,
+    windowSec: 60,
+  });
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Trop de tentatives. Réessayez dans quelques instants." },
+      { status: 429, headers: { "Retry-After": String(ipRl.retryAfterSec) } },
+    );
+  }
+
   let body: WaitlistPayload;
   try {
     body = await req.json();

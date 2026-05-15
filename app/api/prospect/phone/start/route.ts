@@ -18,6 +18,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { sendSms, isBrevoConfigured } from "@/lib/brevo/sms";
+import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Rate limit IP — anti-DoS économique. Une IP peut envoyer au max 10
+  // SMS/heure, tous prospects confondus. Cap volontairement large car
+  // un même réseau (NAT, café, bureau) peut héberger plusieurs comptes
+  // légitimes.
+  const ipRl = await checkRateLimit({
+    key: `phone-start:ip:${hashIp(getClientIp(req))}`,
+    limit: 10,
+    windowSec: 3600,
+  });
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Trop d'envois SMS depuis votre réseau. Réessayez plus tard." },
+      { status: 429, headers: { "Retry-After": String(ipRl.retryAfterSec) } },
+    );
+  }
+
   let body: { phone?: unknown };
   try {
     body = await req.json();
@@ -77,10 +94,32 @@ export async function POST(req: Request) {
     nom: user?.lastName ?? null,
   });
 
+  // Rate limit par prospect — anti-bruteforce et coût SMS. 3 envois max
+  // par tranche de 10 minutes. Au-delà, le compte doit attendre.
+  const prospectRl = await checkRateLimit({
+    key: `phone-start:prospect:${prospectId}`,
+    limit: 3,
+    windowSec: 600,
+  });
+  if (!prospectRl.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message: "Trop d'envois SMS récents pour votre compte. Réessayez dans quelques minutes.",
+      },
+      { status: 429, headers: { "Retry-After": String(prospectRl.retryAfterSec) } },
+    );
+  }
+
   // Garde-fou anti-fraude : un numéro de téléphone ne peut être associé
-  // qu'à un seul prospect. On vérifie ICI (avant d'envoyer le SMS) plutôt
-  // que d'attendre l'étape verify — le pro éconnomise un crédit Brevo et
-  // l'utilisateur reçoit le message d'erreur instantanément.
+  // qu'à un seul prospect. Pour éviter l'énumération (un attaquant qui
+  // testerait 10 000 numéros pour deviner lesquels sont déjà inscrits
+  // d'après une réponse différenciée), on retourne TOUJOURS la même
+  // réponse 200 avec `normalizedPhone`, même si le numéro est déjà pris.
+  // En cas de doublon, on n'envoie PAS de SMS et on n'écrit PAS d'OTP
+  // (économie de coût Brevo et impossibilité de faire avancer le flow).
+  // Le prospect attaquant verra alors "code invalide" à l'étape verify,
+  // sans pouvoir distinguer "numéro pris" de "code mauvais".
   const adminEarly = createSupabaseAdminClient();
   const { data: existingPhone, error: phoneLookupErr } = await adminEarly
     .from("prospect_identity")
@@ -91,15 +130,31 @@ export async function POST(req: Request) {
     console.error("[/api/prospect/phone/start] phone lookup error:", phoneLookupErr);
     return NextResponse.json({ error: "lookup_failed" }, { status: 500 });
   }
-  if (existingPhone && existingPhone.prospect_id !== prospectId) {
-    return NextResponse.json(
-      {
-        error: "phone_already_used",
-        message:
-          "Ce numéro est déjà rattaché à un compte. Pour éviter la fraude, un numéro ne peut être associé qu'à un seul profil BUUPP.",
-      },
-      { status: 409 },
-    );
+  const phoneTakenByOther = existingPhone && existingPhone.prospect_id !== prospectId;
+  if (phoneTakenByOther) {
+    // Trace l'attaque potentielle pour suivi admin (sans bloquer la requête).
+    void (async () => {
+      try {
+        const { recordEvent } = await import("@/lib/admin/events/record");
+        await recordEvent({
+          type: "phone.start_blocked_already_used",
+          severity: "warning",
+          prospectId,
+          payload: {
+            phoneSuffix: phone.slice(-4),
+            ipHash: hashIp(getClientIp(req)),
+          },
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
+    // Réponse uniforme — pas de SMS envoyé, pas d'OTP persisté.
+    return NextResponse.json({
+      ok: true,
+      brevo: isBrevoConfigured(),
+      normalizedPhone: phone,
+    });
   }
 
   // Code 6 chiffres, padding à gauche pour longueur fixe.

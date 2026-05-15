@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { safeSendMail, getFromAddress } from "@/lib/email/transport";
 import { sendDpoRequestConfirmation } from "@/lib/email/dpo-request-confirmation";
+import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
 
 export const runtime = "nodejs";
 
@@ -50,6 +51,22 @@ function isValidEmail(s: string): boolean {
 }
 
 export async function POST(req: Request) {
+  // Rate limit anti-spam : 3 demandes / 5 min par IP. Cap volontairement
+  // bas (l'usage légitime est ponctuel : un visiteur exerce un droit RGPD
+  // une fois, pas en boucle) tout en évitant qu'un attaquant inonde
+  // l'inbox du DPO.
+  const ipRl = await checkRateLimit({
+    key: `contact-dpo:ip:${hashIp(getClientIp(req))}`,
+    limit: 3,
+    windowSec: 300,
+  });
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Trop de demandes envoyées. Merci de réessayer dans quelques minutes." },
+      { status: 429, headers: { "Retry-After": String(ipRl.retryAfterSec) } },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;

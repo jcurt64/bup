@@ -515,6 +515,27 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          count: number
+          first_hit_at: string
+          key: string
+          window_start_at: string
+        }
+        Insert: {
+          count?: number
+          first_hit_at?: string
+          key: string
+          window_start_at?: string
+        }
+        Update: {
+          count?: number
+          first_hit_at?: string
+          key?: string
+          window_start_at?: string
+        }
+        Relationships: []
+      }
       relation_email_aliases: {
         Row: {
           alias_short: string
