@@ -507,21 +507,34 @@ function RechargeModal({ onClose }) {
   const [amount, setAmount] = useState(500);
   const [custom, setCustom] = useState(false);
   const [method, setMethod] = useState('card');
-  const [auto, setAuto] = useState(true);
+  // Auto-recharge : désormais fonctionnelle. Décochée par défaut (le pro
+  // doit faire le geste explicite pour activer un débit récurrent).
+  const [auto, setAuto] = useState(false);
+  const [autoThreshold, setAutoThreshold] = useState(100);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [wallet, setWallet] = useState(null);
+  // État courant de la recharge auto côté serveur — permet d'afficher
+  // un message si elle est déjà active OU s'il y a eu un échec récent.
+  const [autoState, setAutoState] = useState(null);
 
-  // Solde live affiché dans le sous-titre + dans l'écran de succès
-  // (« Nouveau solde : X € »). Fetched depuis /api/pro/wallet à
-  // l'ouverture de la modale ; pas de cache car la modale est rare.
+  // Solde live + état recharge auto, fetched à l'ouverture de la modale.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/pro/wallet', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled) setWallet(j); })
-      .catch(() => {});
+    Promise.all([
+      fetch('/api/pro/wallet', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/pro/wallet/auto-recharge', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([w, a]) => {
+      if (cancelled) return;
+      setWallet(w);
+      setAutoState(a);
+      // Pré-remplit avec les paramètres existants si déjà activée.
+      if (a?.enabled) {
+        setAuto(true);
+        if (a.thresholdCents) setAutoThreshold(Math.round(a.thresholdCents / 100));
+      }
+    });
     return () => { cancelled = true; };
   }, []);
   const currentBalanceEur = Number(wallet?.walletBalanceEur ?? 0);
@@ -533,7 +546,9 @@ function RechargeModal({ onClose }) {
 
   // Crée la Stripe Checkout Session puis redirige le top-level (sortie
   // de l'iframe) vers la page de paiement hébergée. Le webhook crédite
-  // le wallet à `checkout.session.completed`.
+  // le wallet à `checkout.session.completed`. Si `auto` est coché, on
+  // active aussi `setup_future_usage='off_session'` côté Stripe pour
+  // sauvegarder le moyen de paiement (cf. /api/stripe/checkout).
   const startCheckout = async () => {
     if (amount < 50) { setError('Montant minimum : 50 €.'); return; }
     setSubmitting(true);
@@ -542,13 +557,38 @@ function RechargeModal({ onClose }) {
       const r = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ amountCents: Math.round(amount * 100) }),
+        body: JSON.stringify({
+          amountCents: Math.round(amount * 100),
+          enableAutoRecharge: auto,
+          autoRechargeThresholdCents: Math.round(autoThreshold * 100),
+        }),
       });
       const j = await r.json();
       if (!r.ok || !j?.url) throw new Error(j?.message || j?.error || 'Erreur Stripe');
       try { window.top.location.href = j.url; } catch { window.location.href = j.url; }
     } catch (err) {
       setError(err.message || 'Erreur Stripe');
+      setSubmitting(false);
+    }
+  };
+
+  // Désactivation rapide de la recharge auto (sans repasser par Checkout).
+  const disableAutoRecharge = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/pro/wallet/auto-recharge', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.message || 'Échec de la désactivation');
+      setAuto(false);
+      setAutoState({ ...(autoState || {}), enabled: false });
+    } catch (err) {
+      setError(err.message || 'Erreur');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -635,13 +675,69 @@ function RechargeModal({ onClose }) {
           ))}
         </div>
 
-        <label className="row center between" style={{ padding: 14, borderRadius: 10, background: 'var(--ivory-2)', marginTop: 16, cursor: 'pointer' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Recharge automatique</div>
-            <div className="muted" style={{ fontSize: 12 }}>Dès que le solde passe sous 100 €, recréditer {amount} € automatiquement.</div>
-          </div>
-          <input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)}/>
-        </label>
+        <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: 'var(--ivory-2)' }}>
+          <label className="row center between" style={{ cursor: 'pointer' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>
+                Recharge automatique
+                {autoState?.enabled && (
+                  <span className="chip" style={{
+                    marginLeft: 8, background: 'var(--accent-soft)',
+                    color: 'var(--accent)', fontSize: 10,
+                  }}>
+                    Active
+                  </span>
+                )}
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Dès que le solde passe sous {autoThreshold} €, recréditer {amount} € automatiquement.
+                Vous pouvez désactiver à tout moment.
+              </div>
+            </div>
+            <input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)}/>
+          </label>
+
+          {auto && (
+            <div className="row center gap-2" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line-2)' }}>
+              <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>Seuil :</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(autoThreshold)}
+                onChange={e => {
+                  const digits = (e.target.value || '').replace(/[^0-9]/g, '');
+                  setAutoThreshold(digits === '' ? 0 : Math.max(10, Math.min(10000, parseInt(digits, 10))));
+                }}
+                className="input mono tnum"
+                style={{ width: 80, padding: '4px 8px', fontSize: 13 }}
+              />
+              <span className="muted" style={{ fontSize: 12 }}>€ (entre 10 et 10 000)</span>
+            </div>
+          )}
+
+          {autoState?.lastFailureReason && autoState?.enabled && (
+            <div style={{
+              marginTop: 10, padding: '8px 10px', borderRadius: 6,
+              background: '#fef2f2', border: '1px solid #fca5a5',
+              color: '#991b1b', fontSize: 11.5, lineHeight: 1.4,
+            }}>
+              <strong>Dernière tentative en échec :</strong> {autoState.lastFailureReason}.
+              Pour réessayer, effectuez une recharge manuelle (votre nouveau moyen de paiement remplacera l'ancien).
+            </div>
+          )}
+
+          {autoState?.enabled && (
+            <button
+              onClick={disableAutoRecharge}
+              disabled={submitting}
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-4)' }}
+            >
+              Désactiver la recharge automatique
+            </button>
+          )}
+        </div>
 
         <div style={{ marginTop: 20, padding: 16, background: 'var(--ink)', color: 'var(--paper)', borderRadius: 10 }}>
           <div className="row between" style={{ padding: '6px 0', fontSize: 13 }}>
