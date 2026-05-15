@@ -541,16 +541,19 @@ export type Database = {
           alias_short: string
           created_at: string
           relation_id: string
+          revoked_at: string | null
         }
         Insert: {
           alias_short: string
           created_at?: string
           relation_id: string
+          revoked_at?: string | null
         }
         Update: {
           alias_short?: string
           created_at?: string
           relation_id?: string
+          revoked_at?: string | null
         }
         Relationships: [
           {

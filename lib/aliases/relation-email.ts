@@ -85,7 +85,8 @@ export async function getOrCreateRelationAlias(
 /**
  * Inverse : à partir d'un slug reçu par le Cloudflare Worker, retourne
  * la relation et le vrai email du prospect. Renvoie `null` si l'alias
- * n'existe pas (alias forgé ou révoqué).
+ * n'existe pas, est révoqué (`revoked_at != null`), ou si le prospect
+ * n'a pas d'email renseigné.
  */
 export async function resolveAlias(
   admin: SupabaseClient<Database>,
@@ -102,6 +103,7 @@ export async function resolveAlias(
        )`,
     )
     .eq("alias_short", aliasShort)
+    .is("revoked_at", null)
     .maybeSingle();
 
   if (error || !data) return null;

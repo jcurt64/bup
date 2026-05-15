@@ -104,6 +104,44 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// JSON-LD Organization — injecté en haut du <body> pour aider Google à
+// identifier l'entité éditrice. Utilise le SITE_URL du metadataBase pour
+// rester cohérent avec le domaine de production.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "BUUPP",
+  legalName: "Majelink",
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  description:
+    "Plateforme française de mise en relation rémunérée à double consentement entre particuliers et professionnels.",
+  foundingDate: "2026",
+  founders: [{ "@type": "Organization", name: "Majelink" }],
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "12 Impasse des Étriers",
+    postalCode: "64140",
+    addressLocality: "Lons",
+    addressCountry: "FR",
+  },
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "Délégué à la protection des données (DPO)",
+      email: "dp.buupp@buupp.com",
+      availableLanguage: "French",
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "Service commercial",
+      email: "contact@buupp.com",
+      availableLanguage: "French",
+    },
+  ],
+  identifier: { "@type": "PropertyValue", name: "RCS Pau", value: "892 514 167" },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -116,6 +154,14 @@ export default function RootLayout({
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
       >
         <body data-palette="indigo" suppressHydrationWarning>
+          {/* JSON-LD Organization (rich snippets pour Google).
+              Injecté avec dangerouslySetInnerHTML car c'est la pratique
+              recommandée Next.js — l'objet est entièrement contrôlé côté
+              serveur (zéro input utilisateur), aucun risque XSS. */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          />
           {children}
           <RouteNav />
           <CookieConsent />
