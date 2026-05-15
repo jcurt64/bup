@@ -1767,6 +1767,201 @@ const DURATIONS = [
 ];
 const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
 
+/* ─── Autocomplete cible géographique (ville / département / région) ───
+   Source : geo.api.gouv.fr (officiel, gratuit, CORS autorisé).
+   Le champ se ré-initialise quand `geo` change (cf. useEffect dans
+   CreateCampaign) parce que la sélection précédente n'a pas de sens à
+   l'autre échelle. Le shape de la valeur retournée à `onPick` :
+
+     ville    → { type:'ville',  nom, code, codesPostaux, codeDepartement, codeRegion }
+     dept     → { type:'dept',   nom, code, codeRegion }
+     region   → { type:'region', nom, code, deptCodes }   (deptCodes résolus
+                                                            via /regions/{code}/departements)
+
+   Pour `region`, on fait un 2nd fetch après la sélection pour récupérer
+   la liste des départements — utilisée côté backend pour générer le
+   filtre de CP (OR des préfixes dept). */
+function GeoTargetAutocomplete({ geo, value, onPick }) {
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const containerRef = React.useRef(null);
+
+  // Reset visible quand la sélection est purgée (geo change).
+  useEffect(() => { if (!value) setQuery(''); }, [value]);
+
+  // Debounced search vers l'endpoint adapté au mode.
+  useEffect(() => {
+    const q = query.trim();
+    if (!geo || geo === 'national' || q.length < 1) { setItems([]); setLoading(false); return; }
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        let url;
+        if (geo === 'ville') {
+          url = `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&boost=population&limit=10`;
+        } else if (geo === 'dept') {
+          url = `https://geo.api.gouv.fr/departements?nom=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
+        } else { // region
+          url = `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
+        }
+        const r = await fetch(url);
+        if (!r.ok) { setItems([]); setLoading(false); return; }
+        const data = await r.json();
+        setItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn('[geo.api.gouv.fr] error', e);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [query, geo]);
+
+  // Click extérieur ferme la liste.
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const pick = async (it) => {
+    if (geo === 'ville') {
+      onPick({
+        type: 'ville',
+        nom: it.nom,
+        code: it.code,
+        codesPostaux: Array.isArray(it.codesPostaux) ? it.codesPostaux : [],
+        codeDepartement: it.codeDepartement ?? null,
+        codeRegion: it.codeRegion ?? null,
+      });
+      setQuery(`${it.nom}${it.codesPostaux?.[0] ? ` (${it.codesPostaux[0]})` : ''}`);
+    } else if (geo === 'dept') {
+      onPick({ type: 'dept', nom: it.nom, code: it.code, codeRegion: it.codeRegion ?? null });
+      setQuery(`${it.nom} (${it.code})`);
+    } else {
+      // region — on résout les depts pour pouvoir appliquer le filtre CP
+      // côté backend (préfixes OR'd). L'API renvoie la liste complète.
+      let deptCodes = [];
+      try {
+        const r2 = await fetch(`https://geo.api.gouv.fr/regions/${encodeURIComponent(it.code)}/departements?fields=code`);
+        if (r2.ok) {
+          const dd = await r2.json();
+          deptCodes = Array.isArray(dd) ? dd.map(d => String(d.code)) : [];
+        }
+      } catch (e) {
+        console.warn('[geo.api.gouv.fr] regions/depts error', e);
+      }
+      onPick({ type: 'region', nom: it.nom, code: it.code, deptCodes });
+      setQuery(it.nom);
+    }
+    setOpen(false);
+    setHighlight(-1);
+  };
+
+  const clear = () => { onPick(null); setQuery(''); setOpen(false); };
+
+  const onKeyDown = (e) => {
+    if (!open || items.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(items.length - 1, h + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(0, h - 1)); }
+    else if (e.key === 'Enter' && highlight >= 0 && highlight < items.length) { e.preventDefault(); pick(items[highlight]); }
+    else if (e.key === 'Escape') { setOpen(false); }
+  };
+
+  const placeholder =
+    geo === 'ville' ? 'Tapez le nom d\'une ville (ex. Bordeaux)' :
+    geo === 'dept' ? 'Tapez le nom d\'un département (ex. Gironde)' :
+    geo === 'region' ? 'Tapez le nom d\'une région (ex. Nouvelle-Aquitaine)' :
+    '';
+
+  // Rendu du résumé d'item (clé contextuelle = code dept pour ville/dept,
+  // rien pour region puisque l'API en renvoie ~18 max).
+  const renderItem = (it) => {
+    if (geo === 'ville') {
+      const cps = (it.codesPostaux || []).slice(0, 2).join(', ');
+      return { left: it.nom, right: cps ? `${cps} · ${it.codeDepartement || ''}` : (it.codeDepartement || '') };
+    }
+    if (geo === 'dept') return { left: it.nom, right: it.code };
+    return { left: it.nom, right: '' };
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', marginBottom: 24 }}>
+      <div className="row" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <input
+          className="input"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); if (value) onPick(null); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          style={{ flex: 1, minWidth: 0, fontSize: 14, padding: '10px 12px', minHeight: 44 }}
+          aria-autocomplete="list"
+          aria-expanded={open}
+        />
+        {value && (
+          <button type="button" onClick={clear} className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}>
+            Effacer
+          </button>
+        )}
+      </div>
+      {value && (
+        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+          Sélectionné : <strong style={{ color: 'var(--ink)' }}>{value.nom}</strong>
+          {value.type === 'ville' && value.codesPostaux?.length > 0 && (
+            <> · CP {value.codesPostaux.slice(0, 3).join(', ')}{value.codesPostaux.length > 3 ? '…' : ''}</>
+          )}
+          {value.type === 'dept' && <> · code {value.code}</>}
+          {value.type === 'region' && <> · {value.deptCodes?.length || 0} départements</>}
+        </div>
+      )}
+      {open && query.trim().length >= 1 && (
+        <div role="listbox" style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+          background: 'var(--paper)', border: '1px solid var(--line-2)',
+          borderRadius: 10, boxShadow: '0 12px 30px -12px rgba(15,22,41,.25)',
+          maxHeight: 280, overflowY: 'auto', zIndex: 50,
+        }}>
+          {loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Recherche…</div>
+          )}
+          {!loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Aucun résultat.</div>
+          )}
+          {items.map((it, i) => {
+            const r = renderItem(it);
+            return (
+              <button
+                key={`${geo}-${it.code}-${i}`}
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => pick(it)}
+                onMouseEnter={() => setHighlight(i)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  width: '100%', padding: '12px 14px', textAlign: 'left',
+                  background: highlight === i ? 'var(--ivory-2)' : 'transparent',
+                  border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--ink)',
+                  minHeight: 44, gap: 12,
+                }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.left}</span>
+                {r.right && <span className="mono" style={{ color: 'var(--ink-4)', fontSize: 12, flexShrink: 0 }}>{r.right}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
@@ -1882,7 +2077,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         selectedObj,
         selectedSubs: Array.from(selectedSubs),
         selectedTiers: Array.from(selectedTiers),
-        geo, ages: Array.from(ages),
+        geo, geoTarget, ages: Array.from(ages),
         verif, contacts, durationKey, poolMode,
         keywords, kwInput, kwFilter,
         startDate, endDate, brief,
@@ -1907,6 +2102,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setSelectedSubs(new Set(d.selectedSubs || []));
       setSelectedTiers(new Set(d.selectedTiers || [1]));
       setGeo(d.geo ?? 'ville');
+      // Important : setGeo() ré-init geoTarget via useEffect → on doit
+      // setter geoTarget APRÈS dans la tick suivant. Ici on l'enrobe d'un
+      // micro-task pour que la reset useEffect ne masque pas la valeur
+      // restaurée.
+      if (d.geoTarget) {
+        Promise.resolve().then(() => setGeoTarget(d.geoTarget));
+      }
       setAges(new Set(d.ages || []));
       setVerif(d.verif ?? 'p0');
       setContacts(Number(d.contacts ?? 10));
@@ -1961,6 +2163,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           setSelectedTiers(new Set(tg.requiredTiers.map((n) => Number(n)).filter((n) => n > 0)));
         }
         if (typeof tg.geo === 'string') setGeo(tg.geo);
+        // Idem draft restore : on diffère la restauration du geoTarget
+        // pour qu'elle survive au reset useEffect déclenché par setGeo.
+        if (tg.geoTarget && typeof tg.geoTarget === 'object') {
+          Promise.resolve().then(() => setGeoTarget(tg.geoTarget));
+        }
         if (Array.isArray(tg.ages) && tg.ages.length > 0) setAges(new Set(tg.ages));
         if (typeof tg.verifLevel === 'string') setVerif(tg.verifLevel);
         if (typeof tg.durationKey === 'string') setDurationKey(tg.durationKey);
@@ -1994,6 +2201,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
   const [geo, setGeo] = useState('ville');
+  // Cible géo précise (ville/dept/région choisie via l'autocomplete
+  // geo.api.gouv.fr). Reset à null quand on bascule `geo` parce que la
+  // sélection précédente n'a plus de sens (autre échelle).
+  const [geoTarget, setGeoTarget] = useState(null);
+  useEffect(() => { setGeoTarget(null); }, [geo]);
   const [ages, setAges] = useState(new Set());
   const [verif, setVerif] = useState('p0');
   const [contacts, setContacts] = useState(10);
@@ -2633,17 +2845,40 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Zone géographique, âge et niveau de vérification des prospects.</div>
 
             <div className="label">Zone géographique</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
+            <div className="geo-zones-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: geo === 'national' ? 24 : 12 }}>
               {GEO_ZONES.map(z => (
                 <button key={z.id} onClick={() => setGeo(z.id)} style={{ padding: 14, borderRadius: 10, textAlign: 'center', cursor: 'pointer',
                   border: '1px solid ' + (geo === z.id ? 'var(--accent)' : 'var(--line-2)'),
                   background: geo === z.id ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                  boxShadow: geo === z.id ? '0 0 0 1px var(--accent)' : 'none' }}>
+                  boxShadow: geo === z.id ? '0 0 0 1px var(--accent)' : 'none',
+                  minHeight: 64 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{z.name}</div>
                   <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{z.sub}</div>
                 </button>
               ))}
             </div>
+            {/* Champ dynamique : nom de ville / dept / région via l'API
+                officielle geo.api.gouv.fr. Masqué pour la portée nationale
+                (rien à préciser — tous les CP sont éligibles). */}
+            {geo !== 'national' && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="label" style={{ marginTop: 6 }}>
+                  {geo === 'ville' ? 'Ville ciblée' : geo === 'dept' ? 'Département ciblé' : 'Région ciblée'}
+                </div>
+                <GeoTargetAutocomplete
+                  geo={geo}
+                  value={geoTarget}
+                  onPick={(v) => setGeoTarget(v)}
+                />
+              </div>
+            )}
+            {/* Responsive : sur mobile (≤640 px), la grille des portées
+                bascule en 2 colonnes pour éviter des boutons écrasés. */}
+            <style>{`
+              @media (max-width: 640px) {
+                .geo-zones-grid { grid-template-columns: repeat(2, 1fr) !important; }
+              }
+            `}</style>
 
             <div className="label">Tranche d'âge (multi-sélection)</div>
             <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
@@ -3195,7 +3430,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 ['Date de fin estimée', fmtDateLong(computedEndDate)],
                 ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
-                ['Zone', GEO_ZONES.find(z => z.id === geo)?.name],
+                ['Zone', (() => {
+                  const base = GEO_ZONES.find(z => z.id === geo)?.name || '—';
+                  if (!geoTarget) return base;
+                  if (geoTarget.type === 'ville') {
+                    const cp = geoTarget.codesPostaux?.[0];
+                    return `${base} · ${geoTarget.nom}${cp ? ` (${cp})` : ''}`;
+                  }
+                  if (geoTarget.type === 'dept') return `${base} · ${geoTarget.nom} (${geoTarget.code})`;
+                  if (geoTarget.type === 'region') return `${base} · ${geoTarget.nom}`;
+                  return base;
+                })()],
                 ["Tranches d'âge", ages.size === 0 ? 'Toutes (aucune restriction)' : Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
@@ -3463,7 +3708,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         objectiveId: selectedObj,
                         subTypes: Array.from(selectedSubs),
                         requiredTiers: Array.from(selectedTiers),
-                        geo, ages: Array.from(ages), verifLevel: verif,
+                        geo, geoTarget, ages: Array.from(ages), verifLevel: verif,
                         contacts,
                         durationKey,
                         startDate, endDate: computedEndDate, brief,

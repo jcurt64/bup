@@ -27,6 +27,16 @@ export type MatchingInput = {
   objectiveId: string;
   requiredTiers: number[];
   geo: string;
+  /** Cible géographique précise choisie via l'autocomplete officiel
+   *  geo.api.gouv.fr — quand présent, override la logique du préfixe
+   *  CP-du-pro (`geoCodePostalPrefix`). Sécurité : le client envoie le
+   *  shape brut, la route POST le passe à `normalizeGeoTarget` avant
+   *  de le forwarder ici. */
+  geoTarget?:
+    | { type: "ville"; codesPostaux: string[] }
+    | { type: "dept"; code: string }
+    | { type: "region"; deptCodes: string[] }
+    | null;
   proCodePostal: string | null;
   ages: string[];
   verifLevel: string;
@@ -58,7 +68,23 @@ export async function findMatchingProspects(
       (l) => l !== "certifie_confiance",
     );
   }
-  const cpPrefix = geoCodePostalPrefix(input.geo, input.proCodePostal);
+  // Cible géo précise (issue de l'autocomplete officiel) → la transformer
+  // en règle de filtre CP côté JS. Sinon, retombe sur le préfixe basé
+  // sur le CP du pro (legacy + cas where the pro didn't pick a target).
+  const geoTarget = input.geoTarget ?? null;
+  // `allowedExactCps` : CP exacts à matcher (pour le mode ville → 1-N CP).
+  // `allowedPrefixes` : préfixes (chaque entrée matchée via startsWith)
+  // pour dept (1 préfixe) ou region (N préfixes de tous les dépts).
+  let allowedExactCps: Set<string> | null = null;
+  let allowedPrefixes: string[] | null = null;
+  if (geoTarget?.type === "ville") {
+    allowedExactCps = new Set(geoTarget.codesPostaux);
+  } else if (geoTarget?.type === "dept") {
+    allowedPrefixes = [geoTarget.code];
+  } else if (geoTarget?.type === "region") {
+    allowedPrefixes = geoTarget.deptCodes;
+  }
+  const cpPrefix = geoTarget ? null : geoCodePostalPrefix(input.geo, input.proCodePostal);
   // Plancher de rayon : un prospect doit avoir réglé son rayon
   // (`prospect_localisation.targeting_radius_km`) >= ce plancher pour
   // accepter une campagne de la portée demandée. Null = national → on
@@ -133,14 +159,24 @@ export async function findMatchingProspects(
     const localisation = row.prospect_localisation;
     const nationalOptIn = localisation?.national_opt_in === true;
 
-    // Filtre CP : le prospect doit habiter dans le département ciblé,
-    // SAUF s'il a coché « Étendre au niveau national » dans ses
-    // préférences (auquel cas il est éligible quelle que soit la
-    // portée du pro). Pour les campagnes nationales, cpPrefixRaw est
-    // déjà null donc on n'entre pas dans cette branche.
-    if (cpPrefixRaw && !nationalOptIn) {
+    // Filtre CP : un prospect doit habiter dans la zone ciblée. Trois
+    // sources possibles (par ordre de priorité) :
+    //   1. `geoTarget` ville → match exact sur l'un des CP du commune
+    //   2. `geoTarget` dept/region → préfixe(s) sur le code dept
+    //   3. legacy `cpPrefixRaw` (dérivé du CP du pro)
+    // Dans tous les cas, `national_opt_in=true` bypasse le filtre.
+    if (!nationalOptIn && (allowedExactCps || allowedPrefixes || cpPrefixRaw)) {
       const cp = localisation?.code_postal;
-      if (!cp || !cp.startsWith(cpPrefixRaw)) continue;
+      if (!cp) continue;
+      let pass = false;
+      if (allowedExactCps) {
+        pass = allowedExactCps.has(cp);
+      } else if (allowedPrefixes) {
+        pass = allowedPrefixes.some((p) => cp.startsWith(p));
+      } else if (cpPrefixRaw) {
+        pass = cp.startsWith(cpPrefixRaw);
+      }
+      if (!pass) continue;
     }
 
     // Filtre rayon prospect : le prospect doit avoir réglé son rayon

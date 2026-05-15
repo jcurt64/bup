@@ -53,7 +53,41 @@ type Body = {
   /** Bonus fondateur : quand true (défaut), les acceptations par un fondateur
    *  coûtent 2× le tarif palier pendant le 1er mois post-lancement. */
   founder_bonus_enabled?: boolean;
+  /** Cible géographique précise choisie via l'autocomplete geo.api.gouv.fr
+   *  côté wizard. Optionnel (rétro-compat) ; quand fourni, override la
+   *  logique CP-prefix-du-pro pour filtrer le pool exactement sur la
+   *  ville / le département / la région demandés. */
+  geoTarget?:
+    | { type: "ville"; nom: string; code: string; codesPostaux: string[] }
+    | { type: "dept"; nom: string; code: string }
+    | { type: "region"; nom: string; code: string; deptCodes: string[] }
+    | null;
 };
+
+/** Valide et normalise la cible géographique reçue du wizard.
+ *  Retourne null si le payload est absent ou malformé — le matching
+ *  retombera sur la logique CP-prefix-du-pro. */
+function normalizeGeoTarget(raw: unknown): Body["geoTarget"] | null {
+  if (!raw || typeof raw !== "object") return null;
+  const v = raw as Record<string, unknown>;
+  if (v.type === "ville" && typeof v.nom === "string" && typeof v.code === "string" && Array.isArray(v.codesPostaux)) {
+    const cps = v.codesPostaux
+      .filter((cp): cp is string => typeof cp === "string" && /^\d{5}$/.test(cp))
+      .slice(0, 30);
+    return cps.length > 0 ? { type: "ville", nom: v.nom.slice(0, 120), code: v.code.slice(0, 10), codesPostaux: cps } : null;
+  }
+  if (v.type === "dept" && typeof v.nom === "string" && typeof v.code === "string" && /^[\dA-Z]{2,3}$/i.test(v.code)) {
+    return { type: "dept", nom: v.nom.slice(0, 120), code: v.code.toUpperCase().slice(0, 3) };
+  }
+  if (v.type === "region" && typeof v.nom === "string" && typeof v.code === "string" && Array.isArray(v.deptCodes)) {
+    const codes = v.deptCodes
+      .filter((c): c is string => typeof c === "string" && /^[\dA-Z]{2,3}$/i.test(c))
+      .map((c) => c.toUpperCase())
+      .slice(0, 30);
+    return codes.length > 0 ? { type: "region", nom: v.nom.slice(0, 120), code: v.code.slice(0, 10), deptCodes: codes } : null;
+  }
+  return null;
+}
 
 const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
 
@@ -264,12 +298,17 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  // Normalisation côté serveur : on n'accepte JAMAIS tel quel le payload
+  // de geoTarget envoyé par le client (potentielle injection PostgREST si
+  // on relâchait les regex). normalizeGeoTarget renvoie null si invalide.
+  const geoTarget = normalizeGeoTarget(body.geoTarget);
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: body.subTypes,
     requiredTiers: body.requiredTiers,
     requiredTierKeys: tierNumsToKeys(body.requiredTiers),
     geo: body.geo,
+    geoTarget,
     ages: body.ages,
     verifLevel: body.verifLevel,
     excludeCertified: body.excludeCertified === true,
@@ -364,6 +403,7 @@ export async function POST(req: Request) {
       objectiveId: body.objectiveId,
       requiredTiers: body.requiredTiers,
       geo: body.geo,
+      geoTarget,
       proCodePostal: pro.code_postal ?? null,
       ages: body.ages,
       verifLevel: body.verifLevel,
