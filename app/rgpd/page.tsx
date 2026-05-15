@@ -41,7 +41,7 @@ export default function RgpdPage() {
         >
           Politique de confidentialité
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion version="1.1" updatedAt="15/05/2026" />
         <h1
           className="serif"
           style={{
@@ -303,6 +303,20 @@ export default function RgpdPage() {
             <li>
               <strong>Tracking pixel des broadcasts</strong>&nbsp;:
               13&nbsp;mois après envoi (cf. §9).
+            </li>
+            <li>
+              <strong>Emails Pro → Prospect (Actions intégrées BUUPP)</strong>
+              &nbsp;: sujet et corps des emails envoyés via la
+              plateforme conservés <strong>12&nbsp;mois</strong> à des
+              fins d&apos;audit anti-spam et de détection d&apos;abus.
+              Le tracking d&apos;ouverture (pixel) n&apos;est inséré
+              qu&apos;avec consentement explicite, traçabilité identique
+              au pixel des broadcasts.
+            </li>
+            <li>
+              <strong>Actions de contact (click-to-call,
+              audit)</strong>&nbsp;: 24&nbsp;mois après l&apos;événement
+              à des fins de preuve en cas de litige ou de signalement.
             </li>
             <li>
               <strong>Données IP hashées (waitlist)</strong>&nbsp;:

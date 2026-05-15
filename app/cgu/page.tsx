@@ -37,7 +37,7 @@ export default function CguPage() {
         >
           Conditions générales d&apos;utilisation
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion version="1.1" updatedAt="15/05/2026" />
         <h1
           className="serif"
           style={{
@@ -351,7 +351,63 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="8. BUUPP Coins, gains et retraits">
+        <Section title="8. Communication via BUUPP">
+          <p>
+            Pour préserver à la fois la <strong>confidentialité des
+            coordonnées</strong> du Prospect et la <strong>traçabilité</strong>
+            des échanges, BUUPP centralise l&apos;envoi de certaines
+            communications.
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+            <li>
+              <strong>Emails Pro → Prospect</strong> : tout email envoyé
+              au Prospect via les outils &laquo;&nbsp;Actions
+              intégrées&nbsp;&raquo; de BUUPP est transmis par nos
+              serveurs SMTP, avec l&apos;adresse <em>BUUPP</em> en
+              expéditeur et l&apos;adresse personnelle du Pro en
+              <em> Reply-To</em> (les réponses du Prospect arrivent
+              donc directement chez le Pro). L&apos;adresse email du
+              Prospect <strong>n&apos;est jamais affichée</strong> au Pro
+              dans l&apos;interface de composition.
+            </li>
+            <li>
+              <strong>Conservation</strong> : le sujet et le corps de
+              chaque email sont conservés dans nos systèmes pendant{" "}
+              <strong>12 mois</strong> à des fins d&apos;audit
+              anti-spam, d&apos;enquête en cas de signalement et de
+              respect du règlement BUUPP. Au-delà, ils sont
+              anonymisés ou supprimés.
+            </li>
+            <li>
+              <strong>Quota</strong> : le Pro peut envoyer{" "}
+              <strong>1 email maximum</strong> par Prospect et par
+              campagne via la plateforme. Au-delà, l&apos;envoi est
+              refusé.
+            </li>
+            <li>
+              <strong>Appels téléphoniques</strong> : lorsque le Pro
+              clique sur le bouton &laquo;&nbsp;Appeler&nbsp;&raquo;
+              dans l&apos;interface contact, l&apos;événement
+              (horodatage, identifiant de la mise en relation) est
+              enregistré dans nos journaux d&apos;audit. L&apos;appel
+              lui-même se déroule via le réseau téléphonique standard
+              et n&apos;est ni intercepté ni enregistré par BUUPP.
+            </li>
+            <li>
+              <strong>Suivi d&apos;ouverture (pixel)</strong> : si le
+              Prospect a explicitement consenti au suivi de la lecture
+              des emails (case dédiée dans ses préférences,
+              conformément aux recommandations CNIL sur les pixels de
+              tracking), un pixel transparent invisible est intégré
+              dans l&apos;email pour mesurer l&apos;ouverture. Le
+              consentement est <strong>révocable à tout moment</strong>{" "}
+              depuis l&apos;espace prospect. En l&apos;absence de
+              consentement, aucun pixel n&apos;est inséré.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="9. BUUPP Coins, gains et retraits">
           <p>
             Les <strong>BUUPP Coins</strong> (BC) sont l&apos;unité de
             compte interne de la plateforme. <strong>1&nbsp;BC =
@@ -401,7 +457,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="9. Propriété intellectuelle">
+        <Section title="10. Propriété intellectuelle">
           <p>
             La marque <strong>BUUPP</strong>, son logo, son identité
             graphique, la structure de la plateforme, ses fonctionnalités,
@@ -429,7 +485,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="10. Données personnelles">
+        <Section title="11. Données personnelles">
           <p>
             Le traitement des données personnelles est détaillé dans la{" "}
             <Link
@@ -446,7 +502,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="11. Disponibilité du service et évolutions">
+        <Section title="12. Disponibilité du service et évolutions">
           <p>
             BUUPP met tout en œuvre pour assurer une{" "}
             <strong>disponibilité continue</strong> du Service mais ne
@@ -478,7 +534,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="12. Suspension et résiliation">
+        <Section title="13. Suspension et résiliation">
           <p>
             BUUPP peut <strong>suspendre ou résilier</strong> un compte, de
             plein droit et sans préavis, en cas de manquement grave au
@@ -537,7 +593,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="13. Responsabilité">
+        <Section title="14. Responsabilité">
           <p>
             BUUPP agit comme un{" "}
             <strong>intermédiaire technique</strong>. Sa responsabilité
@@ -580,7 +636,7 @@ export default function CguPage() {
           </p>
         </Section>
 
-        <Section title="14. Loi applicable et juridiction">
+        <Section title="15. Loi applicable et juridiction">
           <p>
             Les présentes CGU sont régies par le{" "}
             <strong>droit français</strong>, à l&apos;exclusion des

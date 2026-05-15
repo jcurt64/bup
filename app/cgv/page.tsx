@@ -37,7 +37,7 @@ export default function CgvPage() {
         >
           Conditions générales de vente
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion version="1.1" updatedAt="15/05/2026" />
         <h1
           className="serif"
           style={{
@@ -411,7 +411,77 @@ export default function CgvPage() {
           </ul>
         </Section>
 
-        <Section title="11. Garantie et responsabilité">
+        <Section title="11. Envoi via BUUPP et audit anti-fraude">
+          <p>
+            Pour garantir la qualité de service et le respect du
+            règlement BUUPP, certains canaux de contact entre le Pro et
+            les Prospects sont <strong>centralisés et tracés</strong>{" "}
+            par la plateforme.
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+            <li>
+              <strong>Envoi des emails via BUUPP uniquement</strong> :
+              le Pro accepte que les emails à destination des Prospects
+              acquis soient envoyés depuis les serveurs SMTP de BUUPP,
+              avec son adresse personnelle en{" "}
+              <em>Reply-To</em>. L&apos;adresse email du Prospect
+              n&apos;est jamais affichée au Pro dans l&apos;interface
+              de composition — elle est résolue côté serveur au moment
+              de l&apos;envoi.
+            </li>
+            <li>
+              <strong>Quota</strong> : <strong>1 email maximum</strong>{" "}
+              par Prospect et par campagne via la plateforme. Au-delà,
+              l&apos;envoi est techniquement refusé. Ce plafond assure
+              le respect de l&apos;engagement de non-sur-sollicitation.
+            </li>
+            <li>
+              <strong>Conservation du contenu</strong> : le sujet et le
+              corps de chaque email envoyé via BUUPP sont conservés
+              pendant <strong>12 mois</strong> à des fins
+              d&apos;audit (anti-spam, signalements, enquête
+              réglementaire). L&apos;équipe BUUPP peut accéder à ces
+              contenus dans le cadre strict d&apos;une investigation
+              légitime — pas pour un usage commercial.
+            </li>
+            <li>
+              <strong>Click-to-call audité</strong> : tout clic sur le
+              bouton &laquo;&nbsp;Appeler&nbsp;&raquo; est enregistré
+              (horodatage, identifiant de la mise en relation,
+              identifiant du Pro). L&apos;appel téléphonique
+              lui-même se déroule via le réseau standard et
+              n&apos;est ni intercepté ni enregistré.
+            </li>
+            <li>
+              <strong>Suivi d&apos;ouverture (pixel)</strong> : pour les
+              emails envoyés via BUUPP, un pixel de tracking
+              d&apos;ouverture peut être inséré, à condition exclusive
+              que le Prospect destinataire ait donné son consentement
+              explicite (recommandation CNIL 2025). Le Pro ne peut pas
+              forcer l&apos;insertion du pixel ; le consentement est{" "}
+              <strong>révocable à tout moment</strong> par le Prospect.
+            </li>
+            <li>
+              <strong>Détection des comportements suspects</strong> :
+              tout volume anormal d&apos;actions (plus de 10 clics
+              d&apos;appel ou d&apos;envois en 24 heures par le même
+              Pro, contenu d&apos;email dupliqué sur plusieurs
+              Prospects, etc.) déclenche une alerte interne et peut
+              conduire à une enquête, voire à la suspension du compte
+              dans les conditions de la section 14.
+            </li>
+            <li>
+              <strong>Hors plateforme</strong> : toute communication
+              hors de ces canaux (mail personnel, SMS direct, etc.) est
+              à la charge et sous la seule responsabilité du Pro, et
+              reste soumise à l&apos;interdiction d&apos;exploiter les
+              coordonnées révélées hors du périmètre strict de la
+              campagne validée (section 10).
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="12. Garantie et responsabilité">
           <p>
             BUUPP s&apos;engage à mettre en œuvre les{" "}
             <strong>moyens techniques nécessaires</strong> pour assurer
@@ -452,7 +522,7 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="12. Données personnelles">
+        <Section title="13. Données personnelles">
           <p>
             Le traitement des données personnelles côté prospects est encadré
             par notre{" "}
@@ -471,7 +541,7 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="13. Suspension du compte professionnel">
+        <Section title="14. Suspension du compte professionnel">
           <p>
             BUUPP peut <strong>suspendre ou résilier</strong> de plein
             droit, sans préavis ni indemnité, le compte d&apos;un
@@ -520,7 +590,7 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="14. Litiges, médiation et juridiction">
+        <Section title="15. Litiges, médiation et juridiction">
           <p>
             Tout différend entre Majelink et un Professionnel relatif à
             la formation, à l&apos;exécution ou à l&apos;interprétation
