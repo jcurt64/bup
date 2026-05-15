@@ -165,6 +165,18 @@ export async function POST(_req: Request, ctx: RouteContext) {
     description: `Prolongation campagne (${durationKey}) — 10 € HT`,
   });
 
+  // Auto-recharge : déclenche un PaymentIntent off-session si le solde
+  // est désormais sous le seuil configuré par le pro. Fire-and-forget,
+  // n'impacte pas la réponse API si Stripe est lent ou échoue.
+  void (async () => {
+    try {
+      const { maybeTriggerAutoRecharge } = await import("@/lib/stripe/auto-recharge");
+      await maybeTriggerAutoRecharge(proId);
+    } catch (err) {
+      console.warn("[extend] auto-recharge trigger failed (non-blocking)", err);
+    }
+  })();
+
   return NextResponse.json({
     ok: true,
     campaignId: id,

@@ -333,6 +333,19 @@ export async function POST(req: Request) {
     });
   }
 
+  // Auto-recharge : déclenche un PaymentIntent off-session si le solde
+  // est désormais sous le seuil configuré par le pro (frais cycle +
+  // réservation budget peuvent passer le wallet sous le seuil).
+  // Fire-and-forget — n'impacte pas la réponse API.
+  void (async () => {
+    try {
+      const { maybeTriggerAutoRecharge } = await import("@/lib/stripe/auto-recharge");
+      await maybeTriggerAutoRecharge(proId);
+    } catch (err) {
+      console.warn("[campaigns] auto-recharge trigger failed (non-blocking)", err);
+    }
+  })();
+
   let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
   try {
     matched = await findMatchingProspects(admin, {
