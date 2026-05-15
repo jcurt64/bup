@@ -87,5 +87,46 @@ export const EVENT_META: Record<string, EventMeta> = {
     },
     link: () => "/buupp-admin/signalements?status=open",
   },
+  "admin.report_pro_notified": {
+    icon: "✉️",
+    label: "Pro notifié d'un signalement",
+    subLine: (ev) => {
+      const reason = String(ev.payload?.reason ?? "");
+      return reason ? `Motif : ${reason}` : "Avertissement transmis au pro";
+    },
+    // Renvoie vers l'onglet signalements — pour voir l'historique des
+    // notifications envoyées et la fiche associée.
+    link: () => "/buupp-admin/signalements",
+  },
+  "waitlist.signup": {
+    icon: "📝",
+    label: "Inscription liste d'attente",
+    subLine: (ev) => {
+      const domain = ev.payload?.emailDomain
+        ? String(ev.payload.emailDomain)
+        : null;
+      return domain ? `Email @${domain}` : "Nouvelle inscription";
+    },
+    link: () => "/buupp-admin/waitlist",
+  },
+  "waitlist.honeypot_blocked": {
+    icon: "🛡️",
+    label: "Bot bloqué (honeypot waitlist)",
+    subLine: () => "Tentative bot interceptée silencieusement",
+    // Pas de page de détail dédiée pour les bots — on renvoie sur la
+    // waitlist où l'admin peut voir le contexte global des inscriptions.
+    link: () => "/buupp-admin/waitlist",
+  },
+  "prospect.tier_completed": {
+    icon: "🎯",
+    label: "Palier complété",
+    subLine: (ev) => {
+      const tier = ev.payload?.tier;
+      return tier ? `Palier ${tier}` : "Palier complété par un prospect";
+    },
+    // Renvoie vers la fiche prospect quand on a l'id, sinon liste prospects.
+    link: (ev) =>
+      ev.prospect_id ? `/buupp-admin/prospects/${ev.prospect_id}` : "/buupp-admin/prospects",
+  },
   // Ajoute ici d'autres types quand pertinents.
 };
