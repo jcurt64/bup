@@ -34,6 +34,12 @@ const isPublicRoute = createRouteMatcher([
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
+  // ─── SEO : robots.txt et sitemap.xml DOIVENT être publics (sinon les
+  // moteurs de recherche reçoivent une 307 vers /connexion et ne peuvent
+  // pas crawler le site). Générés dynamiquement par app/robots.ts et
+  // app/sitemap.ts (App Router conventions).
+  "/robots.txt",
+  "/sitemap.xml",
   // ─── API publiques
   "/api/me/(.*)",
   "/api/clerk/webhook",

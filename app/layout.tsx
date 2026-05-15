@@ -39,10 +39,63 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// URL absolue de production — utilisée par Next.js pour générer
+// automatiquement les URLs absolues dans les balises Open Graph,
+// Twitter Card et alternates.canonical. À mettre à jour si le domaine
+// principal change.
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.buupp.com";
+
 export const metadata: Metadata = {
-  title: "BUUPP — Be Used, Paid & Proud (HMR test)",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "BUUPP — Soyez payé pour partager vos données",
+    template: "%s — BUUPP",
+  },
   description:
-    "BUUPP est la première plateforme qui rémunère les particuliers pour accepter d'être contactés par les professionnels qui les ciblent vraiment.",
+    "BUUPP est la première plateforme qui rémunère les particuliers pour accepter d'être contactés par les professionnels qui les ciblent vraiment. Vos données, votre prix.",
+  applicationName: "BUUPP",
+  authors: [{ name: "Majelink" }],
+  generator: "Next.js",
+  keywords: [
+    "BUUPP",
+    "consentement",
+    "données personnelles",
+    "rémunération",
+    "RGPD",
+    "mise en relation",
+    "double consentement",
+    "prospects",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    url: SITE_URL,
+    siteName: "BUUPP",
+    title: "BUUPP — Soyez payé pour partager vos données",
+    description:
+      "Plateforme de mise en relation rémunérée à double consentement. Vos données ne sont jamais transmises sans votre accord explicite.",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "BUUPP",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BUUPP — Soyez payé pour partager vos données",
+    description:
+      "Plateforme de mise en relation rémunérée à double consentement.",
+    images: ["/logo.png"],
+  },
+  alternates: {
+    canonical: SITE_URL,
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export const viewport: Viewport = {
