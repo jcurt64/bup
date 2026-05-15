@@ -4921,46 +4921,92 @@ function ScorePanel() {
   const freshness = score?.breakdown?.freshness;
   const acceptance = score?.breakdown?.acceptance;
 
-  // Conseils dynamiques : on affiche en priorité les axes les plus bas.
-  const tips = [];
-  if (completeness && completeness.filled < completeness.total) {
-    const missing = completeness.total - completeness.filled;
-    tips.push([
-      `Complétez ${missing > 1 ? 'vos paliers manquants' : 'votre dernier palier'}`,
-      `+${missing * 67} pts estimés`,
-      `Chaque palier renseigné pèse ${Math.round(completeness.perTier)} % de la complétude (${completeness.filled}/${completeness.total} validés).`,
-      'chart',
-    ]);
-  }
-  if (freshness && freshness.pct < 100) {
-    tips.push([
-      'Rafraîchissez vos données',
-      `+${Math.round((100 - freshness.pct) * 0.33)} pts estimés`,
-      freshness.lastUpdate
-        ? "Vos infos n'ont pas été mises à jour depuis plus d'un an — ré-éditez un champ pour réenclencher la fraîcheur."
-        : "Renseignez au moins un champ de chaque palier pour amorcer le score de fraîcheur.",
-      'sparkle',
-    ]);
-  }
-  if (acceptance && acceptance.total > 0 && acceptance.pct < 80) {
-    tips.push([
-      'Acceptez plus de mises en relation',
-      `+${Math.round((80 - acceptance.pct) * 0.33)} pts estimés`,
-      `Votre taux actuel est de ${acceptance.pct}% (${acceptance.accepted}/${acceptance.total}). Cible : 80 %.`,
-      'inbox',
-    ]);
-  } else if (acceptance && acceptance.total === 0) {
-    tips.push([
-      'Vos premières sollicitations arrivent',
-      '+0 pts pour l\'instant',
-      "Le taux d'acceptation entrera en vigueur dès la première mise en relation reçue.",
-      'inbox',
-    ]);
-  }
-  // Garantit toujours 3 cartes pour conserver la grille 3 colonnes.
-  while (tips.length < 3) {
-    tips.push(['Passez au palier Confiance', '+80 pts estimés', 'Téléversez votre justificatif de domicile.', 'shield']);
-  }
+  // ─── Conseils dynamiques : valeurs EXACTES dérivées de la formule ───
+  // Formule (cf. lib/prospect/score.ts) : score = round(((completeness +
+  // freshness + acceptance) / 3) × 10). Donc chaque point de pourcentage
+  // sur l'une des trois dimensions vaut exactement 10/3 ≈ 3,333 points
+  // sur le score 0-1000. Maximiser une dimension à 100% rapporte donc
+  // `(100 - pct) × 10/3` points. La somme des trois gains restants =
+  // 1000 - score (auto-cohérent).
+  const ptsPerPct = 10 / 3;
+  const ptsToFull = (pct) => Math.round(Math.max(0, (100 - (pct ?? 0)) * ptsPerPct));
+  const completenessGap = ptsToFull(completeness?.pct);
+  const freshnessGap = ptsToFull(freshness?.pct);
+  const acceptanceGap = acceptance && acceptance.total === 0 ? 0 : ptsToFull(acceptance?.pct);
+
+  // Paliers (alignés sur la grille tier ci-dessus). Trouve le prochain
+  // palier et le gap exact en pts.
+  const TIER_THRESHOLDS = [
+    { min: 0,   label: 'Découverte', color: '#B91C1C' },
+    { min: 400, label: 'Solide',     color: '#A16207' },
+    { min: 700, label: 'Recherchée', color: 'var(--accent)' },
+    { min: 900, label: 'Prestige',   color: '#166534' },
+  ];
+  const currentTierIdx = TIER_THRESHOLDS.reduce(
+    (acc, t, i) => (value >= t.min ? i : acc),
+    0,
+  );
+  const nextTier = TIER_THRESHOLDS[currentTierIdx + 1] ?? null;
+  const ptsToNextTier = nextTier ? Math.max(0, nextTier.min - value) : 0;
+  // Progression dans le segment courant [tier.min, nextTier.min] pour
+  // une barre visuelle parlante (0% au moment où on passe le palier,
+  // 100% au moment où on atteint le suivant).
+  const segMin = TIER_THRESHOLDS[currentTierIdx].min;
+  const segMax = nextTier?.min ?? 1000;
+  const segPct = segMax === segMin
+    ? 100
+    : Math.max(0, Math.min(100, Math.round(((value - segMin) / (segMax - segMin)) * 100)));
+
+  // 3 cartes — une par dimension, toujours visibles pour cohérence
+  // (le user comprend ce qui contribue / ce qui plafonne déjà).
+  const tips = [
+    {
+      icon: 'chart',
+      label: 'Complétude des paliers',
+      currentPct: completeness?.pct ?? 0,
+      gain: completenessGap,
+      subline: completeness
+        ? `${completeness.filled}/${completeness.total} paliers validés`
+        : null,
+      hint: !completeness
+        ? '—'
+        : completeness.filled >= completeness.total
+        ? 'Tous vos paliers sont validés — bravo !'
+        : `Renseignez ${completeness.total - completeness.filled === 1 ? 'votre dernier palier' : `les ${completeness.total - completeness.filled} paliers manquants`} dans Mes données pour gagner ${completenessGap} pts.`,
+    },
+    {
+      icon: 'sparkle',
+      label: 'Fraîcheur des données',
+      currentPct: freshness?.pct ?? 0,
+      gain: freshnessGap,
+      subline: freshness && freshness.ageDays != null
+        ? `Dernière MAJ il y a ${freshness.ageDays} j`
+        : null,
+      hint: !freshness
+        ? '—'
+        : freshness.pct >= 100
+        ? 'Vos données sont à jour (moins d\'un an).'
+        : freshness.lastUpdate
+        ? `Ré-éditez un champ dans Mes données pour repasser à 100 % et gagner ${freshnessGap} pts.`
+        : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`,
+    },
+    {
+      icon: 'inbox',
+      label: 'Taux d\'acceptation',
+      currentPct: acceptance?.pct ?? 0,
+      gain: acceptanceGap,
+      subline: acceptance && acceptance.total > 0
+        ? `${acceptance.accepted}/${acceptance.total} acceptées`
+        : (acceptance?.total === 0 ? 'Aucune sollicitation reçue' : null),
+      hint: !acceptance
+        ? '—'
+        : acceptance.total === 0
+        ? "Le taux d'acceptation entrera en jeu dès votre première mise en relation."
+        : acceptance.pct >= 100
+        ? 'Vous acceptez 100 % des mises en relation — au maximum.'
+        : `Acceptez plus de mises en relation depuis votre Inbox pour gagner jusqu'à ${acceptanceGap} pts.`,
+    },
+  ];
 
   return (
     <div className="col gap-6">
@@ -4990,18 +5036,82 @@ function ScorePanel() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 18 }}>Conseils pour améliorer votre score</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          {tips.slice(0, 3).map((c, i) => (
-            <div key={i} style={{ padding: 20, border: '1px dashed var(--line-2)', borderRadius: 12 }}>
-              <div className="row between center" style={{ marginBottom: 12 }}>
-                <span style={{ color: 'var(--accent)' }}><Icon name={c[3]} size={18}/></span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--accent)' }}>{c[1]}</span>
-              </div>
-              <div className="serif" style={{ fontSize: 17, marginBottom: 6 }}>{c[0]}</div>
-              <div className="muted" style={{ fontSize: 12 }}>{c[2]}</div>
+        <div className="row between" style={{ marginBottom: 14, gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <div className="serif" style={{ fontSize: 22 }}>Conseils pour améliorer votre score</div>
+          <div className="muted" style={{ fontSize: 12 }}>1 % sur une dimension = ~{ptsPerPct.toFixed(1).replace('.', ',')} pts au score</div>
+        </div>
+
+        {/* Bandeau : points acquis + palier courant + gap vers palier suivant */}
+        <div style={{
+          padding: '14px 18px', borderRadius: 12, marginBottom: 18,
+          background: 'color-mix(in oklab, var(--accent) 5%, var(--paper))',
+          border: '1px solid color-mix(in oklab, var(--accent) 18%, var(--line))',
+        }}>
+          <div className="row between" style={{ alignItems: 'baseline', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <span className="serif tnum" style={{ fontSize: 28, color: tier.color, fontWeight: 600 }}>{value}</span>
+              <span className="mono" style={{ fontSize: 13, color: 'var(--ink-4)', marginLeft: 4 }}>/ 1000 pts</span>
+              <span className="chip" style={{
+                marginLeft: 10, padding: '3px 10px', fontSize: 11,
+                background: 'color-mix(in oklab, ' + tier.color + ' 14%, var(--paper))',
+                color: tier.color, border: '1px solid color-mix(in oklab, ' + tier.color + ' 35%, var(--line))',
+              }}>{tier.label}</span>
             </div>
-          ))}
+            <div style={{ fontSize: 13, color: 'var(--ink-2)', textAlign: 'right' }}>
+              {nextTier
+                ? <>Encore <strong style={{ color: 'var(--ink)' }}>{ptsToNextTier} pts</strong> pour atteindre <strong style={{ color: nextTier.color }}>{nextTier.label}</strong></>
+                : <>Vous avez atteint le palier maximal — bravo !</>}
+            </div>
+          </div>
+          {nextTier && (
+            <>
+              <div style={{
+                height: 8, borderRadius: 999, overflow: 'hidden',
+                background: 'color-mix(in oklab, var(--ink) 7%, var(--paper))',
+              }}>
+                <div style={{
+                  width: `${segPct}%`, height: '100%', borderRadius: 999,
+                  background: tier.color, transition: 'width .3s',
+                }}/>
+              </div>
+              <div className="row between" style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-4)' }}>
+                <span className="mono">{segMin}</span>
+                <span className="mono">{segMax}</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Grille des 3 dimensions : carte par dimension, gain exact + hint */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {tips.map((c, i) => {
+            const maxed = c.gain === 0;
+            return (
+              <div key={i} style={{
+                padding: 20,
+                border: '1px dashed ' + (maxed ? 'color-mix(in oklab, var(--good) 30%, var(--line))' : 'var(--line-2)'),
+                borderRadius: 12,
+                background: maxed ? 'color-mix(in oklab, var(--good) 4%, var(--paper))' : 'var(--paper)',
+              }}>
+                <div className="row between center" style={{ marginBottom: 10 }}>
+                  <span style={{ color: maxed ? 'var(--good, #16a34a)' : 'var(--accent)' }}><Icon name={c.icon} size={18}/></span>
+                  <span className="mono" style={{
+                    fontSize: 11,
+                    color: maxed ? 'var(--good, #16a34a)' : 'var(--accent)',
+                  }}>
+                    {maxed ? '✓ optimal' : `+${c.gain} pts max`}
+                  </span>
+                </div>
+                <div className="serif" style={{ fontSize: 16, marginBottom: 4 }}>{c.label}</div>
+                <div className="row" style={{ alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+                  <span className="mono tnum" style={{ fontSize: 18, fontWeight: 600 }}>{c.currentPct}%</span>
+                  {c.subline && <span className="muted" style={{ fontSize: 11 }}>· {c.subline}</span>}
+                </div>
+                <Progress value={c.currentPct / 100}/>
+                <div className="muted" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.45 }}>{c.hint}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
