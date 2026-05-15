@@ -4425,10 +4425,12 @@ function ActionInfoModal({ info, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Pattern wrapper STRICTEMENT identique à RevealContactModal qui
-  // marche : pas de clamp(), pas d'overflowY:auto, padding fixe — ces
-  // ajouts cassaient le centrage dans le contexte iframe prototype.
-  return (
+  // Portail vers <body> de l'iframe prototype : sort la modale de tout
+  // ancestor (cellule du tableau, conteneur scrollable, etc.) qui aurait
+  // pu casser `position: fixed` via un transform / overflow / contain.
+  // C'est la cause racine de la modale qui débordait à droite en mobile :
+  // un parent du <td> action contraignait la largeur disponible.
+  const modalNode = (
     <div
       onClick={onClose}
       style={{
@@ -4508,6 +4510,10 @@ function ActionInfoModal({ info, onClose }) {
       </div>
     </div>
   );
+
+  // ReactDOM.createPortal n'est dispo que côté navigateur. SSR-safe.
+  if (typeof document === 'undefined') return modalNode;
+  return ReactDOM.createPortal(modalNode, document.body);
 }
 
 function RevealContactModal({ relationId, intent, name, onClose }) {
