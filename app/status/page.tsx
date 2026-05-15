@@ -130,7 +130,7 @@ export default function StatusPage() {
         >
           État du service
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="status" />
         <h1
           className="serif"
           style={{

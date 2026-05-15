@@ -42,7 +42,7 @@ export default function CookiesPage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Politique des cookies
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="cookies" />
         <h1
           className="serif"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.05, marginBottom: 18 }}

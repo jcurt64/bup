@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import BackHomeButton from "../_components/BackHomeButton";
 import PageVersion from "../_components/PageVersion";
+import VersionningTable from "./_components/VersionningTable";
 
 type Article = {
   q: string;
@@ -331,11 +332,15 @@ const CATEGORIES: Category[] = [
             La page <em>Mes contacts</em> liste tous les prospects ayant accepté vos
             sollicitations, regroupés par campagne. Les coordonnées (email, téléphone)
             sont <strong>masquées par défaut</strong> et révélables individuellement
-            (un clic → un usage). Chaque révélation est tracée et watermarquée
-            individuellement — toute fuite est imputable au professionnel émetteur.
+            (un clic → un usage). L&apos;email révélé est un{" "}
+            <strong>alias unique <code>prospect+rXXX@buupp.com</code></strong> propre
+            à la relation : tout mail qui y est envoyé est routé vers le vrai email du
+            prospect. Le téléphone et le nom complet sont révélés en clair, mais{" "}
+            <strong>chaque révélation est consignée</strong> dans un journal
+            d&apos;audit serveur (qui, quand, quelle donnée).
           </p>
         ),
-        tags: ["contact", "révélation", "email", "téléphone", "watermark"],
+        tags: ["contact", "révélation", "email", "téléphone", "audit", "alias"],
       },
       {
         q: "Recharger mon portefeuille",
@@ -361,18 +366,38 @@ const CATEGORIES: Category[] = [
         ),
       },
       {
-        q: "Règles d'usage et watermarking",
+        q: "Règles d'usage, alias unique et journal d'audit",
         a: (
-          <p>
-            Chaque coordonnée révélée porte une <strong>empreinte unique</strong> liée à
-            votre compte. Toute diffusion hors du périmètre de la campagne (revente,
-            partage à un tiers, sollicitation hors objet) est <em>traçable</em> et peut
-            entraîner la résiliation immédiate du compte ainsi qu&apos;une enquête
-            CNIL. La règle est simple : <strong>un prospect, une sollicitation, un
-            usage</strong>.
-          </p>
+          <>
+            <p>
+              Deux mécanismes complémentaires protègent les coordonnées révélées :
+            </p>
+            <ul>
+              <li>
+                <strong>Watermark cryptographique sur l&apos;email.</strong>{" "}
+                L&apos;email révélé est un alias unique{" "}
+                <code>prospect+rXXX@buupp.com</code> qui n&apos;existe que pour
+                votre relation avec ce prospect. Si le prospect reçoit un mail
+                provenant d&apos;une autre source que cet alias, on remonte
+                instantanément à votre compte — sans aucun recoupement nécessaire.
+              </li>
+              <li>
+                <strong>Journal d&apos;audit serveur.</strong> Chaque révélation
+                (email, téléphone, nom complet) est horodatée et reliée à votre
+                compte pro dans une table d&apos;audit interne, exploitable sur
+                signalement.
+              </li>
+            </ul>
+            <p>
+              Toute diffusion hors du périmètre de la campagne (revente, partage
+              à un tiers, sollicitation hors objet) entraîne la résiliation
+              immédiate du compte ainsi qu&apos;une transmission à la CNIL. La
+              règle est simple : <strong>un prospect, une sollicitation, un
+              usage</strong>.
+            </p>
+          </>
         ),
-        tags: ["watermark", "règles", "fuite", "rgpd"],
+        tags: ["audit", "règles", "fuite", "rgpd", "watermark", "alias"],
       },
     ],
   },
@@ -433,13 +458,37 @@ const CATEGORIES: Category[] = [
         q: "Anti-fraude : règles d'unicité",
         a: (
           <ul>
-            <li><strong>Un IBAN = un compte</strong> — empêche un prospect de cumuler des récompenses sur plusieurs profils.</li>
-            <li><strong>Un téléphone = un compte</strong> — la vérification SMS est obligatoire pour atteindre le palier <em>Vérifié</em>.</li>
-            <li><strong>Détection des comptes dupliqués</strong> — empreinte appareil et scoring comportemental côté serveur.</li>
-            <li><strong>Honeypots</strong> dans les formulaires d&apos;inscription pour bloquer les bots.</li>
+            <li>
+              <strong>Un IBAN = un compte</strong> — contrainte d&apos;unicité au
+              niveau base, toute tentative d&apos;enregistrer un IBAN déjà utilisé
+              est rejetée. Empêche un prospect de cumuler des récompenses sur
+              plusieurs profils.
+            </li>
+            <li>
+              <strong>Un téléphone = un compte</strong> — même règle, contrainte
+              d&apos;unicité sur le numéro normalisé E.164. La vérification SMS est
+              obligatoire pour atteindre le palier <em>Vérifié</em>.
+            </li>
+            <li>
+              <strong>Un rôle par compte</strong> — un même utilisateur ne peut
+              pas être à la fois prospect et professionnel ; le rôle est verrouillé
+              à l&apos;inscription.
+            </li>
+            <li>
+              <strong>Honeypots</strong> sur les formulaires publics ouverts aux
+              non-authentifiés (liste d&apos;attente, contact DPO) pour filtrer les
+              bots automatisés.
+            </li>
+            <li>
+              <strong>Journal d&apos;audit des révélations</strong> — chaque clic
+              d&apos;un pro pour révéler un email ou un téléphone est consigné côté
+              serveur (table d&apos;audit verrouillée, lecture admin uniquement),
+              ce qui permet d&apos;identifier l&apos;origine d&apos;une fuite sur
+              signalement.
+            </li>
           </ul>
         ),
-        tags: ["fraude", "iban", "rib", "téléphone", "doublon", "duplicate"],
+        tags: ["fraude", "iban", "rib", "téléphone", "doublon", "duplicate", "audit"],
       },
       {
         q: "Mes droits RGPD",
@@ -609,7 +658,7 @@ export default function AidePage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Centre d&apos;aide
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="aide" />
         <h1
           className="serif"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.05, marginBottom: 18 }}
@@ -799,6 +848,10 @@ export default function AidePage() {
             </div>
           </section>
         ))}
+
+        {/* Versionning des pages — masqué pendant une recherche pour ne pas
+            ajouter de bruit (le tableau ne réagit pas au filtre). */}
+        {query.length === 0 && <VersionningTable />}
 
         {/* CTA aide humaine */}
         <div

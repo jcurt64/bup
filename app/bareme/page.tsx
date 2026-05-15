@@ -289,7 +289,7 @@ export default function BaremePage() {
             paliers de rémunération prospect.
           </div>
           <div style={{ marginTop: 20, display: "flex", justifyContent: "center" }}>
-            <PageVersion version="1.0" />
+            <PageVersion page="bareme" />
           </div>
         </div>
 

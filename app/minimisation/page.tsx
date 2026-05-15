@@ -210,7 +210,7 @@ export default function MinimisationPage() {
         <div className="mono caps" style={{ color: "var(--ink-4)", marginBottom: 14 }}>
           Principe de minimisation
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="minimisation" />
 
         <h1
           className="serif"

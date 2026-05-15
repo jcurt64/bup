@@ -37,7 +37,7 @@ export default function ContactDpoPage() {
         >
           Contact DPO
         </div>
-        <PageVersion version="1.0" />
+        <PageVersion page="contact-dpo" />
         <h1
           className="serif"
           style={{

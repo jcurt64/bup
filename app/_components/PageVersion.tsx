@@ -1,19 +1,38 @@
+import {
+  getCurrentVersion,
+  type PageSlug,
+} from "./page-versions";
+
 /**
  * Petit badge "Version 1.0" inséré dans les pages des sections
  * Ressources et Légal du footer (bareme, aide, status, accessibilite,
  * minimisation, cgu, cgv, rgpd, cookies, contact-dpo).
  *
- * Discret (mono caps, fond paper, bordure line) — n'écrase pas le hero
- * mais reste lisible pour les utilisateurs qui veulent savoir à quelle
- * version d'un document légal/référence ils se réfèrent.
+ * Préférer l'API `<PageVersion page="rgpd" />` : la version et la date
+ * sont alors lues depuis le registre central `page-versions.ts`, ce qui
+ * garantit que le badge et le tableau "Versionning" du Centre d'aide
+ * restent synchronisés.
+ *
+ * L'API legacy `<PageVersion version="1.0" updatedAt="…" />` reste
+ * supportée pour les cas hors registre.
  */
-export default function PageVersion({
-  version = "1.0",
-  updatedAt,
-}: {
-  version?: string;
-  updatedAt?: string;
-}) {
+type Props =
+  | { page: PageSlug; version?: never; updatedAt?: never }
+  | { page?: never; version?: string; updatedAt?: string };
+
+export default function PageVersion(props: Props) {
+  let version: string;
+  let updatedAt: string | undefined;
+
+  if (props.page) {
+    const current = getCurrentVersion(props.page);
+    version = current.version;
+    updatedAt = current.date;
+  } else {
+    version = props.version ?? "1.0";
+    updatedAt = props.updatedAt;
+  }
+
   return (
     <div
       className="mono caps"
