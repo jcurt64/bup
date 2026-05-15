@@ -4269,11 +4269,20 @@ const REVEAL_INTENTS = {
 };
 
 function ContactActionButtons({ row, onIntent }) {
+  // Quand un bouton n'est pas actionnable (donnée non partagée, quota
+  // atteint, canal désactivé), on N'oblige PAS le bouton à être grisé
+  // et silencieux : on l'affiche normalement et un clic ouvre une
+  // popup explicative qui renvoie aux CGU. Avantage UX : le pro
+  // comprend pourquoi l'action n'est pas disponible plutôt que de
+  // tomber sur un bouton "mort" qui ne réagit pas.
+  const [infoModal, setInfoModal] = React.useState(null);
+  // {title, body} ou null
+
   const channels = Array.isArray(row.campaignChannels) ? row.campaignChannels : null;
   const channelAllowed = (k) => channels === null || channels.includes(k);
   const phoneOk = !!row.telephoneAvailable;
   const emailOk = !!row.emailAvailable;
-  // Quota email atteint (1 envoi max par campagne) → bouton désactivé.
+  // Quota email atteint (1 envoi max par campagne) → popup explicative.
   const emailQuotaReached = (row.emailsSent ?? 0) >= 1;
   // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
   // relations acceptées), donc la donnée "name" est toujours dispo.
@@ -4332,41 +4341,139 @@ function ContactActionButtons({ row, onIntent }) {
       missingDataMsg: '',
     },
   ];
+  // Compose le contenu de la popup d'info selon la raison pour laquelle
+  // le bouton n'est pas actionnable. Tous les messages renvoient aux CGU.
+  function infoForButton(b, channelOff) {
+    if (channelOff) {
+      return {
+        title: 'Canal non activé pour cette campagne',
+        body: "Ce canal de contact n'a pas été activé lors de la configuration de votre campagne. Pour l'utiliser, créez une nouvelle campagne en cochant ce canal à l'étape « Objectif & canaux ».",
+      };
+    }
+    if (b.disabledReason === 'quota' && b.key === 'email') {
+      return {
+        title: 'Quota d’envoi atteint',
+        body: "Vous avez déjà envoyé un e-mail à ce prospect pour cette campagne. Pour préserver son expérience et éviter le harcèlement, BUUPP limite à « 1 envoi par campagne et par prospect ».",
+      };
+    }
+    if (b.disabledReason === 'data') {
+      const what =
+        b.channel === 'phone' || b.channel === 'sms' || b.channel === 'whatsapp'
+          ? 'son numéro de téléphone'
+          : b.channel === 'email'
+          ? 'son adresse e-mail'
+          : 'cette information';
+      return {
+        title: 'Donnée non partagée par le prospect',
+        body: `Le prospect n’a pas partagé ${what} pour cette campagne. Vous ne pouvez donc pas le contacter par ce canal. Sur BUUPP, chaque donnée révélée est conditionnée à l’accord explicite du prospect.`,
+      };
+    }
+    return null;
+  }
+
   return (
-    <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-      {buttons.map((b) => {
-        const channelOff = !channelAllowed(b.channel);
-        // Tooltip explicite selon la raison réelle du désactivement —
-        // évite d'afficher "non partagé" quand c'est en fait un quota
-        // atteint (ex. 1 email déjà envoyé pour cette campagne).
-        let tooltip;
-        if (channelOff) {
-          tooltip = "Canal non activé pour cette campagne";
-        } else if (b.enabled) {
-          tooltip = b.title;
-        } else if (b.disabledReason === 'quota') {
-          tooltip = b.title; // déjà adapté au quota côté `title`
-        } else {
-          tooltip = b.missingDataMsg || b.title;
-        }
-        return (
-          <button
-            key={b.key}
-            className="btn btn-ghost btn-sm"
-            style={{
-              padding: '4px 8px',
-              opacity: b.enabled ? 1 : 0.3,
-              cursor: b.enabled ? 'pointer' : 'not-allowed',
-              color: b.enabled ? b.color : 'var(--ink-4)',
-            }}
-            disabled={!b.enabled}
-            title={tooltip}
-            onClick={() => b.enabled && onIntent(b.key)}
-          >
-            <Icon name={b.icon} size={12}/>
+    <>
+      <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {buttons.map((b) => {
+          const channelOff = !channelAllowed(b.channel);
+          const info = infoForButton(b, channelOff);
+          // Le bouton reste TOUJOURS visible et cliquable. Un clic
+          // déclenche soit l’action normale (`onIntent`), soit la popup
+          // d’info quand la donnée/quota/canal bloque l’action.
+          const handleClick = () => {
+            if (info) {
+              setInfoModal(info);
+            } else {
+              onIntent(b.key);
+            }
+          };
+          // Visuel : couleur normale toujours, mais opacité réduite et
+          // curseur "help" quand l’action n'est pas réellement faisable
+          // — signal subtil mais pas bloquant.
+          return (
+            <button
+              key={b.key}
+              className="btn btn-ghost btn-sm"
+              style={{
+                padding: '4px 8px',
+                opacity: info ? 0.55 : 1,
+                cursor: info ? 'help' : 'pointer',
+                color: b.color,
+              }}
+              title={info ? info.title : b.title}
+              onClick={handleClick}
+            >
+              <Icon name={b.icon} size={12}/>
+            </button>
+          );
+        })}
+      </div>
+      {infoModal && (
+        <ActionInfoModal info={infoModal} onClose={() => setInfoModal(null)}/>
+      )}
+    </>
+  );
+}
+
+function ActionInfoModal({ info, onClose }) {
+  // Fermeture par Escape pour cohérence avec les autres modales du site.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        style={{ width: '100%', maxWidth: 460, padding: 24 }}
+      >
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 16 }}>
+          <div className="row center gap-2">
+            <Icon name="alert" size={16}/>
+            <span className="serif" style={{ fontSize: 18 }}>{info.title}</span>
+          </div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer">
+            <Icon name="close" size={12}/>
           </button>
-        );
-      })}
+        </div>
+        <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-3)', margin: 0 }}>
+          {info.body}
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 14, marginBottom: 0 }}>
+          cf. <a
+            href="/cgu"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+          >
+            CGU de BUUPP
+          </a>
+        </p>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
+          <button
+            onClick={onClose}
+            className="btn"
+            style={{
+              background: 'var(--ink)', color: 'var(--paper)',
+              padding: '8px 16px', borderRadius: 8, fontWeight: 500,
+            }}
+          >
+            J&apos;ai compris
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
