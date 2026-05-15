@@ -37,7 +37,7 @@ export default function CguPage() {
         >
           Conditions générales d&apos;utilisation
         </div>
-        <PageVersion version="1.1" updatedAt="15/05/2026" />
+        <PageVersion version="1.0" />
         <h1
           className="serif"
           style={{
