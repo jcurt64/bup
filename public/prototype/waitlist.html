@@ -2117,6 +2117,30 @@
           <!-- STEP 1 -->
           <div class="wl-steps active" id="step-1">
             <form class="wl-form" onsubmit="goStep2(event)">
+              <!-- Honeypot anti-bot : champ caché par CSS et accessibilité.
+                   Les humains ne le voient pas, les bots qui auto-remplissent
+                   tous les inputs vont le remplir et seront silencieusement
+                   ignorés par /api/waitlist (réponse 200 OK sans insertion). -->
+              <div
+                aria-hidden="true"
+                style="
+                  position: absolute;
+                  left: -10000px;
+                  top: auto;
+                  width: 1px;
+                  height: 1px;
+                  overflow: hidden;
+                "
+              >
+                <label for="inp-website">Site web (laissez vide)</label>
+                <input
+                  id="inp-website"
+                  name="website"
+                  type="text"
+                  tabindex="-1"
+                  autocomplete="off"
+                />
+              </div>
               <div class="form-row">
                 <div class="form-field">
                   <label class="field-label" for="inp-prenom">Prénom</label>
@@ -3287,6 +3311,12 @@
         const referrerInput = document.getElementById("inp-referrer");
         const referrerRefCode = referrerInput ? referrerInput.value.trim() : "";
 
+        // Honeypot : on relaye la valeur du champ caché à l'API. Un humain
+        // ne peut pas le remplir (hors écran, aria-hidden, tabindex=-1) ;
+        // un bot qui auto-remplit tous les inputs sera filtré côté serveur.
+        const websiteInput = document.getElementById("inp-website");
+        const websiteHoneypot = websiteInput ? websiteInput.value.trim() : "";
+
         try {
           const r = await fetch("/api/waitlist", {
             method: "POST",
@@ -3298,6 +3328,7 @@
               ville: userData.ville,
               interests: Array.from(selectedInterests),
               referrerRefCode: referrerRefCode || undefined,
+              website: websiteHoneypot,
             }),
           });
           const json = await r.json().catch(() => ({}));

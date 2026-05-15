@@ -27,6 +27,9 @@ type WaitlistPayload = {
   ville?: string;
   interests?: string[];
   referrerRefCode?: string;
+  // Honeypot anti-bot : champ hors écran dans le form, doit rester vide.
+  // S'il est rempli, on suspecte un bot (cf. POST handler).
+  website?: string;
 };
 
 const TRIM_MAX = 80;
@@ -47,7 +50,7 @@ function isValidEmail(v: string): boolean {
 /**
  * Normalise une saisie utilisateur en code de parrainage 7 caractères
  * base36 majuscule. Accepte aussi bien le code brut (`MD8X4K0`) que
- * l'URL complète (`https://buupp.fr/ref/MD8X4K0`, `buupp.fr/r/MD8X4K0`).
+ * l'URL complète (`https://buupp.com/ref/MD8X4K0`, `buupp.com/r/MD8X4K0`).
  * Retourne null si l'entrée ne contient pas un code valide.
  */
 function parseReferrerCode(input: unknown): string | null {
@@ -66,6 +69,29 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
+  }
+
+  // Honeypot — un humain ne peut pas remplir le champ `website` (caché
+  // hors écran, aria-hidden, tabindex=-1). S'il arrive rempli, on simule
+  // un succès silencieux pour ne pas signaler au bot qu'il est détecté,
+  // et on trace l'événement côté admin pour suivre le volume.
+  if (typeof body.website === "string" && body.website.trim().length > 0) {
+    void (async () => {
+      try {
+        const { recordEvent } = await import("@/lib/admin/events/record");
+        await recordEvent({
+          type: "waitlist.honeypot_blocked",
+          severity: "warning",
+          payload: {
+            websiteLen: body.website?.length ?? 0,
+            userAgent: req.headers.get("user-agent")?.slice(0, 120) ?? null,
+          },
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   const prenom = clean(body.prenom);
