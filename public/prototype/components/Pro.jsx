@@ -4278,20 +4278,77 @@ function ContactActionButtons({ row, onIntent }) {
   // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
   // relations acceptées), donc la donnée "name" est toujours dispo.
   const buttons = [
-    { key: 'call',     channel: 'phone',     enabled: phoneOk && channelAllowed('phone'),     icon: 'phone',    color: '#0F1629', title: 'Appeler ce prospect',     missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'email',    channel: 'email',     enabled: emailOk && channelAllowed('email') && !emailQuotaReached,     icon: 'email',    color: '#EA4335', title: emailQuotaReached ? 'Quota atteint (1 email envoyé)' : 'Envoyer un email via BUUPP',         missingDataMsg: "Le prospect n'a pas partagé son email" },
-    { key: 'sms',      channel: 'sms',       enabled: phoneOk && channelAllowed('sms'),       icon: 'sms',      color: '#34B7F1', title: 'Envoyer un SMS',           missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'whatsapp', channel: 'whatsapp',  enabled: phoneOk && channelAllowed('whatsapp'),  icon: 'whatsapp', color: '#25D366', title: 'Écrire sur WhatsApp',      missingDataMsg: "Le prospect n'a pas partagé son téléphone" },
-    { key: 'facebook', channel: 'facebook',  enabled: channelAllowed('facebook'),             icon: 'facebook', color: '#1877F2', title: 'Rechercher sur Facebook',  missingDataMsg: '' },
-    { key: 'linkedin', channel: 'linkedin',  enabled: channelAllowed('linkedin'),             icon: 'linkedin', color: '#0A66C2', title: 'Rechercher sur LinkedIn',  missingDataMsg: '' },
+    // `disabledReason` permet de distinguer la raison réelle du désactivement
+    // pour afficher un tooltip cohérent : 'data' (donnée pas partagée),
+    // 'quota' (limite d'envoi atteinte) ou null (bouton actif).
+    {
+      key: 'call', channel: 'phone',
+      enabled: phoneOk && channelAllowed('phone'),
+      disabledReason: !phoneOk ? 'data' : null,
+      icon: 'phone', color: '#0F1629',
+      title: 'Appeler ce prospect',
+      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
+    },
+    {
+      key: 'email', channel: 'email',
+      enabled: emailOk && channelAllowed('email') && !emailQuotaReached,
+      // Si l'email n'est pas partagé → 'data'. S'il l'est mais le quota
+      // est atteint → 'quota'. Sinon le bouton est actif.
+      disabledReason: !emailOk ? 'data' : (emailQuotaReached ? 'quota' : null),
+      icon: 'email', color: '#EA4335',
+      title: emailQuotaReached ? 'Quota atteint (1 email envoyé)' : 'Envoyer un email via BUUPP',
+      missingDataMsg: "Le prospect n'a pas partagé son email",
+    },
+    {
+      key: 'sms', channel: 'sms',
+      enabled: phoneOk && channelAllowed('sms'),
+      disabledReason: !phoneOk ? 'data' : null,
+      icon: 'sms', color: '#34B7F1',
+      title: 'Envoyer un SMS',
+      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
+    },
+    {
+      key: 'whatsapp', channel: 'whatsapp',
+      enabled: phoneOk && channelAllowed('whatsapp'),
+      disabledReason: !phoneOk ? 'data' : null,
+      icon: 'whatsapp', color: '#25D366',
+      title: 'Écrire sur WhatsApp',
+      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
+    },
+    {
+      key: 'facebook', channel: 'facebook',
+      enabled: channelAllowed('facebook'),
+      disabledReason: null,
+      icon: 'facebook', color: '#1877F2',
+      title: 'Rechercher sur Facebook',
+      missingDataMsg: '',
+    },
+    {
+      key: 'linkedin', channel: 'linkedin',
+      enabled: channelAllowed('linkedin'),
+      disabledReason: null,
+      icon: 'linkedin', color: '#0A66C2',
+      title: 'Rechercher sur LinkedIn',
+      missingDataMsg: '',
+    },
   ];
   return (
     <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
       {buttons.map((b) => {
         const channelOff = !channelAllowed(b.channel);
-        const tooltip = channelOff
-          ? "Canal non activé pour cette campagne"
-          : b.enabled ? b.title : (b.missingDataMsg || b.title);
+        // Tooltip explicite selon la raison réelle du désactivement —
+        // évite d'afficher "non partagé" quand c'est en fait un quota
+        // atteint (ex. 1 email déjà envoyé pour cette campagne).
+        let tooltip;
+        if (channelOff) {
+          tooltip = "Canal non activé pour cette campagne";
+        } else if (b.enabled) {
+          tooltip = b.title;
+        } else if (b.disabledReason === 'quota') {
+          tooltip = b.title; // déjà adapté au quota côté `title`
+        } else {
+          tooltip = b.missingDataMsg || b.title;
+        }
         return (
           <button
             key={b.key}
