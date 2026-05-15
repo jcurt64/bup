@@ -2806,11 +2806,11 @@ function SecuritySection() {
     },
     {
       t: "Anti-fraude multicouche",
-      d: "Honeypots, détection de comptes dupliqués, empreinte appareil, scoring comportemental en temps réel.",
+      d: "Contraintes d'unicité IBAN/téléphone/rôle, honeypots sur formulaires publics, journal d'audit verrouillé des révélations.",
     },
     {
-      t: "Watermarking des données",
-      d: "Chaque donnée est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur.",
+      t: "Watermarking cryptographique",
+      d: "L'email du prospect est révélé sous forme d'alias unique routé via Cloudflare — toute fuite remonte instantanément au professionnel émetteur.",
     },
   ];
   return (
