@@ -4425,22 +4425,16 @@ function ActionInfoModal({ info, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Pattern wrapper STRICTEMENT identique à RevealContactModal qui
+  // marche : pas de clamp(), pas d'overflowY:auto, padding fixe — ces
+  // ajouts cassaient le centrage dans le contexte iframe prototype.
   return (
     <div
       onClick={onClose}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(20,20,20,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        // padding : clamp pour réduire les marges sur petit écran sans
-        // que la modale ne touche les bords sur grand écran.
-        padding: 'clamp(12px, 4vw, 24px)',
-        // Évite que le scroll de la page parente fasse défiler la modale.
-        overflowY: 'auto',
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 20,
       }}
     >
       <div
@@ -4449,96 +4443,43 @@ function ActionInfoModal({ info, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="action-info-title"
-        style={{
-          // box-sizing explicite : sinon padding+width:100% peut déborder
-          // dans certains contextes embed (iframe prototype).
-          boxSizing: 'border-box',
-          width: '100%',
-          maxWidth: 460,
-          padding: 'clamp(20px, 4vw, 28px)',
-          // position relative pour permettre la croix en absolute top-right
-          // sans interférer avec le titre.
-          position: 'relative',
-        }}
+        style={{ width: '100%', maxWidth: 440, padding: 24 }}
       >
-        {/* Croix de fermeture en absolute top-right : ne perturbe pas
-            le layout du titre qui peut wrap librement. */}
-        <button
-          onClick={onClose}
-          aria-label="Fermer"
-          className="btn btn-ghost btn-sm"
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            padding: 6,
-            lineHeight: 0,
-          }}
-        >
-          <Icon name="close" size={12}/>
-        </button>
-
-        {/* En-tête : icône + titre. Aligned-items=flex-start pour que
-            l'icône reste alignée sur la première ligne du titre quand
-            celui-ci wrap. Padding-right pour laisser la place à la croix. */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            paddingRight: 36,
-            marginBottom: 14,
-          }}
-        >
-          <span
-            aria-hidden="true"
-            style={{
-              flexShrink: 0,
-              marginTop: 4,
-              color: 'var(--ink-3)',
-              lineHeight: 0,
-            }}
+        {/* En-tête : icône + titre alignés, croix de fermeture à droite —
+            même pattern que RevealContactModal pour rester cohérent. */}
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 14, gap: 10 }}>
+          <div className="row" style={{ alignItems: 'flex-start', gap: 8, flex: 1, minWidth: 0 }}>
+            <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 3, color: 'var(--ink-3)', lineHeight: 0 }}>
+              <Icon name="alert" size={16}/>
+            </span>
+            <h3
+              id="action-info-title"
+              className="serif"
+              style={{
+                fontSize: 18, lineHeight: 1.3, margin: 0, color: 'var(--ink)',
+                wordBreak: 'break-word', hyphens: 'auto',
+              }}
+            >
+              {info.title}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+            aria-label="Fermer"
+            style={{ flexShrink: 0 }}
           >
-            <Icon name="alert" size={16}/>
-          </span>
-          <h3
-            id="action-info-title"
-            className="serif"
-            style={{
-              fontSize: 18,
-              lineHeight: 1.3,
-              margin: 0,
-              color: 'var(--ink)',
-              wordBreak: 'break-word',
-              hyphens: 'auto',
-            }}
-          >
-            {info.title}
-          </h3>
+            <Icon name="close" size={12}/>
+          </button>
         </div>
 
         {/* Corps du message. */}
-        <p
-          style={{
-            fontSize: 14,
-            lineHeight: 1.55,
-            color: 'var(--ink-3)',
-            margin: 0,
-            wordBreak: 'break-word',
-          }}
-        >
+        <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-3)', margin: 0 }}>
           {info.body}
         </p>
 
         {/* Référence CGU. */}
-        <p
-          style={{
-            fontSize: 12,
-            color: 'var(--ink-4)',
-            marginTop: 14,
-            marginBottom: 0,
-          }}
-        >
+        <p style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 14, marginBottom: 0 }}>
           cf.{' '}
           <a
             href="/cgu"
@@ -4550,43 +4491,20 @@ function ActionInfoModal({ info, onClose }) {
           </a>
         </p>
 
-        {/* CTA : pleine largeur sur mobile (≤480px), aligné à droite ailleurs. */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            marginTop: 20,
-          }}
-        >
+        {/* CTA aligné à droite. */}
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
           <button
             onClick={onClose}
-            className="btn modal-cta-btn"
+            className="btn"
             style={{
-              background: 'var(--ink)',
-              color: 'var(--paper)',
-              padding: '10px 18px',
-              borderRadius: 8,
-              fontWeight: 500,
-              fontSize: 14,
-              border: 0,
-              cursor: 'pointer',
-              minWidth: 120,
+              background: 'var(--ink)', color: 'var(--paper)',
+              padding: '10px 18px', borderRadius: 8, fontWeight: 500,
+              fontSize: 14, border: 0, cursor: 'pointer', minWidth: 120,
             }}
           >
             J&apos;ai compris
           </button>
         </div>
-
-        {/* Style mobile : sur petit écran le bouton "J'ai compris" passe
-            en pleine largeur pour rester confortable au pouce. */}
-        <style>{`
-          @media (max-width: 480px) {
-            .modal-cta-btn {
-              width: 100%;
-              min-width: 0 !important;
-            }
-          }
-        `}</style>
       </div>
     </div>
   );
