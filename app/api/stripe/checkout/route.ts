@@ -33,9 +33,18 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
     amountCents?: number;
     continueCampaign?: boolean;
+    enableAutoRecharge?: boolean;
+    autoRechargeThresholdCents?: number;
   };
   const amountCents = Number(body.amountCents);
   const continueCampaign = Boolean(body.continueCampaign);
+  const enableAutoRecharge = Boolean(body.enableAutoRecharge);
+  // Seuil = 100 € par défaut, borné [10€, 10000€] (mêmes bornes que la
+  // contrainte CHECK SQL).
+  const rawThreshold = Number(body.autoRechargeThresholdCents);
+  const autoRechargeThresholdCents = Number.isFinite(rawThreshold)
+    ? Math.max(1000, Math.min(1_000_000, Math.round(rawThreshold)))
+    : 10_000;
   if (
     !Number.isFinite(amountCents) ||
     amountCents < MIN_TOPUP_CENTS ||
@@ -100,6 +109,13 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       },
     ],
+    // `setup_future_usage='off_session'` autorise Stripe à réutiliser le
+    // moyen de paiement plus tard sans interaction utilisateur (recharge
+    // auto). Activé UNIQUEMENT si le pro l'a explicitement coché — sinon
+    // débit one-shot classique.
+    payment_intent_data: enableAutoRecharge
+      ? { setup_future_usage: "off_session" }
+      : undefined,
     success_url: `${appUrl}/pro?topup=success&session_id={CHECKOUT_SESSION_ID}${continueCampaign ? '&continue_campaign=1' : ''}`,
     cancel_url: `${appUrl}/pro?topup=canceled${continueCampaign ? '&continue_campaign=1' : ''}`,
     // Tags arbitraires — repris dans le webhook pour cibler la bonne row
@@ -109,6 +125,9 @@ export async function POST(request: NextRequest) {
       proAccountId: proId,
       kind: "topup",
       amountCents: String(amountCents),
+      enableAutoRecharge: enableAutoRecharge ? "1" : "0",
+      autoRechargeThresholdCents: String(autoRechargeThresholdCents),
+      autoRechargeAmountCents: String(amountCents),
     },
   });
 

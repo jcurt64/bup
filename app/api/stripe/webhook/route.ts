@@ -90,7 +90,105 @@ export async function POST(request: NextRequest) {
           description: `Recharge BUUPP via Stripe (${(amountCents / 100).toFixed(2)} € crédités)`,
         });
 
-        // 2) Crédite le wallet pro.
+        // 2) Crédite le wallet pro + active la recharge auto si demandée.
+        const { data: pro } = await admin
+          .from("pro_accounts")
+          .select("wallet_balance_cents")
+          .eq("id", proAccountId)
+          .single();
+        if (pro) {
+          // Si le pro a coché "Recharge auto" à l'init du Checkout, on
+          // récupère le payment_method utilisé (sauvé grâce à
+          // setup_future_usage='off_session') et on persiste les params
+          // d'auto-recharge sur la row pro_accounts. Le PM servira aux
+          // futures recharges off-session via maybeTriggerAutoRecharge.
+          const wantsAutoRecharge = md.enableAutoRecharge === "1";
+          let autoFields: Record<string, unknown> = {};
+          if (wantsAutoRecharge) {
+            try {
+              // Récupère le PaymentIntent pour lire le payment_method.
+              const stripeMod = await import("@/lib/stripe/server");
+              const stripe = await stripeMod.getStripe();
+              const pi = await stripe.paymentIntents.retrieve(piId);
+              const pmId =
+                typeof pi.payment_method === "string"
+                  ? pi.payment_method
+                  : pi.payment_method?.id ?? null;
+              if (pmId) {
+                autoFields = {
+                  auto_recharge_enabled: true,
+                  auto_recharge_threshold_cents: Number(
+                    md.autoRechargeThresholdCents ?? 10_000,
+                  ),
+                  auto_recharge_amount_cents: Number(
+                    md.autoRechargeAmountCents ?? amountCents,
+                  ),
+                  stripe_default_payment_method_id: pmId,
+                };
+              }
+            } catch (err) {
+              console.warn(
+                "[stripe webhook] auto-recharge PM save failed (continuing)",
+                err,
+              );
+            }
+          }
+
+          await admin
+            .from("pro_accounts")
+            .update({
+              wallet_balance_cents:
+                Number(pro.wallet_balance_cents ?? 0) + amountCents,
+              ...autoFields,
+            })
+            .eq("id", proAccountId);
+        }
+
+        void (async () => {
+          const { recordEvent } = await import("@/lib/admin/events/record");
+          await recordEvent({
+            type: "transaction.topup",
+            proAccountId,
+            payload: { amountCents },
+          });
+        })();
+        break;
+      }
+
+      // ─── Recharge automatique off-session ─────────────────────────
+      // Quand maybeTriggerAutoRecharge crée un PaymentIntent direct
+      // (sans passer par Checkout), Stripe émet payment_intent.succeeded
+      // au lieu de checkout.session.completed. On crédite le wallet et
+      // trace la transaction comme un topup classique.
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const md = pi.metadata ?? {};
+        // Filtre : on ne traite QUE les PI issus d'une auto-recharge.
+        // Les autres PI (issus d'une Checkout Session) sont déjà traités
+        // par checkout.session.completed ci-dessus — ne pas double-créditer.
+        if (md.kind !== "topup" || md.source !== "auto_recharge") break;
+        const proAccountId = md.proAccountId;
+        const amountCents = Number(md.amountCents ?? pi.amount ?? 0);
+        if (!proAccountId || !amountCents) break;
+
+        // Idempotence : ne crédite qu'une fois par PaymentIntent.
+        const { data: existing } = await admin
+          .from("transactions")
+          .select("id")
+          .eq("stripe_payment_intent_id", pi.id)
+          .maybeSingle();
+        if (existing) break;
+
+        await admin.from("transactions").insert({
+          account_id: proAccountId,
+          account_kind: "pro",
+          type: "topup",
+          status: "completed",
+          amount_cents: amountCents,
+          stripe_payment_intent_id: pi.id,
+          description: `Recharge auto BUUPP (${(amountCents / 100).toFixed(2)} € crédités)`,
+        });
+
         const { data: pro } = await admin
           .from("pro_accounts")
           .select("wallet_balance_cents")
@@ -109,9 +207,10 @@ export async function POST(request: NextRequest) {
         void (async () => {
           const { recordEvent } = await import("@/lib/admin/events/record");
           await recordEvent({
-            type: "transaction.topup",
+            type: "transaction.auto_topup",
+            severity: "info",
             proAccountId,
-            payload: { amountCents },
+            payload: { amountCents, paymentIntentId: pi.id },
           });
         })();
         break;

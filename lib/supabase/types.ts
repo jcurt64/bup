@@ -369,6 +369,12 @@ export type Database = {
       pro_accounts: {
         Row: {
           adresse: string | null
+          auto_recharge_amount_cents: number | null
+          auto_recharge_enabled: boolean
+          auto_recharge_last_failed_at: string | null
+          auto_recharge_last_failure_reason: string | null
+          auto_recharge_last_triggered_at: string | null
+          auto_recharge_threshold_cents: number | null
           billing_status: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents: number | null
           clerk_user_id: string
@@ -387,6 +393,7 @@ export type Database = {
           siren: string | null
           siret: string | null
           stripe_customer_id: string | null
+          stripe_default_payment_method_id: string | null
           updated_at: string
           ville: string | null
           wallet_balance_cents: number
@@ -394,6 +401,12 @@ export type Database = {
         }
         Insert: {
           adresse?: string | null
+          auto_recharge_amount_cents?: number | null
+          auto_recharge_enabled?: boolean
+          auto_recharge_last_failed_at?: string | null
+          auto_recharge_last_failure_reason?: string | null
+          auto_recharge_last_triggered_at?: string | null
+          auto_recharge_threshold_cents?: number | null
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents?: number | null
           clerk_user_id: string
@@ -412,6 +425,7 @@ export type Database = {
           siren?: string | null
           siret?: string | null
           stripe_customer_id?: string | null
+          stripe_default_payment_method_id?: string | null
           updated_at?: string
           ville?: string | null
           wallet_balance_cents?: number
@@ -419,6 +433,12 @@ export type Database = {
         }
         Update: {
           adresse?: string | null
+          auto_recharge_amount_cents?: number | null
+          auto_recharge_enabled?: boolean
+          auto_recharge_last_failed_at?: string | null
+          auto_recharge_last_failure_reason?: string | null
+          auto_recharge_last_triggered_at?: string | null
+          auto_recharge_threshold_cents?: number | null
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents?: number | null
           clerk_user_id?: string
@@ -437,6 +457,7 @@ export type Database = {
           siren?: string | null
           siret?: string | null
           stripe_customer_id?: string | null
+          stripe_default_payment_method_id?: string | null
           updated_at?: string
           ville?: string | null
           wallet_balance_cents?: number
