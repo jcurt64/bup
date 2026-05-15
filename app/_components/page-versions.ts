@@ -144,6 +144,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "L'email révélé au Pro est désormais un alias `prospect+rXXX@buupp.com` propre à la relation. Le vrai email du prospect n'est jamais exposé. Toute fuite est imputée nominativement au Pro émetteur.",
       },
+      {
+        version: "1.3",
+        date: "2026-05-15",
+        summary:
+          "Article 5 (Modalités de paiement) enrichi : option facultative de recharge automatique du portefeuille (consentement exprès, montant et seuil paramétrables, révocable à tout moment, garde-fous cooldown 1h + facture immédiate + arrêt sur échec).",
+      },
     ],
   },
   {

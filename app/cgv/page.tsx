@@ -259,6 +259,66 @@ export default function CgvPage() {
             campagne. La facture pro est éditée à la fin du cycle ou sur
             demande.
           </p>
+          <p>
+            <strong>Recharge automatique (option facultative).</strong> Le
+            Professionnel peut activer, depuis la modale de recharge, une{" "}
+            <strong>recharge automatique</strong> de son portefeuille. Cette
+            option, <strong>désactivée par défaut</strong>, autorise BUUPP
+            à débiter automatiquement, via Stripe et sans nouvelle action
+            du Professionnel, un montant fixe (choisi entre 50&nbsp;€ et
+            10&nbsp;000&nbsp;€) sur le moyen de paiement enregistré, dès
+            lors que le solde du wallet passe sous un seuil défini par le
+            Professionnel (entre 10&nbsp;€ et 10&nbsp;000&nbsp;€).
+          </p>
+          <p>
+            <strong>Consentement exprès.</strong> L&apos;activation de cette
+            option vaut <strong>consentement exprès au débit récurrent</strong>{" "}
+            au sens de l&apos;article L.232-3 du Code monétaire et
+            financier. Le Professionnel reconnaît être informé du montant,
+            du seuil de déclenchement et de la possibilité de débit à tout
+            moment, sans préavis individuel autre que les notifications
+            automatiques émises par BUUPP (e-mail récapitulatif et
+            facture immédiate).
+          </p>
+          <p>
+            <strong>Révocation à tout moment.</strong> Le Professionnel
+            peut <strong>désactiver la recharge automatique à tout
+            moment</strong>, sans frais ni préavis, depuis la même modale
+            de recharge ou via l&apos;endpoint{" "}
+            <em>PATCH /api/pro/wallet/auto-recharge</em>. La désactivation
+            est immédiate et n&apos;affecte pas les recharges déjà
+            réalisées.
+          </p>
+          <p>
+            <strong>Garde-fous.</strong> Pour limiter les débits
+            indésirables&nbsp;:
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 4 }}>
+            <li>
+              un <strong>cooldown d&apos;une heure</strong> entre deux
+              déclenchements automatiques (évite la boucle en cas
+              d&apos;échec de la première tentative)&nbsp;;
+            </li>
+            <li>
+              en cas d&apos;échec (carte refusée, expirée, demande
+              d&apos;authentification 3D Secure), le motif est consigné
+              et affiché au Professionnel dans la modale recharge
+              ; aucun nouvel essai n&apos;est lancé tant que le
+              Professionnel n&apos;effectue pas une nouvelle recharge
+              manuelle pour mettre à jour son moyen de paiement&nbsp;;
+            </li>
+            <li>
+              chaque débit automatique fait l&apos;objet d&apos;une{" "}
+              <strong>facture immédiate</strong> émise au format PDF
+              et accessible depuis l&apos;onglet «&nbsp;Facturation&nbsp;».
+            </li>
+          </ul>
+          <p>
+            Conformément à l&apos;article L.221-23 du Code de la
+            consommation, le présent service de paiement récurrent est
+            réservé aux Professionnels et n&apos;ouvre pas droit au délai
+            de rétractation (cf.&nbsp;art.&nbsp;9 ci-dessous).
+          </p>
         </Section>
 
         <Section title="6. Cycle de campagne et quotas">
