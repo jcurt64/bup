@@ -9,7 +9,7 @@
  * Query params optionnels :
  * - `?campaignId=<uuid>` : filtre sur une campagne spécifique. "all" ou
  *   absent = toutes les campagnes du pro.
- * - `?period=7d|30d|90d|all` : filtre sur created_at (date de la
+ * - `?period=7d|30d|90d|all` : filtre sur sent_at (date de la
  *   sollicitation) ; "all" ou absent = pas de filtre.
  *
  * La liste complète des campagnes du pro (`campaigns`) est TOUJOURS
@@ -81,7 +81,7 @@ export async function GET(req: Request) {
   let query = admin
     .from("relations")
     .select(
-      `status, decided_at, created_at,
+      `status, decided_at, sent_at,
        campaigns ( targeting ),
        prospects:prospect_id (
          prospect_identity ( naissance, genre ),
@@ -94,7 +94,7 @@ export async function GET(req: Request) {
     query = query.eq("campaign_id", campaignFilter);
   }
   if (sinceIso) {
-    query = query.gte("created_at", sinceIso);
+    query = query.gte("sent_at", sinceIso);
   }
 
   const { data, error } = await query;
@@ -107,7 +107,7 @@ export async function GET(req: Request) {
   type Row = {
     status: string;
     decided_at: string | null;
-    created_at: string | null;
+    sent_at: string | null;
     campaigns: { targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       prospect_identity: { naissance: string | null; genre: string | null } | null;
