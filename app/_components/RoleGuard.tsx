@@ -17,7 +17,7 @@ const ROLE_LABEL: Record<Role, string> = {
  * metadata est absente — ce qui peut arriver juste après le signup
  * tant que le webhook n'a pas re-synchronisé Clerk.
  */
-function useCurrentRole(): { signedIn: boolean; role: Role | null; ready: boolean } {
+export function useCurrentRole(): { signedIn: boolean; role: Role | null; ready: boolean } {
   const { isLoaded, isSignedIn, user } = useUser();
   const [dbRole, setDbRole] = useState<Role | null>(null);
   const [dbChecked, setDbChecked] = useState(false);
