@@ -1369,10 +1369,16 @@ function ProCannotAcceptModal({ onClose }: { onClose: () => void }) {
         inset: 0,
         zIndex: 1000,
         background: "rgba(15, 22, 41, 0.55)",
+        // Pattern scroll-safe (cf. InsufficientBalanceModal) : sur les
+        // petits écrans (iPhone SE, paysage) la carte peut dépasser la
+        // hauteur du viewport. alignItems:center + pas de scroll
+        // rognerait le haut sans pouvoir y accéder → on rend l'overlay
+        // scrollable et on centre la carte via margin:auto.
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        padding: 20,
+        overflowY: "auto",
+        padding: "24px 16px 48px",
         backdropFilter: "blur(2px)",
       }}
       onClick={(e) => {
@@ -1388,6 +1394,8 @@ function ProCannotAcceptModal({ onClose }: { onClose: () => void }) {
           padding: "28px 26px 22px",
           boxShadow: "0 24px 64px -12px rgba(15,22,41,.45)",
           border: "1px solid var(--line, #E5E1D6)",
+          // Centre verticalement quand ça tient, scrolle sinon.
+          margin: "auto 0",
         }}
       >
         <div

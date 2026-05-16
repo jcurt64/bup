@@ -162,10 +162,16 @@ function RoleSwitchModal({
         inset: 0,
         zIndex: 1000,
         background: "rgba(15, 22, 41, 0.55)",
+        // Pattern scroll-safe (cf. InsufficientBalanceModal /
+        // ProCannotAcceptModal) : sur petit écran (iPhone SE, paysage)
+        // la carte peut dépasser la hauteur du viewport. alignItems
+        // center + pas de scroll rognerait le haut sans y accéder →
+        // overlay scrollable + carte centrée via margin:auto.
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        padding: 20,
+        overflowY: "auto",
+        padding: "24px 16px 48px",
         backdropFilter: "blur(2px)",
       }}
       onClick={(e) => {
@@ -181,6 +187,7 @@ function RoleSwitchModal({
           padding: "28px 26px 22px",
           boxShadow: "0 24px 64px -12px rgba(15,22,41,.45)",
           border: "1px solid var(--line, #E5E1D6)",
+          margin: "auto 0",
         }}
       >
         <div
