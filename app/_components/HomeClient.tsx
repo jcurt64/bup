@@ -518,9 +518,24 @@ function Navbar() {
   );
 }
 
+// Mois + année courants en français (ex. « mai 2026 »). Calcul
+// déterministe le même jour côté SSR et côté client → pas de
+// hydration mismatch ; l'effet ne resynchronise que le cas limite
+// d'un changement de mois pile entre le rendu serveur et le montage.
+function currentPeriodFr(): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+}
+
 function Hero() {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
+  const [heroPeriod, setHeroPeriod] = useState(currentPeriodFr);
+  useEffect(() => {
+    setHeroPeriod(currentPeriodFr());
+  }, []);
   return (
     <section
       className="hero-section"
@@ -605,7 +620,7 @@ function Hero() {
             }}
           >
             Be Used · <p className="inline text-[#4596EC]">Paid &amp; Proud</p>{" "}
-            — France, mai 2026
+            — France, {heroPeriod}
           </div>
         </div>
 

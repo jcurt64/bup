@@ -163,6 +163,10 @@ function Navbar({ go, onDark }) {
 }
 
 function Hero({ go }) {
+  // Mois + année courants en français (« mai 2026 »). Prototype rendu
+  // uniquement côté navigateur (iframe) → calcul inline sans risque
+  // d'hydration mismatch.
+  const heroPeriod = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date());
   return (
     <section style={{ background: '#0F1629', color: 'var(--paper)', padding: '96px 32px 120px', position: 'relative', overflow: 'hidden' }}>
       {/* Grid pattern */}
@@ -195,7 +199,7 @@ function Hero({ go }) {
             </span>
           </div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '0.18em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>
-            Be Used · Paid &amp; Proud — France, mai 2026
+            Be Used · Paid &amp; Proud — France, {heroPeriod}
           </div>
         </div>
 
