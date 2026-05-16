@@ -2200,6 +2200,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [selectedObj, setSelectedObj] = useState(null);
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
+  // Message transitoire affiché quand le pro tente de décocher le
+  // palier 1 (obligatoire — identification = socle de toute mise en
+  // relation). Auto-effacé après 4 s.
+  const [tier1Notice, setTier1Notice] = useState(false);
+  useEffect(() => {
+    if (!tier1Notice) return;
+    const t = setTimeout(() => setTier1Notice(false), 4000);
+    return () => clearTimeout(t);
+  }, [tier1Notice]);
   const [geo, setGeo] = useState('ville');
   // Cible géo précise (ville/dept/région choisie via l'autocomplete
   // geo.api.gouv.fr). Reset à null quand on bascule `geo` parce que la
@@ -2254,6 +2263,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setSelectedTiers(prev => {
       const next = new Set();
       prev.forEach(tid => { if (allowedTiers.includes(tid)) next.add(tid); });
+      // Le palier 1 (Identification) est TOUJOURS requis : sans lui,
+      // impossible d'identifier le prospect ni d'établir une mise en
+      // relation. Il est donc forcé dans la sélection quoi qu'il arrive
+      // (il est aussi toujours dans allowedTiers — toutes les finalités
+      // l'autorisent et planTierCap ≥ 3).
+      if (allowedTiers.includes(1)) next.add(1);
       if (next.size === 0 && allowedTiers.length > 0) next.add(allowedTiers[0]);
       return next;
     });
@@ -2293,7 +2308,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     else next.add(sid);
     return next;
   });
-  const toggleTier = (tid) => setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+  const toggleTier = (tid) => {
+    // Palier 1 verrouillé : on n'autorise jamais sa désélection. Si le
+    // pro clique dessus pour le décocher, on affiche le message
+    // d'explication au lieu de le retirer.
+    if (tid === 1) {
+      setTier1Notice(true);
+      return;
+    }
+    setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+  };
   // "Tous" agit comme un raccourci "tout cocher" — pas de pré-sélection
   // au démarrage : toutes les pills sont vides (y compris "Tous"). Cliquer
   // "Tous" coche les 6 tranches d'un coup ; re-cliquer dessus tout décoche.
@@ -2798,7 +2822,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                       </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>Palier {t.id} — {t.name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        Palier {t.id} — {t.name}
+                        {t.id === 1 && (
+                          <span className="mono caps" style={{
+                            fontSize: 9, fontWeight: 700, letterSpacing: '.08em',
+                            padding: '2px 7px', borderRadius: 999,
+                            background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+                            color: 'var(--accent)',
+                          }}>Requis</span>
+                        )}
+                      </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{t.sub}</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -2819,6 +2853,25 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 );
               })}
             </div>
+
+            {/* Message d'explication quand on tente de décocher le
+                palier 1 (obligatoire). Transitoire (4 s) — rôle alert. */}
+            {tier1Notice && (
+              <div role="alert" style={{
+                marginTop: 12, padding: '10px 14px', borderRadius: 10,
+                background: '#fef3c7', border: '1px solid #fcd34d',
+                color: '#92400e', fontSize: 12.5, lineHeight: 1.5,
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+              }}>
+                <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+                <span>
+                  Le <strong>palier 1 — Identification</strong> est nécessaire à
+                  l'identification du prospect et à toute entrée en relation. Il
+                  ne peut pas être décoché ; les autres paliers s'ajoutent
+                  par-dessus de façon cumulative.
+                </span>
+              </div>
+            )}
 
             {/* Allowed-tier summary */}
             <div className="row center" style={{
