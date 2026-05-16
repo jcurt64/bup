@@ -4158,6 +4158,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   // quand le pro clique le bouton "email" pour un prospect qui n'a pas
   // encore atteint son quota.
   const [emailCompose, setEmailCompose] = React.useState(null); // row | null
+  // Fiche détaillée d'un prospect (catégories payées dans la campagne).
+  const [detailsFor, setDetailsFor] = React.useState(null); // row | null
   const [collapsed, setCollapsed] = React.useState(new Set()); // Set<campaignId>
   const [selected, setSelected] = React.useState(new Set()); // Set<relationId>
   const [groupSending, setGroupSending] = React.useState(false);
@@ -4561,7 +4563,17 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                             })()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <ContactActionButtons row={r} onIntent={(intent) => {
+                            <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setDetailsFor(r)}
+                                title="Voir les catégories de données payées dans la campagne"
+                                style={{ whiteSpace: 'nowrap', fontSize: 12 }}
+                              >
+                                <Icon name="copy" size={12}/> Voir détails
+                              </button>
+                              <ContactActionButtons row={r} onIntent={(intent) => {
                               // L'email passe par la modale de composition
                               // intégrée à BUUPP (envoi serveur, quota 1/campagne).
                               // Les autres canaux ouvrent toujours le client externe
@@ -4584,6 +4596,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               }
                               setReveal({ relationId: r.relationId, intent, name: r.name });
                             }}/>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -4603,6 +4616,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           </div>
         </div>
       </div>
+
+      {detailsFor && (
+        <ProspectDetailsModal
+          row={detailsFor}
+          onClose={() => setDetailsFor(null)}
+        />
+      )}
 
       {reveal && (
         <RevealContactModal
@@ -4891,6 +4911,169 @@ function ActionInfoModal({ info, onClose }) {
   );
 
   // ReactDOM.createPortal n'est dispo que côté navigateur. SSR-safe.
+  if (typeof document === 'undefined') return modalNode;
+  return ReactDOM.createPortal(modalNode, document.body);
+}
+
+/* Fiche détaillée d'un prospect : toutes les catégories de données
+   payées par le pro dans la campagne (localisation, style de vie,
+   pro, patrimoine…). Récupérées via GET /api/pro/contacts/<id>/details
+   — l'e-mail reste l'alias watermarqué, jamais le vrai.
+   Portail vers <body> (échappe au conteneur scrollable du tableau) +
+   pattern scroll-safe (overflow auto, align flex-start, margin auto)
+   pour rester lisible sur mobile / petit écran. */
+function ProspectDetailsModal({ row, onClose }) {
+  const [status, setStatus] = React.useState('loading'); // loading | ok | error
+  const [tiers, setTiers] = React.useState([]);
+
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setStatus('loading');
+    fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/details`, { cache: 'no-store' })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((j) => {
+        if (cancelled) return;
+        setTiers(Array.isArray(j?.tiers) ? j.tiers : []);
+        setStatus('ok');
+      })
+      .catch(() => { if (!cancelled) setStatus('error'); });
+    return () => { cancelled = true; };
+  }, [row.relationId]);
+
+  const modalNode = (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        overflowY: 'auto', zIndex: 1000, padding: '24px 16px 48px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="prospect-details-title"
+        style={{ width: '100%', maxWidth: 520, padding: 24, margin: 'auto 0' }}
+      >
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 6, gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3
+              id="prospect-details-title"
+              className="serif"
+              style={{ fontSize: 18, lineHeight: 1.3, margin: 0, color: 'var(--ink)', wordBreak: 'break-word' }}
+            >
+              Fiche de {row.name}
+            </h3>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              Catégories payées dans « {row.campaign} »
+            </div>
+          </div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" style={{ flexShrink: 0 }}>
+            <Icon name="close" size={12}/>
+          </button>
+        </div>
+
+        {status === 'loading' && (
+          <div className="muted" style={{ fontSize: 13, padding: '24px 0', textAlign: 'center' }}>
+            Chargement des informations…
+          </div>
+        )}
+        {status === 'error' && (
+          <div role="alert" style={{
+            marginTop: 14, padding: '10px 14px', borderRadius: 10,
+            background: '#fef2f2', border: '1px solid #fca5a5',
+            color: '#991b1b', fontSize: 12.5, lineHeight: 1.5,
+          }}>
+            Impossible de charger les détails de ce prospect pour le moment.
+            Réessayez dans un instant.
+          </div>
+        )}
+        {status === 'ok' && tiers.length === 0 && (
+          <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
+            Aucune catégorie de données disponible pour cette campagne.
+          </div>
+        )}
+        {status === 'ok' && tiers.length > 0 && (
+          <div className="col gap-3" style={{ marginTop: 14 }}>
+            {tiers.map((t) => (
+              <div key={t.key} style={{
+                border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden',
+              }}>
+                <div style={{
+                  padding: '10px 14px', background: 'var(--ivory-2)',
+                  borderBottom: '1px solid var(--line-2)',
+                  fontSize: 13, fontWeight: 600, color: 'var(--ink)',
+                }}>
+                  {t.label}
+                </div>
+                <div>
+                  {(t.items || []).map((it, i) => (
+                    <div
+                      key={i}
+                      className="row between"
+                      style={{
+                        padding: '10px 14px', gap: 12, alignItems: 'flex-start',
+                        borderBottom: i < t.items.length - 1 ? '1px solid var(--line)' : 'none',
+                      }}
+                    >
+                      <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>{it.label}</span>
+                      <span style={{
+                        fontSize: 13, fontWeight: 500, textAlign: 'right',
+                        color: it.value ? 'var(--ink)' : 'var(--ink-4)',
+                        fontStyle: it.value ? 'normal' : 'italic',
+                        wordBreak: 'break-word', minWidth: 0,
+                      }}>
+                        {it.value || '— non renseigné —'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="row" style={{
+              gap: 8, padding: '10px 12px', borderRadius: 8,
+              background: 'color-mix(in oklab, var(--ink) 4%, var(--paper))',
+              border: '1px solid var(--line)', fontSize: 11.5,
+              color: 'var(--ink-3)', lineHeight: 1.5, alignItems: 'flex-start',
+            }}>
+              <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
+              <span>
+                L'e-mail est un alias sécurisé watermarqué : tout message y est
+                routé vers le prospect, et toute fuite reste imputable. Accès
+                journalisé conformément à notre politique RGPD.
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
+          <button
+            onClick={onClose}
+            className="btn"
+            style={{
+              background: 'var(--ink)', color: 'var(--paper)',
+              padding: '10px 18px', borderRadius: 8, fontWeight: 500,
+              fontSize: 14, border: 0, cursor: 'pointer', minWidth: 120,
+            }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (typeof document === 'undefined') return modalNode;
   return ReactDOM.createPortal(modalNode, document.body);
 }
