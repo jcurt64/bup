@@ -1837,39 +1837,10 @@
     </style>
   </head>
   <body>
-    <!-- Popup palier cascade -->
-    <div class="tier-popup-overlay" id="tier-popup-overlay">
-      <div
-        class="tier-popup"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="popup-title"
-      >
-        <div class="tier-popup-icon">🔗</div>
-        <div class="tier-popup-title" id="popup-title">
-          Les paliers sont inclusifs
-        </div>
-        <div class="tier-popup-body" id="popup-body">
-          Pour partager vos données de
-          <strong id="popup-tier-name">localisation</strong>, les données du
-          palier précédent sont automatiquement incluses. Cela permet aux
-          professionnels de mieux vous cibler et d'augmenter votre rémunération.
-        </div>
-        <div class="tier-popup-chain" id="popup-chain"></div>
-        <div class="tier-popup-actions">
-          <button class="tier-popup-cancel" onclick="closePopup()">
-            Annuler
-          </button>
-          <button
-            class="tier-popup-ok"
-            id="popup-confirm-btn"
-            onclick="confirmTier()"
-          >
-            Confirmer et activer
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- (Popup « paliers inclusifs » retiré : la sélection des paliers
+         est désormais indépendante, alignée sur l'étape de lancement
+         de campagne. Le palier 1 est obligatoire, les autres se
+         cumulent un par un sans cascade.) -->
 
     <!-- Popup avertissement inscription -->
     <div class="tier-popup-overlay" id="signup-warning-overlay">
@@ -2722,6 +2693,34 @@
             </div>
           </div>
 
+          <!-- Note palier 1 obligatoire (parité avec l'étape de lancement
+               de campagne : identification = socle, non décochable) -->
+          <div
+            id="tier1-note"
+            role="alert"
+            style="
+              display: none;
+              margin-top: 12px;
+              padding: 10px 14px;
+              border-radius: 10px;
+              background: #fef3c7;
+              border: 1px solid #fcd34d;
+              color: #92400e;
+              font-size: 12.5px;
+              line-height: 1.5;
+              gap: 8px;
+              align-items: flex-start;
+            "
+          >
+            <span aria-hidden="true">ℹ︎</span>
+            <span>
+              Le <strong>palier 1 — Identification</strong> est nécessaire à
+              l'identification du prospect et à toute mise en relation. Il
+              reste toujours actif ; les autres paliers s'ajoutent
+              indépendamment, comme à l'étape de lancement d'une campagne.
+            </span>
+          </div>
+
           <!-- Breakdown -->
           <div class="calc-breakdown">
             <div class="cb-title">Détail du calcul</div>
@@ -3497,9 +3496,6 @@
         { tier: 5, gain: 7.5,  min: 5.0, max: 10.0 },
       ];
 
-      let selectedTierLevel = 0;
-      let pendingTierLevel = 0;
-
       const TIER_NAMES = [
         "",
         "Identification",
@@ -3508,78 +3504,62 @@
         "Données professionnelles",
         "Patrimoine & projets",
       ];
-      const TIER_ICONS = ["", "◎", "◉", "●", "⬟", "★"];
+
+      /* Modèle ALIGNÉ sur l'étape de lancement de campagne (Pro.jsx) :
+         - le palier 1 (Identification) est sélectionné par défaut et
+           OBLIGATOIRE (non décochable — socle de toute mise en relation) ;
+         - les paliers 2-5 se sélectionnent INDÉPENDAMMENT (toggle), pas
+           en cascade « 1 à n » ;
+         - le revenu estimé = SOMME des `gain` (= milieu de fourchette)
+           des paliers sélectionnés × sollicitations. C'est exactement la
+           formule `baseCpc` du backend /api/pro/campaigns
+           (Σ (min+max)/2 des paliers requis), donc l'estimation
+           waitlist ne ment plus sur ce que le pro paiera réellement. */
+      activeTiers = new Set([1]);
+
+      let tier1NoteTimer = null;
+      function showTier1Note() {
+        const el = document.getElementById("tier1-note");
+        if (!el) return;
+        el.style.display = "flex";
+        if (tier1NoteTimer) clearTimeout(tier1NoteTimer);
+        tier1NoteTimer = setTimeout(() => {
+          el.style.display = "none";
+        }, 4000);
+      }
 
       function selectTier(n) {
-        // Reclique → désélectionner tout directement
-        if (selectedTierLevel === n) {
-          selectedTierLevel = 0;
-          refreshToggleUI();
-          updateCalc();
-          return;
-        }
-        // Palier 1 → pas de cascade, pas de popup
+        // Palier 1 verrouillé : toujours actif, jamais décochable.
         if (n === 1) {
-          selectedTierLevel = 1;
-          refreshToggleUI();
-          updateCalc();
+          showTier1Note();
           return;
         }
-        // Paliers 2-5 → montrer le popup explicatif
-        pendingTierLevel = n;
-        showPopup(n);
-      }
-
-      function showPopup(n) {
-        // Corps du popup
-        document.getElementById("popup-tier-name").textContent = TIER_NAMES[n];
-        document.getElementById("popup-confirm-btn").textContent =
-          "Activer les paliers 1 à " + n;
-
-        // Chaîne des paliers inclus
-        const chain = document.getElementById("popup-chain");
-        chain.innerHTML = "";
-        for (let i = 1; i <= n; i++) {
-          const span = document.createElement("span");
-          span.className = "tier-popup-chain-item";
-          span.textContent =
-            TIER_ICONS[i] + " Palier " + i + " — " + TIER_NAMES[i];
-          chain.appendChild(span);
-          if (i < n) {
-            const arr = document.createElement("span");
-            arr.className = "tier-popup-chain-arrow";
-            arr.textContent = "→";
-            chain.appendChild(arr);
-          }
-        }
-
-        document.getElementById("tier-popup-overlay").classList.add("show");
-      }
-
-      function confirmTier() {
-        selectedTierLevel = pendingTierLevel;
-        closePopup();
+        // Paliers 2-5 : toggle indépendant (cumul un par un).
+        if (activeTiers.has(n)) activeTiers.delete(n);
+        else activeTiers.add(n);
         refreshToggleUI();
         updateCalc();
       }
 
-      function closePopup() {
-        document.getElementById("tier-popup-overlay").classList.remove("show");
-      }
-
-      // Fermer en cliquant sur l'overlay
+      // Fermeture du popup historique conservée (overlay encore dans le
+      // DOM) — null-safe ; on en profite pour initialiser le calc au
+      // chargement avec le palier 1 déjà actif.
       document.addEventListener("DOMContentLoaded", () => {
-        document
-          .getElementById("tier-popup-overlay")
-          .addEventListener("click", function (e) {
-            if (e.target === this) closePopup();
+        const ov = document.getElementById("tier-popup-overlay");
+        if (ov) {
+          ov.addEventListener("click", function (e) {
+            if (e.target === this)
+              this.classList.remove("show");
           });
+        }
+        refreshToggleUI();
+        updateCalc();
       });
 
       function refreshToggleUI() {
         document.querySelectorAll(".calc-toggle").forEach((el) => {
           const t = parseInt(el.dataset.tier);
-          el.classList.toggle("active", t <= selectedTierLevel);
+          el.classList.toggle("active", activeTiers.has(t));
         });
       }
 
@@ -3589,23 +3569,28 @@
         document.getElementById("sv-contacts").textContent = contacts;
         document.getElementById("sv-filleuls").textContent = filleuls;
 
-        // Le gain par sollicitation = uniquement la valeur du palier sélectionné (non cumulée)
-        const palier = PALIERS.find((p) => p.tier === selectedTierLevel);
-        const cpc = palier ? palier.gain : 0;
-        const minCpc = palier ? palier.min : 0;
-        const maxCpc = palier ? palier.max : 0;
-        // Palier 1 : prix fixe (1,00 €) — min et max sont identiques en
-        // base. On affiche un montant unique au lieu d'une fourchette
-        // « 1,00 € – 1,00 € » qui n'a pas de sens visuel.
-        const isFixed = palier && palier.min === palier.max;
+        // Somme des paliers sélectionnés (indépendants) — identique à
+        // baseCpc côté /api/pro/campaigns : Σ (min+max)/2.
+        let cpc = 0,
+          minCpc = 0,
+          maxCpc = 0,
+          count = 0;
+        PALIERS.forEach((p) => {
+          if (activeTiers.has(p.tier)) {
+            cpc += p.gain;
+            minCpc += p.min;
+            maxCpc += p.max;
+            count += 1;
+          }
+        });
 
         const total = cpc * contacts;
 
         const totalEl = document.getElementById("calc-total");
         const subEl = document.getElementById("calc-total-sub");
 
-        // Helpers d'affichage : range "X – Y" ou prix unique "X" selon
-        // que min === max.
+        // Range "X – Y" ou montant unique si min === max (cas d'un seul
+        // palier 1 sélectionné → 1,00 € pile).
         const fmtRange = (a, b) => (a === b ? fmt(a) : fmt(a) + " – " + fmt(b));
 
         if (total > 0) {
@@ -3614,11 +3599,11 @@
           totalEl.classList.add("rising");
           subEl.textContent =
             contacts +
-            " sollicitation(s) × palier " +
-            selectedTierLevel +
-            " (" +
-            (isFixed ? fmt(minCpc) : fmt(minCpc) + " – " + fmt(maxCpc)) +
-            ")";
+            " sollicitation(s) × " +
+            count +
+            " palier(s) (" +
+            fmtRange(minCpc, maxCpc) +
+            " / contact)";
         } else {
           totalEl.textContent = "0€";
           totalEl.classList.add("zero");
