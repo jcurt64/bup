@@ -605,7 +605,7 @@ function Hero() {
             }}
           >
             Be Used · <p className="inline text-[#4596EC]">Paid &amp; Proud</p>{" "}
-            — France, avril 2026
+            — France, mai 2026
           </div>
         </div>
 

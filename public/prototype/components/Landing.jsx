@@ -195,7 +195,7 @@ function Hero({ go }) {
             </span>
           </div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '0.18em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>
-            Be Used · Paid &amp; Proud — France, avril 2026
+            Be Used · Paid &amp; Proud — France, mai 2026
           </div>
         </div>
 
