@@ -444,12 +444,21 @@ function Navbar() {
                 Se déconnecter <Icon name="arrow" size={14} />
               </button>
             ) : (
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={() => router.push("/inscription")}
-              >
-                Démarrer <Icon name="arrow" size={14} />
-              </button>
+              <>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => router.push("/inscription/prospect")}
+                >
+                  S&apos;inscrire en tant que prospect
+                </button>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={() => router.push("/inscription/pro")}
+                >
+                  S&apos;inscrire en tant que pro{" "}
+                  <Icon name="arrow" size={14} />
+                </button>
+              </>
             )}
           </div>
 
@@ -498,13 +507,23 @@ function Navbar() {
                 Se déconnecter <Icon name="arrow" size={14} />
               </button>
             ) : (
-              <button
-                className="btn btn-lg btn-primary"
-                style={{ justifyContent: "center" }}
-                onClick={() => go("/inscription")}
-              >
-                Démarrer <Icon name="arrow" size={14} />
-              </button>
+              <>
+                <button
+                  className="btn btn-lg btn-ghost"
+                  style={{ justifyContent: "center" }}
+                  onClick={() => go("/inscription/prospect")}
+                >
+                  S&apos;inscrire en tant que prospect
+                </button>
+                <button
+                  className="btn btn-lg btn-primary"
+                  style={{ justifyContent: "center" }}
+                  onClick={() => go("/inscription/pro")}
+                >
+                  S&apos;inscrire en tant que pro{" "}
+                  <Icon name="arrow" size={14} />
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -3287,12 +3306,12 @@ function Pricing() {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
   // Routage conditionnel des CTA tarifaires :
-  //   - utilisateur anonyme → `/inscription` pour créer un compte pro
+  //   - utilisateur anonyme → `/inscription/pro` pour créer un compte pro
   //   - utilisateur connecté → `guard("pro", "/pro")` :
   //       • si pro → /pro
   //       • si prospect → modal de conflit (déconnexion requise)
   // Le check anonymous se fait via /api/me/role pour éviter de pousser
-  // un prospect déjà connecté vers /inscription par erreur.
+  // un prospect déjà connecté vers /inscription/pro par erreur.
   const goToProOrSignup = async () => {
     try {
       const r = await fetch("/api/me/role", { cache: "no-store" });
