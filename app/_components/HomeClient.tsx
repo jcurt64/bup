@@ -722,14 +722,22 @@ function Hero() {
             </button>
             <button
               className="btn btn-lg btn-block-mobile"
-              onClick={() => guard("prospect", "/prospect")}
+              onClick={() =>
+                guard(
+                  "prospect",
+                  "/prospect",
+                  "/connexion?intent=prospect&mode=signin",
+                )
+              }
               style={{ background: "var(--paper)", color: "var(--ink)" }}
             >
               Je suis prospect <Icon name="arrow" size={16} />
             </button>
             <button
               className="btn btn-lg btn-ghost btn-block-mobile"
-              onClick={() => guard("pro", "/pro")}
+              onClick={() =>
+                guard("pro", "/pro", "/connexion?intent=pro&mode=signin")
+              }
               style={{
                 color: "var(--paper)",
                 borderColor: "rgba(255,255,255,.28)",
