@@ -11,6 +11,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Role } from "@/lib/sync/ensureRole";
 import { isAdminEmail } from "@/lib/admin/access";
+import { safeRedirect } from "@/lib/auth/safeRedirect";
+import {
+  resolvePostAuth,
+  buildConflictUrl,
+  parseRole,
+  parseMode,
+} from "@/lib/auth/postAuth";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -125,15 +132,78 @@ export default clerkMiddleware(async (auth, request) => {
     return res;
   }
 
-  // Étape 2 — quand /auth/post-login va s'exécuter, on programme la
-  // suppression du cookie SUR LA RÉPONSE (pas la requête : la page
-  // doit encore pouvoir le lire pour décider du redirect). Ça évite
-  // qu'un intent stale d'un flow précédent soit réutilisé par
-  // erreur sur une connexion ultérieure via /connexion.
+  // Étape 2 — Aiguillage post-authentification AU NIVEAU PROXY.
+  //
+  // /auth/post-login est une RSC sans UI : elle ne fait que redirect().
+  // Atteinte via la navigation client de Clerk (soft nav), Next la rend
+  // en CONTEXTE DE STREAMING où redirect() n'émet PAS un 307 HTTP mais
+  // une instruction de redirection client ; la page streame un corps
+  // vide → l'utilisateur reste sur une page blanche (seul le layout +
+  // RouteNav visibles) tant qu'il ne rafraîchit pas (le refresh repasse
+  // en chargement de document → vrai 307 que le navigateur suit).
+  // Cf. node_modules/next/dist/.../redirect.md : « If you'd like to
+  // redirect before the render process, use Proxy ». On résout donc
+  // l'aiguillage ICI et on renvoie un vrai NextResponse.redirect (307,
+  // avant render). La page page-login subsiste comme filet de sécurité
+  // mais n'est plus atteinte dans le parcours normal.
   if (request.nextUrl.pathname === "/auth/post-login") {
-    const res = NextResponse.next();
-    res.cookies.set(INTENT_COOKIE, "", { path: "/", maxAge: 0 });
-    return res;
+    const sp = request.nextUrl.searchParams;
+    const { userId } = await auth();
+
+    // Cookie d'intent consommé ici → on le purge sur la réponse de
+    // redirection (évite qu'un intent stale serve à une connexion
+    // ultérieure).
+    const clearIntent = (res: NextResponse) => {
+      res.cookies.set(INTENT_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
+    };
+
+    if (!userId) {
+      return clearIntent(
+        NextResponse.redirect(new URL("/connexion", request.url)),
+      );
+    }
+
+    const explicitTarget = safeRedirect(sp.get("redirect_url") ?? undefined);
+    const mode = parseMode(sp.get("mode") ?? undefined);
+    const intent =
+      parseRole(sp.get("intent") ?? undefined) ??
+      parseRole(request.cookies.get(INTENT_COOKIE)?.value);
+
+    const role = await getRoleFromDB(userId);
+
+    // Pas d'intent exploitable (hors parcours bouton — ne devrait pas
+    // arriver via l'UI) : on route au mieux selon le rôle DB.
+    if (!intent) {
+      const dest =
+        role === "pro"
+          ? "/pro"
+          : role === "prospect"
+            ? "/prospect"
+            : "/connexion";
+      return clearIntent(
+        NextResponse.redirect(new URL(dest, request.url)),
+      );
+    }
+
+    // Décision intent-authoritative (logique pure, déjà testée).
+    // `go` et `ensure` → espace de l'intent (la garde de page
+    // /prospect|/pro appelle ensureRole et matérialise la row si
+    // besoin). `conflict` → fenêtre Clerk de l'intent + ?conflict
+    // (jamais l'espace opposé).
+    const decision = resolvePostAuth({ intent, role });
+    const dest =
+      decision.kind === "conflict"
+        ? buildConflictUrl({
+            intent,
+            mode,
+            existingRole: decision.existingRole,
+          })
+        : (explicitTarget ?? `/${intent}`);
+
+    return clearIntent(
+      NextResponse.redirect(new URL(dest, request.url)),
+    );
   }
 
   if (isPublicRoute(request)) return;

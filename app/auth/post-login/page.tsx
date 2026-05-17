@@ -1,29 +1,25 @@
 /**
- * Aiguillage post-authentification : lit le rôle DB et redirige.
+ * Aiguillage post-authentification — INTENT-AUTHORITATIVE.
  *
- * Reçoit éventuellement `?intent=prospect|pro` quand l'utilisateur
- * arrive depuis /inscription/{prospect,pro}. Si l'intent contredit
- * son rôle DB réel (typiquement : email déjà utilisé par un compte
- * pro et Clerk auto-convertit le signup en signin), on l'envoie sur
- * la home avec ?role_conflict=… pour que le toast explique la
- * situation. Sinon on route normalement.
- *
- * On garde ce point de passage minimal :
- *   - 1 appel `auth()`
- *   - 1 appel `getCurrentRole()` (2 SELECT parallèles avec maybeSingle)
- *   - redirect()
- *
- * Pas d'appel Clerk Admin API ici — la resync metadata est déjà faite
- * par `ensureRole()` au premier hit de /prospect ou /pro, et chaque
- * appel Clerk Admin ajoutait un point de défaillance qui pouvait
- * laisser la page blanche au lieu de rediriger.
+ * L'intention du bouton (query `?intent=` puis fallback cookie
+ * `bupp_auth_intent`) fait foi. On ne route JAMAIS vers l'espace
+ * opposé : si le compte existant contredit l'intent, on renvoie sur
+ * la fenêtre Clerk correspondante avec `?conflict=<roleExistant>`
+ * pour afficher la bannière.
  */
-
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/clerk/server";
+import { auth, currentUser } from "@/lib/clerk/server";
 import { getCurrentRole } from "@/lib/sync/currentRole";
+import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
 import type { Role } from "@/lib/sync/ensureRole";
+import { safeRedirect } from "@/lib/auth/safeRedirect";
+import {
+  resolvePostAuth,
+  buildConflictUrl,
+  parseRole,
+  parseMode,
+} from "@/lib/auth/postAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +28,11 @@ export const metadata = {
   title: "BUUPP — Redirection",
 };
 
-type SearchParams = Promise<{ intent?: string | string[] }>;
-
-function parseIntent(raw: string | string[] | undefined): Role | null {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  if (v === "prospect" || v === "pro") return v;
-  return null;
-}
+type SearchParams = Promise<{
+  intent?: string | string[];
+  mode?: string | string[];
+  redirect_url?: string | string[];
+}>;
 
 export default async function PostLoginPage(props: {
   searchParams: SearchParams;
@@ -47,41 +41,61 @@ export default async function PostLoginPage(props: {
   if (!userId) redirect("/connexion");
 
   const sp = await props.searchParams;
-  // Source de l'intent : d'abord la query string (cas normal — page-level
-  // forceRedirectUrl). Fallback sur le cookie posé par le middleware
-  // quand l'utilisateur est passé par /inscription/{prospect,pro} —
-  // ce cookie survit aux redirections Clerk qui peuvent perdre la
-  // query (notamment quand un signup est auto-converti en signin
-  // pour cause d'email déjà pris).
-  const intent =
-    parseIntent(sp.intent) ??
-    parseIntent((await cookies()).get("bupp_auth_intent")?.value);
+  const explicitTarget = safeRedirect(sp.redirect_url);
+  const mode = parseMode(sp.mode);
+  const intent: Role | null =
+    parseRole(sp.intent) ??
+    parseRole((await cookies()).get("bupp_auth_intent")?.value);
+
+  // Pas d'intent exploitable (hors parcours bouton — ne devrait pas
+  // arriver via l'UI). On lit le rôle DB et on route au mieux.
+  if (!intent) {
+    let fallbackRole: Role | null = null;
+    try {
+      fallbackRole = await getCurrentRole(userId);
+    } catch (err) {
+      console.error("[/auth/post-login] getCurrentRole failed", err);
+    }
+    if (fallbackRole === "pro") redirect("/pro");
+    if (fallbackRole === "prospect") redirect("/prospect");
+    redirect("/connexion");
+  }
 
   let role: Role | null = null;
   try {
     role = await getCurrentRole(userId);
   } catch (err) {
-    // En cas d'erreur DB, on n'écrase pas la session : on envoie le user
-    // sur la page d'aiguillage pour qu'il rechoisisse explicitement.
     console.error("[/auth/post-login] getCurrentRole failed", err);
-    redirect("/inscription");
+    redirect(`/connexion?intent=${intent}&mode=${mode}`);
   }
 
-  // Mismatch intent ↔ rôle DB : l'utilisateur a tenté de s'inscrire
-  // dans un espace qui ne correspond pas à son compte existant. On
-  // l'envoie sur la home avec le toast — pas sur /prospect ou /pro
-  // qui aurait pu rester blanc le temps de leur garde page-level.
-  if (intent && role && intent !== role) {
-    redirect(`/?role_conflict=${role}`);
+  const decision = resolvePostAuth({ intent, role });
+
+  if (decision.kind === "conflict") {
+    redirect(
+      buildConflictUrl({ intent, mode, existingRole: decision.existingRole }),
+    );
   }
 
-  if (role === "pro") redirect("/pro");
-  if (role === "prospect") redirect("/prospect");
+  if (decision.kind === "ensure") {
+    const user = await currentUser();
+    const primary = user?.emailAddresses?.find(
+      (e) => e.id === user.primaryEmailAddressId,
+    );
+    try {
+      await ensureRole(userId, primary?.emailAddress ?? null, intent, {
+        prenom: user?.firstName ?? null,
+        nom: user?.lastName ?? null,
+      });
+    } catch (err) {
+      if (err instanceof RoleConflictError) {
+        redirect(
+          buildConflictUrl({ intent, mode, existingRole: err.existingRole }),
+        );
+      }
+      throw err;
+    }
+  }
 
-  // User Clerk valide mais aucune row DB encore (signup juste avant
-  // que /prospect ou /pro ait pu appeler ensureRole). On utilise
-  // l'intent si disponible, sinon on l'envoie sur l'aiguillage.
-  if (intent === "prospect") redirect("/prospect");
-  if (intent === "pro") redirect("/pro");
-  redirect("/inscription");
+  redirect(explicitTarget ?? `/${intent}`);
 }

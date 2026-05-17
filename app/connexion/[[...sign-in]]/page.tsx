@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { SignIn } from "@clerk/nextjs";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { auth } from "@/lib/clerk/server";
+import { parseRole } from "@/lib/auth/postAuth";
+import AuthConflictBanner from "@/app/_components/AuthConflictBanner";
+import AuthShell from "@/app/_components/AuthShell";
 
 export const metadata = {
   title: "Connexion",
@@ -12,13 +15,8 @@ export const metadata = {
 type SearchParams = Promise<{
   redirect_url?: string | string[];
   intent?: string | string[];
+  conflict?: string | string[];
 }>;
-
-function parseIntent(raw: string | string[] | undefined): "prospect" | "pro" | null {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  if (v === "prospect" || v === "pro") return v;
-  return null;
-}
 
 export default async function ConnexionPage(props: {
   searchParams: SearchParams;
@@ -29,30 +27,35 @@ export default async function ConnexionPage(props: {
   // avec sa propre logique qui peut perdre l'intent.
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
-  const intent = parseIntent(sp.intent);
+  const intent = parseRole(sp.intent);
+  const conflict = parseRole(sp.conflict);
   const postLoginUrl = intent
-    ? `/auth/post-login?intent=${intent}`
-    : "/auth/post-login";
+    ? `/auth/post-login?intent=${intent}&mode=signin`
+    : "/auth/post-login?mode=signin";
 
   const { userId } = await auth();
-  if (userId) {
+  // Conflit présent : l'utilisateur est déjà authentifié sur le
+  // mauvais rôle → on NE redirige PAS vers post-login (boucle) et on
+  // affiche la bannière à la place du widget.
+  if (userId && !conflict) {
     redirect(target ?? postLoginUrl);
   }
+  if (conflict) {
+    return (
+      <AuthShell>
+        <AuthConflictBanner
+          existingRole={conflict}
+          intent={intent ?? (conflict === "pro" ? "prospect" : "pro")}
+        />
+      </AuthShell>
+    );
+  }
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "32px 20px 96px",
-        background: "var(--ivory)",
-      }}
-    >
+    <AuthShell>
       <SignIn
         path="/connexion"
         routing="path"
-        signUpUrl="/inscription"
+        signUpUrl={`/inscription/${intent ?? "prospect"}`}
         // forceRedirectUrl (pas fallback) pour dominer les env vars
         // qui peuvent prendre le pas dans certaines transitions Clerk
         // internes. Cible : /auth/post-login → aiguillage par rôle DB.
@@ -95,6 +98,6 @@ export default async function ConnexionPage(props: {
           },
         }}
       />
-    </main>
+    </AuthShell>
   );
 }
