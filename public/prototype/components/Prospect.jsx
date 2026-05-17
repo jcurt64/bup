@@ -1685,9 +1685,19 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 });
 
 function ProspectHeader() {
-  const { profile, isFounder } = useProspect() || {};
+  const {
+    profile, isFounder,
+    pendingRelations, pendingRelationsCount, relationsHydrated,
+  } = useProspect() || {};
   const prenom = profile?.identity?.prenom || 'Marie';
   const [parrainage, setParrainage] = useState(null);
+  // Tick 60 s : suffit pour rafraîchir le libellé « prochaine échéance »
+  // (précision minute) sans re-render chaque seconde tout l'en-tête.
+  const [nowTs, setNowTs] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const [score, setScore] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [verification, setVerification] = useState(null);
@@ -1724,6 +1734,33 @@ function ProspectHeader() {
     ? '…'
     : _eurFmt.format(Number(wallet.monthGainsEur ?? 0));
 
+  // Sous-titre « mises en relation en attente » — DONNÉES RÉELLES (même
+  // source que l'onglet Mises en relation et que le badge sidebar :
+  // pendingRelationsCount). Remplace l'ancien texte mocké en dur qui
+  // affichait toujours "3 … 14 h 22 min" même quand il n'y avait
+  // aucune demande.
+  const pendingCount = pendingRelationsCount ?? 0;
+  // Prochaine échéance = plus proche `expiresAt` futur parmi les pending.
+  const soonestExpiry = (pendingRelations || []).reduce((min, r) => {
+    if (!r?.expiresAt) return min;
+    const t = new Date(r.expiresAt).getTime();
+    if (Number.isNaN(t) || t <= nowTs) return min;
+    return min == null || t < min ? t : min;
+  }, null);
+  const deadlineLabel = (() => {
+    if (soonestExpiry == null) return null;
+    const ms = soonestExpiry - nowTs;
+    const h = Math.floor(ms / 3_600_000);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+  })();
+  const pendingSubtitle = !relationsHydrated
+    ? 'Chargement de vos sollicitations…'
+    : pendingCount === 0
+      ? 'Aucune mise en relation en attente'
+      : `${pendingCount} mise${pendingCount > 1 ? 's' : ''} en relation en attente`
+        + (deadlineLabel ? ` · prochaine échéance dans ${deadlineLabel}` : '');
+
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
@@ -1756,7 +1793,7 @@ function ProspectHeader() {
             Vos gains du mois : <em>{gainsText}</em>
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-            3 mises en relation en attente · prochaine échéance dans 14 h 22 min
+            {pendingSubtitle}
           </div>
         </div>
         <div className="row center gap-6 prospect-header-pills">

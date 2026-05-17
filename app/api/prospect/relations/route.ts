@@ -136,6 +136,10 @@ export async function GET() {
         reward,
         tier: highestTier(r.campaigns?.targeting ?? null),
         timer: timerString(r.expires_at),
+        // Échéance brute : l'en-tête du dashboard s'en sert pour calculer
+        // la « prochaine échéance » (min sur les pending) sans reparser
+        // la string `timer`.
+        expiresAt: r.expires_at,
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
