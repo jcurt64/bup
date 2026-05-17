@@ -5,6 +5,7 @@ import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { auth } from "@/lib/clerk/server";
 import { parseRole } from "@/lib/auth/postAuth";
 import AuthConflictBanner from "@/app/_components/AuthConflictBanner";
+import AuthShell from "@/app/_components/AuthShell";
 
 export const metadata = {
   title: "Inscription prospect",
@@ -30,31 +31,13 @@ export default async function InscriptionProspectPage(props: {
   }
   if (conflict) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "32px 20px 96px",
-          background: "var(--ivory)",
-        }}
-      >
+      <AuthShell>
         <AuthConflictBanner existingRole={conflict} intent="prospect" />
-      </main>
+      </AuthShell>
     );
   }
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "32px 20px 96px",
-        background: "var(--ivory)",
-      }}
-    >
+    <AuthShell>
       <SignUp
         path="/inscription/prospect"
         routing="path"
@@ -67,6 +50,6 @@ export default async function InscriptionProspectPage(props: {
         forceRedirectUrl={target ?? "/auth/post-login?intent=prospect&mode=signup"}
         appearance={clerkAuthAppearance}
       />
-    </main>
+    </AuthShell>
   );
 }
