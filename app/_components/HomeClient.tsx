@@ -1316,7 +1316,7 @@ function FlashDeal() {
               ? `/?deal=${encodeURIComponent(dealId)}`
               : "/";
             router.push(
-              `/inscription?redirect_url=${encodeURIComponent(redirect)}`,
+              `/inscription/prospect?redirect_url=${encodeURIComponent(redirect)}`,
             );
           }}
           goDonnees={() => guard("prospect", "/prospect?tab=donnees")}
@@ -3307,7 +3307,7 @@ function Pricing() {
         }
       }
     } catch {}
-    router.push("/inscription");
+    router.push("/inscription/pro");
   };
   return (
     <section id="tarifs" className="section">
