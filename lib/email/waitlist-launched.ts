@@ -21,7 +21,7 @@ const BUUPP_SITE_URL =
     ? process.env.NEXT_PUBLIC_APP_URL
     : "https://bup-rouge.vercel.app";
 const BUUPP_LOGO_URL = `${BUUPP_SITE_URL}/logo.png`;
-const SIGNUP_URL = `${BUUPP_SITE_URL}/inscription?from=waitlist-launch`;
+const SIGNUP_URL = `${BUUPP_SITE_URL}/inscription/prospect?from=waitlist-launch`;
 
 export async function sendWaitlistLaunched(
   params: LaunchedParams,
