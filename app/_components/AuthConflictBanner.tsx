@@ -43,7 +43,7 @@ export default function AuthConflictBanner({
 
   return (
     <div
-      role="alert"
+      aria-labelledby="auth-conflict-title"
       style={{
         width: "100%",
         maxWidth: 440,
@@ -68,12 +68,13 @@ export default function AuthConflictBanner({
         Adresse déjà utilisée
       </div>
       <h2
+        id="auth-conflict-title"
         style={{
           fontSize: 21,
           lineHeight: 1.25,
           margin: "0 0 12px",
           fontWeight: 500,
-          fontFamily: "var(--font-fraunces, Georgia, serif)",
+          fontFamily: "var(--serif, Georgia, serif)",
         }}
       >
         Cette adresse e-mail est déjà associée à un compte{" "}
@@ -110,6 +111,7 @@ export default function AuthConflictBanner({
       <button
         type="button"
         disabled={busy}
+        aria-busy={busy}
         onClick={useAnother}
         style={{
           width: "100%",
@@ -119,7 +121,7 @@ export default function AuthConflictBanner({
           padding: "11px 16px",
           borderRadius: 10,
           fontWeight: 500,
-          cursor: busy ? "default" : "pointer",
+          cursor: busy ? "wait" : "pointer",
           opacity: busy ? 0.6 : 1,
         }}
       >
