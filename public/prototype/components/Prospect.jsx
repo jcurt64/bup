@@ -5884,8 +5884,40 @@ function MapThumb({ radius }) {
    - filleuls : inscrits ayant utilisé ce code lors de leur propre
      inscription à la liste d'attente ;
    - cap = 10 (hard limit côté DB via trigger BEFORE INSERT). */
+
+/* Copie robuste : l'UI tourne dans une <iframe> et peut être servie
+   hors contexte sécurisé (ex. dev via IP LAN) où navigator.clipboard
+   est indisponible. On tente l'API Clipboard, puis on retombe sur
+   execCommand('copy') via un <textarea> temporaire. Renvoie un booléen
+   FIABLE pour ne plus afficher « Copié ! » quand rien n'a été copié. */
+async function copyTextRobust(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) { /* on tente le fallback ci-dessous */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok === true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function Parrainage() {
   const [copied, setCopied] = useState(false);
+  const [copyErr, setCopyErr] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -5969,10 +6001,12 @@ function Parrainage() {
               className="btn"
               disabled={loading || !data}
               style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: loading ? 0.6 : 1 }}
-              onClick={() => {
-                navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500);
+              onClick={async () => {
+                const ok = await copyTextRobust(link);
+                if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+                else { setCopyErr(true); setTimeout(() => setCopyErr(false), 2500); }
               }}>
-              <Icon name="copy" size={14}/> {copied ? 'Copié !' : 'Copier'}
+              <Icon name="copy" size={14}/> {copied ? 'Copié !' : copyErr ? 'Échec — copiez à la main' : 'Copier'}
             </button>
             <button className="btn btn-ghost" style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)' }}>
               <Icon name="ext" size={14}/> Partager
