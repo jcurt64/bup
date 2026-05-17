@@ -89,7 +89,7 @@ export default async function ProspectsAdminPage({
         <Table rows={data.topReferrers.map((r) => [r.refCode, fmt.format(r.n)])} />
       </Section>
 
-      <Section title="Liste prospects (50 plus récents)">
+      <Section title="Liste prospects (filtrable — ville, score, période, tri)">
         <ProspectsTable />
       </Section>
     </div>
