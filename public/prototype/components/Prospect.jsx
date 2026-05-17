@@ -16,7 +16,7 @@ const EMPTY_TIER = {
   // `targetingRadiusKm` est stocké en string (cohérence avec les autres
   // champs du tier — rowToUi serialize tout en string). Le slider Prefs
   // fait le parseInt à la lecture.
-  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'false' },
+  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'true' },
   vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
   pro:         { poste: '', statut: '', secteur: '', revenus: '' },
   patrimoine:  { residence: '', epargne: '', projets: '' },
@@ -5299,7 +5299,11 @@ function Prefs() {
   // devient inopérant (grisé) mais reste affiché pour que l'utilisateur
   // retrouve sa préférence en cas de décochage. Persisté côté DB en
   // boolean — la valeur côté UI est sérialisée en string par rowToUi.
-  const nationalOptIn = String(ctx?.profile?.localisation?.nationalOptIn ?? '') === 'true';
+  // Coché par DÉFAUT (opt-out) : seule la valeur explicite 'false'
+  // décoche la case. Une valeur absente / vide / nouvelle row (DEFAULT
+  // DB désormais true) ⇒ considéré coché. Cohérent avec la migration
+  // 20260517120000 (national_opt_in DEFAULT true).
+  const nationalOptIn = String(ctx?.profile?.localisation?.nationalOptIn ?? 'true') !== 'false';
   // Resync local quand le profile arrive de l'API (hydratation async).
   useEffect(() => {
     if (Number.isFinite(persistedRadius) && persistedRadius !== radius) {
@@ -5324,7 +5328,24 @@ function Prefs() {
 
   const zoneLocked = !ville;
 
-  const [tierShare, setTierShare] = useState({1: true, 2: true, 3: true, 4: false, 5: false});
+  // Paliers partageables — désormais branchés sur l'état réel du
+  // backend (prospects.hidden_tiers / removed_tiers via ctx) au lieu
+  // d'un state local décoratif. Par défaut TOUS cochés : un palier est
+  // « partagé » tant que le prospect ne l'a ni masqué ni supprimé —
+  // cohérent avec le matching (blocked = removed ∪ hidden). Décocher =
+  // hide réversible (ctx.suppressTemp), recocher = ctx.restore. Un
+  // palier supprimé définitivement (RGPD) reste décoché + verrouillé
+  // (réactivation = re-saisie dans « Mes données »).
+  const TIER_KEY_BY_NUM = { 1: 'identity', 2: 'localisation', 3: 'vie', 4: 'pro', 5: 'patrimoine' };
+  const tierIsHidden = (n) => !!ctx?.deleted?.[TIER_KEY_BY_NUM[n]];
+  const tierIsRemoved = (n) => !!ctx?.removed?.[TIER_KEY_BY_NUM[n]];
+  const tierShared = (n) => !tierIsHidden(n) && !tierIsRemoved(n);
+  const toggleTierShare = (n) => {
+    const key = TIER_KEY_BY_NUM[n];
+    if (tierIsRemoved(n)) return; // supprimé définitivement → verrouillé ici
+    if (tierShared(n)) ctx?.suppressTemp?.(key);
+    else ctx?.restore?.(key);
+  };
 
   // Source-of-truth des listes : module-level CAMPAIGN_TYPE_LIST / CATEGORY_LIST
   // (utilisé aussi par les toggle handlers du contexte pour le "tout sauf X").
@@ -5511,29 +5532,49 @@ function Prefs() {
         </div>
         <div className="card" style={{ padding: 28 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Cochez uniquement les paliers que vous acceptez de voir transmis après double consentement.</div>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne souhaitez pas voir transmis (réversible — aucune donnée n'est effacée).</div>
           {[
             [1, 'Identification', 'minimum 1,00 €'],
             [2, 'Localisation', '1,00 – 2,00 €'],
             [3, 'Style de vie', '2,00 – 3,50 €'],
             [4, 'Données pro', '3,50 – 5,00 €'],
             [5, 'Patrimoine', '5,00 – 10,00 €'],
-          ].map(([n, name, range]) => (
-            <label key={n} className="row center between" style={{ padding: '12px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
+          ].map(([n, name, range]) => {
+            const shared = tierShared(n);
+            const removed = tierIsRemoved(n);
+            return (
+            <label
+              key={n}
+              className="row center between"
+              style={{
+                padding: '12px 0', borderBottom: '1px solid var(--line)',
+                cursor: removed ? 'not-allowed' : 'pointer',
+                opacity: removed ? 0.55 : 1,
+              }}
+              title={removed ? 'Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données.' : undefined}
+            >
               <div className="row center gap-3">
                 <span style={{
                   width: 16, height: 16, borderRadius: 4,
-                  border: '1.5px solid ' + (tierShare[n] ? 'var(--accent)' : 'var(--line-2)'),
-                  background: tierShare[n] ? 'var(--accent)' : 'var(--paper)',
+                  border: '1.5px solid ' + (shared ? 'var(--accent)' : 'var(--line-2)'),
+                  background: shared ? 'var(--accent)' : 'var(--paper)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>{tierShare[n] && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</span>
+                }}>{shared && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</span>
                 <span className="serif" style={{ fontSize: 17 }}>Palier {n}</span>
                 <span className="muted" style={{ fontSize: 13 }}>{name}</span>
+                {removed && <span className="chip" style={{ fontSize: 10 }}>supprimé</span>}
               </div>
               <span className="mono tnum" style={{ fontSize: 12, color: 'var(--ink-4)' }}>{range}</span>
-              <input type="checkbox" checked={tierShare[n]} onChange={() => setTierShare(t => ({...t, [n]: !t[n]}))} style={{ display: 'none' }}/>
+              <input
+                type="checkbox"
+                checked={shared}
+                disabled={removed}
+                onChange={() => toggleTierShare(n)}
+                style={{ display: 'none' }}
+              />
             </label>
-          ))}
+            );
+          })}
         </div>
       </div>
 
