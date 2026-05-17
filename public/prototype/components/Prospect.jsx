@@ -5915,12 +5915,26 @@ async function copyTextRobust(text) {
   }
 }
 
+/* Compte à rebours jusqu'au lancement officiel. Le lien de parrainage
+   n'est valable que pendant la phase de pré-inscription : passé
+   `launchAt`, le lien est désactivé côté UI. */
+function splitCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return {
+    d: Math.floor(total / 86400),
+    h: Math.floor((total % 86400) / 3600),
+    m: Math.floor((total % 3600) / 60),
+    s: total % 60,
+  };
+}
+
 function Parrainage() {
   const [copied, setCopied] = useState(false);
   const [copyErr, setCopyErr] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -5939,6 +5953,13 @@ function Parrainage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Tick 1s pour le décompte. Indépendant du fetch : reste fluide même
+  // pendant le chargement / en cas d'erreur réseau.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const refCode = data?.refCode || '—';
   const cap = data?.cap ?? 10;
   const filleuls = data?.filleuls || [];
@@ -5948,6 +5969,23 @@ function Parrainage() {
   const vipFlatBonusEur = data?.vipFlatBonusEur ?? 5;
   const vipEligible = data?.vipEligible === true;
   const link = 'buupp.com/ref/' + refCode;
+
+  // Fenêtre de validité du lien : ouverte tant que `now < launchAt`.
+  // launchAt absent (config pas encore posée) → on considère le lien
+  // actif (pas de fausse expiration côté démo).
+  const launchMs = data?.launchAt ? new Date(data.launchAt).getTime() : null;
+  const hasLaunch = launchMs != null && !Number.isNaN(launchMs);
+  const expired = hasLaunch && now >= launchMs;
+  const linkActive = !expired;
+  const cd = hasLaunch ? splitCountdown(launchMs - now) : null;
+  // Dernière ligne droite : il reste moins de 24 h. On passe UNIQUEMENT
+  // les pavés du compteur en rouge (le message du bandeau reste indigo).
+  const urgent = hasLaunch && !expired && launchMs - now <= 86_400_000;
+  const launchLabel = hasLaunch
+    ? new Date(launchMs).toLocaleDateString('fr-FR', {
+        day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
+      })
+    : null;
 
   const formatDate = (iso) => {
     if (!iso) return '—';
@@ -5988,31 +6026,118 @@ function Parrainage() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 28, background: 'var(--ink)', color: 'var(--paper)' }}>
-        <div className="row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
-          <div>
+      <div className="card ref-link-card" style={{ padding: 28, background: 'var(--ink)', color: 'var(--paper)' }}>
+        <div className="ref-link-head row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
             <div className="mono caps" style={{ color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>— Votre lien unique</div>
-            <div className="serif" style={{ fontSize: 28 }}>
+            <div className="serif ref-link-url" style={{ fontSize: 28, opacity: expired ? 0.45 : 1, textDecoration: expired ? 'line-through' : 'none', wordBreak: 'break-word' }}>
               buupp.com/ref/<em style={{ color: '#A5B4FC' }}>{loading ? '…' : refCode}</em>
             </div>
           </div>
-          <div className="row gap-2">
+          <div className="ref-link-actions row gap-2">
             <button
               className="btn"
-              disabled={loading || !data}
-              style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: loading ? 0.6 : 1 }}
+              disabled={loading || !data || expired}
+              title={expired ? 'Lien expiré — la phase de pré-inscription est terminée' : undefined}
+              style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: (loading || expired) ? 0.5 : 1, cursor: expired ? 'not-allowed' : undefined }}
               onClick={async () => {
+                if (expired) return;
                 const ok = await copyTextRobust(link);
                 if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
                 else { setCopyErr(true); setTimeout(() => setCopyErr(false), 2500); }
               }}>
-              <Icon name="copy" size={14}/> {copied ? 'Copié !' : copyErr ? 'Échec — copiez à la main' : 'Copier'}
+              <Icon name="copy" size={14}/> {expired ? 'Lien expiré' : copied ? 'Copié !' : copyErr ? 'Échec — copiez à la main' : 'Copier'}
             </button>
-            <button className="btn btn-ghost" style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)' }}>
+            <button
+              className="btn btn-ghost"
+              disabled={expired}
+              style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)', opacity: expired ? 0.5 : 1, cursor: expired ? 'not-allowed' : undefined }}>
               <Icon name="ext" size={14}/> Partager
             </button>
           </div>
         </div>
+
+        {hasLaunch && !expired && (
+          <div
+            className="ref-deadline-banner"
+            role="timer"
+            aria-live="off"
+            style={{
+              marginTop: 22,
+              padding: 18,
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 60%, #C7D2FE 100%)',
+              border: '1px solid #818CF8',
+              color: '#312E81',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}>
+            <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }} aria-hidden="true">⏳</div>
+            <div className="ref-deadline-text" style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 4 }}>
+                Lien valable uniquement avant le lancement
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+                Votre lien de parrainage <strong>cesse d'être valide au lancement officiel</strong>
+                {' '}(le {launchLabel}). Après cette date, plus aucun filleul ne sera crédité —
+                partagez-le dès maintenant.
+              </div>
+            </div>
+            <div
+              className="ref-cd-segments"
+              style={{ display: 'flex', gap: 8, flexShrink: 0 }}
+              aria-label={`Temps restant avant expiration du lien : ${cd.d} jours ${cd.h} heures ${cd.m} minutes ${cd.s} secondes`}>
+              {[['JOURS', cd.d], ['H', cd.h], ['MIN', cd.m], ['SEC', cd.s]].map(([lbl, val]) => (
+                <div key={lbl} className="ref-cd-seg" style={{
+                  background: urgent ? 'rgba(254,226,226,.9)' : 'rgba(255,255,255,.7)',
+                  border: urgent ? '1px solid #F87171' : '1px solid rgba(99,102,241,.3)',
+                  borderRadius: 10,
+                  padding: '8px 12px',
+                  minWidth: 54,
+                  textAlign: 'center',
+                }}>
+                  <div className="serif tnum" style={{ fontSize: 23, lineHeight: 1.1, color: urgent ? '#DC2626' : '#3730A3' }}>
+                    {String(val).padStart(2, '0')}
+                  </div>
+                  <div className="mono" style={{ fontSize: 9, letterSpacing: '.1em', color: urgent ? 'rgba(220,38,38,.7)' : 'rgba(67,56,202,.6)', marginTop: 2 }}>
+                    {lbl}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {hasLaunch && expired && (
+          <div
+            className="ref-deadline-banner"
+            role="status"
+            style={{
+              marginTop: 22,
+              padding: 18,
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+              border: '1px solid #F87171',
+              color: '#991B1B',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}>
+            <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }} aria-hidden="true">🔒</div>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 4 }}>
+                Lien de parrainage désactivé
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+                La phase de pré-inscription est terminée (lancement le {launchLabel}).
+                {' '}<strong>Votre lien ne crédite plus de filleul.</strong>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -6038,6 +6163,18 @@ function Parrainage() {
       <style>{`
         @media (max-width: 720px) {
           .parrainage-stats { grid-template-columns: repeat(2, 1fr) !important; }
+          .ref-link-card { padding: 20px !important; }
+          .ref-link-url { font-size: 21px !important; }
+          .ref-link-actions { width: 100%; }
+          .ref-link-actions .btn { flex: 1 1 0; justify-content: center; }
+          .ref-cd-segments { width: 100%; justify-content: space-between; }
+          .ref-cd-seg { flex: 1 1 0; min-width: 0 !important; }
+          .ref-deadline-banner { gap: 14px !important; }
+          .ref-deadline-text { min-width: 100% !important; }
+        }
+        @media (max-width: 380px) {
+          .ref-cd-seg { padding: 7px 6px !important; }
+          .ref-cd-seg .serif { font-size: 19px !important; }
         }
       `}</style>
 

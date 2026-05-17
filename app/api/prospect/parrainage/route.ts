@@ -59,13 +59,25 @@ export async function GET() {
 
   const refCode = row?.ref_code ?? refCodeFromEmail(email);
 
-  const { data: filleuls } = await supabase
-    .from("waitlist")
-    .select("prenom, nom, ville, created_at")
-    .eq("referrer_ref_code", refCode)
-    .order("created_at", { ascending: false });
+  // Date de lancement officiel (singleton `app_config`). Le lien de
+  // parrainage n'est valable que pendant la phase de pré-inscription :
+  // le dashboard en dérive un compte à rebours. Lecture tolérante — si
+  // la table n'existe pas encore on renvoie `launchAt: null` plutôt que
+  // de planter l'endpoint.
+  const [filleulsRes, configRes] = await Promise.all([
+    supabase
+      .from("waitlist")
+      .select("prenom, nom, ville, created_at")
+      .eq("referrer_ref_code", refCode)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("app_config")
+      .select("launch_at")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
 
-  const list = filleuls ?? [];
+  const list = filleulsRes.data ?? [];
 
   // Palier VIP : seuil à 10 filleuls (= cap). Le bonus exceptionnel
   // +5,00 € s'applique en lieu et place du ×2 fondateur, uniquement
@@ -75,6 +87,7 @@ export async function GET() {
 
   return NextResponse.json({
     refCode,
+    launchAt: configRes.data?.launch_at ?? null,
     cap: REFERRER_CAP,
     count: list.length,
     remaining: Math.max(0, REFERRER_CAP - list.length),

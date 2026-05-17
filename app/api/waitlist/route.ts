@@ -178,6 +178,28 @@ export async function POST(req: Request) {
   }
 
   if (referrerRefCode) {
+    // Fenêtre de validité du lien de parrainage : la pré-inscription se
+    // ferme au lancement officiel. Passé `app_config.launch_at`, on
+    // refuse l'attribution d'un parrain (le compte à rebours du
+    // dashboard prospect est en cohérence avec cette règle). Lecture
+    // tolérante : si la config est absente, on laisse passer.
+    const { data: cfg } = await supabase
+      .from("app_config")
+      .select("launch_at")
+      .eq("id", true)
+      .maybeSingle();
+    const launchMs = cfg?.launch_at ? new Date(cfg.launch_at).getTime() : null;
+    if (launchMs != null && !Number.isNaN(launchMs) && Date.now() >= launchMs) {
+      return NextResponse.json(
+        {
+          error: "referral_closed",
+          message:
+            "La phase de pré-inscription est terminée : les liens de parrainage ne sont plus actifs.",
+        },
+        { status: 409 },
+      );
+    }
+
     if (referrerRefCode === generatedRefCode) {
       return NextResponse.json(
         {
