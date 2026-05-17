@@ -3,6 +3,8 @@ import { SignUp } from "@clerk/nextjs";
 import { clerkAuthAppearance } from "../../_clerkAppearance";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { auth } from "@/lib/clerk/server";
+import { parseRole } from "@/lib/auth/postAuth";
+import AuthConflictBanner from "@/app/_components/AuthConflictBanner";
 
 export const metadata = {
   title: "Inscription prospect",
@@ -10,23 +12,38 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-type SearchParams = Promise<{ redirect_url?: string | string[] }>;
+type SearchParams = Promise<{
+  redirect_url?: string | string[];
+  conflict?: string | string[];
+}>;
 
 export default async function InscriptionProspectPage(props: {
   searchParams: SearchParams;
 }) {
-  // Si l'utilisateur est DÉJÀ authentifié quand il arrive ici (session
-  // Clerk persistée d'un précédent flow, navigation depuis le footer,
-  // etc.), on n'affiche PAS le <SignUp> — on l'envoie directement à
-  // /auth/post-login qui aiguille par rôle DB. Évite que Clerk gère
-  // lui-même l'auto-conversion (qui peut perdre l'intent dans l'URL).
-  const { userId } = await auth();
-  if (userId) {
-    redirect("/auth/post-login?intent=prospect");
-  }
-
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
+  const conflict = parseRole(sp.conflict);
+
+  const { userId } = await auth();
+  if (userId && !conflict) {
+    redirect("/auth/post-login?intent=prospect&mode=signup");
+  }
+  if (conflict) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px 20px 96px",
+          background: "var(--ivory)",
+        }}
+      >
+        <AuthConflictBanner existingRole={conflict} intent="prospect" />
+      </main>
+    );
+  }
   return (
     <main
       style={{
@@ -47,7 +64,7 @@ export default async function InscriptionProspectPage(props: {
         signInUrl="/connexion?intent=prospect"
         // forceRedirectUrl pour dominer les env Clerk même quand le
         // signup est auto-converti en signin sur la même page.
-        forceRedirectUrl={target ?? "/auth/post-login?intent=prospect"}
+        forceRedirectUrl={target ?? "/auth/post-login?intent=prospect&mode=signup"}
         appearance={clerkAuthAppearance}
       />
     </main>

@@ -3,6 +3,8 @@ import { SignUp } from "@clerk/nextjs";
 import { clerkAuthAppearance } from "../../_clerkAppearance";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { auth } from "@/lib/clerk/server";
+import { parseRole } from "@/lib/auth/postAuth";
+import AuthConflictBanner from "@/app/_components/AuthConflictBanner";
 
 export const metadata = {
   title: "Inscription pro",
@@ -10,21 +12,38 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-type SearchParams = Promise<{ redirect_url?: string | string[] }>;
+type SearchParams = Promise<{
+  redirect_url?: string | string[];
+  conflict?: string | string[];
+}>;
 
 export default async function InscriptionProPage(props: {
   searchParams: SearchParams;
 }) {
-  // Cf. /inscription/prospect : on court-circuite Clerk si l'utilisateur
-  // est déjà signé pour éviter qu'il se débrouille avec sa logique
-  // interne d'auto-conversion qui peut perdre l'intent.
-  const { userId } = await auth();
-  if (userId) {
-    redirect("/auth/post-login?intent=pro");
-  }
-
   const sp = await props.searchParams;
   const target = safeRedirect(sp.redirect_url);
+  const conflict = parseRole(sp.conflict);
+
+  const { userId } = await auth();
+  if (userId && !conflict) {
+    redirect("/auth/post-login?intent=pro&mode=signup");
+  }
+  if (conflict) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px 20px 96px",
+          background: "var(--ivory)",
+        }}
+      >
+        <AuthConflictBanner existingRole={conflict} intent="pro" />
+      </main>
+    );
+  }
   return (
     <main
       style={{
@@ -47,7 +66,7 @@ export default async function InscriptionProPage(props: {
         signInUrl="/connexion?intent=pro"
         // forceRedirectUrl pour dominer les env Clerk même quand le
         // signup est auto-converti en signin sur la même page.
-        forceRedirectUrl={target ?? "/auth/post-login?intent=pro"}
+        forceRedirectUrl={target ?? "/auth/post-login?intent=pro&mode=signup"}
         appearance={clerkAuthAppearance}
       />
     </main>
