@@ -66,7 +66,7 @@ export default async function PostLoginPage(props: {
     role = await getCurrentRole(userId);
   } catch (err) {
     console.error("[/auth/post-login] getCurrentRole failed", err);
-    redirect(`/connexion?intent=${intent}`);
+    redirect(`/connexion?intent=${intent}&mode=${mode}`);
   }
 
   const decision = resolvePostAuth({ intent, role });
