@@ -5,14 +5,14 @@ import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useDeleteAccount } from "../lib/queries";
 
 const SOCIAL = [
-  { icon: "logo-facebook" as const, url: "https://www.facebook.com/buupp" },
-  { icon: "logo-instagram" as const, url: "https://www.instagram.com/buupp" },
-  { icon: "logo-tiktok" as const, url: "https://www.tiktok.com/@buupp" },
+  { icon: "logo-facebook" as const, url: "https://www.facebook.com/buupp", label: "Facebook BUUPP" },
+  { icon: "logo-instagram" as const, url: "https://www.instagram.com/buupp", label: "Instagram BUUPP" },
+  { icon: "logo-tiktok" as const, url: "https://www.tiktok.com/@buupp", label: "TikTok BUUPP" },
 ];
 
 const NAV: { label: string; route: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -49,6 +49,7 @@ export default function DrawerPanel() {
   const { signOut } = useAuth();
   const del = useDeleteAccount();
   const [confirm, setConfirm] = useState<null | "signout" | "delete">(null);
+  const [busy, setBusy] = useState(false);
 
   const close = () => router.back();
   const go = (route: string) => {
@@ -57,13 +58,28 @@ export default function DrawerPanel() {
   };
 
   async function doSignOut() {
-    await signOut();
-    router.replace("/(auth)/sign-in");
+    setBusy(true);
+    try {
+      await signOut();
+      router.replace("/(auth)/sign-in");
+    } catch {
+      setBusy(false);
+      Alert.alert("Erreur", "La déconnexion a échoué. Réessayez.");
+    }
   }
   async function doDelete() {
-    await del.mutateAsync();
-    await signOut();
-    router.replace("/(auth)/sign-in");
+    setBusy(true);
+    try {
+      await del.mutateAsync();
+      await signOut();
+      router.replace("/(auth)/sign-in");
+    } catch {
+      setBusy(false);
+      Alert.alert(
+        "Erreur",
+        "La suppression du compte a échoué. Réessayez plus tard.",
+      );
+    }
   }
 
   return (
@@ -86,6 +102,8 @@ export default function DrawerPanel() {
               <Pressable
                 key={s.url}
                 onPress={() => Linking.openURL(s.url)}
+                accessibilityLabel={s.label}
+                accessibilityRole="link"
                 className="h-11 w-11 items-center justify-center rounded-full border border-line active:opacity-70"
               >
                 <Ionicons name={s.icon} size={18} color="#13235B" />
@@ -126,14 +144,14 @@ export default function DrawerPanel() {
                 <Text className="text-sm text-ink-3">Annuler</Text>
               </Pressable>
               <Pressable
-                disabled={del.isPending}
+                disabled={busy || del.isPending}
                 className={`flex-1 items-center rounded-full py-3 ${
                   confirm === "delete" ? "bg-bad" : "bg-ink"
                 }`}
                 onPress={confirm === "delete" ? doDelete : doSignOut}
               >
                 <Text className="text-sm font-semibold text-paper">
-                  {del.isPending
+                  {busy || del.isPending
                     ? "…"
                     : confirm === "delete"
                       ? "Supprimer"
