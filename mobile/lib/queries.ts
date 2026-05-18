@@ -75,7 +75,6 @@ export type Relation = {
   expiresAt?: string;
   // Champs spécifiques history
   date?: string;
-  proName?: string;
   /** Label décision affiché : "Acceptée" | "Refusée" | "Expirée" */
   decision?: string;
   /** Label statut affiché : "Crédité" | "En séquestre" | "—" */
@@ -84,6 +83,8 @@ export type Relation = {
   relationStatus?: string;
   gain?: number | null;
   campaignStatus?: string | null;
+  // Champs renvoyés par l'API conservés pour parité de shape — non affichés sur mobile :
+  proName?: string;
   campaignOpen?: boolean;
   campaignActive?: boolean;
 };
