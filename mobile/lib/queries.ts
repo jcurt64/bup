@@ -245,6 +245,155 @@ export type Me = {
 // une variante typée pour les écrans qui en ont besoin.
 export const useMeTyped = () => useGet<Me>(["me"], "/api/me", 60_000);
 
+// ── Mutations prospect/me ──────────────────────────────────────────
+export function usePatchDonnees() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { tier: TierKey; fields: Record<string, unknown> }) =>
+      api("/api/prospect/donnees", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "score"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
+    },
+  });
+}
+
+export function useTierAction() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { tier: TierKey; action: string }) =>
+      api("/api/prospect/tier", { method: "POST", body: JSON.stringify(v) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "score"] });
+    },
+  });
+}
+
+export function usePhoneStart() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (v: { phone: string }) =>
+      api("/api/prospect/phone/start", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+  });
+}
+
+export function usePhoneVerify() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { code: string }) =>
+      api("/api/prospect/phone/verify", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
+    },
+  });
+}
+
+export function useSaveRib() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { iban: string; bic: string; holderName: string }) =>
+      api("/api/prospect/rib", { method: "POST", body: JSON.stringify(v) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["prospect", "verification"] }),
+  });
+}
+
+export function useDeleteRib() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("/api/prospect/rib", { method: "DELETE" }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["prospect", "verification"] }),
+  });
+}
+
+export function usePayoutOnboarding() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: () =>
+      api<{ url: string; accountId: string }>(
+        "/api/prospect/payout/onboarding",
+        { method: "POST" },
+      ),
+  });
+}
+
+export function usePayoutWithdraw() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { amountCents: number }) =>
+      api("/api/prospect/payout/withdraw", {
+        method: "POST",
+        body: JSON.stringify({ amountCents: v.amountCents, method: "iban" }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
+    },
+  });
+}
+
+export function useSetEmailTracking() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { consent: boolean }) =>
+      api("/api/me/email-tracking", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["me", "email-tracking"] }),
+  });
+}
+
+export function useSendSuggestion() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (v: { subject: string | null; message: string }) =>
+      api<{ ok: true }>("/api/me/suggestions", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+  });
+}
+
+export function useDeleteAccount() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: () => api("/api/me", { method: "DELETE" }),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string }) =>
+      api(`/api/me/notifications/${v.id}/read`, { method: "POST" }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["me", "notifications"] }),
+  });
+}
+
 // ───────── Pro ─────────
 export type ProOverview = {
   contactsAccepted30d: number;
