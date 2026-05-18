@@ -6,20 +6,18 @@ import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "../../compo
 import { useProspectVerification } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
-// Libellés alignés sur VERIF_TIERS du web (Prospect.jsx).
+// Source unique pour les paliers — clés + libellés.
 // Clés = valeurs renvoyées par /api/prospect/verification (route.ts).
-const TIER_LABEL: Record<string, string> = {
-  basique: "Basique",
-  verifie: "Vérifié",
-  certifie_confiance: "Certifié confiance",
-};
-
-// Les 3 paliers dans l'ordre, avec leur index.
 const TIERS = [
-  { key: "basique", label: "Basique" },
-  { key: "verifie", label: "Vérifié" },
+  { key: "basique",            label: "Basique" },
+  { key: "verifie",            label: "Vérifié" },
   { key: "certifie_confiance", label: "Certifié confiance" },
 ] as const;
+
+// Dérivé depuis TIERS : pas de liste séparée à synchroniser.
+const TIER_LABEL: Record<string, string> = Object.fromEntries(
+  TIERS.map((t) => [t.key, t.label] as [string, string]),
+);
 
 export default function Verification() {
   const q = useProspectVerification();
@@ -33,10 +31,7 @@ export default function Verification() {
       />
       <QueryGate query={q}>
         {(d) => {
-          const currentIdx = Math.max(
-            0,
-            TIERS.findIndex((t) => t.key === d.tier),
-          );
+          const currentIdx = TIERS.findIndex((t) => t.key === d.tier);
           return (
             <>
               {/* Palier actuel + barre de progression */}
@@ -46,11 +41,17 @@ export default function Verification() {
                 </Text>
                 <Text className="mt-1 font-serif text-3xl text-paper">
                   {TIER_LABEL[d.tier] ?? d.tier}
-                  <Text className="font-sans text-base text-ink-5">
-                    {" · Palier "}{currentIdx + 1}/{TIERS.length}
-                  </Text>
+                  {currentIdx >= 0 && (
+                    <Text className="font-sans text-base text-ink-5">
+                      {" · Palier "}{currentIdx + 1}/{TIERS.length}
+                    </Text>
+                  )}
                 </Text>
-                <View className="mt-3 h-2 overflow-hidden rounded-full bg-ink-4">
+                <View
+                  className="mt-3 h-2 overflow-hidden rounded-full bg-ink-4"
+                  accessible
+                  accessibilityLabel={`Progression de vérification : ${Math.round(d.progress)} %`}
+                >
                   <View
                     className="h-2 rounded-full bg-violet"
                     style={{ width: `${Math.max(0, Math.min(100, d.progress))}%` }}
@@ -121,6 +122,7 @@ export default function Verification() {
                 <Text className="mt-1 font-serif text-2xl text-violet">
                   {d.physicalAcceptances}
                 </Text>
+                <Text className="mt-0.5 text-[11px] text-ink-4">rendez-vous physiques acceptés</Text>
               </Card>
             </>
           );
