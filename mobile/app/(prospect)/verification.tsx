@@ -7,17 +7,18 @@ import { useProspectVerification } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // Libellés alignés sur VERIF_TIERS du web (Prospect.jsx).
+// Clés = valeurs renvoyées par /api/prospect/verification (route.ts).
 const TIER_LABEL: Record<string, string> = {
   basique: "Basique",
   verifie: "Vérifié",
-  certifie: "Certifié confiance",
+  certifie_confiance: "Certifié confiance",
 };
 
 // Les 3 paliers dans l'ordre, avec leur index.
 const TIERS = [
   { key: "basique", label: "Basique" },
   { key: "verifie", label: "Vérifié" },
-  { key: "certifie", label: "Certifié confiance" },
+  { key: "certifie_confiance", label: "Certifié confiance" },
 ] as const;
 
 export default function Verification() {
