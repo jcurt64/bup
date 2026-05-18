@@ -2,7 +2,8 @@
 import { Text, View } from "react-native";
 
 import { Card, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
-import { useProspectScore } from "../../lib/queries";
+import { useProspectScore, useProspectScoreHistory } from "../../lib/queries";
+import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 function Bar({ label, pct, hint }: { label: string; pct: number; hint: string }) {
   return (
@@ -24,8 +25,10 @@ function Bar({ label, pct, hint }: { label: string; pct: number; hint: string })
 
 export default function ScoreScreen() {
   const q = useProspectScore();
+  const h = useProspectScoreHistory("3M");
+  useRefetchOnFocus(q, h);
   return (
-    <ScrollScreen onRefresh={q.refetch}>
+    <ScrollScreen onRefresh={() => Promise.all([q.refetch(), h.refetch()])}>
       <SectionTitle
         eyebrow="BUUPP Score"
         title="Votre cote de confiance"
@@ -59,6 +62,27 @@ export default function ScoreScreen() {
                 pct={d.breakdown.acceptance.pct}
                 hint={`${d.breakdown.acceptance.accepted}/${d.breakdown.acceptance.total} mises en relation acceptées`}
               />
+            </Card>
+            <Card>
+              <Text className="font-serif text-lg text-ink">
+                Historique (3 mois)
+              </Text>
+              {h.data && h.data.points.length > 0 ? (
+                <View className="mt-2 gap-1">
+                  {h.data.points.slice(-12).map((p) => (
+                    <View key={p.date} className="flex-row justify-between">
+                      <Text className="font-mono text-xs text-ink-4">
+                        {p.date}
+                      </Text>
+                      <Text className="text-xs text-ink-2">{p.score} / 1000</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text className="mt-1 text-xs text-ink-4">
+                  Pas encore d&apos;historique.
+                </Text>
+              )}
             </Card>
           </>
         )}
