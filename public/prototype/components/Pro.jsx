@@ -431,6 +431,9 @@ function Overview({ onCreate }) {
   // Popup d'explication du ROI (déclenché par l'icône "i" dans la carte
   // ROI). Boolean simple, fermé par défaut.
   const [roiInfoOpen, setRoiInfoOpen] = React.useState(false);
+  // Modale "Voir tout" — liste paginée de TOUTES les acceptations
+  // (la section n'en montre que 4). Fermée par défaut.
+  const [allAcceptancesOpen, setAllAcceptancesOpen] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     const refresh = () => fetchProOverview().then(j => { if (!cancelled) setData(j); });
@@ -552,7 +555,14 @@ function Overview({ onCreate }) {
       <div className="card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20 }}>
           <div className="serif" style={{ fontSize: 22 }}>Dernières acceptations</div>
-          <button className="btn btn-ghost btn-sm btn-voir-tout">Voir tout <Icon name="arrow" size={12}/></button>
+          <button
+            className="btn btn-ghost btn-sm btn-voir-tout"
+            onClick={() => setAllAcceptancesOpen(true)}
+            disabled={last.length === 0}
+            title={last.length === 0 ? 'Aucune acceptation à afficher' : 'Voir toutes les acceptations'}
+          >
+            Voir tout <Icon name="arrow" size={12}/>
+          </button>
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
@@ -588,6 +598,13 @@ function Overview({ onCreate }) {
           acceptedCount={k1}
           fmt2={fmt2}
           onClose={() => setRoiInfoOpen(false)}
+        />
+      )}
+
+      {allAcceptancesOpen && (
+        <AllAcceptancesModal
+          fmt2={fmt2}
+          onClose={() => setAllAcceptancesOpen(false)}
         />
       )}
     </div>
@@ -726,6 +743,141 @@ function RoiInfoModal({ roiPct, conversionPct, valueEur, spentEur, potentialEur,
             J'ai compris
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── AllAcceptancesModal — "Voir tout" des acceptations ───────────
+   Liste paginée de TOUTES les acceptations du pro (la section Vue
+   d'ensemble n'en montre que 4). Données réelles via
+   /api/pro/acceptances. Responsive : table en .tbl-scroll (scroll
+   horizontal mobile géré par styles.css), pagination en flex-wrap. */
+function AllAcceptancesModal({ fmt2, onClose }) {
+  const SIZE = 25;
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/pro/acceptances?page=${page}&size=${SIZE}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(j => {
+        if (cancelled) return;
+        setRows(j.rows || []);
+        setTotal(j.total || 0);
+      })
+      .catch(e => { if (!cancelled) setError(e.message || 'Erreur de chargement'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(total / SIZE));
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="all-acceptances-title"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 250,
+        background: 'rgba(15, 22, 41, 0.55)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        overflowY: 'auto', padding: '40px 20px 60px',
+      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--paper)', borderRadius: 16, padding: 28,
+          maxWidth: 820, width: '100%',
+          boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+          margin: 'auto 0',
+        }}>
+        <div className="row between" style={{ marginBottom: 4, alignItems: 'flex-start', gap: 16 }}>
+          <div>
+            <div id="all-acceptances-title" className="serif" style={{ fontSize: 22, lineHeight: 1.25 }}>
+              Toutes les acceptations
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              {loading && rows.length === 0
+                ? 'Chargement…'
+                : `${total} acceptation${total > 1 ? 's' : ''} au total`}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Fermer"
+            style={{
+              background: 'transparent', border: 0, color: 'var(--ink-4)',
+              fontSize: 20, lineHeight: 1, padding: 4, cursor: 'pointer', flexShrink: 0,
+            }}>✕</button>
+        </div>
+
+        {error && (
+          <div className="card" style={{ padding: 14, marginTop: 12, borderLeft: '3px solid #dc2626', background: '#fef2f2', color: '#991b1b', fontSize: 13 }}>
+            Impossible de charger les acceptations : {error}
+          </div>
+        )}
+
+        <div className="tbl-scroll" style={{ marginTop: 16 }}>
+          <table className="tbl">
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <tbody>
+              {loading && rows.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
+                  <span className="muted" style={{ fontSize: 13 }}>Chargement des acceptations…</span>
+                </td></tr>
+              )}
+              {!loading && rows.length === 0 && !error && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
+                  <span className="muted" style={{ fontSize: 13 }}>Aucune acceptation pour le moment.</span>
+                </td></tr>
+              )}
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                  <td>{r.campaign}</td>
+                  <td><span className="chip">Palier {r.tier}</span></td>
+                  <td><span className="mono tnum">{r.score}</span></td>
+                  <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
+                  <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="row between" style={{ marginTop: 18, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              ‹ Précédent
+            </button>
+            <span className="mono muted" style={{ fontSize: 12 }}>
+              Page {page} / {totalPages}
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            >
+              Suivant ›
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
