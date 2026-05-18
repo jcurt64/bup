@@ -12,7 +12,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Accent, BrandPill, Eyebrow, PrimaryButton } from "../../components/ui";
 import { markOnboardingSeen } from "../../lib/onboarding";
@@ -172,7 +171,7 @@ export default function Onboarding() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-ivory">
+    <View className="flex-1 bg-ivory">
       <View className="flex-row justify-end px-6 pt-2">
         <Pressable onPress={finish} hitSlop={12}>
           <Text className="text-sm text-ink-4">Passer</Text>
@@ -227,6 +226,6 @@ export default function Onboarding() {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

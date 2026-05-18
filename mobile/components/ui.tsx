@@ -10,7 +10,6 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export function ScreenBg({
   children,
@@ -20,9 +19,9 @@ export function ScreenBg({
   className?: string;
 }) {
   return (
-    <SafeAreaView className="flex-1 bg-ivory">
+    <View className="flex-1 bg-ivory">
       <View className={`flex-1 px-6 ${className}`}>{children}</View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ApiError } from "../lib/api";
 
@@ -33,7 +32,7 @@ export function ScrollScreen({
   }, [onRefresh]);
 
   return (
-    <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
+    <View className="flex-1 bg-ivory">
       <ScrollView
         className="flex-1"
         contentContainerClassName="p-5 gap-4"
@@ -45,7 +44,7 @@ export function ScrollScreen({
       >
         {children}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
