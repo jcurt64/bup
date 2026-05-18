@@ -21,7 +21,12 @@ import { tokenCache } from "../lib/clerk-token-cache";
 // sur le web entre-temps).
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnReconnect: true, staleTime: 30_000 },
+    queries: {
+      retry: 1,
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+    },
   },
 });
 
