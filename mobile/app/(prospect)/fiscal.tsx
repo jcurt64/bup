@@ -77,6 +77,12 @@ export default function FiscalScreen() {
                   }}
                 />
               </View>
+              {/* Message qualitatif seuil — texte EXACT web (fn Fiscal). */}
+              <Text className="mt-3 text-xs text-ink-4">
+                {d.currentYear.thresholdReached
+                  ? "Vous avez dépassé le seuil. BUUPP transmettra votre récapitulatif à la DGFiP en janvier prochain."
+                  : "Vous n'avez pas atteint le seuil. Aucune obligation de déclaration spécifique pour l'instant."}
+              </Text>
               <Pressable
                 className="mt-3 self-start rounded-full border border-line px-4 py-2"
                 onPress={() =>
@@ -94,12 +100,11 @@ export default function FiscalScreen() {
               <Text className="mt-1 font-serif text-3xl text-ink">
                 {eur(d.previousYear.totalEur)}
               </Text>
+              {/* Détail transmission DGFiP — texte EXACT web (fn Fiscal). */}
               <Text className="mt-1 text-xs text-ink-4">
-                {d.previousYear.transactionCount} transaction
-                {d.previousYear.transactionCount > 1 ? "s" : ""} ·{" "}
                 {d.previousYear.reportedToDgfip
-                  ? "Déclaré à la DGFiP"
-                  : "Non déclaré"}
+                  ? `Récapitulatif fiscal ${d.previousYear.year} transmis le 31 janvier ${d.previousYear.year + 1}.`
+                  : `Aucune transmission DGFiP : seuil non atteint (${d.previousYear.transactionCount} transactions, ${eur(d.previousYear.totalEur)}).`}
               </Text>
               <View className="mt-3 flex-row gap-2">
                 <Pressable

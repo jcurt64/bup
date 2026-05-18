@@ -1,6 +1,7 @@
 // Paliers de vérification — /api/prospect/verification.
 // Champs/libellés = Prospect.jsx fn VerifTiers (web).
-import { Text, View } from "react-native";
+import { router } from "expo-router";
+import { Pressable, Text, View } from "react-native";
 
 import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { useProspectVerification } from "../../lib/queries";
@@ -8,10 +9,28 @@ import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // Source unique pour les paliers — clés + libellés.
 // Clés = valeurs renvoyées par /api/prospect/verification (route.ts).
+// Libellés/textes EXACTS = Prospect.jsx VERIF_TIERS (web).
 const TIERS = [
-  { key: "basique",            label: "Basique" },
-  { key: "verifie",            label: "Vérifié" },
-  { key: "certifie_confiance", label: "Certifié confiance" },
+  {
+    key: "basique",
+    label: "Basique",
+    done: "Compte créé",
+    requirement: "Création du compte",
+  },
+  {
+    key: "verifie",
+    label: "Vérifié",
+    done: "Téléphone vérifié",
+    requirement:
+      "Vérifiez votre numéro de téléphone par SMS pour passer au palier Vérifié.",
+  },
+  {
+    key: "certifie_confiance",
+    label: "Certifié confiance",
+    done: "Rendez-vous physique accepté",
+    requirement:
+      "Acceptez un rendez-vous physique proposé par un professionnel.",
+  },
 ] as const;
 
 // Dérivé depuis TIERS : pas de liste séparée à synchroniser.
@@ -82,11 +101,28 @@ export default function Verification() {
                     </View>
                     <Text className="mt-1 font-serif text-xl text-ink">{t.label}</Text>
 
+                    {/* Description/prérequis du palier — texte EXACT web (VERIF_TIERS). */}
+                    <Text className="mt-1 text-xs leading-5 text-ink-3">
+                      {reached ? `${t.done}.` : t.requirement}
+                    </Text>
+
                     {/* RIB inline pour le palier vérifié (parité web : ibanMasked affiché si validé) */}
                     {t.key === "verifie" && d.rib?.validated && d.rib.ibanMasked ? (
                       <Text className="mt-1 font-mono text-xs text-ink-4">
                         RIB : {d.rib.ibanMasked}
                       </Text>
+                    ) : null}
+
+                    {/* CTA RIB sur le palier Vérifié (web : bouton primaire). */}
+                    {t.key === "verifie" ? (
+                      <Pressable
+                        className="mt-3 self-start rounded-full border border-line px-4 py-2"
+                        onPress={() => router.push("/(prospect)/preferences")}
+                      >
+                        <Text className="text-xs text-ink-2">
+                          {d.rib ? "Modifier mon RIB" : "Renseigner mon RIB"}
+                        </Text>
+                      </Pressable>
                     ) : null}
                   </Card>
                 );
