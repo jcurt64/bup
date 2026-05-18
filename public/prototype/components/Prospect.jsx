@@ -3640,12 +3640,14 @@ function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
 }
 
 /* Modal de vérification SMS du téléphone (Mes données → Identification).
-   Flow en 2 étapes via Twilio Verify (proxy par /api/prospect/phone/*) :
+   Flow en 2 étapes via Brevo (proxy par /api/prospect/phone/*) :
      1. saisie du numéro → POST /api/prospect/phone/start
-        → Twilio envoie un code à 6 chiffres par SMS.
+        → BUUPP génère le code à 6 chiffres, Brevo l'envoie par SMS.
      2. saisie du code → POST /api/prospect/phone/verify
-        → Twilio valide → upsert prospect_identity.telephone +
-          phone_verified_at en DB. */
+        → BUUPP valide le code (hash en DB) → upsert
+          prospect_identity.telephone + phone_verified_at en DB.
+   Brevo est une simple passerelle SMS (pas d'API "Verify" : la
+   génération et la validation du code restent côté BUUPP). */
 function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
   const [step, setStep] = useState('phone');     // 'phone' | 'code'
   const [phone, setPhone] = useState(initialPhone || '');
@@ -3669,11 +3671,11 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
         return;
       }
       setStep('code');
-      // En mode dev (Twilio non configuré), le serveur renvoie le code
-      // factice ('000000') pour permettre le test du flow.
+      // En mode dev (Brevo non configuré : BREVO_API_KEY absente), le
+      // serveur renvoie le code généré pour permettre le test du flow.
       if (j.devCode) {
         setCode(j.devCode);
-        setInfo(`Mode dev : code ${j.devCode} pré-rempli (Twilio non configuré).`);
+        setInfo(`Mode dev : code ${j.devCode} pré-rempli (Brevo non configuré).`);
       } else {
         setCode('');
         setInfo('Code envoyé par SMS. Saisissez-le ci-dessous.');
