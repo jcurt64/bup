@@ -18,6 +18,10 @@ module.exports = {
         ivory: { DEFAULT: "#F7F4EC", 2: "#EFEADD" },
         line: "#E6E3DA",
         accent: { DEFAULT: "#4F46E5", soft: "#EEF2FF", ink: "#3730A3" },
+        // Violet des mots en italique / liens dans les maquettes onboarding+auth
+        violet: { DEFAULT: "#7C5CFC", soft: "#EDE9FE", deep: "#5B3FD6" },
+        // Navy du chip logo "buupp"
+        navy: { DEFAULT: "#13235B", deep: "#0A1330" },
         good: "#16A34A",
         warn: "#D97706",
         bad: "#DC2626",

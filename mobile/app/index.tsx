@@ -1,24 +1,40 @@
-// Routeur racine : aiguille selon l'état d'auth Clerk + le rôle réel
-// (résolu par /api/me/role — MÊME source que le web, donc cohérent).
+// Routeur racine : onboarding (1ère ouverture) → auth → espace selon
+// le rôle (résolu par /api/me/role, MÊME source que le web).
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
+import { hasSeenOnboarding } from "../lib/onboarding";
 import { useRole } from "../lib/queries";
+import { getRoleIntent } from "../lib/role-intent";
 
 export default function Index() {
   const { isLoaded, isSignedIn } = useAuth();
   const role = useRole();
+  const [seen, setSeen] = useState<boolean | null>(null);
+  const [intent, setIntent] = useState<"prospect" | "pro" | null>(null);
 
-  if (!isLoaded) return <Splash />;
-  if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
+  useEffect(() => {
+    hasSeenOnboarding().then(setSeen);
+    getRoleIntent().then(setIntent);
+  }, []);
+
+  if (!isLoaded || seen === null) return <Splash />;
+
+  if (!isSignedIn) {
+    return <Redirect href={seen ? "/(auth)/sign-in" : "/(onboarding)"} />;
+  }
 
   if (role.isPending) return <Splash />;
   if (role.data?.role === "pro") return <Redirect href="/(pro)/overview" />;
   if (role.data?.role === "prospect")
     return <Redirect href="/(prospect)/portefeuille" />;
-
-  // Connecté mais sans rôle encore matérialisé → sélection de rôle.
+  // Compte sans rôle encore matérialisé : on suit l'intention choisie à
+  // l'auth (le serveur tranchera via ensureRole) ; sinon écran de choix.
+  if (intent === "pro") return <Redirect href="/(pro)/overview" />;
+  if (intent === "prospect")
+    return <Redirect href="/(prospect)/portefeuille" />;
   return <Redirect href="/(auth)/role-select" />;
 }
 
