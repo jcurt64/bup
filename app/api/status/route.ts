@@ -84,12 +84,39 @@ async function checkStripe(): Promise<ComponentResult> {
     ),
   );
   if (!r.ok) return { id: "stripe", name: "Paiements (Stripe)", status: "down", latencyMs: r.ms, message: r.error };
+  // La clé publishable est inlinée au build : si elle manque, le
+  // paiement côté client est cassé silencieusement alors que l'API
+  // serveur répond. On le signale en "degraded" plutôt que masquer.
+  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+    return {
+      id: "stripe",
+      name: "Paiements (Stripe)",
+      status: "degraded",
+      latencyMs: r.ms,
+      message: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY absent — paiement client KO",
+    };
+  }
   return {
     id: "stripe",
     name: "Paiements (Stripe)",
     status: r.ms > 1500 ? "degraded" : "operational",
     latencyMs: r.ms,
   };
+}
+
+async function checkEmail(): Promise<ComponentResult> {
+  // Config-only : le transport SMTP (lib/email/transport.ts) ne s'active
+  // que si SMTP_USER ET SMTP_PASS sont présents — sinon tous les mails
+  // transactionnels sont silencieusement abandonnés. On le rend visible.
+  const ok = Boolean(process.env.SMTP_USER) && Boolean(process.env.SMTP_PASS);
+  return ok
+    ? { id: "email", name: "E-mails transactionnels (SMTP)", status: "operational" }
+    : {
+        id: "email",
+        name: "E-mails transactionnels (SMTP)",
+        status: "degraded",
+        message: "SMTP_USER/SMTP_PASS absent — emails désactivés (aucun envoi)",
+      };
 }
 
 async function checkClerk(): Promise<ComponentResult> {
@@ -125,14 +152,15 @@ export async function GET() {
     status: "operational",
   };
 
-  const [db, stripe, clerk, brevo] = await Promise.all([
+  const [db, stripe, clerk, brevo, email] = await Promise.all([
     checkSupabase(),
     checkStripe(),
     checkClerk(),
     checkBrevo(),
+    checkEmail(),
   ]);
 
-  const components = [apiComp, db, clerk, stripe, brevo];
+  const components = [apiComp, db, clerk, stripe, brevo, email];
   return NextResponse.json({
     overall: aggregate(components),
     components,

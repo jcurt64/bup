@@ -14,7 +14,6 @@
     "@clerk/localizations": "^4.5.8",
     "@clerk/nextjs": "^7.3.0",
     "@stripe/stripe-js": "^9.4.0",
-    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "@types/pdfkit": "^0.17.6",
     "next": "16.2.4",
@@ -38,7 +37,6 @@
     "supabase": "^2.98.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^53.3.2",
     "vitest": "^2.1.9"
   }
 }
