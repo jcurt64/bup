@@ -73,7 +73,7 @@ export default function Portefeuille() {
                 </View>
                 <Text
                   className={`font-serif text-base ${
-                    mv.amountCents >= 0 ? "text-violet" : "text-ink-3"
+                    mv.amountCents > 0 ? "text-violet" : "text-ink-3"
                   }`}
                 >
                   {mv.sign}
