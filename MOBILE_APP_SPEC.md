@@ -147,13 +147,17 @@ export function useApi() {
 }
 ```
 
-### 2.3 ⚠️ Pré-requis serveur à vérifier/ajuster (action web)
+### 2.3 Pré-requis serveur
 
-1. **Le middleware Clerk / `proxy.ts` doit, pour les routes `/api/*`,
-   renvoyer `401 JSON` et NON une redirection 307 vers la page de connexion.**
-   (Constaté en audit : `/api/status` non authentifié renvoie un `307`.
-   Pour un client mobile il faut un `401` exploitable.) → vérifier la config
-   `clerkMiddleware`/matcher pour exclure `/api/*` de la redirection HTML.
+1. ✅ **FAIT (2026-05-18, commit `0dd91a0`).** `proxy.ts` renvoie
+   désormais un **`401 JSON`** `{ "error": "unauthorized" }` (et non
+   plus un 307 HTML) pour toute route `/api/*` protégée appelée sans
+   session. Vérifié en prod : `/api/prospect/wallet`, `/api/pro/overview`,
+   `/api/prospect/relations` → `401 application/json`. Les `/api/*`
+   publiques restent en 200 ; les pages web restent en 307 → `/connexion`
+   (UX web inchangée). Les requêtes mobiles authentifiées portant
+   `Authorization: Bearer <token Clerk>` ont `userId` et passent.
+   *Rien à faire — pré-requis levé.*
 2. **CORS** : un binaire natif (iOS/Android) n'a pas d'origine → pas de
    préflight CORS. En revanche le build **web** d'Expo en aura besoin :
    prévoir des en-têtes CORS sur `/api/*` (origines autorisées) si une PWA
@@ -457,8 +461,8 @@ Côté **Clerk dashboard** (mêmes réglages que le web) :
 - Ajouter le scheme deep link `buupp://` aux *Allowed redirect URLs*.
 - (Option Realtime) créer le *JWT template* « supabase ».
 
-Côté **Vercel / Next.js** (action web, cf. §2.3) : s'assurer que `/api/*`
-renvoie `401 JSON` (pas de redirection 307) pour un client sans cookie.
+Côté **Vercel / Next.js** : le `401 JSON` sur `/api/*` non authentifié
+est déjà en place (cf. §2.3, commit `0dd91a0`) — aucune action requise.
 
 ---
 
@@ -480,7 +484,7 @@ renvoie `401 JSON` (pas de redirection 307) pour un client sans cookie.
 
 - [ ] Même projet Clerk (publishable key même environnement que le web).
 - [ ] Toutes les écritures passent par `/api/*` (zéro write Supabase direct).
-- [ ] `/api/*` renvoie 401 JSON au mobile non authentifié (pas de 307).
+- [x] `/api/*` renvoie 401 JSON au mobile non authentifié (pas de 307). *(fait, commit `0dd91a0`)*
 - [ ] React Query : invalidation après chaque mutation + refetch on focus +
       pull-to-refresh.
 - [ ] (Option) Realtime Supabase via JWT Clerk → invalidation, RLS respectées.
@@ -500,7 +504,7 @@ renvoie `401 JSON` (pas de redirection 307) pour un client sans cookie.
 
 | Risque | Mitigation |
 |---|---|
-| `/api/*` redirige (307) au lieu de 401 pour le mobile | Ajuster le matcher Clerk middleware côté web (pré-requis bloquant) |
+| ~~`/api/*` redirige (307) au lieu de 401 pour le mobile~~ | ✅ **Résolu** (commit `0dd91a0`, vérifié en prod) — `401 JSON` sur `/api/*` non authentifié |
 | Divergence du texte légal web/mobile | Servir le contenu + `page-versions.ts` via API, ne pas recopier |
 | Écriture directe Supabase tentée côté mobile | Interdit par convention + RLS ; tout via `/api/*` |
 | Token Clerk mobile non accepté en Bearer par une route | `auth()` Clerk le supporte ; tester chaque domaine d'endpoint |
