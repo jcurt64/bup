@@ -13,12 +13,12 @@ import {
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
-const FIELDS: Record<TierKey, { key: string; label: string }[]> = {
+const FIELDS: Record<TierKey, { key: string; label: string; readOnly?: boolean }[]> = {
   identity: [
     { key: "prenom", label: "Prénom" },
     { key: "nom", label: "Nom" },
     { key: "email", label: "Email" },
-    { key: "telephone", label: "Téléphone" },
+    { key: "telephone", label: "Téléphone", readOnly: true },
     { key: "naissance", label: "Date de naissance" },
   ],
   localisation: [
@@ -91,20 +91,36 @@ export default function Donnees() {
 
                   {isEditing ? (
                     <View className="mt-2 gap-2">
-                      {FIELDS[t.key].map((f) => (
-                        <View key={f.key} className="gap-1">
-                          <Text className="text-[11px] uppercase text-ink-4">
-                            {f.label}
-                          </Text>
-                          <TextInput
-                            defaultValue={String(row[f.key] ?? "")}
-                            onChangeText={(v) =>
-                              setDraft((s) => ({ ...s, [f.key]: v }))
-                            }
-                            className="rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink"
-                          />
-                        </View>
-                      ))}
+                      {FIELDS[t.key].map((f) =>
+                        f.readOnly ? (
+                          <View key={f.key} className="gap-1">
+                            <Text className="text-[11px] uppercase text-ink-4">
+                              {f.label}
+                            </Text>
+                            <Text className="text-sm text-ink-3">
+                              {String(row[f.key] ?? "—") || "—"}
+                            </Text>
+                            {f.key === "telephone" ? (
+                              <Text className="text-[10px] text-ink-4">
+                                Modifiable via Préférences (vérification SMS)
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : (
+                          <View key={f.key} className="gap-1">
+                            <Text className="text-[11px] uppercase text-ink-4">
+                              {f.label}
+                            </Text>
+                            <TextInput
+                              defaultValue={String(row[f.key] ?? "")}
+                              onChangeText={(v) =>
+                                setDraft((s) => ({ ...s, [f.key]: v }))
+                              }
+                              className="rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink"
+                            />
+                          </View>
+                        ),
+                      )}
                       <View className="mt-1 flex-row gap-2">
                         <Pressable
                           className="flex-1 items-center rounded-full border border-line py-2.5"
