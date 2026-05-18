@@ -749,13 +749,13 @@ function RoiInfoModal({ roiPct, conversionPct, valueEur, spentEur, potentialEur,
 }
 
 /* ─── AllAcceptancesModal — "Voir tout" des acceptations ───────────
-   Liste paginée de TOUTES les acceptations du pro (la section Vue
-   d'ensemble n'en montre que 4). Données réelles via
-   /api/pro/acceptances. Responsive : table en .tbl-scroll (scroll
-   horizontal mobile géré par styles.css), pagination en flex-wrap. */
+   Affiche jusqu'à MAX (50) acceptations les plus récentes du pro (la
+   section Vue d'ensemble n'en montre que 4). Plafond volontaire : pas
+   de pagination au-delà de 50. Données réelles via /api/pro/acceptances
+   (l'endpoint borne déjà size à 50). Responsive : table en .tbl-scroll
+   (scroll horizontal mobile géré par styles.css). */
+const ALL_ACCEPTANCES_MAX = 50;
 function AllAcceptancesModal({ fmt2, onClose }) {
-  const SIZE = 25;
-  const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -771,19 +771,20 @@ function AllAcceptancesModal({ fmt2, onClose }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/pro/acceptances?page=${page}&size=${SIZE}`, { cache: 'no-store' })
+    fetch(`/api/pro/acceptances?page=1&size=${ALL_ACCEPTANCES_MAX}`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
       .then(j => {
         if (cancelled) return;
-        setRows(j.rows || []);
+        // Garde-fou client : même si l'API renvoyait plus, on tronque.
+        setRows((j.rows || []).slice(0, ALL_ACCEPTANCES_MAX));
         setTotal(j.total || 0);
       })
       .catch(e => { if (!cancelled) setError(e.message || 'Erreur de chargement'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [page]);
+  }, []);
 
-  const totalPages = Math.max(1, Math.ceil(total / SIZE));
+  const capped = total > ALL_ACCEPTANCES_MAX;
 
   return (
     <div
@@ -813,7 +814,9 @@ function AllAcceptancesModal({ fmt2, onClose }) {
             <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {loading && rows.length === 0
                 ? 'Chargement…'
-                : `${total} acceptation${total > 1 ? 's' : ''} au total`}
+                : capped
+                  ? `${ALL_ACCEPTANCES_MAX} plus récentes affichées · ${total} au total`
+                  : `${total} acceptation${total > 1 ? 's' : ''} au total`}
             </div>
           </div>
           <button onClick={onClose} aria-label="Fermer"
@@ -857,25 +860,10 @@ function AllAcceptancesModal({ fmt2, onClose }) {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="row between" style={{ marginTop: 18, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={page <= 1 || loading}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-            >
-              ‹ Précédent
-            </button>
-            <span className="mono muted" style={{ fontSize: 12 }}>
-              Page {page} / {totalPages}
-            </span>
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            >
-              Suivant ›
-            </button>
+        {!loading && capped && (
+          <div className="muted" style={{ fontSize: 12, marginTop: 14, textAlign: 'center', lineHeight: 1.5 }}>
+            Affichage limité aux {ALL_ACCEPTANCES_MAX} acceptations les plus récentes.
+            {' '}Retrouvez l'historique complet dans l'onglet Facturation.
           </div>
         )}
       </div>
