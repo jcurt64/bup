@@ -11,7 +11,7 @@ import { Pressable } from "react-native";
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "wallet-outline",
   donnees: "albums-outline",
-  relations: "swap-horizontal",
+  relations: "swap-horizontal-outline",
   messages: "chatbubble-ellipses-outline",
   preferences: "options-outline",
 };
