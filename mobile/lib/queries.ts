@@ -386,7 +386,7 @@ export function useSetEmailTracking() {
   return useMutation({
     mutationFn: (v: { consent: boolean }) =>
       api("/api/me/email-tracking", {
-        method: "POST",
+        method: "PATCH",
         body: JSON.stringify(v),
       }),
     onSuccess: () =>
