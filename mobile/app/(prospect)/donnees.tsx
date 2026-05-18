@@ -13,12 +13,12 @@ import {
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
-const FIELDS: Record<TierKey, { key: string; label: string; readOnly?: boolean }[]> = {
+const FIELDS: Record<TierKey, { key: string; label: string; readOnly?: boolean; hint?: string }[]> = {
   identity: [
     { key: "prenom", label: "Prénom" },
     { key: "nom", label: "Nom" },
     { key: "email", label: "Email" },
-    { key: "telephone", label: "Téléphone", readOnly: true },
+    { key: "telephone", label: "Téléphone", readOnly: true, hint: "Modifiable via Préférences (vérification SMS)" },
     { key: "naissance", label: "Date de naissance" },
   ],
   localisation: [
@@ -51,8 +51,8 @@ const TIERS: { key: TierKey; n: number; label: string }[] = [
   { key: "identity", n: 1, label: "Identification" },
   { key: "localisation", n: 2, label: "Localisation" },
   { key: "vie", n: 3, label: "Style de vie" },
-  { key: "pro", n: 4, label: "Professionnel" },
-  { key: "patrimoine", n: 5, label: "Patrimoine" },
+  { key: "pro", n: 4, label: "Données professionnelles" },
+  { key: "patrimoine", n: 5, label: "Patrimoine & projets" },
 ];
 
 export default function Donnees() {
@@ -79,7 +79,7 @@ export default function Donnees() {
               const removed = d.removedTiers.includes(t.key);
               const isEditing = editing === t.key;
               return (
-                <Card key={t.n} className={removed ? "opacity-60" : ""}>
+                <Card key={t.key} className={removed ? "opacity-60" : ""}>
                   <View className="flex-row items-center justify-between">
                     <Text className="font-serif text-lg text-ink">
                       P{t.n} · {t.label}
@@ -98,12 +98,10 @@ export default function Donnees() {
                               {f.label}
                             </Text>
                             <Text className="text-sm text-ink-3">
-                              {String(row[f.key] ?? "—") || "—"}
+                              {row[f.key] != null && String(row[f.key]).trim() !== "" ? String(row[f.key]) : "—"}
                             </Text>
-                            {f.key === "telephone" ? (
-                              <Text className="text-[10px] text-ink-4">
-                                Modifiable via Préférences (vérification SMS)
-                              </Text>
+                            {f.hint ? (
+                              <Text className="text-[10px] text-ink-4">{f.hint}</Text>
                             ) : null}
                           </View>
                         ) : (
@@ -123,6 +121,7 @@ export default function Donnees() {
                       )}
                       <View className="mt-1 flex-row gap-2">
                         <Pressable
+                          disabled={patch.isPending}
                           className="flex-1 items-center rounded-full border border-line py-2.5"
                           onPress={() => {
                             setEditing(null);
@@ -161,16 +160,14 @@ export default function Donnees() {
                           </Text>
                         </View>
                       ))}
-                      <View className="mt-2 flex-row gap-2">
-                        {!removed && (
+                      {!removed && (
+                        <View className="mt-2 flex-row gap-2">
                           <Pressable
                             className="rounded-full border border-line px-4 py-2"
                             onPress={() => setEditing(t.key)}
                           >
                             <Text className="text-xs text-ink-2">Modifier</Text>
                           </Pressable>
-                        )}
-                        {!removed && (
                           <Pressable
                             className="rounded-full border border-line px-4 py-2"
                             onPress={() =>
@@ -184,8 +181,8 @@ export default function Donnees() {
                               {hidden ? "Réafficher" : "Masquer"}
                             </Text>
                           </Pressable>
-                        )}
-                      </View>
+                        </View>
+                      )}
                     </View>
                   )}
                 </Card>
