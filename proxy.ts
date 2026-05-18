@@ -53,6 +53,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook",
   "/api/waitlist",
   "/api/waitlist/stats",
+  // Statut ASSAINI : version publique sans aucun détail interne
+  // (cf. app/api/status/public/route.ts). `/api/status` (détaillé)
+  // reste protégé volontairement — il expose des diagnostics sensibles.
+  "/api/status/public",
   // Endpoint du formulaire DPO : accessible aux visiteurs anonymes (cas
   // d'un ancien utilisateur dont le compte a été supprimé et qui veut
   // exercer un droit RGPD résiduel). Honeypot + validation côté handler.

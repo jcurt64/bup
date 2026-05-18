@@ -63,7 +63,10 @@ export default function StatusPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch("/api/status", { cache: "no-store" });
+        // Endpoint PUBLIC assaini (la page /status est accessible sans
+        // authentification). `/api/status` (détaillé) est volontairement
+        // protégé — cf. proxy.ts / lib/status/checks.ts.
+        const r = await fetch("/api/status/public", { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const j = (await r.json()) as StatusResponse;
         if (!cancelled) {
@@ -82,7 +85,7 @@ export default function StatusPage() {
                 id: "api",
                 name: "API applicative",
                 status: "down",
-                message: "Impossible de joindre /api/status",
+                message: "Impossible de joindre le service de statut",
               },
             ],
             checkedAt: new Date().toISOString(),

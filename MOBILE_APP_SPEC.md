@@ -229,7 +229,8 @@ Toutes les routes sont relatives à `EXPO_PUBLIC_API_BASE_URL`. Auth = header
 | `/api/me/notifications/[id]/attachment` | GET | pièce jointe notif |
 | `/api/me/suggestions` | POST | envoyer une suggestion |
 | `/api/me/email-tracking` , `/opt-out` | GET/POST | préférences tracking e-mail (RGPD/CNIL) |
-| `/api/status` | GET | état des services (public) |
+| `/api/status` | GET | état des services **DÉTAILLÉ — authentifié** (messages/latence/diagnostics, ne pas exposer publiquement) |
+| `/api/status/public` | GET | état des services **ASSAINI — public** (`{overall, components:[{id,name,status}]}`, aucun détail interne) — à utiliser pour un indicateur de statut sans login |
 | `/api/plan-pricing` | GET | grille tarifaire (public) |
 
 ### Espace Prospect (mirroir des onglets du dashboard prospect)
