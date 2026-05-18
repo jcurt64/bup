@@ -37,8 +37,10 @@ où `<WT>` = `/Users/mjlk_blockchain/Desktop/buupp/.claude/worktrees/mobile-app`
 - `app/(prospect)/parrainage.tsx` — écran drawer Parrainage.
 - `app/(prospect)/fiscal.tsx` — écran drawer Informations fiscales.
 - `app/(prospect)/suggestions.tsx` — écran drawer Vos suggestions.
-- `app/(prospect)/drawer.tsx` — route modale : panneau latéral, 8 entrées.
+- `app/drawer.tsx` — route modale **au niveau du Stack racine** (panneau latéral, 8 entrées). NB : `presentation: "transparentModal"` n'est PAS une option valide sur `Tabs.Screen` en expo-router SDK 54 (option Stack uniquement) → la modale drawer est enregistrée dans le Stack racine `app/_layout.tsx`, pas dans les Tabs `(prospect)`.
 - `components/drawer-panel.tsx` — UI du panneau + modales Déconnexion / Supprimer le compte.
+
+**Modifié (ajout) :** `app/_layout.tsx` — déclarer `<Stack.Screen name="drawer" options={{ presentation: "transparentModal", headerShown: false }} />` dans le Stack racine.
 
 ---
 
