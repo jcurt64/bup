@@ -111,11 +111,20 @@ export const useProspectScore = () =>
 
 export type Parrainage = {
   refCode: string;
-  count: number;
+  launchAt: string | null;
   cap: number;
+  count: number;
   remaining: number;
   vipEligible: boolean;
-  filleuls: { prenom: string | null; nom: string | null; ville: string | null; createdAt: string }[];
+  vipThreshold: number;
+  vipBudgetMinEur: number;
+  vipFlatBonusEur: number;
+  filleuls: {
+    prenom: string | null;
+    nom: string | null;
+    ville: string | null;
+    createdAt: string;
+  }[];
 };
 export const useParrainage = () =>
   useGet<Parrainage>(["prospect", "parrainage"], "/api/prospect/parrainage", 60_000);
