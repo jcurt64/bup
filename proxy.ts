@@ -234,6 +234,20 @@ export default clerkMiddleware(async (auth, request) => {
 
   const { userId, sessionClaims, redirectToSignIn } = await auth();
   if (!userId) {
+    // Client API (app mobile, fetch programmatique, intégrations) : pas
+    // de cookie de session → renvoyer un 401 JSON exploitable plutôt
+    // qu'une redirection 307 vers la page HTML /connexion qu'un client
+    // non-navigateur ne peut pas suivre utilement. Les routes /api/*
+    // publiques sont déjà sorties plus haut via isPublicRoute().
+    // Les requêtes mobiles authentifiées portent un `Authorization:
+    // Bearer <token Clerk>` que `auth()` lit nativement → userId présent,
+    // elles ne tombent pas ici.
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "unauthorized", message: "Authentification requise." },
+        { status: 401 },
+      );
+    }
     return redirectToSignIn({ returnBackUrl: request.url });
   }
 
