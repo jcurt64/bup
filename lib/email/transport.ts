@@ -1,66 +1,212 @@
 /**
- * Transport SMTP partagé (Gmail).
+ * Transport e-mail partagé.
  *
- * Configuration via variables d'environnement :
- *   - SMTP_HOST   (défaut : smtp.gmail.com)
- *   - SMTP_PORT   (défaut : 465)
- *   - SMTP_USER   = adresse Gmail de l'expéditeur (jjlex64@gmail.com)
- *   - SMTP_PASS   = mot de passe d'application Google (16 caractères, sans espaces)
- *                   → https://myaccount.google.com/apppasswords (2FA requise)
+ * Priorité : **API e-mail transactionnelle Brevo** (réutilise
+ * `BREVO_API_KEY`, déjà utilisée pour le SMS — aucune clé SMTP à gérer,
+ * domaine `buupp.com` authentifié DKIM/DMARC pour la délivrabilité).
  *
- * Si SMTP_USER ou SMTP_PASS manquent, `getTransport()` retourne `null` →
- * les fonctions d'envoi loggent un avertissement et reviennent silencieusement
- * (pas d'erreur HTTP, l'inscription reste fonctionnelle même sans mail).
+ * Repli : transport **SMTP nodemailer** si `BREVO_API_KEY` est absente
+ * mais que `SMTP_USER`/`SMTP_PASS` sont présents (dev local / Gmail).
+ *
+ * Si aucune des deux configs n'est disponible, `getTransport()` renvoie
+ * `null` → les fonctions d'envoi loggent un avertissement et reviennent
+ * silencieusement (l'inscription reste fonctionnelle sans mail).
+ *
+ * Variables d'environnement :
+ *   - BREVO_API_KEY            → active la voie API (recommandé)
+ *   - MAIL_FROM                → "BUUPP <no-reply@buupp.com>" (défaut)
+ *   - SMTP_HOST/PORT/USER/PASS → repli SMTP uniquement
+ *
+ * Le shim renvoyé par `getTransport()` expose la même surface que
+ * l'ancien transport nodemailer (`sendMail(opts)` →
+ * `{ messageId, accepted, rejected }`, `close()`) afin que les 15+
+ * modules `lib/email/*` n'aient AUCUNE modification à subir.
  */
 
-import nodemailer, { type Transporter } from "nodemailer";
+import nodemailer from "nodemailer";
 import type { SendMailOptions } from "nodemailer";
 
-// On cache uniquement les transports VALIDES (non-null). Si la config était
-// absente au démarrage et a été ajoutée depuis, on retentera la création
-// au prochain appel — pas besoin de redémarrer le serveur.
-let cachedTransport: Transporter | null = null;
-let cachedFor: string | null = null; // signature user|host|port pour invalider
+const BREVO_EMAIL_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
-export function getTransport(): Transporter | null {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const host = process.env.SMTP_HOST ?? "smtp.gmail.com";
-  const port = Number(process.env.SMTP_PORT ?? 465);
+export type MailResult = {
+  messageId: string | null;
+  accepted: string[];
+  rejected: string[];
+};
 
-  if (!user || !pass) {
-    if (cachedTransport) {
-      cachedTransport.close();
-      cachedTransport = null;
-      cachedFor = null;
-    }
-    console.warn(
-      "[email] SMTP_USER / SMTP_PASS non définis — l'envoi de mails est désactivé. " +
-        "Configurez ces variables dans .env.local pour activer les confirmations.",
-    );
-    return null;
+export interface MailTransport {
+  sendMail(opts: SendMailOptions): Promise<MailResult>;
+  close(): void;
+}
+
+let cached: MailTransport | null = null;
+let cachedFor: string | null = null; // signature pour invalider le cache
+
+/** Parse "Nom <email@x.y>" ou "email@x.y" → { name, email }. */
+function parseAddress(
+  input: unknown,
+): { name?: string; email: string } | null {
+  const s = String(input ?? "").trim();
+  if (!s) return null;
+  const m = s.match(/^\s*"?([^"<]*?)"?\s*<\s*([^>\s]+)\s*>\s*$/);
+  if (m) {
+    const name = m[1].trim();
+    return name ? { name, email: m[2].trim() } : { email: m[2].trim() };
   }
+  return { email: s };
+}
 
-  const signature = `${user}|${host}|${port}`;
-  if (cachedTransport && cachedFor === signature) return cachedTransport;
+/** Normalise `to` (string | string[] | "a@b, c@d") en liste d'adresses. */
+function parseRecipients(to: unknown): { email: string; name?: string }[] {
+  const raw: string[] = Array.isArray(to)
+    ? to.map((x) => String(x))
+    : String(to ?? "").split(",");
+  return raw
+    .map((x) => parseAddress(x))
+    .filter((x): x is { name?: string; email: string } => !!x && !!x.email);
+}
 
-  // Reconfigurer si la signature a changé.
-  if (cachedTransport) cachedTransport.close();
+function brevoTransport(apiKey: string): MailTransport {
+  return {
+    close() {
+      /* no-op : pas de socket persistant côté API HTTP */
+    },
+    async sendMail(opts: SendMailOptions): Promise<MailResult> {
+      const sender = parseAddress(opts.from) ?? {
+        name: "BUUPP",
+        email: "no-reply@buupp.com",
+      };
+      const to = parseRecipients(opts.to);
+      if (to.length === 0) throw new Error("brevo: aucun destinataire");
 
-  cachedTransport = nodemailer.createTransport({
+      const html = typeof opts.html === "string" ? opts.html : undefined;
+      const text = typeof opts.text === "string" ? opts.text : undefined;
+      if (!html && !text) {
+        throw new Error("brevo: htmlContent ou textContent requis");
+      }
+
+      let replyTo: { name?: string; email: string } | null = null;
+      if (opts.replyTo) {
+        if (typeof opts.replyTo === "string") {
+          replyTo = parseAddress(opts.replyTo);
+        } else {
+          const r = opts.replyTo as { name?: string; address?: string };
+          replyTo = r.address
+            ? { email: r.address, ...(r.name ? { name: r.name } : {}) }
+            : null;
+        }
+      }
+
+      const body: Record<string, unknown> = {
+        sender,
+        to,
+        subject: String(opts.subject ?? ""),
+      };
+      if (html) body.htmlContent = html;
+      if (text) body.textContent = text;
+      if (replyTo?.email) body.replyTo = replyTo;
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15_000);
+      let res: Response;
+      try {
+        res = await fetch(BREVO_EMAIL_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "api-key": apiKey,
+            accept: "application/json",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(
+          `brevo email API ${res.status}: ${errText.slice(0, 300)}`,
+        );
+      }
+      const json = (await res.json().catch(() => ({}))) as {
+        messageId?: string;
+      };
+      return {
+        messageId: json.messageId ?? null,
+        accepted: to.map((t) => t.email),
+        rejected: [],
+      };
+    },
+  };
+}
+
+function smtpTransport(
+  user: string,
+  pass: string,
+  host: string,
+  port: number,
+): MailTransport {
+  const tx = nodemailer.createTransport({
     host,
     port,
     secure: port === 465, // SSL implicite sur 465, STARTTLS sur 587.
     auth: { user, pass },
   });
-  cachedFor = signature;
+  return {
+    close() {
+      tx.close();
+    },
+    async sendMail(opts: SendMailOptions): Promise<MailResult> {
+      const info = await tx.sendMail(opts);
+      return {
+        messageId: info.messageId ?? null,
+        accepted: (info.accepted ?? []).map((a) => String(a)),
+        rejected: (info.rejected ?? []).map((a) => String(a)),
+      };
+    },
+  };
+}
 
-  return cachedTransport;
+export function getTransport(): MailTransport | null {
+  const brevoKey = process.env.BREVO_API_KEY;
+  if (brevoKey) {
+    const sig = `brevo|${brevoKey.slice(-6)}`;
+    if (cached && cachedFor === sig) return cached;
+    if (cached) cached.close();
+    cached = brevoTransport(brevoKey);
+    cachedFor = sig;
+    return cached;
+  }
+
+  // Repli SMTP (dev local / Gmail) si pas de clé Brevo.
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST ?? "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT ?? 465);
+  if (!user || !pass) {
+    if (cached) {
+      cached.close();
+      cached = null;
+      cachedFor = null;
+    }
+    console.warn(
+      "[email] Ni BREVO_API_KEY ni SMTP_USER/SMTP_PASS — l'envoi de mails est désactivé.",
+    );
+    return null;
+  }
+  const sig = `smtp|${user}|${host}|${port}`;
+  if (cached && cachedFor === sig) return cached;
+  if (cached) cached.close();
+  cached = smtpTransport(user, pass, host, port);
+  cachedFor = sig;
+  return cached;
 }
 
 export function getFromAddress(): string {
-  // Permet de personnaliser le "from" (ex: "BUUPP <jjlex64@gmail.com>") via env.
-  return process.env.MAIL_FROM ?? `BUUPP <${process.env.SMTP_USER ?? "jjlex64@gmail.com"}>`;
+  // Domaine buupp.com authentifié (DKIM/DMARC) → expéditeur de marque.
+  return process.env.MAIL_FROM ?? "BUUPP <no-reply@buupp.com>";
 }
 
 /**
