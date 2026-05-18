@@ -142,8 +142,7 @@ export default function Preferences() {
           ))}
         </View>
         <Text className="text-[10px] italic text-ink-4">
-          Modification disponible sur le site web (fonctionnalité à venir
-          sur mobile).
+          Préférence non modifiable pour le moment.
         </Text>
       </Card>
 
@@ -168,8 +167,7 @@ export default function Preferences() {
           ))}
         </View>
         <Text className="text-[10px] italic text-ink-4">
-          Modification disponible sur le site web (fonctionnalité à venir
-          sur mobile).
+          Préférence non modifiable pour le moment.
         </Text>
       </Card>
 
@@ -189,8 +187,11 @@ export default function Preferences() {
             const radius     = Number.isFinite(persisted) && persisted >= 5 && persisted <= 100
               ? persisted
               : 25;
+            // rowToUi serialises the boolean column as the string "true"/"false"
+            // (TierFields = Record<string,string|null>). Compare against "false"
+            // to recover the real boolean; absent/null → default true.
             const nationalOptIn =
-              String(loc.nationalOptIn ?? "true") !== "false";
+              loc.nationalOptIn !== "false" && loc.nationalOptIn !== null;
             const zoneLocked = !ville;
 
             return (
@@ -224,9 +225,7 @@ export default function Preferences() {
                         patchDon.mutate({
                           tier: "localisation",
                           fields: {
-                            targetingRadiusKm: String(
-                              Math.max(5, radius - 5),
-                            ),
+                            targetingRadiusKm: Math.max(5, radius - 5),
                           },
                         })
                       }
@@ -240,9 +239,7 @@ export default function Preferences() {
                         patchDon.mutate({
                           tier: "localisation",
                           fields: {
-                            targetingRadiusKm: String(
-                              Math.min(100, radius + 5),
-                            ),
+                            targetingRadiusKm: Math.min(100, radius + 5),
                           },
                         })
                       }
@@ -261,6 +258,9 @@ export default function Preferences() {
                 {/* Étendre au niveau national */}
                 <Pressable
                   disabled={zoneLocked || patchDon.isPending}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: nationalOptIn }}
+                  accessibilityLabel="Ciblage national"
                   className={`flex-row items-start gap-3 rounded-xl border p-3 ${
                     nationalOptIn ? "border-violet bg-violet/5" : "border-line bg-paper"
                   } ${zoneLocked ? "opacity-50" : ""}`}
@@ -295,6 +295,9 @@ export default function Preferences() {
             );
           }}
         </QueryGate>
+        {patchDon.isError && (
+          <Text className="text-xs text-bad">Échec — réessayez.</Text>
+        )}
       </Card>
 
       {/* ── 4. Paliers partageables ───────────────────────────────────────
@@ -321,6 +324,9 @@ export default function Preferences() {
                     <Pressable
                       key={row.key}
                       disabled={removed || tierAction.isPending}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: shared }}
+                      accessibilityLabel={`Palier ${row.n} — ${row.name}`}
                       className={`flex-row items-center justify-between py-3 ${
                         idx < TIER_ROWS.length - 1
                           ? "border-b border-line"
@@ -368,6 +374,9 @@ export default function Preferences() {
             );
           }}
         </QueryGate>
+        {tierAction.isError && (
+          <Text className="text-xs text-bad">Échec — réessayez.</Text>
+        )}
       </Card>
 
       {/* ── 5. Téléphone & vérification SMS ─────────────────────────────
@@ -397,22 +406,26 @@ export default function Preferences() {
                     {phoneStart.isPending ? "…" : "Recevoir un code SMS"}
                   </Text>
                 </Pressable>
-                <TextInput
-                  value={code}
-                  onChangeText={setCode}
-                  placeholder="Code à 6 chiffres"
-                  keyboardType="number-pad"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
-                />
-                <Pressable
-                  disabled={phoneVerify.isPending}
-                  className="items-center rounded-full border border-line py-3"
-                  onPress={() => phoneVerify.mutate({ code })}
-                >
-                  <Text className="text-sm text-ink-2">
-                    {phoneVerify.isPending ? "…" : "Valider le code"}
-                  </Text>
-                </Pressable>
+                {phoneStart.isSuccess && (
+                  <>
+                    <TextInput
+                      value={code}
+                      onChangeText={setCode}
+                      placeholder="Code à 6 chiffres"
+                      keyboardType="number-pad"
+                      className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                    />
+                    <Pressable
+                      disabled={phoneVerify.isPending}
+                      className="items-center rounded-full border border-line py-3"
+                      onPress={() => phoneVerify.mutate({ code })}
+                    >
+                      <Text className="text-sm text-ink-2">
+                        {phoneVerify.isPending ? "…" : "Valider le code"}
+                      </Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             )
           }
@@ -499,7 +512,12 @@ export default function Preferences() {
             ) : (
               <View className="gap-2">
                 <Text className="text-xs text-ink-4">
-                  Disponible : {eur(wal.data?.availableEur ?? 0)}
+                  Disponible :{" "}
+                  {wal.isPending
+                    ? "…"
+                    : wal.isError
+                      ? "—"
+                      : eur(wal.data?.availableEur ?? 0)}
                 </Text>
                 <TextInput
                   value={amount}
@@ -548,6 +566,7 @@ export default function Preferences() {
             <Switch
               value={m.consent}
               onValueChange={(v) => setMail.mutate({ consent: v })}
+              accessibilityLabel="Suivi des emails BUUPP"
             />
           )}
         </QueryGate>
