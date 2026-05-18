@@ -104,7 +104,7 @@ export default function FiscalScreen() {
               <Text className="mt-1 text-xs text-ink-4">
                 {d.previousYear.reportedToDgfip
                   ? `Récapitulatif fiscal ${d.previousYear.year} transmis le 31 janvier ${d.previousYear.year + 1}.`
-                  : `Aucune transmission DGFiP : seuil non atteint (${d.previousYear.transactionCount} transactions, ${eur(d.previousYear.totalEur)}).`}
+                  : `Aucune transmission DGFiP pour ${d.previousYear.year} : seuil non atteint (${d.previousYear.transactionCount} transactions, ${eur(d.previousYear.totalEur)}).`}
               </Text>
               <View className="mt-3 flex-row gap-2">
                 <Pressable
