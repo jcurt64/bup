@@ -113,6 +113,138 @@ export function useDecideRelation() {
   });
 }
 
+// — Mouvements financiers — GET /api/prospect/movements
+export type Movement = {
+  id: string;
+  date: string;
+  origin: string;
+  tier: number | null;
+  statusLabel: string;
+  statusChip: string;
+  amountCents: number;
+  amountEur: number;
+  sign: "+" | "−";
+  relation: Record<string, unknown> | null;
+};
+export const useProspectMovements = () =>
+  useGet<{ movements: Movement[] }>(
+    ["prospect", "movements"],
+    "/api/prospect/movements",
+    15_000,
+  );
+
+// — Mes données — GET /api/prospect/donnees
+export type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
+export type DonneesResp = {
+  identity: Record<string, unknown> | null;
+  localisation: Record<string, unknown> | null;
+  vie: Record<string, unknown> | null;
+  pro: Record<string, unknown> | null;
+  patrimoine: Record<string, unknown> | null;
+  identityMeta: { phoneVerifiedAt: string | null };
+  hiddenTiers: TierKey[];
+  removedTiers: TierKey[];
+  isFounder: boolean;
+};
+export const useProspectDonnees = () =>
+  useGet<DonneesResp>(["prospect", "donnees"], "/api/prospect/donnees", 15_000);
+
+// — Vérification — GET /api/prospect/verification
+export type Verification = {
+  tier: "basique" | "verifie" | "certifie" | string;
+  rib: {
+    ibanMasked: string;
+    bic: string;
+    holderName: string;
+    validated: boolean;
+    validatedAt: string | null;
+  } | null;
+  physicalAcceptances: number;
+  progress: number;
+};
+export const useProspectVerification = () =>
+  useGet<Verification>(
+    ["prospect", "verification"],
+    "/api/prospect/verification",
+    30_000,
+  );
+
+// — Score history — GET /api/prospect/score/history?range=1M|3M|6M|12M
+export type ScoreHistory = {
+  range: string;
+  since: string;
+  points: {
+    date: string;
+    score: number;
+    completenessPct: number;
+    freshnessPct: number;
+    acceptancePct: number;
+  }[];
+};
+export const useProspectScoreHistory = (range: "1M" | "3M" | "6M" | "12M" = "3M") =>
+  useGet<ScoreHistory>(
+    ["prospect", "score", "history", range],
+    `/api/prospect/score/history?range=${range}`,
+    60_000,
+  );
+
+// — Fiscal — GET /api/prospect/fiscal
+export type Fiscal = {
+  thresholdEur: number;
+  thresholdTransactions: number;
+  currentYear: {
+    year: number;
+    totalCents: number;
+    totalEur: number;
+    transactionCount: number;
+    thresholdReached: boolean;
+  };
+  previousYear: {
+    year: number;
+    totalCents: number;
+    totalEur: number;
+    transactionCount: number;
+    reportedToDgfip: boolean;
+  };
+};
+export const useProspectFiscal = () =>
+  useGet<Fiscal>(["prospect", "fiscal"], "/api/prospect/fiscal", 60_000);
+
+// — Statut payout (Stripe Connect) — GET /api/prospect/payout/status
+export type PayoutStatus = {
+  hasAccount: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+};
+export const usePayoutStatus = () =>
+  useGet<PayoutStatus>(
+    ["prospect", "payout", "status"],
+    "/api/prospect/payout/status",
+    30_000,
+  );
+
+// — Consentement tracking e-mail — GET /api/me/email-tracking
+export type EmailTracking = { consent: boolean; role: string };
+export const useEmailTracking = () =>
+  useGet<EmailTracking>(
+    ["me", "email-tracking"],
+    "/api/me/email-tracking",
+    60_000,
+  );
+
+// — Identité (prénom/nom/email) — GET /api/me
+export type Me = {
+  prenom: string | null;
+  nom: string | null;
+  email: string | null;
+  initials: string;
+  role: "prospect" | "pro" | null;
+  displayName: string;
+};
+// `useMe` existe déjà (ligne ~25) typé Record<string,unknown> ; on ajoute
+// une variante typée pour les écrans qui en ont besoin.
+export const useMeTyped = () => useGet<Me>(["me"], "/api/me", 60_000);
+
 // ───────── Pro ─────────
 export type ProOverview = {
   contactsAccepted30d: number;
