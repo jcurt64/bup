@@ -6,10 +6,12 @@ import { Pressable, Text, View } from "react-native";
 
 import { Card, eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { useDecideRelation, useProspectRelations } from "../../lib/queries";
+import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 export default function Relations() {
   const q = useProspectRelations();
   const decide = useDecideRelation();
+  useRefetchOnFocus(q);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function act(id: string, action: "accept" | "refuse") {
@@ -56,6 +58,9 @@ export default function Relations() {
                 {r.motif ? (
                   <Text className="mt-2 text-sm text-ink-3">{r.motif}</Text>
                 ) : null}
+                {r.brief ? (
+                  <Text className="mt-1 text-xs text-ink-4">{r.brief}</Text>
+                ) : null}
                 <View className="mt-4 flex-row gap-3">
                   <Pressable
                     disabled={busyId === r.id}
@@ -96,9 +101,12 @@ export default function Relations() {
               className="flex-row justify-between rounded-2xl border border-line bg-paper p-3"
             >
               <Text className="text-sm text-ink-2">{r.pro}</Text>
-              <Text className="font-mono text-xs text-ink-4">
-                {eur(r.reward)}
-              </Text>
+              <View className="items-end">
+                <Text className="font-mono text-xs text-ink-4">{eur(r.reward)}</Text>
+                <Text className="font-mono text-[10px] text-ink-4">
+                  {r.status ?? ""}
+                </Text>
+              </View>
             </View>
           ))}
         </View>

@@ -57,13 +57,35 @@ export const useProspectWallet = () =>
   useGet<ProspectWallet>(["prospect", "wallet"], "/api/prospect/wallet", 15_000);
 
 export type Relation = {
+  // Champs communs pending + history
   id: string;
+  campaignId: string;
   pro: string;
   sector: string;
   motif: string;
+  brief: string | null;
   reward: number;
   tier: number;
   timer: string;
+  startDate: string;
+  endDate: string;
+  isFlashDeal: boolean;
+  reported: boolean;
+  // Champs spécifiques pending
+  expiresAt?: string;
+  // Champs spécifiques history
+  date?: string;
+  proName?: string;
+  /** Label décision affiché : "Acceptée" | "Refusée" | "Expirée" */
+  decision?: string;
+  /** Label statut affiché : "Crédité" | "En séquestre" | "—" */
+  status?: string;
+  /** Statut brut DB : "accepted" | "settled" | "refused" | "pending" */
+  relationStatus?: string;
+  gain?: number | null;
+  campaignStatus?: string | null;
+  campaignOpen?: boolean;
+  campaignActive?: boolean;
 };
 export const useProspectRelations = () =>
   useGet<{ pending: Relation[]; history: Relation[] }>(
