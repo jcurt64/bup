@@ -267,11 +267,12 @@ export function useTierAction() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { tier: TierKey; action: string }) =>
+    mutationFn: (v: { tier: TierKey; action: "hide" | "restore" | "delete" }) =>
       api("/api/prospect/tier", { method: "POST", body: JSON.stringify(v) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
       qc.invalidateQueries({ queryKey: ["prospect", "score"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
     },
   });
 }
@@ -299,6 +300,7 @@ export function usePhoneVerify() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
       qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "score"] });
     },
   });
 }
@@ -339,6 +341,7 @@ export function usePayoutWithdraw() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
+    // `method: "iban"` est volontairement figé : la route /payout/withdraw rejette toute autre valeur (seul l'IBAN est supporté côté serveur).
     mutationFn: (v: { amountCents: number }) =>
       api("/api/prospect/payout/withdraw", {
         method: "POST",
