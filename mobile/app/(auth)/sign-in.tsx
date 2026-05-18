@@ -1,13 +1,17 @@
-// Écran d'authentification combiné (maquette 4.png) :
-// Connexion / Inscription (tabs) + toggle rôle "JE SUIS" + e-mail/mdp
-// + SSO Apple/Google/Facebook + footer légal.
-// Auth = Clerk (MÊME projet que le web → mêmes utilisateurs/données).
-import { useSignIn, useSignUp, useSSO } from "@clerk/clerk-expo";
-
-// Sous-ensemble des stratégies OAuth qu'on expose (assignable au type
-// OAuthStrategy de @clerk/types attendu par startSSOFlow).
-type OAuthStrategy = "oauth_apple" | "oauth_google" | "oauth_facebook";
-import { Link, useRouter } from "expo-router";
+// Écran d'authentification (maquette 4.png, adapté à la réalité Clerk).
+//
+// ⚠️ Harmonisation avec le web : l'instance Clerk est configurée en
+// **code e-mail (passwordless)** — le web (composants hébergés
+// <SignIn>/<SignUp>) envoie un code, pas de mot de passe. On reproduit
+// donc ici le MÊME mécanisme en 2 étapes (e-mail → code à 6 chiffres),
+// pour Connexion ET Inscription. Pas de champ mot de passe ni de
+// "mot de passe oublié" (sans objet en passwordless).
+import {
+  useSignIn,
+  useSignUp,
+  useSSO,
+} from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -22,67 +26,99 @@ import {
 } from "../../components/ui";
 import { setRoleIntent, type RoleIntent } from "../../lib/role-intent";
 
-// Termine une éventuelle session d'auth web restée ouverte (SSO).
+type OAuthStrategy = "oauth_apple" | "oauth_google" | "oauth_facebook";
+
 WebBrowser.maybeCompleteAuthSession();
 
 type Tab = "login" | "signup";
+type Step = "email" | "code";
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signIn, setActive: setSignInActive, isLoaded: siReady } = useSignIn();
-  const { signUp, setActive: setSignUpActive, isLoaded: suReady } = useSignUp();
+  const { signIn, setActive: setSignInActive } = useSignIn();
+  const { signUp, setActive: setSignUpActive } = useSignUp();
   const { startSSOFlow } = useSSO();
 
   const [tab, setTab] = useState<Tab>("login");
+  const [step, setStep] = useState<Step>("email");
   const [role, setRole] = useState<RoleIntent>("prospect");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-  const [pendingCode, setPendingCode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const clerkErr = (e: unknown, fb: string) =>
     (e as { errors?: { message?: string }[] })?.errors?.[0]?.message ?? fb;
 
-  async function done(setActive: typeof setSignInActive, sid?: string | null) {
-    await setRoleIntent(role);
-    if (sid) await setActive!({ session: sid });
-    router.replace("/");
+  function reset(toTab?: Tab) {
+    if (toTab) setTab(toTab);
+    setStep("email");
+    setCode("");
+    setErr(null);
   }
 
-  async function onLogin() {
-    if (!siReady || busy) return;
+  // — Étape 1 : envoyer le code e-mail —
+  async function requestCode() {
+    if (busy || !email.trim()) return;
     setBusy(true);
     setErr(null);
     try {
-      const r = await signIn.create({ identifier: email, password });
-      if (r.status === "complete") await done(setSignInActive, r.createdSessionId);
-      else setErr("Étape supplémentaire requise (non gérée ici).");
+      if (tab === "login") {
+        if (!signIn) return;
+        const r = await signIn.create({ identifier: email.trim() });
+        const f = r.supportedFirstFactors?.find(
+          (x): x is typeof x & { emailAddressId: string } =>
+            x.strategy === "email_code",
+        );
+        if (!f) throw new Error("Connexion par code indisponible.");
+        await signIn.prepareFirstFactor({
+          strategy: "email_code",
+          emailAddressId: f.emailAddressId,
+        });
+      } else {
+        if (!signUp) return;
+        await signUp.create({ emailAddress: email.trim() });
+        await signUp.prepareEmailAddressVerification({
+          strategy: "email_code",
+        });
+      }
+      setStep("code");
     } catch (e) {
-      setErr(clerkErr(e, "Identifiants invalides."));
+      setErr(clerkErr(e, "Impossible d'envoyer le code."));
     } finally {
       setBusy(false);
     }
   }
 
-  async function onSignup() {
-    if (!suReady || busy) return;
+  // — Étape 2 : vérifier le code → session —
+  async function verifyCode() {
+    if (busy || code.trim().length < 4) return;
     setBusy(true);
     setErr(null);
     try {
-      if (!pendingCode) {
-        await signUp.create({ emailAddress: email, password });
-        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-        setPendingCode(true);
+      await setRoleIntent(role);
+      if (tab === "login") {
+        if (!signIn) return;
+        const r = await signIn.attemptFirstFactor({
+          strategy: "email_code",
+          code: code.trim(),
+        });
+        if (r.status === "complete") {
+          await setSignInActive!({ session: r.createdSessionId });
+          router.replace("/");
+        } else setErr("Code incorrect ou expiré.");
       } else {
-        const r = await signUp.attemptEmailAddressVerification({ code });
-        if (r.status === "complete")
-          await done(setSignUpActive, r.createdSessionId);
-        else setErr("Code invalide.");
+        if (!signUp) return;
+        const r = await signUp.attemptEmailAddressVerification({
+          code: code.trim(),
+        });
+        if (r.status === "complete") {
+          await setSignUpActive!({ session: r.createdSessionId });
+          router.replace("/");
+        } else setErr("Code incorrect ou expiré.");
       }
     } catch (e) {
-      setErr(clerkErr(e, "Inscription impossible."));
+      setErr(clerkErr(e, "Code invalide."));
     } finally {
       setBusy(false);
     }
@@ -129,9 +165,11 @@ export default function AuthScreen() {
           )}
         </Text>
         <Text className="text-center text-sm text-ink-3">
-          {tab === "login"
-            ? "Reprenez là où vous en étiez."
-            : "Quelques secondes, et c'est parti."}
+          {step === "code"
+            ? `Code envoyé à ${email}`
+            : tab === "login"
+              ? "On vous envoie un code par e-mail."
+              : "Quelques secondes, et c'est parti."}
         </Text>
       </View>
 
@@ -140,11 +178,7 @@ export default function AuthScreen() {
         {(["login", "signup"] as Tab[]).map((t) => (
           <Pressable
             key={t}
-            onPress={() => {
-              setTab(t);
-              setErr(null);
-              setPendingCode(false);
-            }}
+            onPress={() => reset(t)}
             className={`flex-1 items-center rounded-xl py-2.5 ${
               tab === t ? "bg-ink" : ""
             }`}
@@ -160,115 +194,118 @@ export default function AuthScreen() {
         ))}
       </View>
 
-      {/* JE SUIS — toggle rôle */}
-      <View className="gap-1.5">
-        <Text
-          className="text-[11px] font-bold uppercase text-ink-4"
-          style={{ letterSpacing: 1.2 }}
-        >
-          Je suis
-        </Text>
-        <View className="flex-row gap-3">
-          {(
-            [
-              { r: "prospect", t: "Buupper", s: "je vends mon attention" },
-              { r: "pro", t: "Professionnel", s: "je cherche des prospects" },
-            ] as { r: RoleIntent; t: string; s: string }[]
-          ).map((o) => {
-            const on = role === o.r;
-            return (
+      {step === "email" && (
+        <>
+          {/* JE SUIS — toggle rôle */}
+          <View className="gap-1.5">
+            <Text
+              className="text-[11px] font-bold uppercase text-ink-4"
+              style={{ letterSpacing: 1.2 }}
+            >
+              Je suis
+            </Text>
+            <View className="flex-row gap-3">
+              {(
+                [
+                  { r: "prospect", t: "Buupper", s: "je vends mon attention" },
+                  { r: "pro", t: "Professionnel", s: "je cherche des prospects" },
+                ] as { r: RoleIntent; t: string; s: string }[]
+              ).map((o) => {
+                const on = role === o.r;
+                return (
+                  <Pressable
+                    key={o.r}
+                    onPress={() => setRole(o.r)}
+                    className={`flex-1 rounded-2xl border bg-paper p-3 ${
+                      on ? "border-violet bg-violet-soft" : "border-line"
+                    }`}
+                  >
+                    <Text className="font-serif text-base italic text-ink">
+                      {o.t}
+                    </Text>
+                    <Text className="mt-0.5 text-[11px] text-ink-4">
+                      {o.s}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <Field
+            label="Email"
+            placeholder="vous@email.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          {err ? (
+            <Text className="text-center text-sm text-bad">{err}</Text>
+          ) : null}
+          <PrimaryButton
+            label="Recevoir le code"
+            loading={busy}
+            onPress={requestCode}
+          />
+
+          {/* OU + SSO */}
+          <View className="flex-row items-center gap-3 py-1">
+            <View className="h-px flex-1 bg-line" />
+            <Text className="text-[11px] font-bold uppercase text-ink-4">
+              ou
+            </Text>
+            <View className="h-px flex-1 bg-line" />
+          </View>
+          <View className="flex-row gap-3">
+            {(
+              [
+                { s: "oauth_apple", l: "" },
+                { s: "oauth_google", l: "G" },
+                { s: "oauth_facebook", l: "f" },
+              ] as { s: OAuthStrategy; l: string }[]
+            ).map((p) => (
               <Pressable
-                key={o.r}
-                onPress={() => setRole(o.r)}
-                className={`flex-1 rounded-2xl border bg-paper p-3 ${
-                  on ? "border-violet bg-violet-soft" : "border-line"
-                }`}
+                key={p.s}
+                onPress={() => onSSO(p.s)}
+                className="flex-1 items-center rounded-2xl border border-line bg-paper py-3.5 active:opacity-70"
               >
-                <Text className="font-serif text-base italic text-ink">
-                  {o.t}
-                </Text>
-                <Text className="mt-0.5 text-[11px] text-ink-4">{o.s}</Text>
+                <Text className="text-lg font-bold text-ink">{p.l}</Text>
               </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      <Field
-        label="Email"
-        placeholder="vous@email.com"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-
-      {tab === "signup" && pendingCode ? (
-        <Field
-          label="Code reçu par e-mail"
-          placeholder="123456"
-          keyboardType="number-pad"
-          value={code}
-          onChangeText={setCode}
-        />
-      ) : (
-        <Field
-          label="Mot de passe"
-          placeholder="••••••••"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+            ))}
+          </View>
+        </>
       )}
 
-      {tab === "login" ? (
-        <Link
-          href="/(auth)/forgot"
-          className="self-end text-sm font-medium text-violet"
-        >
-          Mot de passe oublié ?
-        </Link>
-      ) : null}
-
-      {err ? (
-        <Text className="text-center text-sm text-bad">{err}</Text>
-      ) : null}
-
-      <PrimaryButton
-        label={
-          tab === "login"
-            ? "Se connecter"
-            : pendingCode
-              ? "Vérifier le code"
-              : "Créer mon compte"
-        }
-        loading={busy}
-        onPress={tab === "login" ? onLogin : onSignup}
-      />
-
-      {/* OU + SSO */}
-      <View className="flex-row items-center gap-3 py-1">
-        <View className="h-px flex-1 bg-line" />
-        <Text className="text-[11px] font-bold uppercase text-ink-4">ou</Text>
-        <View className="h-px flex-1 bg-line" />
-      </View>
-      <View className="flex-row gap-3">
-        {(
-          [
-            { s: "oauth_apple", l: "" },
-            { s: "oauth_google", l: "G" },
-            { s: "oauth_facebook", l: "f" },
-          ] as { s: OAuthStrategy; l: string }[]
-        ).map((p) => (
-          <Pressable
-            key={p.s}
-            onPress={() => onSSO(p.s)}
-            className="flex-1 items-center rounded-2xl border border-line bg-paper py-3.5 active:opacity-70"
-          >
-            <Text className="text-lg font-bold text-ink">{p.l}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {step === "code" && (
+        <>
+          <Field
+            label="Code reçu par e-mail"
+            placeholder="123456"
+            keyboardType="number-pad"
+            value={code}
+            onChangeText={setCode}
+          />
+          {err ? (
+            <Text className="text-center text-sm text-bad">{err}</Text>
+          ) : null}
+          <PrimaryButton
+            label={tab === "login" ? "Se connecter" : "Créer mon compte"}
+            loading={busy}
+            onPress={verifyCode}
+          />
+          <View className="flex-row justify-between">
+            <Pressable onPress={() => reset()}>
+              <Text className="text-sm text-ink-4">← Changer d&apos;e-mail</Text>
+            </Pressable>
+            <Pressable onPress={requestCode} disabled={busy}>
+              <Text className="text-sm font-medium text-violet">
+                Renvoyer le code
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
 
       <LegalFooter />
     </ScrollView>
