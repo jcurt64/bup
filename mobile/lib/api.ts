@@ -8,6 +8,11 @@ import { useCallback } from "react";
 
 const BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
+export function apiBase(): string {
+  if (!BASE) throw new Error("EXPO_PUBLIC_API_BASE_URL manquant");
+  return BASE;
+}
+
 export class ApiError extends Error {
   status: number;
   body: string;
