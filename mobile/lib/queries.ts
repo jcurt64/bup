@@ -55,6 +55,13 @@ export type ProspectWallet = {
   withdrawThresholdEur: number;
   relationsCount: number;
   accountCreatedAt: string | null;
+  // Cents bruts renvoyés par /api/prospect/wallet (route.ts L125-139),
+  // utilisés pour la ligne "BUUPP Coins" sous chaque solde (parité web :
+  // coins = Math.round(cents), cf. Prospect.jsx fn Portefeuille).
+  monthGainsCents: number;
+  lifetimeGainsCents: number;
+  availableCents: number;
+  escrowCents: number;
 };
 export const useProspectWallet = () =>
   useGet<ProspectWallet>(["prospect", "wallet"], "/api/prospect/wallet", 15_000);
