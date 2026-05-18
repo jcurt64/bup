@@ -486,7 +486,8 @@ export default function CgvPage() {
             <li>
               <strong>Envoi des emails via BUUPP uniquement</strong> :
               le Pro accepte que les emails à destination des Prospects
-              acquis soient envoyés depuis les serveurs SMTP de BUUPP,
+              acquis soient envoyés via l&apos;infrastructure d&apos;envoi
+              de BUUPP (prestataire e-mail Brevo, Union européenne),
               avec son adresse personnelle en{" "}
               <em>Reply-To</em>. L&apos;adresse email du Prospect
               n&apos;est jamais affichée au Pro dans l&apos;interface

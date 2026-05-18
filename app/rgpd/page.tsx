@@ -184,8 +184,9 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Données techniques de la waitlist</strong>&nbsp;:
-              hash IP (SHA-256 tronqué), user-agent — finalité anti-bot,
-              durée 12 mois.
+              hash IP (SHA-256 avec sel secret côté serveur, non
+              réversible — pseudonymisation), user-agent — finalité
+              anti-bot, durée 12 mois.
             </li>
             <li>
               <strong>Cookies</strong>&nbsp;: voir{" "}
@@ -363,13 +364,23 @@ export default function RgpdPage() {
               (PCI&nbsp;DSS niveau&nbsp;1).
             </li>
             <li>
-              <strong>Brevo</strong> (France)&nbsp;: envoi des SMS de
-              vérification téléphone.
+              <strong>Brevo</strong> (Sendinblue SAS, France — Union
+              européenne)&nbsp;: envoi des SMS de vérification du
+              téléphone <strong>et</strong> des courriels transactionnels
+              et broadcasts. Le domaine <code>buupp.com</code> est
+              authentifié (SPF/DKIM/DMARC) afin de garantir l&apos;origine
+              et l&apos;intégrité des messages.
             </li>
             <li>
-              <strong>Google Workspace / Gmail SMTP</strong> (États-Unis)
-              : transmission des courriels transactionnels et des
-              broadcasts. SCC en place.
+              <strong>Transmission des courriels — historique</strong>
+              &nbsp;: jusqu&apos;au 18&nbsp;mai&nbsp;2026, les courriels
+              transactionnels et broadcasts transitaient par Google
+              Workspace / Gmail SMTP (États-Unis, SCC). Depuis cette date,
+              cette transmission a été <strong>rapatriée chez Brevo
+              (France, UE)</strong>, supprimant ce transfert hors Union
+              européenne. Un repli technique SMTP n&apos;est susceptible
+              d&apos;être utilisé qu&apos;en cas d&apos;indisponibilité
+              exceptionnelle du prestataire principal.
             </li>
             <li>
               <strong>Vercel Inc.</strong> (États-Unis, infrastructure

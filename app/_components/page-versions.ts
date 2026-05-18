@@ -123,6 +123,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Mise en place d'un watermark cryptographique : les emails révélés au Pro sont des alias uniques `prospect+rXXX@buupp.com` routés vers le vrai email du prospect via Cloudflare. Toute fuite est traçable nominativement, sans recoupement de logs.",
       },
+      {
+        version: "1.3",
+        date: "2026-05-18",
+        summary:
+          "Prestataires : « Resend / opérateur SMS » remplacé par Brevo (e-mail et SMS), reflétant le prestataire réellement utilisé.",
+      },
     ],
   },
   {
@@ -150,6 +156,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Article 5 (Modalités de paiement) enrichi : option facultative de recharge automatique du portefeuille (consentement exprès, montant et seuil paramétrables, révocable à tout moment, garde-fous cooldown 1h + facture immédiate + arrêt sur échec).",
       },
+      {
+        version: "1.4",
+        date: "2026-05-18",
+        summary:
+          "Envoi des e-mails aux prospects : « serveurs SMTP de BUUPP » précisé en infrastructure d'envoi via le prestataire Brevo (Union européenne).",
+      },
     ],
   },
   {
@@ -170,6 +182,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         date: "2026-05-15",
         summary:
           "Ajout du watermark cryptographique sur les emails révélés (alias unique par relation, routage via Cloudflare Email Routing, table `relation_email_aliases` verrouillée RLS).",
+      },
+      {
+        version: "1.3",
+        date: "2026-05-18",
+        summary:
+          "Sous-traitants : Brevo (France, UE) prend en charge SMS ET e-mails (transactionnels + broadcasts), domaine buupp.com authentifié SPF/DKIM/DMARC ; transmission e-mail rapatriée de Gmail SMTP (US) vers Brevo (UE), supprimant un transfert hors-UE. Précision : hash IP de la waitlist salé avec un secret serveur (pseudonymisation non réversible).",
       },
     ],
   },

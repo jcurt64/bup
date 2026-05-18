@@ -520,8 +520,8 @@ export default function CguPage() {
               «&nbsp;Statut&nbsp;»
             </Link>
             . Les indisponibilités liées à un cas de force majeure, à un
-            prestataire tiers (Clerk, Supabase, Stripe, Resend, opérateur
-            SMS) ou à une attaque informatique ne peuvent engager la
+            prestataire tiers (Clerk, Supabase, Stripe, Brevo — e-mail
+            et SMS) ou à une attaque informatique ne peuvent engager la
             responsabilité de BUUPP.
           </p>
           <p>
