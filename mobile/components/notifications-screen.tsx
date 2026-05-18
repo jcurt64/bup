@@ -58,18 +58,22 @@ export default function NotificationsScreen() {
                         </Text>
                       ) : null}
                       {n.hasAttachment ? (
-                        <Pressable
-                          className="mt-3 self-start rounded-full border border-line px-4 py-2"
-                          onPress={() =>
-                            WebBrowser.openBrowserAsync(
-                              `${apiBase()}/api/me/notifications/${n.id}/attachment`,
-                            )
-                          }
-                        >
-                          <Text className="text-xs text-ink-2">
-                            📎 {n.attachmentFilename ?? "Pièce jointe"}
-                          </Text>
-                        </Pressable>
+                        <>
+                          {/* NB: route protégée — l'ouverture WebBrowser n'envoie pas le Bearer Clerk (401). Téléchargement authentifié à brancher via le helper partagé (tâche T19, partagé avec l'écran Fiscal). */}
+                          <Pressable
+                            className="mt-3 self-start rounded-full border border-line px-4 py-2"
+                            onPress={() => {
+                              if (n.unread) read.mutate({ id: n.id });
+                              WebBrowser.openBrowserAsync(
+                                `${apiBase()}/api/me/notifications/${n.id}/attachment`,
+                              );
+                            }}
+                          >
+                            <Text className="text-xs text-ink-2">
+                              📎 {n.attachmentFilename ?? "Pièce jointe"}
+                            </Text>
+                          </Pressable>
+                        </>
                       ) : null}
                     </View>
                   </View>
