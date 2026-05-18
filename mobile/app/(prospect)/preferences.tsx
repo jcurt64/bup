@@ -7,7 +7,7 @@
 // types de campagne et catégories (note: pas d'endpoint dédié côté API
 // — blocs rendus read-only, voir concern en bas).
 import { useState } from "react";
-import { Pressable, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 
 import {
@@ -18,6 +18,7 @@ import {
   SectionTitle,
 } from "../../components/screen";
 import {
+  useDeleteRib,
   useEmailTracking,
   usePayoutOnboarding,
   usePayoutStatus,
@@ -78,6 +79,7 @@ export default function Preferences() {
   const phoneStart  = usePhoneStart();
   const phoneVerify = usePhoneVerify();
   const saveRib     = useSaveRib();
+  const delRib      = useDeleteRib();
   const onboard     = usePayoutOnboarding();
   const withdraw    = usePayoutWithdraw();
   const setMail     = useSetEmailTracking();
@@ -448,6 +450,31 @@ export default function Preferences() {
                   {v.rib.holderName} · {v.rib.bic} ·{" "}
                   {v.rib.validated ? "validé" : "en attente"}
                 </Text>
+                <Pressable
+                  disabled={delRib.isPending}
+                  className="mt-2 self-start rounded-full border border-line px-4 py-2"
+                  onPress={() =>
+                    Alert.alert(
+                      "Supprimer le RIB ?",
+                      "Vous devrez le ressaisir pour tout retrait.",
+                      [
+                        { text: "Annuler", style: "cancel" },
+                        {
+                          text: "Supprimer",
+                          style: "destructive",
+                          onPress: () => delRib.mutate(),
+                        },
+                      ],
+                    )
+                  }
+                >
+                  <Text className="text-xs text-bad">
+                    {delRib.isPending ? "…" : "Supprimer le RIB"}
+                  </Text>
+                </Pressable>
+                {delRib.isError && (
+                  <Text className="text-xs text-bad">Échec — réessayez.</Text>
+                )}
               </View>
             ) : (
               <View className="gap-2">
