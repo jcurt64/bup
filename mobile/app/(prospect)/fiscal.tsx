@@ -8,6 +8,26 @@ import { Card, eur, QueryGate, ScrollScreen, SectionTitle } from "../../componen
 import { useProspectFiscal } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
+// Seuils statiques affichés dans la carte "Seuils à retenir" (parité web).
+const SEUILS = [
+  {
+    amount: "305 €",
+    label: "Franchise annuelle",
+    desc: "En dessous, aucune déclaration URSSAF n’est requise.",
+  },
+  // Le deuxième seuil est dynamique (thresholdEur depuis l'API).
+  {
+    amount: null,
+    label: "Seuil DGFiP",
+    desc: "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant.",
+  },
+  {
+    amount: "77 700 €",
+    label: "Plafond micro-BIC",
+    desc: "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant.",
+  },
+] as const;
+
 export default function FiscalScreen() {
   const q = useProspectFiscal();
   useRefetchOnFocus(q);
@@ -42,6 +62,19 @@ export default function FiscalScreen() {
                   ? "Seuil DGFiP atteint"
                   : `Seuil : ${eur(d.thresholdEur)} / ${d.thresholdTransactions} tx`}
               </Text>
+              {/* Barre de progression — gains actuels / seuil EUR (parité web fn Fiscal). */}
+              <View
+                className="mt-3 h-2 overflow-hidden rounded-full bg-ivory-2"
+                accessible
+                accessibilityLabel={`Progression vers le seuil déclaratif : ${Math.round(Math.max(0, Math.min(100, (d.currentYear.totalEur / d.thresholdEur) * 100)))} %`}
+              >
+                <View
+                  className="h-2 rounded-full bg-violet"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (d.currentYear.totalEur / d.thresholdEur) * 100))}%`,
+                  }}
+                />
+              </View>
               <Pressable
                 className="mt-3 self-start rounded-full border border-line px-4 py-2"
                 onPress={() =>
@@ -87,6 +120,25 @@ export default function FiscalScreen() {
                     <Text className="text-xs text-ink-2">Reçu DGFiP</Text>
                   </Pressable>
                 ) : null}
+              </View>
+            </Card>
+            {/* Seuils à retenir — parité web fn Fiscal (3 seuils statiques + 1 dynamique). */}
+            <Card>
+              <Text className="font-serif text-lg text-ink">Seuils à retenir</Text>
+              <View className="mt-3 gap-3">
+                {SEUILS.map((s) => {
+                  const amountStr =
+                    s.amount !== null ? s.amount : eur(d.thresholdEur);
+                  return (
+                    <View key={s.label} className="flex-row items-start justify-between gap-2">
+                      <View className="flex-1">
+                        <Text className="text-sm text-ink-2">{s.label}</Text>
+                        <Text className="text-xs text-ink-4">{s.desc}</Text>
+                      </View>
+                      <Text className="font-serif text-sm text-ink-2">{amountStr}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </Card>
           </>
