@@ -57,6 +57,10 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(prospect)" />
             <Stack.Screen name="(pro)" />
+            <Stack.Screen
+              name="drawer"
+              options={{ presentation: "transparentModal", headerShown: false }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </SafeAreaProvider>

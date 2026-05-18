@@ -1,16 +1,19 @@
-// Espace prospect — onglets (miroir du dashboard web prospect).
-// 5 onglets principaux ; Parrainage / Vérification / Fiscal viendront
-// en itération suivante (accessibles via un écran "Plus").
+// Espace prospect — Tabs à 5 onglets (Portefeuille, Mes données, Mise en
+// relation, Messages, Préférences). Les écrans secondaires (verif, score,
+// parrainage, fiscal, suggestions) sont des routes empilées, accessibles
+// via le drawer (modale du Stack racine) ouvert depuis le header de
+// Portefeuille uniquement.
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, router, Tabs } from "expo-router";
+import { Pressable } from "react-native";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "wallet-outline",
-  relations: "swap-horizontal",
   donnees: "albums-outline",
-  score: "stats-chart-outline",
+  relations: "swap-horizontal",
   messages: "chatbubble-ellipses-outline",
+  preferences: "options-outline",
 };
 
 export default function ProspectLayout() {
@@ -32,14 +35,15 @@ export default function ProspectLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name={ICON.portefeuille} color={color} size={size} />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="relations"
-        options={{
-          title: "Relations",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.relations} color={color} size={size} />
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.push("/drawer")}
+              hitSlop={12}
+              style={{ paddingHorizontal: 16 }}
+              accessibilityLabel="Ouvrir le menu"
+            >
+              <Ionicons name="menu" size={24} color="#13235B" />
+            </Pressable>
           ),
         }}
       />
@@ -53,11 +57,11 @@ export default function ProspectLayout() {
         }}
       />
       <Tabs.Screen
-        name="score"
+        name="relations"
         options={{
-          title: "Score",
+          title: "Mise en relation",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.score} color={color} size={size} />
+            <Ionicons name={ICON.relations} color={color} size={size} />
           ),
         }}
       />
@@ -70,6 +74,22 @@ export default function ProspectLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="preferences"
+        options={{
+          title: "Préférences",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name={ICON.preferences} color={color} size={size} />
+          ),
+        }}
+      />
+
+      {/* Écrans drawer — masqués de la tab bar (href: null) */}
+      <Tabs.Screen name="verification" options={{ href: null, title: "Paliers de vérification" }} />
+      <Tabs.Screen name="score" options={{ href: null, title: "BUUPP Score" }} />
+      <Tabs.Screen name="parrainage" options={{ href: null, title: "Parrainage" }} />
+      <Tabs.Screen name="fiscal" options={{ href: null, title: "Informations fiscales" }} />
+      <Tabs.Screen name="suggestions" options={{ href: null, title: "Vos suggestions" }} />
     </Tabs>
   );
 }
