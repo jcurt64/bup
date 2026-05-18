@@ -252,7 +252,7 @@ export function usePatchDonnees() {
   return useMutation({
     mutationFn: (v: { tier: TierKey; fields: Record<string, unknown> }) =>
       api("/api/prospect/donnees", {
-        method: "POST",
+        method: "PATCH",
         body: JSON.stringify(v),
       }),
     onSuccess: () => {
