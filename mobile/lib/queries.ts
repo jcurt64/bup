@@ -123,7 +123,7 @@ export type Movement = {
   statusChip: string;
   amountCents: number;
   amountEur: number;
-  sign: "+" | "−";
+  sign: string;
   relation: Record<string, unknown> | null;
 };
 export const useProspectMovements = () =>
@@ -151,7 +151,7 @@ export const useProspectDonnees = () =>
 
 // — Vérification — GET /api/prospect/verification
 export type Verification = {
-  tier: "basique" | "verifie" | "certifie" | string;
+  tier: string;
   rib: {
     ibanMasked: string;
     bic: string;
@@ -224,7 +224,7 @@ export const usePayoutStatus = () =>
   );
 
 // — Consentement tracking e-mail — GET /api/me/email-tracking
-export type EmailTracking = { consent: boolean; role: string };
+export type EmailTracking = { consent: boolean; role: Role };
 export const useEmailTracking = () =>
   useGet<EmailTracking>(
     ["me", "email-tracking"],
