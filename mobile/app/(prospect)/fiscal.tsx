@@ -1,9 +1,8 @@
 // Informations fiscales — /api/prospect/fiscal. Téléchargements récap /
-// reçu DGFiP via WebBrowser (routes protégées, session Clerk).
-import * as WebBrowser from "expo-web-browser";
-import { Pressable, Text, View } from "react-native";
+// reçu DGFiP via téléchargement authentifié Bearer Clerk (T19).
+import { Alert, Pressable, Text, View } from "react-native";
 
-import { apiBase } from "../../lib/api";
+import { useAuthedDownload } from "../../lib/use-authed-download";
 import { Card, eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { useProspectFiscal } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
@@ -13,7 +12,7 @@ const SEUILS = [
   {
     amount: "305 €",
     label: "Franchise annuelle",
-    desc: "En dessous, aucune déclaration URSSAF n’est requise.",
+    desc: "En dessous, aucune déclaration URSSAF n'est requise.",
   },
   // Le deuxième seuil est dynamique (thresholdEur depuis l'API).
   {
@@ -22,7 +21,7 @@ const SEUILS = [
     desc: "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant.",
   },
   {
-    amount: "77 700 €",
+    amount: "77 700 €",
     label: "Plafond micro-BIC",
     desc: "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant.",
   },
@@ -30,13 +29,16 @@ const SEUILS = [
 
 export default function FiscalScreen() {
   const q = useProspectFiscal();
+  const download = useAuthedDownload();
   useRefetchOnFocus(q);
 
-  // NB: routes protégées — l'ouverture WebBrowser n'envoie pas le Bearer
-  // Clerk (401 attendu). Téléchargement authentifié à brancher via le
-  // helper partagé (tâche T19, commun avec l'écran Messages).
-  const open = (path: string) =>
-    WebBrowser.openBrowserAsync(`${apiBase()}${path}`);
+  const open = async (path: string) => {
+    try {
+      await download(path);
+    } catch {
+      Alert.alert("Erreur", "Téléchargement impossible.");
+    }
+  };
 
   return (
     <ScrollScreen onRefresh={q.refetch}>

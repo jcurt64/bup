@@ -1,8 +1,7 @@
 // Écran Messages partagé prospect/pro — /api/me/notifications.
-import * as WebBrowser from "expo-web-browser";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
-import { apiBase } from "../lib/api";
+import { useAuthedDownload } from "../lib/use-authed-download";
 import { useMarkNotificationRead, useNotifications } from "../lib/queries";
 import { useRefetchOnFocus } from "../lib/use-refetch-on-focus";
 import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "./screen";
@@ -10,6 +9,7 @@ import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "./screen";
 export default function NotificationsScreen() {
   const q = useNotifications();
   const read = useMarkNotificationRead();
+  const download = useAuthedDownload();
   useRefetchOnFocus(q);
   return (
     <ScrollScreen onRefresh={q.refetch}>
@@ -58,22 +58,24 @@ export default function NotificationsScreen() {
                         </Text>
                       ) : null}
                       {n.hasAttachment ? (
-                        <>
-                          {/* NB: route protégée — l'ouverture WebBrowser n'envoie pas le Bearer Clerk (401). Téléchargement authentifié à brancher via le helper partagé (tâche T19, partagé avec l'écran Fiscal). */}
-                          <Pressable
-                            className="mt-3 self-start rounded-full border border-line px-4 py-2"
-                            onPress={() => {
-                              if (n.unread) read.mutate({ id: n.id });
-                              WebBrowser.openBrowserAsync(
-                                `${apiBase()}/api/me/notifications/${n.id}/attachment`,
+                        <Pressable
+                          className="mt-3 self-start rounded-full border border-line px-4 py-2"
+                          onPress={async () => {
+                            if (n.unread) read.mutate({ id: n.id });
+                            try {
+                              await download(
+                                `/api/me/notifications/${n.id}/attachment`,
+                                n.attachmentFilename ?? undefined,
                               );
-                            }}
-                          >
-                            <Text className="text-xs text-ink-2">
-                              📎 {n.attachmentFilename ?? "Pièce jointe"}
-                            </Text>
-                          </Pressable>
-                        </>
+                            } catch {
+                              Alert.alert("Erreur", "Téléchargement impossible.");
+                            }
+                          }}
+                        >
+                          <Text className="text-xs text-ink-2">
+                            📎 {n.attachmentFilename ?? "Pièce jointe"}
+                          </Text>
+                        </Pressable>
                       ) : null}
                     </View>
                   </View>
