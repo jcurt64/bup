@@ -32,6 +32,9 @@ export type Notif = {
   id: string;
   title: string;
   body: string | null;
+  audience: string;
+  hasAttachment: boolean;
+  attachmentFilename: string | null;
   createdAt: string;
   unread: boolean;
 };
