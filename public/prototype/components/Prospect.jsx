@@ -2619,7 +2619,7 @@ function MesDonnees({ onGoPrefs }) {
         </div>
         <div style={{ flex: 1 }}>
           <div className="serif" style={{ fontSize: 20, marginBottom: 4, color: '#78350F' }}>
-            Vos droits sur vos données — articles 12 et suivants du RGPD
+            Vos droits sur vos données — articles 15 à 22 du RGPD
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6, color: '#78350F' }}>
             Vous disposez des droits d'<strong>accès</strong>, de <strong>rectification</strong>,
@@ -2628,7 +2628,7 @@ function MesDonnees({ onGoPrefs }) {
             s'exercent directement depuis cette page — chaque action est horodatée et tracée.
           </div>
           <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#92400E', letterSpacing: '.06em' }}>
-            RGPD · ARTICLES 12 À 22 · RÈGLEMENT (UE) 2016/679
+            RGPD · ARTICLES 15 À 22 · RÈGLEMENT (UE) 2016/679
           </div>
         </div>
       </div>
