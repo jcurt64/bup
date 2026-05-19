@@ -42,21 +42,28 @@ export default function Portefeuille() {
   useRefetchOnFocus(w, m);
 
   return (
-    <ScrollScreen onRefresh={() => Promise.all([w.refetch(), m.refetch()])}>
+    <ScrollScreen
+      onRefresh={() => Promise.all([w.refetch(), m.refetch()])}
+      hero={{
+        eyebrow: "Portefeuille",
+        title: "Votre portefeuille",
+        nav: "menu",
+      }}
+    >
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card dark>
-              <Text className="font-mono text-[11px] uppercase text-ink-5">
+            <Card badge={{ icon: "wallet-outline", tone: "violet" }}>
+              <Text className="font-mono text-[11px] uppercase text-ink-4">
                 Disponible
               </Text>
-              <Text className="mt-1 font-serif text-4xl text-paper">
+              <Text className="mt-1 font-serif text-4xl text-ink">
                 {eur(d.availableEur)}
               </Text>
-              <Text className="mt-1 font-mono text-xs text-ink-5">
+              <Text className="mt-1 font-mono text-xs text-ink-4">
                 {coins(d.availableCents)} BUUPP Coins
               </Text>
-              <Text className="mt-1 text-xs text-ink-5">
+              <Text className="mt-1 text-xs text-ink-4">
                 {d.canWithdraw
                   ? "Retirable immédiatement · minimum de 5 €"
                   : `Retirable à partir de ${eur(d.withdrawThresholdEur)} de gains`}
@@ -93,54 +100,56 @@ export default function Portefeuille() {
         )}
       </QueryGate>
 
-      <Text
-        className="mt-2 text-[11px] font-bold uppercase text-ink-4"
-        style={{ letterSpacing: 1.2 }}
-      >
-        Mouvements
-      </Text>
-      <QueryGate
-        query={m}
-        isEmpty={(d) => (d.movements?.length ?? 0) === 0}
-        emptyLabel="Aucun mouvement pour le moment."
-      >
-        {(d) => (
-          <View className="gap-2">
-            {d.movements.map((mv) => (
-              <View
-                key={mv.id}
-                className="flex-row items-center justify-between rounded-2xl border border-line bg-paper p-3"
-              >
-                <View className="flex-1 pr-3">
-                  <Text className="text-sm text-ink-2" numberOfLines={1}>
-                    {mv.origin}
-                  </Text>
-                  <View className="mt-0.5 flex-row items-center gap-2">
-                    <Text className="font-mono text-[10px] text-ink-4">
-                      {dateFr(mv.date)} · {mv.statusLabel}
-                    </Text>
-                    {mv.tier != null ? (
-                      <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
-                        <Text className="font-mono text-[9px] text-ink-3">
-                          Palier {mv.tier}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-                <Text
-                  className={`font-serif text-base ${
-                    mv.amountCents > 0 ? "text-violet" : "text-ink-3"
-                  }`}
+      <Card badge={{ icon: "swap-vertical-outline", tone: "sky" }}>
+        <Text
+          className="text-[11px] font-bold uppercase text-ink-4"
+          style={{ letterSpacing: 1.2 }}
+        >
+          Mouvements
+        </Text>
+        <QueryGate
+          query={m}
+          isEmpty={(d) => (d.movements?.length ?? 0) === 0}
+          emptyLabel="Aucun mouvement pour le moment."
+        >
+          {(d) => (
+            <View className="mt-3 gap-2">
+              {d.movements.map((mv) => (
+                <View
+                  key={mv.id}
+                  className="flex-row items-center justify-between rounded-2xl border border-line bg-paper p-3"
                 >
-                  {mv.sign}
-                  {eur(Math.abs(mv.amountEur))}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </QueryGate>
+                  <View className="flex-1 pr-3">
+                    <Text className="text-sm text-ink-2" numberOfLines={1}>
+                      {mv.origin}
+                    </Text>
+                    <View className="mt-0.5 flex-row items-center gap-2">
+                      <Text className="font-mono text-[10px] text-ink-4">
+                        {dateFr(mv.date)} · {mv.statusLabel}
+                      </Text>
+                      {mv.tier != null ? (
+                        <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
+                          <Text className="font-mono text-[9px] text-ink-3">
+                            Palier {mv.tier}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  <Text
+                    className={`font-serif text-base ${
+                      mv.amountCents > 0 ? "text-violet" : "text-ink-3"
+                    }`}
+                  >
+                    {mv.sign}
+                    {eur(Math.abs(mv.amountEur))}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </QueryGate>
+      </Card>
     </ScrollScreen>
   );
 }
