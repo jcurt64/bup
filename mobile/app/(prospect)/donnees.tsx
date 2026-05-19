@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
-import { Card, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
+import { Card, QueryGate, ScrollScreen } from "../../components/screen";
 import {
   useProspectDonnees,
   usePatchDonnees,
@@ -64,14 +64,16 @@ export default function Donnees() {
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   return (
-    <ScrollScreen onRefresh={q.refetch}>
-      <SectionTitle
-        eyebrow="Mes données — RGPD art. 15 à 22"
-        title="Vos paliers"
-        desc="Plus vous renseignez de données, plus votre BUUPP Score et vos gains augmentent. Vous restez maître de ce que vous partagez."
-      />
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Mes données — RGPD art. 15 à 22",
+        title: "Vos paliers",
+        desc: "Plus vous renseignez de données, plus votre BUUPP Score et vos gains augmentent. Vous restez maître de ce que vous partagez.",
+      }}
+    >
       {/* Bannière droits RGPD — texte statique aligné sur le web (art. 15 à 22) */}
-      <Card>
+      <Card badge={{ icon: "shield-checkmark-outline", tone: "teal" }}>
         <Text className="font-serif text-lg text-ink">
           Vos droits sur vos données — articles 15 à 22 du RGPD
         </Text>
@@ -118,7 +120,7 @@ export default function Donnees() {
           return (
           <View className="gap-3">
             {/* Récap complétude — % global + paliers atteints + champs renseignés */}
-            <Card>
+            <Card badge={{ icon: "stats-chart-outline", tone: "violet" }}>
               <Text className="font-mono text-[10px] uppercase text-ink-4">
                 Niveau de palier
               </Text>
@@ -172,7 +174,11 @@ export default function Donnees() {
               const removed = d.removedTiers.includes(t.key);
               const isEditing = editing === t.key;
               return (
-                <Card key={t.key} className={removed ? "opacity-60" : ""}>
+                <Card
+                  key={t.key}
+                  className={removed ? "opacity-60" : ""}
+                  badge={{ icon: "albums-outline", tone: "violet" }}
+                >
                   <View className="flex-row items-center justify-between">
                     <Text className="font-serif text-lg text-ink">
                       P{t.n} · {t.label}
