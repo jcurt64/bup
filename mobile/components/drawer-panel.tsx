@@ -37,10 +37,20 @@ function Row({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-2xl px-4 py-3.5 active:bg-ivory-2"
+      className="flex-row items-center gap-4 rounded-2xl px-3 py-3 active:bg-white/10"
     >
-      <Ionicons name={icon} size={20} color={danger ? "#C0392B" : "#13235B"} />
-      <Text className={`text-base ${danger ? "text-bad" : "text-ink"}`}>{label}</Text>
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
+        <Ionicons
+          name={icon}
+          size={20}
+          color={danger ? "#FF8A80" : "#FFFFFF"}
+        />
+      </View>
+      <Text
+        className={`text-base ${danger ? "text-[#FF8A80]" : "text-paper"}`}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -96,39 +106,76 @@ export default function DrawerPanel() {
   }
 
   return (
-    <View className="flex-1 flex-row">
+    <View className="flex-1">
+      {/* Scrim plein écran SOUS le panneau : les coins arrondis du
+          panneau laissent voir cette couche sombre, jamais du blanc
+          (fond du modal). Tap = fermeture. */}
       <Animated.View
-        className="bg-paper"
-        style={{ width: W, transform: [{ translateX: tx }], elevation: 8 }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: scrim,
+        }}
       >
-        <ScrollView contentContainerClassName="gap-1 px-4 pb-10 pt-14">
-          <Text className="px-4 pb-2 font-serif text-2xl text-ink">Menu</Text>
+        <Pressable className="flex-1 bg-black/50" onPress={dismiss} />
+      </Animated.View>
+
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: W,
+          transform: [{ translateX: tx }],
+          elevation: 8,
+          // Navy #13235B (bleu foncé récurrent de l'app) + opacité.
+          // Posé via `style` : NativeWind n'applique pas `className`
+          // sur Animated.View (sinon fond blanc).
+          backgroundColor: "rgba(19, 35, 91, 0.92)",
+          // Coins droits arrondis XL ; overflow hidden clippe le contenu.
+          // Le blanc derrière les coins est masqué par le scrim sombre.
+          borderTopRightRadius: 40,
+          borderBottomRightRadius: 40,
+          overflow: "hidden",
+        }}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="gap-1.5 px-4 pb-6 pt-16"
+        >
+          <Text className="px-3 pb-4 font-serif-bold text-2xl text-paper">
+            Menu
+          </Text>
           {NAV.map((n) => (
             <Row key={n.route} icon={n.icon} label={n.label} onPress={() => go(n.route)} />
           ))}
 
           <Text
-            className="mt-4 px-4 text-[11px] font-bold uppercase text-ink-4"
+            className="mt-5 px-3 text-[11px] font-bold uppercase text-white/45"
             style={{ letterSpacing: 1.2 }}
           >
             Suivez-nous
           </Text>
-          <View className="flex-row gap-3 px-4 py-2">
+          <View className="flex-row gap-3 px-3 py-2">
             {SOCIAL.map((s) => (
               <Pressable
                 key={s.url}
                 onPress={() => Linking.openURL(s.url)}
                 accessibilityLabel={s.label}
                 accessibilityRole="link"
-                className="h-11 w-11 items-center justify-center rounded-full border border-line active:opacity-70"
+                className="h-11 w-11 items-center justify-center rounded-full bg-white/10 active:opacity-70"
               >
-                <Ionicons name={s.icon} size={18} color="#13235B" />
+                <Ionicons name={s.icon} size={18} color="#FFFFFF" />
               </Pressable>
             ))}
           </View>
 
-          <View className="my-3 h-px bg-line" />
-          <Row icon="log-out-outline" label="Déconnexion" onPress={() => setConfirm("signout")} />
+          <View className="my-4 h-px bg-white/15" />
+          <Row icon="power" label="Déconnexion" onPress={() => setConfirm("signout")} />
           <Row
             icon="trash-outline"
             label="Supprimer mon compte"
@@ -136,11 +183,9 @@ export default function DrawerPanel() {
             onPress={() => setConfirm("delete")}
           />
         </ScrollView>
-      </Animated.View>
-
-      {/* Scrim : ferme le drawer */}
-      <Animated.View style={{ flex: 1, opacity: scrim }}>
-        <Pressable className="flex-1 bg-black/40" onPress={dismiss} />
+        <Text className="px-7 pb-8 pt-2 text-xs text-white/40">
+          App version 1.0.0
+        </Text>
       </Animated.View>
 
       <Modal transparent visible={confirm !== null} animationType="fade">

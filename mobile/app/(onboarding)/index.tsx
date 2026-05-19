@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
+import { GridBg } from "../../components/grid-bg";
 import { Accent, BrandLogo, Eyebrow, PrimaryButton } from "../../components/ui";
 import { markOnboardingSeen } from "../../lib/onboarding";
 
@@ -49,44 +50,6 @@ function MiniCard({
   );
 }
 
-/** Fond quadrillé léger (papier millimétré) — cf. maquette 1.png. */
-function GridBg() {
-  const STEP = 26;
-  return (
-    <View
-      pointerEvents="none"
-      className="absolute inset-0 overflow-hidden opacity-50"
-    >
-      {Array.from({ length: 12 }).map((_, i) => (
-        <View
-          key={`h${i}`}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: i * STEP,
-            height: 1,
-            backgroundColor: "#E6E3DA",
-          }}
-        />
-      ))}
-      {Array.from({ length: 18 }).map((_, i) => (
-        <View
-          key={`v${i}`}
-          style={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: i * STEP,
-            width: 1,
-            backgroundColor: "#E6E3DA",
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 const SLIDES: Slide[] = [
   {
     key: "intro",
@@ -98,7 +61,6 @@ const SLIDES: Slide[] = [
     subtitle: "Votre temps, c'est de l'argent — et on vous le prouve.",
     art: (
       <View className="h-64 w-full items-center justify-center">
-        <GridBg />
         <BrandLogo />
       </View>
     ),
@@ -321,6 +283,7 @@ export default function Onboarding() {
 
   return (
     <SafeAreaView className="flex-1 bg-ivory">
+      <GridBg />
       <LinearGradient
         colors={["rgba(247,244,236,0)", "#EDE9FE"]}
         start={{ x: 0, y: 0 }}

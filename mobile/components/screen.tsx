@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { AppHeader } from "./app-header";
+import { GridBg } from "./grid-bg";
 import { ApiError } from "../lib/api";
 import { useMeTyped, useProspectVerification } from "../lib/queries";
 
@@ -122,6 +123,7 @@ export function ScrollScreen({
 
   return (
     <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
+      <GridBg />
       <AppHeader />
       <ScrollView
         className="flex-1"
