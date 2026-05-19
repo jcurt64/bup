@@ -99,6 +99,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         <GlassView
           glassEffectStyle="regular"
           isInteractive
+          tintColor="rgba(255, 255, 255, 0.22)"
           style={{
             flexDirection: "row",
             alignItems: "center",
