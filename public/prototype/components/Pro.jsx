@@ -4804,7 +4804,6 @@ const REVEAL_INTENTS = {
   sms:      { field: 'telephone', icon: 'sms',      title: 'Envoyer un SMS à',           cta: 'Ouvrir mes SMS',               build: v => `sms:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
   whatsapp: { field: 'telephone', icon: 'whatsapp', title: 'WhatsApp avec',              cta: 'Ouvrir WhatsApp',              build: v => `https://wa.me/${v.replace(/\D/g, '')}`,                                                    valuePresentation: 'mono' },
   facebook: { field: 'name',      icon: 'facebook', title: 'Trouver sur Facebook —',     cta: 'Rechercher sur Facebook',      build: v => `https://www.facebook.com/search/top/?q=${encodeURIComponent(v).replace(/%20/g, '+')}`,        valuePresentation: 'serif' },
-  linkedin: { field: 'name',      icon: 'linkedin', title: 'Trouver sur LinkedIn —',     cta: 'Rechercher sur LinkedIn',      build: v => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(v)}`,         valuePresentation: 'serif' },
 };
 
 function ContactActionButtons({ row, onIntent }) {
@@ -4869,14 +4868,6 @@ function ContactActionButtons({ row, onIntent }) {
       disabledReason: null,
       icon: 'facebook', color: '#1877F2',
       title: 'Rechercher sur Facebook',
-      missingDataMsg: '',
-    },
-    {
-      key: 'linkedin', channel: 'linkedin',
-      enabled: channelAllowed('linkedin'),
-      disabledReason: null,
-      icon: 'linkedin', color: '#0A66C2',
-      title: 'Rechercher sur LinkedIn',
       missingDataMsg: '',
     },
   ];
