@@ -6950,7 +6950,6 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
             </div>
             <div className="row gap-2">
               <button className="btn btn-ghost btn-sm"><Icon name="filter" size={12}/> Filtrer</button>
-              <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Exporter CSV</button>
             </div>
           </div>
           {(data.contacts?.length || 0) === 0 ? (
