@@ -3,6 +3,7 @@
 // violet→navy + icône blanche + libellé court ; inactif = icône discrète.
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,31 +29,22 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
   const routeByName = Object.fromEntries(
     state.routes.map((r, i) => [r.name, { key: r.key, index: i }]),
   );
-  return (
-    <View
-      style={{
-        position: "absolute",
-        left: 16,
-        right: 16,
-        bottom: insets.bottom + 10,
-      }}
-      pointerEvents="box-none"
-    >
-      <View
-        className="flex-row items-center justify-between rounded-full bg-paper px-3 py-2.5"
-        style={{
-          shadowColor: "#0F1629",
-          shadowOpacity: 0.16,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: 12,
-        }}
-      >
-        {TABS.map((name) => {
-          const entry = routeByName[name];
-          if (!entry) return null;
-          const focused = state.index === entry.index;
-          return (
+  const glass = isLiquidGlassAvailable();
+  const shadow = {
+    shadowColor: "#0F1629",
+    shadowOpacity: glass ? 0.1 : 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 12,
+  } as const;
+
+  const tabs = (
+    <>
+      {TABS.map((name) => {
+        const entry = routeByName[name];
+        if (!entry) return null;
+        const focused = state.index === entry.index;
+        return (
             <Pressable
               key={name}
               onPress={() => navigation.navigate(name as never)}
@@ -90,7 +82,43 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
             </Pressable>
           );
         })}
-      </View>
+    </>
+  );
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: 16,
+        right: 16,
+        bottom: insets.bottom + 10,
+      }}
+      pointerEvents="box-none"
+    >
+      {glass ? (
+        <GlassView
+          glassEffectStyle="regular"
+          isInteractive
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            ...shadow,
+          }}
+        >
+          {tabs}
+        </GlassView>
+      ) : (
+        <View
+          className="flex-row items-center justify-between rounded-full bg-paper px-3 py-2.5"
+          style={shadow}
+        >
+          {tabs}
+        </View>
+      )}
     </View>
   );
 }

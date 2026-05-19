@@ -16,7 +16,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
+import { AppHeader } from "./app-header";
 import { ApiError } from "../lib/api";
+import { useMeTyped, useProspectVerification } from "../lib/queries";
+
+// Palier "certifié confiance" → trophée coloré (ordre demandé :
+// argent → bronze → or).
+const TIER_META: Record<string, { label: string; color: string }> = {
+  basique: { label: "Basique", color: "#D8DBE2" }, // argent
+  verifie: { label: "Vérifié", color: "#E0915A" }, // bronze
+  certifie_confiance: { label: "Certifié confiance", color: "#F4C84B" }, // or
+};
 
 type HeroProps = {
   title: string;
@@ -28,6 +38,17 @@ type HeroProps = {
 };
 
 export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps) {
+  const me = useMeTyped();
+  const verif = useProspectVerification();
+  const hour = new Date().getHours();
+  const hello = hour >= 19 ? "Bonsoir" : "Bonjour";
+  const firstName = me.data?.prenom?.trim() || null;
+  const greeting = firstName ? `${hello} ${firstName}` : hello;
+  const tier =
+    verif.data?.tier && me.data?.role === "prospect"
+      ? TIER_META[verif.data.tier]
+      : undefined;
+
   return (
     <LinearGradient
       colors={["#7C5CFC", "#13235B"]}
@@ -35,20 +56,31 @@ export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps)
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
     >
-      {nav ? (
+      {nav === "menu" ? (
+        <View className="mb-3 flex-row items-center justify-between gap-3">
+          <Text
+            className="flex-1 font-serif text-xl text-paper"
+            numberOfLines={1}
+          >
+            {greeting}
+          </Text>
+          {tier ? (
+            <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
+              <Ionicons name="trophy" size={14} color={tier.color} />
+              <Text className="text-xs font-semibold text-paper">
+                {tier.label}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : nav === "back" ? (
         <Pressable
-          onPress={() =>
-            nav === "menu" ? router.push("/drawer") : router.back()
-          }
+          onPress={() => router.back()}
           hitSlop={12}
-          accessibilityLabel={nav === "menu" ? "Ouvrir le menu" : "Retour"}
+          accessibilityLabel="Retour"
           className="mb-3 h-9 w-9 items-center justify-center rounded-full bg-white/15"
         >
-          <Ionicons
-            name={nav === "menu" ? "menu" : "chevron-back"}
-            size={20}
-            color="#FFFFFF"
-          />
+          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
         </Pressable>
       ) : null}
       {eyebrow ? (
@@ -90,9 +122,10 @@ export function ScrollScreen({
 
   return (
     <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
+      <AppHeader />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 20, paddingTop: 56, paddingBottom: 120, gap: 16 }}
+        contentContainerStyle={{ padding: 20, paddingTop: 16, paddingBottom: 120, gap: 16 }}
         refreshControl={
           onRefresh ? (
             <RefreshControl refreshing={refreshing} onRefresh={refresh} />
@@ -169,15 +202,19 @@ export function Card({
   dark = false,
   className = "",
   badge,
+  tone,
 }: {
   children: ReactNode;
   dark?: boolean;
   className?: string;
   badge?: { icon: keyof typeof Ionicons.glyphMap; tone?: Tone };
+  /** Teinte pastel du fond de carte (différenciation visuelle). */
+  tone?: Tone;
 }) {
+  const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   return (
     <View
-      className={`rounded-3xl p-5 ${dark ? "bg-ink" : "border border-line bg-paper"} ${className}`}
+      className={`rounded-3xl p-5 ${dark ? "" : "border border-line"} ${bg} ${className}`}
       style={
         dark
           ? undefined

@@ -53,7 +53,7 @@ export default function Portefeuille() {
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card badge={{ icon: "wallet-outline", tone: "violet" }}>
+            <Card badge={{ icon: "wallet-outline", tone: "violet" }} tone="violet">
               <Text className="font-mono text-[11px] uppercase text-ink-4">
                 Disponible
               </Text>
@@ -79,7 +79,7 @@ export default function Portefeuille() {
               <Stat label="Ce mois" value={eur(d.monthGainsEur)} />
             </View>
 
-            <Card>
+            <Card tone="amber">
               <Text
                 className="text-[10px] font-bold uppercase text-ink-4"
                 style={{ letterSpacing: 0.8 }}
@@ -100,7 +100,7 @@ export default function Portefeuille() {
         )}
       </QueryGate>
 
-      <Card badge={{ icon: "swap-vertical-outline", tone: "sky" }}>
+      <Card badge={{ icon: "swap-vertical-outline", tone: "sky" }} tone="sky">
         <Text
           className="text-[11px] font-bold uppercase text-ink-4"
           style={{ letterSpacing: 1.2 }}
