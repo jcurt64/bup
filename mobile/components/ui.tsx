@@ -1,6 +1,8 @@
 // Primitives UI partagées — fidèles aux maquettes buupp-onboarding
 // (fond ivoire, chip "buupp" navy, boutons pill ink, accents violets
 // italiques serif, eyebrow capitales espacées).
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -25,14 +27,18 @@ export function ScreenBg({
   );
 }
 
-/** Chip logo "buupp" — pastille navy, texte serif blanc. */
-export function BrandPill({ small = false }: { small?: boolean }) {
+/** Logo "buupp" — pill dégradé navy→bleu, texte serif blanc (cf. maquettes). */
+export function BrandLogo({ small = false }: { small?: boolean }) {
   return (
-    <View
-      className={`self-center rounded-full bg-navy ${
-        small ? "px-5 py-2" : "px-8 py-3.5"
-      }`}
+    <LinearGradient
+      colors={["#13235B", "#2F44C0"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={{
+        alignSelf: "center",
+        borderRadius: 999,
+        paddingHorizontal: small ? 20 : 32,
+        paddingVertical: small ? 8 : 14,
         shadowColor: "#13235B",
         shadowOpacity: 0.35,
         shadowRadius: 16,
@@ -40,14 +46,17 @@ export function BrandPill({ small = false }: { small?: boolean }) {
       }}
     >
       <Text
-        className={`font-serif font-bold text-paper ${
-          small ? "text-base" : "text-2xl"
-        }`}
+        className={`font-serif font-bold text-paper ${small ? "text-base" : "text-2xl"}`}
       >
         buupp
       </Text>
-    </View>
+    </LinearGradient>
   );
+}
+
+/** Compat : ancien nom. */
+export function BrandPill({ small = false }: { small?: boolean }) {
+  return <BrandLogo small={small} />;
 }
 
 /** Petit label capitales espacées (violet par défaut). */
@@ -114,6 +123,16 @@ export function PrimaryButton({
       className={`flex-row items-center justify-center gap-2 rounded-full py-4 ${
         off ? "bg-ink-5" : "bg-ink active:opacity-80"
       }`}
+      style={
+        off
+          ? undefined
+          : {
+              shadowColor: "#0F1629",
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 6 },
+            }
+      }
     >
       {loading ? (
         <ActivityIndicator color="#fff" />
@@ -160,6 +179,50 @@ export function LegalFooter() {
       <Text className="text-center text-[11px] text-ink-4">
         Mentions légales · Cookies
       </Text>
+    </View>
+  );
+}
+
+/** 3 boutons de connexion sociale (cf. buupp-onboarding/4.png). */
+export function SocialButtons({
+  onPress,
+}: {
+  onPress: (p: "apple" | "google" | "facebook") => void;
+}) {
+  const items: {
+    key: "apple" | "google" | "facebook";
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+  }[] = [
+    { key: "apple", icon: "logo-apple", color: "#0F1629" },
+    { key: "google", icon: "logo-google", color: "#EA4335" },
+    { key: "facebook", icon: "logo-facebook", color: "#1877F2" },
+  ];
+  return (
+    <View className="gap-3">
+      <View className="flex-row items-center gap-3">
+        <View className="h-px flex-1 bg-line" />
+        <Text
+          className="text-[11px] font-bold uppercase text-ink-4"
+          style={{ letterSpacing: 2 }}
+        >
+          ou
+        </Text>
+        <View className="h-px flex-1 bg-line" />
+      </View>
+      <View className="flex-row gap-3">
+        {items.map((it) => (
+          <Pressable
+            key={it.key}
+            onPress={() => onPress(it.key)}
+            accessibilityRole="button"
+            accessibilityLabel={`Continuer avec ${it.key}`}
+            className="flex-1 items-center justify-center rounded-2xl border border-line bg-paper py-3.5 active:opacity-70"
+          >
+            <Ionicons name={it.icon} size={22} color={it.color} />
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
