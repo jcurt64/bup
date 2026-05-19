@@ -1,7 +1,9 @@
 /**
  * Mail interne envoyé à l'équipe BUUPP quand un utilisateur soumet une
  * suggestion depuis son dashboard. Destinataire = `BUUPP_SUGGESTIONS_INBOX`
- * (env), fallback `jjlex64@gmail.com`.
+ * si défini, sinon la liste `ADMIN_EMAILS`. Aucun repli codé en dur : si
+ * aucune des deux variables n'est définie, l'e-mail est sauté (la
+ * persistance DB côté API reste la source de vérité).
  *
  * Template HTML aligné sur `lib/email/relation.ts` (bandeau décoré, carte
  * ivoire, encart corps en pre-line). Le `replyTo` est mis sur l'email de
@@ -32,6 +34,7 @@ export type SuggestionParams = {
 
 export async function sendUserSuggestion(params: SuggestionParams): Promise<{
   ok: boolean;
+  messageId?: string;
 }> {
   const transport = getTransport();
   if (!transport) {
@@ -39,7 +42,19 @@ export async function sendUserSuggestion(params: SuggestionParams): Promise<{
     return { ok: false };
   }
 
-  const inbox = process.env.BUUPP_SUGGESTIONS_INBOX || "jjlex64@gmail.com";
+  // Destinataire explicite : inbox dédiée si définie, sinon la liste
+  // ADMIN_EMAILS (séparée par virgules). Plus de repli codé en dur.
+  const inbox =
+    process.env.BUUPP_SUGGESTIONS_INBOX ||
+    (process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(",");
+  if (!inbox) {
+    console.warn("[email/user-suggestion] aucun destinataire (BUUPP_SUGGESTIONS_INBOX / ADMIN_EMAILS) — e-mail sauté");
+    return { ok: false };
+  }
   const { fromEmail, fromName, fromRole, subject, message } = params;
 
   const displayFrom = fromName ?? fromEmail ?? "Utilisateur anonyme";
@@ -68,7 +83,7 @@ export async function sendUserSuggestion(params: SuggestionParams): Promise<{
   });
 
   try {
-    await transport.sendMail({
+    const info: unknown = await transport.sendMail({
       from: getFromAddress(),
       to: inbox,
       replyTo: fromEmail ?? undefined,
@@ -76,7 +91,11 @@ export async function sendUserSuggestion(params: SuggestionParams): Promise<{
       text,
       html,
     });
-    return { ok: true };
+    const messageId =
+      info && typeof info === "object" && "messageId" in info
+        ? String((info as { messageId: unknown }).messageId)
+        : undefined;
+    return { ok: true, messageId };
   } catch (err) {
     const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error(`[email/user-suggestion] échec d'envoi → ${msg}`);
