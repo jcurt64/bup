@@ -4,7 +4,7 @@ import { Alert, Pressable, Text, View } from "react-native";
 import { useAuthedDownload } from "../lib/use-authed-download";
 import { useMarkNotificationRead, useNotifications } from "../lib/queries";
 import { useRefetchOnFocus } from "../lib/use-refetch-on-focus";
-import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "./screen";
+import { Card, dateFr, QueryGate, ScrollScreen } from "./screen";
 
 export default function NotificationsScreen() {
   const q = useNotifications();
@@ -12,12 +12,14 @@ export default function NotificationsScreen() {
   const download = useAuthedDownload();
   useRefetchOnFocus(q);
   return (
-    <ScrollScreen onRefresh={q.refetch}>
-      <SectionTitle
-        eyebrow="Messages"
-        title="Vos notifications"
-        desc="Annonces, alertes et communications BUUPP."
-      />
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Messages",
+        title: "Vos notifications",
+        desc: "Annonces, alertes et communications BUUPP.",
+      }}
+    >
       <QueryGate
         query={q}
         isEmpty={(d) => (d.notifications?.length ?? 0) === 0}
@@ -32,7 +34,7 @@ export default function NotificationsScreen() {
                   if (n.unread) read.mutate({ id: n.id });
                 }}
               >
-                <Card>
+                <Card badge={{ icon: "notifications-outline", tone: "amber" }}>
                   <View className="flex-row items-start gap-3">
                     {n.unread ? (
                       <View className="mt-1.5 h-2 w-2 rounded-full bg-violet" />
