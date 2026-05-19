@@ -1,5 +1,5 @@
 // Barre d'en-tête commune (rendue au-dessus du GradientHero par
-// ScrollScreen) : ☰ menu | logo2 centré | 🔔 sollicitations + 👤 compte.
+// ScrollScreen) : ☰ menu | logo2 centré | 🔔 messages + 👤 compte.
 // Fonds pastels pour différencier les actions.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -9,7 +9,7 @@ import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountSheet } from "./account-sheet";
-import { SolicitationsSheet } from "./solicitations-sheet";
+import { MessagesSheet } from "./messages-sheet";
 
 const LOGO = require("../assets/images/logo2.png");
 
@@ -40,7 +40,7 @@ function IconButton({
 
 export function AppHeader() {
   const insets = useSafeAreaInsets();
-  const [showSolic, setShowSolic] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
 
   return (
@@ -72,8 +72,8 @@ export function AppHeader() {
             icon="notifications-outline"
             bg="bg-amber-soft"
             color="#F2B65A"
-            label="Demandes de sollicitation"
-            onPress={() => setShowSolic(true)}
+            label="Messages"
+            onPress={() => setShowMessages(true)}
           />
           <IconButton
             icon="person-outline"
@@ -85,9 +85,9 @@ export function AppHeader() {
         </View>
       </View>
 
-      <SolicitationsSheet
-        visible={showSolic}
-        onClose={() => setShowSolic(false)}
+      <MessagesSheet
+        visible={showMessages}
+        onClose={() => setShowMessages(false)}
       />
       <AccountSheet
         visible={showAccount}

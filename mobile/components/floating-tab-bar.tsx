@@ -7,7 +7,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { type LayoutChangeEvent, Pressable, View } from "react-native";
+import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -19,18 +19,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "wallet-outline",
   donnees: "albums-outline",
-  relations: "swap-horizontal-outline",
-  messages: "chatbubble-ellipses-outline",
+  relations: "swap-horizontal-outline", // remplacé par le symbole € au rendu
   preferences: "options-outline",
 };
 const LABEL: Record<string, string> = {
   portefeuille: "Portefeuille",
   donnees: "Données",
   relations: "Relations",
-  messages: "Messages",
   preferences: "Préf.",
 };
-const TABS = ["portefeuille", "donnees", "relations", "messages", "preferences"];
+const TABS = ["portefeuille", "relations", "donnees", "preferences"];
 const PILL = 44;
 
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
@@ -130,11 +128,23 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
                 justifyContent: "center",
               }}
             >
-              <Ionicons
-                name={ICON[it.name]}
-                size={20}
-                color={focused ? "#FFFFFF" : "#8A91A1"}
-              />
+              {it.name === "relations" ? (
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: "700",
+                    color: focused ? "#FFFFFF" : "#8A91A1",
+                  }}
+                >
+                  €
+                </Text>
+              ) : (
+                <Ionicons
+                  name={ICON[it.name]}
+                  size={20}
+                  color={focused ? "#FFFFFF" : "#8A91A1"}
+                />
+              )}
             </View>
             <View style={{ height: 16, justifyContent: "center" }}>
               {focused ? (
@@ -166,7 +176,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         <GlassView
           glassEffectStyle="regular"
           isInteractive
-          tintColor="rgba(255, 255, 255, 0.22)"
+          tintColor="rgba(255, 255, 255, 0.34)"
           style={{
             borderRadius: 999,
             paddingHorizontal: 12,

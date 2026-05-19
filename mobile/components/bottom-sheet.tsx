@@ -8,10 +8,13 @@ export function BottomSheet({
   visible,
   onClose,
   children,
+  /** Hauteur fixe en % de l'écran (ex. 80). Sinon : auto, plafonné à 85%. */
+  heightPct,
 }: {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
+  heightPct?: number;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -29,7 +32,12 @@ export function BottomSheet({
       />
       <View
         className="rounded-t-3xl bg-ivory px-5 pt-3"
-        style={{ paddingBottom: insets.bottom + 16, maxHeight: "85%" }}
+        style={{
+          paddingBottom: insets.bottom + 16,
+          ...(heightPct
+            ? { height: `${heightPct}%` as const }
+            : { maxHeight: "85%" as const }),
+        }}
       >
         <View className="mb-3 h-1 w-10 self-center rounded-full bg-ink-5" />
         {children}

@@ -19,8 +19,8 @@ export default function ProspectLayout() {
       <Tabs.Screen name="portefeuille" />
       <Tabs.Screen name="donnees" />
       <Tabs.Screen name="relations" />
-      <Tabs.Screen name="messages" />
       <Tabs.Screen name="preferences" />
+      <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
       <Tabs.Screen name="score" options={{ href: null }} />
       <Tabs.Screen name="parrainage" options={{ href: null }} />
