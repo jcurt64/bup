@@ -12,6 +12,7 @@ const NAV = [
   { href: "/buupp-admin/prospects", label: "Prospects" },
   { href: "/buupp-admin/non-atteint", label: "Non atteint" },
   { href: "/buupp-admin/signalements", label: "Signalements" },
+  { href: "/buupp-admin/suggestions", label: "Suggestions" },
   { href: "/buupp-admin/contact-actions", label: "Activité pros" },
   { href: "/buupp-admin/pros", label: "Professionnels" },
   { href: "/buupp-admin/campagnes", label: "Campagnes" },
@@ -232,7 +233,7 @@ export default function AdminShell({
               className="mt-2 text-sm"
               style={{ color: "var(--ink-3)", lineHeight: 1.5 }}
             >
-              Tu seras redirigé vers l'écran de connexion du back-office.
+              Tu seras redirigé vers l&apos;écran de connexion du back-office.
               Une fois reconnecté, tu reviendras automatiquement ici.
             </p>
             <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
