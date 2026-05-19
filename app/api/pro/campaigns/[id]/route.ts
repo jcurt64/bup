@@ -25,6 +25,11 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { objectiveLabel } from "@/lib/campaigns/mapping";
+import {
+  filterCampaignContacts,
+  type ContactStatusFilter,
+  type ContactPeriodFilter,
+} from "@/lib/pro/filterCampaignContacts";
 
 export const runtime = "nodejs";
 
@@ -80,12 +85,33 @@ function fmtDate(iso: string | null): string | null {
   return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(d);
 }
 
-export async function GET(_req: Request, ctx: RouteContext) {
+export async function GET(req: Request, ctx: RouteContext) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+
+  // Filtres optionnels de la liste « Contacts obtenus » (rétro-compat :
+  // aucun param = comportement historique). Valeur invalide → défaut.
+  const sp = new URL(req.url).searchParams;
+  const rawStatus = sp.get("cstatus");
+  const contactStatus: ContactStatusFilter =
+    rawStatus === "accepted" || rawStatus === "settled" ? rawStatus : "all";
+  const rawScoreMinStr = sp.get("cscoremin");
+  const rawScoreMin =
+    rawScoreMinStr == null || rawScoreMinStr.trim() === ""
+      ? Number.NaN
+      : Number(rawScoreMinStr);
+  const contactScoreMin =
+    Number.isFinite(rawScoreMin) && rawScoreMin >= 0
+      ? Math.floor(rawScoreMin)
+      : null;
+  const rawPeriod = sp.get("cperiod");
+  const contactPeriod: ContactPeriodFilter =
+    rawPeriod === "7d" || rawPeriod === "30d" || rawPeriod === "90d"
+      ? rawPeriod
+      : "all";
 
   const user = await currentUser();
   const email =
@@ -173,9 +199,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
   // Liste des contacts : seulement les relations gagnées (accepted/settled),
   // joint sur l'identité prospect pour afficher prénom + nom + score.
-  const contacts = rows
+  const allContacts = rows
     .filter((r) => r.status === "accepted" || r.status === "settled")
-    .slice(0, 50)
     .map((r) => {
       const ident = r.prospects?.prospect_identity ?? null;
       const prenom = ident?.prenom?.trim() || "";
@@ -197,8 +222,17 @@ export async function GET(_req: Request, ctx: RouteContext) {
         decidedAt: r.decided_at ?? r.sent_at,
         statusLabel: r.status === "settled" ? "Crédité" : "En séquestre",
         statusChip: r.status === "settled" ? "good" : "warn",
+        status: r.status,
       };
     });
+  // Filtres optionnels appliqués À LA LISTE CONTACTS UNIQUEMENT.
+  // `funnel` et `activity` restent calculés sur l'ensemble non filtré
+  // (stats globales de la campagne, pas la vue filtrée).
+  const contacts = filterCampaignContacts(allContacts, {
+    status: contactStatus,
+    scoreMin: contactScoreMin,
+    period: contactPeriod,
+  }).slice(0, 50);
 
   // Activity feed : derniers événements ordonnés par "date la plus récente"
   // (settled_at > decided_at > sent_at). Limité à 20 lignes.
