@@ -5,6 +5,7 @@ import { getCurrentRole } from "@/lib/sync/currentRole";
 import PrototypeFrame from "../_components/PrototypeFrame";
 import TopupReconciler from "../_components/TopupReconciler";
 import CardSetupReconciler from "../_components/CardSetupReconciler";
+import { PROTOTYPE_VERSION } from "@/lib/prototype/version";
 
 export const metadata = {
   title: "BUUPP — Espace Pro",
@@ -14,17 +15,23 @@ export default async function ProPage() {
   const { userId } = await auth();
   if (!userId) throw new Error("Auth required");
 
+  // `getCurrentRole` (lecture Supabase) et `currentUser` (API Clerk)
+  // sont indépendants → lancés en parallèle (cf. /prospect, même
+  // optimisation). L'ordre des gardes reste identique.
+  const [existingRole, user] = await Promise.all([
+    getCurrentRole(userId),
+    currentUser(),
+  ]);
+
   // Garde serveur stricte : si l'utilisateur a déjà un rôle prospect
   // (accès direct à /pro depuis l'URL ou bouton non gardé), on bloque
   // immédiatement et on renvoie vers la home avec le toast de conflit.
   // Une row prospect peut subsister en legacy même quand le trigger
   // d'exclusivité de rôle est en place — ce check ne s'y fie pas.
-  const existingRole = await getCurrentRole(userId);
   if (existingRole === "prospect") {
     redirect("/?role_conflict=prospect");
   }
 
-  const user = await currentUser();
   const primary = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
   );
@@ -47,7 +54,7 @@ export default async function ProPage() {
     <>
       <TopupReconciler />
       <CardSetupReconciler />
-      <PrototypeFrame route="pro" />
+      <PrototypeFrame route="pro" version={PROTOTYPE_VERSION} />
     </>
   );
 }

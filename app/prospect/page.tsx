@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
 import { getCurrentRole } from "@/lib/sync/currentRole";
 import PrototypeFrame from "../_components/PrototypeFrame";
+import { PROTOTYPE_VERSION } from "@/lib/prototype/version";
 
 export const metadata = { title: "BUUPP — Espace Prospect" };
 
@@ -18,18 +19,25 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
   const { userId } = await auth();
   if (!userId) throw new Error("Auth required");
 
+  // `getCurrentRole` (lecture Supabase) et `currentUser` (API Clerk)
+  // sont indépendants → on les lance en parallèle au lieu d'enchaîner
+  // deux allers-retours réseau séquentiels. L'ordre des GARDES reste
+  // identique : on vérifie `existingRole` AVANT `ensureRole` ci-dessous.
+  const [existingRole, user] = await Promise.all([
+    getCurrentRole(userId),
+    currentUser(),
+  ]);
+
   // Garde serveur stricte : un user pro qui tape /prospect dans l'URL
   // (ou utilise un lien hérité non gardé) est immédiatement renvoyé
   // sur la home avec le toast de conflit. Indispensable car
   // `ensureProspect` ne lève RoleConflictError que si l'INSERT est
   // tenté ; or il commence par un SELECT et retourne early si une row
   // prospect existe déjà — un cas legacy possible.
-  const existingRole = await getCurrentRole(userId);
   if (existingRole === "pro") {
     redirect("/?role_conflict=pro");
   }
 
-  const user = await currentUser();
   const primary = user?.emailAddresses?.find(
     (e) => e.id === user.primaryEmailAddressId,
   );
@@ -65,5 +73,5 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
   const sp = await props.searchParams;
   const tab = sp.tab && VALID_TABS.has(sp.tab) ? sp.tab : null;
 
-  return <PrototypeFrame route="prospect" tab={tab} />;
+  return <PrototypeFrame route="prospect" tab={tab} version={PROTOTYPE_VERSION} />;
 }

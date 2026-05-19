@@ -27,9 +27,13 @@ function resolveRoleRoute(intent: "prospect" | "pro", isSignedIn: boolean): stri
 export default function PrototypeFrame({
   route,
   tab,
+  version,
 }: {
   route: "auth" | "prospect" | "pro" | "waitlist";
   tab?: string | null;
+  // Jeton de cache-bust stable par déploiement, fourni par le Server
+  // Component parent (cf. lib/prototype/version.ts).
+  version: string;
 }) {
   const router = useRouter();
   const { signOut } = useClerk();
@@ -80,34 +84,28 @@ export default function PrototypeFrame({
   }, [router, signOut, isSignedIn, isLoaded]);
 
   const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
-  // Cache-bust uniquement côté client : `Date.now()` au render initial
-  // SSR donnerait un timestamp différent du client → mismatch
-  // d'hydratation. On rend donc l'iframe avec une URL stable au premier
-  // pass, puis on la remonte avec un suffixe `?v=...` après hydratation.
-  // Cela force le navigateur à recharger shell.html (et donc les
-  // scripts JSX qu'il référence) à chaque navigation client.
-  const [cacheBust, setCacheBust] = useState<number | null>(null);
-  useEffect(() => {
-    setCacheBust(Date.now());
-  }, []);
+  // Cache-bust STABLE par déploiement (cf. lib/prototype/version.ts) :
+  // valeur identique côté serveur et client → on rend l'URL versionnée
+  // dès le premier pass (aucun mismatch d'hydratation) et SANS
+  // remontage post-hydratation. Bénéfices vs l'ancien `Date.now()` :
+  //  - une seule charge d'iframe au lieu de deux (plus de remount) ;
+  //  - les .jsx sont servis depuis le cache navigateur tant que le
+  //    déploiement ne change pas (header immutable, cf. next.config.ts).
+  const src = `/prototype/shell.html?v=${encodeURIComponent(version)}#${hash}`;
 
-  const baseSrc = `/prototype/shell.html#${hash}`;
-  const src = cacheBust ? `/prototype/shell.html?v=${cacheBust}#${hash}` : baseSrc;
-
-  // Loader le temps que l'iframe charge shell.html + Babel + JSX scripts
-  // (1-2 s typiquement). Sans ça l'utilisateur perçoit la page comme
-  // "vide" pendant le chargement et croit à un bug.
+  // Loader le temps que l'iframe charge shell.html + JSX (premier
+  // affichage uniquement : ensuite tout est en cache). Sans ça
+  // l'utilisateur perçoit la page comme "vide" et croit à un bug.
+  // Pas d'effet de reset : un changement de route majeure remonte tout
+  // PrototypeFrame (page Next distincte) → l'état repart à `false`
+  // naturellement ; les changements d'onglet se font dans l'iframe
+  // (hash interne) sans re-rendu du parent.
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  useEffect(() => {
-    // Reset si on change de route → on remontre le loader pendant le
-    // re-mount (le `key` change avec cacheBust).
-    setIframeLoaded(false);
-  }, [cacheBust, hash]);
 
   return (
     <>
       <iframe
-        key={cacheBust ?? "ssr"}
+        key={version}
         src={src}
         title={`BUUPP — ${route}`}
         onLoad={() => setIframeLoaded(true)}

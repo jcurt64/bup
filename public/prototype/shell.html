@@ -16,23 +16,52 @@
 <body data-palette="indigo">
   <div id="root"></div>
 
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <!-- Builds PRODUCTION de React : minifiés, sans les warnings/checks
+       de dev → bundle plus léger et exécution plus rapide. (Babel
+       standalone est déjà minifié.) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
   <script>
-    /* Cache-bust dynamique : on injecte les scripts JSX avec le `?v=...`
-       hérité de l'URL de l'iframe (PrototypeFrame). Sans ça, la 2e
-       chargement de l'iframe sert des fichiers JSX cachés malgré
-       Cache-Control:no-store, parce que la requête initiale a pu être
-       servie depuis une copie en mémoire/disk avant le déploiement du
-       header. Une URL avec un suffixe `?v=...` unique force un fetch
-       neuf systématiquement. */
+    /* Cache-bust : `?v=...` hérité de l'URL de l'iframe (PrototypeFrame).
+       C'est désormais un jeton STABLE par déploiement (PROTOTYPE_VERSION)
+       et non plus un Date.now() par navigation : combiné au header
+       `immutable` sur /prototype/components/* (next.config.ts), les .jsx
+       restent en cache navigateur tant que le déploiement ne change pas,
+       et sont re-fetchés au déploiement suivant (l'URL change).
+
+       Chargement CONDITIONNEL par route : on ne charge plus les ~820 Ko
+       de TOUS les composants à chaque ouverture, seulement ceux requis
+       par la route courante. Ex. /prospect ne charge plus Pro.jsx
+       (403 Ko) ni Landing.jsx. Une instance de shell.html ne sert qu'une
+       route (les changements de section majeure passent par un reload
+       complet via le parent PrototypeFrame), donc pas de risque de
+       composant manquant après une navigation interne.
+
+       Dépendances : Shell.jsx = primitives partagées (Logo/Icon/Avatar/
+       ScoreGauge/Progress) requises partout ; Objectives.jsx définit
+       Modal (utilisé par Prospect.jsx) et RechargeModal (utilisé par
+       Pro.jsx). */
     (function () {
       var v = '';
       try { v = new URLSearchParams(window.location.search).get('v') || ''; } catch (e) {}
       if (!v) v = String(Date.now());
-      var files = ['Shell','Landing','Auth','Prospect','Objectives','Pro'];
+
+      var raw = (window.location.hash || '').replace('#', '').trim();
+      var route = raw.split('?')[0];
+      if (['landing','auth','prospect','pro','waitlist'].indexOf(route) === -1) {
+        route = 'landing';
+      }
+      var byRoute = {
+        landing:  ['Shell', 'Landing'],
+        auth:     ['Shell', 'Auth'],
+        prospect: ['Shell', 'Objectives', 'Prospect'],
+        pro:      ['Shell', 'Objectives', 'Pro'],
+        waitlist: []
+      };
+      var files = byRoute[route] || [];
+
       files.forEach(function (name) {
         var s = document.createElement('script');
         s.type = 'text/babel';

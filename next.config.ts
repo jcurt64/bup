@@ -62,10 +62,31 @@ const nextConfig: NextConfig = {
 
     return [
       // En-tête no-cache spécifique au prototype (déjà en place).
+      // S'applique à shell.html / waitlist.html : entrées légères qui
+      // doivent toujours refléter le dernier déploiement.
       {
         source: "/prototype/:path*",
         headers: [
           { key: "Cache-Control", value: "no-store, must-revalidate" },
+        ],
+      },
+      // Les composants .jsx (~820 Ko, transpilés par Babel côté
+      // navigateur) sont en revanche mis en cache un an. C'est SÛR car
+      // PrototypeFrame charge l'iframe avec `?v=<PROTOTYPE_VERSION>`
+      // (cf. lib/prototype/version.ts) : un jeton stable par déploiement
+      // qui change au déploiement suivant → l'URL change → cache busté.
+      // Cette règle vient APRÈS la précédente : pour un fichier
+      // /prototype/components/*, les deux `source` matchent et Next.js
+      // applique le DERNIER Cache-Control (cf. doc « Header Overriding
+      // Behavior ») → le cache long l'emporte ici, le no-store reste
+      // actif pour shell.html (hors /components).
+      {
+        source: "/prototype/components/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
         ],
       },
       // Headers de sécurité globaux. On exclut /prototype/* (qui a déjà sa
