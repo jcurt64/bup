@@ -2,7 +2,7 @@
 // buupp-onboarding (1.png intro, 2.png pros, 3.png buuppers).
 // "Passer" ou "Commencer" → marque vu + va à l'auth.
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -12,6 +12,14 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -50,6 +58,34 @@ function MiniCard({
   );
 }
 
+// Slide 1 : le logo « tombe du ciel » et atterrit au centre avec un
+// léger rebond doux (Reanimated).
+function IntroArt() {
+  const { height } = useWindowDimensions();
+  const ty = useSharedValue(-height * 0.75);
+  const op = useSharedValue(0);
+  useEffect(() => {
+    op.value = withTiming(1, { duration: 260 });
+    ty.value = withSequence(
+      // chute qui accélère (gravité), passe légèrement sous le centre
+      withTiming(18, { duration: 560, easing: Easing.in(Easing.cubic) }),
+      // remonte et se stabilise au centre avec un rebond doux
+      withSpring(0, { damping: 8, stiffness: 130, mass: 0.7 }),
+    );
+  }, [ty, op]);
+  const style = useAnimatedStyle(() => ({
+    opacity: op.value,
+    transform: [{ translateY: ty.value }],
+  }));
+  return (
+    <View className="h-64 w-full items-center justify-center">
+      <Animated.View style={style}>
+        <BrandLogo />
+      </Animated.View>
+    </View>
+  );
+}
+
 const SLIDES: Slide[] = [
   {
     key: "intro",
@@ -59,11 +95,7 @@ const SLIDES: Slide[] = [
       </>
     ),
     subtitle: "Votre temps, c'est de l'argent — et on vous le prouve.",
-    art: (
-      <View className="h-64 w-full items-center justify-center">
-        <BrandLogo />
-      </View>
-    ),
+    art: <IntroArt />,
   },
   {
     key: "pros",
@@ -267,6 +299,20 @@ export default function Onboarding() {
   const [index, setIndex] = useState(0);
   const last = SLIDES.length - 1;
 
+  // Apparition synchronisée (au montage, en même temps que la chute du
+  // logo) : fondu + léger glissement vers le haut, easing ease-out.
+  const appear = useSharedValue(0);
+  useEffect(() => {
+    appear.value = withTiming(1, {
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [appear]);
+  const appearStyle = useAnimatedStyle(() => ({
+    opacity: appear.value,
+    transform: [{ translateY: (1 - appear.value) * 12 }],
+  }));
+
   async function finish() {
     await markOnboardingSeen();
     router.replace("/(auth)/sign-in");
@@ -297,11 +343,13 @@ export default function Onboarding() {
           height: "45%",
         }}
       />
-      <View className="flex-row justify-end px-6 pt-2">
-        <Pressable onPress={finish} hitSlop={12}>
-          <Text className="text-sm text-ink-4">Passer</Text>
-        </Pressable>
-      </View>
+      <Animated.View style={appearStyle}>
+        <View className="flex-row justify-end px-6 pt-2">
+          <Pressable onPress={finish} hitSlop={12}>
+            <Text className="text-sm text-ink-4">Passer</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
 
       <FlatList
         ref={listRef}
@@ -319,38 +367,42 @@ export default function Onboarding() {
         renderItem={({ item }) => (
           <View style={{ width }} className="flex-1 justify-end px-6 pb-4">
             <View className="flex-1 justify-center">{item.art}</View>
-            <View className="gap-3 pb-8">
-              {item.eyebrow ? <Eyebrow>{item.eyebrow}</Eyebrow> : null}
-              <Text className="text-center font-serif text-3xl leading-tight text-ink">
-                {item.title}
-              </Text>
-              <Text className="text-center text-lg leading-6 text-ink-3">
-                {item.subtitle}
-              </Text>
-            </View>
+            <Animated.View style={appearStyle}>
+              <View className="gap-3 pb-8">
+                {item.eyebrow ? <Eyebrow>{item.eyebrow}</Eyebrow> : null}
+                <Text className="text-center font-serif text-3xl leading-tight text-ink">
+                  {item.title}
+                </Text>
+                <Text className="text-center text-lg leading-6 text-ink-3">
+                  {item.subtitle}
+                </Text>
+              </View>
+            </Animated.View>
           </View>
         )}
       />
 
-      <View className="flex-row items-center justify-between px-6 pb-2">
-        <View className="flex-row gap-1.5">
-          {SLIDES.map((s, i) => (
-            <View
-              key={s.key}
-              className={`h-2 rounded-full ${
-                i === index ? "w-2 bg-ink" : "w-2 bg-ink-5"
-              }`}
+      <Animated.View style={appearStyle}>
+        <View className="flex-row items-center justify-between px-6 pb-2">
+          <View className="flex-row gap-1.5">
+            {SLIDES.map((s, i) => (
+              <View
+                key={s.key}
+                className={`h-2 rounded-full ${
+                  i === index ? "w-2 bg-ink" : "w-2 bg-ink-5"
+                }`}
+              />
+            ))}
+          </View>
+          <View className="w-40">
+            <PrimaryButton
+              label={index >= last ? "Commencer" : "Suivant"}
+              arrow
+              onPress={next}
             />
-          ))}
+          </View>
         </View>
-        <View className="w-40">
-          <PrimaryButton
-            label={index >= last ? "Commencer" : "Suivant"}
-            arrow
-            onPress={next}
-          />
-        </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
