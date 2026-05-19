@@ -65,8 +65,6 @@ export default function DrawerPanel() {
       Animated.timing(scrim, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start(() => router.back());
   };
-
-  const close = dismiss;
   const go = (route: string) => {
     router.back();
     router.push(route as never);
