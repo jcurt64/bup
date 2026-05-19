@@ -4,6 +4,7 @@ import { ensureRole, RoleConflictError } from "@/lib/sync/ensureRole";
 import { getCurrentRole } from "@/lib/sync/currentRole";
 import PrototypeFrame from "../_components/PrototypeFrame";
 import TopupReconciler from "../_components/TopupReconciler";
+import CardSetupReconciler from "../_components/CardSetupReconciler";
 
 export const metadata = {
   title: "BUUPP — Espace Pro",
@@ -45,6 +46,7 @@ export default async function ProPage() {
   return (
     <>
       <TopupReconciler />
+      <CardSetupReconciler />
       <PrototypeFrame route="pro" />
     </>
   );
