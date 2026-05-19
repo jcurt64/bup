@@ -13,7 +13,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 
-import { Accent, BrandPill, Eyebrow, PrimaryButton } from "../../components/ui";
+import { Accent, BrandLogo, Eyebrow, PrimaryButton } from "../../components/ui";
 import { markOnboardingSeen } from "../../lib/onboarding";
 
 type Slide = {
@@ -57,7 +57,7 @@ const SLIDES: Slide[] = [
     subtitle: "Votre temps, c'est de l'argent — et vous le prouvez.",
     art: (
       <View className="h-64 items-center justify-center">
-        <BrandPill />
+        <BrandLogo />
       </View>
     ),
   },
