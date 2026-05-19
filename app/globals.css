@@ -259,13 +259,6 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .nav-link:hover { color: var(--ink); }
 .nav-link.active { color: var(--ink); }
 
-/* Navbar au-dessus d'une section sombre : fond blanc + éléments bleu
-   foncé (cf. Navbar/overDark dans HomeClient.tsx). Renforce le contraste
-   des liens — actif à tous les breakpoints (desktop, tablette, mobile). */
-.navbar-over-dark .nav-link { color: var(--ink); }
-.navbar-over-dark .nav-link:hover,
-.navbar-over-dark .nav-link.active { color: #000; }
-
 .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tbl th { text-align: left; font-weight: 500; color: var(--ink-4); padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
 .tbl td { padding: 14px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
