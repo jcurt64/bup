@@ -15,7 +15,6 @@ import {
   eur,
   QueryGate,
   ScrollScreen,
-  SectionTitle,
 } from "../../components/screen";
 import {
   useDeleteRib,
@@ -113,19 +112,18 @@ export default function Preferences() {
           mail.refetch(),
         ])
       }
+      hero={{
+        eyebrow: "Préférences",
+        title: "Qui peut vous contacter",
+        desc: "Types de campagne, catégories, zone, paliers de données, téléphone, coordonnées bancaires et communications.",
+      }}
     >
-      <SectionTitle
-        eyebrow="Préférences"
-        title="Qui peut vous contacter"
-        desc="Types de campagne, catégories, zone, paliers de données, téléphone, coordonnées bancaires et communications."
-      />
-
       {/* ── 1. Types de campagne acceptés ───────────────────────────────
           Bloc web : ctx.profile.allCampaignTypes / campaignTypes.
           Pas d'endpoint dédié en production → affiché en lecture seule
           (cf. concern : l'API /api/prospect/donnees ne retourne pas
           ces champs). */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "megaphone-outline", tone: "sky" }}>
         <Text className="font-serif text-lg text-ink">
           Types de campagne acceptés
         </Text>
@@ -150,7 +148,7 @@ export default function Preferences() {
 
       {/* ── 2. Catégories autorisées ─────────────────────────────────────
           Même situation : pas d'endpoint API dédié → lecture seule. */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "pricetags-outline", tone: "amber" }}>
         <Text className="font-serif text-lg text-ink">
           Catégories autorisées
         </Text>
@@ -178,7 +176,7 @@ export default function Preferences() {
           depuis /api/prospect/donnees. Mutation : PATCH donnees tier
           localisation. Le slider est remplacé par +/- boutons (pas de
           Slider natif inclus dans la spec Expo). */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "location-outline", tone: "coral" }}>
         <Text className="font-serif text-lg text-ink">Zone géographique</Text>
         <QueryGate query={don}>
           {(d) => {
@@ -305,7 +303,7 @@ export default function Preferences() {
       {/* ── 4. Paliers partageables ───────────────────────────────────────
           Données : hiddenTiers + removedTiers depuis /api/prospect/donnees.
           Mutation : POST /api/prospect/tier (action: hide | restore). */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "layers-outline", tone: "violet" }}>
         <Text className="font-serif text-lg text-ink">Paliers partageables</Text>
         <Text className="text-xs text-ink-4">
           Tous vos paliers sont partagés par défaut. Décochez ceux que vous
@@ -384,7 +382,7 @@ export default function Preferences() {
       {/* ── 5. Téléphone & vérification SMS ─────────────────────────────
           Données : identityMeta.phoneVerifiedAt depuis /api/prospect/donnees.
           Mutations : POST /api/prospect/phone/start + /verify. */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "call-outline", tone: "sky" }}>
         <Text className="font-serif text-lg text-ink">Téléphone</Text>
         <QueryGate query={don}>
           {(d) =>
@@ -437,7 +435,7 @@ export default function Preferences() {
       {/* ── 6. RIB / IBAN ────────────────────────────────────────────────
           Données : ver.rib depuis /api/prospect/verification.
           Mutation : POST /api/prospect/rib { iban, bic, holderName }. */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "card-outline", tone: "teal" }}>
         <Text className="font-serif text-lg text-ink">
           Coordonnées bancaires
         </Text>
@@ -519,7 +517,7 @@ export default function Preferences() {
           Données : pay (PayoutStatus) + wal.availableEur.
           Mutations : POST /api/prospect/payout/onboarding (URL Stripe)
                      POST /api/prospect/payout/withdraw { amountCents, method }. */}
-      <Card className="gap-3">
+      <Card className="gap-3" badge={{ icon: "cash-outline", tone: "violet" }}>
         <Text className="font-serif text-lg text-ink">Retrait des gains</Text>
         <QueryGate query={pay}>
           {(p) =>
@@ -574,7 +572,7 @@ export default function Preferences() {
           Données : mail.consent depuis /api/me/email-tracking (GET).
           Mutation : POST /api/me/email-tracking { consent }.
           Conformité CNIL n° 2026-042 (cf. web EmailTrackingConsentCard). */}
-      <Card className="flex-row items-center justify-between">
+      <Card className="flex-row items-center justify-between" badge={{ icon: "mail-outline", tone: "amber" }}>
         <View className="flex-1 pr-3">
           <Text className="font-serif text-lg text-ink">
             Suivi des emails BUUPP
