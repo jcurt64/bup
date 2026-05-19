@@ -59,7 +59,11 @@ export default function RootLayout() {
             <Stack.Screen name="(pro)" />
             <Stack.Screen
               name="drawer"
-              options={{ presentation: "transparentModal", headerShown: false }}
+              options={{
+                presentation: "transparentModal",
+                headerShown: false,
+                animation: "none",
+              }}
             />
           </Stack>
           <StatusBar style="auto" />

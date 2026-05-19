@@ -4,8 +4,8 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useDeleteAccount } from "../lib/queries";
 
@@ -50,8 +50,23 @@ export default function DrawerPanel() {
   const del = useDeleteAccount();
   const [confirm, setConfirm] = useState<null | "signout" | "delete">(null);
   const [busy, setBusy] = useState(false);
+  const W = Math.min(360, Dimensions.get("window").width * 0.82);
+  const tx = useRef(new Animated.Value(-W)).current;
+  const scrim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(tx, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(scrim, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [tx, scrim]);
+  const dismiss = () => {
+    Animated.parallel([
+      Animated.timing(tx, { toValue: -W, duration: 180, useNativeDriver: true }),
+      Animated.timing(scrim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => router.back());
+  };
 
-  const close = () => router.back();
+  const close = dismiss;
   const go = (route: string) => {
     router.back();
     router.push(route as never);
@@ -84,7 +99,10 @@ export default function DrawerPanel() {
 
   return (
     <View className="flex-1 flex-row">
-      <View className="w-[82%] max-w-[360px] bg-paper" style={{ elevation: 8 }}>
+      <Animated.View
+        className="bg-paper"
+        style={{ width: W, transform: [{ translateX: tx }], elevation: 8 }}
+      >
         <ScrollView contentContainerClassName="gap-1 px-4 pb-10 pt-14">
           <Text className="px-4 pb-2 font-serif text-2xl text-ink">Menu</Text>
           {NAV.map((n) => (
@@ -120,10 +138,12 @@ export default function DrawerPanel() {
             onPress={() => setConfirm("delete")}
           />
         </ScrollView>
-      </View>
+      </Animated.View>
 
       {/* Scrim : ferme le drawer */}
-      <Pressable className="flex-1 bg-black/40" onPress={close} />
+      <Animated.View style={{ flex: 1, opacity: scrim }}>
+        <Pressable className="flex-1 bg-black/40" onPress={dismiss} />
+      </Animated.View>
 
       <Modal transparent visible={confirm !== null} animationType="fade">
         <View className="flex-1 items-center justify-center bg-black/50 px-8">
