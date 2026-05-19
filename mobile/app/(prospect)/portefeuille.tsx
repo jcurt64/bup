@@ -7,7 +7,15 @@
 // périmètre — parité de données uniquement).
 import { Text, View } from "react-native";
 
-import { Card, dateFr, eur, QueryGate, ScrollScreen, Stat } from "../../components/screen";
+import {
+  Card,
+  CoinsLine,
+  dateFr,
+  eur,
+  QueryGate,
+  ScrollScreen,
+  Stat,
+} from "../../components/screen";
 import {
   useProspectMovements,
   useProspectWallet,
@@ -45,7 +53,6 @@ export default function Portefeuille() {
     <ScrollScreen
       onRefresh={() => Promise.all([w.refetch(), m.refetch()])}
       hero={{
-        eyebrow: "Portefeuille",
         title: "Votre portefeuille",
         nav: "menu",
       }}
@@ -57,12 +64,10 @@ export default function Portefeuille() {
               <Text className="font-mono text-[11px] uppercase text-ink-4">
                 Disponible
               </Text>
-              <Text className="mt-1 font-serif text-4xl text-ink">
+              <Text className="mt-1 font-serif text-4xl text-violet">
                 {eur(d.availableEur)}
               </Text>
-              <Text className="mt-1 font-mono text-xs text-ink-4">
-                {coins(d.availableCents)} BUUPP Coins
-              </Text>
+              <CoinsLine coins={coins(d.availableCents)} />
               <Text className="mt-1 text-xs text-ink-4">
                 {d.canWithdraw
                   ? "Retirable immédiatement · minimum de 5 €"
@@ -74,9 +79,16 @@ export default function Portefeuille() {
               <Stat
                 label="En séquestre"
                 value={eur(d.escrowEur)}
-                hint={`${coins(d.escrowCents)} BUUPP Coins`}
+                coins={coins(d.escrowCents)}
+                icon="lock-closed"
+                tone="amber"
               />
-              <Stat label="Ce mois" value={eur(d.monthGainsEur)} />
+              <Stat
+                label="Ce mois"
+                value={eur(d.monthGainsEur)}
+                icon="trending-up"
+                tone="teal"
+              />
             </View>
 
             <Card tone="amber">
@@ -89,9 +101,7 @@ export default function Portefeuille() {
               <Text className="mt-1 font-serif text-3xl text-ink">
                 {eur(d.lifetimeGainsEur)}
               </Text>
-              <Text className="mt-1 font-mono text-xs text-ink-4">
-                {coins(d.lifetimeGainsCents)} BUUPP Coins
-              </Text>
+              <CoinsLine coins={coins(d.lifetimeGainsCents)} />
               <Text className="mt-2 text-xs text-ink-4">
                 {lifetimeSub(d.accountCreatedAt, d.relationsCount)}
               </Text>

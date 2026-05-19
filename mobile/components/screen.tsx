@@ -249,14 +249,36 @@ export function Stat({
   value,
   hint,
   accent = false,
+  icon,
+  tone,
+  coins,
 }: {
   label: string;
   value: string;
   hint?: string;
   accent?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
+  /** Teinte pastel du fond + de l'icône. */
+  tone?: Tone;
+  /** Si fourni : ligne pastille dorée "{coins} BUUPP Coins". */
+  coins?: string;
 }) {
+  const bg = tone ? TONE_BG[tone] : "bg-paper";
   return (
-    <View className="flex-1 rounded-3xl border border-line bg-paper p-4">
+    <View className={`flex-1 rounded-3xl border border-line p-4 ${bg}`}>
+      {icon ? (
+        <View
+          className={`mb-2 h-8 w-8 items-center justify-center rounded-full ${
+            tone ? "bg-white/70" : "bg-ivory"
+          }`}
+        >
+          <Ionicons
+            name={icon}
+            size={16}
+            color={tone ? TONE_FG[tone] : "#7C5CFC"}
+          />
+        </View>
+      ) : null}
       <Text
         className="text-[10px] font-bold uppercase text-ink-4"
         style={{ letterSpacing: 0.8 }}
@@ -268,9 +290,46 @@ export function Stat({
       >
         {value}
       </Text>
+      {coins ? <CoinsLine coins={coins} /> : null}
       {hint ? (
         <Text className="mt-0.5 text-[11px] text-ink-4">{hint}</Text>
       ) : null}
+    </View>
+  );
+}
+
+// Pastille "BUUPP Coin" — réplique du .coin web (styles.css) :
+// rond doré dégradé + "B" serif. Affiché devant "{n} BUUPP Coins".
+export function CoinBadge({ size = 16 }: { size?: number }) {
+  return (
+    <LinearGradient
+      colors={["#E8C767", "#B8860B"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        className="font-serif-bold"
+        style={{ color: "#3A2B00", fontSize: size * 0.58 }}
+      >
+        B
+      </Text>
+    </LinearGradient>
+  );
+}
+
+/** Ligne "🅑 {n} BUUPP Coins" (pastille dorée + libellé mono). */
+export function CoinsLine({ coins }: { coins: string }) {
+  return (
+    <View className="mt-1 flex-row items-center gap-1.5">
+      <CoinBadge />
+      <Text className="font-mono text-xs text-ink-4">{coins} BUUPP Coins</Text>
     </View>
   );
 }
