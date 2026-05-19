@@ -19,10 +19,11 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 
 import {
   Accent,
-  BrandPill,
+  BrandLogo,
   Field,
   LegalFooter,
   PrimaryButton,
+  SocialButtons,
 } from "../../components/ui";
 import { setRoleIntent, type RoleIntent } from "../../lib/role-intent";
 
@@ -124,6 +125,9 @@ export default function AuthScreen() {
     }
   }
 
+  const onSocial = (p: "apple" | "google" | "facebook") =>
+    onSSO(`oauth_${p}` as OAuthStrategy);
+
   async function onSSO(strategy: OAuthStrategy) {
     setErr(null);
     try {
@@ -149,7 +153,7 @@ export default function AuthScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View className="items-center pt-2">
-        <BrandPill small />
+        <BrandLogo small />
       </View>
 
       <View className="gap-1">
@@ -174,12 +178,12 @@ export default function AuthScreen() {
       </View>
 
       {/* Tabs Connexion / Inscription */}
-      <View className="flex-row rounded-2xl bg-ivory-2 p-1">
+      <View className="flex-row rounded-full bg-ivory-2 p-1">
         {(["login", "signup"] as Tab[]).map((t) => (
           <Pressable
             key={t}
             onPress={() => reset(t)}
-            className={`flex-1 items-center rounded-xl py-2.5 ${
+            className={`flex-1 items-center rounded-full py-2.5 ${
               tab === t ? "bg-ink" : ""
             }`}
           >
@@ -249,31 +253,8 @@ export default function AuthScreen() {
             onPress={requestCode}
           />
 
-          {/* OU + SSO */}
-          <View className="flex-row items-center gap-3 py-1">
-            <View className="h-px flex-1 bg-line" />
-            <Text className="text-[11px] font-bold uppercase text-ink-4">
-              ou
-            </Text>
-            <View className="h-px flex-1 bg-line" />
-          </View>
-          <View className="flex-row gap-3">
-            {(
-              [
-                { s: "oauth_apple", l: "" },
-                { s: "oauth_google", l: "G" },
-                { s: "oauth_facebook", l: "f" },
-              ] as { s: OAuthStrategy; l: string }[]
-            ).map((p) => (
-              <Pressable
-                key={p.s}
-                onPress={() => onSSO(p.s)}
-                className="flex-1 items-center rounded-2xl border border-line bg-paper py-3.5 active:opacity-70"
-              >
-                <Text className="text-lg font-bold text-ink">{p.l}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {/* OU + connexion sociale (primitive partagée) */}
+          <SocialButtons onPress={onSocial} />
         </>
       )}
 
