@@ -12,6 +12,9 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 import { Accent, BrandLogo, Eyebrow, PrimaryButton } from "../../components/ui";
 import { markOnboardingSeen } from "../../lib/onboarding";
@@ -46,6 +49,44 @@ function MiniCard({
   );
 }
 
+/** Fond quadrillé léger (papier millimétré) — cf. maquette 1.png. */
+function GridBg() {
+  const STEP = 26;
+  return (
+    <View
+      pointerEvents="none"
+      className="absolute inset-0 overflow-hidden opacity-50"
+    >
+      {Array.from({ length: 12 }).map((_, i) => (
+        <View
+          key={`h${i}`}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: i * STEP,
+            height: 1,
+            backgroundColor: "#E6E3DA",
+          }}
+        />
+      ))}
+      {Array.from({ length: 18 }).map((_, i) => (
+        <View
+          key={`v${i}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: i * STEP,
+            width: 1,
+            backgroundColor: "#E6E3DA",
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 const SLIDES: Slide[] = [
   {
     key: "intro",
@@ -54,9 +95,10 @@ const SLIDES: Slide[] = [
         La publicité, <Accent>équitable.</Accent>
       </>
     ),
-    subtitle: "Votre temps, c'est de l'argent — et vous le prouvez.",
+    subtitle: "Votre temps, c'est de l'argent — et on vous le prouve.",
     art: (
-      <View className="h-64 items-center justify-center">
+      <View className="h-64 w-full items-center justify-center">
+        <GridBg />
         <BrandLogo />
       </View>
     ),
@@ -74,30 +116,85 @@ const SLIDES: Slide[] = [
       "Des contacts qui ont déjà accepté de vous parler. Plus de cold call, payez seulement les acceptations.",
     art: (
       <View className="h-64 w-full">
+        {/* Lignes violettes de connexion (sous la carte score) */}
+        <View
+          className="absolute left-7 top-40"
+          style={{ transform: [{ rotate: "-8deg" }] }}
+        >
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              className="mb-1 h-0.5 w-24 rounded-full bg-violet"
+              style={{ opacity: 0.35 + i * 0.2 }}
+            />
+          ))}
+        </View>
+
+        {/* Carte Prospect — accepté + prix + barre */}
         <MiniCard className="left-2 top-4">
           <Text className="font-mono text-[9px] uppercase text-ink-4">
             Prospect
           </Text>
-          <Text className="text-sm font-medium text-ink">Accepté · 2×</Text>
+          <Text className="text-sm font-medium text-ink">
+            Accepté <Text className="text-good">2×</Text>
+          </Text>
+          <Text className="mt-0.5 font-mono text-[10px] text-ink-4">5,40 €</Text>
+          <View className="mt-1.5 h-1 w-16 rounded-full bg-violet" />
         </MiniCard>
+
+        {/* Carte score navy — légèrement inclinée + sous-ligne */}
         <View
           className="absolute left-12 top-20 rounded-2xl bg-navy px-6 py-5"
-          style={{ shadowColor: "#13235B", shadowOpacity: 0.4, shadowRadius: 18 }}
+          style={{
+            shadowColor: "#13235B",
+            shadowOpacity: 0.4,
+            shadowRadius: 18,
+            transform: [{ rotate: "-4deg" }],
+          }}
         >
           <Text className="font-mono text-[9px] uppercase text-ink-5">
             BUUPP Score
           </Text>
           <Text className="font-serif text-4xl text-paper">742</Text>
+          <Text className="mt-1 text-[10px] text-ink-5">
+            Marie L. ·{" "}
+            <Text className="font-serif-italic text-violet">Recherche</Text>
+          </Text>
         </View>
+
+        {/* Carte Ciblage — icône check + sous-titre */}
         <MiniCard className="right-3 top-10">
-          <Text className="text-xs font-medium text-ink">
-            Ciblage par filtres
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="checkmark-circle" size={14} color="#7C5CFC" />
+            <Text className="text-xs font-semibold text-ink">
+              Ciblage par paliers
+            </Text>
+          </View>
+          <Text className="mt-0.5 font-mono text-[9px] text-ink-4">
+            consentement clair
           </Text>
         </MiniCard>
+
+        {/* Carte ROI — eyebrow puis valeur + moyenne */}
         <MiniCard className="left-3 bottom-3">
-          <Text className="font-serif text-lg text-violet">×3.4</Text>
           <Text className="font-mono text-[9px] uppercase text-ink-4">ROI</Text>
+          <Text className="font-serif text-lg text-violet">
+            ×3.4{" "}
+            <Text className="font-mono text-[9px] text-ink-4">en moy.</Text>
+          </Text>
         </MiniCard>
+
+        {/* Badge paiement vert */}
+        <View
+          className="absolute bottom-7 right-6 h-9 w-9 items-center justify-center rounded-full bg-good"
+          style={{
+            shadowColor: "#16A34A",
+            shadowOpacity: 0.4,
+            shadowRadius: 10,
+          }}
+        >
+          <Text className="font-serif text-sm text-paper">€</Text>
+        </View>
       </View>
     ),
   },
@@ -113,37 +210,89 @@ const SLIDES: Slide[] = [
       "Vous choisissez qui peut vous contacter, à quel prix. Aucune donnée n'est transmise avant votre accord.",
     art: (
       <View className="h-64 w-full">
+        {/* Notification — une agence */}
         <MiniCard className="left-2 top-3">
-          <Text className="text-xs font-medium text-ink">
-            Une agence souhaite vous parler
-          </Text>
-          <Text className="mt-0.5 font-mono text-[10px] text-violet">
-            5,25 € · 8 min
-          </Text>
+          <View className="flex-row items-start gap-2">
+            <View className="h-5 w-5 items-center justify-center rounded-full bg-violet">
+              <Text className="text-[11px] font-bold text-paper">!</Text>
+            </View>
+            <View>
+              <Text className="text-xs font-medium text-ink">
+                Une agence souhaite{"\n"}vous parler.
+              </Text>
+              <Text className="mt-0.5 font-mono text-[10px] text-ink-4">
+                3,20 € · 8 min
+              </Text>
+            </View>
+          </View>
         </MiniCard>
+
+        {/* Gains du mois — carte claire + barres */}
         <View
-          className="absolute right-3 top-16 rounded-2xl bg-navy px-5 py-4"
-          style={{ shadowColor: "#13235B", shadowOpacity: 0.4, shadowRadius: 18 }}
+          className="absolute right-2 top-[72px] rounded-2xl bg-paper px-5 py-4"
+          style={{
+            shadowColor: "#13235B",
+            shadowOpacity: 0.12,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+          }}
         >
-          <Text className="font-serif text-2xl text-paper">42,80 €</Text>
-          <View className="mt-2 flex-row items-end gap-1">
-            {[10, 16, 12, 22, 18].map((h, i) => (
+          <Text className="font-serif text-3xl text-ink">
+            42<Text className="text-lg text-ink-3">,80 €</Text>
+          </Text>
+          <Text className="font-mono text-[9px] uppercase text-ink-4">
+            ce mois-ci
+          </Text>
+          <View className="mt-2 flex-row items-end gap-1.5">
+            {[10, 14, 11, 18, 13, 24].map((h, i) => (
               <View
                 key={i}
-                className="w-2 rounded-sm bg-violet"
+                className={`w-2.5 rounded-sm ${
+                  i === 5 ? "bg-violet" : "bg-violet-soft"
+                }`}
                 style={{ height: h }}
               />
             ))}
           </View>
         </View>
-        <MiniCard className="left-4 bottom-4">
-          <Text className="text-xs font-medium text-ink">
-            Vos données, à vous
+
+        {/* RGPD — carte navy inclinée */}
+        <View
+          className="absolute right-3 top-4 rounded-2xl bg-navy px-4 py-3"
+          style={{
+            shadowColor: "#13235B",
+            shadowOpacity: 0.4,
+            shadowRadius: 16,
+            transform: [{ rotate: "5deg" }],
+          }}
+        >
+          <Text className="font-mono text-[9px] uppercase text-ink-5">
+            RGPD
           </Text>
-          <Text className="mt-0.5 font-mono text-[10px] text-good">
-            ✓ Accord requis
+          <Text className="text-sm font-medium text-paper">
+            Vos données,{"\n"}
+            <Text className="font-serif-italic text-violet">à vous.</Text>
           </Text>
+        </View>
+
+        {/* Accepté — gain encaissé */}
+        <MiniCard className="left-3 bottom-4">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+            <View>
+              <Text className="text-xs font-medium text-ink">Accepté,</Text>
+              <Text className="font-mono text-[10px] text-good">+ 2,10 €</Text>
+            </View>
+          </View>
         </MiniCard>
+
+        {/* Badge cœur — cercle pointillé */}
+        <View
+          pointerEvents="none"
+          className="absolute bottom-9 right-7 h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-violet"
+        >
+          <Ionicons name="heart" size={18} color="#7C5CFC" />
+        </View>
       </View>
     ),
   },
@@ -171,7 +320,20 @@ export default function Onboarding() {
   }
 
   return (
-    <View className="flex-1 bg-ivory">
+    <SafeAreaView className="flex-1 bg-ivory">
+      <LinearGradient
+        colors={["rgba(247,244,236,0)", "#EDE9FE"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "45%",
+        }}
+      />
       <View className="flex-row justify-end px-6 pt-2">
         <Pressable onPress={finish} hitSlop={12}>
           <Text className="text-sm text-ink-4">Passer</Text>
@@ -199,7 +361,7 @@ export default function Onboarding() {
               <Text className="text-center font-serif text-3xl leading-tight text-ink">
                 {item.title}
               </Text>
-              <Text className="text-center text-sm leading-5 text-ink-3">
+              <Text className="text-center text-lg leading-6 text-ink-3">
                 {item.subtitle}
               </Text>
             </View>
@@ -226,6 +388,6 @@ export default function Onboarding() {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

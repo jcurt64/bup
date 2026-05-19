@@ -32,9 +32,14 @@ module.exports = {
         gold: "#B45309",
       },
       fontFamily: {
-        // RN : ces familles devront être chargées via expo-font si on
-        // veut autre chose que la police système. Placeholder de mapping.
-        serif: ["serif"],
+        // Fraunces (police serif du prototype web), chargée via
+        // @expo-google-fonts/fraunces dans app/_layout.tsx. iOS ne
+        // synthétise pas italique/gras pour une police custom → familles
+        // dédiées.
+        serif: ["Fraunces_400Regular"],
+        "serif-italic": ["Fraunces_400Regular_Italic"],
+        "serif-semibold": ["Fraunces_600SemiBold"],
+        "serif-bold": ["Fraunces_700Bold"],
         mono: ["monospace"],
       },
     },

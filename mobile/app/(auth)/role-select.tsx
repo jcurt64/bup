@@ -12,7 +12,7 @@ export default function RoleSelect() {
         <Text className="text-center font-serif text-3xl text-ink">
           Vous <Accent>êtes…</Accent>
         </Text>
-        <Text className="text-center text-sm text-ink-3">
+        <Text className="text-center text-lg leading-6 text-ink-3">
           Le choix est définitif (un compte = prospect OU pro).
         </Text>
       </View>

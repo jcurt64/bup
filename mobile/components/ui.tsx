@@ -3,6 +3,7 @@
 // italiques serif, eyebrow capitales espacées).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from "expo-web-browser";
 import { type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export function ScreenBg({
   children,
@@ -21,9 +23,9 @@ export function ScreenBg({
   className?: string;
 }) {
   return (
-    <View className="flex-1 bg-ivory">
+    <SafeAreaView className="flex-1 bg-ivory">
       <View className={`flex-1 px-6 ${className}`}>{children}</View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -46,7 +48,7 @@ export function BrandLogo({ small = false }: { small?: boolean }) {
       }}
     >
       <Text
-        className={`font-serif font-bold text-paper ${small ? "text-base" : "text-2xl"}`}
+        className={`font-serif-bold text-paper ${small ? "text-base" : "text-2xl"}`}
       >
         buupp
       </Text>
@@ -99,7 +101,7 @@ export function H1({
 /** Fragment violet italique serif (mots accentués des maquettes). */
 export function Accent({ children }: { children: ReactNode }) {
   return (
-    <Text className="font-serif italic text-violet">{children}</Text>
+    <Text className="font-serif-italic text-violet">{children}</Text>
   );
 }
 
@@ -167,17 +169,45 @@ export function Field({
   );
 }
 
+// Base web (= prod que pointe le mobile). Les pages légales sont servies
+// par l'app web : /cgv, /rgpd, /cookies (mêmes slugs que le footer web).
+const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
+
+// iOS : on ouvre les pages légales dans SFSafariViewController via
+// expo-web-browser (navigateur in-app, URL visible, conforme App Review)
+// — pas de WebView "wrapper", pas de saut brut hors application.
+function openLegal(path: string) {
+  void WebBrowser.openBrowserAsync(`${WEB_BASE}${path}`, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+  });
+}
+
 export function LegalFooter() {
   return (
-    <View className="gap-1 pb-1">
+    <View className="pb-1">
       <Text className="text-center text-[11px] leading-4 text-ink-4">
         En continuant, vous acceptez nos{" "}
-        <Text className="underline">Conditions</Text>, notre{" "}
-        <Text className="underline">Politique de confidentialité</Text> et la
-        conformité <Text className="underline">RGPD</Text>.
-      </Text>
-      <Text className="text-center text-[11px] text-ink-4">
-        Mentions légales · Cookies
+        <Text
+          className="underline text-ink-3"
+          onPress={() => openLegal("/cgv")}
+        >
+          conditions générales de vente
+        </Text>
+        , notre{" "}
+        <Text
+          className="underline text-ink-3"
+          onPress={() => openLegal("/rgpd")}
+        >
+          politique de gestion des données personnelles
+        </Text>{" "}
+        et notre{" "}
+        <Text
+          className="underline text-ink-3"
+          onPress={() => openLegal("/cookies")}
+        >
+          politique de cookies
+        </Text>
+        .
       </Text>
     </View>
   );

@@ -11,6 +11,14 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  useFonts,
+  Fraunces_400Regular,
+  Fraunces_400Regular_Italic,
+  Fraunces_600SemiBold,
+  Fraunces_600SemiBold_Italic,
+  Fraunces_700Bold,
+} from "@expo-google-fonts/fraunces";
 import "react-native-reanimated";
 
 import { tokenCache } from "../lib/clerk-token-cache";
@@ -32,6 +40,13 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const appState = useRef(AppState.currentState);
+  const [fontsLoaded] = useFonts({
+    Fraunces_400Regular,
+    Fraunces_400Regular_Italic,
+    Fraunces_600SemiBold,
+    Fraunces_600SemiBold_Italic,
+    Fraunces_700Bold,
+  });
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
@@ -43,6 +58,8 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, []);
+
+  if (!fontsLoaded) return null;
 
   return (
     <ClerkProvider

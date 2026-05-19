@@ -149,7 +149,7 @@ export default function AuthScreen() {
   return (
     <ScrollView
       className="flex-1 bg-ivory"
-      contentContainerClassName="px-6 pt-2 pb-6 gap-4"
+      contentContainerClassName="grow justify-center px-6 py-6 gap-4"
       keyboardShouldPersistTaps="handled"
     >
       <View className="items-center pt-2">
@@ -168,7 +168,7 @@ export default function AuthScreen() {
             </>
           )}
         </Text>
-        <Text className="text-center text-sm text-ink-3">
+        <Text className="text-center text-lg leading-6 text-ink-3">
           {step === "code"
             ? `Code envoyé à ${email}`
             : tab === "login"

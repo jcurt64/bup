@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -60,7 +61,7 @@ export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps)
       ) : null}
       <Text className="mt-1 font-serif text-2xl text-paper">{title}</Text>
       {desc ? (
-        <Text className="mt-1 text-sm leading-5 text-white/75">{desc}</Text>
+        <Text className="mt-1 text-lg leading-6 text-white/75">{desc}</Text>
       ) : null}
       {children ? <View className="mt-3">{children}</View> : null}
     </LinearGradient>
@@ -88,7 +89,7 @@ export function ScrollScreen({
   }, [onRefresh]);
 
   return (
-    <View className="flex-1 bg-ivory">
+    <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 20, paddingTop: 56, paddingBottom: 120, gap: 16 }}
@@ -101,7 +102,7 @@ export function ScrollScreen({
         {hero ? <GradientHero {...hero} /> : null}
         {children}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -256,7 +257,7 @@ export function SectionTitle({
       </Text>
       <Text className="font-serif text-2xl text-ink">{title}</Text>
       {desc ? (
-        <Text className="text-sm leading-5 text-ink-3">{desc}</Text>
+        <Text className="text-lg leading-6 text-ink-3">{desc}</Text>
       ) : null}
     </View>
   );
