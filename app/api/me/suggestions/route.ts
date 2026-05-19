@@ -1,20 +1,23 @@
 /**
  * POST /api/me/suggestions
  *
- * Reçoit le message envoyé depuis l'onglet « Vos suggestions » du dashboard
- * et le relaie par email à l'inbox BUUPP (`BUUPP_SUGGESTIONS_INBOX` ou
- * fallback `jjlex64@gmail.com`). On capture le nom + email depuis Clerk,
- * et le rôle DB depuis Supabase, pour pré-remplir l'expéditeur affiché.
+ * Reçoit le message envoyé depuis l'onglet « Vos suggestions » du dashboard,
+ * le persiste en table `public.suggestions`, et le relaie en notification
+ * best-effort à l'inbox BUUPP (`BUUPP_SUGGESTIONS_INBOX`, sinon la liste
+ * `ADMIN_EMAILS`). On capture le nom + email depuis Clerk, et le rôle DB
+ * depuis Supabase, pour pré-remplir l'expéditeur affiché.
  *
  * Anti-spam minimal : taille du body bornée + rate-limit léger côté Clerk
- * (chaque requête authentifiée passe par le middleware). Pas de stockage
- * en DB pour la v1 — l'email reste la source de vérité.
+ * (chaque requête authentifiée passe par le middleware). Persistée en
+ * table `public.suggestions` (source de vérité, lue par l'admin) ;
+ * l'e-mail est une notification best-effort non bloquante.
  */
 
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendUserSuggestion } from "@/lib/email/user-suggestion";
+import { recordEvent } from "@/lib/admin/events/record";
 
 export const runtime = "nodejs";
 
@@ -64,7 +67,10 @@ export async function POST(req: Request) {
   let fromName: string | null =
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || null;
 
-  const admin = createSupabaseAdminClient();
+  // `suggestions` n'est pas dans les types Supabase générés (migration
+  // manuelle). Cast volontaire, même esprit que lib/admin/queries/suggestions.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseAdminClient() as any;
   const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
     admin.from("pro_accounts").select("raison_sociale").eq("clerk_user_id", userId).maybeSingle(),
     admin.from("prospects").select("id").eq("clerk_user_id", userId).maybeSingle(),
@@ -75,22 +81,53 @@ export async function POST(req: Request) {
     fromName = proRow.raison_sociale;
   }
 
-  const { ok } = await sendUserSuggestion({
+  // E-mail = notification best-effort. La base est la source de vérité :
+  // on n'échoue PAS la requête si l'e-mail tombe.
+  const { ok: emailOk, messageId } = await sendUserSuggestion({
     fromEmail,
     fromName,
     fromRole,
     subject,
     message,
   });
-  if (!ok) {
+
+  const nowIso = new Date().toISOString();
+  const { data: inserted, error: insertError } = await admin
+    .from("suggestions")
+    .insert({
+      from_email: fromEmail,
+      from_name: fromName,
+      from_role: fromRole,
+      subject,
+      message,
+      email_sent_at: emailOk ? nowIso : null,
+      email_message_id: emailOk ? (messageId ?? null) : null,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !inserted) {
+    void recordEvent({
+      type: "suggestions.persist_failed",
+      severity: "critical",
+      payload: { fromEmail, error: insertError?.message ?? "unknown" },
+    });
     return NextResponse.json(
       {
-        error: "email_failed",
+        error: "persist_failed",
         message:
-          "Envoi impossible pour le moment. Réessayez dans un instant, ou écrivez-nous directement à jjlex64@gmail.com.",
+          "Enregistrement impossible pour le moment. Réessayez dans un instant.",
       },
       { status: 502 },
     );
+  }
+
+  if (!emailOk) {
+    void recordEvent({
+      type: "suggestions.email_failed",
+      severity: "warning",
+      payload: { fromEmail, suggestionId: inserted.id },
+    });
   }
 
   return NextResponse.json({ ok: true });
