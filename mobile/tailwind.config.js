@@ -25,6 +25,10 @@ module.exports = {
         good: "#16A34A",
         warn: "#D97706",
         bad: "#DC2626",
+        coral: { DEFAULT: "#FF7A6B", soft: "#FFE7E3" },
+        teal: { DEFAULT: "#2FB8A6", soft: "#DCF4F0" },
+        amber: { DEFAULT: "#F2B65A", soft: "#FCEFD6" },
+        sky: { DEFAULT: "#5B8DEF", soft: "#E4ECFD" },
         gold: "#B45309",
       },
       fontFamily: {
