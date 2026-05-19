@@ -6003,7 +6003,7 @@ function Facturation() {
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
         {[
           [
             'Abonnement actuel',
@@ -6012,7 +6012,6 @@ function Facturation() {
               ? `${Number(planInfo.monthlyEur).toFixed(0)} € / ${planInfo.maxCampaigns ?? (planInfo.plan === 'pro' ? 10 : 2)} campagnes`
               : '—',
           ],
-          ['Renouvellement', '02 mai 2026', 'Prélèvement auto.'],
           ['Carte enregistrée', 'Visa ••4521', 'Expire 08/28'],
         ].map((r, i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
