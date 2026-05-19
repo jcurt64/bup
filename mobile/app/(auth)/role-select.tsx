@@ -1,24 +1,30 @@
-// Sélection de rôle (prospect/pro) après inscription. BUUPP impose
-// l'EXCLUSIVITÉ de rôle : c'est le serveur qui matérialise/garde le rôle
-// (ensureRole) — ici on ne fait que rediriger vers l'espace voulu ;
-// l'appel à /api/me/role (puis aux routes /prospect|/pro) déclenche le
-// provisioning côté serveur, identique au web. Un conflit éventuel
-// (compte déjà typé dans l'autre rôle) sera renvoyé par l'API et devra
-// afficher le même message que le web (à brancher).
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
+
+import { Accent, BrandLogo, LegalFooter } from "../../components/ui";
 
 export default function RoleSelect() {
   const router = useRouter();
   return (
     <View className="flex-1 justify-center gap-5 bg-ivory px-6">
-      <Text className="font-serif text-3xl text-ink">Vous êtes…</Text>
-      <Text className="text-sm text-ink-3">
-        Le choix est définitif (un compte = prospect OU pro).
-      </Text>
+      <BrandLogo small />
+      <View className="gap-1">
+        <Text className="text-center font-serif text-3xl text-ink">
+          Vous <Accent>êtes…</Accent>
+        </Text>
+        <Text className="text-center text-sm text-ink-3">
+          Le choix est définitif (un compte = prospect OU pro).
+        </Text>
+      </View>
 
       <Pressable
-        className="rounded-2xl border border-line bg-paper p-5 active:opacity-80"
+        className="rounded-3xl border border-line bg-paper p-5 active:opacity-80"
+        style={{
+          shadowColor: "#0F1629",
+          shadowOpacity: 0.05,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 6 },
+        }}
         onPress={() => router.replace("/(prospect)/portefeuille")}
       >
         <Text className="text-lg font-medium text-ink">Particulier</Text>
@@ -28,7 +34,13 @@ export default function RoleSelect() {
       </Pressable>
 
       <Pressable
-        className="rounded-2xl border border-line bg-paper p-5 active:opacity-80"
+        className="rounded-3xl border border-line bg-paper p-5 active:opacity-80"
+        style={{
+          shadowColor: "#0F1629",
+          shadowOpacity: 0.05,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 6 },
+        }}
         onPress={() => router.replace("/(pro)/overview")}
       >
         <Text className="text-lg font-medium text-ink">Professionnel</Text>
@@ -36,6 +48,8 @@ export default function RoleSelect() {
           Je lance des campagnes pour acquérir des contacts.
         </Text>
       </Pressable>
+
+      <LegalFooter />
     </View>
   );
 }
