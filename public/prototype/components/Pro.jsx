@@ -6507,6 +6507,14 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
   // Modale d'info pause 48 h (réservée aux campagnes 7d, une seule fois).
   const [pauseOpen, setPauseOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // Filtres « Contacts obtenus ». `cDraft` = saisie dans le panneau ;
+  // `cApplied` = filtres réellement envoyés à l'API (déclenche le
+  // re-fetch). Défauts = comportement historique (aucun param).
+  const [cFilterOpen, setCFilterOpen] = useState(false);
+  const [cDraft, setCDraft] = useState({ status: 'all', scoreMin: '', period: 'all' });
+  const [cApplied, setCApplied] = useState({ status: 'all', scoreMin: '', period: 'all' });
+  const cFilterActive =
+    cApplied.status !== 'all' || cApplied.scoreMin !== '' || cApplied.period !== 'all';
 
   const togglePauseStatus = async (campId, nextStatus) => {
     try {
@@ -6540,7 +6548,14 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
     let cancelled = false;
     setData(null);
     setLoadError(null);
-    fetch(`/api/pro/campaigns/${campId}`, { cache: 'no-store' })
+    const qs = new URLSearchParams();
+    if (cApplied.status !== 'all') qs.set('cstatus', cApplied.status);
+    if (cApplied.scoreMin !== '' && Number.isFinite(Number(cApplied.scoreMin))) {
+      qs.set('cscoremin', String(Math.max(0, Math.floor(Number(cApplied.scoreMin)))));
+    }
+    if (cApplied.period !== 'all') qs.set('cperiod', cApplied.period);
+    const q = qs.toString();
+    fetch(`/api/pro/campaigns/${campId}${q ? `?${q}` : ''}`, { cache: 'no-store' })
       .then(async r => {
         if (!r.ok) {
           const j = await r.json().catch(() => ({}));
@@ -6551,7 +6566,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
       .then(j => { if (!cancelled) setData(j); })
       .catch(e => { if (!cancelled) setLoadError(e.message || 'load_failed'); });
     return () => { cancelled = true; };
-  }, [campId, reloadKey]);
+  }, [campId, reloadKey, cApplied]);
 
   // Remonte en haut à chaque changement d'onglet pour que l'utilisateur
   // n'atterrisse pas en bas du nouvel onglet après son clic.
@@ -6964,9 +6979,56 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               </div>
             </div>
             <div className="row gap-2">
-              <button className="btn btn-ghost btn-sm"><Icon name="filter" size={12}/> Filtrer</button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setCFilterOpen(o => !o)}
+                style={cFilterActive ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+              >
+                <Icon name="filter" size={12}/> Filtrer{cFilterActive ? ' •' : ''}
+              </button>
             </div>
           </div>
+          {cFilterOpen && (
+            <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', background: 'var(--ivory)' }}>
+              <label className="col" style={{ gap: 4 }}>
+                <span className="mono caps muted" style={{ fontSize: 10 }}>Statut</span>
+                <select className="input" value={cDraft.status}
+                  onChange={e => setCDraft(d => ({ ...d, status: e.target.value }))}>
+                  <option value="all">Tous</option>
+                  <option value="accepted">En séquestre</option>
+                  <option value="settled">Crédité</option>
+                </select>
+              </label>
+              <label className="col" style={{ gap: 4 }}>
+                <span className="mono caps muted" style={{ fontSize: 10 }}>Score min.</span>
+                <input className="input mono" type="number" min="0" inputMode="numeric"
+                  value={cDraft.scoreMin} placeholder="—"
+                  onChange={e => setCDraft(d => ({ ...d, scoreMin: e.target.value }))}
+                  style={{ width: 110 }}/>
+              </label>
+              <label className="col" style={{ gap: 4 }}>
+                <span className="mono caps muted" style={{ fontSize: 10 }}>Période</span>
+                <select className="input" value={cDraft.period}
+                  onChange={e => setCDraft(d => ({ ...d, period: e.target.value }))}>
+                  <option value="all">Tout</option>
+                  <option value="7d">7 jours</option>
+                  <option value="30d">30 jours</option>
+                  <option value="90d">90 jours</option>
+                </select>
+              </label>
+              <button className="btn btn-ghost btn-sm"
+                onClick={() => { setCApplied(cDraft); }}>
+                Appliquer
+              </button>
+              <button className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  const reset = { status: 'all', scoreMin: '', period: 'all' };
+                  setCDraft(reset); setCApplied(reset);
+                }}>
+                Réinitialiser
+              </button>
+            </div>
+          )}
           {(data.contacts?.length || 0) === 0 ? (
             <div style={{ padding: 28, textAlign: 'center' }}>
               <div className="muted" style={{ fontSize: 13 }}>
