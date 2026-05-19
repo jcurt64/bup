@@ -5962,6 +5962,8 @@ function Facturation() {
   // Plan actif (label + prix mensuel) lu depuis /api/pro/plan, lui-même
   // alimenté par la table `plan_pricing`.
   const [planInfo, setPlanInfo] = useState(null);
+  // undefined = chargement, null = aucune carte, objet = carte Stripe.
+  const [payCard, setPayCard] = useState(undefined);
   // État du modal "Compléter la facture" : la facture qu'on s'apprête
   // à télécharger. La modale pré-remplit les mentions légales lues
   // depuis /api/pro/info, et persiste les modifs avant de déclencher
@@ -5979,6 +5981,10 @@ function Facturation() {
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (!cancelled && j) setPlanInfo(j); })
       .catch(() => {});
+    fetch('/api/pro/wallet/payment-method', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { card: null })
+      .then(j => { if (!cancelled) setPayCard(j.card ?? null); })
+      .catch(() => { if (!cancelled) setPayCard(null); });
     const onChange = () => refresh();
     window.addEventListener('pro:wallet-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
@@ -6008,11 +6014,21 @@ function Facturation() {
           [
             'Abonnement actuel',
             planInfo ? planInfo.label : '…',
-            planInfo
-              ? `${Number(planInfo.monthlyEur).toFixed(0)} € / ${planInfo.maxCampaigns ?? (planInfo.plan === 'pro' ? 10 : 2)} campagnes`
+            (planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap)))
+              ? `${Number(planInfo.cycleCount)}/${Number(planInfo.cap)} campagnes utilisées · ${Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount))} restante(s)`
               : '—',
           ],
-          ['Carte enregistrée', 'Visa ••4521', 'Expire 08/28'],
+          [
+            'Carte enregistrée',
+            payCard === undefined
+              ? '…'
+              : (payCard
+                  ? `${payCard.brand ? payCard.brand.charAt(0).toUpperCase() + payCard.brand.slice(1) : 'Carte'} ••${payCard.last4 ?? '????'}`
+                  : 'Aucune carte enregistrée'),
+            (payCard && payCard.expMonth && payCard.expYear)
+              ? `Expire ${String(payCard.expMonth).padStart(2, '0')}/${payCard.expYear}`
+              : '—',
+          ],
         ].map((r, i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{r[0]}</div>
