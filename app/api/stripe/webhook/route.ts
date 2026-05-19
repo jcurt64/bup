@@ -58,6 +58,45 @@ export async function POST(request: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const md = session.metadata ?? {};
+
+        // Enregistrement de carte (Checkout mode:'setup'). Branche
+        // disjointe du flux topup/paiement ci-dessous (mode 'payment').
+        if (session.mode === "setup" && md.kind === "card_setup") {
+          const proAccountId = md.proAccountId;
+          const siId =
+            typeof session.setup_intent === "string"
+              ? session.setup_intent
+              : (session.setup_intent?.id ?? null);
+          if (proAccountId && siId) {
+            const stripe = await getStripe();
+            const si = await stripe.setupIntents.retrieve(siId);
+            const pmId =
+              typeof si.payment_method === "string"
+                ? si.payment_method
+                : (si.payment_method?.id ?? null);
+            if (pmId) {
+              const customerFields = session.customer
+                ? {
+                    stripe_customer_id:
+                      typeof session.customer === "string"
+                        ? session.customer
+                        : session.customer.id,
+                  }
+                : {};
+              await admin
+                .from("pro_accounts")
+                .update({
+                  stripe_default_payment_method_id: pmId,
+                  ...customerFields,
+                })
+                .eq("id", proAccountId);
+            }
+          } else {
+            console.warn("[stripe webhook] card_setup metadata incomplet", md);
+          }
+          break;
+        }
+
         if (md.kind !== "topup") break; // ignore les Checkout d'autres usages
 
         const proAccountId = md.proAccountId;
