@@ -5,20 +5,76 @@
 import { type ReactNode, useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { ApiError } from "../lib/api";
+
+type HeroProps = {
+  title: string;
+  eyebrow?: string;
+  desc?: string;
+  /** "menu" ouvre le drawer, "back" revient en arrière, undefined = rien */
+  nav?: "menu" | "back";
+  children?: ReactNode;
+};
+
+export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps) {
+  return (
+    <LinearGradient
+      colors={["#7C5CFC", "#13235B"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
+    >
+      {nav ? (
+        <Pressable
+          onPress={() =>
+            nav === "menu" ? router.push("/drawer") : router.back()
+          }
+          hitSlop={12}
+          accessibilityLabel={nav === "menu" ? "Ouvrir le menu" : "Retour"}
+          className="mb-3 h-9 w-9 items-center justify-center rounded-full bg-white/15"
+        >
+          <Ionicons
+            name={nav === "menu" ? "menu" : "chevron-back"}
+            size={20}
+            color="#FFFFFF"
+          />
+        </Pressable>
+      ) : null}
+      {eyebrow ? (
+        <Text
+          className="text-[11px] font-bold uppercase text-white/70"
+          style={{ letterSpacing: 1.5 }}
+        >
+          {eyebrow}
+        </Text>
+      ) : null}
+      <Text className="mt-1 font-serif text-2xl text-paper">{title}</Text>
+      {desc ? (
+        <Text className="mt-1 text-sm leading-5 text-white/75">{desc}</Text>
+      ) : null}
+      {children ? <View className="mt-3">{children}</View> : null}
+    </LinearGradient>
+  );
+}
 
 export function ScrollScreen({
   children,
   onRefresh,
+  hero,
 }: {
   children: ReactNode;
   onRefresh?: () => Promise<unknown>;
+  hero?: HeroProps;
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useCallback(async () => {
@@ -35,13 +91,14 @@ export function ScrollScreen({
     <View className="flex-1 bg-ivory">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="p-5 gap-4"
+        contentContainerStyle={{ padding: 20, paddingTop: 56, paddingBottom: 120, gap: 16 }}
         refreshControl={
           onRefresh ? (
             <RefreshControl refreshing={refreshing} onRefresh={refresh} />
           ) : undefined
         }
       >
+        {hero ? <GradientHero {...hero} /> : null}
         {children}
       </ScrollView>
     </View>
@@ -90,21 +147,60 @@ export function QueryGate<T>({
   return <>{children(d)}</>;
 }
 
+type Tone = "violet" | "coral" | "teal" | "amber" | "sky";
+const TONE_BG: Record<Tone, string> = {
+  violet: "bg-violet-soft",
+  coral: "bg-coral-soft",
+  teal: "bg-teal-soft",
+  amber: "bg-amber-soft",
+  sky: "bg-sky-soft",
+};
+const TONE_FG: Record<Tone, string> = {
+  violet: "#7C5CFC",
+  coral: "#FF7A6B",
+  teal: "#2FB8A6",
+  amber: "#F2B65A",
+  sky: "#5B8DEF",
+};
+
 export function Card({
   children,
   dark = false,
   className = "",
+  badge,
 }: {
   children: ReactNode;
   dark?: boolean;
   className?: string;
+  badge?: { icon: keyof typeof Ionicons.glyphMap; tone?: Tone };
 }) {
   return (
     <View
-      className={`rounded-2xl p-5 ${
-        dark ? "bg-ink" : "border border-line bg-paper"
-      } ${className}`}
+      className={`rounded-3xl p-5 ${dark ? "bg-ink" : "border border-line bg-paper"} ${className}`}
+      style={
+        dark
+          ? undefined
+          : {
+              shadowColor: "#0F1629",
+              shadowOpacity: 0.05,
+              shadowRadius: 14,
+              shadowOffset: { width: 0, height: 6 },
+            }
+      }
     >
+      {badge ? (
+        <View
+          className={`mb-3 h-10 w-10 items-center justify-center rounded-full ${
+            TONE_BG[badge.tone ?? "violet"]
+          }`}
+        >
+          <Ionicons
+            name={badge.icon}
+            size={20}
+            color={TONE_FG[badge.tone ?? "violet"]}
+          />
+        </View>
+      ) : null}
       {children}
     </View>
   );
@@ -122,7 +218,7 @@ export function Stat({
   accent?: boolean;
 }) {
   return (
-    <View className="flex-1 rounded-2xl border border-line bg-paper p-4">
+    <View className="flex-1 rounded-3xl border border-line bg-paper p-4">
       <Text
         className="text-[10px] font-bold uppercase text-ink-4"
         style={{ letterSpacing: 0.8 }}
