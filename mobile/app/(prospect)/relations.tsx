@@ -10,7 +10,6 @@ import {
   eur,
   QueryGate,
   ScrollScreen,
-  SectionTitle,
 } from "../../components/screen";
 import { useDecideRelation, useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
@@ -119,14 +118,15 @@ export default function Relations() {
   );
 
   return (
-    <ScrollScreen onRefresh={q.refetch}>
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Mises en relation",
+        title: "Demandes en attente",
+        desc: "Acceptez pour être rémunéré·e. Sans réponse à temps, la sollicitation expire.",
+      }}
+    >
       {/* ── Demandes en attente ──────────────────────────── */}
-      <SectionTitle
-        eyebrow="Mises en relation"
-        title="Demandes en attente"
-        desc="Acceptez pour être rémunéré·e. Sans réponse à temps, la sollicitation expire."
-      />
-
       <QueryGate
         query={q}
         isEmpty={(d) => (d.pending?.length ?? 0) === 0}
@@ -142,7 +142,7 @@ export default function Relations() {
                 : "demandes en attente"}
             </Text>
             {d.pending.map((r) => (
-              <Card key={r.id}>
+              <Card key={r.id} badge={{ icon: "people-outline", tone: "coral" }}>
                 <View className="flex-row items-start justify-between">
                   <View className="flex-1 pr-3">
                     <Text className="font-serif text-lg text-ink">
