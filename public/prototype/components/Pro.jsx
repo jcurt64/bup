@@ -5964,6 +5964,18 @@ function Facturation() {
   const [planInfo, setPlanInfo] = useState(null);
   // undefined = chargement, null = aucune carte, objet = carte Stripe.
   const [payCard, setPayCard] = useState(undefined);
+  const [cardSetupLoading, setCardSetupLoading] = useState(false);
+  const startCardSetup = () => {
+    if (cardSetupLoading) return;
+    setCardSetupLoading(true);
+    fetch('/api/stripe/setup', { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (j && j.url) { window.top.location.href = j.url; }
+        else { setCardSetupLoading(false); alert("Impossible d'ouvrir l'enregistrement de carte. Réessayez."); }
+      })
+      .catch(() => { setCardSetupLoading(false); alert("Erreur réseau. Réessayez."); });
+  };
   // État du modal "Compléter la facture" : la facture qu'on s'apprête
   // à télécharger. La modale pré-remplit les mentions légales lues
   // depuis /api/pro/info, et persiste les modifs avant de déclencher
@@ -5985,7 +5997,13 @@ function Facturation() {
       .then(r => r.ok ? r.json() : { card: null })
       .then(j => { if (!cancelled) setPayCard(j.card ?? null); })
       .catch(() => { if (!cancelled) setPayCard(null); });
-    const onChange = () => refresh();
+    const onChange = () => {
+      refresh();
+      fetch('/api/pro/wallet/payment-method', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : { card: null })
+        .then(j => { if (!cancelled) setPayCard(j.card ?? null); })
+        .catch(() => { if (!cancelled) setPayCard(null); });
+    };
     window.addEventListener('pro:wallet-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('pro:wallet-changed', onChange); };
   }, []);
@@ -6025,9 +6043,20 @@ function Facturation() {
               : (payCard
                   ? `${payCard.brand ? payCard.brand.charAt(0).toUpperCase() + payCard.brand.slice(1) : 'Carte'} ••${payCard.last4 ?? '????'}`
                   : 'Aucune carte enregistrée'),
-            (payCard && payCard.expMonth && payCard.expYear)
-              ? `Expire ${String(payCard.expMonth).padStart(2, '0')}/${payCard.expYear}`
-              : '—',
+            payCard === null
+              ? (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={cardSetupLoading}
+                    onClick={startCardSetup}
+                    style={{ marginTop: 4 }}
+                  >
+                    {cardSetupLoading ? '…' : 'Enregistrer une carte'}
+                  </button>
+                )
+              : (payCard && payCard.expMonth && payCard.expYear)
+                ? `Expire ${String(payCard.expMonth).padStart(2, '0')}/${payCard.expYear}`
+                : '—',
           ],
         ].map((r, i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
