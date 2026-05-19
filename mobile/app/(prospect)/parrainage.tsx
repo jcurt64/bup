@@ -10,7 +10,6 @@ import {
   dateFr,
   QueryGate,
   ScrollScreen,
-  SectionTitle,
   Stat,
 } from "../../components/screen";
 import { useParrainage } from "../../lib/queries";
@@ -50,12 +49,15 @@ export default function ParrainageScreen() {
   }, []);
 
   return (
-    <ScrollScreen onRefresh={q.refetch}>
-      <SectionTitle
-        eyebrow="Parrainage"
-        title="Invitez, gagnez plus"
-        desc="Partagez votre code. Chaque filleul inscrit augmente vos avantages."
-      />
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Parrainage",
+        title: "Invitez, gagnez plus",
+        desc: "Partagez votre code. Chaque filleul inscrit augmente vos avantages.",
+        nav: "back",
+      }}
+    >
       <QueryGate query={q}>
         {(d) => {
           // Fenêtre de validité du lien : ouverte tant que now < launchAt.
@@ -70,7 +72,7 @@ export default function ParrainageScreen() {
 
           return (
             <>
-              <Card dark>
+              <Card dark badge={{ icon: "gift-outline", tone: "violet" }}>
                 <Text className="font-mono text-[11px] uppercase text-ink-5">
                   Votre code
                 </Text>
@@ -244,7 +246,7 @@ export default function ParrainageScreen() {
                 </Card>
               ) : null}
 
-              <Card>
+              <Card badge={{ icon: "people-outline", tone: "coral" }}>
                 <View className="flex-row items-center justify-between">
                   <Text className="font-serif text-lg text-ink">
                     Vos filleuls

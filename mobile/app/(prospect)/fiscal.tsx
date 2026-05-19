@@ -3,7 +3,7 @@
 import { Alert, Pressable, Text, View } from "react-native";
 
 import { useAuthedDownload } from "../../lib/use-authed-download";
-import { Card, eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
+import { Card, eur, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProspectFiscal } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
@@ -41,16 +41,19 @@ export default function FiscalScreen() {
   };
 
   return (
-    <ScrollScreen onRefresh={q.refetch}>
-      <SectionTitle
-        eyebrow="Informations fiscales"
-        title="Vos revenus déclarables"
-        desc="Récapitulatif annuel de vos gains BUUPP et seuils de déclaration DGFiP."
-      />
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Informations fiscales",
+        title: "Vos revenus déclarables",
+        desc: "Récapitulatif annuel de vos gains BUUPP et seuils de déclaration DGFiP.",
+        nav: "back",
+      }}
+    >
       <QueryGate query={q}>
         {(d) => (
           <>
-            <Card>
+            <Card badge={{ icon: "calendar-outline", tone: "sky" }}>
               <Text className="font-serif text-lg text-ink">
                 Année {d.currentYear.year}
               </Text>
@@ -93,7 +96,7 @@ export default function FiscalScreen() {
               </Pressable>
             </Card>
 
-            <Card>
+            <Card badge={{ icon: "calendar-outline", tone: "violet" }}>
               <Text className="font-serif text-lg text-ink">
                 Année {d.previousYear.year}
               </Text>
@@ -130,7 +133,7 @@ export default function FiscalScreen() {
               </View>
             </Card>
             {/* Seuils à retenir — parité web fn Fiscal (3 seuils statiques + 1 dynamique). */}
-            <Card>
+            <Card badge={{ icon: "information-circle-outline", tone: "amber" }}>
               <Text className="font-serif text-lg text-ink">Seuils à retenir</Text>
               <View className="mt-3 gap-3">
                 {SEUILS.map((s) => {

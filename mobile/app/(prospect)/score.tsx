@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import { Card, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
+import { Card, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProspectScore, useProspectScoreHistory } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
@@ -88,12 +88,15 @@ export default function ScoreScreen() {
   useRefetchOnFocus(q, h);
 
   return (
-    <ScrollScreen onRefresh={() => Promise.all([q.refetch(), h.refetch()])}>
-      <SectionTitle
-        eyebrow="BUUPP Score"
-        title="Votre cote de confiance"
-        desc="Calculé sur 1000 à partir de la complétude, la fraîcheur de vos données et votre taux d&apos;acceptation."
-      />
+    <ScrollScreen
+      onRefresh={() => Promise.all([q.refetch(), h.refetch()])}
+      hero={{
+        eyebrow: "BUUPP Score",
+        title: "Votre cote de confiance",
+        desc: "Calculé sur 1000 à partir de la complétude, la fraîcheur de vos données et votre taux d'acceptation.",
+        nav: "back",
+      }}
+    >
       <QueryGate query={q}>
         {(d) => {
           const value = d.score;
@@ -176,7 +179,7 @@ export default function ScoreScreen() {
               </Card>
 
               {/* ── Barres par dimension ────────────────────────────── */}
-              <Card className="gap-5">
+              <Card className="gap-5" badge={{ icon: "speedometer-outline", tone: "violet" }}>
                 <Bar
                   label="Complétude des paliers"
                   pct={completeness.pct}
@@ -199,7 +202,7 @@ export default function ScoreScreen() {
               </Card>
 
               {/* ── Historique avec sélecteur de plage ──────────────── */}
-              <Card>
+              <Card badge={{ icon: "trending-up-outline", tone: "sky" }}>
                 <View className="flex-row items-center justify-between">
                   <Text className="font-serif text-lg text-ink">
                     Évolution sur {range}
@@ -228,7 +231,7 @@ export default function ScoreScreen() {
               </Card>
 
               {/* ── Conseils pour améliorer votre score ─────────────── */}
-              <Card>
+              <Card badge={{ icon: "bulb-outline", tone: "amber" }}>
                 <View className="mb-3 flex-row items-baseline justify-between">
                   <Text className="font-serif text-lg text-ink">
                     Conseils pour améliorer votre score

@@ -3,7 +3,7 @@
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import { Card, dateFr, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
+import { Card, dateFr, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProspectVerification } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
@@ -42,12 +42,15 @@ export default function Verification() {
   const q = useProspectVerification();
   useRefetchOnFocus(q);
   return (
-    <ScrollScreen onRefresh={q.refetch}>
-      <SectionTitle
-        eyebrow="Paliers de vérification"
-        title="Vos paliers"
-        desc="Trois paliers : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées."
-      />
+    <ScrollScreen
+      onRefresh={q.refetch}
+      hero={{
+        eyebrow: "Paliers de vérification",
+        title: "Vos paliers",
+        desc: "Trois paliers : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées.",
+        nav: "back",
+      }}
+    >
       <QueryGate query={q}>
         {(d) => {
           const currentIdx = TIERS.findIndex((t) => t.key === d.tier);
@@ -129,7 +132,7 @@ export default function Verification() {
               })}
 
               {/* Coordonnées bancaires complètes */}
-              <Card>
+              <Card badge={{ icon: "card-outline", tone: "teal" }}>
                 <Text className="font-serif text-lg text-ink">Coordonnées bancaires</Text>
                 {d.rib ? (
                   <View className="mt-1">
@@ -151,7 +154,7 @@ export default function Verification() {
               </Card>
 
               {/* Acceptations physiques (palier Certifié confiance) */}
-              <Card>
+              <Card badge={{ icon: "checkmark-circle-outline", tone: "teal" }}>
                 <Text className="font-serif text-lg text-ink">
                   Acceptations physiques
                 </Text>
