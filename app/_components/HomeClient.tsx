@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useMemo,
+  useRef,
   Fragment,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -353,6 +354,13 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  // `overDark` = la barre sticky surplombe une section à fond sombre
+  // (hero, #pros, sécurité, footer — marquées `data-nav-theme="dark"`).
+  // Dans ce cas on inverse le thème de la navbar (fond blanc, éléments
+  // bleu foncé) pour qu'elle ressorte ; sinon on garde le thème ivoire
+  // historique. Recalculé au scroll/resize, valable à tous les breakpoints.
+  const headerRef = useRef<HTMLElement>(null);
+  const [overDark, setOverDark] = useState(false);
 
   // Tant que Clerk n'a pas terminé l'hydratation, on ne sait pas s'il
   // faut afficher "Démarrer" ou "Se déconnecter" — on opte pour
@@ -369,9 +377,33 @@ function Navbar() {
   };
 
   useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", h);
-    return () => window.removeEventListener("scroll", h);
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      setScrolled(window.scrollY > 10);
+      // Point sonde = juste SOUS la barre sticky (la section qui passe
+      // derrière/sous la navbar). Si elle est sombre, thème inversé.
+      const probeY = (headerRef.current?.offsetHeight ?? 72) + 1;
+      let dark = false;
+      document
+        .querySelectorAll<HTMLElement>('[data-nav-theme="dark"]')
+        .forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.top <= probeY && r.bottom > probeY) dark = true;
+        });
+      setOverDark(dark);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -399,18 +431,26 @@ function Navbar() {
   return (
     <>
       <header
+        ref={headerRef}
+        className={overDark ? "navbar-over-dark" : undefined}
         style={{
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background:
-            scrolled || open ? "rgba(247,244,236,.92)" : "var(--ivory)",
-          backdropFilter: scrolled || open ? "blur(10px)" : "none",
+          background: overDark
+            ? "#FFFFFF"
+            : scrolled || open
+              ? "rgba(247,244,236,.92)"
+              : "var(--ivory)",
+          backdropFilter:
+            !overDark && (scrolled || open) ? "blur(10px)" : "none",
           borderBottom:
-            scrolled || open
-              ? "1px solid var(--line)"
+            overDark || scrolled || open
+              ? `1px solid ${overDark ? "rgba(15,23,42,.08)" : "var(--line)"}`
               : "1px solid transparent",
-          transition: "background .2s, border-color .2s",
+          boxShadow: overDark ? "0 1px 14px rgba(15,23,42,.12)" : "none",
+          transition:
+            "background .25s, border-color .25s, box-shadow .25s",
         }}
       >
         <div
@@ -561,6 +601,7 @@ function Hero() {
   return (
     <section
       className="hero-section"
+      data-nav-theme="dark"
       style={{
         background: "#0F1629",
         color: "var(--paper)",
@@ -2692,6 +2733,7 @@ function ProsSection() {
     <section
       id="pros"
       className="section"
+      data-nav-theme="dark"
       style={{ background: "var(--ink)", color: "var(--paper)" }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -3049,6 +3091,7 @@ function SecuritySection() {
   return (
     <section
       className="section"
+      data-nav-theme="dark"
       style={{ background: "var(--ink)", color: "var(--paper)" }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -3473,6 +3516,7 @@ function Footer() {
   ];
   return (
     <footer
+      data-nav-theme="dark"
       style={{
         padding: "56px 20px 96px",
         background: "var(--ink)",

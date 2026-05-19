@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { Role } from "@/lib/sync/ensureRole";
 
 type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion";
@@ -98,31 +104,45 @@ const PUBLIC_TABS: TabId[] = ["accueil", "liste-attente", "connexion"];
 const PROSPECT_TABS: TabId[] = ["accueil", "liste-attente", "prospect"];
 const PRO_TABS: TabId[] = ["accueil", "liste-attente", "pro"];
 
-const containerStyle: CSSProperties = {
-  position: "fixed",
-  bottom: 20,
-  left: "50%",
-  transform: "translateX(-50%)",
-  background: "rgba(15, 23, 42, 0.92)",
-  color: "#FBF9F3",
-  padding: "6px 6px",
-  borderRadius: 999,
-  zIndex: 90,
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 10px 30px -10px rgba(0,0,0,.4)",
-  display: "flex",
-  gap: 2,
-  fontSize: 12,
-  whiteSpace: "nowrap",
-};
+// `overDark` = la pastille flotte au-dessus d'une section à fond sombre
+// (hero, #pros, sécurité, footer — marquées `data-nav-theme="dark"`).
+// Dans ce cas elle « se confond » avec le bleu → on inverse : fond
+// blanc, éléments bleu foncé. Sinon on garde le thème sombre historique
+// (parfaitement visible sur les fonds clairs). Recalculé au scroll.
+function containerStyle(overDark: boolean): CSSProperties {
+  return {
+    position: "fixed",
+    bottom: 20,
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: overDark ? "#FFFFFF" : "rgba(15, 23, 42, 0.92)",
+    color: overDark ? "#0F172A" : "#FBF9F3",
+    padding: "6px 6px",
+    borderRadius: 999,
+    zIndex: 90,
+    backdropFilter: overDark ? "none" : "blur(10px)",
+    border: overDark ? "1px solid rgba(15,23,42,.08)" : "0 solid transparent",
+    boxShadow: overDark
+      ? "0 12px 30px -8px rgba(15,23,42,.28)"
+      : "0 10px 30px -10px rgba(0,0,0,.4)",
+    display: "flex",
+    gap: 2,
+    fontSize: 12,
+    whiteSpace: "nowrap",
+    transition: "background .25s, color .25s, box-shadow .25s, border-color .25s",
+  };
+}
 
-function tabStyle(active: boolean): CSSProperties {
+function tabStyle(active: boolean, overDark: boolean): CSSProperties {
+  const activeBg = overDark ? "#0F172A" : "#FBF9F3";
+  const activeFg = overDark ? "#FFFFFF" : "#0F172A";
+  const idleFg = overDark ? "rgba(15,23,42,.62)" : "rgba(255,255,255,.7)";
   return {
     padding: "12px 14px",
     borderRadius: 999,
-    background: active ? "#FBF9F3" : "transparent",
-    color: active ? "#0F172A" : "rgba(255,255,255,.7)",
-    fontWeight: active ? 500 : 400,
+    background: active ? activeBg : "transparent",
+    color: active ? activeFg : idleFg,
+    fontWeight: active ? 700 : 600,
     transition: "all .15s",
     fontFamily: "var(--mono)",
     letterSpacing: ".04em",
@@ -151,6 +171,52 @@ export default function RouteNav() {
       : null;
   const [dbRole, setDbRole] = useState<Role | null>(null);
   const [dbChecked, setDbChecked] = useState(false);
+
+  // Détection « au-dessus d'une section sombre » : on sonde le centre
+  // vertical de la pastille (position fixe en bas) et on regarde si une
+  // section marquée `data-nav-theme="dark"` couvre ce point. Recalculé
+  // au scroll/resize et à chaque changement de route (les marqueurs
+  // diffèrent d'une page à l'autre ; pages sans marqueur → thème sombre).
+  const navRef = useRef<HTMLDivElement>(null);
+  const [overDark, setOverDark] = useState(false);
+
+  useEffect(() => {
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const el = navRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const probeY = r.top + r.height / 2;
+      let dark = false;
+      document
+        .querySelectorAll<HTMLElement>('[data-nav-theme="dark"]')
+        .forEach((s) => {
+          const sr = s.getBoundingClientRect();
+          if (sr.top <= probeY && sr.bottom > probeY) dark = true;
+        });
+      setOverDark(dark);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    compute();
+    // Re-sonde au frame suivant : la pastille vient peut-être d'être
+    // montée (Clerk `isLoaded`) ou la hauteur du hero a bougé (swap de
+    // police). Sans ça, un visiteur immobile en haut garderait l'ancien
+    // thème tant qu'il ne scrolle pas.
+    const deferred = requestAnimationFrame(compute);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      cancelAnimationFrame(deferred);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+    // isLoaded/isSignedIn/dbChecked/dbRole : pilotent l'affichage
+    // conditionnel de la pastille → re-sonder quand elle (dis)paraît.
+  }, [pathname, isLoaded, isSignedIn, dbChecked, dbRole]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
@@ -210,7 +276,7 @@ export default function RouteNav() {
     role === "pro" ? PRO_TABS : role === "prospect" ? PROSPECT_TABS : PUBLIC_TABS;
 
   return (
-    <div className="route-nav" style={containerStyle}>
+    <div ref={navRef} className="route-nav" style={containerStyle(overDark)}>
       {visibleIds.map((id) => {
         const t = TAB_DEFS[id];
         const active = pathname === t.href;
@@ -221,7 +287,7 @@ export default function RouteNav() {
             className="route-nav-tab"
             aria-label={t.label}
             title={t.label}
-            style={tabStyle(active)}
+            style={tabStyle(active, overDark)}
           >
             <span className="route-nav-icon" aria-hidden>{t.icon}</span>
             <span className="route-nav-label">{t.label}</span>
