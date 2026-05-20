@@ -7,7 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useApi } from "./api";
+import { ApiError, useApi } from "./api";
 
 export type Role = "prospect" | "pro" | null;
 
@@ -148,9 +148,45 @@ export function useDecideRelation() {
       }),
     onSuccess: () => {
       // Équivalent mobile de l'event web : resync des vues impactées.
+      // `movements` est inclus pour que la modale détail ouverte depuis
+      // l'historique Portefeuille reflète l'accept/refuse immédiatement.
       qc.invalidateQueries({ queryKey: ["prospect", "relations"] });
       qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
       qc.invalidateQueries({ queryKey: ["prospect", "score"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
+    },
+  });
+}
+
+/** Signaler un professionnel pour une relation donnée.
+ *  Body : { reason: 'sollicitation_multiple' | 'faux_compte' | 'echange_abusif',
+ *           comment?: string }. 409 = déjà signalé, traité comme succès. */
+export type ReportReason =
+  | "sollicitation_multiple"
+  | "faux_compte"
+  | "echange_abusif";
+
+export function useReportRelation() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: async (v: {
+      id: string;
+      reason: ReportReason;
+      comment?: string;
+    }) => {
+      try {
+        await api(`/api/prospect/relations/${v.id}/report`, {
+          method: "POST",
+          body: JSON.stringify({
+            reason: v.reason,
+            comment: v.comment?.trim() || undefined,
+          }),
+        });
+      } catch (e) {
+        // 409 (déjà signalé) doit remonter en succès silencieux côté UI.
+        if (e instanceof ApiError && e.status === 409) return;
+        throw e;
+      }
     },
   });
 }

@@ -6,10 +6,11 @@
 //   + actions Accepter/Refuser/Fermer mirror les conditions canAccept /
 //   canRefuse côté web.
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
+import { ReportProSheet } from "./report-pro-sheet";
 import { useDecideRelation, type MovementRelation } from "../lib/queries";
 
 // Initiales pour avatar (premier mot + premier mot suivant).
@@ -107,6 +108,16 @@ export function MovementDetailSheet({
 }) {
   const decide = useDecideRelation();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
+  // Sous-modale de signalement + état local « déjà signalé » pour
+  // basculer immédiatement le footer sans refetch (l'API ne renvoie
+  // pas le flag `reported` côté movements pour l'instant).
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportedLocal, setReportedLocal] = useState(false);
+
+  // Reset du flag local quand on change de mouvement.
+  useEffect(() => {
+    setReportedLocal(false);
+  }, [relation?.id]);
 
   if (!relation) {
     return <BottomSheet visible={visible} onClose={onClose}>{null}</BottomSheet>;
@@ -268,6 +279,32 @@ export function MovementDetailSheet({
           </LabelValue>
         </View>
 
+        {/* Footer secondaire — signalement (parité web : action discrète
+            placée au-dessus des actions principales). Bascule sur un
+            chip « déjà transmis » après envoi. */}
+        <View className="border-t border-line pt-3">
+          {reportedLocal ? (
+            <View className="flex-row items-center gap-1.5 self-start rounded-full bg-ivory-2 px-3 py-1">
+              <Ionicons name="flag" size={11} color="#8A91A1" />
+              <Text className="text-[11px] text-ink-4">
+                Signalement déjà transmis
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setReportOpen(true)}
+              className="flex-row items-center gap-1.5 self-start py-1 active:opacity-60"
+              accessibilityRole="button"
+              accessibilityLabel="Signaler ce professionnel"
+            >
+              <Ionicons name="flag-outline" size={13} color="#DC2626" />
+              <Text className="text-[12.5px] font-medium text-bad">
+                Signaler ce professionnel
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
         {/* Actions — mirror web (cf. RelationDetailModal action block) */}
         <View className="mt-1 flex-row gap-3">
           {canRefuse ? (
@@ -303,6 +340,12 @@ export function MovementDetailSheet({
           ) : null}
         </View>
       </ScrollView>
+      <ReportProSheet
+        visible={reportOpen}
+        onClose={() => setReportOpen(false)}
+        relation={relation}
+        onSubmitted={() => setReportedLocal(true)}
+      />
     </BottomSheet>
   );
 }
