@@ -8000,11 +8000,18 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
     setSingleFieldDismissed(false);
   }, [officialForCurrent]);
 
-  // On bloque l'enregistrement quand le SIREN/SIRET est saisi mais
-  // explicitement absent du registre — autoriser sinon (loading,
-  // error réseau, longueur incomplète…) pour ne pas frustrer l'usage.
+  // On bloque l'enregistrement tant que le SIREN/SIRET saisi n'a pas été
+  // validé positivement par SIRENE. La vérif est asynchrone (debounce
+  // 350 ms + appel data.gouv.fr) ; sans ce garde-fou, l'auto-save 700 ms
+  // pouvait fire avant la réponse 'not_found' et persister un faux
+  // numéro en base. On exige donc 'found' (ou 'error' = API indispo —
+  // tolérance pour ne pas frustrer en cas de panne data.gouv.fr).
+  // S'applique symétriquement à SIREN et à SIRET (même code path).
+  const sirenSiretWithValue = (isSiren || isSiret) && !!val.trim();
   const blockedByVerification =
-    (isSiren || isSiret) && val && verify.status === 'not_found';
+    sirenSiretWithValue &&
+    verify.status !== 'found' &&
+    verify.status !== 'error';
   const canSave =
     (edit.optional || val.trim()) && !blockedByVerification;
 
@@ -8070,7 +8077,7 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
           background: '#FEF2F2', border: '1.5px solid #FCA5A5',
           color: '#991B1B', fontSize: 12.5, lineHeight: 1.5,
         }}>
-          ❌ <strong>Numéro introuvable</strong> dans le registre officiel SIRENE. Vérifiez votre saisie — l'enregistrement est bloqué tant que le numéro n'est pas valide.
+          ❌ <strong>Numéro non enregistré</strong> — introuvable dans le registre officiel SIRENE. Vérifiez votre saisie : tant que le numéro n'est pas reconnu, il ne sera pas sauvegardé.
         </div>
       )}
       {(isSiren || isSiret) && verify.status === 'error' && (
@@ -8196,7 +8203,15 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
           onClick={() => onSave(val.trim())}
           className="btn btn-primary btn-sm"
           disabled={!canSave}
-          title={blockedByVerification ? 'Numéro non reconnu dans SIRENE' : undefined}
+          title={
+            blockedByVerification
+              ? verify.status === 'loading'
+                ? 'Vérification SIRENE en cours…'
+                : verify.status === 'not_found'
+                ? 'Numéro non enregistré : introuvable dans SIRENE'
+                : 'Numéro incomplet — saisissez ' + (isSiret ? '14' : '9') + ' chiffres'
+              : undefined
+          }
         >
           Enregistrer
         </button>
