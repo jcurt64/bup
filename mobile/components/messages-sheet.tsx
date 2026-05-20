@@ -1,6 +1,8 @@
 // Sheet « Messages » (icône cloche du header). Bottom-sheet ~80% de
 // l'écran : notifications /api/me/notifications, lecture + pièce jointe
 // (même données/logique que l'écran Messages, sans ScrollScreen/hero).
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +14,11 @@ import {
 
 import { BottomSheet } from "./bottom-sheet";
 import { Card, dateFr } from "./screen";
-import { useMarkNotificationRead, useNotifications } from "../lib/queries";
+import {
+  useDeleteNotification,
+  useMarkNotificationRead,
+  useNotifications,
+} from "../lib/queries";
 import { useAuthedDownload } from "../lib/use-authed-download";
 
 export function MessagesSheet({
@@ -24,8 +30,54 @@ export function MessagesSheet({
 }) {
   const q = useNotifications();
   const read = useMarkNotificationRead();
+  const del = useDeleteNotification();
   const download = useAuthedDownload();
   const notifs = q.data?.notifications ?? [];
+
+  // Synchro web ⇄ mobile : refetch à chaque ouverture du sheet pour
+  // refléter immédiatement les suppressions/lectures faites côté web
+  // (les deux écrivent dans la même table admin_broadcast_dismissals).
+  // Sans ce refetch, le client mobile garde la version en cache (15 s
+  // staleTime) jusqu'à expiration.
+  useEffect(() => {
+    if (visible) {
+      q.refetch();
+    }
+    // q.refetch identité stable côté React Query ; on déclenche
+    // uniquement sur l'ouverture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  // Confirmation native + suppression optimiste (parité web :
+  // "Supprimer ce message" → "Confirmer la suppression"). Le broadcast
+  // en base reste intact, on POSE juste une row admin_broadcast_dismissals.
+  function confirmDelete(id: string, title: string) {
+    Alert.alert(
+      "Supprimer ce message ?",
+      title
+        ? `« ${title.length > 60 ? title.slice(0, 60) + "…" : title} » sera retiré de votre boîte de réception.`
+        : "Ce message sera retiré de votre boîte de réception.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: () => {
+            del.mutate(
+              { id },
+              {
+                onError: () =>
+                  Alert.alert(
+                    "Erreur",
+                    "Suppression impossible. Réessayez dans un instant.",
+                  ),
+              },
+            );
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={80}>
@@ -110,6 +162,22 @@ export function MessagesSheet({
                         </Text>
                       </Pressable>
                     ) : null}
+                    {/* Footer action : supprimer ce message (parité web).
+                        Discret, danger color, en bas de la carte. */}
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        confirmDelete(n.id, n.title);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Supprimer ce message"
+                      className="mt-3 flex-row items-center gap-1.5 self-start py-1 active:opacity-60"
+                    >
+                      <Ionicons name="trash-outline" size={13} color="#DC2626" />
+                      <Text className="text-[12.5px] font-medium text-bad">
+                        Supprimer ce message
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               </Card>

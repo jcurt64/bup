@@ -517,6 +517,20 @@ export function useMarkNotificationRead() {
   });
 }
 
+/** Suppression d'un message côté inbox utilisateur (parité web :
+ *  DELETE /api/me/notifications/[id] → row admin_broadcast_dismissals).
+ *  Le broadcast en base reste intact (audience partagée). */
+export function useDeleteNotification() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string }) =>
+      api(`/api/me/notifications/${v.id}`, { method: "DELETE" }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["me", "notifications"] }),
+  });
+}
+
 // ───────── Pro ─────────
 export type ProOverview = {
   contactsAccepted30d: number;
