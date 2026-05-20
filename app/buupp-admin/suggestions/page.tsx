@@ -6,6 +6,7 @@
 import {
   fetchSuggestionsList,
   fetchSuggestionsKpis,
+  type SuggestionListItem,
   type SuggestionStatus,
   type SuggestionPeriod,
 } from "@/lib/admin/queries/suggestions";
@@ -177,22 +178,8 @@ export default async function SuggestionsAdminPage({
         </button>
       </form>
 
-      <section className="space-y-3">
-        {items.length === 0 ? (
-          <div
-            className="rounded-lg p-6 text-center text-sm"
-            style={{
-              background: "var(--paper)",
-              border: "1px solid var(--line)",
-              color: "var(--ink-3)",
-            }}
-          >
-            Aucune suggestion pour ces filtres.
-          </div>
-        ) : (
-          items.map((s) => <SuggestionCard key={s.id} s={s} />)
-        )}
-      </section>
+      <RoleSplitSection items={items} />
+
 
       <nav className="flex justify-between items-center text-xs">
         {page > 0 ? (
@@ -217,5 +204,99 @@ export default async function SuggestionsAdminPage({
         )}
       </nav>
     </div>
+  );
+}
+
+/** Sépare la liste en deux sections distinctes (Prospects · Pros), avec
+ *  un compteur dans chaque en-tête et un état vide local par section.
+ *  Les suggestions dont le rôle n'a pas pu être résolu (utilisateurs ni
+ *  pro ni prospect côté DB) tombent dans une 3e section facultative. */
+function RoleSplitSection({ items }: { items: SuggestionListItem[] }) {
+  const prospects = items.filter((s) => s.fromRole === "prospect");
+  const pros = items.filter((s) => s.fromRole === "pro");
+  const others = items.filter(
+    (s) => s.fromRole !== "prospect" && s.fromRole !== "pro",
+  );
+
+  if (items.length === 0) {
+    return (
+      <section className="space-y-3">
+        <div
+          className="rounded-lg p-6 text-center text-sm"
+          style={{
+            background: "var(--paper)",
+            border: "1px solid var(--line)",
+            color: "var(--ink-3)",
+          }}
+        >
+          Aucune suggestion pour ces filtres.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <RoleGroup title="Prospects" count={prospects.length} items={prospects} />
+      <RoleGroup title="Pros" count={pros.length} items={pros} />
+      {others.length > 0 && (
+        <RoleGroup
+          title="Rôle non identifié"
+          count={others.length}
+          items={others}
+        />
+      )}
+    </div>
+  );
+}
+
+function RoleGroup({
+  title,
+  count,
+  items,
+}: {
+  title: string;
+  count: number;
+  items: SuggestionListItem[];
+}) {
+  return (
+    <section className="space-y-3">
+      <h2
+        className="flex items-baseline gap-3"
+        style={{ fontFamily: "var(--serif)", letterSpacing: "-0.01em" }}
+      >
+        <span className="text-lg" style={{ color: "var(--ink)" }}>
+          {title}
+        </span>
+        <span
+          className="text-xs"
+          style={{
+            color: "var(--ink-4)",
+            fontFamily: "var(--mono)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {count} {count === 1 ? "suggestion" : "suggestions"}
+        </span>
+      </h2>
+      {items.length === 0 ? (
+        <div
+          className="rounded-lg p-4 text-center text-xs"
+          style={{
+            background: "var(--paper)",
+            border: "1px dashed var(--line)",
+            color: "var(--ink-4)",
+          }}
+        >
+          Aucune suggestion {title.toLowerCase()} pour ces filtres.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((s) => (
+            <SuggestionCard key={s.id} s={s} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
