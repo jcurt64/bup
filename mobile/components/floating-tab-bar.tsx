@@ -9,7 +9,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import Animated, {
-  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -147,14 +146,15 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               )}
             </View>
             <View style={{ height: 16, justifyContent: "center" }}>
-              {focused ? (
-                <Animated.Text
-                  entering={FadeIn.duration(180)}
-                  style={{ fontSize: 10, fontWeight: "600", color: "#0F1629" }}
-                >
-                  {LABEL[it.name]}
-                </Animated.Text>
-              ) : null}
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "600",
+                  color: focused ? "#0F1629" : "#8A91A1",
+                }}
+              >
+                {LABEL[it.name]}
+              </Text>
             </View>
           </Pressable>
         );
