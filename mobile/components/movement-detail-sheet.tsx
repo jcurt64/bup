@@ -109,15 +109,16 @@ export function MovementDetailSheet({
   const decide = useDecideRelation();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
   // Sous-modale de signalement + état local « déjà signalé » pour
-  // basculer immédiatement le footer sans refetch (l'API ne renvoie
-  // pas le flag `reported` côté movements pour l'instant).
+  // basculer immédiatement le footer sans refetch. Initialisé depuis
+  // `relation.reported` (annoté côté serveur par reportedRelationIds)
+  // pour qu'une relation déjà signalée — typiquement depuis le web —
+  // affiche d'emblée le chip « déjà transmis ».
   const [reportOpen, setReportOpen] = useState(false);
   const [reportedLocal, setReportedLocal] = useState(false);
 
-  // Reset du flag local quand on change de mouvement.
   useEffect(() => {
-    setReportedLocal(false);
-  }, [relation?.id]);
+    setReportedLocal(!!relation?.reported);
+  }, [relation?.id, relation?.reported]);
 
   if (!relation) {
     return <BottomSheet visible={visible} onClose={onClose}>{null}</BottomSheet>;

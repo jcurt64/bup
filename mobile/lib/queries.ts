@@ -218,6 +218,11 @@ export type MovementRelation = {
   campaignStatus: string | null;
   campaignOpen: boolean;
   campaignActive: boolean;
+  /** Le prospect a-t-il déjà signalé cette relation ? Annotation côté
+   *  serveur (cf. lib/prospect/reports.ts). Utilisé pour cacher le
+   *  bouton « Signaler » de la modale détail au lieu d'envoyer un POST
+   *  qui ferait 409 silencieux. */
+  reported?: boolean;
 };
 
 export type Movement = {
