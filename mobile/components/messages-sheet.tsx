@@ -81,9 +81,24 @@ export function MessagesSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={80}>
-      <Text className="font-serif text-2xl text-ink">Messages</Text>
+      <View className="flex-row items-center gap-2">
+        <Text className="font-serif text-2xl text-ink">Messages</Text>
+        {notifs.length > 0 ? (
+          <View className="rounded-full bg-ink px-2.5 py-0.5">
+            <Text className="font-mono text-[11px] font-semibold text-paper">
+              {notifs.length}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       <Text className="mb-3 mt-0.5 text-sm text-ink-4">
-        Annonces, alertes et communications BUUPP.
+        {notifs.length === 0
+          ? "Aucun message pour le moment."
+          : `${notifs.length} message${notifs.length > 1 ? "s" : ""}${
+              q.data?.unreadCount
+                ? ` · ${q.data.unreadCount} non lu${q.data.unreadCount > 1 ? "s" : ""}`
+                : ""
+            }`}
       </Text>
 
       {q.isPending ? (
