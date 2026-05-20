@@ -61,9 +61,9 @@ const TIER_NUM_TO_LABEL: Record<number, string> = {
 
 const VERIF_LEVEL_LABEL: Record<string, string> = {
   p0: "Aucune (basique accepté)",
-  p1: "Vérifié — palier 1",
-  p2: "Certifié — palier 2",
-  p3: "Confiance — palier 3",
+  p1: "Vérifié — niveau 1",
+  p2: "Certifié — niveau 2",
+  p3: "Confiance — niveau 3",
 };
 
 const GEO_LABEL: Record<string, string> = {

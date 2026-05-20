@@ -172,7 +172,7 @@ const CATEGORIES: Category[] = [
           <p>
             Même règle anti-fraude : un numéro de téléphone ne peut être rattaché
             qu&apos;à un seul compte. Le téléphone se renseigne via une vérification
-            SMS (code à 6 chiffres) — c&apos;est ce qui vous permet de passer au palier{" "}
+            SMS (code à 6 chiffres) — c&apos;est ce qui vous permet de passer au niveau{" "}
             <em>Vérifié</em>.
           </p>
         ),
@@ -467,7 +467,7 @@ const CATEGORIES: Category[] = [
             <li>
               <strong>Un téléphone = un compte</strong> — même règle, contrainte
               d&apos;unicité sur le numéro normalisé E.164. La vérification SMS est
-              obligatoire pour atteindre le palier <em>Vérifié</em>.
+              obligatoire pour atteindre le niveau <em>Vérifié</em>.
             </li>
             <li>
               <strong>Un rôle par compte</strong> — un même utilisateur ne peut

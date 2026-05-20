@@ -202,7 +202,7 @@ export default function CguPage() {
           <p>
             <strong>Vérification téléphone.</strong> Le Prospect peut
             valider son numéro via un code SMS à 6&nbsp;chiffres. Cette
-            vérification débloque le palier{" "}
+            vérification débloque le niveau{" "}
             <strong>«&nbsp;Vérifié&nbsp;»</strong> qui double la
             rémunération de toutes les acceptations à venir et est requise
             pour les retraits supérieurs à un seuil défini.

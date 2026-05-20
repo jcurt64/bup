@@ -403,7 +403,7 @@ const PROSPECT_SECTIONS = [
   { id: 'portefeuille', icon: 'wallet', label: 'Portefeuille' },
   { id: 'donnees',      icon: 'database', label: 'Mes données' },
   { id: 'relations',    icon: 'handshake', label: 'Mises en relation' },
-  { id: 'verif',        icon: 'tiers',  label: 'Paliers de vérification' },
+  { id: 'verif',        icon: 'tiers',  label: 'Niveau de vérification' },
   { id: 'score',        icon: 'gauge',  label: 'BUUPP Score' },
   { id: 'prefs',        icon: 'sliders', label: 'Préférences' },
   { id: 'parrainage',   icon: 'gift',   label: 'Parrainage' },
@@ -1800,7 +1800,7 @@ function ProspectHeader() {
           <StatusPill
             label="Vérification"
             value={verification
-              ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Palier ${verifTierPosition(verification.tier)}/3`
+              ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Niveau ${verifTierPosition(verification.tier)}/3`
               : '…'}
             chip={
               verification?.tier === 'certifie_confiance' ? 'chip-good' :
@@ -1855,6 +1855,44 @@ function StatusPill({ label, value, chip }) {
 }
 
 /* ---------- Portefeuille ---------- */
+// Sérialise la liste des paliers couverts par une campagne en notation
+// compacte pour le chip / CSV : [1,2,5] → "1-2,5", [1,3,5] → "1,3,5".
+// Retourne null si la liste est vide / invalide.
+function formatPaliers(tiers) {
+  if (!Array.isArray(tiers)) return null;
+  const uniq = [
+    ...new Set(
+      tiers
+        .map((n) => Math.round(Number(n) || 0))
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5),
+    ),
+  ].sort((a, b) => a - b);
+  if (uniq.length === 0) return null;
+  const groups = [];
+  let start = uniq[0];
+  let prev = uniq[0];
+  for (let i = 1; i <= uniq.length; i++) {
+    const cur = uniq[i];
+    if (cur === prev + 1) { prev = cur; continue; }
+    groups.push(start === prev ? `${start}` : `${start}-${prev}`);
+    if (cur !== undefined) { start = cur; prev = cur; }
+  }
+  return groups.join(',');
+}
+
+// Renvoie { label, value } pour rendre « Palier 3 » ou « Paliers 1-2,5 »
+// à partir du Movement renvoyé par /api/prospect/movements (tiers[] si
+// présent, sinon repli sur tier unique).
+function movementTierLabel(m) {
+  const list = Array.isArray(m?.tiers) && m.tiers.length > 0
+    ? m.tiers
+    : (m?.tier != null ? [m.tier] : null);
+  if (!list) return null;
+  const value = formatPaliers(list);
+  if (!value) return null;
+  return { label: list.length > 1 ? 'Paliers' : 'Palier', value };
+}
+
 function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const [modal, setModal] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -2021,7 +2059,8 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
               const header = ['Date', 'Origine', 'Palier', 'Statut', 'Montant (€)'];
               const lines = rows.map((m) => {
                 const date = m.date ? dateFmt.format(new Date(m.date)) : '';
-                const tier = m.tier == null ? '' : `Palier ${m.tier}`;
+                const tLabel = movementTierLabel(m);
+                const tier = tLabel ? `${tLabel.label} ${tLabel.value}` : '';
                 const amount =
                   (m.sign || (Number(m.amountCents ?? 0) >= 0 ? '+' : '−')) +
                   Number(Math.abs(m.amountEur ?? 0)).toFixed(2).replace('.', ',');
@@ -2091,9 +2130,12 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                   >
                     <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
                     <td>{m.origin}</td>
-                    <td>{m.tier == null
-                      ? <span className="muted">—</span>
-                      : <span className="chip">Palier {m.tier}</span>}</td>
+                    <td>{(() => {
+                      const t = movementTierLabel(m);
+                      return t
+                        ? <span className="chip">{t.label} {t.value}</span>
+                        : <span className="muted">—</span>;
+                    })()}</td>
                     <td><span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')}>{m.statusLabel}</span></td>
                     <td style={{ textAlign: 'right' }} className="mono tnum">
                       <span style={{ color: m.amountCents >= 0 ? 'var(--good)' : 'var(--ink-3)' }}>{amountStr} €</span>
@@ -4633,7 +4675,7 @@ function ReportProModal({ relation, onClose, onSubmitted }) {
 }
 
 /* ---------- Verif tiers ---------- */
-/* ─── Verification (3 paliers) ──────────────────────────────────────
+/* ─── Verification (3 niveaux) ──────────────────────────────────────
    Modèle métier (enums Supabase) :
      basique           — créé par défaut à l'ouverture du compte.
      verifie           — RIB renseigné + auto-validé.
@@ -4654,7 +4696,7 @@ const VERIF_TIERS = [
     key: 'verifie',
     label: 'Vérifié',
     done: "Téléphone vérifié",
-    requirement: "Vérifiez votre numéro de téléphone par SMS pour passer au palier Vérifié.",
+    requirement: "Vérifiez votre numéro de téléphone par SMS pour passer au niveau Vérifié.",
     nextLabel: 'Prochaine étape',
   },
   {
@@ -4671,10 +4713,12 @@ const VERIF_LABELS = {
   certifie_confiance: 'Certifié confiance',
 };
 
-// Index 1-based d'un palier de vérification dans l'échelle des 3 paliers.
-// Utilisé pour afficher "Palier 2/3" plutôt que "66%" — qui prête à
+// Index 1-based d'un niveau de vérification dans l'échelle des 3 niveaux.
+// Utilisé pour afficher "Niveau 2/3" plutôt que "66%" — qui prête à
 // confusion (un user à 66% pensait être "vérifié à 66%" alors que c'est
-// la position dans l'échelle, pas un degré de complétion).
+// la position dans l'échelle, pas un degré de complétion). On parle de
+// « niveau » côté UI pour éviter la confusion avec les « paliers » de
+// données (catégories 1 à 5 dans Mes données).
 function verifTierPosition(tier) {
   if (tier === 'verifie') return 2;
   if (tier === 'certifie_confiance') return 3;
@@ -4703,9 +4747,9 @@ function VerifTiers() {
   return (
     <div className="col gap-6">
       <SectionTitle
-        eyebrow="Paliers de vérification"
-        title="Vos paliers"
-        desc="Trois paliers : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées."
+        eyebrow="Niveau de vérification"
+        title="Vos niveaux"
+        desc="Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées."
       />
       <div className="card" style={{ padding: 32 }}>
         {/* Progress dots line */}
@@ -4736,10 +4780,10 @@ function VerifTiers() {
 
         {/* 3 colonnes équidistantes, alignées avec les 3 pastilles de
             progression au-dessus. Chaque colonne décrit l'état d'un
-            palier (Validé / Palier actuel / Prochaine étape / Dernière
+            niveau (Validé / Niveau actuel / Prochaine étape / Dernière
             étape). Le mapping des libellés est dynamique : il dépend du
-            palier courant — pour un prospect "Basique", on aura
-            Basique → Palier actuel · Vérifié → Prochaine étape ·
+            niveau courant — pour un prospect "Basique", on aura
+            Basique → Niveau actuel · Vérifié → Prochaine étape ·
             Certifié confiance → Dernière étape. */}
         <div style={{
           borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 24,
@@ -4749,11 +4793,11 @@ function VerifTiers() {
             const reached = i <= currentIdx;
             const isCurrent = i === currentIdx;
             const label = isCurrent
-              ? 'Palier actuel'
+              ? 'Niveau actuel'
               : i < currentIdx
-                ? 'Palier validé'
+                ? 'Niveau validé'
                 : t.nextLabel;
-            // CTA disponible uniquement pour le palier "Vérifié" non
+            // CTA disponible uniquement pour le niveau "Vérifié" non
             // encore atteint (ouverture de la modale RIB).
             const showRibCta = !reached && t.key === 'verifie';
             return (
@@ -4765,7 +4809,7 @@ function VerifTiers() {
                   {t.label}
                   {isCurrent && (
                     <span className="muted" style={{ fontSize: 14 }}>
-                      {' · Palier '}{currentIdx + 1}/{VERIF_TIERS.length}
+                      {' · Niveau '}{currentIdx + 1}/{VERIF_TIERS.length}
                     </span>
                   )}
                 </div>
@@ -4801,7 +4845,7 @@ function VerifTiers() {
               borderColor: i === currentIdx ? 'var(--ink)' : 'var(--line)',
             }}>
               <div className="row between center" style={{ marginBottom: 10 }}>
-                <div className="mono caps muted" style={{ fontSize: 10 }}>Palier {i + 1}</div>
+                <div className="mono caps muted" style={{ fontSize: 10 }}>Niveau {i + 1}</div>
                 {reached
                   ? <span className="chip chip-good"><Icon name="check" size={10}/> Validé</span>
                   : <span className="chip">À venir</span>}
@@ -4810,8 +4854,8 @@ function VerifTiers() {
               {/* Pour chaque carte, on affiche le même format en deux lignes :
                   (1) un sous-titre "eyebrow" qui qualifie l'étape (Première /
                       Étape suivante / Dernière étape),
-                  (2) la description : ce qui a été validé pour les paliers
-                      atteints, ou le prérequis pour les paliers à venir.
+                  (2) la description : ce qui a été validé pour les niveaux
+                      atteints, ou le prérequis pour les niveaux à venir.
                   Cela harmonise visuellement les 3 cartes (notamment "Certifié
                   confiance" qui rappelle le rendez-vous physique requis). */}
               <div className="mono caps muted" style={{ fontSize: 9, letterSpacing: '.14em', marginBottom: 4 }}>
@@ -4833,7 +4877,7 @@ function VerifTiers() {
 /* Modale "Renseigner mon RIB" — IBAN + BIC + nom du titulaire.
    Validation côté serveur (longueur + alphanumérique). À la confirmation,
    notifie `prospect:profile-changed` pour propager la mise à jour du
-   palier de vérification dans tout le dashboard. */
+   niveau de vérification dans tout le dashboard. */
 function RibModal({ initial, onClose }) {
   const [iban, setIban] = useState('');
   const [bic, setBic] = useState('');

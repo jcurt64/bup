@@ -723,7 +723,7 @@ export default function BaremePage() {
             {
               icon: "✦",
               label: "Multiplicateur ×2",
-              desc: "Prospect vérifié Palier 3 — identité certifiée KYC",
+              desc: "Prospect vérifié Niveau 3 — identité certifiée KYC",
               color: "#4F46E5",
             },
           ].map((item, i) => (

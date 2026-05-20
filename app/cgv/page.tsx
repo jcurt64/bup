@@ -208,7 +208,7 @@ export default function CgvPage() {
           <p>
             <strong>Bonus prospect.</strong> Le tarif est doublé (×2)
             lorsque le prospect est <strong>certifié confiance</strong>
-            (palier vérification le plus élevé)&nbsp;; le Professionnel
+            (niveau de vérification le plus élevé)&nbsp;; le Professionnel
             peut au choix activer ou désactiver l&apos;exclusion de ces
             profils dans le wizard de campagne. Pour les prospects
             «&nbsp;parrains/fondateur·ices&nbsp;», cf. la section
