@@ -6268,7 +6268,27 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
   // OU numéro RM — un des deux requis pour les structures concernées.
   const hasIdentifier = !!form.siren.trim() || !!form.siret.trim();
   const hasRegistration = !!form.rcsVille.trim() || !!form.rmNumber.trim();
-  const canSubmit = !loading && missing.length === 0 && hasIdentifier && hasRegistration;
+  // Blocage symétrique à ProInfoEditModal : on refuse de générer la
+  // facture si le SIREN/SIRET saisi n'a pas été validé positivement par
+  // SIRENE (sans ce garde-fou, on persiste un faux numéro côté
+  // /api/pro/info au prochain submit). On accepte 'error' (API
+  // data.gouv.fr down) pour ne pas bloquer en cas de panne.
+  const sirenInput = form.siren.trim();
+  const siretInput = form.siret.trim();
+  const sirenLengthOk = sirenInput.length === 0 || /^\d{9}$/.test(sirenInput);
+  const siretLengthOk = siretInput.length === 0 || /^\d{14}$/.test(siretInput);
+  const blockedByVerification =
+    (sirenInput || siretInput) && (
+      !sirenLengthOk ||
+      !siretLengthOk ||
+      (verify.status !== 'found' && verify.status !== 'error')
+    );
+  const canSubmit =
+    !loading &&
+    missing.length === 0 &&
+    hasIdentifier &&
+    hasRegistration &&
+    !blockedByVerification;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -6405,7 +6425,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
                 background: '#FEF2F2', border: '1.5px solid #FCA5A5',
                 color: '#991B1B', fontSize: 12.5,
               }}>
-                ❌ Numéro introuvable dans le registre officiel des entreprises (SIRENE). Vérifiez la saisie.
+                ❌ <strong>Numéro non enregistré</strong> — introuvable dans le registre officiel SIRENE. Vérifiez la saisie : tant que le numéro n'est pas reconnu, la facture ne pourra pas être générée.
               </div>
             )}
             {verify.status === 'error' && (
@@ -6517,7 +6537,20 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
 
         <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 22, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={saving}>Annuler</button>
-          <button className="btn btn-primary btn-sm" onClick={submit} disabled={!canSubmit || saving}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={submit}
+            disabled={!canSubmit || saving}
+            title={
+              blockedByVerification
+                ? verify.status === 'loading'
+                  ? 'Vérification SIRENE en cours…'
+                  : verify.status === 'not_found'
+                  ? 'Numéro non enregistré : introuvable dans SIRENE'
+                  : 'Numéro SIREN/SIRET incomplet (9 ou 14 chiffres)'
+                : undefined
+            }
+          >
             {saving ? 'Enregistrement…' : 'Enregistrer & télécharger le PDF'}
           </button>
         </div>
