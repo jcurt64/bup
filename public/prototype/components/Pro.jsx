@@ -6290,6 +6290,23 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
     hasRegistration &&
     !blockedByVerification;
 
+  // Affichage différé du bandeau "non enregistré" pour saisie partielle :
+  // 1,5 s d'inactivité avant d'afficher, reset à chaque frappe. Évite le
+  // clignotement à chaque chiffre tapé dans SIREN ou SIRET.
+  const [showPartialWarning, setShowPartialWarning] = useState(false);
+  React.useEffect(() => {
+    const sirenPartial = sirenInput.length > 0 && !sirenLengthOk;
+    const siretPartial = siretInput.length > 0 && !siretLengthOk;
+    if (!sirenPartial && !siretPartial) {
+      setShowPartialWarning(false);
+      return;
+    }
+    setShowPartialWarning(false);
+    const t = setTimeout(() => setShowPartialWarning(true), 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sirenInput, siretInput, sirenLengthOk, siretLengthOk]);
+
   const submit = async () => {
     if (!canSubmit) return;
     setSaving(true);
@@ -6409,9 +6426,10 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
               Renseignez au moins l'un des deux numéros (SIREN ou SIRET). Vérification automatique sur le registre officiel SIRENE / data.gouv.fr.
             </div>
 
-            {/* Saisie partielle d'un des deux numéros : message d'erreur dès
-                le 1er chiffre incorrect, sans attendre la longueur complète. */}
-            {(sirenInput.length > 0 && !sirenLengthOk) || (siretInput.length > 0 && !siretLengthOk) ? (
+            {/* Saisie partielle d'un des deux numéros : message d'erreur
+                affiché après ~1,5 s d'inactivité (cf. showPartialWarning),
+                pour laisser à l'utilisateur le temps de finir sa saisie. */}
+            {showPartialWarning && ((sirenInput.length > 0 && !sirenLengthOk) || (siretInput.length > 0 && !siretLengthOk)) ? (
               <div role="alert" style={{
                 marginTop: 4, padding: '10px 12px', borderRadius: 8,
                 background: '#FEF2F2', border: '1.5px solid #FCA5A5',
@@ -8066,6 +8084,23 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
   const canSave =
     (edit.optional || val.trim()) && !blockedByVerification;
 
+  // Affichage différé du message d'erreur pour saisie partielle : on
+  // attend 1,5 s d'inactivité pour ne pas faire clignoter l'alerte
+  // rouge à chaque chiffre tapé. Reset immédiat dès que val change ;
+  // également immédiat si val devient vide ou atteint la longueur cible.
+  const [showPartialWarning, setShowPartialWarning] = useState(false);
+  React.useEffect(() => {
+    if (!(isSiren || isSiret)) return;
+    if (val.length === 0 || val.length === maxLen) {
+      setShowPartialWarning(false);
+      return;
+    }
+    setShowPartialWarning(false);
+    const t = setTimeout(() => setShowPartialWarning(true), 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [val, isSiren, isSiret, maxLen]);
+
   // Auto-save : 700 ms après la dernière modif → PATCH sans fermer la
   // modale. Ne s'applique pas quand SIREN/SIRET est explicitement
   // introuvable au registre (l'utilisateur doit corriger avant de
@@ -8113,10 +8148,11 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
       )}
 
       {/* Statut vérification SIRENE */}
-      {/* Saisie partielle : longueur insuffisante → on signale dès le 1er
-          chiffre que le numéro ne sera pas sauvegardé tant qu'il n'aura
-          pas atteint la longueur attendue (et passé la vérif SIRENE). */}
-      {(isSiren || isSiret) && val.length > 0 && val.length < maxLen && (
+      {/* Saisie partielle : longueur insuffisante → on signale que le numéro
+          ne sera pas sauvegardé. Le bandeau apparaît avec ~1,5 s de délai
+          (cf. showPartialWarning) pour laisser à l'utilisateur le temps de
+          finir sa saisie sans faire clignoter le message à chaque chiffre. */}
+      {(isSiren || isSiret) && val.length > 0 && val.length < maxLen && showPartialWarning && (
         <div role="alert" style={{
           marginBottom: 14, padding: '10px 12px', borderRadius: 8,
           background: '#FEF2F2', border: '1.5px solid #FCA5A5',
