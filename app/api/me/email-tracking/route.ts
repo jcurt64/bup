@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
+import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -38,24 +39,25 @@ export async function GET() {
     return NextResponse.json({ error: "no_role" }, { status: 404 });
   }
 
-  // Lecture du flag depuis la bonne table selon le rôle.
-  let consent = true;
+  // Lecture du flag + horodatage. Le toggle UI s'aligne sur le critère
+  // CNIL strict (cf. lib/cnil/consent.ts) : `consent === true` ET
+  // `given_at IS NOT NULL`. Le default DB `true` (transition CNIL) ne
+  // suffit pas — on attend une action utilisateur explicite pour cocher.
+  let consent = false;
   if (resolved.role === "prospect") {
     const { data } = await admin
       .from("prospect_identity")
-      .select("email_tracking_consent")
+      .select("email_tracking_consent, email_tracking_consent_given_at")
       .eq("prospect_id", resolved.ownerId)
       .maybeSingle();
-    // Si la row palier 1 n'existe pas encore (création différée), on
-    // s'aligne sur le default DB (true en transition).
-    consent = data?.email_tracking_consent ?? true;
+    consent = hasExplicitEmailTrackingConsent(data);
   } else {
     const { data } = await admin
       .from("pro_accounts")
-      .select("email_tracking_consent")
+      .select("email_tracking_consent, email_tracking_consent_given_at")
       .eq("id", resolved.ownerId)
       .maybeSingle();
-    consent = data?.email_tracking_consent ?? true;
+    consent = hasExplicitEmailTrackingConsent(data);
   }
 
   return NextResponse.json({ consent, role: resolved.role });

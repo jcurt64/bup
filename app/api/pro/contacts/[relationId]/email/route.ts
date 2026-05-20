@@ -14,6 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
+import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { sendProToProspectEmail } from "@/lib/email/pro-to-prospect";
@@ -82,7 +83,7 @@ export async function POST(req: Request, ctx: RouteContext) {
        pro_accounts!relations_pro_account_id_fkey ( raison_sociale ),
        campaigns ( name ),
        prospects:prospect_id (
-         prospect_identity ( prenom, email, email_tracking_consent )
+         prospect_identity ( prenom, email, email_tracking_consent, email_tracking_consent_given_at )
        )`,
     )
     .eq("id", relationId)
@@ -113,8 +114,15 @@ export async function POST(req: Request, ctx: RouteContext) {
     : null;
   const prospectEmail = ident?.email ?? null;
   const prospectFirstName = ident?.prenom ?? null;
-  const trackingConsent = (ident as { email_tracking_consent?: boolean | null } | null)
-    ?.email_tracking_consent === true;
+  // Critère CNIL strict (cf. lib/cnil/consent.ts) : un consentement par
+  // défaut DB (true) ne suffit pas — il faut une action utilisateur
+  // explicite (given_at non-null).
+  const trackingConsent = hasExplicitEmailTrackingConsent(
+    ident as {
+      email_tracking_consent?: boolean | null;
+      email_tracking_consent_given_at?: string | null;
+    } | null,
+  );
   if (!prospectEmail) {
     return NextResponse.json({ error: "prospect_email_missing" }, { status: 422 });
   }

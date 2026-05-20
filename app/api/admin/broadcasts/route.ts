@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { auth, clerkClient } from "@/lib/clerk/server";
+import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
 import { signOptOutToken } from "@/lib/email-tracking/token";
@@ -352,7 +353,9 @@ async function collectRecipients(
     // consentement au tracking (CNIL n° 2026-042).
     const { data: rows, error } = await admin
       .from("prospect_identity")
-      .select("email, email_tracking_consent, prospects(clerk_user_id)")
+      .select(
+        "email, email_tracking_consent, email_tracking_consent_given_at, prospects(clerk_user_id)",
+      )
       .not("email", "is", null);
     if (error) {
       console.error("[broadcasts] prospect_identity read failed", error);
@@ -361,7 +364,9 @@ async function collectRecipients(
         // La jointure renvoie `prospects` comme objet (one-to-one via FK).
         const clerkUserId =
           (r.prospects as { clerk_user_id: string } | null)?.clerk_user_id ?? null;
-        addUnique(r.email, "prospect", clerkUserId, r.email_tracking_consent);
+        // Critère CNIL strict : default DB `true` ne suffit pas, on
+        // exige un given_at posé par une action utilisateur explicite.
+        addUnique(r.email, "prospect", clerkUserId, hasExplicitEmailTrackingConsent(r));
       }
     }
   }
@@ -371,13 +376,14 @@ async function collectRecipients(
     // de Clerk via getUserList (pas de colonne email persistée).
     const { data: pros, error } = await admin
       .from("pro_accounts")
-      .select("clerk_user_id, email_tracking_consent");
+      .select("clerk_user_id, email_tracking_consent, email_tracking_consent_given_at");
     if (error) {
       console.error("[broadcasts] pro_accounts read failed", error);
     } else {
       const proIds = (pros ?? []).map((p) => p.clerk_user_id);
+      // Map clerk_user_id → consentement effectif CNIL (cf. lib/cnil/consent.ts).
       const consentByClerkId = new Map<string, boolean>(
-        (pros ?? []).map((p) => [p.clerk_user_id, p.email_tracking_consent]),
+        (pros ?? []).map((p) => [p.clerk_user_id, hasExplicitEmailTrackingConsent(p)]),
       );
       if (proIds.length > 0) {
         try {
@@ -391,7 +397,7 @@ async function collectRecipients(
               primary?.emailAddress ?? null,
               "pro",
               u.id,
-              consentByClerkId.get(u.id) ?? true,
+              consentByClerkId.get(u.id) ?? false,
             );
           }
         } catch (err) {
