@@ -6082,7 +6082,7 @@ function Parrainage() {
       <SectionTitle
         eyebrow="Parrainage = statut Fondateur·ice"
         title="Recommandez, débloquez le palier VIP"
-        desc={`Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Bonus ×2 sur vos gains pendant 1 mois post-lancement. À ${vipThreshold} filleuls (cap), vous passez VIP : +${vipFlatBonusEur} € exceptionnels par acceptation sur les campagnes dont le budget dépasse ${vipBudgetMinEur} €.`}
+        desc={`Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Bonus ×2 sur vos gains pendant 1 mois post-lancement. À ${vipThreshold} filleuls (cap), vous passez VIP : +${vipFlatBonusEur} € exceptionnels par acceptation, sur acceptation du professionnel.`}
       />
 
       {vipEligible && !loading && (
@@ -6101,7 +6101,7 @@ function Parrainage() {
               Palier VIP atteint
             </div>
             <div style={{ fontSize: 14, lineHeight: 1.55 }}>
-              Bravo — vous avez {count} filleuls. Sur les campagnes &gt; {vipBudgetMinEur} €,
+              Bravo — vous avez {count} filleuls. Sur acceptation du professionnel,
               chaque acceptation vous rapporte <strong>+{vipFlatBonusEur} € exceptionnels</strong>
               {' '}(à la place du ×2 standard), pendant le 1er mois post-lancement.
             </div>
@@ -6233,7 +6233,7 @@ function Parrainage() {
         {[
           ['Filleuls actifs', loading ? '…' : String(count), `/ ${cap} max`],
           ['Places restantes', loading ? '…' : String(Math.max(0, cap - count)), 'avant plafond'],
-          ['Bonus actuel', loading ? '…' : (vipEligible ? `+${vipFlatBonusEur} €` : '×2'), vipEligible ? `flat (budget > ${vipBudgetMinEur} €)` : '1er mois post-lancement'],
+          ['Bonus actuel', loading ? '…' : (vipEligible ? `+${vipFlatBonusEur} €` : '×2'), vipEligible ? 'sur acceptation du pro' : '1er mois post-lancement'],
           ['Statut', vipEligible ? 'VIP' : (count > 0 ? 'Actif' : 'En attente'), vipEligible ? 'Palier débloqué' : (count >= cap ? 'Plafond atteint' : 'Invitez vos proches')],
         ].map(([l, v, s], i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
