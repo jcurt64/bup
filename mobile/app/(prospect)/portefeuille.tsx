@@ -6,6 +6,7 @@
 // mouvements. Le mobile omet l'action "Retirer" et l'export CSV (hors
 // périmètre — parité de données uniquement).
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -20,11 +21,27 @@ import {
   Stat,
 } from "../../components/screen";
 import {
+  useMeTyped,
   useProspectMovements,
+  useProspectScore,
+  useProspectVerification,
   useProspectWallet,
   type MovementRelation,
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
+
+// Mirror Prospect.jsx — libellés affichés pour chaque tier de vérif.
+const VERIF_LABELS: Record<string, string> = {
+  basique: "Basique",
+  verifie: "Vérifié",
+  certifie_confiance: "Certifié confiance",
+};
+// 1-based : "Niveau 1/3" / "2/3" / "3/3" (parité fn verifTierPosition web).
+function verifTierPosition(tier: string | undefined): number {
+  if (tier === "verifie") return 2;
+  if (tier === "certifie_confiance") return 3;
+  return 1;
+}
 
 // Entier "coins" affiché : Math.round(cents) puis séparateur fr-FR
 // (identique à `coins.toLocaleString('fr-FR')` du web).
@@ -89,23 +106,95 @@ function lifetimeSub(accountCreatedAt: string | null, relationsCount: number) {
 export default function Portefeuille() {
   const w = useProspectWallet();
   const m = useProspectMovements();
-  useRefetchOnFocus(w, m);
+  const me = useMeTyped();
+  const verif = useProspectVerification();
+  const score = useProspectScore();
+  useRefetchOnFocus(w, m, verif, score);
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
 
+  // Hero (LinearGradient) — remplace le titre « Votre portefeuille » par
+  // les deux pastilles Vérification + BUUPP Score (parité avec les
+  // StatusPills du ProspectHeader web).
+  const hour = new Date().getHours();
+  const hello = hour >= 19 ? "Bonsoir" : "Bonjour";
+  const firstName = me.data?.prenom?.trim() || null;
+  const greeting = firstName ? `${hello} ${firstName}` : hello;
+  const verifValue = verif.data
+    ? `${VERIF_LABELS[verif.data.tier] ?? "Basique"} · Niveau ${verifTierPosition(verif.data.tier)}/3`
+    : "…";
+  const scoreValue = score.data ? String(score.data.score) : "…";
+
   return (
     <ScrollScreen
-      onRefresh={() => Promise.all([w.refetch(), m.refetch()])}
-      hero={{
-        title: "Votre portefeuille",
-        nav: "menu",
-      }}
+      onRefresh={() =>
+        Promise.all([w.refetch(), m.refetch(), verif.refetch(), score.refetch()])
+      }
     >
+      {/* Hero gradient — greeting + Vérification + BUUPP Score (parité web) */}
+      <LinearGradient
+        colors={["#7C5CFC", "#13235B"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
+      >
+        <Text
+          className="mb-4 font-serif text-xl text-paper"
+          numberOfLines={1}
+        >
+          {greeting}
+        </Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Text
+              className="font-mono text-[10px] uppercase text-white/60"
+              style={{ letterSpacing: 1 }}
+            >
+              Vérification
+            </Text>
+            <View className="mt-1.5 self-start rounded-full bg-white/15 px-3 py-1.5">
+              <Text
+                className="text-[12px] font-semibold text-paper"
+                numberOfLines={1}
+              >
+                {verifValue}
+              </Text>
+            </View>
+          </View>
+          <View className="flex-1">
+            <Text
+              className="font-mono text-[10px] uppercase text-white/60"
+              style={{ letterSpacing: 1 }}
+            >
+              BUUPP Score
+            </Text>
+            <View
+              className="mt-1.5 self-start rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "rgba(22, 163, 74, 0.35)" }}
+            >
+              <Text className="text-[12px] font-semibold text-paper">
+                {scoreValue}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card badge={{ icon: "wallet-outline", tone: "violet" }} tone="violet">
+            <Card tone="violet">
+              {/* Header : label + icône wallet alignés horizontalement.
+                  Remplace l'ancien badge auto-rendu par <Card badge=...>. */}
+              <View className="mb-3 flex-row items-center justify-between">
+                <Text className="font-serif text-lg text-ink">
+                  Votre portefeuille
+                </Text>
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-violet-soft">
+                  <Ionicons name="wallet-outline" size={20} color="#7C5CFC" />
+                </View>
+              </View>
               <Text className="font-mono text-[11px] uppercase text-ink-4">
                 Disponible
               </Text>
