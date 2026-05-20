@@ -90,8 +90,8 @@ export async function GET() {
   // Identité : prospect_identity > Clerk > waitlist. Clerk reste le
   // fallback principal pour les pros (pas de table d'identité) et pour
   // les prospects dont le palier 1 n'a pas encore de prénom/nom.
-  let prenom = dbPrenom ?? (user?.firstName || "").trim() || null;
-  let nom = dbNom ?? (user?.lastName || "").trim() || null;
+  let prenom = dbPrenom ?? ((user?.firstName || "").trim() || null);
+  let nom = dbNom ?? ((user?.lastName || "").trim() || null);
 
   if ((!prenom || !nom) && email) {
     const { data: wl } = await admin
