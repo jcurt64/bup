@@ -20,6 +20,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { reportedRelationIds } from "@/lib/prospect/reports";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
@@ -188,6 +189,17 @@ export async function GET() {
     rows.push(r);
   }
 
+  // Annotation `reported` par relation — alignement avec
+  // /api/prospect/relations#history. Sans ce flag, le mobile rouvrait
+  // ReportProSheet sur une relation déjà signalée, l'API renvoyait 409
+  // (unique constraint), traité comme succès silencieux côté UI mais
+  // sans recordEvent → admin pas notifié.
+  const reportedSet = await reportedRelationIds(
+    admin,
+    prospectId,
+    [...seenRelationIds],
+  );
+
   // Construit l'objet `relation` qui sera passé à RelationDetailModal côté
   // front — même forme que les entries de /api/prospect/relations#history,
   // pour que la modale puisse être réutilisée verbatim au clic sur la
@@ -246,6 +258,7 @@ export async function GET() {
       campaignStatus: rel.campaigns?.status ?? null,
       campaignOpen,
       campaignActive,
+      reported: reportedSet.has(rel.id),
     };
   }
 
