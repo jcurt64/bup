@@ -3606,7 +3606,7 @@ function StickyPreinscription() {
       className="sticky-preinscription"
       style={{
         position: "fixed",
-        right: 22,
+        right: "max(22px, calc((100vw - 1280px) / 2 + 22px))",
         bottom: 24,
         zIndex: 95,
         display: "inline-flex",

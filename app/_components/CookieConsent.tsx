@@ -205,7 +205,7 @@ function FloatingButton({ onClick }: { onClick: () => void }) {
       className="cookie-floating-btn"
       style={{
         position: "fixed",
-        left: 22,
+        left: "max(22px, calc((100vw - 1280px) / 2 + 22px))",
         bottom: 24,
         zIndex: 95,
         width: 44,
