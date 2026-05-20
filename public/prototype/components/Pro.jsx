@@ -6409,6 +6409,24 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
               Renseignez au moins l'un des deux numéros (SIREN ou SIRET). Vérification automatique sur le registre officiel SIRENE / data.gouv.fr.
             </div>
 
+            {/* Saisie partielle d'un des deux numéros : message d'erreur dès
+                le 1er chiffre incorrect, sans attendre la longueur complète. */}
+            {(sirenInput.length > 0 && !sirenLengthOk) || (siretInput.length > 0 && !siretLengthOk) ? (
+              <div role="alert" style={{
+                marginTop: 4, padding: '10px 12px', borderRadius: 8,
+                background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+                color: '#991B1B', fontSize: 12.5, lineHeight: 1.5,
+              }}>
+                ❌ <strong>Numéro non enregistré</strong> —
+                {sirenInput.length > 0 && !sirenLengthOk && (
+                  <> SIREN doit comporter <strong>9 chiffres</strong> ({sirenInput.length} saisi{sirenInput.length > 1 ? 's' : ''}).</>
+                )}
+                {siretInput.length > 0 && !siretLengthOk && (
+                  <> SIRET doit comporter <strong>14 chiffres</strong> ({siretInput.length} saisi{siretInput.length > 1 ? 's' : ''}).</>
+                )}
+                {' '}Tant que le numéro n'est pas complet et reconnu par SIRENE, la facture ne pourra pas être générée.
+              </div>
+            ) : null}
             {/* Statut vérification numéro entreprise (data.gouv.fr) */}
             {verify.status === 'loading' && (
               <div role="status" style={{
@@ -8095,7 +8113,19 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
       )}
 
       {/* Statut vérification SIRENE */}
-      {(isSiren || isSiret) && verify.status === 'loading' && (
+      {/* Saisie partielle : longueur insuffisante → on signale dès le 1er
+          chiffre que le numéro ne sera pas sauvegardé tant qu'il n'aura
+          pas atteint la longueur attendue (et passé la vérif SIRENE). */}
+      {(isSiren || isSiret) && val.length > 0 && val.length < maxLen && (
+        <div role="alert" style={{
+          marginBottom: 14, padding: '10px 12px', borderRadius: 8,
+          background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+          color: '#991B1B', fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          ❌ <strong>Numéro non enregistré</strong> — un {isSiret ? 'SIRET' : 'SIREN'} valide doit comporter <strong>{maxLen} chiffres</strong> ({val.length}{val.length === 1 ? ' chiffre' : ' chiffres'} saisi{val.length > 1 ? 's' : ''} pour l'instant). Tant que le numéro n'est pas complet et reconnu par SIRENE, il ne sera pas sauvegardé.
+        </div>
+      )}
+      {(isSiren || isSiret) && val.length === maxLen && verify.status === 'loading' && (
         <div role="status" style={{
           marginBottom: 14, padding: '10px 12px', borderRadius: 8,
           background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
@@ -8104,7 +8134,7 @@ function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
           Vérification en cours sur le registre officiel…
         </div>
       )}
-      {(isSiren || isSiret) && verify.status === 'not_found' && (
+      {(isSiren || isSiret) && val.length === maxLen && verify.status === 'not_found' && (
         <div role="alert" style={{
           marginBottom: 14, padding: '10px 12px', borderRadius: 8,
           background: '#FEF2F2', border: '1.5px solid #FCA5A5',
