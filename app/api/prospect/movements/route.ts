@@ -67,6 +67,22 @@ function highestTier(targeting: Record<string, unknown> | null): number | null {
   return Math.min(5, Math.max(1, max));
 }
 
+// Liste triée/unique des paliers (1..5) couverts par la campagne. Sert à
+// l'UI à afficher un format groupé (« Paliers 1-2,5 ») quand la campagne
+// cible plusieurs paliers, là où `highestTier` n'en expose qu'un seul.
+function allTiers(targeting: Record<string, unknown> | null): number[] | null {
+  const t = targeting?.requiredTiers;
+  if (!Array.isArray(t) || t.length === 0) return null;
+  const cleaned = [
+    ...new Set(
+      t
+        .map((n) => Math.round(Number(n) || 0))
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5),
+    ),
+  ].sort((a, b) => a - b);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function relationTimerString(iso: string | null | undefined): string {
   if (!iso) return "—";
   const ms = new Date(iso).getTime() - Date.now();
@@ -182,6 +198,7 @@ export async function GET() {
     const sectorParts = [rel.pro_accounts?.secteur, rel.pro_accounts?.ville]
       .filter((s): s is string => !!s);
     const tier = highestTier(rel.campaigns?.targeting ?? null);
+    const tiers = allTiers(rel.campaigns?.targeting ?? null);
     const decisionLabel =
       rel.status === "accepted" || rel.status === "settled" ? "Acceptée"
       : rel.status === "refused" ? "Refusée"
@@ -212,6 +229,7 @@ export async function GET() {
       brief: rel.campaigns?.brief ?? null,
       reward,
       tier: tier ?? 1,
+      tiers,
       timer: relationTimerString(rel.expires_at),
       startDate: rel.campaigns?.starts_at ?? rel.sent_at,
       endDate: rel.campaigns?.ends_at ?? rel.expires_at,
@@ -234,6 +252,7 @@ export async function GET() {
       date: r.created_at,
       origin: originLabel(r),
       tier: highestTier(r.relations?.campaigns?.targeting ?? null),
+      tiers: allTiers(r.relations?.campaigns?.targeting ?? null),
       statusLabel: statusLabel(r.type, r.status),
       statusChip: statusChip(r.type, r.status),
       amountCents: cents,
