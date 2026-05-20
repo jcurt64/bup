@@ -62,28 +62,36 @@ export async function GET() {
       .maybeSingle(),
   ]);
 
-  // Email côté prospect : on lit la copie stockée dans `prospect_identity`
-  // (alimentée par `ensureProspect` à la première visite). Évite de dépendre
-  // de Clerk côté front pour un champ qui est aussi en base. Fallback Clerk
-  // si la row palier 1 n'existe pas encore (cas marginal d'une création
-  // partielle). Côté pro, aucune colonne email n'est persistée → Clerk reste
-  // l'unique source.
+  // Email + identité côté prospect : on lit la copie stockée dans
+  // `prospect_identity` (alimentée par `ensureProspect` à la première
+  // visite + mises à jour via PATCH /api/prospect/donnees). C'est la
+  // **source de vérité métier** pour le prénom/nom — l'utilisateur
+  // peut corriger son palier Identité après le signup, alors que
+  // Clerk garde le firstName/lastName figé. Le web lit déjà
+  // prospect_identity via /api/prospect/donnees → on aligne /api/me.
+  // Fallback Clerk si la row palier 1 n'existe pas encore (cas marginal
+  // d'une création partielle). Côté pro, aucune colonne d'identité n'est
+  // persistée → Clerk reste l'unique source.
   let dbEmail: string | null = null;
+  let dbPrenom: string | null = null;
+  let dbNom: string | null = null;
   if (prospectRow?.id) {
     const { data: identity } = await admin
       .from("prospect_identity")
-      .select("email")
+      .select("email, prenom, nom")
       .eq("prospect_id", prospectRow.id)
       .maybeSingle();
     dbEmail = identity?.email ?? null;
+    dbPrenom = (identity?.prenom ?? "").trim() || null;
+    dbNom = (identity?.nom ?? "").trim() || null;
   }
   const resolvedEmail = dbEmail ?? email;
 
-  // Récupère prénom/nom depuis Clerk d'abord, fallback sur la row waitlist
-  // pour les utilisateurs qui se sont inscrits via la liste d'attente avant
-  // d'avoir un compte Clerk avec firstName/lastName renseignés.
-  let prenom = (user?.firstName || "").trim() || null;
-  let nom = (user?.lastName || "").trim() || null;
+  // Identité : prospect_identity > Clerk > waitlist. Clerk reste le
+  // fallback principal pour les pros (pas de table d'identité) et pour
+  // les prospects dont le palier 1 n'a pas encore de prénom/nom.
+  let prenom = dbPrenom ?? (user?.firstName || "").trim() || null;
+  let nom = dbNom ?? (user?.lastName || "").trim() || null;
 
   if ((!prenom || !nom) && email) {
     const { data: wl } = await admin
