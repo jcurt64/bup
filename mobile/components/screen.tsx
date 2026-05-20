@@ -184,7 +184,19 @@ export function QueryGate<T>({
 }
 
 type Tone = "violet" | "coral" | "teal" | "amber" | "sky";
+// Fond des cartes / Stats teintés (Portefeuille). Désaturé pour rester
+// discret à côté du GradientHero ; le badge interne garde la teinte vive
+// via TONE_FG.
 const TONE_BG: Record<Tone, string> = {
+  violet: "bg-violet-muted",
+  coral: "bg-coral-muted",
+  teal: "bg-teal-muted",
+  amber: "bg-amber-muted",
+  sky: "bg-sky-muted",
+};
+// Pastels plus saturés conservés pour les badges (pastille icône) afin
+// de garder du contraste avec le fond de carte désaturé (TONE_BG).
+const TONE_BADGE_BG: Record<Tone, string> = {
   violet: "bg-violet-soft",
   coral: "bg-coral-soft",
   teal: "bg-teal-soft",
@@ -197,6 +209,15 @@ const TONE_FG: Record<Tone, string> = {
   teal: "#2FB8A6",
   amber: "#F2B65A",
   sky: "#5B8DEF",
+};
+// Dégradé diagonal soft → paper appliqué en fond de Card/Stat quand `tone`
+// est défini. Donne de la profondeur sans saturer la teinte.
+const TONE_GRADIENT: Record<Tone, [string, string]> = {
+  violet: ["#EDE9FE", "#FFFFFF"],
+  coral: ["#FFE7E3", "#FFFFFF"],
+  teal: ["#DCF4F0", "#FFFFFF"],
+  amber: ["#FCEFD6", "#FFFFFF"],
+  sky: ["#E4ECFD", "#FFFFFF"],
 };
 
 export function Card({
@@ -214,24 +235,20 @@ export function Card({
   tone?: Tone;
 }) {
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
-  return (
-    <View
-      className={`rounded-3xl p-5 ${dark ? "" : "border border-line"} ${bg} ${className}`}
-      style={
-        dark
-          ? undefined
-          : {
-              shadowColor: "#0F1629",
-              shadowOpacity: 0.05,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
-            }
-      }
-    >
+  const shadow = dark
+    ? undefined
+    : {
+        shadowColor: "#0F1629",
+        shadowOpacity: 0.05,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      };
+  const inner = (
+    <>
       {badge ? (
         <View
           className={`mb-3 h-10 w-10 items-center justify-center rounded-full ${
-            TONE_BG[badge.tone ?? "violet"]
+            TONE_BADGE_BG[badge.tone ?? "violet"]
           }`}
         >
           <Ionicons
@@ -242,6 +259,29 @@ export function Card({
         </View>
       ) : null}
       {children}
+    </>
+  );
+  if (!dark && tone) {
+    return (
+      <LinearGradient
+        colors={TONE_GRADIENT[tone]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[
+          { borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "#E6E3DA" },
+          shadow,
+        ]}
+      >
+        {inner}
+      </LinearGradient>
+    );
+  }
+  return (
+    <View
+      className={`rounded-3xl p-5 ${dark ? "" : "border border-line"} ${bg} ${className}`}
+      style={shadow}
+    >
+      {inner}
     </View>
   );
 }
@@ -266,8 +306,8 @@ export function Stat({
   coins?: string;
 }) {
   const bg = tone ? TONE_BG[tone] : "bg-paper";
-  return (
-    <View className={`flex-1 rounded-3xl border border-line p-4 ${bg}`}>
+  const inner = (
+    <>
       {icon ? (
         <View
           className={`mb-2 h-8 w-8 items-center justify-center rounded-full ${
@@ -296,6 +336,29 @@ export function Stat({
       {hint ? (
         <Text className="mt-0.5 text-[11px] text-ink-4">{hint}</Text>
       ) : null}
+    </>
+  );
+  if (tone) {
+    return (
+      <LinearGradient
+        colors={TONE_GRADIENT[tone]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          flex: 1,
+          borderRadius: 24,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: "#E6E3DA",
+        }}
+      >
+        {inner}
+      </LinearGradient>
+    );
+  }
+  return (
+    <View className={`flex-1 rounded-3xl border border-line p-4 ${bg}`}>
+      {inner}
     </View>
   );
 }

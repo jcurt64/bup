@@ -156,17 +156,50 @@ export function useDecideRelation() {
 }
 
 // — Mouvements financiers — GET /api/prospect/movements
+
+/** Forme exacte du sous-objet `relation` renvoyé par buildRelation côté
+ *  API (cf. app/api/prospect/movements/route.ts). Ré-utilisé tel quel
+ *  par la modale de détail mobile pour rendre les mêmes infos que le
+ *  RelationDetailModal web. */
+export type MovementRelation = {
+  id: string;
+  date: string | null;
+  pro: string;
+  proName: string;
+  sector: string;
+  motif: string;
+  brief: string | null;
+  reward: number;
+  tier: number;
+  tiers?: number[] | null;
+  timer: string;
+  startDate: string | null;
+  endDate: string | null;
+  decision: string;
+  status: string;
+  relationStatus: string;
+  gain: number | null;
+  campaignStatus: string | null;
+  campaignOpen: boolean;
+  campaignActive: boolean;
+};
+
 export type Movement = {
   id: string;
   date: string;
   origin: string;
+  /** Palier "principal" rétrocompatible (max de campaigns.targeting.requiredTiers). */
   tier: number | null;
+  /** Optionnel : liste triée des paliers couverts par la campagne (1..5).
+   *  Si fourni et de longueur > 1, l'UI affiche un format groupé
+   *  (« Palier 1-2,5 ») au lieu d'un palier unique. */
+  tiers?: number[] | null;
   statusLabel: string;
   statusChip: string;
   amountCents: number;
   amountEur: number;
   sign: string;
-  relation: Record<string, unknown> | null;
+  relation: MovementRelation | null;
 };
 export const useProspectMovements = () =>
   useGet<{ movements: Movement[] }>(
