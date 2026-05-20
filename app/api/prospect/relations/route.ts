@@ -180,6 +180,10 @@ export async function GET() {
       const statusLabel =
         r.status === "settled" ? "Crédité" :
         r.status === "accepted" ? "En séquestre" : "—";
+      // Date de disponibilité des BUUPP Coins en escrow : c'est la fin
+      // de campagne (passage accepted → settled). Pour les déjà crédités
+      // / refusés / expirés, pas pertinent.
+      const availableAt = r.status === "accepted" ? r.campaigns?.ends_at ?? null : null;
       const gain = r.status === "accepted" || r.status === "settled" ? reward : null;
       const date = r.decided_at ?? r.sent_at;
       const proName = displayProName(r.pro_accounts?.raison_sociale);
@@ -223,6 +227,7 @@ export async function GET() {
         // Métadonnées historique
         decision: decisionLabel,
         status: statusLabel,
+        availableAt,
         relationStatus: r.status,
         gain,
         campaignStatus: r.campaigns?.status ?? null,

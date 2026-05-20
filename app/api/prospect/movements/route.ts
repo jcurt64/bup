@@ -219,6 +219,11 @@ export async function GET() {
       (campEndsMs == null || campEndsMs > now);
     const campaignOpen =
       campaignActive && rel.status !== "accepted" && rel.status !== "settled";
+    // Date de disponibilité (escrow → credit) = fin de campagne. Aligné
+    // avec /api/prospect/relations#history pour que RelationDetailModal
+    // affiche la même date quelle que soit l'origine du clic (table
+    // Relations vs table Portefeuille).
+    const availableAt = rel.status === "accepted" ? rel.campaigns?.ends_at ?? null : null;
     return {
       id: rel.id,
       date: rel.decided_at ?? rel.sent_at,
@@ -235,6 +240,7 @@ export async function GET() {
       endDate: rel.campaigns?.ends_at ?? rel.expires_at,
       decision: decisionLabel,
       status: statusDisplay,
+      availableAt,
       relationStatus: rel.status,
       gain,
       campaignStatus: rel.campaigns?.status ?? null,
@@ -247,6 +253,14 @@ export async function GET() {
     const cents = Number(r.amount_cents ?? 0);
     const eur = cents / 100;
     const relation = r.relations && r.relation_id ? buildRelation(r.relations) : null;
+    // Date de disponibilité des BUUPP Coins pour les escrows pending :
+    // c'est la date de fin de campagne, à laquelle l'escrow bascule en
+    // crédit (relation passe de `accepted` → `settled`). Pour les autres
+    // mouvements (déjà crédités, retraits, refunds…), pas pertinent.
+    const availableAt =
+      r.type === "escrow" && r.status === "pending"
+        ? r.relations?.campaigns?.ends_at ?? null
+        : null;
     return {
       id: r.id,
       date: r.created_at,
@@ -255,6 +269,7 @@ export async function GET() {
       tiers: allTiers(r.relations?.campaigns?.targeting ?? null),
       statusLabel: statusLabel(r.type, r.status),
       statusChip: statusChip(r.type, r.status),
+      availableAt,
       amountCents: cents,
       amountEur: eur,
       sign: cents >= 0 ? "+" : "−",

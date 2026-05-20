@@ -1877,7 +1877,7 @@ function formatPaliers(tiers) {
   return uniq.join(' – ');
 }
 
-// Renvoie { label, value } pour rendre « Palier 3 » ou « Paliers 1-2,5 »
+// Renvoie { label, value } pour rendre « Palier 3 » ou « Paliers 1 – 3 – 5 »
 // à partir du Movement renvoyé par /api/prospect/movements (tiers[] si
 // présent, sinon repli sur tier unique).
 function movementTierLabel(m) {
@@ -1888,6 +1888,19 @@ function movementTierLabel(m) {
   const value = formatPaliers(list);
   if (!value) return null;
   return { label: list.length > 1 ? 'Paliers' : 'Palier', value };
+}
+
+// Formate la date de disponibilité des BUUPP Coins pour les mouvements
+// en séquestre (escrow pending) ou les relations "accepted" : c'est la
+// date de fin de campagne. Format "dispo le 12/12/2026". Retourne null
+// si l'iso est absent / invalide.
+function formatAvailableAt(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return 'dispo le ' + d.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
 }
 
 function Portefeuille({ pendingDetail, onPendingConsumed }) {
@@ -2133,7 +2146,15 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                         ? <span className="chip">{t.label} {t.value}</span>
                         : <span className="muted">—</span>;
                     })()}</td>
-                    <td><span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')}>{m.statusLabel}</span></td>
+                    <td>
+                      <span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')}>{m.statusLabel}</span>
+                      {(() => {
+                        const avail = formatAvailableAt(m.availableAt);
+                        return avail
+                          ? <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{avail}</div>
+                          : null;
+                      })()}
+                    </td>
                     <td style={{ textAlign: 'right' }} className="mono tnum">
                       <span style={{ color: m.amountCents >= 0 ? 'var(--good)' : 'var(--ink-3)' }}>{amountStr} €</span>
                     </td>
@@ -4238,7 +4259,15 @@ function Relations() {
                         : <span className="muted">—</span>;
                     })()}</td>
                     <td><span className={'chip ' + (h.decision === 'Acceptée' ? 'chip-good' : '')}>{h.decision}</span></td>
-                    <td className="muted">{h.status}</td>
+                    <td className="muted">
+                      <div>{h.status}</div>
+                      {(() => {
+                        const avail = formatAvailableAt(h.availableAt);
+                        return avail
+                          ? <div style={{ fontSize: 11, marginTop: 4 }}>{avail}</div>
+                          : null;
+                      })()}
+                    </td>
                     <td className="mono tnum" style={{ textAlign: 'right', color: gainStr === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{gainStr === '—' ? '—' : gainStr + ' €'}</td>
                   </tr>
                 );
@@ -4319,7 +4348,14 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             {alreadyAccepted ? (
               <>
                 <strong>Déjà accepté</strong> — votre récompense est dans votre portefeuille
-                {r.relationStatus === 'settled' ? ' (créditée)' : ' (en séquestre)'}.
+                {r.relationStatus === 'settled'
+                  ? ' (créditée)'
+                  : (() => {
+                      const avail = formatAvailableAt(r.availableAt);
+                      return avail
+                        ? ` (en séquestre · ${avail})`
+                        : ' (en séquestre)';
+                    })()}.
               </>
             ) : canAccept ? (
               <>
