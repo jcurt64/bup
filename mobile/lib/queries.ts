@@ -213,6 +213,10 @@ export type MovementRelation = {
   endDate: string | null;
   decision: string;
   status: string;
+  /** ISO de la date de fin de campagne pour les relations en séquestre
+   *  (status='accepted'). Date à laquelle l'escrow basculera en crédit.
+   *  null si la relation n'est pas en séquestre (refused/settled/etc.). */
+  availableAt: string | null;
   relationStatus: string;
   gain: number | null;
   campaignStatus: string | null;

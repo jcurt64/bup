@@ -40,6 +40,22 @@ function fmtEur(n: number): string {
   return `${n.toFixed(2).replace(".", ",")} €`;
 }
 
+// "dispo le 12/12/2026" — parité web (Prospect.jsx fn formatAvailableAt).
+// Retourne null si l'iso est absent / invalide.
+function formatAvailableAt(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return (
+    "dispo le " +
+    d.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  );
+}
+
 // Compacte [1,2,5] → "1-2,5" (idem helper Portefeuille). Inline pour
 // éviter une dépendance circulaire écran ⇄ composant.
 function formatPaliers(tiers: number[]): string | null {
@@ -169,7 +185,14 @@ export function MovementDetailSheet({
             {alreadyAccepted ? (
               <>
                 <Text className="font-semibold">Déjà acceptée</Text> — votre récompense est
-                {r.relationStatus === "settled" ? " créditée." : " en séquestre."}
+                {r.relationStatus === "settled"
+                  ? " créditée."
+                  : (() => {
+                      const avail = formatAvailableAt(r.availableAt);
+                      return avail
+                        ? ` en séquestre · ${avail}.`
+                        : " en séquestre.";
+                    })()}
               </>
             ) : canAccept ? (
               <>
