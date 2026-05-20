@@ -1860,8 +1860,9 @@ function StatusPill({ label, value, chip }) {
 }
 
 /* ---------- Portefeuille ---------- */
-// Sérialise la liste des paliers couverts par une campagne en notation
-// compacte pour le chip / CSV : [1,2,5] → "1-2,5", [1,3,5] → "1,3,5".
+// Sérialise la liste des paliers couverts par une campagne : [1,3,5] → "1 – 3 – 5".
+// Chaque palier est listé explicitement (pas de compression d'intervalle
+// type "1-3") pour rester lisible côté UI, séparateur tiret cadratin " – ".
 // Retourne null si la liste est vide / invalide.
 function formatPaliers(tiers) {
   if (!Array.isArray(tiers)) return null;
@@ -1873,16 +1874,7 @@ function formatPaliers(tiers) {
     ),
   ].sort((a, b) => a - b);
   if (uniq.length === 0) return null;
-  const groups = [];
-  let start = uniq[0];
-  let prev = uniq[0];
-  for (let i = 1; i <= uniq.length; i++) {
-    const cur = uniq[i];
-    if (cur === prev + 1) { prev = cur; continue; }
-    groups.push(start === prev ? `${start}` : `${start}-${prev}`);
-    if (cur !== undefined) { start = cur; prev = cur; }
-  }
-  return groups.join(',');
+  return uniq.join(' – ');
 }
 
 // Renvoie { label, value } pour rendre « Palier 3 » ou « Paliers 1-2,5 »
@@ -4030,7 +4022,12 @@ function Relations() {
             return (
               <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
                 <div className="row between center" style={{ marginBottom: 14 }}>
-                  <span className="chip chip-accent">Palier {p.tier}</span>
+                  {(() => {
+                    const t = movementTierLabel(p);
+                    return t
+                      ? <span className="chip chip-accent">{t.label} {t.value}</span>
+                      : <span className="chip chip-accent">Palier —</span>;
+                  })()}
                   <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
                     <Icon name="bolt" size={10}/> {p.timer}
                   </span>
@@ -4234,7 +4231,12 @@ function Relations() {
                         )}
                       </div>
                     </td>
-                    <td><span className="chip">Palier {h.tier}</span></td>
+                    <td>{(() => {
+                      const t = movementTierLabel(h);
+                      return t
+                        ? <span className="chip">{t.label} {t.value}</span>
+                        : <span className="muted">—</span>;
+                    })()}</td>
                     <td><span className={'chip ' + (h.decision === 'Acceptée' ? 'chip-good' : '')}>{h.decision}</span></td>
                     <td className="muted">{h.status}</td>
                     <td className="mono tnum" style={{ textAlign: 'right', color: gainStr === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{gainStr === '—' ? '—' : gainStr + ' €'}</td>
@@ -4336,7 +4338,12 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>{r.pro}</div>
             <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{r.sector}</div>
           </div>
-          <span className="chip chip-accent" style={{ alignSelf: 'center' }}>Palier {r.tier}</span>
+          {(() => {
+            const t = movementTierLabel(r);
+            return t
+              ? <span className="chip chip-accent" style={{ alignSelf: 'center' }}>{t.label} {t.value}</span>
+              : <span className="chip chip-accent" style={{ alignSelf: 'center' }}>Palier —</span>;
+          })()}
         </div>
 
         {/* Brief de campagne — texte court rédigé par le pro */}

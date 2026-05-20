@@ -66,6 +66,23 @@ function highestTier(targeting: Record<string, unknown> | null): number {
   return Math.min(5, Math.max(1, max));
 }
 
+// Liste triée/unique des paliers (1..5) couverts par la campagne. Permet
+// au front d'afficher tous les paliers concernés ("Paliers 1 – 3 – 5") au
+// lieu du seul palier le plus haut (cf. movementTierLabel côté Prospect.jsx).
+// Aligné sur la même logique que /api/prospect/movements#allTiers.
+function allTiers(targeting: Record<string, unknown> | null): number[] | null {
+  const t = targeting?.requiredTiers;
+  if (!Array.isArray(t) || t.length === 0) return null;
+  const cleaned = [
+    ...new Set(
+      t
+        .map((n) => Math.round(Number(n) || 0))
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5),
+    ),
+  ].sort((a, b) => a - b);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function isFlashDealTargeting(targeting: Record<string, unknown> | null): boolean {
   return targeting?.durationKey === "1h";
 }
@@ -135,6 +152,7 @@ export async function GET() {
         brief: r.campaigns?.brief ?? null,
         reward,
         tier: highestTier(r.campaigns?.targeting ?? null),
+        tiers: allTiers(r.campaigns?.targeting ?? null),
         timer: timerString(r.expires_at),
         // Échéance brute : l'en-tête du dashboard s'en sert pour calculer
         // la « prochaine échéance » (min sur les pending) sans reparser
@@ -198,6 +216,7 @@ export async function GET() {
         brief: r.campaigns?.brief ?? null,
         reward,
         tier: highestTier(r.campaigns?.targeting ?? null),
+        tiers: allTiers(r.campaigns?.targeting ?? null),
         timer: timerString(r.expires_at),
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
