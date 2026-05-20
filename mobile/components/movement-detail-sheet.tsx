@@ -185,14 +185,20 @@ export function MovementDetailSheet({
             {alreadyAccepted ? (
               <>
                 <Text className="font-semibold">Déjà acceptée</Text> — votre récompense est
-                {r.relationStatus === "settled"
-                  ? " créditée."
-                  : (() => {
-                      const avail = formatAvailableAt(r.availableAt);
-                      return avail
-                        ? ` en séquestre · ${avail}.`
-                        : " en séquestre.";
-                    })()}
+                {r.relationStatus === "settled" ? (
+                  " créditée."
+                ) : (() => {
+                  const avail = formatAvailableAt(r.availableAt);
+                  return avail ? (
+                    <>
+                      {" en séquestre · "}
+                      <Text className="font-semibold text-good">{avail}</Text>
+                      {"."}
+                    </>
+                  ) : (
+                    " en séquestre."
+                  );
+                })()}
               </>
             ) : canAccept ? (
               <>
