@@ -99,29 +99,57 @@ export async function GET() {
 
   const ids = (broadcasts ?? []).map((b) => b.id);
   const readSet = new Set<string>();
+  const dismissedSet = new Set<string>();
   if (ids.length > 0) {
-    const { data: reads, error: readErr } = await admin
-      .from("admin_broadcast_reads")
-      .select("broadcast_id")
-      .eq("clerk_user_id", userId)
-      .in("broadcast_id", ids);
-    if (readErr) {
-      console.error("[/api/me/notifications GET] reads lookup failed", readErr);
+    const [readsRes, dismissalsRes] = await Promise.all([
+      admin
+        .from("admin_broadcast_reads")
+        .select("broadcast_id")
+        .eq("clerk_user_id", userId)
+        .in("broadcast_id", ids),
+      // `admin_broadcast_dismissals` n'est pas dans les types Supabase
+      // générés (migration manuelle). Cast `as any` volontaire, même esprit
+      // que ailleurs (lib/admin/queries/suggestions.ts).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (admin as any)
+        .from("admin_broadcast_dismissals")
+        .select("broadcast_id")
+        .eq("clerk_user_id", userId)
+        .in("broadcast_id", ids),
+    ]);
+    if (readsRes.error) {
+      console.error("[/api/me/notifications GET] reads lookup failed", readsRes.error);
     } else {
-      for (const r of reads ?? []) readSet.add(r.broadcast_id);
+      for (const r of readsRes.data ?? []) readSet.add(r.broadcast_id);
+    }
+    if (dismissalsRes.error) {
+      console.error(
+        "[/api/me/notifications GET] dismissals lookup failed",
+        dismissalsRes.error,
+      );
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (dismissalsRes.data ?? []) as { broadcast_id: string }[]) {
+        dismissedSet.add(r.broadcast_id);
+      }
     }
   }
 
-  const items = (broadcasts ?? []).map((b) => ({
-    id: b.id,
-    title: b.title,
-    body: b.body,
-    audience: b.audience,
-    hasAttachment: !!b.attachment_path,
-    attachmentFilename: b.attachment_filename,
-    createdAt: b.created_at,
-    unread: !readSet.has(b.id),
-  }));
+  // Filtre : les broadcasts que l'utilisateur a explicitement supprimés
+  // sont retirés de la liste. Le broadcast reste en DB mais devient
+  // invisible pour cet utilisateur (per-user dismissal).
+  const items = (broadcasts ?? [])
+    .filter((b) => !dismissedSet.has(b.id))
+    .map((b) => ({
+      id: b.id,
+      title: b.title,
+      body: b.body,
+      audience: b.audience,
+      hasAttachment: !!b.attachment_path,
+      attachmentFilename: b.attachment_filename,
+      createdAt: b.created_at,
+      unread: !readSet.has(b.id),
+    }));
 
   return NextResponse.json({
     notifications: items,

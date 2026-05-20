@@ -1170,6 +1170,11 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
   // (date + titre + chevron). Permet à l'utilisateur d'avoir plusieurs
   // messages ouverts simultanément s'il le souhaite.
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  // ID du message dont la suppression est en attente de confirmation
+  // (pattern two-step inline : 1er clic → mode "Confirmer ?", 2e clic →
+  // DELETE effectif). Reset si l'utilisateur ferme la carte ou clique
+  // "Annuler".
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const itemRefs = React.useRef({});
 
   const toggleExpanded = React.useCallback((id) => {
@@ -1242,6 +1247,36 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
       fetch(`/api/me/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => null)
     ));
     window.dispatchEvent(new CustomEvent('bupp:notifications-changed'));
+  }
+
+  // Suppression d'un message côté inbox utilisateur. Le broadcast en base
+  // reste intact (audience partagée) ; on POSE juste une row dans
+  // admin_broadcast_dismissals via DELETE /api/me/notifications/[id].
+  // Optimistic update : on retire la ligne immédiatement ; si l'API
+  // échoue, on rollback et on signale l'erreur côté banner. Émet aussi
+  // bupp:notifications-changed pour resynchroniser la cloche du header.
+  async function deleteMessage(id) {
+    const prev = items;
+    setItems(cur => cur.filter(i => i.id !== id));
+    setConfirmDeleteId(null);
+    setExpandedIds(curr => {
+      if (!curr.has(id)) return curr;
+      const next = new Set(curr);
+      next.delete(id);
+      return next;
+    });
+    try {
+      const r = await fetch(
+        `/api/me/notifications/${encodeURIComponent(id)}`,
+        { method: 'DELETE' },
+      );
+      if (!r.ok && r.status !== 204) throw new Error('delete_failed');
+      window.dispatchEvent(new CustomEvent('bupp:notifications-changed'));
+    } catch (e) {
+      // Rollback : on remet la liste précédente et on affiche l'erreur.
+      setItems(prev);
+      setError('Suppression impossible. Réessayez dans un instant.');
+    }
   }
 
   return (
@@ -1331,6 +1366,51 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
                         <span>{item.attachmentFilename ? `Télécharger ${item.attachmentFilename}` : 'Télécharger la pièce jointe'}</span>
                       </a>
                     )}
+                    {/* Footer secondaire : suppression du message côté inbox
+                        utilisateur. Pattern two-step inline pour éviter une
+                        suppression accidentelle (1er clic → confirmation,
+                        2e clic → DELETE effectif). */}
+                    <div
+                      style={{
+                        marginTop: 14,
+                        paddingTop: 12,
+                        borderTop: '1px solid var(--line)',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {confirmDeleteId === item.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            style={{ background: '#DC2626', color: 'white', borderColor: '#DC2626' }}
+                            onClick={() => deleteMessage(item.id)}
+                          >
+                            <Icon name="trash" size={12}/> Confirmer la suppression
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setConfirmDeleteId(item.id)}
+                          style={{ color: 'var(--danger, #DC2626)', fontSize: 12 }}
+                          title="Retirer ce message de votre boîte de réception"
+                        >
+                          <Icon name="trash" size={12}/> Supprimer ce message
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </article>
