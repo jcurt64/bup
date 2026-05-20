@@ -41,8 +41,12 @@
 
        Dépendances : Shell.jsx = primitives partagées (Logo/Icon/Avatar/
        ScoreGauge/Progress) requises partout ; Objectives.jsx définit
-       Modal (utilisé par Prospect.jsx) et RechargeModal (utilisé par
-       Pro.jsx). */
+       Modal/RechargeModal ; Prospect.jsx exporte aussi DashShell,
+       SectionTitle, MessagesPanel, SuggestionsPanel, HeaderSearch,
+       EmailTrackingConsentCard — Pro.jsx les RÉUTILISE, donc la route
+       'pro' charge AUSSI Prospect.jsx (sinon ReferenceError DashShell).
+       L'inverse n'existe pas : Prospect.jsx ne référence Pro.jsx que
+       dans un commentaire. */
     (function () {
       var v = '';
       try { v = new URLSearchParams(window.location.search).get('v') || ''; } catch (e) {}
@@ -57,7 +61,7 @@
         landing:  ['Shell', 'Landing'],
         auth:     ['Shell', 'Auth'],
         prospect: ['Shell', 'Objectives', 'Prospect'],
-        pro:      ['Shell', 'Objectives', 'Pro'],
+        pro:      ['Shell', 'Objectives', 'Prospect', 'Pro'],
         waitlist: []
       };
       var files = byRoute[route] || [];
