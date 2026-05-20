@@ -8,7 +8,7 @@ var { useState, useEffect } = React;
    optimiste côté UI pour ne pas geler le formulaire.
 
    Toute édition de "Mes données" se propage à :
-   - la salutation du header ("Bonjour Marie")
+   - la salutation du header ("Bonjour Marie" / "Bonsoir Marie" à partir de 19h)
    - l'avatar du topbar (initiales)
    - les onglets Préférences / Score                              */
 const EMPTY_TIER = {
@@ -1761,12 +1761,17 @@ function ProspectHeader() {
       : `${pendingCount} mise${pendingCount > 1 ? 's' : ''} en relation en attente`
         + (deadlineLabel ? ` · prochaine échéance dans ${deadlineLabel}` : '');
 
+  // Salutation contextuelle : "Bonsoir" à partir de 19h locale, "Bonjour" sinon.
+  // Réutilise nowTs (tick 60 s) pour basculer automatiquement à 19h pile sans
+  // attendre un refresh ni un autre événement React.
+  const greeting = new Date(nowTs).getHours() >= 19 ? 'Bonsoir' : 'Bonjour';
+
   return (
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0 }}>
-            — Bonjour {prenom || '—'}
+            — {greeting} {prenom || '—'}
             {isFounder && (
               <span
                 title="Vous êtes fondateur·ice — priorité 10 min sur les flash deals + bonus 2× le 1er mois"
