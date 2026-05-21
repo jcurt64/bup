@@ -95,7 +95,7 @@ export function MessagesSheet({
           </View>
         ) : null}
       </View>
-      <Text className="mb-3 mt-0.5 text-sm text-ink-4">
+      <Text className="mb-3 mt-0.5 text-base text-ink-4">
         {notifs.length === 0
           ? "Aucun message pour le moment."
           : `${notifs.length} message${notifs.length > 1 ? "s" : ""}${
@@ -161,18 +161,18 @@ export function MessagesSheet({
                   <View className="flex-1">
                     <View className="flex-row justify-between">
                       <Text
-                        className={`flex-1 pr-2 text-base ${
+                        className={`flex-1 pr-2 text-lg ${
                           n.unread ? "font-semibold text-ink" : "text-ink-2"
                         }`}
                       >
                         {n.title}
                       </Text>
-                      <Text className="font-mono text-[10px] text-ink-4">
+                      <Text className="font-mono text-[12px] text-ink-4">
                         {dateFr(n.createdAt)}
                       </Text>
                     </View>
                     {n.body ? (
-                      <Text className="mt-1 text-sm leading-5 text-ink-3">
+                      <Text className="mt-1 text-base leading-6 text-ink-3">
                         {n.body}
                       </Text>
                     ) : null}
@@ -191,7 +191,7 @@ export function MessagesSheet({
                           }
                         }}
                       >
-                        <Text className="text-xs text-ink-2">
+                        <Text className="text-sm text-ink-2">
                           📎 {n.attachmentFilename ?? "Pièce jointe"}
                         </Text>
                       </Pressable>
@@ -207,8 +207,8 @@ export function MessagesSheet({
                       accessibilityLabel="Supprimer ce message"
                       className="mt-3 flex-row items-center gap-1.5 self-start py-1 active:opacity-60"
                     >
-                      <Ionicons name="trash-outline" size={13} color="#DC2626" />
-                      <Text className="text-[12.5px] font-medium text-bad">
+                      <Ionicons name="trash-outline" size={15} color="#DC2626" />
+                      <Text className="text-sm font-medium text-bad">
                         Supprimer ce message
                       </Text>
                     </Pressable>

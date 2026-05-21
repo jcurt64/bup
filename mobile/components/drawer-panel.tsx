@@ -47,7 +47,7 @@ function Row({
         />
       </View>
       <Text
-        className={`text-base ${danger ? "text-[#FF8A80]" : "text-paper"}`}
+        className={`text-lg ${danger ? "text-[#FF8A80]" : "text-paper"}`}
       >
         {label}
       </Text>
@@ -157,7 +157,7 @@ export default function DrawerPanel() {
           ))}
 
           <Text
-            className="mt-5 px-3 text-[11px] font-bold uppercase text-white/45"
+            className="mt-5 px-3 text-[13px] font-bold uppercase text-white/45"
             style={{ letterSpacing: 1.2 }}
           >
             Suivez-nous

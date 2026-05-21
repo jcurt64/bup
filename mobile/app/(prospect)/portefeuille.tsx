@@ -6,9 +6,13 @@
 // mouvements. Le mobile omet l'action "Retirer" et l'export CSV (hors
 // périmètre — parité de données uniquement).
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+
+// Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
+const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
 
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import {
@@ -188,21 +192,21 @@ export default function Portefeuille() {
               {/* Header : label + icône wallet alignés horizontalement.
                   Remplace l'ancien badge auto-rendu par <Card badge=...>. */}
               <View className="mb-3 flex-row items-center justify-between">
-                <Text className="font-serif text-lg text-ink">
+                <Text className="font-serif text-xl text-ink">
                   Votre portefeuille
                 </Text>
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-violet-soft">
                   <Ionicons name="wallet-outline" size={20} color="#7C5CFC" />
                 </View>
               </View>
-              <Text className="font-mono text-[11px] uppercase text-ink-4">
+              <Text className="font-mono text-[13px] uppercase text-ink-4">
                 Disponible
               </Text>
               <Text className="mt-1 font-serif text-4xl text-violet">
                 {eur(d.availableEur)}
               </Text>
               <CoinsLine coins={coins(d.availableCents)} />
-              <Text className="mt-1 text-xs text-ink-4">
+              <Text className="mt-1 text-sm text-ink-4">
                 {d.canWithdraw
                   ? "Retirable immédiatement · minimum de 5 €"
                   : `Retirable à partir de ${eur(d.withdrawThresholdEur)} de gains`}
@@ -227,7 +231,7 @@ export default function Portefeuille() {
 
             <Card tone="amber">
               <Text
-                className="text-[10px] font-bold uppercase text-ink-4"
+                className="text-[12px] font-bold uppercase text-ink-4"
                 style={{ letterSpacing: 0.8 }}
               >
                 Cumulé depuis ouverture
@@ -236,7 +240,7 @@ export default function Portefeuille() {
                 {eur(d.lifetimeGainsEur)}
               </Text>
               <CoinsLine coins={coins(d.lifetimeGainsCents)} />
-              <Text className="mt-2 text-xs text-ink-4">
+              <Text className="mt-2 text-sm text-ink-4">
                 {lifetimeSub(d.accountCreatedAt, d.relationsCount)}
               </Text>
             </Card>
@@ -246,17 +250,37 @@ export default function Portefeuille() {
 
       <Card badge={{ icon: "swap-vertical-outline", tone: "sky" }} tone="sky">
         <Text
-          className="text-[11px] font-bold uppercase text-ink-4"
+          className="text-[13px] font-bold uppercase text-ink-4"
           style={{ letterSpacing: 1.2 }}
         >
           Mouvements
         </Text>
-        <QueryGate
-          query={m}
-          isEmpty={(d) => (d.movements?.length ?? 0) === 0}
-          emptyLabel="Aucun mouvement pour le moment."
-        >
+        <QueryGate query={m}>
           {(d) => (
+            (d.movements?.length ?? 0) === 0 ? (
+              // Empty state — illustration 3D thiings.co (Empty Wallet)
+              // sur cercle pastel ambre, titre serif + sous-titre amical
+              // (esthétique cohérente avec messages-sheet.tsx).
+              <View className="mt-4 items-center px-4 pb-2">
+                <View
+                  className="mb-3 h-40 w-40 items-center justify-center rounded-full"
+                  style={{ backgroundColor: "rgba(242, 182, 90, 0.10)" }}
+                >
+                  <Image
+                    source={EMPTY_WALLET}
+                    style={{ width: 128, height: 128 }}
+                    contentFit="contain"
+                    accessibilityLabel="Portefeuille vide"
+                  />
+                </View>
+                <Text className="font-serif text-xl text-ink">
+                  Aucun mouvement
+                </Text>
+                <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
+                  Vos prochaines mises en relation,{"\n"}gains et retraits s'afficheront ici.
+                </Text>
+              </View>
+            ) : (
             <View className="mt-3 gap-2">
               {d.movements.map((mv) => {
                 const tList = movementTiers(mv);
@@ -284,16 +308,16 @@ export default function Portefeuille() {
                   }`}
                 >
                   <View className="flex-1 pr-3">
-                    <Text className="text-sm text-ink-2" numberOfLines={1}>
+                    <Text className="text-base text-ink-2" numberOfLines={1}>
                       {mv.origin}
                     </Text>
                     <View className="mt-0.5 flex-row items-center gap-2">
-                      <Text className="font-mono text-[10px] text-ink-4">
+                      <Text className="font-mono text-[12px] text-ink-4">
                         {dateFr(mv.date)} · {mv.statusLabel}
                       </Text>
                       {tStr ? (
                         <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
-                          <Text className="font-mono text-[9px] text-ink-3">
+                          <Text className="font-mono text-[11px] text-ink-3">
                             {tLabel} {tStr}
                           </Text>
                         </View>
@@ -302,7 +326,7 @@ export default function Portefeuille() {
                   </View>
                   <View className="flex-row items-center gap-2">
                     <Text
-                      className={`font-serif text-base ${
+                      className={`font-serif text-lg ${
                         mv.amountCents > 0 ? "text-violet" : "text-ink-3"
                       }`}
                     >
@@ -321,6 +345,7 @@ export default function Portefeuille() {
                 );
               })}
             </View>
+            )
           )}
         </QueryGate>
       </Card>
