@@ -85,11 +85,26 @@ function IconButton({
 // les 2.4 s — équivalent RN du keyframes `flash-deal-badge-pulse` web.
 // Ne s'affiche que s'il y a au moins 1 deal actif (sinon le bouton
 // est inutile et on évite le bruit visuel).
-function FlashHeaderButton({ onPress }: { onPress: () => void }) {
+function FlashHeaderButton({
+  onPress,
+  active,
+}: {
+  onPress: () => void;
+  /** Si true : anneau pulsant violet (au moins 1 deal en cours).
+   *  Si false : bouton statique (rien à signaler — évite le bruit). */
+  active: boolean;
+}) {
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.55);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
+    if (!active) {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+      scale.value = 1;
+      opacity.value = 0;
+      return;
+    }
     // 0 → max sur 1.2 s, retour à 0 sur 1.2 s (= 2.4 s total) en boucle.
     scale.value = withRepeat(
       withTiming(1.55, { duration: 1200, easing: Easing.out(Easing.quad) }),
@@ -97,7 +112,7 @@ function FlashHeaderButton({ onPress }: { onPress: () => void }) {
       true,
     );
     opacity.value = withRepeat(
-      withTiming(0, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      withTiming(0.55, { duration: 1200, easing: Easing.out(Easing.quad) }),
       -1,
       true,
     );
@@ -105,7 +120,7 @@ function FlashHeaderButton({ onPress }: { onPress: () => void }) {
       cancelAnimation(scale);
       cancelAnimation(opacity);
     };
-  }, [scale, opacity]);
+  }, [active, scale, opacity]);
 
   const ringStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -182,9 +197,10 @@ export function AppHeader() {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {flashCount > 0 ? (
-            <FlashHeaderButton onPress={() => setShowFlash(true)} />
-          ) : null}
+          <FlashHeaderButton
+            onPress={() => setShowFlash(true)}
+            active={flashCount > 0}
+          />
           <IconButton
             icon="notifications-outline"
             bg="bg-amber-soft"
