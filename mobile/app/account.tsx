@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BottomSheet } from "../components/bottom-sheet";
 import { GridBg } from "../components/grid-bg";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
 
@@ -67,21 +68,28 @@ function Row({
   version,
   date,
   color,
+  danger,
   onPress,
+  disabled,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   version?: string;
   date?: string;
   color: string;
+  danger?: boolean;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="flex-row items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5 active:opacity-80"
+      className={`flex-row items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5 active:opacity-80 ${
+        disabled ? "opacity-50" : ""
+      }`}
     >
       <View
         className="h-9 w-9 items-center justify-center rounded-full"
@@ -90,7 +98,10 @@ function Row({
         <Ionicons name={icon} size={18} color={color} />
       </View>
       <View className="flex-1">
-        <Text className="text-[15px] text-ink" numberOfLines={1}>
+        <Text
+          className={`text-[15px] ${danger ? "font-semibold text-bad" : "text-ink"}`}
+          numberOfLines={1}
+        >
           {label}
         </Text>
         {version || date ? (
@@ -114,6 +125,10 @@ export default function AccountPage() {
   const versions = usePageVersions();
   const del = useDeleteAccount();
   const [busy, setBusy] = useState(false);
+  // Sheet d'avertissement renforcée affichée au clic sur la Row
+  // « Suppression du compte ». Ne pas confondre avec l'Alert natif
+  // qui sert de confirmation finale juste avant le DELETE.
+  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
 
   // Build display rows in the fixed LINKS order, hydrated by /api/page-versions.
   const items = (versions.data?.items ?? []).reduce<Record<string, { title: string; href: string; version: string; date: string }>>(
@@ -217,27 +232,28 @@ export default function AccountPage() {
           )}
         </View>
 
-        {/* Séparateur visuel */}
+        {/* Séparateur visuel + Row danger discrète. Le bloc d'avertissement
+            renforcé n'apparaît qu'à l'ouverture du BottomSheet ci-dessous. */}
         <View className="my-2 h-px bg-line" />
 
-        {/* Bloc « Suppression définitive » — parité visuelle DeleteAccountModal
-            web (Prospect.jsx) : bordure rouge épaisse en haut, badge `!` rond,
-            encart rouge sur la perte des BUUPP coins, tip ambre sur le retrait
-            préalable des gains, bouton danger plein largeur. */}
-        <View
-          className="rounded-2xl bg-paper"
-          style={{
-            borderTopWidth: 4,
-            borderTopColor: "#DC2626",
-            borderLeftWidth: 1,
-            borderRightWidth: 1,
-            borderBottomWidth: 1,
-            borderLeftColor: "#E6E3DA",
-            borderRightColor: "#E6E3DA",
-            borderBottomColor: "#E6E3DA",
-            padding: 18,
-            gap: 14,
-          }}
+        <Row
+          icon="trash-outline"
+          label="Suppression du compte"
+          color="#DC2626"
+          danger
+          onPress={() => setShowDeleteSheet(true)}
+        />
+      </ScrollView>
+
+      {/* Sheet avertissement renforcée — affichée seulement au clic sur la Row */}
+      <BottomSheet
+        visible={showDeleteSheet}
+        onClose={() => (busy ? undefined : setShowDeleteSheet(false))}
+        heightPct={75}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ gap: 14, paddingBottom: 12 }}
         >
           {/* En-tête : badge rond `!` + titre rouge centrés */}
           <View className="items-center">
@@ -314,27 +330,31 @@ export default function AccountPage() {
             </Text>
           </View>
 
-          {/* Bouton plein rouge */}
-          <Pressable
-            disabled={busy}
-            onPress={confirmDelete}
-            accessibilityRole="button"
-            accessibilityLabel="Supprimer définitivement mon compte"
-            className="flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
-            style={{ backgroundColor: busy ? "#FCA5A5" : "#DC2626" }}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-            <Text className="text-sm font-semibold text-paper">
-              {busy ? "Suppression…" : "Supprimer définitivement mon compte"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text className="mt-2 px-1 text-center text-[11px] leading-4 text-ink-4">
-          Pour toute question préalable, contactez le DPO via le lien
-          « Contact DPO » ci-dessus.
-        </Text>
-      </ScrollView>
+          {/* Actions : Annuler (ghost) + Supprimer (plein rouge) */}
+          <View className="mt-1 flex-row gap-3">
+            <Pressable
+              disabled={busy}
+              onPress={() => setShowDeleteSheet(false)}
+              className="flex-1 items-center rounded-full border border-line bg-paper py-3.5 active:opacity-70"
+            >
+              <Text className="text-sm font-medium text-ink-3">Annuler</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              onPress={confirmDelete}
+              accessibilityRole="button"
+              accessibilityLabel="Supprimer définitivement mon compte"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
+              style={{ backgroundColor: busy ? "#FCA5A5" : "#DC2626" }}
+            >
+              <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+              <Text className="text-sm font-semibold text-paper">
+                {busy ? "Suppression…" : "Supprimer"}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
