@@ -78,6 +78,13 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
   const decide = useDecideRelation();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
+  // Toggle l'encart « Complétez vos données » quand l'utilisateur clique
+  // Accepter alors qu'il a des paliers manquants. Évite d'appeler
+  // /decision qui aboutirait mais laisserait le prospect non éligible
+  // (le pro ne peut pas finaliser sans les données requises).
+  const [showFillData, setShowFillData] = useState(false);
+  const missing = d.missingTierKeys ?? [];
+  const hasMissing = missing.length > 0;
 
   // Boutons actifs uniquement quand le prospect a déjà une relation
   // « pending » sur cette campagne (cf. /api/landing/flash-deals qui
@@ -86,11 +93,17 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
 
   async function decideRelation(action: "accept" | "refuse") {
     if (!d.relationId || busy) return;
+    // Garde côté client : si l'utilisateur essaie d'accepter sans
+    // avoir rempli les paliers requis, on bloque et on l'invite à
+    // les compléter (parité web fill_data, mais déclenché par le clic
+    // sur Accepter au lieu d'un mode séparé).
+    if (action === "accept" && hasMissing) {
+      setShowFillData(true);
+      return;
+    }
     setBusy(action);
     try {
       await decide.mutateAsync({ id: d.relationId, action });
-      // Refetch immédiat de la liste pour que la card disparaisse
-      // (l'API filtre par relationStatus = pending pour rester actionable).
       await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
     } catch {
       Alert.alert(
@@ -246,7 +259,48 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
           - fill_data : auth + pas de relation + paliers manquants → CTA
           - no_match : auth + pas de relation + tout rempli → message d'attente
           - non auth : déjà filtré côté liste (sheet est dans l'app loggée) */}
-      {canDecide ? (
+      {canDecide && showFillData && hasMissing ? (
+        // Encart « fill_data » déclenché par un clic Accepter avec des
+        // paliers manquants. Liste les catégories à remplir et pousse
+        // vers /(prospect)/donnees.
+        <View className="gap-2">
+          <View
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              backgroundColor: "#FEF6E7",
+              borderWidth: 1,
+              borderColor: "#F5C57A",
+            }}
+          >
+            <Text className="text-[13px] leading-5" style={{ color: "#92400E" }}>
+              Pour accepter ce deal, complétez d'abord{" "}
+              <Text className="font-semibold">
+                {missing
+                  .map((k) => TIER_KEY_LABEL_FR[k] ?? k)
+                  .join(", ")}
+              </Text>
+              .
+            </Text>
+          </View>
+          <View className="flex-row gap-2">
+            <Pressable
+              onPress={() => setShowFillData(false)}
+              className="items-center rounded-full border border-line bg-paper px-4 py-3 active:opacity-70"
+            >
+              <Text className="text-sm font-medium text-ink-3">Annuler</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/(prospect)/donnees")}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-paper">
+                Compléter mes données
+              </Text>
+              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+      ) : canDecide ? (
         <View className="flex-row gap-3">
           <Pressable
             disabled={busy !== null}
