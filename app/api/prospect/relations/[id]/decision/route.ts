@@ -16,9 +16,27 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
+import { checkRateLimit } from "@/lib/rate-limit/check";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendRelationAccepted } from "@/lib/email/relation-accepted";
 import { sendRelationRefused } from "@/lib/email/relation-refused";
+
+// Anti-spam / anti-DDoS : un utilisateur ne peut prendre qu'une seule
+// décision (accept/refuse/undo) toutes les 5 minutes — fenêtre glissante
+// fixed-window via la table rate_limits. Le client (modale flash deal /
+// onglet Mises en relation) traduit le 429 en message lisible avec
+// countdown. Fail-open côté `checkRateLimit` si la base est down.
+const DECISION_LIMIT = 1;
+const DECISION_WINDOW_SEC = 5 * 60;
+
+function formatRetryAfter(seconds: number): string {
+  const s = Math.max(1, Math.ceil(seconds));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m === 0) return `${r} s`;
+  if (r === 0) return `${m} min`;
+  return `${m} min ${r} s`;
+}
 
 export const runtime = "nodejs";
 
@@ -56,6 +74,29 @@ export async function POST(req: Request, ctx: RouteContext) {
   const action = body.action;
   if (!action || !["accept", "refuse", "undo"].includes(action)) {
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
+  }
+
+  // Rate limit anti-spam : 1 décision / 5 min / user. La key inclut
+  // `userId` et pas la relation_id pour que le quota soit GLOBAL — un
+  // clic sur "accepter" épuise la fenêtre, même pour une autre relation.
+  const limit = await checkRateLimit({
+    key: `relation-decision:${userId}`,
+    limit: DECISION_LIMIT,
+    windowSec: DECISION_WINDOW_SEC,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message:
+          `Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes. Réessayez dans ${formatRetryAfter(limit.retryAfterSec)}.`,
+        retryAfterSec: limit.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSec) },
+      },
+    );
   }
 
   const admin = createSupabaseAdminClient();

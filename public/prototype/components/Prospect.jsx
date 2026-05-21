@@ -222,6 +222,13 @@ function ProspectProvider({ children }) {
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         console.warn('[prospect/relations] decision failed', r.status, j);
+        // Rate-limit anti-spam : on remonte le message serveur (qui
+        // contient le countdown + smiley) via une alerte native — sinon
+        // l'utilisateur enchaîne les clics sans comprendre pourquoi
+        // l'optimistic UI revient en arrière à chaque fois.
+        if (j?.error === 'rate_limited' && typeof j?.message === 'string') {
+          try { window.alert(j.message); } catch (_) {}
+        }
         return false;
       }
       return true;

@@ -1574,7 +1574,15 @@ function FlashDealModal({
   // `insufficient_pro_funds` est le cas le plus visible côté démo : un
   // pro fictif avec wallet à 0 € voit `accept_relation_tx` raise — on
   // explique au prospect que ce n'est pas sa décision qui est en cause.
-  const friendlyDecisionError = (code: string | undefined): string => {
+  // Pour `rate_limited`, on préfère le message serveur car il contient
+  // le countdown dynamique (Réessayez dans X min Y s).
+  const friendlyDecisionError = (
+    code: string | undefined,
+    serverMessage?: string,
+  ): string => {
+    if (code === "rate_limited" && serverMessage) return serverMessage;
+    if (code === "rate_limited")
+      return "Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes.";
     if (!code) return "Erreur — réessayez dans un instant.";
     if (code === "insufficient_pro_funds")
       return "Ce professionnel n'a plus de fonds disponibles pour cette campagne. Réessayez plus tard, ou choisissez une autre offre.";
@@ -1592,6 +1600,19 @@ function FlashDealModal({
       return "Cette sollicitation ne vous est plus accessible.";
     return "Erreur — réessayez dans un instant.";
   };
+
+  // Helper qui parse une réponse non-ok et throw une Error enrichie d'un
+  // serverMessage exploitable côté catch → friendlyDecisionError.
+  const throwApiError = async (response: Response): Promise<never> => {
+    const j = await response.json().catch(() => ({}));
+    const err = new Error(j?.error || "");
+    (err as Error & { serverMessage?: string }).serverMessage = j?.message;
+    throw err;
+  };
+  const extractServerMessage = (e: unknown): string | undefined =>
+    e instanceof Error
+      ? (e as Error & { serverMessage?: string }).serverMessage
+      : undefined;
 
   const decide = async (action: "accept" | "refuse") => {
     // Deals fictifs : pas de relation en base, on simule la décision
@@ -1622,14 +1643,11 @@ function FlashDealModal({
           body: JSON.stringify({ action }),
         },
       );
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new Error(j?.error || "");
-      }
+      if (!r.ok) await throwApiError(r);
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code));
+      setError(friendlyDecisionError(code, extractServerMessage(e)));
     } finally {
       setSubmitting(null);
     }
@@ -1662,14 +1680,11 @@ function FlashDealModal({
           body: JSON.stringify({ action: "refuse" }),
         },
       );
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new Error(j?.error || "");
-      }
+      if (!r.ok) await throwApiError(r);
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code));
+      setError(friendlyDecisionError(code, extractServerMessage(e)));
     } finally {
       setSubmitting(null);
     }
@@ -1702,10 +1717,7 @@ function FlashDealModal({
           body: JSON.stringify({ action: "undo" }),
         },
       );
-      if (!undo.ok) {
-        const j = await undo.json().catch(() => ({}));
-        throw new Error(j?.error || "");
-      }
+      if (!undo.ok) await throwApiError(undo);
       const acc = await fetch(
         `/api/prospect/relations/${deal.relationId}/decision`,
         {
@@ -1714,14 +1726,11 @@ function FlashDealModal({
           body: JSON.stringify({ action: "accept" }),
         },
       );
-      if (!acc.ok) {
-        const j = await acc.json().catch(() => ({}));
-        throw new Error(j?.error || "");
-      }
+      if (!acc.ok) await throwApiError(acc);
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code));
+      setError(friendlyDecisionError(code, extractServerMessage(e)));
     } finally {
       setSubmitting(null);
     }
