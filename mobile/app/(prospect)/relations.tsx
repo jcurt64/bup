@@ -98,10 +98,10 @@ function InfoLine({
   return (
     <View className="flex-row items-center gap-2">
       <View
-        className="h-6 w-6 items-center justify-center rounded-full"
+        className="h-7 w-7 items-center justify-center rounded-full"
         style={{ backgroundColor: bg }}
       >
-        <Ionicons name={icon} size={12} color={fg} />
+        <Ionicons name={icon} size={14} color={fg} />
       </View>
       <View className="flex-1">{children}</View>
     </View>
@@ -168,14 +168,14 @@ function HistoryRow({
             top: 14,
             right: 0,
             backgroundColor: CARD_THEME.accent,
-            paddingLeft: 12,
-            paddingRight: 14,
-            paddingVertical: 4,
+            paddingLeft: 14,
+            paddingRight: 16,
+            paddingVertical: 5,
             borderTopLeftRadius: 999,
             borderBottomLeftRadius: 999,
           }}
         >
-          <Text className="text-[11px] font-bold text-paper">
+          <Text className="text-[13px] font-bold text-paper">
             {dateFr(r.date)}
           </Text>
         </View>
@@ -184,21 +184,21 @@ function HistoryRow({
             la chip date + marge pour que le texte ne passe pas dessous). */}
         <View
           className="flex-row items-center gap-3"
-          style={{ paddingRight: 96 }}
+          style={{ paddingRight: 110 }}
         >
           <View
-            className="h-10 w-10 items-center justify-center rounded-full"
+            className="h-11 w-11 items-center justify-center rounded-full"
             style={{ backgroundColor: CARD_THEME.avatarBg }}
           >
             <Text
-              className="font-serif-bold text-sm"
+              className="font-serif-bold text-base"
               style={{ color: CARD_THEME.accent }}
             >
               {initials(r.pro)}
             </Text>
           </View>
           <Text
-            className="flex-1 font-serif text-[15px] text-ink"
+            className="flex-1 font-serif text-[17px] text-ink"
             numberOfLines={1}
           >
             {r.pro}
@@ -212,7 +212,7 @@ function HistoryRow({
             <View className="flex-1">
               <InfoLine icon="trophy-outline" bg="#FCEFD6" fg="#B45309">
                 <Text
-                  className="text-[12.5px] text-ink-2"
+                  className="text-[14px] text-ink-2"
                   numberOfLines={1}
                 >
                   Palier {r.tier}
@@ -232,7 +232,7 @@ function HistoryRow({
                 fg={isAccepted ? "#16A34A" : isRefused ? "#DC2626" : "#8A91A1"}
               >
                 <Text
-                  className={`text-[12.5px] font-medium ${
+                  className={`text-[14px] font-medium ${
                     isAccepted
                       ? "text-good"
                       : isRefused
@@ -261,7 +261,7 @@ function HistoryRow({
                   fg={isEscrow ? "#2FB8A6" : isCredited ? "#7C5CFC" : "#8A91A1"}
                 >
                   <Text
-                    className="text-[12.5px] text-ink-2"
+                    className="text-[14px] text-ink-2"
                     numberOfLines={1}
                   >
                     {r.status && r.status !== "—" ? r.status : "—"}
@@ -273,20 +273,20 @@ function HistoryRow({
                     currency-eur) à la place de l'ancien trending-up. */}
                 <View className="flex-row items-center gap-2">
                   <View
-                    className="h-6 w-6 items-center justify-center rounded-full"
+                    className="h-7 w-7 items-center justify-center rounded-full"
                     style={{
                       backgroundColor: gainPositive ? "#E8F5EE" : "#F0F1F4",
                     }}
                   >
                     <MaterialCommunityIcons
                       name="currency-eur"
-                      size={13}
+                      size={15}
                       color={gainPositive ? "#16A34A" : "#8A91A1"}
                     />
                   </View>
                   <View className="flex-1">
                     <Text
-                      className={`font-mono text-[12.5px] font-semibold ${
+                      className={`font-mono text-[14px] font-semibold ${
                         gainPositive ? "text-good" : "text-ink-4"
                       }`}
                       numberOfLines={1}
@@ -411,7 +411,7 @@ export default function Relations() {
           ) : (
           <View className="gap-3">
             {/* Compteur de demandes en attente */}
-            <Text className="text-[11px] text-ink-4 font-mono">
+            <Text className="text-[13px] text-ink-4 font-mono">
               {d.pending.length}{" "}
               {d.pending.length === 1
                 ? "demande en attente"
@@ -421,25 +421,25 @@ export default function Relations() {
               <Card key={r.id} badge={{ icon: "people-outline", tone: "coral" }}>
                 <View className="flex-row items-start justify-between">
                   <View className="flex-1 pr-3">
-                    <Text className="font-serif text-lg text-ink">
+                    <Text className="font-serif text-xl text-ink">
                       {r.pro}
                     </Text>
-                    <Text className="text-xs text-ink-4">{r.sector}</Text>
+                    <Text className="text-sm text-ink-4">{r.sector}</Text>
                   </View>
                   <View className="items-end">
-                    <Text className="font-serif text-lg text-violet">
+                    <Text className="font-serif text-xl text-violet">
                       {eur(r.reward)}
                     </Text>
-                    <Text className="font-mono text-[10px] text-ink-4">
+                    <Text className="font-mono text-[12px] text-ink-4">
                       Palier {r.tier} · {r.timer}
                     </Text>
                   </View>
                 </View>
                 {r.motif ? (
-                  <Text className="mt-2 text-sm text-ink-3">{r.motif}</Text>
+                  <Text className="mt-2 text-base leading-6 text-ink-3">{r.motif}</Text>
                 ) : null}
                 {r.brief ? (
-                  <Text className="mt-1 text-xs text-ink-4">{r.brief}</Text>
+                  <Text className="mt-1 text-sm text-ink-4">{r.brief}</Text>
                 ) : null}
                 <View className="mt-4 flex-row gap-3">
                   <Pressable
@@ -447,7 +447,7 @@ export default function Relations() {
                     onPress={() => act(r.id, "refuse")}
                     className="flex-1 items-center rounded-full border border-line py-3 active:opacity-70"
                   >
-                    <Text className="text-sm font-medium text-ink-3">
+                    <Text className="text-base font-medium text-ink-3">
                       Refuser
                     </Text>
                   </Pressable>
@@ -456,7 +456,7 @@ export default function Relations() {
                     onPress={() => act(r.id, "accept")}
                     className="flex-1 items-center rounded-full bg-ink py-3 active:opacity-80"
                   >
-                    <Text className="text-sm font-semibold text-paper">
+                    <Text className="text-base font-semibold text-paper">
                       {busyId === r.id ? "…" : "Accepter"}
                     </Text>
                   </Pressable>
@@ -476,11 +476,11 @@ export default function Relations() {
         {/* Bloc 1 : pastille time-outline + label (font calibré sur la
             section "Mouvements" de la page Accueil). */}
         <View className="flex-row items-center gap-2">
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-sky-soft">
-            <Ionicons name="time-outline" size={15} color="#5B8DEF" />
+          <View className="h-8 w-8 items-center justify-center rounded-full bg-sky-soft">
+            <Ionicons name="time-outline" size={17} color="#5B8DEF" />
           </View>
           <Text
-            className="text-[13px] font-bold uppercase text-ink-4"
+            className="text-[14px] font-bold uppercase text-ink-4"
             style={{ letterSpacing: 1.2 }}
           >
             {`Historique · ${filteredHistory.length}`}
@@ -519,10 +519,10 @@ export default function Relations() {
               <Pressable
                 key={f.key}
                 onPress={() => setHistoryFilter(f.key)}
-                className={`rounded-full px-3.5 py-1 ${colorClasses}`}
+                className={`rounded-full px-3.5 py-1.5 ${colorClasses}`}
               >
                 <Text
-                  className={`text-[11px] ${active ? "font-semibold" : "font-medium"} ${textClasses}`}
+                  className={`text-[13px] ${active ? "font-semibold" : "font-medium"} ${textClasses}`}
                 >
                   {f.label}
                 </Text>

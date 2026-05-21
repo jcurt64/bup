@@ -977,7 +977,7 @@ export default function Donnees() {
                 {"  ·  "}
                 {filledFields}/{totalFields} champs renseignés
               </Text>
-              <Text className="mt-1.5 text-[13px] leading-5 text-ink-4">
+              <Text className="mt-1.5 text-[14px] leading-5 text-ink-4">
                 Un palier est atteint dès qu&apos;au moins une donnée y est
                 renseignée. Plus vous remplissez de champs, plus votre BUUPP
                 Score augmente.
@@ -1042,7 +1042,7 @@ export default function Donnees() {
                 <Text className="font-serif text-base text-ink">
                   Pseudonymiser vos données
                 </Text>
-                <Text className="mt-0.5 text-[12px] text-ink-4">
+                <Text className="mt-0.5 text-[13px] text-ink-4">
                   {pseudonymized
                     ? "Affichage masqué — vos données restent en clair en base"
                     : "Touchez pour masquer l'affichage de toutes vos données"}
@@ -1090,8 +1090,8 @@ export default function Donnees() {
                       Palier {m.n} · {m.label}
                     </Text>
                     {hidden || removed ? (
-                      <View className="rounded-full bg-paper px-2.5 py-1">
-                        <Text className="font-mono text-xs text-ink-4">
+                      <View className="rounded-full bg-paper px-3 py-1">
+                        <Text className="font-mono text-sm text-ink-4">
                           {removed ? "supprimé" : "masqué"}
                         </Text>
                       </View>
@@ -1147,7 +1147,7 @@ export default function Donnees() {
                               <View key={f.key} className="gap-1.5">
                                 <View className="flex-row items-center gap-2">
                                   <FieldIcon icon={f.icon} size={24} />
-                                  <Text className="text-[13px] uppercase text-ink-4">
+                                  <Text className="text-[14px] uppercase text-ink-4">
                                     {f.label}
                                   </Text>
                                 </View>
@@ -1158,7 +1158,7 @@ export default function Donnees() {
                                     : "—"}
                                 </Text>
                                 {f.hint ? (
-                                  <Text className="text-[12px] text-ink-4">
+                                  <Text className="text-[13px] text-ink-4">
                                     {f.hint}
                                   </Text>
                                 ) : null}
@@ -1238,7 +1238,7 @@ export default function Donnees() {
                                   className={`rounded-xl border bg-paper px-3 py-2.5 text-base text-ink ${invalid ? "border-bad" : "border-line"}`}
                                 />
                                 {invalid ? (
-                                  <Text className="mt-1 text-[12px] text-bad">
+                                  <Text className="mt-1 text-[13px] text-bad">
                                     Renseignez uniquement les chiffres.
                                   </Text>
                                 ) : null}
@@ -1347,30 +1347,30 @@ export default function Donnees() {
                               className="flex-row items-center gap-2.5"
                             >
                               <FieldIcon icon={f.icon} />
-                              <Text className="flex-1 text-[14px] text-ink-3">
+                              <Text className="flex-1 text-[15px] text-ink-3">
                                 {f.label}
                               </Text>
                               <View
                                 className="max-w-[60%] flex-row items-center justify-end gap-1.5"
                               >
                                 <Text
-                                  className="shrink text-right text-[14px] text-ink-2"
+                                  className="shrink text-right text-[15px] text-ink-2"
                                   numberOfLines={1}
                                 >
                                   {displayed}
                                 </Text>
                                 {phoneVerified ? (
                                   <View
-                                    className="flex-row items-center gap-0.5 rounded-full px-1.5 py-0.5"
+                                    className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5"
                                     style={{ backgroundColor: "#DCFCE7" }}
                                   >
                                     <Ionicons
                                       name="checkmark-circle"
-                                      size={11}
+                                      size={12}
                                       color="#16A34A"
                                     />
                                     <Text
-                                      className="text-[10px] font-semibold"
+                                      className="text-[11px] font-semibold"
                                       style={{ color: "#15803D" }}
                                     >
                                       Vérifié
@@ -1393,10 +1393,10 @@ export default function Donnees() {
                             >
                               <Ionicons
                                 name="pencil-outline"
-                                size={14}
+                                size={16}
                                 color="#283044"
                               />
-                              <Text className="text-sm text-ink-2">
+                              <Text className="text-base text-ink-2">
                                 Modifier
                               </Text>
                             </Pressable>
@@ -1416,10 +1416,10 @@ export default function Donnees() {
                             >
                               <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}
-                                size={14}
+                                size={16}
                                 color="#283044"
                               />
-                              <Text className="text-sm text-ink-2">
+                              <Text className="text-base text-ink-2">
                                 {hidden ? "Réafficher" : "Masquer"}
                               </Text>
                             </Pressable>
@@ -1430,17 +1430,17 @@ export default function Donnees() {
                             >
                               <Ionicons
                                 name="trash-outline"
-                                size={14}
+                                size={16}
                                 color="#DC2626"
                               />
-                              <Text className="text-sm text-bad">
+                              <Text className="text-base text-bad">
                                 Supprimer
                               </Text>
                             </Pressable>
                           </View>
                         ) : null}
                         {tierAction.isError && (
-                          <Text className="mt-1 text-[13px] text-bad">
+                          <Text className="mt-1 text-[14px] text-bad">
                             Échec de l&apos;action. Réessayez.
                           </Text>
                         )}
