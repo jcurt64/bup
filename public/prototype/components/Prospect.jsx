@@ -4433,7 +4433,15 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
                   : (() => {
                       const avail = formatAvailableAt(r.availableAt);
                       return avail
-                        ? ` (en séquestre · ${avail})`
+                        ? (
+                            <>
+                              {' (en séquestre · '}
+                              <span style={{ color: 'var(--good)', fontWeight: 600 }}>
+                                {avail}
+                              </span>
+                              {')'}
+                            </>
+                          )
                         : ' (en séquestre)';
                     })()}.
               </>
