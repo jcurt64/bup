@@ -1568,6 +1568,31 @@ function FlashDealModal({
     mode = "fill_data";
   else mode = "no_match";
 
+  // Traduit les codes d'erreur de /api/prospect/relations/[id]/decision
+  // en messages lisibles côté UI. Aligne le vocabulaire de la modale
+  // flash deal sur celui du dashboard prospect (onglet Mises en relation).
+  // `insufficient_pro_funds` est le cas le plus visible côté démo : un
+  // pro fictif avec wallet à 0 € voit `accept_relation_tx` raise — on
+  // explique au prospect que ce n'est pas sa décision qui est en cause.
+  const friendlyDecisionError = (code: string | undefined): string => {
+    if (!code) return "Erreur — réessayez dans un instant.";
+    if (code === "insufficient_pro_funds")
+      return "Ce professionnel n'a plus de fonds disponibles pour cette campagne. Réessayez plus tard, ou choisissez une autre offre.";
+    if (code === "campaign_inactive")
+      return "Cette campagne n'est plus active — elle a été clôturée par le professionnel.";
+    if (code === "campaign_expired")
+      return "Cette campagne est terminée — elle a atteint sa date de fin.";
+    if (code === "relation_expired")
+      return "Le délai pour répondre à cette sollicitation est dépassé.";
+    if (code === "invalid_status")
+      return "Cette décision n'est plus possible (statut incompatible).";
+    if (code === "relation_not_found")
+      return "Sollicitation introuvable — elle a peut-être été retirée.";
+    if (code === "forbidden")
+      return "Cette sollicitation ne vous est plus accessible.";
+    return "Erreur — réessayez dans un instant.";
+  };
+
   const decide = async (action: "accept" | "refuse") => {
     // Deals fictifs : pas de relation en base, on simule la décision
     // pour rendre le flux complet utilisable en démo. La décision est
@@ -1599,11 +1624,12 @@ function FlashDealModal({
       );
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        throw new Error(j?.error || "Erreur");
+        throw new Error(j?.error || "");
       }
       await onAfterDecision();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      const code = e instanceof Error ? e.message : "";
+      setError(friendlyDecisionError(code));
     } finally {
       setSubmitting(null);
     }
@@ -1638,11 +1664,12 @@ function FlashDealModal({
       );
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        throw new Error(j?.error || "Erreur");
+        throw new Error(j?.error || "");
       }
       await onAfterDecision();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      const code = e instanceof Error ? e.message : "";
+      setError(friendlyDecisionError(code));
     } finally {
       setSubmitting(null);
     }
@@ -1677,7 +1704,7 @@ function FlashDealModal({
       );
       if (!undo.ok) {
         const j = await undo.json().catch(() => ({}));
-        throw new Error(j?.error || "Impossible de reprendre la décision.");
+        throw new Error(j?.error || "");
       }
       const acc = await fetch(
         `/api/prospect/relations/${deal.relationId}/decision`,
@@ -1689,11 +1716,12 @@ function FlashDealModal({
       );
       if (!acc.ok) {
         const j = await acc.json().catch(() => ({}));
-        throw new Error(j?.error || "Impossible d'accepter.");
+        throw new Error(j?.error || "");
       }
       await onAfterDecision();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      const code = e instanceof Error ? e.message : "";
+      setError(friendlyDecisionError(code));
     } finally {
       setSubmitting(null);
     }
