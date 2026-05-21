@@ -866,9 +866,20 @@ export default function Donnees() {
     <ScrollScreen
       onRefresh={q.refetch}
       hero={{
-        eyebrow: "Mes données — RGPD art. 15 à 22",
+        eyebrow: "Mes données",
         title: "Vos paliers",
         desc: "Plus vous renseignez de données, plus votre BUUPP Score et vos gains augmentent. Vous restez maître de ce que vous partagez.",
+        // Signature visuelle de la page Données — icône layers (palier)
+        // top-right, accent violet pour matcher le thème violet de la
+        // page (barre de complétude, badge ✓ vérifié, pseudonymize…).
+        topRight: (
+          <Ionicons
+            name="layers-outline"
+            size={56}
+            color="#7C5CFC"
+            style={{ opacity: 0.85 }}
+          />
+        ),
       }}
     >
       {/* Bannière droits RGPD — gradient jaune et palette ambre exactement
