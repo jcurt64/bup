@@ -26,13 +26,13 @@ function IconButton({
   color: string;
   label: string;
   onPress: () => void;
-  /** Si > 0 : pastille rouge en haut à droite avec le chiffre.
-   *  Capé à « 9+ » pour ne pas déborder du bouton (40×40). */
+  /** Si > 0 : pastille rouge en haut à droite avec le chiffre exact.
+   *  La largeur est auto (minWidth 18 + paddingHorizontal) pour
+   *  accommoder les nombres à plusieurs chiffres. */
   badgeCount?: number;
 }) {
   const showBadge = (badgeCount ?? 0) > 0;
-  const badgeText =
-    badgeCount && badgeCount > 9 ? "9+" : String(badgeCount ?? 0);
+  const badgeText = String(badgeCount ?? 0);
   return (
     <Pressable
       onPress={onPress}

@@ -20,6 +20,7 @@ import { BottomSheet } from "./bottom-sheet";
 import { Card, dateFr } from "./screen";
 import {
   useDeleteNotification,
+  useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
 } from "../lib/queries";
@@ -34,9 +35,11 @@ export function MessagesSheet({
 }) {
   const q = useNotifications();
   const read = useMarkNotificationRead();
+  const markAll = useMarkAllNotificationsRead();
   const del = useDeleteNotification();
   const download = useAuthedDownload();
   const notifs = q.data?.notifications ?? [];
+  const unreadIds = notifs.filter((n) => n.unread).map((n) => n.id);
 
   // Synchro web ⇄ mobile : refetch à chaque ouverture du sheet pour
   // refléter immédiatement les suppressions/lectures faites côté web
@@ -85,14 +88,34 @@ export function MessagesSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={80}>
-      <View className="flex-row items-center gap-2">
-        <Text className="font-serif text-2xl text-ink">Messages</Text>
-        {notifs.length > 0 ? (
-          <View className="rounded-full bg-ink px-2.5 py-0.5">
-            <Text className="font-mono text-[11px] font-semibold text-paper">
-              {notifs.length}
+      <View className="flex-row items-center justify-between gap-2">
+        <View className="flex-row items-center gap-2">
+          <Text className="font-serif text-2xl text-ink">Messages</Text>
+          {notifs.length > 0 ? (
+            <View className="rounded-full bg-ink px-2.5 py-0.5">
+              <Text className="font-mono text-[11px] font-semibold text-paper">
+                {notifs.length}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {/* « Tout marquer comme lu » — visible uniquement quand il y a
+            au moins 1 non lu (parité web MessagesPanel.markAll). */}
+        {unreadIds.length > 0 ? (
+          <Pressable
+            onPress={() => {
+              if (markAll.isPending) return;
+              markAll.mutate({ ids: unreadIds });
+            }}
+            disabled={markAll.isPending}
+            accessibilityRole="button"
+            accessibilityLabel={`Tout marquer comme lu — ${unreadIds.length} non lus`}
+            className="rounded-full border border-line bg-paper px-3 py-1.5 active:opacity-70"
+          >
+            <Text className="text-[12.5px] font-medium text-ink-2">
+              {markAll.isPending ? "…" : "Tout marquer comme lu"}
             </Text>
-          </View>
+          </Pressable>
         ) : null}
       </View>
       <Text className="mb-3 mt-0.5 text-base text-ink-4">

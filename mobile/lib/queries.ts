@@ -535,6 +535,26 @@ export function useMarkNotificationRead() {
   });
 }
 
+/** Marque toutes les notifications non lues passées en argument comme lues
+ *  (parité web markAll : POST /api/me/notifications/[id]/read en parallèle
+ *  + invalidation du cache). Les erreurs unitaires sont avalées —
+ *  l'objectif est d'aller le plus loin possible. */
+export function useMarkAllNotificationsRead() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { ids: string[] }) => {
+      await Promise.allSettled(
+        v.ids.map((id) =>
+          api(`/api/me/notifications/${id}/read`, { method: "POST" }),
+        ),
+      );
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["me", "notifications"] }),
+  });
+}
+
 /** Suppression d'un message côté inbox utilisateur (parité web :
  *  DELETE /api/me/notifications/[id] → row admin_broadcast_dismissals).
  *  Le broadcast en base reste intact (audience partagée). */
