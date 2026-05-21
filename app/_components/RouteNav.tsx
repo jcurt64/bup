@@ -192,7 +192,11 @@ export default function RouteNav() {
          la nav visible plutôt que de risquer un crash. */
     }
   }, [pathname]);
-  if (inMobileApp) return null;
+  // NB : le `if (inMobileApp) return null;` est volontairement placé
+  // juste avant le `return (` JSX final (cf. plus bas) pour respecter
+  // les Rules of Hooks — un early-return ici sauterait des useState/
+  // useEffect déclarés ensuite et casserait React au prochain render.
+
   // Cache instant : publicMetadata.role lu depuis le session token Clerk.
   // Peut être stale juste après une re-synchro côté serveur (ex.
   // ensureRole vient de basculer le rôle, le token n'a pas encore été
@@ -307,6 +311,11 @@ export default function RouteNav() {
 
   const visibleIds: TabId[] =
     role === "pro" ? PRO_TABS : role === "prospect" ? PROSPECT_TABS : PUBLIC_TABS;
+
+  // Cf. note plus haut : on early-return ICI, après tous les hooks,
+  // pour respecter les Rules of Hooks. Quand l'app mobile bascule le
+  // flag à true via useEffect, le prochain render saute juste le JSX.
+  if (inMobileApp) return null;
 
   return (
     <div ref={navRef} className="route-nav" style={containerStyle(overDark)}>
