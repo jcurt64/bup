@@ -7,17 +7,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
-import { useFlashDeals, type FlashDeal } from "../lib/queries";
+import {
+  useDecideRelation,
+  useFlashDeals,
+  type FlashDeal,
+} from "../lib/queries";
 
-// "HH:MM:SS" depuis un endsAt ISO. "Expirée" si négatif.
-function fmtHms(endsAt: string): string {
-  const ms = new Date(endsAt).getTime() - Date.now();
+// "HH:MM:SS" depuis un endsAt ISO et un nowTs courant (passé en arg
+// pour forcer le re-render à chaque tick du parent). "Expirée" si négatif.
+function fmtHms(endsAt: string, nowTs: number): string {
+  const ms = new Date(endsAt).getTime() - nowTs;
   if (ms <= 0) return "Expirée";
   const s = Math.floor(ms / 1000);
   const h = Math.floor(s / 3600);
@@ -53,16 +61,42 @@ function initials(name: string | null): string {
 }
 
 function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
-  // nowTs sert juste à forcer un re-render à chaque seconde (timer).
-  void nowTs;
-  const hms = fmtHms(d.endsAt);
+  const hms = fmtHms(d.endsAt, nowTs);
+  const expired = hms === "Expirée";
   const mult = fmtMultiplier(d);
+  const decide = useDecideRelation();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
+
+  // Boutons actifs uniquement quand le prospect a déjà une relation
+  // « pending » sur cette campagne (cf. /api/landing/flash-deals qui
+  // joint relations et expose relationId + relationStatus).
+  const canDecide = d.relationStatus === "pending" && !!d.relationId && !expired;
+
+  async function decideRelation(action: "accept" | "refuse") {
+    if (!d.relationId || busy) return;
+    setBusy(action);
+    try {
+      await decide.mutateAsync({ id: d.relationId, action });
+      // Refetch immédiat de la liste pour que la card disparaisse
+      // (l'API filtre par relationStatus = pending pour rester actionable).
+      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+    } catch {
+      Alert.alert(
+        "Action impossible",
+        "La campagne est peut-être expirée. Réessayez dans un instant.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <View
       className="rounded-2xl border border-line bg-paper"
       style={{
         padding: 14,
-        gap: 10,
+        gap: 14,
         // Léger glow violet pour rappeler l'identité flash deal.
         shadowColor: "#4F46E5",
         shadowOpacity: 0.08,
@@ -105,7 +139,7 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
       {/* Brief (mot du pro) — italique, encadré accent doux */}
       {d.brief ? (
         <View
-          className="rounded-xl px-3 py-2"
+          className="rounded-xl px-3 py-2.5"
           style={{
             backgroundColor: "#F4F1FB",
             borderWidth: 1,
@@ -144,7 +178,7 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
           <Text
             className="font-mono text-[16px] font-semibold"
             style={{
-              color: hms === "Expirée" ? "#DC2626" : "#0F1629",
+              color: expired ? "#DC2626" : "#0F1629",
               fontVariant: ["tabular-nums"],
             }}
           >
@@ -152,6 +186,51 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
           </Text>
         </View>
       </View>
+
+      {/* Actions Accepter / Refuser — branchées sur useDecideRelation
+          (POST /api/prospect/relations/[id]/decision). Visibles quand
+          le prospect a déjà une relation pending sur cette campagne. */}
+      {canDecide ? (
+        <View className="flex-row gap-3">
+          <Pressable
+            disabled={busy !== null}
+            onPress={() => decideRelation("refuse")}
+            className="flex-1 items-center rounded-full border border-line bg-paper py-3 active:opacity-70"
+          >
+            <Text className="text-sm font-medium text-ink-3">
+              {busy === "refuse" ? "…" : "Refuser"}
+            </Text>
+          </Pressable>
+          <Pressable
+            disabled={busy !== null}
+            onPress={() => decideRelation("accept")}
+            className="flex-1 items-center rounded-full bg-ink py-3 active:opacity-80"
+          >
+            <Text className="text-sm font-semibold text-paper">
+              {busy === "accept" ? "…" : "Accepter"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : d.relationStatus === "accepted" || d.relationStatus === "settled" ? (
+        <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-good/10 py-2.5">
+          <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+          <Text className="text-[13px] font-medium text-good">
+            Déjà acceptée
+          </Text>
+        </View>
+      ) : d.relationStatus === "refused" ? (
+        <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-bad/10 py-2.5">
+          <Ionicons name="close-circle" size={14} color="#DC2626" />
+          <Text className="text-[13px] font-medium text-bad">
+            Refusée
+          </Text>
+        </View>
+      ) : expired ? null : (
+        // Pas encore sollicité : invitation à compléter ses données.
+        <Text className="text-center text-[12.5px] text-ink-4">
+          Complétez vos données pour pouvoir accepter ce deal.
+        </Text>
+      )}
     </View>
   );
 }
@@ -173,10 +252,13 @@ export function FlashDealsSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // Tick 1 s pour rafraîchir les timers HH:MM:SS visibles.
+  // Tick 1 s pour rafraîchir les timers HH:MM:SS visibles. Reset au
+  // mount pour ne pas afficher une horloge figée si la sheet a été
+  // refermée puis rouverte longtemps après.
   const [nowTs, setNowTs] = useState(Date.now());
   useEffect(() => {
     if (!visible) return;
+    setNowTs(Date.now());
     const t = setInterval(() => setNowTs(Date.now()), 1000);
     return () => clearInterval(t);
   }, [visible]);
@@ -199,8 +281,8 @@ export function FlashDealsSheet({
           </View>
         ) : null}
       </View>
-      <Text className="mb-3 mt-1 text-[13.5px] leading-5 text-ink-3">
-        Les flash deals sont les missions les{" "}
+      <Text className="mb-4 mt-3 text-[13.5px] leading-5 text-ink-3">
+        Les flash deals sont les sollicitations les{" "}
         <Text className="font-semibold text-ink">mieux rémunérées</Text>
         {" "}— bonus{" "}
         <Text className="font-semibold text-violet">×2 immédiat</Text>
