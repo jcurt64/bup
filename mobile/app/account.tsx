@@ -23,24 +23,35 @@ import { useDeleteAccount, usePageVersions } from "../lib/queries";
 const WEB_BASE =
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
 
-// Ordre + icônes des liens affichés (filtre sur les slugs renvoyés par
-// /api/page-versions — on n'expose pas accessibilite ni status dans ce
-// menu mobile, et `aide` est libellé « Documentation »).
+// Ordre + icônes + couleur d'accent par lien. Chaque pastille a sa
+// propre teinte (icône + fond pastel) pour différencier visuellement
+// les rubriques sans peser sur la hiérarchie générale.
 const LINKS: {
   slug: string;
   icon: keyof typeof Ionicons.glyphMap;
+  /** Couleur de l'icône (fond = même teinte à 16 % d'opacité). */
+  color: string;
   /** Override du titre serveur si besoin (sinon on prend `title` du registre). */
   labelOverride?: string;
 }[] = [
-  { slug: "cgu", icon: "reader-outline" },
-  { slug: "cgv", icon: "receipt-outline" },
-  { slug: "rgpd", icon: "shield-checkmark-outline", labelOverride: "Politique des données personnelles" },
-  { slug: "cookies", icon: "key-outline", labelOverride: "Politique des cookies" },
-  { slug: "contact-dpo", icon: "mail-outline", labelOverride: "Contact DPO" },
-  { slug: "bareme", icon: "bar-chart-outline", labelOverride: "Barème des paliers" },
-  { slug: "minimisation", icon: "funnel-outline", labelOverride: "Minimisation" },
-  { slug: "aide", icon: "book-outline", labelOverride: "Documentation" },
+  { slug: "cgu", icon: "reader-outline", color: "#7C5CFC" }, // violet
+  { slug: "cgv", icon: "receipt-outline", color: "#FF7A6B" }, // coral
+  { slug: "rgpd", icon: "shield-checkmark-outline", color: "#2FB8A6", labelOverride: "Politique des données personnelles" }, // teal
+  { slug: "cookies", icon: "cafe-outline", color: "#F2B65A", labelOverride: "Politique des cookies" }, // amber
+  { slug: "contact-dpo", icon: "mail-outline", color: "#5B8DEF", labelOverride: "Contact DPO" }, // sky
+  { slug: "bareme", icon: "bar-chart-outline", color: "#16A34A", labelOverride: "Barème des paliers" }, // good
+  { slug: "minimisation", icon: "funnel-outline", color: "#B45309", labelOverride: "Minimisation" }, // gold
+  { slug: "aide", icon: "book-outline", color: "#5B3FD6", labelOverride: "Documentation" }, // violet-deep
 ];
+
+// Mixe un hex `#RRGGBB` avec du blanc à `mix` % pour obtenir un fond
+// pastel discret (équivalent CSS `color-mix(white, color, mix%)`).
+function softBg(hex: string, mix = 0.16): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${mix})`;
+}
 
 // "21/05/2026" — date courte fr-FR depuis un ISO "YYYY-MM-DD".
 function fmtDateShort(iso: string): string {
@@ -55,38 +66,31 @@ function Row({
   label,
   version,
   date,
-  danger,
+  color,
   onPress,
-  disabled,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   version?: string;
   date?: string;
-  danger?: boolean;
+  color: string;
   onPress: () => void;
-  disabled?: boolean;
 }) {
-  const iconColor = danger ? "#DC2626" : "#7C5CFC";
-  const iconBg = danger ? "bg-coral-soft" : "bg-violet-soft";
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className={`flex-row items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5 active:opacity-80 ${
-        disabled ? "opacity-50" : ""
-      }`}
+      className="flex-row items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5 active:opacity-80"
     >
-      <View className={`h-9 w-9 items-center justify-center rounded-full ${iconBg}`}>
-        <Ionicons name={icon} size={18} color={iconColor} />
+      <View
+        className="h-9 w-9 items-center justify-center rounded-full"
+        style={{ backgroundColor: softBg(color) }}
+      >
+        <Ionicons name={icon} size={18} color={color} />
       </View>
       <View className="flex-1">
-        <Text
-          className={`text-[15px] ${danger ? "text-bad font-semibold" : "text-ink"}`}
-          numberOfLines={1}
-        >
+        <Text className="text-[15px] text-ink" numberOfLines={1}>
           {label}
         </Text>
         {version || date ? (
@@ -100,9 +104,7 @@ function Row({
           </Text>
         ) : null}
       </View>
-      {!danger ? (
-        <Ionicons name="chevron-forward" size={18} color="#B7BCC7" />
-      ) : null}
+      <Ionicons name="chevron-forward" size={18} color="#B7BCC7" />
     </Pressable>
   );
 }
@@ -181,7 +183,7 @@ export default function AccountPage() {
           <Ionicons name="chevron-back" size={22} color="#0F1629" />
         </Pressable>
         <Text className="flex-1 font-serif-bold text-2xl text-ink">
-          Mon compte
+          Informations utiles
         </Text>
       </View>
 
@@ -205,6 +207,7 @@ export default function AccountPage() {
                   key={l.slug}
                   icon={l.icon}
                   label={label}
+                  color={l.color}
                   version={meta?.version}
                   date={meta?.date}
                   onPress={() => openWeb(meta?.href ?? `/${l.slug}`)}
@@ -214,21 +217,122 @@ export default function AccountPage() {
           )}
         </View>
 
-        {/* Séparateur visuel + action danger */}
+        {/* Séparateur visuel */}
         <View className="my-2 h-px bg-line" />
 
-        <Row
-          icon="trash-outline"
-          label={busy ? "Suppression…" : "Suppression du compte"}
-          danger
-          onPress={confirmDelete}
-          disabled={busy}
-        />
+        {/* Bloc « Suppression définitive » — parité visuelle DeleteAccountModal
+            web (Prospect.jsx) : bordure rouge épaisse en haut, badge `!` rond,
+            encart rouge sur la perte des BUUPP coins, tip ambre sur le retrait
+            préalable des gains, bouton danger plein largeur. */}
+        <View
+          className="rounded-2xl bg-paper"
+          style={{
+            borderTopWidth: 4,
+            borderTopColor: "#DC2626",
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderBottomWidth: 1,
+            borderLeftColor: "#E6E3DA",
+            borderRightColor: "#E6E3DA",
+            borderBottomColor: "#E6E3DA",
+            padding: 18,
+            gap: 14,
+          }}
+        >
+          {/* En-tête : badge rond `!` + titre rouge centrés */}
+          <View className="items-center">
+            <View
+              className="mb-2.5 h-14 w-14 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: "#FEF2F2",
+                borderWidth: 1,
+                borderColor: "#FCA5A5",
+              }}
+            >
+              <Ionicons name="alert" size={28} color="#DC2626" />
+            </View>
+            <Text
+              className="font-serif text-[20px] leading-6"
+              style={{ color: "#991B1B" }}
+            >
+              Suppression définitive du compte
+            </Text>
+            <Text className="mt-1 text-[12.5px] text-ink-2">
+              Cette action est <Text className="font-semibold">irréversible</Text>.
+            </Text>
+          </View>
+
+          {/* Encart rouge : pertes encourues (BUUPP coins) */}
+          <View
+            className="rounded-xl"
+            style={{
+              backgroundColor: "#FEF2F2",
+              borderLeftWidth: 3,
+              borderLeftColor: "#DC2626",
+              borderWidth: 1,
+              borderColor: "#FCA5A5",
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+            }}
+          >
+            <Text
+              className="text-[13.5px] leading-5"
+              style={{ color: "#991B1B" }}
+            >
+              En supprimant définitivement votre compte, vous effacerez{" "}
+              <Text className="font-semibold">
+                toutes vos données personnelles
+              </Text>{" "}
+              et perdrez{" "}
+              <Text className="font-semibold">
+                définitivement le solde de vos BUUPP coins
+              </Text>
+              . Vous ne pourrez pas les récupérer, même en recréant un nouveau
+              compte avec les mêmes identifiants.
+            </Text>
+          </View>
+
+          {/* Tip ambre : retirer ses gains d'abord */}
+          <View
+            className="flex-row gap-2 rounded-xl"
+            style={{
+              backgroundColor: "#FEF6E7",
+              borderWidth: 1,
+              borderColor: "#F5C57A",
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            }}
+          >
+            <Ionicons name="warning-outline" size={16} color="#92400E" />
+            <Text
+              className="flex-1 text-[12.5px] leading-5"
+              style={{ color: "#92400E" }}
+            >
+              <Text className="font-semibold">Avant de continuer :</Text>{" "}
+              pensez à récupérer vos gains — une fois supprimé, votre solde ne
+              pourra pas être versé.
+            </Text>
+          </View>
+
+          {/* Bouton plein rouge */}
+          <Pressable
+            disabled={busy}
+            onPress={confirmDelete}
+            accessibilityRole="button"
+            accessibilityLabel="Supprimer définitivement mon compte"
+            className="flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
+            style={{ backgroundColor: busy ? "#FCA5A5" : "#DC2626" }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+            <Text className="text-sm font-semibold text-paper">
+              {busy ? "Suppression…" : "Supprimer définitivement mon compte"}
+            </Text>
+          </Pressable>
+        </View>
 
         <Text className="mt-2 px-1 text-center text-[11px] leading-4 text-ink-4">
-          La suppression est définitive et efface l'ensemble de vos données
-          BUUPP (paliers, mises en relation, gains). Pour toute question
-          préalable, contactez le DPO.
+          Pour toute question préalable, contactez le DPO via le lien
+          « Contact DPO » ci-dessus.
         </Text>
       </ScrollView>
     </SafeAreaView>
