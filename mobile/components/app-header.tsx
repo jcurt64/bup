@@ -50,7 +50,7 @@ export function AppHeader() {
         className="flex-row items-center justify-between border-b border-line bg-ivory px-4 pb-3"
       >
         <IconButton
-          icon="menu"
+          icon="person-outline"
           bg="bg-violet-soft"
           color="#7C5CFC"
           label="Ouvrir le menu"
@@ -76,7 +76,7 @@ export function AppHeader() {
             onPress={() => setShowMessages(true)}
           />
           <IconButton
-            icon="person-outline"
+            icon="menu"
             bg="bg-teal-soft"
             color="#2FB8A6"
             label="Mon compte"
