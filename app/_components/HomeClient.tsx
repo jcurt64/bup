@@ -903,6 +903,49 @@ function fmtMultiplier(m: number): string {
 const MOCK_DECISIONS_KEY = "bupp:mock-deal-decisions:v1";
 const MOCK_DECISIONS_EVENT = "bupp:mock-deal-decisions-changed";
 
+// ─── Rate-limit client (anti-spam local pour mocks ET vrais decisions) ──
+// Aligné sur le rate-limit serveur (/api/prospect/relations/[id]/decision) :
+// 1 décision toutes les 5 min. Les mocks bypassent le serveur — sans ce
+// guard local, l'utilisateur peut spammer Accept/Refuse en boucle. Le
+// guard sert aussi de pré-check UX pour les vraies décisions (évite un
+// aller-retour réseau et affiche un countdown plus précis).
+const DECISION_RATE_KEY = "bupp:last-decision-at:v1";
+const DECISION_COOLDOWN_MS = 5 * 60 * 1000;
+
+function getLastDecisionAt(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DECISION_RATE_KEY);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+function setLastDecisionAt(ts: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DECISION_RATE_KEY, String(ts));
+  } catch {}
+}
+function decisionCooldownLeftMs(now: number = Date.now()): number {
+  const last = getLastDecisionAt();
+  if (last == null) return 0;
+  return Math.max(0, last + DECISION_COOLDOWN_MS - now);
+}
+function formatCooldownMs(ms: number): string {
+  const s = Math.max(1, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m === 0) return `${r} s`;
+  if (r === 0) return `${m} min`;
+  return `${m} min ${r} s`;
+}
+function buildCooldownMessage(remainingMs: number): string {
+  return `Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes. Réessayez dans ${formatCooldownMs(remainingMs)}.`;
+}
+
 type MockDecisionRecord = {
   decision: "accepted" | "refused";
   decidedAt: string;
@@ -1615,6 +1658,14 @@ function FlashDealModal({
       : undefined;
 
   const decide = async (action: "accept" | "refuse") => {
+    // Rate-limit client (mocks ET vraies décisions) : 1 / 5 min — aligné
+    // sur le rate-limit serveur. Les mocks bypassent l'API, donc sans
+    // ce guard l'utilisateur pouvait spammer Accept/Refuse.
+    const left = decisionCooldownLeftMs();
+    if (left > 0) {
+      setError(buildCooldownMessage(left));
+      return;
+    }
     // Deals fictifs : pas de relation en base, on simule la décision
     // pour rendre le flux complet utilisable en démo. La décision est
     // persistée dans localStorage pour (a) afficher l'état "déjà
@@ -1626,6 +1677,7 @@ function FlashDealModal({
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, action === "accept" ? "accepted" : "refused");
+        setLastDecisionAt(Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1644,6 +1696,7 @@ function FlashDealModal({
         },
       );
       if (!r.ok) await throwApiError(r);
+      setLastDecisionAt(Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
@@ -1658,11 +1711,17 @@ function FlashDealModal({
   // un statut accepted (RPC refund_relation_tx). Pour les mocks, on
   // ré-écrit simplement la décision dans localStorage.
   const refuseAfterAccepted = async () => {
+    const left = decisionCooldownLeftMs();
+    if (left > 0) {
+      setError(buildCooldownMessage(left));
+      return;
+    }
     if (isMock) {
       setSubmitting("refuse");
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, "refused");
+        setLastDecisionAt(Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1681,6 +1740,7 @@ function FlashDealModal({
         },
       );
       if (!r.ok) await throwApiError(r);
+      setLastDecisionAt(Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
@@ -1694,12 +1754,18 @@ function FlashDealModal({
   // puis accept (pending → accepted). Utilisé tant que la campagne est
   // toujours active.
   const acceptAfterRefused = async () => {
+    const left = decisionCooldownLeftMs();
+    if (left > 0) {
+      setError(buildCooldownMessage(left));
+      return;
+    }
     // Mock : on bascule directement la décision persistée en "accepted".
     if (isMock) {
       setSubmitting("accept");
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, "accepted");
+        setLastDecisionAt(Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1727,6 +1793,7 @@ function FlashDealModal({
         },
       );
       if (!acc.ok) await throwApiError(acc);
+      setLastDecisionAt(Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
