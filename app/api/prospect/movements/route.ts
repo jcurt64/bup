@@ -116,13 +116,15 @@ function statusChip(type: string, status: string): "good" | "warn" | "" {
 
 function originLabel(row: TransactionRow): string {
   const raison = (row.relations?.pro_accounts?.raison_sociale ?? "").trim();
-  if (raison) return raison;
+  // Si la raison_sociale contient '@', c'est qu'elle n'a pas été remplie
+  // (cas observé : la row pro_accounts garde l'email Clerk comme valeur
+  // par défaut). On masque l'email côté prospect en fallback générique.
+  if (raison && !raison.includes("@")) return raison;
   // Pour une transaction LIÉE à une relation (escrow/credit issu d'une
-  // mise en relation), la raison_sociale doit être la source d'affichage.
-  // Si elle est vide pour ce pro, on tombe sur un libellé générique
-  // plutôt que sur `description` — qui peut contenir l'email du pro
-  // ou un SIREN, ce qui n'a rien à faire dans la liste utilisateur.
-  if (row.relations) return "Professionnel";
+  // mise en relation), si la raison_sociale est vide OU pollutée par
+  // l'email, on tombe sur un libellé générique plutôt que sur
+  // `description` — qui peut aussi contenir l'email du pro ou un SIREN.
+  if (row.relations) return "Un professionnel";
   // Hors-relation (parrainage, retrait IBAN, recharge, etc.) :
   // `description` est le libellé métier rédigé côté serveur.
   if (row.description) return row.description;
@@ -214,7 +216,10 @@ export async function GET() {
   // ligne du tableau Portefeuille.
   function buildRelation(rel: NonNullable<RelationsJoin>) {
     const reward = Number(rel.reward_cents ?? 0) / 100;
-    const proName = (rel.pro_accounts?.raison_sociale ?? "").trim() || "—";
+    // Même logique que originLabel : masque l'email du pro si la
+    // raison_sociale n'a pas été remplie (placeholder Clerk par défaut).
+    const rawRaison = (rel.pro_accounts?.raison_sociale ?? "").trim();
+    const proName = rawRaison && !rawRaison.includes("@") ? rawRaison : "Un professionnel";
     const sectorParts = [rel.pro_accounts?.secteur, rel.pro_accounts?.ville]
       .filter((s): s is string => !!s);
     const tier = highestTier(rel.campaigns?.targeting ?? null);
