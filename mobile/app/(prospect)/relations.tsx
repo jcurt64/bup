@@ -3,9 +3,11 @@
 // impactées (relations/wallet/score) = synchro web⇄mobile (§6.1).
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
+import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import {
   Card,
   dateFr,
@@ -13,9 +15,10 @@ import {
   QueryGate,
   ScrollScreen,
 } from "../../components/screen";
+import { ApiError } from "../../lib/api";
 import { useDecideRelation, useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
-import type { Relation } from "../../lib/queries";
+import type { MovementRelation, Relation } from "../../lib/queries";
 
 const EMPTY_PENDING = require("../../assets/images/peace-sign.png");
 
@@ -28,70 +31,272 @@ const HISTORY_FILTERS: { key: HistoryFilter; label: string }[] = [
   { key: "refused", label: "Refusées" },
 ];
 
-// ── Chip décision coloré ────────────────────────────────────────────
-function DecisionChip({ decision }: { decision: string | undefined }) {
-  if (!decision) return null;
-  const isAccepted = decision === "Acceptée";
-  const isRefused = decision === "Refusée";
+// Initiales pour avatar (pro). Mirror Shell.jsx fn Avatar du web.
+function initials(name: string): string {
+  return (name || "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
+// Thème unique violet — gradient bg très doux (fading vers paper) +
+// accent deep pour la chip date et les initiales avatar.
+const CARD_THEME = {
+  gradient: ["#F4EFFE", "#FFFFFF"] as [string, string],
+  accent: "#5B3FD6",
+  avatarBg: "#EDE9FE",
+};
+
+// Convertit un Relation (API /relations) vers le shape MovementRelation
+// attendu par MovementDetailSheet. Les champs manquants côté Relation
+// (availableAt, tiers détaillés) sont neutralisés — parité avec le modal
+// web RelationDetailModal qui n'affiche pas non plus availableAt pour
+// l'historique relations.
+function toMovementRelation(r: Relation): MovementRelation {
+  return {
+    id: r.id,
+    date: r.date ?? null,
+    pro: r.pro,
+    proName: r.proName ?? r.pro,
+    sector: r.sector,
+    motif: r.motif,
+    brief: r.brief,
+    reward: r.reward,
+    tier: r.tier,
+    tiers: [r.tier],
+    timer: r.timer,
+    startDate: r.startDate ?? null,
+    endDate: r.endDate ?? null,
+    decision: r.decision ?? "",
+    status: r.status ?? "",
+    availableAt: null,
+    relationStatus: r.relationStatus ?? "",
+    gain: r.gain ?? null,
+    campaignStatus: r.campaignStatus ?? null,
+    campaignOpen: !!r.campaignOpen,
+    campaignActive: !!r.campaignActive,
+    reported: r.reported,
+  };
+}
+
+// ── Pastille info ──────────────────────────────────────────────────
+// Petite ligne « icône colorée dans un cercle pastel + label ». Réutilisée
+// pour chacune des 5 infos affichées sur la card historique.
+function InfoLine({
+  icon,
+  bg,
+  fg,
+  children,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  fg: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View
-      className={`rounded-full px-2 py-0.5 ${
-        isAccepted
-          ? "bg-good/10 border border-good/30"
-          : isRefused
-            ? "bg-bad/10 border border-bad/30"
-            : "bg-line border border-line"
-      }`}
-    >
-      <Text
-        className={`text-[10px] font-semibold ${
-          isAccepted ? "text-good" : isRefused ? "text-bad" : "text-ink-4"
-        }`}
+    <View className="flex-row items-center gap-2">
+      <View
+        className="h-6 w-6 items-center justify-center rounded-full"
+        style={{ backgroundColor: bg }}
       >
-        {decision}
-      </Text>
+        <Ionicons name={icon} size={12} color={fg} />
+      </View>
+      <View className="flex-1">{children}</View>
     </View>
   );
 }
 
-// ── Ligne d'historique ──────────────────────────────────────────────
-function HistoryRow({ r }: { r: Relation }) {
-  const gainStr =
-    r.gain != null ? "+" + eur(r.gain) : "—";
+// ── Card historique ────────────────────────────────────────────────
+// Layout :
+//   - gradient bg très soft (thème déterministe par hash de r.id)
+//   - chip date en demi-pill, collée à la bordure droite, top-right
+//   - header : avatar + raison sociale en row (paddingRight pour laisser
+//     respirer la chip date)
+//   - corps : 2 colonnes × 2 lignes (palier/décision puis statut/gain),
+//     chaque info = pastille iconographiée + label
+function HistoryRow({
+  r,
+  onPress,
+}: {
+  r: Relation;
+  onPress: () => void;
+}) {
+  const isAccepted = r.decision === "Acceptée";
+  const isRefused = r.decision === "Refusée";
+  const isEscrow = r.status === "En séquestre";
+  const isCredited = r.status === "Crédité";
   const gainPositive = r.gain != null && r.gain > 0;
+  const gainStr = r.gain != null ? "+" + eur(r.gain) : "—";
+  // Les sollicitations refusées n'ont ni séquestre ni rémunération à
+  // afficher (la décision « Refusée » suffit comme info terminale).
+  const showStatusAndGain = !isRefused;
 
   return (
-    <View className="rounded-2xl border border-line bg-paper p-3 gap-2">
-      {/* Ligne 1 : Date + Professionnel */}
-      <View className="flex-row justify-between items-center">
-        <Text className="font-mono text-[11px] text-ink-4">
-          {dateFr(r.date)}
-        </Text>
-        <Text className="text-sm text-ink font-medium flex-1 text-right ml-2" numberOfLines={1}>
-          {r.pro}
-        </Text>
-      </View>
-      {/* Ligne 2 : Palier + Décision */}
-      <View className="flex-row items-center gap-2">
-        <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
-          <Text className="text-[10px] font-medium text-ink-3">
-            Palier {r.tier}
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Détail de ${r.pro}`}
+      className="active:opacity-80"
+    >
+      <LinearGradient
+        colors={CARD_THEME.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: 18,
+          padding: 14,
+          position: "relative",
+          borderWidth: 0.1,
+          borderColor: "#E6E3DA",
+          shadowColor: "#0F1629",
+          shadowOpacity: 0.04,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 2,
+        }}
+      >
+        {/* Chip date — demi-pill collée à la bordure droite, top-right. */}
+        <View
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 0,
+            backgroundColor: CARD_THEME.accent,
+            paddingLeft: 12,
+            paddingRight: 14,
+            paddingVertical: 4,
+            borderTopLeftRadius: 999,
+            borderBottomLeftRadius: 999,
+          }}
+        >
+          <Text className="text-[11px] font-bold text-paper">
+            {dateFr(r.date)}
           </Text>
         </View>
-        <DecisionChip decision={r.decision} />
-      </View>
-      {/* Ligne 3 : Statut + Gain */}
-      <View className="flex-row justify-between items-center">
-        <Text className="text-xs text-ink-4">{r.status ?? ""}</Text>
-        <Text
-          className={`font-mono text-xs font-semibold ${
-            gainPositive ? "text-good" : "text-ink-5"
-          }`}
+
+        {/* Header : avatar + raison sociale (paddingR = largeur estimée de
+            la chip date + marge pour que le texte ne passe pas dessous). */}
+        <View
+          className="flex-row items-center gap-3"
+          style={{ paddingRight: 96 }}
         >
-          {gainStr === "—" ? "—" : gainStr}
-        </Text>
-      </View>
-    </View>
+          <View
+            className="h-10 w-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: CARD_THEME.avatarBg }}
+          >
+            <Text
+              className="font-serif-bold text-sm"
+              style={{ color: CARD_THEME.accent }}
+            >
+              {initials(r.pro)}
+            </Text>
+          </View>
+          <Text
+            className="flex-1 font-serif text-[15px] text-ink"
+            numberOfLines={1}
+          >
+            {r.pro}
+          </Text>
+        </View>
+
+        {/* Corps : 2 colonnes × 1-2 lignes (la seconde ligne est masquée
+            pour les refusées). */}
+        <View className="mt-3.5 gap-2">
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <InfoLine icon="trophy-outline" bg="#FCEFD6" fg="#B45309">
+                <Text
+                  className="text-[12.5px] text-ink-2"
+                  numberOfLines={1}
+                >
+                  Palier {r.tier}
+                </Text>
+              </InfoLine>
+            </View>
+            <View className="flex-1">
+              <InfoLine
+                icon={
+                  isAccepted
+                    ? "checkmark-circle-outline"
+                    : isRefused
+                      ? "close-circle-outline"
+                      : "ellipsis-horizontal-circle-outline"
+                }
+                bg={isAccepted ? "#E8F5EE" : isRefused ? "#FEF2F2" : "#F0F1F4"}
+                fg={isAccepted ? "#16A34A" : isRefused ? "#DC2626" : "#8A91A1"}
+              >
+                <Text
+                  className={`text-[12.5px] font-medium ${
+                    isAccepted
+                      ? "text-good"
+                      : isRefused
+                        ? "text-bad"
+                        : "text-ink-3"
+                  }`}
+                  numberOfLines={1}
+                >
+                  {r.decision ?? "—"}
+                </Text>
+              </InfoLine>
+            </View>
+          </View>
+          {showStatusAndGain ? (
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <InfoLine
+                  icon={
+                    isEscrow
+                      ? "lock-closed-outline"
+                      : isCredited
+                        ? "wallet-outline"
+                        : "remove-circle-outline"
+                  }
+                  bg={isEscrow ? "#DCF4F0" : isCredited ? "#EDE9FE" : "#F0F1F4"}
+                  fg={isEscrow ? "#2FB8A6" : isCredited ? "#7C5CFC" : "#8A91A1"}
+                >
+                  <Text
+                    className="text-[12.5px] text-ink-2"
+                    numberOfLines={1}
+                  >
+                    {r.status && r.status !== "—" ? r.status : "—"}
+                  </Text>
+                </InfoLine>
+              </View>
+              <View className="flex-1">
+                {/* Pastille rémunération — pictogramme € (MaterialCommunityIcons
+                    currency-eur) à la place de l'ancien trending-up. */}
+                <View className="flex-row items-center gap-2">
+                  <View
+                    className="h-6 w-6 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: gainPositive ? "#E8F5EE" : "#F0F1F4",
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="currency-eur"
+                      size={13}
+                      color={gainPositive ? "#16A34A" : "#8A91A1"}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className={`font-mono text-[12.5px] font-semibold ${
+                        gainPositive ? "text-good" : "text-ink-4"
+                      }`}
+                      numberOfLines={1}
+                    >
+                      {gainStr}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -102,11 +307,41 @@ export default function Relations() {
   useRefetchOnFocus(q);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  // Relation sélectionnée pour ouverture du détail-sheet. Stocké
+  // séparément du `visible` pour conserver le contenu pendant l'animation
+  // de fermeture (sinon flash blanc).
+  const [detail, setDetail] = useState<Relation | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
 
   async function act(id: string, action: "accept" | "refuse") {
     setBusyId(id);
     try {
       await decide.mutateAsync({ id, action });
+    } catch (e) {
+      // Mirror du handler 429/402/410/409 de flash-deals-sheet (cf. commit
+      // e331ce8). Sans catch, le mutateAsync rejette en promise non-traitée.
+      const status = e instanceof ApiError ? e.status : 0;
+      let serverMsg: string | null = null;
+      if (e instanceof ApiError) {
+        try {
+          const j = JSON.parse(e.body) as { message?: string };
+          if (typeof j.message === "string") serverMsg = j.message;
+        } catch {}
+      }
+      const msg =
+        status === 429 && serverMsg
+          ? serverMsg
+          : status === 402
+            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
+            : status === 410
+              ? "Cette campagne a expiré."
+              : status === 409
+                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
+                : "Action impossible. Réessayez dans un instant.";
+      Alert.alert(
+        status === 429 ? "Patientez un instant" : "Action impossible",
+        msg,
+      );
     } finally {
       setBusyId(null);
     }
@@ -160,10 +395,10 @@ export default function Relations() {
                 />
               </View>
               <Text className="font-serif text-xl text-ink">
-                Aucune demande pour l'instant
+                {"Aucune demande pour l'instant"}
               </Text>
               <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
-                Mais ça ne saurait tarder…{"\n"}On vous prévient dès qu'une sollicitation arrive.
+                {"Mais ça ne saurait tarder…\nOn vous prévient dès qu'une sollicitation arrive."}
               </Text>
             </View>
           ) : (
@@ -304,11 +539,27 @@ export default function Relations() {
         ) : (
           <View className="gap-3">
             {filteredHistory.map((r) => (
-              <HistoryRow key={r.id} r={r} />
+              <HistoryRow
+                key={r.id}
+                r={r}
+                onPress={() => {
+                  setDetail(r);
+                  setDetailVisible(true);
+                }}
+              />
             ))}
           </View>
         )}
       </View>
+
+      {/* Détail-sheet réutilise MovementDetailSheet (parité visuelle web
+          RelationDetailModal). Le Relation est adapté en MovementRelation
+          via toMovementRelation (availableAt=null comme côté web). */}
+      <MovementDetailSheet
+        visible={detailVisible}
+        onClose={() => setDetailVisible(false)}
+        relation={detail ? toMovementRelation(detail) : null}
+      />
     </ScrollScreen>
   );
 }

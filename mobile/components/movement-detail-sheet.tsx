@@ -7,10 +7,11 @@
 //   canRefuse côté web.
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
 import { ReportProSheet } from "./report-pro-sheet";
+import { ApiError } from "../lib/api";
 import { useDecideRelation, type MovementRelation } from "../lib/queries";
 
 // Initiales pour avatar (premier mot + premier mot suivant).
@@ -153,8 +154,42 @@ export function MovementDetailSheet({
   async function act(action: "accept" | "refuse") {
     setBusy(action);
     try {
-      await decide.mutateAsync({ id: r.id, action });
+      // refused → accepted : l'API n'autorise pas la transition directe
+      // (table de transitions : refused → pending via undo, puis pending
+      // → accepted via accept). Mirror flash-deals-sheet acceptAfterRefused.
+      if (action === "accept" && alreadyRefused) {
+        await decide.mutateAsync({ id: r.id, action: "undo" });
+        await decide.mutateAsync({ id: r.id, action: "accept" });
+      } else {
+        await decide.mutateAsync({ id: r.id, action });
+      }
       onClose();
+    } catch (e) {
+      // Mirror du handler 429/402/410/409 de flash-deals-sheet (cf. commit
+      // e331ce8). Le body 429 contient { message } rédigé côté serveur
+      // (« Pas trop vite 😊 … Réessayez dans X min Y s »).
+      const status = e instanceof ApiError ? e.status : 0;
+      let serverMsg: string | null = null;
+      if (e instanceof ApiError) {
+        try {
+          const j = JSON.parse(e.body) as { message?: string };
+          if (typeof j.message === "string") serverMsg = j.message;
+        } catch {}
+      }
+      const msg =
+        status === 429 && serverMsg
+          ? serverMsg
+          : status === 402
+            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
+            : status === 410
+              ? "Cette campagne a expiré."
+              : status === 409
+                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
+                : "Action impossible. Réessayez dans un instant.";
+      Alert.alert(
+        status === 429 ? "Patientez un instant" : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
