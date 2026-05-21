@@ -44,11 +44,17 @@ type RelationRow = {
 };
 
 // Affiche la raison sociale telle qu'elle est saisie dans `pro_accounts`.
-// Si la valeur est null/vide on retombe sur un tiret pour ne pas afficher
-// "undefined" côté UI — la complétion des infos société reste à la charge du pro.
+// - null/vide → "Un professionnel" (placeholder propre, plutôt qu'un "—"
+//   qui paraît cassé côté UI).
+// - ressemble à un email (contient '@') → idem : on masque l'email à
+//   l'autre partie. Cas observé en prod : un pro qui s'inscrit sans
+//   éditer sa fiche garde l'email Clerk comme raison_sociale par défaut.
+// La complétion des infos société reste à la charge du pro côté
+// "Mes informations société" — le composant prévient déjà le pro.
 function displayProName(raison: string | null | undefined): string {
   const v = (raison ?? "").trim();
-  return v || "—";
+  if (!v || v.includes("@")) return "Un professionnel";
+  return v;
 }
 
 function timerString(iso: string): string {
