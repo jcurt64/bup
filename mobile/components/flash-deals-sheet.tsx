@@ -183,7 +183,7 @@ export function FlashDealsSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={82}>
-      <View className="mb-3 flex-row items-center gap-2">
+      <View className="flex-row items-center gap-2">
         <View
           className="h-8 w-8 items-center justify-center rounded-full"
           style={{ backgroundColor: "#0F1629" }}
@@ -199,6 +199,13 @@ export function FlashDealsSheet({
           </View>
         ) : null}
       </View>
+      <Text className="mb-3 mt-1 text-[13.5px] leading-5 text-ink-3">
+        Les flash deals sont les missions les{" "}
+        <Text className="font-semibold text-ink">mieux rémunérées</Text>
+        {" "}— bonus{" "}
+        <Text className="font-semibold text-violet">×2 immédiat</Text>
+        . N'hésitez pas, sautez sur l'occasion !
+      </Text>
 
       {q.isPending ? (
         <View className="flex-1 items-center justify-center">
