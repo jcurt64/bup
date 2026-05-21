@@ -117,6 +117,14 @@ function statusChip(type: string, status: string): "good" | "warn" | "" {
 function originLabel(row: TransactionRow): string {
   const raison = (row.relations?.pro_accounts?.raison_sociale ?? "").trim();
   if (raison) return raison;
+  // Pour une transaction LIÉE à une relation (escrow/credit issu d'une
+  // mise en relation), la raison_sociale doit être la source d'affichage.
+  // Si elle est vide pour ce pro, on tombe sur un libellé générique
+  // plutôt que sur `description` — qui peut contenir l'email du pro
+  // ou un SIREN, ce qui n'a rien à faire dans la liste utilisateur.
+  if (row.relations) return "Professionnel";
+  // Hors-relation (parrainage, retrait IBAN, recharge, etc.) :
+  // `description` est le libellé métier rédigé côté serveur.
   if (row.description) return row.description;
   return "—";
 }
