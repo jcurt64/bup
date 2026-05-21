@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
   useEffect,
@@ -11,6 +11,14 @@ import {
   type ReactNode,
 } from "react";
 import type { Role } from "@/lib/sync/ensureRole";
+
+// Flag persisté quand la page a été ouverte depuis l'app mobile
+// (l'app appelle WebBrowser.openBrowserAsync(href + "?from=mobile-app").
+// Permet à RouteNav et autres éléments « web-only » de se masquer dans
+// l'in-app browser : les utilisateurs mobiles ont déjà leur propre
+// navigation (tab bar + drawer) et ne doivent pas être redirigés vers
+// l'écosystème web.
+const MOBILE_APP_FLAG = "buupp:in-mobile-app";
 
 type TabId = "accueil" | "liste-attente" | "prospect" | "pro" | "connexion";
 
@@ -159,7 +167,26 @@ function tabStyle(active: boolean, overDark: boolean): CSSProperties {
 
 export default function RouteNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isLoaded, isSignedIn, user } = useUser();
+
+  // Détection « ouvert depuis l'app mobile ». Le query param ?from=mobile-app
+  // est posé une seule fois par l'app à l'ouverture ; on le persiste en
+  // localStorage pour que la nav reste masquée sur les navigations
+  // internes ultérieures (clic sur un lien dans l'in-app browser).
+  const [inMobileApp, setInMobileApp] = useState(false);
+  useEffect(() => {
+    const fromUrl = searchParams?.get("from") === "mobile-app";
+    if (fromUrl) {
+      try { localStorage.setItem(MOBILE_APP_FLAG, "1"); } catch {}
+      setInMobileApp(true);
+      return;
+    }
+    try {
+      if (localStorage.getItem(MOBILE_APP_FLAG) === "1") setInMobileApp(true);
+    } catch {}
+  }, [searchParams]);
+  if (inMobileApp) return null;
   // Cache instant : publicMetadata.role lu depuis le session token Clerk.
   // Peut être stale juste après une re-synchro côté serveur (ex.
   // ensureRole vient de basculer le rôle, le token n'a pas encore été
