@@ -145,12 +145,37 @@ export async function POST(req: Request) {
   const { data: pro } = await admin
     .from("pro_accounts")
     .select(
-      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, secteur, code_postal, plan, plan_cycle_count",
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, plan, plan_cycle_count",
     )
     .eq("id", proId)
     .single();
   if (!pro) {
     return NextResponse.json({ error: "pro_not_found" }, { status: 404 });
+  }
+
+  // Garde-fou : on ne crée pas de campagne tant que le pro n'a pas
+  // renseigné sa raison sociale ET sa ville (sinon l'annonce affichée
+  // côté prospect serait incomplète / non-identifiable).
+  // Cas observé : un pro qui s'inscrit garde l'email Clerk dans
+  // `raison_sociale` par défaut. On considère qu'une raison_sociale
+  // contenant '@' est non-renseignée (placeholder résiduel) — symétrique
+  // à la règle d'affichage côté prospect (cf. originLabel dans movements).
+  const rawRaison = (pro.raison_sociale ?? "").trim();
+  const hasValidRaisonSociale = rawRaison.length > 0 && !rawRaison.includes("@");
+  const hasValidVille = !!(pro.ville ?? "").trim();
+  if (!hasValidRaisonSociale || !hasValidVille) {
+    return NextResponse.json(
+      {
+        error: "missing_company_info",
+        message:
+          "Renseignez votre raison sociale et votre ville dans Mes informations avant de lancer une campagne.",
+        missing: {
+          raisonSociale: !hasValidRaisonSociale,
+          ville: !hasValidVille,
+        },
+      },
+      { status: 422 },
+    );
   }
 
   // Quota par cycle (popup de mode) : 2 campagnes pour Starter, 10 pour Pro.

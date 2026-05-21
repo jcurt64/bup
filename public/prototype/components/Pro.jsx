@@ -2333,8 +2333,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // raison sociale + ville sont obligatoires pour permettre aux prospects
   // d'identifier l'entreprise dans l'annonce → le lancement est bloqué tant
   // que ces deux champs ne sont pas renseignés.
+  // Cas particulier : un pro qui s'inscrit garde par défaut son email Clerk
+  // dans `raisonSociale`. On considère donc qu'une raison sociale contenant
+  // '@' n'est PAS valide (placeholder résiduel). Le back applique la même
+  // règle (/api/pro/campaigns) — c'est un garde-fou défensif, le front l'est
+  // pour l'UX (désactive le bouton sans aller-retour réseau).
   const missingCompanyFields = [];
-  if (!companyInfo?.raisonSociale) missingCompanyFields.push('raison sociale');
+  const rawRaisonForLaunch = (companyInfo?.raisonSociale || '').trim();
+  if (!rawRaisonForLaunch || rawRaisonForLaunch.includes('@')) {
+    missingCompanyFields.push('raison sociale');
+  }
   if (!companyInfo?.ville) missingCompanyFields.push('ville');
   const canLaunch = missingCompanyFields.length === 0;
   const [selectedObj, setSelectedObj] = useState(null);
