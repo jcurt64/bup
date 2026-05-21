@@ -132,11 +132,12 @@ export default function DrawerPanel() {
           width: W,
           transform: [{ translateX: tx }],
           elevation: 8,
-          // Violet #7C5CFC (même couleur que l'icône person du header)
-          // avec la même opacité 0.92 que l'ancienne version navy.
+          // Violet #7C5CFC (même couleur que l'icône person du header).
+          // Opacité poussée à 0.97 pour mieux faire ressortir les labels
+          // blancs (la version 0.92 laissait trop transparaître le fond).
           // Posé via `style` : NativeWind n'applique pas `className`
           // sur Animated.View (sinon fond blanc).
-          backgroundColor: "rgba(124, 92, 252, 0.92)",
+          backgroundColor: "rgba(124, 92, 252, 0.97)",
           // Coins droits arrondis XL ; overflow hidden clippe le contenu.
           // Le blanc derrière les coins est masqué par le scrim sombre.
           borderTopRightRadius: 40,
