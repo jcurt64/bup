@@ -29,7 +29,12 @@ const WEB_BASE =
 // les rubriques sans peser sur la hiérarchie générale.
 const LINKS: {
   slug: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  /** Glyphe Ionicons (`icon`) OU emoji texte (`emoji`). L'emoji est
+   *  privilégié pour les pictos qui n'ont pas d'équivalent Ionicons
+   *  satisfaisant (ex. cookies → 🍪, parité visuelle avec l'icône
+   *  custom SVG du site web). */
+  icon?: keyof typeof Ionicons.glyphMap;
+  emoji?: string;
   /** Couleur de l'icône (fond = même teinte à 16 % d'opacité). */
   color: string;
   /** Override du titre serveur si besoin (sinon on prend `title` du registre). */
@@ -38,7 +43,7 @@ const LINKS: {
   { slug: "cgu", icon: "reader-outline", color: "#7C5CFC" }, // violet
   { slug: "cgv", icon: "receipt-outline", color: "#FF7A6B" }, // coral
   { slug: "rgpd", icon: "shield-checkmark-outline", color: "#2FB8A6", labelOverride: "Politique des données personnelles" }, // teal
-  { slug: "cookies", icon: "cafe-outline", color: "#F2B65A", labelOverride: "Politique des cookies" }, // amber
+  { slug: "cookies", emoji: "🍪", color: "#F2B65A", labelOverride: "Politique des cookies" }, // amber
   { slug: "contact-dpo", icon: "mail-outline", color: "#5B8DEF", labelOverride: "Contact DPO" }, // sky
   { slug: "bareme", icon: "bar-chart-outline", color: "#16A34A", labelOverride: "Barème des paliers" }, // good
   { slug: "minimisation", icon: "funnel-outline", color: "#B45309", labelOverride: "Minimisation" }, // gold
@@ -64,6 +69,7 @@ function fmtDateShort(iso: string): string {
 
 function Row({
   icon,
+  emoji,
   label,
   version,
   date,
@@ -72,7 +78,11 @@ function Row({
   onPress,
   disabled,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  /** Ionicons glyph (mutuellement exclusif avec `emoji`). */
+  icon?: keyof typeof Ionicons.glyphMap;
+  /** Emoji texte rendu dans la pastille (utilisé quand aucun Ionicons
+   *  ne correspond — ex. 🍪 pour les cookies). */
+  emoji?: string;
   label: string;
   version?: string;
   date?: string;
@@ -95,7 +105,11 @@ function Row({
         className="h-9 w-9 items-center justify-center rounded-full"
         style={{ backgroundColor: softBg(color) }}
       >
-        <Ionicons name={icon} size={18} color={color} />
+        {emoji ? (
+          <Text style={{ fontSize: 18, lineHeight: 22 }}>{emoji}</Text>
+        ) : icon ? (
+          <Ionicons name={icon} size={18} color={color} />
+        ) : null}
       </View>
       <View className="flex-1">
         <Text
@@ -221,6 +235,7 @@ export default function AccountPage() {
                 <Row
                   key={l.slug}
                   icon={l.icon}
+                  emoji={l.emoji}
                   label={label}
                   color={l.color}
                   version={meta?.version}
