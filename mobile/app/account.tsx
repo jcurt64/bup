@@ -4,6 +4,7 @@
 // puis l'action danger « Suppression du compte ».
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import * as Application from "expo-application";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -267,6 +268,10 @@ export default function AccountPage() {
           danger
           onPress={() => setShowDeleteSheet(true)}
         />
+
+        <Text className="mt-2 text-center text-[15px] text-ink-4">
+          Version de l'application {Application.nativeApplicationVersion ?? "1.0.0"}
+        </Text>
       </ScrollView>
 
       {/* Sheet avertissement renforcée — affichée seulement au clic sur la Row */}

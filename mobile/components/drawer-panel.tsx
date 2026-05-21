@@ -185,9 +185,6 @@ export default function DrawerPanel() {
             onPress={() => setConfirm("delete")}
           />
         </ScrollView>
-        <Text className="px-7 pb-8 pt-2 text-xs text-white/40">
-          App version 1.0.0
-        </Text>
       </Animated.View>
 
       <Modal transparent visible={confirm !== null} animationType="fade">
