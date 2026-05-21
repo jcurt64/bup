@@ -535,6 +535,35 @@ export function useMarkNotificationRead() {
   });
 }
 
+// — Flash deals (campagnes durationKey='1h') — GET /api/landing/flash-deals
+// Public, optionnellement auth-aware. Mêmes données que la bannière
+// défilante du site web. Rafraîchi toutes les 10 s pour que le timer
+// HH:MM:SS reste vivant côté UI.
+export type FlashDeal = {
+  id: string;
+  name: string;
+  endsAt: string;
+  brief: string | null;
+  multiplier: number;
+  costPerContactCents: number;
+  founderBonusApplied: boolean;
+  founderVipBonusApplied: boolean;
+  requiredTiers: number[];
+  requiredTierKeys: string[];
+  proName: string | null;
+  proSector: string | null;
+  isAuthenticated: boolean;
+  relationId: string | null;
+  relationStatus: string | null;
+  missingTierKeys: string[];
+};
+export const useFlashDeals = () =>
+  useGet<{ deals: FlashDeal[] }>(
+    ["landing", "flash-deals"],
+    "/api/landing/flash-deals",
+    10_000,
+  );
+
 /** Marque toutes les notifications non lues passées en argument comme lues
  *  (parité web markAll : POST /api/me/notifications/[id]/read en parallèle
  *  + invalidation du cache). Les erreurs unitaires sont avalées —

@@ -4,12 +4,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FlashDealsSheet } from "./flash-deals-sheet";
 import { MessagesSheet } from "./messages-sheet";
-import { useNotifications } from "../lib/queries";
+import { useFlashDeals, useNotifications } from "../lib/queries";
 
 const LOGO = require("../assets/images/logo2.png");
 
@@ -71,14 +80,82 @@ function IconButton({
   );
 }
 
+// Bouton flash deal : pastille ink (#0F1629) + icône éclair blanche +
+// anneau accent violet (#4F46E5) qui pulse (scale + opacity) toutes
+// les 2.4 s — équivalent RN du keyframes `flash-deal-badge-pulse` web.
+// Ne s'affiche que s'il y a au moins 1 deal actif (sinon le bouton
+// est inutile et on évite le bruit visuel).
+function FlashHeaderButton({ onPress }: { onPress: () => void }) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.55);
+
+  useEffect(() => {
+    // 0 → max sur 1.2 s, retour à 0 sur 1.2 s (= 2.4 s total) en boucle.
+    scale.value = withRepeat(
+      withTiming(1.55, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      -1,
+      true,
+    );
+    opacity.value = withRepeat(
+      withTiming(0, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
+  }, [scale, opacity]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityLabel="Flash deals"
+      className="h-10 w-10 items-center justify-center active:opacity-70"
+    >
+      {/* Anneau pulsant (positionné absolument derrière le bouton) */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: "absolute",
+            width: 40,
+            height: 40,
+            borderRadius: 999,
+            backgroundColor: "#4F46E5",
+          },
+          ringStyle,
+        ]}
+      />
+      {/* Pastille ink avec l'éclair */}
+      <View
+        className="h-10 w-10 items-center justify-center rounded-full"
+        style={{ backgroundColor: "#0F1629" }}
+      >
+        <Ionicons name="flash" size={20} color="#FFFFFF" />
+      </View>
+    </Pressable>
+  );
+}
+
 export function AppHeader() {
   const insets = useSafeAreaInsets();
   const [showMessages, setShowMessages] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
   // Hydrate le compteur non-lus pour le badge sur la cloche. Le hook a
   // un staleTime de 15s côté queries.ts, donc le badge se met à jour
   // automatiquement à intervalle régulier sans polling explicit.
   const notif = useNotifications();
   const unread = notif.data?.unreadCount ?? 0;
+  // N'affiche le bouton flash que s'il y a au moins 1 deal actif
+  // (la query rafraîchit toutes les 10 s côté queries.ts).
+  const flashCount = useFlashDeals().data?.deals.length ?? 0;
 
   return (
     <>
@@ -105,6 +182,9 @@ export function AppHeader() {
         </View>
 
         <View className="flex-row items-center gap-2">
+          {flashCount > 0 ? (
+            <FlashHeaderButton onPress={() => setShowFlash(true)} />
+          ) : null}
           <IconButton
             icon="notifications-outline"
             bg="bg-amber-soft"
@@ -126,6 +206,10 @@ export function AppHeader() {
       <MessagesSheet
         visible={showMessages}
         onClose={() => setShowMessages(false)}
+      />
+      <FlashDealsSheet
+        visible={showFlash}
+        onClose={() => setShowFlash(false)}
       />
     </>
   );
