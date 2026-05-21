@@ -295,13 +295,35 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
           </Text>
         </Pressable>
       ) : (
-        // no_match — auth, tout est rempli mais pas de relation → on
-        // est sur la liste publique, en attente que le pro nous sollicite.
-        <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-ink-5/30 py-2.5">
-          <Ionicons name="hourglass-outline" size={14} color="#5B6478" />
-          <Text className="text-[13px] font-medium text-ink-3">
-            En attente d'une sollicitation
-          </Text>
+        // no_match — auth, paliers requis remplis, mais le ciblage de
+        // la campagne (géo, âge, centres d'intérêt…) n'inclut pas ce
+        // prospect. Mirror du web : message explicatif + CTA noir pour
+        // compléter ses données et augmenter ses chances d'être éligible.
+        <View className="gap-2">
+          <View
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              backgroundColor: "#EFEADD",
+              borderWidth: 1,
+              borderColor: "#E6E3DA",
+            }}
+          >
+            <Text className="text-[12.5px] leading-5 text-ink-2">
+              Cette campagne ne correspond pas à votre profil (zone
+              géographique, tranche d'âge ou centres d'intérêt).
+              Complétez vos données pour augmenter vos chances d'être
+              éligible.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/(prospect)/donnees")}
+            className="flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
+          >
+            <Text className="text-sm font-semibold text-paper">
+              Compléter mes données pour accepter le deal
+            </Text>
+            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          </Pressable>
         </View>
       )}
     </View>
