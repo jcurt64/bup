@@ -145,7 +145,11 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
   // Bascule refused → accepted via deux appels (undo puis accept).
   // L'endpoint /decision n'autorise pas refused → accepted en direct
   // (cf. table de transitions : refused → pending via undo, puis
-  // pending → accepted via accept).
+  // pending → accepted via accept). Le serveur rate-limite TOUTES les
+  // actions sur la clé `<userId>:<relationId>` avec fenêtre 5 min :
+  // l'undo consomme le slot, donc l'accept immédiat reçoit 429. On
+  // capture spécifiquement ce cas pour expliquer que l'undo a réussi
+  // et indiquer quand réessayer (cf. movement-detail-sheet.tsx).
   async function acceptAfterRefused() {
     if (!d.relationId || busy) return;
     if (hasMissing) {
@@ -155,7 +159,34 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
     setBusy("accept");
     try {
       await decide.mutateAsync({ id: d.relationId, action: "undo" });
-      await decide.mutateAsync({ id: d.relationId, action: "accept" });
+      try {
+        await decide.mutateAsync({ id: d.relationId, action: "accept" });
+      } catch (acceptErr) {
+        if (acceptErr instanceof ApiError && acceptErr.status === 429) {
+          let waitMsg = "Réessayez dans quelques minutes";
+          try {
+            const j = JSON.parse(acceptErr.body) as {
+              retryAfterSec?: number;
+            };
+            if (
+              typeof j.retryAfterSec === "number" &&
+              j.retryAfterSec > 0
+            ) {
+              const mins = Math.ceil(j.retryAfterSec / 60);
+              waitMsg = `Réessayez dans ${mins} min`;
+            }
+          } catch {}
+          // Refetch pour basculer le deal de refused → pending dans l'UI
+          // — l'utilisateur pourra reclique sur Accepter après expiration.
+          qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+          Alert.alert(
+            "Refus annulé",
+            `Votre refus a été annulé — cette sollicitation est de nouveau en attente. Pour confirmer votre acceptation, ${waitMsg}.`,
+          );
+          return;
+        }
+        throw acceptErr;
+      }
       setJustDecided("accept");
       setTimeout(() => {
         qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });

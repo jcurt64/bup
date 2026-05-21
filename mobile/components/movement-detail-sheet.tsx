@@ -156,18 +156,49 @@ export function MovementDetailSheet({
     try {
       // refused → accepted : l'API n'autorise pas la transition directe
       // (table de transitions : refused → pending via undo, puis pending
-      // → accepted via accept). Mirror flash-deals-sheet acceptAfterRefused.
+      // → accepted via accept). Le serveur rate-limite TOUTES les actions
+      // sur la clé `<userId>:<relationId>` avec fenêtre 5 min : l'undo
+      // consomme le slot, l'accept immédiat reçoit donc 429. On capture
+      // ce cas spécifiquement pour informer l'utilisateur que l'undo a
+      // réussi et lui dire quand réessayer l'accept.
       if (action === "accept" && alreadyRefused) {
         await decide.mutateAsync({ id: r.id, action: "undo" });
-        await decide.mutateAsync({ id: r.id, action: "accept" });
+        try {
+          await decide.mutateAsync({ id: r.id, action: "accept" });
+        } catch (acceptErr) {
+          if (acceptErr instanceof ApiError && acceptErr.status === 429) {
+            // Parse retryAfterSec pour humaniser le délai ("4 min" plutôt
+            // que "237 s"). Fallback générique si le body est illisible.
+            let waitMsg = "Réessayez dans quelques minutes";
+            try {
+              const j = JSON.parse(acceptErr.body) as {
+                retryAfterSec?: number;
+              };
+              if (
+                typeof j.retryAfterSec === "number" &&
+                j.retryAfterSec > 0
+              ) {
+                const mins = Math.ceil(j.retryAfterSec / 60);
+                waitMsg = `Réessayez dans ${mins} min`;
+              }
+            } catch {}
+            Alert.alert(
+              "Refus annulé",
+              `Votre refus a été annulé — cette sollicitation est de nouveau en attente. Pour confirmer votre acceptation, ${waitMsg}.`,
+            );
+            onClose();
+            return;
+          }
+          throw acceptErr;
+        }
       } else {
         await decide.mutateAsync({ id: r.id, action });
       }
       onClose();
     } catch (e) {
-      // Mirror du handler 429/402/410/409 de flash-deals-sheet (cf. commit
-      // e331ce8). Le body 429 contient { message } rédigé côté serveur
-      // (« Pas trop vite 😊 … Réessayez dans X min Y s »).
+      // Handler générique 429/402/410/409 (cf. commit e331ce8). Le body
+      // 429 contient { message } rédigé côté serveur (« Pas trop vite 😊
+      // … Réessayez dans X min Y s »).
       const status = e instanceof ApiError ? e.status : 0;
       let serverMsg: string | null = null;
       if (e instanceof ApiError) {
