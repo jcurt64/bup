@@ -8,7 +8,6 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AccountSheet } from "./account-sheet";
 import { MessagesSheet } from "./messages-sheet";
 
 const LOGO = require("../assets/images/logo2.png");
@@ -41,7 +40,6 @@ function IconButton({
 export function AppHeader() {
   const insets = useSafeAreaInsets();
   const [showMessages, setShowMessages] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
 
   return (
     <>
@@ -80,7 +78,7 @@ export function AppHeader() {
             bg="bg-teal-soft"
             color="#2FB8A6"
             label="Mon compte"
-            onPress={() => setShowAccount(true)}
+            onPress={() => router.push("/account")}
           />
         </View>
       </View>
@@ -88,10 +86,6 @@ export function AppHeader() {
       <MessagesSheet
         visible={showMessages}
         onClose={() => setShowMessages(false)}
-      />
-      <AccountSheet
-        visible={showAccount}
-        onClose={() => setShowAccount(false)}
       />
     </>
   );

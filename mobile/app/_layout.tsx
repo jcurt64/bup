@@ -82,6 +82,13 @@ export default function RootLayout() {
                 animation: "none",
               }}
             />
+            <Stack.Screen
+              name="account"
+              options={{
+                headerShown: false,
+                animation: "slide_from_right",
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </SafeAreaProvider>

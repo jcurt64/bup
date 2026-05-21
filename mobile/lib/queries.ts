@@ -506,6 +506,24 @@ export function useDeleteAccount() {
   });
 }
 
+// — Versions des pages légales / ressources — GET /api/page-versions
+// (Source unique partagée avec le badge PageVersion web et le tableau
+// Versionning du Centre d'aide.)
+export type PageVersionItem = {
+  slug: string;
+  href: string;
+  title: string;
+  section: "ressources" | "legal";
+  version: string;
+  date: string;
+};
+export const usePageVersions = () =>
+  useGet<{ items: PageVersionItem[] }>(
+    ["page-versions"],
+    "/api/page-versions",
+    300_000,
+  );
+
 export function useMarkNotificationRead() {
   const api = useApi();
   const qc = useQueryClient();
