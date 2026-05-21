@@ -2,7 +2,7 @@
 // rounded-full / Liquid Glass, ombre. Onglet actif = pilule dégradé
 // violet→navy qui GLISSE d'un onglet à l'autre (Reanimated, withSpring),
 // icône blanche + libellé court ; inactif = icône discrète.
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,13 +16,13 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
-  portefeuille: "wallet-outline",
+  portefeuille: "home-outline",
   donnees: "albums-outline",
-  relations: "swap-horizontal-outline", // remplacé par le symbole € au rendu
+  relations: "albums-outline", // remplacé par MaterialCommunityIcons handshake-outline au rendu
   preferences: "options-outline",
 };
 const LABEL: Record<string, string> = {
-  portefeuille: "Portefeuille",
+  portefeuille: "Accueil",
   donnees: "Données",
   relations: "Relations",
   preferences: "Préf.",
@@ -128,15 +128,11 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               }}
             >
               {it.name === "relations" ? (
-                <Text
-                  style={{
-                    fontSize: 22,
-                    fontWeight: "700",
-                    color: focused ? "#FFFFFF" : "#8A91A1",
-                  }}
-                >
-                  €
-                </Text>
+                <MaterialCommunityIcons
+                  name="handshake-outline"
+                  size={22}
+                  color={focused ? "#FFFFFF" : "#8A91A1"}
+                />
               ) : (
                 <Ionicons
                   name={ICON[it.name]}
