@@ -24,6 +24,15 @@ import { useDeleteAccount, usePageVersions } from "../lib/queries";
 const WEB_BASE =
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
 
+// Ajoute le marqueur `?from=mobile-app` à un href web : la RouteNav
+// (pastille flottante du bas) et autres éléments « web-only » s'auto-
+// masquent côté serveur quand ce flag est présent (persisté ensuite
+// en localStorage pour les navigations internes au in-app browser).
+function withMobileAppFlag(href: string): string {
+  const sep = href.includes("?") ? "&" : "?";
+  return `${href}${sep}from=mobile-app`;
+}
+
 // Ordre + icônes + couleur d'accent par lien. Chaque pastille a sa
 // propre teinte (icône + fond pastel) pour différencier visuellement
 // les rubriques sans peser sur la hiérarchie générale.
@@ -159,7 +168,7 @@ export default function AccountPage() {
   );
 
   function openWeb(href: string) {
-    void WebBrowser.openBrowserAsync(`${WEB_BASE}${href}`);
+    void WebBrowser.openBrowserAsync(`${WEB_BASE}${withMobileAppFlag(href)}`);
   }
 
   async function doDelete() {

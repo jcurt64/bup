@@ -176,8 +176,12 @@ const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
 // iOS : on ouvre les pages légales dans SFSafariViewController via
 // expo-web-browser (navigateur in-app, URL visible, conforme App Review)
 // — pas de WebView "wrapper", pas de saut brut hors application.
+// On appose `?from=mobile-app` pour que la RouteNav web s'auto-masque
+// (les utilisateurs mobiles ont leur propre nav, pas besoin d'être
+// redirigés vers l'écosystème web).
 function openLegal(path: string) {
-  void WebBrowser.openBrowserAsync(`${WEB_BASE}${path}`, {
+  const sep = path.includes("?") ? "&" : "?";
+  void WebBrowser.openBrowserAsync(`${WEB_BASE}${path}${sep}from=mobile-app`, {
     presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
   });
 }
