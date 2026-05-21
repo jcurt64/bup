@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
   useEffect,
@@ -167,25 +167,31 @@ function tabStyle(active: boolean, overDark: boolean): CSSProperties {
 
 export default function RouteNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { isLoaded, isSignedIn, user } = useUser();
 
   // Détection « ouvert depuis l'app mobile ». Le query param ?from=mobile-app
   // est posé une seule fois par l'app à l'ouverture ; on le persiste en
   // localStorage pour que la nav reste masquée sur les navigations
   // internes ultérieures (clic sur un lien dans l'in-app browser).
+  // NB : on lit window.location.search côté client plutôt que
+  // useSearchParams() pour ne pas désopter `/_not-found` du SSG (Next.js 16
+  // refuse useSearchParams sans <Suspense> dans une page prérendue).
   const [inMobileApp, setInMobileApp] = useState(false);
   useEffect(() => {
-    const fromUrl = searchParams?.get("from") === "mobile-app";
-    if (fromUrl) {
-      try { localStorage.setItem(MOBILE_APP_FLAG, "1"); } catch {}
-      setInMobileApp(true);
-      return;
-    }
     try {
+      const fromUrl =
+        new URLSearchParams(window.location.search).get("from") === "mobile-app";
+      if (fromUrl) {
+        localStorage.setItem(MOBILE_APP_FLAG, "1");
+        setInMobileApp(true);
+        return;
+      }
       if (localStorage.getItem(MOBILE_APP_FLAG) === "1") setInMobileApp(true);
-    } catch {}
-  }, [searchParams]);
+    } catch {
+      /* localStorage indisponible (mode privé Safari, etc.) — on laisse
+         la nav visible plutôt que de risquer un crash. */
+    }
+  }, [pathname]);
   if (inMobileApp) return null;
   // Cache instant : publicMetadata.role lu depuis le session token Clerk.
   // Peut être stale juste après une re-synchro côté serveur (ex.
