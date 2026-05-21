@@ -93,10 +93,6 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
 
   async function decideRelation(action: "accept" | "refuse") {
     if (!d.relationId || busy) return;
-    // Garde côté client : si l'utilisateur essaie d'accepter sans
-    // avoir rempli les paliers requis, on bloque et on l'invite à
-    // les compléter (parité web fill_data, mais déclenché par le clic
-    // sur Accepter au lieu d'un mode séparé).
     if (action === "accept" && hasMissing) {
       setShowFillData(true);
       return;
@@ -104,6 +100,49 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
     setBusy(action);
     try {
       await decide.mutateAsync({ id: d.relationId, action });
+      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+    } catch {
+      Alert.alert(
+        "Action impossible",
+        "La campagne est peut-être expirée. Réessayez dans un instant.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Bascule refused → accepted via deux appels (undo puis accept).
+  // L'endpoint /decision n'autorise pas refused → accepted en direct
+  // (cf. table de transitions : refused → pending via undo, puis
+  // pending → accepted via accept).
+  async function acceptAfterRefused() {
+    if (!d.relationId || busy) return;
+    if (hasMissing) {
+      setShowFillData(true);
+      return;
+    }
+    setBusy("accept");
+    try {
+      await decide.mutateAsync({ id: d.relationId, action: "undo" });
+      await decide.mutateAsync({ id: d.relationId, action: "accept" });
+      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+    } catch {
+      Alert.alert(
+        "Action impossible",
+        "La campagne est peut-être expirée. Réessayez dans un instant.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // accepted → refused : direct via /decision action=refuse (la RPC
+  // refund_relation_tx gère le remboursement du pro côté wallet).
+  async function refuseAfterAccepted() {
+    if (!d.relationId || busy) return;
+    setBusy("refuse");
+    try {
+      await decide.mutateAsync({ id: d.relationId, action: "refuse" });
       await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
     } catch {
       Alert.alert(
@@ -321,18 +360,92 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
             </Text>
           </Pressable>
         </View>
-      ) : d.relationStatus === "accepted" || d.relationStatus === "settled" ? (
+      ) : d.relationStatus === "accepted" && !expired ? (
+        // already_accepted (campagne encore active, escrow non encore
+        // settled) — autorise un retour en arrière vers refused.
+        <View className="gap-2">
+          <View
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              backgroundColor: "#E8F5EE",
+              borderWidth: 1,
+              borderColor: "#B8DDC4",
+            }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+              <Text
+                className="text-[13px] font-semibold"
+                style={{ color: "#0F1629" }}
+              >
+                Sollicitation déjà acceptée.
+              </Text>
+            </View>
+            <Text className="mt-1 text-[12px] leading-4 text-ink-4">
+              La campagne est encore active : vous pouvez changer d'avis
+              et refuser tant qu'elle n'est pas clôturée.
+            </Text>
+          </View>
+          <Pressable
+            disabled={busy !== null}
+            onPress={refuseAfterAccepted}
+            className="items-center rounded-full border border-line bg-paper py-3 active:opacity-70"
+          >
+            <Text className="text-sm font-medium text-ink">
+              {busy === "refuse" ? "Refus en cours…" : "Refuser finalement"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : d.relationStatus === "settled" ? (
+        // already_settled — campagne soldée, plus de retour possible.
         <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-good/10 py-2.5">
-          <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+          <Ionicons name="checkmark-done-circle" size={14} color="#16A34A" />
           <Text className="text-[13px] font-medium text-good">
-            Déjà acceptée
+            Sollicitation acceptée · créditée
           </Text>
         </View>
+      ) : d.relationStatus === "refused" && !expired ? (
+        // already_refused (campagne encore active) — autorise un retour
+        // en arrière vers accepted via undo+accept enchaînés.
+        <View className="gap-2">
+          <View
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              backgroundColor: "#EFEADD",
+              borderWidth: 1,
+              borderColor: "#E6E3DA",
+            }}
+          >
+            <Text
+              className="text-[13px] font-semibold"
+              style={{ color: "#0F1629" }}
+            >
+              Vous avez refusé cette sollicitation.
+            </Text>
+            <Text className="mt-1 text-[12px] leading-4 text-ink-4">
+              La campagne est encore active : vous pouvez changer d'avis
+              et accepter tant qu'elle n'est pas clôturée.
+            </Text>
+          </View>
+          <Pressable
+            disabled={busy !== null}
+            onPress={acceptAfterRefused}
+            className="flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
+          >
+            <Text className="text-sm font-semibold text-paper">
+              {busy === "accept" ? "Acceptation en cours…" : "Accepter finalement"}
+            </Text>
+            {busy === "accept" ? null : (
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            )}
+          </Pressable>
+        </View>
       ) : d.relationStatus === "refused" ? (
+        // already_refused mais campagne expirée — chip rouge final.
         <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-bad/10 py-2.5">
           <Ionicons name="close-circle" size={14} color="#DC2626" />
           <Text className="text-[13px] font-medium text-bad">
-            Refusée
+            Sollicitation refusée
           </Text>
         </View>
       ) : expired ? null : (d.missingTierKeys?.length ?? 0) > 0 ? (
