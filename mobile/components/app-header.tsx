@@ -105,14 +105,20 @@ function FlashHeaderButton({
       opacity.value = 0;
       return;
     }
-    // 0 → max sur 1.2 s, retour à 0 sur 1.2 s (= 2.4 s total) en boucle.
+    // Baseline visible (0.25 / scale 1.0) + pulse jusqu'à (0.7 / 1.3) sur
+    // 1.2 s aller-retour. Démarrer opacité à 0.25 (au lieu de 0) évite la
+    // moitié de cycle « invisible » qui faisait paraître l'animation
+    // cassée. Scale max réduit (1.3 vs 1.55) → halo plus serré autour
+    // du bouton.
+    scale.value = 1;
+    opacity.value = 0.25;
     scale.value = withRepeat(
-      withTiming(1.55, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      withTiming(1.3, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
     opacity.value = withRepeat(
-      withTiming(0.55, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      withTiming(0.7, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
@@ -175,8 +181,11 @@ export function AppHeader() {
   return (
     <>
       <View
-        style={{ paddingTop: insets.top + 6 }}
-        className="flex-row items-center justify-between border-b border-line bg-ivory px-4 pb-3"
+        // Padding vertical augmenté (~1.5× la hauteur précédente) — le
+        // contenu garde son centrage vertical via `items-center` sur la
+        // flex-row, donc les boutons et le logo restent bien centrés.
+        style={{ paddingTop: insets.top + 20, paddingBottom: 24 }}
+        className="flex-row items-center justify-between border-b border-line bg-ivory px-4"
       >
         <IconButton
           icon="person-outline"
@@ -196,7 +205,7 @@ export function AppHeader() {
           <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
         </View>
 
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-4">
           <FlashHeaderButton
             onPress={() => setShowFlash(true)}
             active={flashCount > 0}
