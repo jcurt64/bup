@@ -2,6 +2,7 @@
 // l'écran : notifications /api/me/notifications, lecture + pièce jointe
 // (même données/logique que l'écran Messages, sans ScrollScreen/hero).
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useEffect } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +12,9 @@ import {
   Text,
   View,
 } from "react-native";
+
+// Illustration 3D thiings.co (Mailbox) — empty state convivial.
+const EMPTY_MAILBOX = require("../assets/images/empty-mailbox.png");
 
 import { BottomSheet } from "./bottom-sheet";
 import { Card, dateFr } from "./screen";
@@ -112,12 +116,27 @@ export function MessagesSheet({
           </Text>
         </View>
       ) : notifs.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <View className="items-center rounded-2xl border border-line bg-paper p-8">
-            <Text className="text-center text-sm text-ink-4">
-              Aucun message pour le moment.
-            </Text>
+        <View className="flex-1 items-center justify-center px-6">
+          {/* Empty state — illustration 3D thiings.co (Mailbox) sur cercle
+              pastel violet, titre serif + subtitle ink-4 (esthétique
+              em.png : illustration centrée + texte amical). */}
+          <View
+            className="mb-3 h-44 w-44 items-center justify-center rounded-full"
+            style={{ backgroundColor: "rgba(124, 92, 252, 0.08)" }}
+          >
+            <Image
+              source={EMPTY_MAILBOX}
+              style={{ width: 140, height: 140 }}
+              contentFit="contain"
+              accessibilityLabel="Boîte aux lettres vide"
+            />
           </View>
+          <Text className="font-serif text-xl text-ink">
+            Votre boîte est vide
+          </Text>
+          <Text className="mt-1.5 text-center text-[13px] leading-5 text-ink-4">
+            Les annonces, alertes et communications BUUPP{"\n"}s'afficheront ici dès qu'elles arriveront.
+          </Text>
         </View>
       ) : (
         <ScrollView
