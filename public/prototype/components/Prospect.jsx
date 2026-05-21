@@ -212,39 +212,53 @@ function ProspectProvider({ children }) {
     };
   }, [readMockHistory]);
 
-  // Rate-limit client (aligné serveur) : 1 décision toutes les 5 min.
-  // Même clé localStorage que HomeClient.tsx pour partager le cooldown
-  // entre la modale Flash Deal de la home et l'onglet Mises en relation.
-  // Les mocks bypassent l'API, donc sans ce guard l'utilisateur peut
-  // spammer Accept/Refuse en boucle.
-  const DECISION_RATE_KEY = 'bupp:last-decision-at:v1';
+  // Rate-limit client (aligné serveur) : 1 décision toutes les 5 min
+  // PAR SOLLICITATION. Même clé localStorage que HomeClient.tsx (v2) pour
+  // partager le cooldown entre la modale Flash Deal de la home et
+  // l'onglet Mises en relation. Le store est un map
+  // { <relationId|dealId>: timestamp } — un cooldown sur la sollicitation
+  // A n'empêche PAS d'agir sur la sollicitation B.
+  const DECISION_RATE_KEY = 'bupp:last-decision-by-deal:v2';
   const DECISION_COOLDOWN_MS = 5 * 60 * 1000;
-  const getLastDecisionAt = () => {
+  const getDecisionTimestamps = () => {
     try {
       const raw = window.localStorage.getItem(DECISION_RATE_KEY);
-      const n = raw == null ? NaN : Number(raw);
-      return Number.isFinite(n) ? n : null;
-    } catch { return null; }
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch { return {}; }
   };
-  const setLastDecisionAt = (ts) => {
-    try { window.localStorage.setItem(DECISION_RATE_KEY, String(ts)); } catch (_) {}
+  const setLastDecisionAtFor = (dealId, ts) => {
+    if (!dealId) return;
+    try {
+      const store = getDecisionTimestamps();
+      store[dealId] = ts;
+      // GC léger : retire les entrées >30 min pour éviter le gonflement.
+      const cutoff = ts - 30 * 60 * 1000;
+      for (const k of Object.keys(store)) {
+        if (store[k] < cutoff) delete store[k];
+      }
+      window.localStorage.setItem(DECISION_RATE_KEY, JSON.stringify(store));
+    } catch (_) {}
   };
-  const decisionCooldownLeftMs = (now = Date.now()) => {
-    const last = getLastDecisionAt();
-    return last == null ? 0 : Math.max(0, last + DECISION_COOLDOWN_MS - now);
+  const decisionCooldownLeftMs = (dealId, now = Date.now()) => {
+    if (!dealId) return 0;
+    const last = getDecisionTimestamps()[dealId];
+    if (typeof last !== 'number') return 0;
+    return Math.max(0, last + DECISION_COOLDOWN_MS - now);
   };
   const buildCooldownMessage = (ms) => {
     const s = Math.max(1, Math.ceil(ms / 1000));
     const m = Math.floor(s / 60);
     const r = s % 60;
     const label = m === 0 ? `${r} s` : r === 0 ? `${m} min` : `${m} min ${r} s`;
-    return `Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes. Réessayez dans ${label}.`;
+    return `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${label}.`;
   };
 
   const postDecision = async (id, action) => {
-    // Pré-check local — évite un aller-retour réseau et déclenche
-    // l'alerte avec un countdown précis.
-    const left = decisionCooldownLeftMs();
+    // Pré-check local (per-relation) — évite un aller-retour réseau et
+    // déclenche l'alerte avec un countdown précis.
+    const left = decisionCooldownLeftMs(id);
     if (left > 0) {
       try { window.alert(buildCooldownMessage(left)); } catch (_) {}
       return false;
@@ -267,8 +281,9 @@ function ProspectProvider({ children }) {
         }
         return false;
       }
-      // Trace la décision réussie pour le prochain cooldown client.
-      setLastDecisionAt(Date.now());
+      // Trace la décision réussie sur CETTE sollicitation pour le
+      // prochain cooldown client.
+      setLastDecisionAtFor(id, Date.now());
       return true;
     } catch (e) {
       console.warn('[prospect/relations] decision error', e);

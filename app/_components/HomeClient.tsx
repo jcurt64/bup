@@ -905,33 +905,50 @@ const MOCK_DECISIONS_EVENT = "bupp:mock-deal-decisions-changed";
 
 // ─── Rate-limit client (anti-spam local pour mocks ET vrais decisions) ──
 // Aligné sur le rate-limit serveur (/api/prospect/relations/[id]/decision) :
-// 1 décision toutes les 5 min. Les mocks bypassent le serveur — sans ce
-// guard local, l'utilisateur peut spammer Accept/Refuse en boucle. Le
-// guard sert aussi de pré-check UX pour les vraies décisions (évite un
-// aller-retour réseau et affiche un countdown plus précis).
-const DECISION_RATE_KEY = "bupp:last-decision-at:v1";
+// 1 décision toutes les 5 min PAR SOLLICITATION. Les mocks bypassent le
+// serveur — sans ce guard local, l'utilisateur peut spammer Accept/Refuse
+// en boucle. Le guard sert aussi de pré-check UX pour les vraies
+// décisions (évite un aller-retour réseau et affiche un countdown).
+//
+// Stockage : map { <dealId | relationId>: timestamp } dans localStorage
+// (clé v2 pour invalider l'ancien store global v1).
+const DECISION_RATE_KEY = "bupp:last-decision-by-deal:v2";
 const DECISION_COOLDOWN_MS = 5 * 60 * 1000;
 
-function getLastDecisionAt(): number | null {
-  if (typeof window === "undefined") return null;
+function getDecisionTimestamps(): Record<string, number> {
+  if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(DECISION_RATE_KEY);
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, number>)
+      : {};
   } catch {
-    return null;
+    return {};
   }
 }
-function setLastDecisionAt(ts: number): void {
-  if (typeof window === "undefined") return;
+function setLastDecisionAtFor(dealId: string, ts: number): void {
+  if (typeof window === "undefined" || !dealId) return;
   try {
-    window.localStorage.setItem(DECISION_RATE_KEY, String(ts));
+    const store = getDecisionTimestamps();
+    store[dealId] = ts;
+    // GC léger : supprime les entrées dont le cooldown est largement
+    // expiré (> 30 min) pour éviter que le store gonfle indéfiniment.
+    const cutoff = ts - 30 * 60 * 1000;
+    for (const k of Object.keys(store)) {
+      if (store[k] < cutoff) delete store[k];
+    }
+    window.localStorage.setItem(DECISION_RATE_KEY, JSON.stringify(store));
   } catch {}
 }
-function decisionCooldownLeftMs(now: number = Date.now()): number {
-  const last = getLastDecisionAt();
-  if (last == null) return 0;
+function decisionCooldownLeftMs(
+  dealId: string,
+  now: number = Date.now(),
+): number {
+  if (!dealId) return 0;
+  const last = getDecisionTimestamps()[dealId];
+  if (typeof last !== "number") return 0;
   return Math.max(0, last + DECISION_COOLDOWN_MS - now);
 }
 function formatCooldownMs(ms: number): string {
@@ -943,7 +960,7 @@ function formatCooldownMs(ms: number): string {
   return `${m} min ${r} s`;
 }
 function buildCooldownMessage(remainingMs: number): string {
-  return `Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes. Réessayez dans ${formatCooldownMs(remainingMs)}.`;
+  return `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${formatCooldownMs(remainingMs)}.`;
 }
 
 type MockDecisionRecord = {
@@ -1661,7 +1678,7 @@ function FlashDealModal({
     // Rate-limit client (mocks ET vraies décisions) : 1 / 5 min — aligné
     // sur le rate-limit serveur. Les mocks bypassent l'API, donc sans
     // ce guard l'utilisateur pouvait spammer Accept/Refuse.
-    const left = decisionCooldownLeftMs();
+    const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
       return;
@@ -1677,7 +1694,7 @@ function FlashDealModal({
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, action === "accept" ? "accepted" : "refused");
-        setLastDecisionAt(Date.now());
+        setLastDecisionAtFor(deal.id, Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1696,7 +1713,7 @@ function FlashDealModal({
         },
       );
       if (!r.ok) await throwApiError(r);
-      setLastDecisionAt(Date.now());
+      setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
@@ -1711,7 +1728,7 @@ function FlashDealModal({
   // un statut accepted (RPC refund_relation_tx). Pour les mocks, on
   // ré-écrit simplement la décision dans localStorage.
   const refuseAfterAccepted = async () => {
-    const left = decisionCooldownLeftMs();
+    const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
       return;
@@ -1721,7 +1738,7 @@ function FlashDealModal({
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, "refused");
-        setLastDecisionAt(Date.now());
+        setLastDecisionAtFor(deal.id, Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1740,7 +1757,7 @@ function FlashDealModal({
         },
       );
       if (!r.ok) await throwApiError(r);
-      setLastDecisionAt(Date.now());
+      setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
@@ -1754,7 +1771,7 @@ function FlashDealModal({
   // puis accept (pending → accepted). Utilisé tant que la campagne est
   // toujours active.
   const acceptAfterRefused = async () => {
-    const left = decisionCooldownLeftMs();
+    const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
       return;
@@ -1765,7 +1782,7 @@ function FlashDealModal({
       setError(null);
       setTimeout(() => {
         writeMockDecision(deal, "accepted");
-        setLastDecisionAt(Date.now());
+        setLastDecisionAtFor(deal.id, Date.now());
         setSubmitting(null);
         onClose();
       }, 400);
@@ -1793,7 +1810,7 @@ function FlashDealModal({
         },
       );
       if (!acc.ok) await throwApiError(acc);
-      setLastDecisionAt(Date.now());
+      setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
       const code = e instanceof Error ? e.message : "";

@@ -76,11 +76,12 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
   }
 
-  // Rate limit anti-spam : 1 décision / 5 min / user. La key inclut
-  // `userId` et pas la relation_id pour que le quota soit GLOBAL — un
-  // clic sur "accepter" épuise la fenêtre, même pour une autre relation.
+  // Rate limit anti-spam : 1 décision / 5 min / (user × relation).
+  // Le quota est INDÉPENDANT par sollicitation — un accept sur la
+  // relation A n'épuise PAS la fenêtre sur la relation B. La key inclut
+  // donc l'id de relation pour scoper le compteur.
   const limit = await checkRateLimit({
-    key: `relation-decision:${userId}`,
+    key: `relation-decision:${userId}:${id}`,
     limit: DECISION_LIMIT,
     windowSec: DECISION_WINDOW_SEC,
   });
@@ -89,7 +90,7 @@ export async function POST(req: Request, ctx: RouteContext) {
       {
         error: "rate_limited",
         message:
-          `Pas trop vite 😊 vous pouvez accepter ou refuser une sollicitation toutes les 5 minutes. Réessayez dans ${formatRetryAfter(limit.retryAfterSec)}.`,
+          `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${formatRetryAfter(limit.retryAfterSec)}.`,
         retryAfterSec: limit.retryAfterSec,
       },
       {
