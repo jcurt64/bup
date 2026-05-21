@@ -4,6 +4,7 @@
 // Parité conceptuelle avec la bannière marquee web (sans le défilement
 // horizontal — sur mobile on empile verticalement pour la lisibilité).
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,6 +22,16 @@ import {
   useFlashDeals,
   type FlashDeal,
 } from "../lib/queries";
+
+// Mirror Prospect.jsx/HomeClient.tsx — libellés FR des catégories
+// de données utilisés dans les chips « paliers requis ».
+const TIER_KEY_LABEL_FR: Record<string, string> = {
+  identity: "Identification",
+  localisation: "Localisation",
+  vie: "Style de vie",
+  pro: "Données professionnelles",
+  patrimoine: "Patrimoine & projets",
+};
 
 // "HH:MM:SS" depuis un endsAt ISO et un nowTs courant (passé en arg
 // pour forcer le re-render à chaque tick du parent). "Expirée" si négatif.
@@ -152,6 +163,47 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
         </View>
       ) : null}
 
+      {/* Catégories de données demandées — chips. Couleur ink pour
+          celles déjà remplies, ambre pour celles manquantes. */}
+      {d.requiredTierKeys?.length > 0 ? (
+        <View>
+          <Text
+            className="font-mono text-[10px] uppercase text-ink-4"
+            style={{ letterSpacing: 0.8 }}
+          >
+            Données demandées
+          </Text>
+          <View className="mt-2 flex-row flex-wrap gap-1.5">
+            {d.requiredTierKeys.map((k) => {
+              const missing = (d.missingTierKeys ?? []).includes(k);
+              return (
+                <View
+                  key={k}
+                  className="flex-row items-center gap-1 rounded-full px-2.5 py-1"
+                  style={{
+                    backgroundColor: missing ? "#FEF6E7" : "#F2EEF5",
+                    borderWidth: 1,
+                    borderColor: missing ? "#F5C57A" : "#E6E3DA",
+                  }}
+                >
+                  <Ionicons
+                    name={missing ? "alert-circle-outline" : "checkmark-circle"}
+                    size={11}
+                    color={missing ? "#92400E" : "#16A34A"}
+                  />
+                  <Text
+                    className="text-[11.5px] font-medium"
+                    style={{ color: missing ? "#92400E" : "#0F1629" }}
+                  >
+                    {TIER_KEY_LABEL_FR[k] ?? k}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {/* Récompense + timer alignés */}
       <View className="flex-row items-center justify-between">
         <View>
@@ -187,9 +239,13 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
         </View>
       </View>
 
-      {/* Actions Accepter / Refuser — branchées sur useDecideRelation
-          (POST /api/prospect/relations/[id]/decision). Visibles quand
-          le prospect a déjà une relation pending sur cette campagne. */}
+      {/* Bloc actions — modes mirror du web (FlashDealModal) :
+          - canDecide : pending + relationId + non expiré → Accepter/Refuser
+          - already_accepted / settled → chip vert
+          - already_refused → chip rouge
+          - fill_data : auth + pas de relation + paliers manquants → CTA
+          - no_match : auth + pas de relation + tout rempli → message d'attente
+          - non auth : déjà filtré côté liste (sheet est dans l'app loggée) */}
       {canDecide ? (
         <View className="flex-row gap-3">
           <Pressable
@@ -225,11 +281,28 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
             Refusée
           </Text>
         </View>
-      ) : expired ? null : (
-        // Pas encore sollicité : invitation à compléter ses données.
-        <Text className="text-center text-[12.5px] text-ink-4">
-          Complétez vos données pour pouvoir accepter ce deal.
-        </Text>
+      ) : expired ? null : (d.missingTierKeys?.length ?? 0) > 0 ? (
+        // fill_data — invitation à compléter les données manquantes
+        // pour devenir éligible à ce deal.
+        <Pressable
+          onPress={() => router.push("/(prospect)/donnees")}
+          className="flex-row items-center justify-center gap-2 rounded-full py-3 active:opacity-80"
+          style={{ backgroundColor: "#F2B65A" }}
+        >
+          <Ionicons name="document-text-outline" size={16} color="#0F1629" />
+          <Text className="text-sm font-semibold text-ink">
+            Compléter mes données
+          </Text>
+        </Pressable>
+      ) : (
+        // no_match — auth, tout est rempli mais pas de relation → on
+        // est sur la liste publique, en attente que le pro nous sollicite.
+        <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-ink-5/30 py-2.5">
+          <Ionicons name="hourglass-outline" size={14} color="#5B6478" />
+          <Text className="text-[13px] font-medium text-ink-3">
+            En attente d'une sollicitation
+          </Text>
+        </View>
       )}
     </View>
   );
