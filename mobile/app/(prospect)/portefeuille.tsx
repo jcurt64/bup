@@ -307,9 +307,10 @@ export default function Portefeuille() {
                   // chevron remontent en haut, alignés sur la ligne
                   // « origine ». Le chip Palier de la ligne 2 ne touche
                   // plus la rémunération à droite.
-                  className={`flex-row items-start justify-between rounded-2xl border border-line bg-paper p-3 ${
+                  className={`flex-row items-start justify-between rounded-2xl bg-paper p-3 ${
                     clickable ? "active:opacity-70" : ""
                   }`}
+                  style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
                 >
                   <View className="flex-1 pr-3">
                     <Text className="text-base text-ink-2" numberOfLines={1}>

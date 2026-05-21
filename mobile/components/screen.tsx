@@ -186,7 +186,10 @@ export function QueryGate<T>({
   const d = query.data as T;
   if (isEmpty && isEmpty(d)) {
     return (
-      <View className="items-center rounded-2xl border border-line bg-paper p-8">
+      <View
+        className="items-center rounded-2xl bg-paper p-8"
+        style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+      >
         <Text className="text-center text-sm text-ink-4">{emptyLabel}</Text>
       </View>
     );
@@ -279,7 +282,7 @@ export function Card({
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
-          { borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "#E6E3DA" },
+          { borderRadius: 24, padding: 20, borderWidth: 0.7, borderColor: "#CBC7B9" },
           shadow,
         ]}
       >
@@ -289,8 +292,11 @@ export function Card({
   }
   return (
     <View
-      className={`rounded-3xl p-5 ${dark ? "" : "border border-line"} ${bg} ${className}`}
-      style={shadow}
+      className={`rounded-3xl p-5 ${bg} ${className}`}
+      style={[
+        shadow,
+        dark ? null : { borderWidth: 0.7, borderColor: "#CBC7B9" },
+      ]}
     >
       {inner}
     </View>
@@ -359,8 +365,8 @@ export function Stat({
           flex: 1,
           borderRadius: 24,
           padding: 16,
-          borderWidth: 1,
-          borderColor: "#E6E3DA",
+          borderWidth: 0.7,
+          borderColor: "#CBC7B9",
         }}
       >
         {inner}
@@ -368,7 +374,10 @@ export function Stat({
     );
   }
   return (
-    <View className={`flex-1 rounded-3xl border border-line p-4 ${bg}`}>
+    <View
+      className={`flex-1 rounded-3xl p-4 ${bg}`}
+      style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+    >
       {inner}
     </View>
   );

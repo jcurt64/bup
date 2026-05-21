@@ -148,8 +148,12 @@ function HistoryRow({
           borderRadius: 18,
           padding: 14,
           position: "relative",
-          borderWidth: 0.1,
-          borderColor: "#E6E3DA",
+          // RN arrondit borderWidth < 0.5 à 0 sur la plupart des écrans :
+          // on monte à 0.7 pour qu'une hairline rende réellement, et la
+          // couleur est légèrement plus marquée que le token `line` pour
+          // percer sur le gradient violet pâle des cards.
+          borderWidth: 0.7,
+          borderColor: "#CBC7B9",
           shadowColor: "#0F1629",
           shadowOpacity: 0.04,
           shadowRadius: 10,
@@ -382,7 +386,10 @@ export default function Relations() {
             // Empty state — peace-sign sur cercle pastel coral (teinte
             // Relations), même langage visuel que Portefeuille/Mouvements
             // et messages-sheet.
-            <View className="items-center rounded-2xl border border-line bg-paper px-4 py-8">
+            <View
+              className="items-center rounded-2xl bg-paper px-4 py-8"
+              style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+            >
               <View
                 className="mb-3 h-40 w-40 items-center justify-center rounded-full"
                 style={{ backgroundColor: "rgba(255, 122, 107, 0.10)" }}
@@ -527,7 +534,10 @@ export default function Relations() {
         {/* Bloc 3 : contenu historique (empty state ou liste de cartes,
             cartes espacées de 12 px entre elles). */}
         {q.isPending ? null : filteredHistory.length === 0 ? (
-          <View className="items-center rounded-2xl border border-line bg-paper p-8">
+          <View
+            className="items-center rounded-2xl bg-paper p-8"
+            style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+          >
             <Text className="text-center text-sm text-ink-4">
               {historyFilter === "accepted"
                 ? "Aucune demande acceptée."
