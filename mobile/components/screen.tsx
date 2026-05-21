@@ -35,10 +35,13 @@ type HeroProps = {
   desc?: string;
   /** "menu" ouvre le drawer, "back" revient en arrière, undefined = rien */
   nav?: "menu" | "back";
+  /** Décoration absolument positionnée en haut à droite (signature visuelle
+   *  de la page — ex. icône handshake sur Relations). */
+  topRight?: ReactNode;
   children?: ReactNode;
 };
 
-export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps) {
+export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: HeroProps) {
   const me = useMeTyped();
   const verif = useProspectVerification();
   const hour = new Date().getHours();
@@ -97,6 +100,14 @@ export function GradientHero({ title, eyebrow, desc, nav, children }: HeroProps)
         <Text className="mt-1 text-lg leading-6 text-white/75">{desc}</Text>
       ) : null}
       {children ? <View className="mt-3">{children}</View> : null}
+      {topRight ? (
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: 18, right: 20 }}
+        >
+          {topRight}
+        </View>
+      ) : null}
     </LinearGradient>
   );
 }

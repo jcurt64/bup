@@ -1,6 +1,8 @@
 // Mises en relation — /api/prospect/relations. Accept/refuse via la
 // mutation useDecideRelation (body { action }) → invalidation des vues
 // impactées (relations/wallet/score) = synchro web⇄mobile (§6.1).
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -14,6 +16,8 @@ import {
 import { useDecideRelation, useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { Relation } from "../../lib/queries";
+
+const EMPTY_PENDING = require("../../assets/images/peace-sign.png");
 
 // ── Filtre cyclique historique ──────────────────────────────────────
 type HistoryFilter = "all" | "accepted" | "refused";
@@ -124,15 +128,45 @@ export default function Relations() {
         eyebrow: "Mises en relation",
         title: "Demandes en attente",
         desc: "Acceptez pour être rémunéré·e. Sans réponse à temps, la sollicitation expire.",
+        // Signature visuelle de la page Relations — handshake coral à 85%
+        // d'opacité : contraste chaud sur le dégradé violet→navy.
+        topRight: (
+          <MaterialCommunityIcons
+            name="handshake"
+            size={56}
+            color="#FF7A6B"
+            style={{ opacity: 0.85 }}
+          />
+        ),
       }}
     >
       {/* ── Demandes en attente ──────────────────────────── */}
-      <QueryGate
-        query={q}
-        isEmpty={(d) => (d.pending?.length ?? 0) === 0}
-        emptyLabel="Aucune demande en attente pour le moment."
-      >
+      <QueryGate query={q}>
         {(d) => (
+          (d.pending?.length ?? 0) === 0 ? (
+            // Empty state — peace-sign sur cercle pastel coral (teinte
+            // Relations), même langage visuel que Portefeuille/Mouvements
+            // et messages-sheet.
+            <View className="items-center rounded-2xl border border-line bg-paper px-4 py-8">
+              <View
+                className="mb-3 h-40 w-40 items-center justify-center rounded-full"
+                style={{ backgroundColor: "rgba(255, 122, 107, 0.10)" }}
+              >
+                <Image
+                  source={EMPTY_PENDING}
+                  style={{ width: 128, height: 128 }}
+                  contentFit="contain"
+                  accessibilityLabel="Aucune demande pour l'instant"
+                />
+              </View>
+              <Text className="font-serif text-xl text-ink">
+                Aucune demande pour l'instant
+              </Text>
+              <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
+                Mais ça ne saurait tarder…{"\n"}On vous prévient dès qu'une sollicitation arrive.
+              </Text>
+            </View>
+          ) : (
           <View className="gap-3">
             {/* Compteur de demandes en attente */}
             <Text className="text-[11px] text-ink-4 font-mono">
@@ -188,45 +222,75 @@ export default function Relations() {
               </Card>
             ))}
           </View>
+          )
         )}
       </QueryGate>
 
       {/* ── Historique (toujours affiché) ────────────────── */}
-      <View className="gap-3">
-        {/* En-tête historique avec compteur + filtres */}
-        <View className="flex-row items-center justify-between flex-wrap gap-2">
+      {/* Section aérée : 3 blocs empilés (label / filtres / cartes), 16 px
+          d'espace entre chaque bloc — alignement avec la respiration de la
+          page Accueil. */}
+      <View className="gap-4">
+        {/* Bloc 1 : pastille time-outline + label (font calibré sur la
+            section "Mouvements" de la page Accueil). */}
+        <View className="flex-row items-center gap-2">
+          <View className="h-7 w-7 items-center justify-center rounded-full bg-sky-soft">
+            <Ionicons name="time-outline" size={15} color="#5B8DEF" />
+          </View>
           <Text
-            className="text-[11px] font-bold uppercase text-ink-4"
+            className="text-[13px] font-bold uppercase text-ink-4"
             style={{ letterSpacing: 1.2 }}
           >
             {`Historique · ${filteredHistory.length}`}
           </Text>
-          {/* Chips filtres cycliques */}
-          <View className="flex-row gap-1">
-            {HISTORY_FILTERS.map((f) => {
-              const active = historyFilter === f.key;
-              return (
-                <Pressable
-                  key={f.key}
-                  onPress={() => setHistoryFilter(f.key)}
-                  className={`rounded-full px-3 py-1 ${
-                    active ? "bg-ink" : "bg-ivory border border-line"
-                  }`}
-                >
-                  <Text
-                    className={`text-[11px] font-medium ${
-                      active ? "text-paper" : "text-ink-3"
-                    }`}
-                  >
-                    {f.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
 
-        {/* Contenu historique */}
+        {/* Bloc 2 : chips filtres — couleur sémantique par décision
+            (acceptées vert / refusées rouge / toutes neutre). Bordure
+            colorée quand inactif, fond pastel sans bordure (border
+            transparente pour éviter le shift de taille) quand actif —
+            tons doux pour ne pas crier. */}
+        <View className="flex-row gap-2">
+          {HISTORY_FILTERS.map((f) => {
+            const active = historyFilter === f.key;
+            const isAccepted = f.key === "accepted";
+            const isRefused = f.key === "refused";
+            const colorClasses = isAccepted
+              ? active
+                ? "bg-good/15 border border-transparent"
+                : "bg-paper border border-good/50"
+              : isRefused
+                ? active
+                  ? "bg-bad/15 border border-transparent"
+                  : "bg-paper border border-bad/50"
+                : active
+                  ? "bg-ink border border-ink"
+                  : "bg-ivory border border-line";
+            const textClasses = isAccepted
+              ? "text-good"
+              : isRefused
+                ? "text-bad"
+                : active
+                  ? "text-paper"
+                  : "text-ink-3";
+            return (
+              <Pressable
+                key={f.key}
+                onPress={() => setHistoryFilter(f.key)}
+                className={`rounded-full px-3.5 py-1 ${colorClasses}`}
+              >
+                <Text
+                  className={`text-[11px] ${active ? "font-semibold" : "font-medium"} ${textClasses}`}
+                >
+                  {f.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Bloc 3 : contenu historique (empty state ou liste de cartes,
+            cartes espacées de 12 px entre elles). */}
         {q.isPending ? null : filteredHistory.length === 0 ? (
           <View className="items-center rounded-2xl border border-line bg-paper p-8">
             <Text className="text-center text-sm text-ink-4">
@@ -238,7 +302,11 @@ export default function Relations() {
             </Text>
           </View>
         ) : (
-          filteredHistory.map((r) => <HistoryRow key={r.id} r={r} />)
+          <View className="gap-3">
+            {filteredHistory.map((r) => (
+              <HistoryRow key={r.id} r={r} />
+            ))}
+          </View>
         )}
       </View>
     </ScrollScreen>
