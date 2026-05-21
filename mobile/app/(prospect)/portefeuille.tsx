@@ -303,7 +303,11 @@ export default function Portefeuille() {
                       ? `Détail de ${mv.origin}`
                       : undefined
                   }
-                  className={`flex-row items-center justify-between rounded-2xl border border-line bg-paper p-3 ${
+                  // items-start (au lieu d'items-center) : le montant +
+                  // chevron remontent en haut, alignés sur la ligne
+                  // « origine ». Le chip Palier de la ligne 2 ne touche
+                  // plus la rémunération à droite.
+                  className={`flex-row items-start justify-between rounded-2xl border border-line bg-paper p-3 ${
                     clickable ? "active:opacity-70" : ""
                   }`}
                 >
