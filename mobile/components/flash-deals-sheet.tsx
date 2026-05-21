@@ -17,6 +17,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
+import { DecisionFeedback } from "./decision-feedback";
 import { ApiError } from "../lib/api";
 import {
   useDecideRelation,
@@ -84,6 +85,10 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
   // /decision qui aboutirait mais laisserait le prospect non éligible
   // (le pro ne peut pas finaliser sans les données requises).
   const [showFillData, setShowFillData] = useState(false);
+  // Feedback visuel post-décision (illustration + confettis pour accept).
+  // null = pas de décision récente ; sinon on garde l'encart visible
+  // pendant 3 s avant que le refetch fasse disparaître la card.
+  const [justDecided, setJustDecided] = useState<"accept" | "refuse" | null>(null);
   const missing = d.missingTierKeys ?? [];
   const hasMissing = missing.length > 0;
 
@@ -101,18 +106,37 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
     setBusy(action);
     try {
       await decide.mutateAsync({ id: d.relationId, action });
-      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      // Feedback visuel : illustration + confettis (accept) / peace (refuse).
+      // L'encart reste 2.5 s puis le refetch fait disparaître la card.
+      setJustDecided(action);
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      }, 2500);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
+      // Le body 429 contient { message } rédigé côté serveur (avec
+      // décompte « Réessayez dans … min »). On le réutilise tel quel.
+      let serverMsg: string | null = null;
+      if (e instanceof ApiError) {
+        try {
+          const j = JSON.parse(e.body) as { message?: string };
+          if (typeof j.message === "string") serverMsg = j.message;
+        } catch {}
+      }
       const msg =
-        status === 402
-          ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-          : status === 410
-            ? "Cette campagne a expiré."
-            : status === 409
-              ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-              : "Action impossible. Réessayez dans un instant.";
-      Alert.alert("Action impossible", msg);
+        status === 429 && serverMsg
+          ? serverMsg
+          : status === 402
+            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
+            : status === 410
+              ? "Cette campagne a expiré."
+              : status === 409
+                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
+                : "Action impossible. Réessayez dans un instant.";
+      Alert.alert(
+        status === 429 ? "Patientez un instant" : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
@@ -132,18 +156,35 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
     try {
       await decide.mutateAsync({ id: d.relationId, action: "undo" });
       await decide.mutateAsync({ id: d.relationId, action: "accept" });
-      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      setJustDecided("accept");
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      }, 2500);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
+      // Le body 429 contient { message } rédigé côté serveur (avec
+      // décompte « Réessayez dans … min »). On le réutilise tel quel.
+      let serverMsg: string | null = null;
+      if (e instanceof ApiError) {
+        try {
+          const j = JSON.parse(e.body) as { message?: string };
+          if (typeof j.message === "string") serverMsg = j.message;
+        } catch {}
+      }
       const msg =
-        status === 402
-          ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-          : status === 410
-            ? "Cette campagne a expiré."
-            : status === 409
-              ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-              : "Action impossible. Réessayez dans un instant.";
-      Alert.alert("Action impossible", msg);
+        status === 429 && serverMsg
+          ? serverMsg
+          : status === 402
+            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
+            : status === 410
+              ? "Cette campagne a expiré."
+              : status === 409
+                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
+                : "Action impossible. Réessayez dans un instant.";
+      Alert.alert(
+        status === 429 ? "Patientez un instant" : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
@@ -156,18 +197,35 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
     setBusy("refuse");
     try {
       await decide.mutateAsync({ id: d.relationId, action: "refuse" });
-      await qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      setJustDecided("refuse");
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      }, 2500);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
+      // Le body 429 contient { message } rédigé côté serveur (avec
+      // décompte « Réessayez dans … min »). On le réutilise tel quel.
+      let serverMsg: string | null = null;
+      if (e instanceof ApiError) {
+        try {
+          const j = JSON.parse(e.body) as { message?: string };
+          if (typeof j.message === "string") serverMsg = j.message;
+        } catch {}
+      }
       const msg =
-        status === 402
-          ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-          : status === 410
-            ? "Cette campagne a expiré."
-            : status === 409
-              ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-              : "Action impossible. Réessayez dans un instant.";
-      Alert.alert("Action impossible", msg);
+        status === 429 && serverMsg
+          ? serverMsg
+          : status === 402
+            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
+            : status === 410
+              ? "Cette campagne a expiré."
+              : status === 409
+                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
+                : "Action impossible. Réessayez dans un instant.";
+      Alert.alert(
+        status === 429 ? "Patientez un instant" : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
@@ -317,7 +375,9 @@ function DealCard({ d, nowTs }: { d: FlashDeal; nowTs: number }) {
           - fill_data : auth + pas de relation + paliers manquants → CTA
           - no_match : auth + pas de relation + tout rempli → message d'attente
           - non auth : déjà filtré côté liste (sheet est dans l'app loggée) */}
-      {canDecide && showFillData && hasMissing ? (
+      {justDecided ? (
+        <DecisionFeedback decision={justDecided} />
+      ) : canDecide && showFillData && hasMissing ? (
         // Encart « fill_data » déclenché par un clic Accepter avec des
         // paliers manquants. Liste les catégories à remplir et pousse
         // vers /(prospect)/donnees.
