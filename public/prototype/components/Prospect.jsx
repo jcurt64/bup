@@ -1306,9 +1306,50 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
         <div className="messages-empty messages-error">{error}</div>
       )}
       {!loading && !error && items.length === 0 && (
-        <div className="messages-empty">
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📭</div>
-          Aucun message pour le moment. Les annonces de l'équipe BUUPP s'afficheront ici.
+        // Empty state aligné sur l'app mobile (mobile/components/messages-sheet.tsx) :
+        // illustration 3D thiings.co Mailbox sur cercle pastel violet + titre
+        // serif + sous-texte amical. L'image est dans public/empty-mailbox.png
+        // (extraite de la branche mobile pour parité visuelle web ↔ mobile).
+        <div
+          className="messages-empty"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 176,
+              height: 176,
+              borderRadius: '50%',
+              background: 'rgba(124, 92, 252, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}
+          >
+            <img
+              src="/empty-mailbox.png"
+              alt="Boîte aux lettres vide"
+              width={140}
+              height={140}
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+          <div
+            className="serif"
+            style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}
+          >
+            Votre boîte est vide
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-4)', maxWidth: 320 }}>
+            Les annonces, alertes et communications BUUPP s'afficheront ici dès qu'elles arriveront.
+          </div>
         </div>
       )}
 
