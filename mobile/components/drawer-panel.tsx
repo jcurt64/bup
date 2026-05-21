@@ -150,7 +150,7 @@ export default function DrawerPanel() {
           contentContainerClassName="gap-1.5 px-4 pb-6 pt-16"
         >
           <Text className="px-3 pb-4 font-serif-bold text-2xl text-paper">
-            Mes informations
+            Mon statut buupper
           </Text>
           {NAV.map((n) => (
             <Row key={n.route} icon={n.icon} label={n.label} onPress={() => go(n.route)} />
