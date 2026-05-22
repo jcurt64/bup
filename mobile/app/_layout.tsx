@@ -19,6 +19,7 @@ import {
   Fraunces_600SemiBold_Italic,
   Fraunces_700Bold,
 } from "@expo-google-fonts/fraunces";
+import { DancingScript_700Bold } from "@expo-google-fonts/dancing-script";
 import "react-native-reanimated";
 
 import { tokenCache } from "../lib/clerk-token-cache";
@@ -46,6 +47,7 @@ export default function RootLayout() {
     Fraunces_600SemiBold,
     Fraunces_600SemiBold_Italic,
     Fraunces_700Bold,
+    DancingScript_700Bold,
   });
 
   useEffect(() => {

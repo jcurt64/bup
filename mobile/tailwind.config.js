@@ -42,6 +42,9 @@ module.exports = {
         "serif-italic": ["Fraunces_400Regular_Italic"],
         "serif-semibold": ["Fraunces_600SemiBold"],
         "serif-bold": ["Fraunces_700Bold"],
+        // Police script Google « Dancing Script » — utilisée pour le mot
+        // « buupp » signature dans le footer de la modale détail mouvement.
+        script: ["DancingScript_700Bold"],
         mono: ["monospace"],
       },
     },

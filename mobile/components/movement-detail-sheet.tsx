@@ -8,11 +8,193 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
 import { BottomSheet } from "./bottom-sheet";
 import { ReportProSheet } from "./report-pro-sheet";
 import { ApiError } from "../lib/api";
 import { useDecideRelation, type MovementRelation } from "../lib/queries";
+
+// Couleur "bleu logo" — navy de la palette brand, même teinte que le
+// dégradé violet→navy du GradientHero. Appliquée à toutes les lettres
+// du mot signature « buupp ».
+const LOGO_BLUE = "#13235B";
+
+// Palette « celebrate-popper » appliquée aux 3 segments du slogan
+// « BE USED · PAID & PROUD » (un seul point médian après USED).
+const SLOGAN_BLUE = "#13235B"; // BE USED
+const SLOGAN_ORANGE = "#E0915A"; // PAID & (orange cône de l'illustration)
+const SLOGAN_GRAY = "#5B6478"; // PROUD
+const SLOGAN_DOT = "#B7BCC7"; // séparateur · neutre
+
+// Délai initial avant que la 1ʳᵉ lettre démarre — laisse le temps à la
+// modale de bottom-sheet de finir son slide-in (~250 ms) puis ~200 ms
+// supplémentaires pour donner au regard le temps de se poser sur le
+// footer avant que les lettres ne se déploient.
+const SIGNATURE_INITIAL_DELAY = 450;
+const SIGNATURE_STAGGER = 140;
+
+// Lettre animée — fade-in + slide-up déclenché avec un délai croissant
+// pour donner l'effet d'apparition lettre par lettre.
+function BuuppLetter({ char, index }: { char: string; index: number }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(14);
+  useEffect(() => {
+    const delay = SIGNATURE_INITIAL_DELAY + index * SIGNATURE_STAGGER;
+    opacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 460, easing: Easing.out(Easing.quad) }),
+    );
+    translateY.value = withDelay(
+      delay,
+      withTiming(0, { duration: 460, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [index, opacity, translateY]);
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+  return (
+    <Animated.Text
+      style={[
+        {
+          fontFamily: "DancingScript_700Bold",
+          fontSize: 48,
+          lineHeight: 56,
+          color: LOGO_BLUE,
+        },
+        style,
+      ]}
+    >
+      {char}
+    </Animated.Text>
+  );
+}
+
+// Slogan animé — fade-in + slide-up déclenché APRÈS la fin du déploiement
+// des lettres du logo (synchro avec SIGNATURE_INITIAL_DELAY + 4*STAGGER +
+// duration des lettres + petit buffer pour un séquencement bien lisible).
+function BuuppSlogan() {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(8);
+  useEffect(() => {
+    // Délai = fin de l'animation de la dernière lettre :
+    // 450 (initial) + 4*140 (stagger) + 460 (duration lettre) = 1470 ms.
+    // +120 ms de pause pour que l'œil enregistre le mot complet avant
+    // l'arrivée du slogan.
+    const delay =
+      SIGNATURE_INITIAL_DELAY + 4 * SIGNATURE_STAGGER + 460 + 120;
+    opacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) }),
+    );
+    translateY.value = withDelay(
+      delay,
+      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [opacity, translateY]);
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+  return (
+    <Animated.Text
+      className="mt-1 font-mono text-[11px] font-semibold uppercase"
+      style={[{ letterSpacing: 2.2 }, style]}
+    >
+      <Text style={{ color: SLOGAN_BLUE }}>Be used</Text>
+      <Text style={{ color: SLOGAN_DOT }}> · </Text>
+      <Text style={{ color: SLOGAN_ORANGE }}>paid &amp; </Text>
+      <Text style={{ color: SLOGAN_GRAY }}>proud</Text>
+    </Animated.Text>
+  );
+}
+
+// Quadrillage ellipse — petit fond grille (parité visuelle avec GridBg
+// des pages) clippé en ellipse via borderRadius: 999 + overflow: hidden.
+// Positionné absolument derrière le contenu de la signature, centré sur
+// le mot "buupp", pour ne pas envahir tout le footer.
+function FooterGrid() {
+  const W = 300;
+  const H = 130;
+  const STEP = 14;
+  const cols = Math.ceil(W / STEP);
+  const rows = Math.ceil(H / STEP);
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        // Centré horizontalement sur le wrapper signature (left 50% −
+        // demi-largeur). Vertical : démarre 5 px sous le séparateur
+        // pour que l'ellipse "berce" le mot buupp sans dépasser sous
+        // le slogan.
+        top: 5,
+        left: "50%",
+        marginLeft: -W / 2,
+        width: W,
+        height: H,
+        borderRadius: 999,
+        overflow: "hidden",
+        opacity: 0.45,
+      }}
+    >
+      {Array.from({ length: rows }).map((_, i) => (
+        <View
+          key={`h${i}`}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: i * STEP,
+            height: 1,
+            backgroundColor: "#E6E3DA",
+          }}
+        />
+      ))}
+      {Array.from({ length: cols }).map((_, i) => (
+        <View
+          key={`v${i}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: i * STEP,
+            width: 1,
+            backgroundColor: "#E6E3DA",
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+// Footer signature de la modale détail — "buupp" en Dancing Script (navy)
+// + slogan tri-couleur en mono caps qui apparaît à la fin de l'animation
+// des lettres. La key sur le wrapper repose sur relation.id pour rejouer
+// l'animation à chaque nouveau mouvement ouvert.
+function BuuppSignature() {
+  const letters = "buupp".split("");
+  return (
+    <View className="mt-4 items-center border-t border-line pt-5">
+      {/* FooterGrid en premier dans le DOM → rendu derrière le contenu
+          qui suit (les lettres + slogan). */}
+      <FooterGrid />
+      <View className="flex-row">
+        {letters.map((c, i) => (
+          <BuuppLetter key={`${c}-${i}`} char={c} index={i} />
+        ))}
+      </View>
+      <BuuppSlogan />
+    </View>
+  );
+}
 
 // Initiales pour avatar (premier mot + premier mot suivant).
 function initials(name: string): string {
@@ -435,6 +617,11 @@ export function MovementDetailSheet({
             </Pressable>
           ) : null}
         </View>
+
+        {/* Signature « buupp » + slogan. `key` sur relation.id : la modale
+            ne démonte pas son contenu entre 2 ouvertures, donc on force le
+            remount pour rejouer l'animation à chaque mouvement consulté. */}
+        <BuuppSignature key={`sig-${r.id}`} />
       </ScrollView>
       <ReportProSheet
         visible={reportOpen}
