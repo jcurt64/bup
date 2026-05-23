@@ -5659,8 +5659,13 @@ function Prefs() {
   const TIER_KEY_BY_NUM = { 1: 'identity', 2: 'localisation', 3: 'vie', 4: 'pro', 5: 'patrimoine' };
   const tierIsHidden = (n) => !!ctx?.deleted?.[TIER_KEY_BY_NUM[n]];
   const tierIsRemoved = (n) => !!ctx?.removed?.[TIER_KEY_BY_NUM[n]];
-  const tierShared = (n) => !tierIsHidden(n) && !tierIsRemoved(n);
+  // Palier 1 (Identification) = obligatoire : sans nom/e-mail/téléphone
+  // aucune mise en relation n'est possible. La case est forcée cochée
+  // et verrouillée — cohérent avec le rejet `hide` côté API.
+  const tierIsRequired = (n) => n === 1;
+  const tierShared = (n) => tierIsRequired(n) || (!tierIsHidden(n) && !tierIsRemoved(n));
   const toggleTierShare = (n) => {
+    if (tierIsRequired(n)) return; // palier 1 verrouillé
     const key = TIER_KEY_BY_NUM[n];
     if (tierIsRemoved(n)) return; // supprimé définitivement → verrouillé ici
     if (tierShared(n)) ctx?.suppressTemp?.(key);
@@ -5862,16 +5867,24 @@ function Prefs() {
           ].map(([n, name, range]) => {
             const shared = tierShared(n);
             const removed = tierIsRemoved(n);
+            const required = tierIsRequired(n);
+            const locked = removed || required;
             return (
             <label
               key={n}
               className="row center between"
               style={{
                 padding: '12px 0', borderBottom: '1px solid var(--line)',
-                cursor: removed ? 'not-allowed' : 'pointer',
+                cursor: locked ? 'not-allowed' : 'pointer',
                 opacity: removed ? 0.55 : 1,
               }}
-              title={removed ? 'Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données.' : undefined}
+              title={
+                required
+                  ? 'Palier obligatoire : sans données d\'identification, aucun professionnel ne peut vous contacter.'
+                  : removed
+                    ? 'Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données.'
+                    : undefined
+              }
             >
               <div className="row center gap-3">
                 <span style={{
@@ -5882,13 +5895,14 @@ function Prefs() {
                 }}>{shared && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</span>
                 <span className="serif" style={{ fontSize: 17 }}>Palier {n}</span>
                 <span className="muted" style={{ fontSize: 13 }}>{name}</span>
+                {required && <span className="chip" style={{ fontSize: 10 }}>obligatoire</span>}
                 {removed && <span className="chip" style={{ fontSize: 10 }}>supprimé</span>}
               </div>
               <span className="mono tnum" style={{ fontSize: 12, color: 'var(--ink-4)' }}>{range}</span>
               <input
                 type="checkbox"
                 checked={shared}
-                disabled={removed}
+                disabled={locked}
                 onChange={() => toggleTierShare(n)}
                 style={{ display: 'none' }}
               />

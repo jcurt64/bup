@@ -27,15 +27,29 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
 
   // Détection du rôle (mutuellement exclusif depuis 20260508140000).
+  // On lit aussi `created_at` pour borner les broadcasts à ceux postés
+  // APRÈS l'inscription de l'utilisateur : sinon un nouveau compte
+  // hérite de tous les broadcasts historiques (cas signalé en dev quand
+  // les comptes pro/prospect créés voyaient les annonces antérieures).
   const [{ data: proRow }, { data: prospectRow }] = await Promise.all([
-    admin.from("pro_accounts").select("id").eq("clerk_user_id", userId).maybeSingle(),
-    admin.from("prospects").select("id").eq("clerk_user_id", userId).maybeSingle(),
+    admin
+      .from("pro_accounts")
+      .select("id, created_at")
+      .eq("clerk_user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("prospects")
+      .select("id, created_at")
+      .eq("clerk_user_id", userId)
+      .maybeSingle(),
   ]);
   const audiences: ("prospects" | "pros" | "all")[] = proRow
     ? ["pros", "all"]
     : prospectRow
       ? ["prospects", "all"]
       : ["all"];
+  const userSignupAt: string | null =
+    proRow?.created_at ?? prospectRow?.created_at ?? null;
 
   // Deux sources de broadcasts visibles à l'utilisateur :
   //  - les broadcasts d'audience large (prospects / pros / all) ET sans
@@ -55,21 +69,31 @@ export async function GET() {
   // quand on les met dans un and(...) imbriqué dans un or(...)).
   const SELECT_COLS =
     "id, title, body, attachment_path, attachment_filename, audience, created_at, target_clerk_user_id";
+  // Cutoff : ne renvoyer que les broadcasts émis depuis l'inscription.
+  // S'applique aussi aux broadcasts ciblés par sécurité — l'admin ne
+  // pourrait techniquement pas viser un user inexistant, mais on borne
+  // par cohérence avec la règle générale.
+  const audienceQuery = admin
+    .from("admin_broadcasts")
+    .select(SELECT_COLS)
+    .is("target_clerk_user_id", null)
+    .in("audience", audiences)
+    .order("created_at", { ascending: false })
+    .limit(LIST_CAP);
+  const targetedQuery = admin
+    .from("admin_broadcasts")
+    .select(SELECT_COLS)
+    .eq("target_clerk_user_id", userId)
+    .in("audience", audiences)
+    .order("created_at", { ascending: false })
+    .limit(LIST_CAP);
+  if (userSignupAt) {
+    audienceQuery.gte("created_at", userSignupAt);
+    targetedQuery.gte("created_at", userSignupAt);
+  }
   const [audienceRes, targetedRes] = await Promise.all([
-    admin
-      .from("admin_broadcasts")
-      .select(SELECT_COLS)
-      .is("target_clerk_user_id", null)
-      .in("audience", audiences)
-      .order("created_at", { ascending: false })
-      .limit(LIST_CAP),
-    admin
-      .from("admin_broadcasts")
-      .select(SELECT_COLS)
-      .eq("target_clerk_user_id", userId)
-      .in("audience", audiences)
-      .order("created_at", { ascending: false })
-      .limit(LIST_CAP),
+    audienceQuery,
+    targetedQuery,
   ]);
 
   if (audienceRes.error || targetedRes.error) {

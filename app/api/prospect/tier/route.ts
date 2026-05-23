@@ -75,6 +75,21 @@ export async function POST(req: Request) {
 
   const tier: TierKey = body.tier;
   const action: Action = body.action;
+
+  // Le palier Identification (tier 1) est la clé de voûte du contact :
+  // sans nom + e-mail + téléphone, aucun pro ne peut jamais aboutir.
+  // On interdit donc `hide` côté API — la case correspondante dans
+  // l'onglet Préférences est rendue verrouillée côté UI, ce check est
+  // une défense en profondeur contre un POST direct.
+  // `delete` reste autorisé (cascade RGPD art. 17, déclenché depuis
+  // « Mes données ») ; `restore` reste autorisé.
+  if (tier === "identity" && action === "hide") {
+    return NextResponse.json(
+      { error: "identity_tier_required", message: "Le palier Identification ne peut pas être désactivé." },
+      { status: 400 },
+    );
+  }
+
   const prospectId = await getProspectId(userId);
   const admin = createSupabaseAdminClient();
 
