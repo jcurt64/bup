@@ -12,33 +12,34 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
+      admin_broadcast_dismissals: {
+        Row: {
+          broadcast_id: string
+          clerk_user_id: string
+          dismissed_at: string
+        }
+        Insert: {
+          broadcast_id: string
+          clerk_user_id: string
+          dismissed_at?: string
+        }
+        Update: {
+          broadcast_id?: string
+          clerk_user_id?: string
+          dismissed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_broadcast_dismissals_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "admin_broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_broadcast_reads: {
         Row: {
           broadcast_id: string
@@ -536,56 +537,6 @@ export type Database = {
           },
         ]
       }
-      rate_limits: {
-        Row: {
-          count: number
-          first_hit_at: string
-          key: string
-          window_start_at: string
-        }
-        Insert: {
-          count?: number
-          first_hit_at?: string
-          key: string
-          window_start_at?: string
-        }
-        Update: {
-          count?: number
-          first_hit_at?: string
-          key?: string
-          window_start_at?: string
-        }
-        Relationships: []
-      }
-      relation_email_aliases: {
-        Row: {
-          alias_short: string
-          created_at: string
-          relation_id: string
-          revoked_at: string | null
-        }
-        Insert: {
-          alias_short: string
-          created_at?: string
-          relation_id: string
-          revoked_at?: string | null
-        }
-        Update: {
-          alias_short?: string
-          created_at?: string
-          relation_id?: string
-          revoked_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "relation_email_aliases_relation_id_fkey"
-            columns: ["relation_id"]
-            isOneToOne: true
-            referencedRelation: "relations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       pro_contact_reveals: {
         Row: {
           field: string
@@ -995,6 +946,86 @@ export type Database = {
         }
         Relationships: []
       }
+      push_tokens: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          expo_token: string
+          id: string
+          last_seen_at: string
+          platform: string
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          expo_token: string
+          id?: string
+          last_seen_at?: string
+          platform: string
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          expo_token?: string
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          count: number
+          first_hit_at: string
+          key: string
+          window_start_at: string
+        }
+        Insert: {
+          count?: number
+          first_hit_at?: string
+          key: string
+          window_start_at?: string
+        }
+        Update: {
+          count?: number
+          first_hit_at?: string
+          key?: string
+          window_start_at?: string
+        }
+        Relationships: []
+      }
+      relation_email_aliases: {
+        Row: {
+          alias_short: string
+          created_at: string
+          relation_id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          alias_short: string
+          created_at?: string
+          relation_id: string
+          revoked_at?: string | null
+        }
+        Update: {
+          alias_short?: string
+          created_at?: string
+          relation_id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relation_email_aliases_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: true
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relation_feedback: {
         Row: {
           created_at: string
@@ -1179,6 +1210,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      suggestions: {
+        Row: {
+          created_at: string
+          email_message_id: string | null
+          email_sent_at: string | null
+          from_email: string | null
+          from_name: string | null
+          from_role: string | null
+          id: string
+          message: string
+          read_at: string | null
+          read_by_clerk_id: string | null
+          resolved_at: string | null
+          resolved_by_clerk_id: string | null
+          resolved_note: string | null
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_message_id?: string | null
+          email_sent_at?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          from_role?: string | null
+          id?: string
+          message: string
+          read_at?: string | null
+          read_by_clerk_id?: string | null
+          resolved_at?: string | null
+          resolved_by_clerk_id?: string | null
+          resolved_note?: string | null
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_message_id?: string | null
+          email_sent_at?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          from_role?: string | null
+          id?: string
+          message?: string
+          read_at?: string | null
+          read_by_clerk_id?: string | null
+          resolved_at?: string | null
+          resolved_by_clerk_id?: string | null
+          resolved_note?: string | null
+          subject?: string | null
+        }
+        Relationships: []
       }
       transactions: {
         Row: {
@@ -1531,9 +1613,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       account_kind: ["prospect", "pro"],
@@ -1578,3 +1657,4 @@ export const Constants = {
     },
   },
 } as const
+
