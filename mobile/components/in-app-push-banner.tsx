@@ -3,7 +3,7 @@
 // montre pas sa propre bannière). Auto-dismiss 4s + swipe-up.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -79,9 +79,13 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
     opacity: op.value,
   }));
 
-  const swipeUp = Gesture.Pan().onEnd((e) => {
-    if (e.translationY < -20) runOnJS(hide)();
-  });
+  const swipeUp = useMemo(
+    () =>
+      Gesture.Pan().onEnd((e) => {
+        if (e.translationY < -20) runOnJS(hide)();
+      }),
+    [hide],
+  );
 
   function onTap() {
     if (!msg) return;
@@ -96,11 +100,10 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
     hide();
   }
 
-  const ctxValue = useRef<Ctx>({ show, hide });
-  ctxValue.current = { show, hide };
+  const ctxValue = useMemo<Ctx>(() => ({ show, hide }), [show, hide]);
 
   return (
-    <PushBannerContext.Provider value={ctxValue.current}>
+    <PushBannerContext.Provider value={ctxValue}>
       {children}
       {msg ? (
         <GestureDetector gesture={swipeUp}>
