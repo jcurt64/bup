@@ -4,9 +4,10 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 
+import { router, useLocalSearchParams } from "expo-router";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import {
   Card,
@@ -119,9 +120,11 @@ function InfoLine({
 function HistoryRow({
   r,
   onPress,
+  focused,
 }: {
   r: Relation;
   onPress: () => void;
+  focused?: boolean;
 }) {
   const isAccepted = r.decision === "Acceptée";
   const isRefused = r.decision === "Refusée";
@@ -152,8 +155,8 @@ function HistoryRow({
           // on monte à 0.7 pour qu'une hairline rende réellement, et la
           // couleur est légèrement plus marquée que le token `line` pour
           // percer sur le gradient violet pâle des cards.
-          borderWidth: 0.7,
-          borderColor: "#CBC7B9",
+          borderWidth: focused ? 2 : 0.7,
+          borderColor: focused ? "#7C5CFC" : "#CBC7B9",
           shadowColor: "#0F1629",
           shadowOpacity: 0.04,
           shadowRadius: 10,
@@ -317,6 +320,17 @@ export default function Relations() {
   const [detail, setDetail] = useState<Relation | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
 
+  const params = useLocalSearchParams<{ focusRelation?: string }>();
+  const focusRelationId = typeof params.focusRelation === "string" ? params.focusRelation : null;
+
+  useEffect(() => {
+    if (!focusRelationId) return;
+    const t = setTimeout(() => {
+      router.setParams({ focusRelation: undefined });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [focusRelationId]);
+
   async function act(id: string, action: "accept" | "refuse") {
     setBusyId(id);
     try {
@@ -418,50 +432,59 @@ export default function Relations() {
                 : "demandes en attente"}
             </Text>
             {d.pending.map((r) => (
-              <Card key={r.id} badge={{ icon: "people-outline", tone: "coral" }}>
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="font-serif text-xl text-ink">
-                      {r.pro}
-                    </Text>
-                    <Text className="text-sm text-ink-4">{r.sector}</Text>
+              <View
+                key={r.id}
+                style={
+                  focusRelationId === r.id
+                    ? { borderWidth: 2, borderColor: "#7C5CFC", borderRadius: 18 }
+                    : undefined
+                }
+              >
+                <Card badge={{ icon: "people-outline", tone: "coral" }}>
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="font-serif text-xl text-ink">
+                        {r.pro}
+                      </Text>
+                      <Text className="text-sm text-ink-4">{r.sector}</Text>
+                    </View>
+                    <View className="items-end">
+                      <Text className="font-serif text-xl text-violet">
+                        {eur(r.reward)}
+                      </Text>
+                      <Text className="font-mono text-[12px] text-ink-4">
+                        Palier {r.tier} · {r.timer}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="items-end">
-                    <Text className="font-serif text-xl text-violet">
-                      {eur(r.reward)}
-                    </Text>
-                    <Text className="font-mono text-[12px] text-ink-4">
-                      Palier {r.tier} · {r.timer}
-                    </Text>
+                  {r.motif ? (
+                    <Text className="mt-2 text-base leading-6 text-ink-3">{r.motif}</Text>
+                  ) : null}
+                  {r.brief ? (
+                    <Text className="mt-1 text-sm text-ink-4">{r.brief}</Text>
+                  ) : null}
+                  <View className="mt-4 flex-row gap-3">
+                    <Pressable
+                      disabled={busyId === r.id}
+                      onPress={() => act(r.id, "refuse")}
+                      className="flex-1 items-center rounded-full border border-line py-3 active:opacity-70"
+                    >
+                      <Text className="text-base font-medium text-ink-3">
+                        Refuser
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={busyId === r.id}
+                      onPress={() => act(r.id, "accept")}
+                      className="flex-1 items-center rounded-full bg-ink py-3 active:opacity-80"
+                    >
+                      <Text className="text-base font-semibold text-paper">
+                        {busyId === r.id ? "…" : "Accepter"}
+                      </Text>
+                    </Pressable>
                   </View>
-                </View>
-                {r.motif ? (
-                  <Text className="mt-2 text-base leading-6 text-ink-3">{r.motif}</Text>
-                ) : null}
-                {r.brief ? (
-                  <Text className="mt-1 text-sm text-ink-4">{r.brief}</Text>
-                ) : null}
-                <View className="mt-4 flex-row gap-3">
-                  <Pressable
-                    disabled={busyId === r.id}
-                    onPress={() => act(r.id, "refuse")}
-                    className="flex-1 items-center rounded-full border border-line py-3 active:opacity-70"
-                  >
-                    <Text className="text-base font-medium text-ink-3">
-                      Refuser
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={busyId === r.id}
-                    onPress={() => act(r.id, "accept")}
-                    className="flex-1 items-center rounded-full bg-ink py-3 active:opacity-80"
-                  >
-                    <Text className="text-base font-semibold text-paper">
-                      {busyId === r.id ? "…" : "Accepter"}
-                    </Text>
-                  </Pressable>
-                </View>
-              </Card>
+                </Card>
+              </View>
             ))}
           </View>
           )
@@ -565,6 +588,7 @@ export default function Relations() {
               <HistoryRow
                 key={r.id}
                 r={r}
+                focused={focusRelationId === r.id}
                 onPress={() => {
                   setDetail(r);
                   setDetailVisible(true);
