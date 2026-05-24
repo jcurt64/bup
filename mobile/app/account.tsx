@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -21,6 +21,7 @@ import { BottomSheet } from "../components/bottom-sheet";
 import { GridBg } from "../components/grid-bg";
 import { BuuppLoader } from "../components/loader";
 import { unregisterPushToken } from "../lib/push";
+import { useApi } from "../lib/api";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
 
 const WEB_BASE =
@@ -147,6 +148,7 @@ function Row({
 
 export default function AccountPage() {
   const { signOut, getToken } = useAuth();
+  const api = useApi();
   const versions = usePageVersions();
   const del = useDeleteAccount();
   const [busy, setBusy] = useState(false);
@@ -154,6 +156,49 @@ export default function AccountPage() {
   // « Suppression du compte ». Ne pas confondre avec l'Alert natif
   // qui sert de confirmation finale juste avant le DELETE.
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+
+  // Diagnostic push — lit /api/me/push-status au mount pour afficher le
+  // nombre de devices enregistrés. `null` = chargement en cours.
+  const [pushTokensCount, setPushTokensCount] = useState<number | null>(null);
+  const [pushBusy, setPushBusy] = useState<"classic" | "flash" | null>(null);
+
+  useEffect(() => {
+    api<{ tokens: Array<unknown> }>("/api/me/push-status")
+      .then((d) => setPushTokensCount(d.tokens?.length ?? 0))
+      .catch(() => setPushTokensCount(0));
+  }, [api]);
+
+  async function sendTestPush(kind: "classic" | "flash") {
+    setPushBusy(kind);
+    try {
+      const res = await api<{
+        sent: number;
+        tokens: number;
+        reason?: string;
+      }>("/api/me/push-test", {
+        method: "POST",
+        body: JSON.stringify({ kind }),
+      });
+      if (res.reason === "no_tokens_registered") {
+        Alert.alert(
+          "Aucun appareil enregistré",
+          "Activez les notifications dans les réglages de l'OS, puis rouvrez l'app pour enregistrer ce device.",
+        );
+      } else {
+        Alert.alert(
+          "Push envoyé",
+          `${res.sent} notification${res.sent > 1 ? "s" : ""} envoyée${res.sent > 1 ? "s" : ""} à ${res.tokens} appareil${res.tokens > 1 ? "s" : ""}. Vous devriez la recevoir d'ici quelques secondes.`,
+        );
+      }
+    } catch {
+      Alert.alert(
+        "Échec",
+        "Impossible d'envoyer le push de test. Vérifiez votre connexion et réessayez.",
+      );
+    } finally {
+      setPushBusy(null);
+    }
+  }
 
   // Build display rows in the fixed LINKS order, hydrated by /api/page-versions.
   const items = (versions.data?.items ?? []).reduce<Record<string, { title: string; href: string; version: string; date: string }>>(
@@ -257,6 +302,74 @@ export default function AccountPage() {
               );
             })
           )}
+        </View>
+
+        {/* Diagnostic push — bloc support : combien de devices enregistrés
+            + boutons pour déclencher un push de test (classique / flash).
+            Lit /api/me/push-status au mount, déclenche /api/me/push-test. */}
+        <View className="my-2 h-px bg-line" />
+        <View className="gap-2">
+          <Text
+            className="font-mono text-[11px] uppercase text-ink-4"
+            style={{ letterSpacing: 1.2 }}
+          >
+            Notifications push
+          </Text>
+          <View className="gap-3 rounded-2xl border border-line bg-paper p-3">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: "rgba(124, 92, 252, 0.16)" }}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color="#7C5CFC"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[15px] text-ink">
+                  {pushTokensCount === null
+                    ? "Vérification…"
+                    : pushTokensCount > 0
+                      ? `${pushTokensCount} appareil${pushTokensCount > 1 ? "s" : ""} enregistré${pushTokensCount > 1 ? "s" : ""}`
+                      : "Aucun appareil enregistré"}
+                </Text>
+                <Text className="mt-0.5 text-[12px] leading-4 text-ink-4">
+                  Envoyez une notification de test pour vérifier que
+                  votre device la reçoit bien.
+                </Text>
+              </View>
+            </View>
+            <View className="flex-row gap-2">
+              <Pressable
+                onPress={() => sendTestPush("classic")}
+                disabled={pushBusy !== null || pushTokensCount === 0}
+                className="flex-1 items-center rounded-full bg-ink py-2.5 active:opacity-80"
+                style={{
+                  opacity:
+                    pushBusy !== null || pushTokensCount === 0 ? 0.5 : 1,
+                }}
+              >
+                <Text className="text-[13px] font-semibold text-paper">
+                  {pushBusy === "classic" ? "Envoi…" : "Test classique"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => sendTestPush("flash")}
+                disabled={pushBusy !== null || pushTokensCount === 0}
+                className="flex-1 items-center rounded-full border border-line bg-paper py-2.5 active:opacity-70"
+                style={{
+                  opacity:
+                    pushBusy !== null || pushTokensCount === 0 ? 0.5 : 1,
+                }}
+              >
+                <Text className="text-[13px] font-medium text-ink">
+                  {pushBusy === "flash" ? "Envoi…" : "Test flash"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         {/* Séparateur visuel + Row danger discrète. Le bloc d'avertissement
