@@ -8,12 +8,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
 const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
 
+import { useFlashSheet } from "../../components/flash-sheet-context";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import {
   Card,
@@ -118,6 +120,16 @@ export default function Portefeuille() {
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
 
+  // Deep-link push : ?openFlash=<dealId> → ouvre le FlashDealsSheet.
+  // V1 : on ignore la valeur de dealId (l'user voit la liste complète).
+  const params = useLocalSearchParams<{ openFlash?: string }>();
+  const flashSheet = useFlashSheet();
+  useEffect(() => {
+    if (typeof params.openFlash !== "string") return;
+    flashSheet.open();
+    router.setParams({ openFlash: undefined });
+  }, [params.openFlash, flashSheet]);
+
   // Hero (LinearGradient) — remplace le titre « Votre portefeuille » par
   // les deux pastilles Vérification + BUUPP Score (parité avec les
   // StatusPills du ProspectHeader web).
@@ -128,13 +140,42 @@ export default function Portefeuille() {
   const verifValue = verif.data
     ? `${VERIF_LABELS[verif.data.tier] ?? "Basique"} · Niveau ${verifTierPosition(verif.data.tier)}/3`
     : "…";
-  const scoreValue = score.data ? String(score.data.score) : "…";
+  // Affichage "{score}/1000" — la borne haute (1000) est explicitée dans
+  // l'API (cf. /api/prospect/score) et la page Score (« {p.score} / 1000 »).
+  const scoreValue = score.data ? `${score.data.score}/1000` : "…";
+
+  // Extras du header compact (visibles quand la page est scrollée vers
+  // le bas) : disponible + séquestre, chacun précédé d'une petite
+  // icône colorée (mêmes teintes que les cards : violet pour le
+  // portefeuille, ambre pour le séquestre). Format compact sans
+  // centimes pour rester lisible dans la barre.
+  const eurCompact = (n: number) =>
+    `${Math.round(n).toLocaleString("fr-FR")} €`;
+  const compactExtras = useMemo(
+    () =>
+      w.data
+        ? [
+            {
+              icon: "wallet" as const,
+              value: eurCompact(w.data.availableEur),
+              color: "#7C5CFC",
+            },
+            {
+              icon: "lock-closed" as const,
+              value: eurCompact(w.data.escrowEur),
+              color: "#F2B65A",
+            },
+          ]
+        : undefined,
+    [w.data],
+  );
 
   return (
     <ScrollScreen
       onRefresh={() =>
         Promise.all([w.refetch(), m.refetch(), verif.refetch(), score.refetch()])
       }
+      compactExtras={compactExtras}
     >
       {/* Hero gradient — greeting + Vérification + BUUPP Score (parité web) */}
       <LinearGradient
@@ -149,8 +190,12 @@ export default function Portefeuille() {
         >
           {greeting}
         </Text>
-        <View className="flex-row gap-3">
-          <View className="flex-1">
+        {/* Vérification prend toute la largeur restante (flex: 1) pour
+            afficher son chip en totalité (« Basique · Niveau 1/3 »).
+            BUUPP Score est poussé à droite, aligné à droite, à largeur
+            auto. */}
+        <View className="flex-row items-start gap-3">
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               className="font-mono text-[10px] uppercase text-white/60"
               style={{ letterSpacing: 1 }}
@@ -166,7 +211,7 @@ export default function Portefeuille() {
               </Text>
             </View>
           </View>
-          <View className="flex-1">
+          <View className="items-end">
             <Text
               className="font-mono text-[10px] uppercase text-white/60"
               style={{ letterSpacing: 1 }}
@@ -174,7 +219,7 @@ export default function Portefeuille() {
               BUUPP Score
             </Text>
             <View
-              className="mt-1.5 self-start rounded-full px-3 py-1.5"
+              className="mt-1.5 self-end rounded-full px-3 py-1.5"
               style={{ backgroundColor: "rgba(22, 163, 74, 0.35)" }}
             >
               <Text className="text-[12px] font-semibold text-paper">

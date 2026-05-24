@@ -1,15 +1,27 @@
-// Barre d'en-tête commune (rendue au-dessus du GradientHero par
-// ScrollScreen) : ☰ menu | logo2 centré | 🔔 messages + 👤 compte.
-// Fonds pastels pour différencier les actions.
+// Barre d'en-tête commune. Deux états interpolés via le scroll de la
+// page (cf. HeaderScrollContext dans ScrollScreen) :
+//
+//   - état « expanded » (top de la page) : ☰ menu | logo+buupp centré
+//     | ⚡ flash + 🔔 messages + 👤 compte. Layout historique.
+//   - état « compact » (page scrollée) : logo « b » mini + nom de page
+//     (depuis usePathname) + extras optionnels poussés par la page (ex.
+//     sur Portefeuille : disponible + séquestre avec leurs icônes).
+//
+// Le header est rendu en position absolute par-dessus le ScrollView
+// (ScrollScreen réserve la hauteur via paddingTop) — son fond utilise
+// expo-glass-effect quand iOS 26+ le supporte (même Liquid Glass que la
+// FloatingTabBar), sinon ivoire translucide.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -18,10 +30,43 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FlashDealsSheet } from "./flash-deals-sheet";
+import { useFlashSheet } from "./flash-sheet-context";
 import { MessagesSheet } from "./messages-sheet";
+import {
+  HEADER_BASE_HEIGHT,
+  HEADER_SCROLL_THRESHOLD,
+  HEADER_SCROLL_TRANSITION,
+  useHeaderScroll,
+} from "../lib/header-scroll";
 import { useFlashDeals, useNotifications } from "../lib/queries";
 
-const LOGO = require("../assets/images/logo2.png");
+// Mapping pathname → libellé de page affiché dans le header compact.
+// On match sur la fin du segment (ignore les groupes (prospect)/(pro)).
+// Si non trouvé : fallback sur le dernier segment capitalisé.
+const PAGE_LABELS: Record<string, string> = {
+  portefeuille: "Portefeuille",
+  donnees: "Données",
+  relations: "Relations",
+  preferences: "Préférences",
+  messages: "Messages",
+  verification: "Vérification",
+  score: "BUUPP Score",
+  parrainage: "Parrainage",
+  fiscal: "Fiscalité",
+  suggestions: "Suggestions",
+  overview: "Tableau de bord",
+  campagnes: "Campagnes",
+  contacts: "Contacts",
+  facturation: "Facturation",
+};
+
+function pageNameFromPathname(pathname: string): string {
+  const segs = pathname.split("/").filter(Boolean);
+  const last = segs[segs.length - 1] ?? "";
+  return (
+    PAGE_LABELS[last] ?? (last ? last.charAt(0).toUpperCase() + last.slice(1) : "")
+  );
+}
 
 function IconButton({
   icon,
@@ -33,18 +78,11 @@ function IconButton({
   badgeCount,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
-  /** Fond pastel uni (classe Tailwind). Ignoré si `gradient` est fourni. */
   bg?: string;
-  /** Si fourni : pastille en LinearGradient (top-left → bottom-right).
-   *  Utilisé pour mettre en valeur le bouton person (mêmes teintes que
-   *  l'item actif de la tab bar : violet → navy). */
   gradient?: [string, string];
   color: string;
   label: string;
   onPress: () => void;
-  /** Si > 0 : pastille rouge en haut à droite avec le chiffre exact.
-   *  La largeur est auto (minWidth 18 + paddingHorizontal) pour
-   *  accommoder les nombres à plusieurs chiffres. */
   badgeCount?: number;
 }) {
   const showBadge = (badgeCount ?? 0) > 0;
@@ -66,7 +104,7 @@ function IconButton({
         borderRadius: 9,
         backgroundColor: "#DC2626",
         borderWidth: 2,
-        borderColor: "#F7F4EC", // = bg-ivory (matche le header)
+        borderColor: "#F7F4EC",
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -117,18 +155,11 @@ function IconButton({
   );
 }
 
-// Bouton flash deal : pastille ink (#0F1629) + icône éclair blanche +
-// anneau accent violet (#4F46E5) qui pulse (scale + opacity) toutes
-// les 2.4 s — équivalent RN du keyframes `flash-deal-badge-pulse` web.
-// Ne s'affiche que s'il y a au moins 1 deal actif (sinon le bouton
-// est inutile et on évite le bruit visuel).
 function FlashHeaderButton({
   onPress,
   active,
 }: {
   onPress: () => void;
-  /** Si true : anneau pulsant violet (au moins 1 deal en cours).
-   *  Si false : bouton statique (rien à signaler — évite le bruit). */
   active: boolean;
 }) {
   const scale = useSharedValue(1);
@@ -142,11 +173,6 @@ function FlashHeaderButton({
       opacity.value = 0;
       return;
     }
-    // Baseline visible (0.25 / scale 1.0) + pulse jusqu'à (0.7 / 1.3) sur
-    // 1.2 s aller-retour. Démarrer opacité à 0.25 (au lieu de 0) évite la
-    // moitié de cycle « invisible » qui faisait paraître l'animation
-    // cassée. Scale max réduit (1.3 vs 1.55) → halo plus serré autour
-    // du bouton.
     scale.value = 1;
     opacity.value = 0.25;
     scale.value = withRepeat(
@@ -177,7 +203,6 @@ function FlashHeaderButton({
       accessibilityLabel="Flash deals"
       className="h-10 w-10 items-center justify-center active:opacity-70"
     >
-      {/* Anneau pulsant (positionné absolument derrière le bouton) */}
       <Animated.View
         pointerEvents="none"
         style={[
@@ -191,7 +216,6 @@ function FlashHeaderButton({
           ringStyle,
         ]}
       />
-      {/* Pastille ink avec l'éclair */}
       <View
         className="h-10 w-10 items-center justify-center rounded-full"
         style={{ backgroundColor: "#0F1629" }}
@@ -202,66 +226,231 @@ function FlashHeaderButton({
   );
 }
 
+// Mini-logo « b » — pastille gradient navy→bleu identique au BrandLogo
+// pour le header compact. Garde l'identité Buupp sans manger la place
+// du titre de page.
+function BrandMark() {
+  return (
+    <LinearGradient
+      colors={["#13235B", "#2F44C0"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        className="font-serif-bold text-paper"
+        style={{ fontSize: 18, lineHeight: 22 }}
+      >
+        b
+      </Text>
+    </LinearGradient>
+  );
+}
+
 export function AppHeader() {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const ctx = useHeaderScroll();
   const [showMessages, setShowMessages] = useState(false);
-  const [showFlash, setShowFlash] = useState(false);
-  // Hydrate le compteur non-lus pour le badge sur la cloche. Le hook a
-  // un staleTime de 15s côté queries.ts, donc le badge se met à jour
-  // automatiquement à intervalle régulier sans polling explicit.
+  const flashSheet = useFlashSheet();
   const notif = useNotifications();
   const unread = notif.data?.unreadCount ?? 0;
-  // N'affiche le bouton flash que s'il y a au moins 1 deal actif
-  // (la query rafraîchit toutes les 10 s côté queries.ts).
   const flashCount = useFlashDeals().data?.deals.length ?? 0;
+  const glass = isLiquidGlassAvailable();
+  const pageName = pageNameFromPathname(pathname);
+
+  // Interpole l'opacité des deux layouts en fonction de scrollY.
+  // Si pas de Context (AppHeader utilisé hors ScrollScreen), reste en
+  // mode expanded statique — sécurise les écrans qui ne sont pas migrés.
+  const expandedStyle = useAnimatedStyle(() => {
+    if (!ctx) return { opacity: 1 };
+    const o = interpolate(
+      ctx.scrollY.value,
+      [HEADER_SCROLL_THRESHOLD, HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION],
+      [1, 0],
+      Extrapolation.CLAMP,
+    );
+    return { opacity: o };
+  });
+  const compactStyle = useAnimatedStyle(() => {
+    if (!ctx) return { opacity: 0 };
+    const o = interpolate(
+      ctx.scrollY.value,
+      [HEADER_SCROLL_THRESHOLD, HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION],
+      [0, 1],
+      Extrapolation.CLAMP,
+    );
+    return { opacity: o };
+  });
+  // Quand le compact est entièrement affiché, on retire le pointer-events
+  // de l'expanded pour que ses boutons (couvert visuellement) ne captent
+  // plus le tap, et inversement.
+  const expandedPointerStyle = useAnimatedStyle(() => ({
+    pointerEvents: ctx && ctx.scrollY.value > HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION / 2 ? "none" : "auto",
+  }));
+  const compactPointerStyle = useAnimatedStyle(() => ({
+    pointerEvents: ctx && ctx.scrollY.value > HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION / 2 ? "auto" : "none",
+  }));
+
+  const totalHeight = insets.top + HEADER_BASE_HEIGHT;
 
   return (
     <>
       <View
-        // Padding vertical augmenté (~1.5× la hauteur précédente) — le
-        // contenu garde son centrage vertical via `items-center` sur la
-        // flex-row, donc les boutons et le logo restent bien centrés.
-        style={{ paddingTop: insets.top + 20, paddingBottom: 24 }}
-        className="flex-row items-center justify-between border-b border-line bg-ivory px-4"
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: totalHeight,
+          zIndex: 50,
+        }}
       >
-        <IconButton
-          icon="person-outline"
-          gradient={["#7C5CFC", "#13235B"]}
-          color="#FFFFFF"
-          label="Ouvrir le menu"
-          onPress={() => router.push("/drawer")}
-        />
+        {/* Fond translucide — GlassView Liquid Glass iOS 26+, sinon
+            ivoire à 78 % d'opacité. Aucun border pour rester discret. */}
+        {glass ? (
+          <GlassView
+            glassEffectStyle="regular"
+            tintColor="rgba(247, 244, 236, 0.34)"
+            style={{ position: "absolute", inset: 0 } as never}
+          />
+        ) : (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(247, 244, 236, 0.78)",
+            }}
+          />
+        )}
 
-        <View className="flex-row items-center gap-2">
-          <Image
-            source={LOGO}
-            style={{ width: 36, height: 28 }}
-            contentFit="contain"
-            accessibilityLabel="buupp"
-          />
-          <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
-        </View>
+        {/* Conteneur contenu — réserve la safe area top + 84 px ; les
+            deux layouts (expanded / compact) sont stackés en absolute
+            dans cette zone. */}
+        <View
+          style={{
+            paddingTop: insets.top,
+            height: totalHeight,
+          }}
+        >
+          {/* Layout expanded — historique, visible quand le scroll est
+              en haut. */}
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: insets.top,
+                left: 0,
+                right: 0,
+                height: HEADER_BASE_HEIGHT,
+                paddingHorizontal: 16,
+                paddingTop: 20,
+                paddingBottom: 24,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              },
+              expandedStyle,
+              expandedPointerStyle,
+            ]}
+          >
+            <IconButton
+              icon="person-outline"
+              gradient={["#7C5CFC", "#13235B"]}
+              color="#FFFFFF"
+              label="Ouvrir le menu"
+              onPress={() => router.push("/drawer")}
+            />
 
-        <View className="flex-row items-center gap-4">
-          <FlashHeaderButton
-            onPress={() => setShowFlash(true)}
-            active={flashCount > 0}
-          />
-          <IconButton
-            icon="notifications-outline"
-            bg="bg-amber-soft"
-            color="#F2B65A"
-            label="Messages"
-            onPress={() => setShowMessages(true)}
-            badgeCount={unread}
-          />
-          <IconButton
-            icon="menu"
-            bg="bg-teal-soft"
-            color="#2FB8A6"
-            label="Mon compte"
-            onPress={() => router.push("/account")}
-          />
+            <View className="flex-row items-center gap-2">
+              <BrandMark />
+              <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
+            </View>
+
+            <View className="flex-row items-center gap-4">
+              <FlashHeaderButton
+                onPress={() => flashSheet.open()}
+                active={flashCount > 0}
+              />
+              <IconButton
+                icon="notifications-outline"
+                bg="bg-amber-soft"
+                color="#F2B65A"
+                label="Messages"
+                onPress={() => setShowMessages(true)}
+                badgeCount={unread}
+              />
+              <IconButton
+                icon="menu"
+                bg="bg-teal-soft"
+                color="#2FB8A6"
+                label="Mon compte"
+                onPress={() => router.push("/account")}
+              />
+            </View>
+          </Animated.View>
+
+          {/* Layout compact — apparaît quand on a scrollé : logo « b »
+              + nom de page à gauche, extras (icône + valeur) à droite. */}
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: insets.top,
+                left: 0,
+                right: 0,
+                height: HEADER_BASE_HEIGHT,
+                paddingHorizontal: 16,
+                paddingTop: 20,
+                paddingBottom: 24,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              },
+              compactStyle,
+              compactPointerStyle,
+            ]}
+          >
+            <View className="flex-row items-center gap-2.5">
+              <BrandMark />
+              <Text
+                className="font-serif text-xl text-ink"
+                numberOfLines={1}
+              >
+                {pageName}
+              </Text>
+            </View>
+            {ctx?.compactExtras?.length ? (
+              <View className="flex-row items-center gap-3">
+                {ctx.compactExtras.map((e, i) => (
+                  <View
+                    key={i}
+                    className="flex-row items-center gap-1.5"
+                  >
+                    <Ionicons
+                      name={e.icon}
+                      size={14}
+                      color={e.color ?? "#0F1629"}
+                    />
+                    <Text className="font-mono text-[12px] font-semibold text-ink">
+                      {e.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </Animated.View>
         </View>
       </View>
 
@@ -270,8 +459,8 @@ export function AppHeader() {
         onClose={() => setShowMessages(false)}
       />
       <FlashDealsSheet
-        visible={showFlash}
-        onClose={() => setShowFlash(false)}
+        visible={flashSheet.isOpen}
+        onClose={flashSheet.close}
       />
     </>
   );
