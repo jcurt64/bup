@@ -21,7 +21,7 @@ describe("POST /api/me/push-token", () => {
       new Request("http://x", {
         method: "POST",
         body: JSON.stringify({
-          token: "ExponentPushToken[abc]",
+          token: "ExponentPushToken[abcdefghij]",
           platform: "ios",
         }),
       }),
@@ -49,7 +49,7 @@ describe("POST /api/me/push-token", () => {
       new Request("http://x", {
         method: "POST",
         body: JSON.stringify({
-          token: "ExponentPushToken[xxx]",
+          token: "ExponentPushToken[abcdefghij]",
           platform: "ios",
           appVersion: "1.0.0",
         }),
@@ -59,7 +59,7 @@ describe("POST /api/me/push-token", () => {
     expect(upsertSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: "u-clerk",
-        expo_token: "ExponentPushToken[xxx]",
+        expo_token: "ExponentPushToken[abcdefghij]",
         platform: "ios",
         app_version: "1.0.0",
       }),
