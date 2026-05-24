@@ -10,7 +10,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const TOKEN_RE = /^ExponentPushToken\[[A-Za-z0-9_-]{1,}\]$/;
+const TOKEN_RE = /^ExponentPushToken\[[A-Za-z0-9_-]{10,}\]$/;
 
 type Body = {
   token?: unknown;
