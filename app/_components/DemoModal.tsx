@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const CAL_URL = "https://cal.com/m-link64-rejm3c/30min";
+const CAL_URL = "https://cal.com/m-link64-rejm3c/30min?locale=fr";
 
 export default function DemoModal({
   open,
