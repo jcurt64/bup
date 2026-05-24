@@ -10,7 +10,7 @@
 // informations supplémentaires à droite du header compact (ex. sur
 // Portefeuille : « 🪙 1 234 € · 🔒 56 € »). Optionnel par défaut.
 import { createContext, useContext } from "react";
-import type { Ionicons } from "@expo/vector-icons";
+import type { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { SharedValue } from "react-native-reanimated";
 
 /** Hauteur du contenu du header (hors safe area top).
@@ -25,14 +25,21 @@ export const HEADER_BASE_HEIGHT = 84;
 export const HEADER_SCROLL_THRESHOLD = 50;
 export const HEADER_SCROLL_TRANSITION = 30;
 
-export type CompactExtra = {
-  /** Glyphe Ionicons précédant la valeur. */
-  icon: keyof typeof Ionicons.glyphMap;
-  /** Valeur affichée (ex. « 1 234 € »). */
-  value: string;
-  /** Couleur de l'icône. Défaut = ink (#0F1629). */
-  color?: string;
-};
+export type CompactExtra =
+  | {
+      iconLib?: "ionicons";
+      icon: keyof typeof Ionicons.glyphMap;
+      /** Valeur affichée (ex. « 1 234 € »). */
+      value: string;
+      /** Couleur de l'icône. Défaut = ink (#0F1629). */
+      color?: string;
+    }
+  | {
+      iconLib: "material";
+      icon: keyof typeof MaterialCommunityIcons.glyphMap;
+      value: string;
+      color?: string;
+    };
 
 export type HeaderScrollContextValue = {
   scrollY: SharedValue<number>;

@@ -11,7 +11,7 @@
 // (ScrollScreen réserve la hauteur via paddingTop) — son fond utilise
 // expo-glass-effect quand iOS 26+ le supporte (même Liquid Glass que la
 // FloatingTabBar), sinon ivoire translucide.
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, usePathname } from "expo-router";
@@ -34,7 +34,6 @@ import { MessagesSheet } from "./messages-sheet";
 import {
   HEADER_BASE_HEIGHT,
   HEADER_SCROLL_THRESHOLD,
-  HEADER_SCROLL_TRANSITION,
   useHeaderScroll,
 } from "../lib/header-scroll";
 import { useFlashDeals, useNotifications } from "../lib/queries";
@@ -435,12 +434,20 @@ export function AppHeader() {
                     key={i}
                     className="flex-row items-center gap-2"
                   >
-                    <Ionicons
-                      name={e.icon}
-                      size={20}
-                      color={e.color ?? "#0F1629"}
-                    />
-                    <Text className="font-mono text-[15px] font-semibold text-ink">
+                    {e.iconLib === "material" ? (
+                      <MaterialCommunityIcons
+                        name={e.icon}
+                        size={20}
+                        color={e.color ?? "#0F1629"}
+                      />
+                    ) : (
+                      <Ionicons
+                        name={e.icon}
+                        size={20}
+                        color={e.color ?? "#0F1629"}
+                      />
+                    )}
+                    <Text className="font-mono text-[17px] font-semibold text-ink">
                       {e.value}
                     </Text>
                   </View>

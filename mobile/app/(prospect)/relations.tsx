@@ -4,7 +4,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 
 import { router, useLocalSearchParams } from "expo-router";
@@ -374,9 +374,37 @@ export default function Relations() {
       (historyFilter === "refused" && h.decision === "Refusée"),
   );
 
+  // Extras du header compact (visibles au scroll) : icône handshake
+  // coral signature de la page + nombre en attente (ambre) + nombre
+  // d'acceptées depuis l'ouverture du compte (vert). Les compteurs sont
+  // dérivés des deux listes renvoyées par /api/prospect/relations.
+  const pendingCount = q.data?.pending?.length ?? 0;
+  const acceptedCount = useMemo(
+    () => history.filter((h) => h.decision === "Acceptée").length,
+    [history],
+  );
+  const compactExtras = useMemo(
+    () => [
+      {
+        iconLib: "ionicons" as const,
+        icon: "hourglass" as const,
+        value: String(pendingCount),
+        color: "#FF7A6B",
+      },
+      {
+        iconLib: "ionicons" as const,
+        icon: "checkmark-circle" as const,
+        value: String(acceptedCount),
+        color: "#16A34A",
+      },
+    ],
+    [pendingCount, acceptedCount],
+  );
+
   return (
     <ScrollScreen
       onRefresh={q.refetch}
+      compactExtras={compactExtras}
       hero={{
         eyebrow: "Mises en relation",
         title: "Demandes en attente",
