@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomSheet } from "../components/bottom-sheet";
 import { GridBg } from "../components/grid-bg";
 import { BuuppLoader } from "../components/loader";
+import { unregisterPushToken } from "../lib/push";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
 
 const WEB_BASE =
@@ -145,7 +146,7 @@ function Row({
 }
 
 export default function AccountPage() {
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const versions = usePageVersions();
   const del = useDeleteAccount();
   const [busy, setBusy] = useState(false);
@@ -176,6 +177,7 @@ export default function AccountPage() {
     setBusy(true);
     try {
       await del.mutateAsync();
+      await unregisterPushToken(getToken).catch(() => {});
       // Déconnexion Clerk côté client après le DELETE serveur — la row
       // a déjà sauté de Supabase + Clerk a été supprimé via API.
       try {
