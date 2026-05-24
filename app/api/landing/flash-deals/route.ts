@@ -119,6 +119,25 @@ export async function GET() {
     (r) => r.targeting?.durationKey === "1h",
   );
 
+  // Comptage indicatif des flash deals lancés sur les 7 derniers jours
+  // (tout statut), affiché dans l'empty state mobile pour donner une
+  // idée du rythme. Stocké en clé séparée pour ne pas peser sur la
+  // payload principale et fail-safe : 0 si la requête échoue.
+  let lastSevenDaysCount = 0;
+  try {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60_000).toISOString();
+    const { data: weekRows } = await admin
+      .from("campaigns")
+      .select("targeting")
+      .gte("created_at", since)
+      .limit(500);
+    lastSevenDaysCount = ((weekRows ?? []) as { targeting: { durationKey?: string } | null }[])
+      .filter((r) => r.targeting?.durationKey === "1h")
+      .length;
+  } catch (e) {
+    console.warn("[/api/landing/flash-deals] 7d count failed", e);
+  }
+
   // ─── Tier fill state + relations for authenticated prospects ────
   let tierFilled: Record<TierKey, boolean> | null = null;
   let relationsByCampaign: Map<string, { id: string; status: string }> | null = null;
@@ -210,5 +229,5 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ deals });
+  return NextResponse.json({ deals, stats: { lastSevenDaysCount } });
 }

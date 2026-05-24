@@ -558,7 +558,7 @@ export type FlashDeal = {
   missingTierKeys: string[];
 };
 export const useFlashDeals = () =>
-  useGet<{ deals: FlashDeal[] }>(
+  useGet<{ deals: FlashDeal[]; stats?: { lastSevenDaysCount?: number } }>(
     ["landing", "flash-deals"],
     "/api/landing/flash-deals",
     10_000,

@@ -616,6 +616,7 @@ export function FlashDealsSheet({
 }) {
   const q = useFlashDeals();
   const deals = q.data?.deals ?? [];
+  const lastSevenDaysCount = q.data?.stats?.lastSevenDaysCount ?? 0;
 
   // Refetch à l'ouverture (pour ne pas laisser le user voir des deals
   // figés/expirés si la sheet est restée fermée longtemps).
@@ -672,7 +673,16 @@ export function FlashDealsSheet({
           </Text>
         </View>
       ) : deals.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-6">
+        // Empty state convivial — illustration violet doux conservée
+        // (cf. demande user 24/05/2026), puis trois blocs complémentaires
+        // pour combler le vide visuel sans saturer : astuce, mini-stat
+        // 7 jours (depuis /api/landing/flash-deals → stats), CTA données.
+        // Wrappé dans ScrollView pour les petits écrans (SE 1ʳᵉ gen).
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="items-center pt-2 pb-4"
+          showsVerticalScrollIndicator={false}
+        >
           <View
             className="mb-3 h-32 w-32 items-center justify-center rounded-full"
             style={{ backgroundColor: "rgba(79, 70, 229, 0.10)" }}
@@ -685,7 +695,91 @@ export function FlashDealsSheet({
           <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
             Les campagnes éclair{"\n"}apparaîtront ici dès leur lancement.
           </Text>
-        </View>
+
+          {/* Carte « Astuce » — violet doux, fil rouge identité flash. */}
+          <View
+            className="mt-6 w-full rounded-2xl px-4 py-3.5"
+            style={{
+              backgroundColor: "#F4F1FB",
+              borderWidth: 1,
+              borderColor: "#E4DEF5",
+            }}
+          >
+            <View className="flex-row items-center gap-2">
+              <View
+                className="h-7 w-7 items-center justify-center rounded-full"
+                style={{ backgroundColor: "#E4DEF5" }}
+              >
+                <Ionicons name="bulb" size={13} color="#4F46E5" />
+              </View>
+              <Text
+                className="font-mono text-[10.5px] uppercase text-violet"
+                style={{ letterSpacing: 0.8 }}
+              >
+                Astuce
+              </Text>
+            </View>
+            <Text className="mt-2 text-[13.5px] leading-5 text-ink-2">
+              Plus vos données sont complètes, plus vous matchez de flash
+              deals. La plupart partent en moins d'une heure — soyez prêt·e
+              à saisir le prochain.
+            </Text>
+          </View>
+
+          {/* Mini-stat 7 jours — chiffre dynamique si > 0, sinon message
+              alternatif pour ne pas afficher un « 0 » triste. */}
+          <View className="mt-3 w-full flex-row items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5">
+            <View
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: "#EFEADD" }}
+            >
+              <Ionicons name="stats-chart" size={15} color="#0F1629" />
+            </View>
+            <View className="flex-1">
+              {lastSevenDaysCount > 0 ? (
+                <>
+                  <Text className="font-serif text-[18px] text-ink">
+                    {lastSevenDaysCount}{" "}
+                    <Text className="text-[14px] text-ink-3">
+                      {lastSevenDaysCount === 1
+                        ? "flash deal lancé"
+                        : "flash deals lancés"}
+                    </Text>
+                  </Text>
+                  <Text className="text-[12px] text-ink-4">
+                    sur les 7 derniers jours
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text className="font-serif text-[15px] text-ink">
+                    Le saviez-vous ?
+                  </Text>
+                  <Text className="mt-0.5 text-[12.5px] leading-4 text-ink-4">
+                    Les flash deals expirent en 1 h. Activez vos
+                    notifications pour ne rien manquer.
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* CTA discret vers Mes données — augmente la probabilité de
+              matcher un futur flash deal. Ferme la sheet avant de naviguer
+              pour ne pas la laisser ouverte derrière l'écran de paliers. */}
+          <Pressable
+            onPress={() => {
+              onClose();
+              router.push("/(prospect)/donnees");
+            }}
+            className="mt-4 w-full flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
+          >
+            <Text className="text-sm font-semibold text-paper">
+              Compléter mes données
+            </Text>
+            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          </Pressable>
+        </ScrollView>
       ) : (
         <ScrollView
           className="flex-1"
