@@ -8,6 +8,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { unregisterPushToken } from "../lib/push";
 import { resetOnboardingSeen } from "../lib/onboarding";
 import { useDeleteAccount } from "../lib/queries";
 
@@ -58,7 +59,7 @@ function Row({
 }
 
 export default function DrawerPanel() {
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const del = useDeleteAccount();
   const [confirm, setConfirm] = useState<null | "signout" | "delete">(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +86,7 @@ export default function DrawerPanel() {
   async function doSignOut() {
     setBusy(true);
     try {
+      await unregisterPushToken(getToken).catch(() => {});
       await signOut();
       router.replace("/(auth)/sign-in");
     } catch {
@@ -96,6 +98,7 @@ export default function DrawerPanel() {
     setBusy(true);
     try {
       await del.mutateAsync();
+      await unregisterPushToken(getToken).catch(() => {});
       await signOut();
       router.replace("/(auth)/sign-in");
     } catch {

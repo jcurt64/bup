@@ -3,6 +3,7 @@
 // mutation = équivalent mobile des events web. Refetch on focus/reconnect
 // réglé dans _layout. Shapes alignées sur les routes réelles du web.
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -12,12 +13,19 @@ import { ApiError, useApi } from "./api";
 export type Role = "prospect" | "pro" | null;
 
 // Helper générique : un hook de requête GET sur un endpoint.
+//
+// placeholderData: keepPreviousData → quand la query est invalidée puis
+// refetchée, les données précédentes restent affichées pendant que le
+// background fetch tourne, au lieu d'un saut vers l'état isPending.
+// Concrètement, plus de flash blanc / loader visible sur Accueil et
+// Relations quand on revient sur l'écran ou après une mutation.
 function useGet<T>(key: (string | number)[], path: string, staleMs = 30_000) {
   const api = useApi();
   return useQuery({
     queryKey: key,
     queryFn: () => api<T>(path),
     staleTime: staleMs,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -64,7 +72,7 @@ export type ProspectWallet = {
   escrowCents: number;
 };
 export const useProspectWallet = () =>
-  useGet<ProspectWallet>(["prospect", "wallet"], "/api/prospect/wallet", 15_000);
+  useGet<ProspectWallet>(["prospect", "wallet"], "/api/prospect/wallet", 60_000);
 
 export type Relation = {
   // Champs communs pending + history
@@ -102,7 +110,7 @@ export const useProspectRelations = () =>
   useGet<{ pending: Relation[]; history: Relation[] }>(
     ["prospect", "relations"],
     "/api/prospect/relations",
-    15_000,
+    90_000,
   );
 
 export type Score = {
@@ -250,7 +258,7 @@ export const useProspectMovements = () =>
   useGet<{ movements: Movement[] }>(
     ["prospect", "movements"],
     "/api/prospect/movements",
-    15_000,
+    60_000,
   );
 
 // — Mes données — GET /api/prospect/donnees

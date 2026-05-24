@@ -20,9 +20,8 @@ import { Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
-  Extrapolation,
-  interpolate,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -265,37 +264,35 @@ export function AppHeader() {
   const glass = isLiquidGlassAvailable();
   const pageName = pageNameFromPathname(pathname);
 
-  // Interpole l'opacité des deux layouts en fonction de scrollY.
-  // Si pas de Context (AppHeader utilisé hors ScrollScreen), reste en
-  // mode expanded statique — sécurise les écrans qui ne sont pas migrés.
-  const expandedStyle = useAnimatedStyle(() => {
-    if (!ctx) return { opacity: 1 };
-    const o = interpolate(
-      ctx.scrollY.value,
-      [HEADER_SCROLL_THRESHOLD, HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION],
-      [1, 0],
-      Extrapolation.CLAMP,
-    );
-    return { opacity: o };
+  // Transition smooth entre expanded et compact via `withTiming` (300 ms,
+  // easing cubique in-out) plutôt qu'une interpolation linéaire 1-pour-1
+  // sur scrollY. Le scroll déclenche juste la cible (0 ou 1) ; l'easing
+  // temporel lisse l'animation même lors d'un scroll abrupt. Si pas de
+  // Context (AppHeader hors ScrollScreen), reste en mode expanded.
+  const target = useDerivedValue(() => {
+    if (!ctx) return 0;
+    return ctx.scrollY.value > HEADER_SCROLL_THRESHOLD ? 1 : 0;
   });
-  const compactStyle = useAnimatedStyle(() => {
-    if (!ctx) return { opacity: 0 };
-    const o = interpolate(
-      ctx.scrollY.value,
-      [HEADER_SCROLL_THRESHOLD, HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION],
-      [0, 1],
-      Extrapolation.CLAMP,
-    );
-    return { opacity: o };
-  });
-  // Quand le compact est entièrement affiché, on retire le pointer-events
-  // de l'expanded pour que ses boutons (couvert visuellement) ne captent
-  // plus le tap, et inversement.
+  const progress = useDerivedValue(() =>
+    withTiming(target.value, {
+      duration: 300,
+      easing: Easing.inOut(Easing.cubic),
+    }),
+  );
+
+  const expandedStyle = useAnimatedStyle(() => ({
+    opacity: 1 - progress.value,
+  }));
+  const compactStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+  // Pointer-events : bascule quand on dépasse la moitié de la transition,
+  // évite que les boutons cachés captent le tap.
   const expandedPointerStyle = useAnimatedStyle(() => ({
-    pointerEvents: ctx && ctx.scrollY.value > HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION / 2 ? "none" : "auto",
+    pointerEvents: progress.value > 0.5 ? "none" : "auto",
   }));
   const compactPointerStyle = useAnimatedStyle(() => ({
-    pointerEvents: ctx && ctx.scrollY.value > HEADER_SCROLL_THRESHOLD + HEADER_SCROLL_TRANSITION / 2 ? "auto" : "none",
+    pointerEvents: progress.value > 0.5 ? "auto" : "none",
   }));
 
   const totalHeight = insets.top + HEADER_BASE_HEIGHT;
@@ -432,18 +429,18 @@ export function AppHeader() {
               </Text>
             </View>
             {ctx?.compactExtras?.length ? (
-              <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center gap-4">
                 {ctx.compactExtras.map((e, i) => (
                   <View
                     key={i}
-                    className="flex-row items-center gap-1.5"
+                    className="flex-row items-center gap-2"
                   >
                     <Ionicons
                       name={e.icon}
-                      size={14}
+                      size={20}
                       color={e.color ?? "#0F1629"}
                     />
-                    <Text className="font-mono text-[12px] font-semibold text-ink">
+                    <Text className="font-mono text-[15px] font-semibold text-ink">
                       {e.value}
                     </Text>
                   </View>

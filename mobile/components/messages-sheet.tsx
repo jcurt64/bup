@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useEffect } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -17,6 +16,7 @@ import {
 const EMPTY_MAILBOX = require("../assets/images/empty-mailbox.png");
 
 import { BottomSheet } from "./bottom-sheet";
+import { BuuppLoader } from "./loader";
 import { Card, dateFr } from "./screen";
 import {
   useDeleteNotification,
@@ -130,7 +130,7 @@ export function MessagesSheet({
 
       {q.isPending ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#7C5CFC" />
+          <BuuppLoader />
         </View>
       ) : q.isError ? (
         <View className="rounded-2xl border-l-4 border-bad bg-paper p-4">

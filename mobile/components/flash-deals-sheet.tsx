@@ -7,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -18,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
 import { DecisionFeedback } from "./decision-feedback";
+import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import {
   useDecideRelation,
@@ -664,7 +664,7 @@ export function FlashDealsSheet({
 
       {q.isPending ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#4F46E5" />
+          <BuuppLoader />
         </View>
       ) : q.isError ? (
         <View className="rounded-2xl border-l-4 border-bad bg-paper p-4">

@@ -9,7 +9,6 @@ import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -20,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomSheet } from "../components/bottom-sheet";
 import { GridBg } from "../components/grid-bg";
+import { BuuppLoader } from "../components/loader";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
 
 const WEB_BASE =
@@ -235,7 +235,7 @@ export default function AccountPage() {
         <View className="gap-2">
           {versions.isPending ? (
             <View className="items-center py-8">
-              <ActivityIndicator color="#7C5CFC" />
+              <BuuppLoader />
             </View>
           ) : (
             LINKS.map((l) => {

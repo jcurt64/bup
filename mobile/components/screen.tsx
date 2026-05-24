@@ -4,21 +4,29 @@
 // onglets prospect/pro.
 import { type ReactNode, useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
-  ScrollView,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from "react-native-reanimated";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { AppHeader } from "./app-header";
 import { GridBg } from "./grid-bg";
+import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
+import {
+  type CompactExtra,
+  HEADER_BASE_HEIGHT,
+  HeaderScrollContext,
+} from "../lib/header-scroll";
 import { useMeTyped, useProspectVerification } from "../lib/queries";
 
 // Palier "certifié confiance" → trophée coloré (ordre demandé :
@@ -116,11 +124,17 @@ export function ScrollScreen({
   children,
   onRefresh,
   hero,
+  compactExtras,
 }: {
   children: ReactNode;
   onRefresh?: () => Promise<unknown>;
   hero?: HeroProps;
+  /** Informations supplémentaires (icône + valeur) affichées à droite
+   *  du header une fois passé en mode compact. Ex. sur Portefeuille :
+   *  total cumulé + séquestre. Optionnel par page. */
+  compactExtras?: CompactExtra[];
 }) {
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useCallback(async () => {
     if (!onRefresh) return;
@@ -132,23 +146,49 @@ export function ScrollScreen({
     }
   }, [onRefresh]);
 
+  // SharedValue mise à jour côté UI thread par le scrollHandler — lue
+  // par AppHeader pour interpoler l'opacité de ses deux layouts.
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  // Header rendu en position absolute par-dessus le ScrollView (pour
+  // que le contenu défile derrière son fond translucide) → on compense
+  // avec un paddingTop sur la ScrollView qui réserve la hauteur du
+  // header (safe area top + 84 px de contenu).
+  const headerHeight = insets.top + HEADER_BASE_HEIGHT;
+
   return (
-    <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
-      <GridBg />
-      <AppHeader />
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ padding: 20, paddingTop: 16, paddingBottom: 120, gap: 16 }}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} />
-          ) : undefined
-        }
-      >
-        {hero ? <GradientHero {...hero} /> : null}
-        {children}
-      </ScrollView>
-    </SafeAreaView>
+    <HeaderScrollContext.Provider value={{ scrollY, compactExtras }}>
+      <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
+        <GridBg />
+        <Animated.ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            padding: 20,
+            paddingTop: headerHeight + 16,
+            paddingBottom: 120,
+            gap: 16,
+          }}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                progressViewOffset={headerHeight}
+              />
+            ) : undefined
+          }
+        >
+          {hero ? <GradientHero {...hero} /> : null}
+          {children}
+        </Animated.ScrollView>
+        <AppHeader />
+      </SafeAreaView>
+    </HeaderScrollContext.Provider>
   );
 }
 
@@ -167,7 +207,7 @@ export function QueryGate<T>({
   if (query.isPending) {
     return (
       <View className="items-center py-16">
-        <ActivityIndicator color="#4F46E5" />
+        <BuuppLoader />
       </View>
     );
   }

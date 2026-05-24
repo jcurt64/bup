@@ -3,8 +3,9 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 
+import { BuuppLoader } from "../components/loader";
 import { hasSeenOnboarding } from "../lib/onboarding";
 import { useRole } from "../lib/queries";
 import { getRoleIntent } from "../lib/role-intent";
@@ -41,7 +42,7 @@ export default function Index() {
 function Splash() {
   return (
     <View className="flex-1 items-center justify-center bg-ivory">
-      <ActivityIndicator size="large" color="#4F46E5" />
+      <BuuppLoader size="lg" />
     </View>
   );
 }

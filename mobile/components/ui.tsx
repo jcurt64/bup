@@ -6,7 +6,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   Text,
   TextInput,
@@ -14,6 +13,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BuuppLoader } from "./loader";
 
 export function ScreenBg({
   children,
@@ -137,7 +138,7 @@ export function PrimaryButton({
       }
     >
       {loading ? (
-        <ActivityIndicator color="#fff" />
+        <BuuppLoader size="xs" color="#fff" />
       ) : (
         <Text className="text-base font-semibold text-paper">
           {label}

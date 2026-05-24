@@ -44,13 +44,19 @@ Notifications.setNotificationHandler({
 // focus" → on branche AppState sur le focusManager React Query pour
 // refetch quand l'app revient au premier plan (récupère ce qui a changé
 // sur le web entre-temps).
+//
+// refetchOnWindowFocus désactivé par défaut : le défaut `true` provoquait
+// un refetch de toutes les queries à chaque retour foreground / changement
+// d'écran (perçu comme focus en RN), d'où un loader visible inutilement
+// sur Accueil/Relations. Les mutations qui modifient l'état invalident
+// déjà les clés concernées. staleTime de base passé à 60 s pour aligner.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: true,
-      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      staleTime: 60_000,
     },
   },
 });
