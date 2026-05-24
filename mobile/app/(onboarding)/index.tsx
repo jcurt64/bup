@@ -1,6 +1,7 @@
-// Carrousel d'onboarding — 3 slides fidèles aux maquettes
-// buupp-onboarding (1.png intro, 2.png pros, 3.png buuppers).
-// "Passer" ou "Commencer" → marque vu + va à l'auth.
+// Carrousel d'onboarding — 4 slides fidèles aux maquettes
+// buupp-onboarding (1.png intro, 2.png pros, 3.png buuppers, 4.png notifs).
+// "Passer" → marque vu + va à l'auth. "Activer les notifications" → idem + push.
+import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -27,6 +28,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { GridBg } from "../../components/grid-bg";
 import { Accent, BrandLogo, Eyebrow, PrimaryButton } from "../../components/ui";
 import { markOnboardingSeen } from "../../lib/onboarding";
+import { registerForPushNotifications } from "../../lib/push";
 
 type Slide = {
   key: string;
@@ -82,6 +84,58 @@ function IntroArt() {
       <Animated.View style={style}>
         <BrandLogo />
       </Animated.View>
+    </View>
+  );
+}
+
+// Mockup statique d'une notification BUUPP sur lockscreen — montre au
+// prospect ce qu'il recevra. Pas d'animation : volontairement calme
+// (la slide elle-même apparaît avec le fondu global de l'écran).
+function PhonePushPreview() {
+  return (
+    <View className="h-64 w-full items-center justify-center">
+      <View
+        style={{
+          width: 280,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderRadius: 18,
+          backgroundColor: "#FFFFFF",
+          borderLeftWidth: 4,
+          borderLeftColor: "#7C5CFC",
+          shadowColor: "#0F1629",
+          shadowOpacity: 0.18,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 6 },
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 999,
+            backgroundColor: "#EDE9FE",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 22 }}>👋</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", fontSize: 14, color: "#0F1629" }}>
+            Une nouvelle sollicitation
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={{ fontSize: 13, marginTop: 2, color: "#5B6478" }}
+          >
+            Coiffure Lola · +3,40 € · expire dans 24h
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -290,10 +344,23 @@ const SLIDES: Slide[] = [
       </View>
     ),
   },
+  {
+    key: "notifications",
+    eyebrow: "Une dernière chose",
+    title: (
+      <>
+        Restez connecté aux <Accent>opportunités.</Accent>
+      </>
+    ),
+    subtitle:
+      "On vous prévient dès qu'un pro accepte de vous payer. Pas de spam — uniquement les sollicitations qui rapportent.",
+    art: <PhonePushPreview />,
+  },
 ];
 
 export default function Onboarding() {
   const router = useRouter();
+  const { getToken } = useAuth();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
@@ -318,8 +385,17 @@ export default function Onboarding() {
     router.replace("/(auth)/sign-in");
   }
 
+  async function activateThenFinish() {
+    try {
+      await registerForPushNotifications(getToken);
+    } catch (e) {
+      console.warn("[onboarding] register push failed (silent)", e);
+    }
+    await finish();
+  }
+
   function next() {
-    if (index >= last) return finish();
+    if (index >= last) return activateThenFinish();
     listRef.current?.scrollToIndex({ index: index + 1, animated: true });
   }
 
@@ -396,7 +472,7 @@ export default function Onboarding() {
           </View>
           <View className="w-40">
             <PrimaryButton
-              label={index >= last ? "Commencer" : "Suivant"}
+              label={index >= last ? "Activer les notifications" : "Suivant"}
               arrow
               onPress={next}
             />
