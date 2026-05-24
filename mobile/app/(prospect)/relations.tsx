@@ -519,7 +519,7 @@ export default function Relations() {
               <Pressable
                 key={f.key}
                 onPress={() => setHistoryFilter(f.key)}
-                className={`rounded-full px-3.5 py-1.5 ${colorClasses}`}
+                className={`rounded-xl px-3.5 py-1.5 ${colorClasses}`}
               >
                 <Text
                   className={`text-[13px] ${active ? "font-semibold" : "font-medium"} ${textClasses}`}
@@ -534,16 +534,29 @@ export default function Relations() {
         {/* Bloc 3 : contenu historique (empty state ou liste de cartes,
             cartes espacées de 12 px entre elles). */}
         {q.isPending ? null : filteredHistory.length === 0 ? (
+          // Empty state — emoji bâillement (« c'est loooong… ») dans un
+          // cercle pastel bleu, en écho à la pastille time-outline du
+          // bloc 1. Même langage visuel que l'empty state des demandes en
+          // attente (peace-sign coral) un cran plus haut.
           <View
-            className="items-center rounded-2xl bg-paper p-8"
+            className="items-center rounded-2xl bg-paper px-4 py-8"
             style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
           >
-            <Text className="text-center text-sm text-ink-4">
+            <View
+              className="mb-3 h-32 w-32 items-center justify-center rounded-full"
+              style={{ backgroundColor: "rgba(91, 141, 239, 0.10)" }}
+            >
+              <Text style={{ fontSize: 72 }}>🥱</Text>
+            </View>
+            <Text className="font-serif text-xl text-ink">
+              {"C'est looooong…"}
+            </Text>
+            <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
               {historyFilter === "accepted"
-                ? "Aucune demande acceptée."
+                ? "Les sollicitations acceptées s'afficheront ici."
                 : historyFilter === "refused"
-                  ? "Aucune demande refusée."
-                  : "Aucun historique."}
+                  ? "Les sollicitations refusées s'afficheront ici."
+                  : "Vos sollicitations traitées\ns'afficheront ici."}
             </Text>
           </View>
         ) : (

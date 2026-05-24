@@ -3,6 +3,7 @@
 // Fonds pastels pour différencier les actions.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -25,13 +26,19 @@ const LOGO = require("../assets/images/logo2.png");
 function IconButton({
   icon,
   bg,
+  gradient,
   color,
   label,
   onPress,
   badgeCount,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
-  bg: string;
+  /** Fond pastel uni (classe Tailwind). Ignoré si `gradient` est fourni. */
+  bg?: string;
+  /** Si fourni : pastille en LinearGradient (top-left → bottom-right).
+   *  Utilisé pour mettre en valeur le bouton person (mêmes teintes que
+   *  l'item actif de la tab bar : violet → navy). */
+  gradient?: [string, string];
   color: string;
   label: string;
   onPress: () => void;
@@ -42,40 +49,70 @@ function IconButton({
 }) {
   const showBadge = (badgeCount ?? 0) > 0;
   const badgeText = String(badgeCount ?? 0);
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      accessibilityLabel={
-        showBadge ? `${label} (${badgeCount} non lu${badgeCount! > 1 ? "s" : ""})` : label
-      }
-      className={`h-10 w-10 items-center justify-center rounded-full ${bg} active:opacity-70`}
+  const accessibilityLabel = showBadge
+    ? `${label} (${badgeCount} non lu${badgeCount! > 1 ? "s" : ""})`
+    : label;
+  const badge = showBadge ? (
+    <View
+      pointerEvents="none"
+      accessible={false}
+      style={{
+        position: "absolute",
+        top: -3,
+        right: -3,
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: 4,
+        borderRadius: 9,
+        backgroundColor: "#DC2626",
+        borderWidth: 2,
+        borderColor: "#F7F4EC", // = bg-ivory (matche le header)
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
-      <Ionicons name={icon} size={20} color={color} />
-      {showBadge ? (
-        <View
-          pointerEvents="none"
-          accessible={false}
+      <Text className="font-mono text-[10px] font-bold text-paper">
+        {badgeText}
+      </Text>
+    </View>
+  ) : null;
+
+  if (gradient) {
+    return (
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        accessibilityLabel={accessibilityLabel}
+        className="h-10 w-10 active:opacity-70"
+      >
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            position: "absolute",
-            top: -3,
-            right: -3,
-            minWidth: 18,
-            height: 18,
-            paddingHorizontal: 4,
-            borderRadius: 9,
-            backgroundColor: "#DC2626",
-            borderWidth: 2,
-            borderColor: "#F7F4EC", // = bg-ivory (matche le header)
+            width: 40,
+            height: 40,
+            borderRadius: 999,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Text className="font-mono text-[10px] font-bold text-paper">
-            {badgeText}
-          </Text>
-        </View>
-      ) : null}
+          <Ionicons name={icon} size={20} color={color} />
+        </LinearGradient>
+        {badge}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityLabel={accessibilityLabel}
+      className={`h-10 w-10 items-center justify-center rounded-full ${bg ?? ""} active:opacity-70`}
+    >
+      <Ionicons name={icon} size={20} color={color} />
+      {badge}
     </Pressable>
   );
 }
@@ -189,8 +226,8 @@ export function AppHeader() {
       >
         <IconButton
           icon="person-outline"
-          bg="bg-violet-soft"
-          color="#7C5CFC"
+          gradient={["#7C5CFC", "#13235B"]}
+          color="#FFFFFF"
           label="Ouvrir le menu"
           onPress={() => router.push("/drawer")}
         />

@@ -1028,37 +1028,57 @@ export default function Donnees() {
             {/* Toggle "Pseudonymiser vos données" — masque l'affichage des
                 valeurs avec •••• sans toucher au stockage. Icône eye / eye-off
                 comme bouton de bascule (parité visuelle avec les contrôles
-                de visibilité sur le reste de la page). */}
+                de visibilité sur le reste de la page).
+                Fond : gradient violet pâle diagonal (#F3EEFE → #FBFAFF),
+                cohérent avec l'accent violet de la page (barre niveau de
+                palier, pastilles FieldIcon, bouton actif). Plus saturé que
+                bg-paper, plus doux que la bannière Identification, ne marche
+                sur les pieds d'aucun palier. */}
             <Pressable
               onPress={() => setPseudonymized((v) => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: pseudonymized }}
               accessibilityLabel="Pseudonymiser vos données"
-              className="flex-row items-center gap-3 rounded-2xl bg-paper px-4 py-3 active:opacity-80"
-              style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+              className="active:opacity-80"
             >
-              <View
-                className="h-10 w-10 items-center justify-center rounded-full"
+              <LinearGradient
+                colors={["#F3EEFE", "#FBFAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={{
-                  backgroundColor: pseudonymized ? "#4F46E5" : "#EEF2FF",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  borderRadius: 16,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderWidth: 0.7,
+                  borderColor: "#CBC7B9",
                 }}
               >
-                <Ionicons
-                  name={pseudonymized ? "eye-off-outline" : "eye-outline"}
-                  size={18}
-                  color={pseudonymized ? "#FFFFFF" : "#4F46E5"}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="font-serif text-base text-ink">
-                  Pseudonymiser vos données
-                </Text>
-                <Text className="mt-0.5 text-[13px] text-ink-4">
-                  {pseudonymized
-                    ? "Affichage masqué — vos données restent en clair en base"
-                    : "Touchez pour masquer l'affichage de toutes vos données"}
-                </Text>
-              </View>
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: pseudonymized ? "#4F46E5" : "#EEF2FF",
+                  }}
+                >
+                  <Ionicons
+                    name={pseudonymized ? "eye-off-outline" : "eye-outline"}
+                    size={18}
+                    color={pseudonymized ? "#FFFFFF" : "#4F46E5"}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-serif text-base text-ink">
+                    Pseudonymiser vos données
+                  </Text>
+                  <Text className="mt-0.5 text-[13px] text-ink-4">
+                    {pseudonymized
+                      ? "Affichage masqué — vos données restent en clair en base"
+                      : "Touchez pour masquer l'affichage de toutes vos données"}
+                  </Text>
+                </View>
+              </LinearGradient>
             </Pressable>
 
             {TIERS.map((k) => {
@@ -1302,12 +1322,31 @@ export default function Donnees() {
                             disabled={patch.isPending}
                             className="flex-1 items-center rounded-full bg-ink py-2.5"
                             onPress={async () => {
-                              await patch.mutateAsync({
-                                tier: k,
-                                fields: draft,
-                              });
-                              setEditing(null);
-                              setDraft({});
+                              // Rien n'a été modifié → on referme sans appeler
+                              // l'API. L'endpoint PATCH /api/prospect/donnees
+                              // rejette en 400 "no_known_fields" si le payload
+                              // `fields` est vide (route.ts ligne 135) ; sans
+                              // ce garde-fou, ré-enregistrer un palier déjà
+                              // rempli faisait apparaître l'erreur.
+                              if (Object.keys(draft).length === 0) {
+                                setEditing(null);
+                                return;
+                              }
+                              try {
+                                await patch.mutateAsync({
+                                  tier: k,
+                                  fields: draft,
+                                });
+                                setEditing(null);
+                                setDraft({});
+                              } catch (e) {
+                                Alert.alert(
+                                  "Enregistrement impossible",
+                                  e instanceof Error && e.message
+                                    ? e.message
+                                    : "Une erreur est survenue. Réessayez dans un instant.",
+                                );
+                              }
                             }}
                           >
                             <Text className="text-base font-semibold text-paper">
@@ -1352,6 +1391,14 @@ export default function Donnees() {
                             Boolean(d.identityMeta?.phoneVerifiedAt) &&
                             main !== "" &&
                             !isMasked;
+                          // Champ vide & éditable → on remplace le « — » par
+                          // un bouton add-circle-outline qui ouvre l'édition
+                          // du palier en un tap. Pour les champs read-only
+                          // (téléphone : vérif SMS via Préférences), on garde
+                          // le « — » pour ne pas suggérer une action qui
+                          // n'aboutira pas ici.
+                          const isEmpty = main === "";
+                          const showAddButton = isEmpty && !f.readOnly;
                           return (
                             <View
                               key={f.key}
@@ -1364,12 +1411,28 @@ export default function Donnees() {
                               <View
                                 className="max-w-[60%] flex-row items-center justify-end gap-1.5"
                               >
-                                <Text
-                                  className="shrink text-right text-[15px] text-ink-2"
-                                  numberOfLines={1}
-                                >
-                                  {displayed}
-                                </Text>
+                                {showAddButton ? (
+                                  <Pressable
+                                    onPress={() => setEditing(k)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Renseigner ${f.label}`}
+                                    hitSlop={8}
+                                    className="active:opacity-60"
+                                  >
+                                    <Ionicons
+                                      name="add-circle-outline"
+                                      size={22}
+                                      color="#7C5CFC"
+                                    />
+                                  </Pressable>
+                                ) : (
+                                  <Text
+                                    className="shrink text-right text-[15px] text-ink-2"
+                                    numberOfLines={1}
+                                  >
+                                    {displayed}
+                                  </Text>
+                                )}
                                 {phoneVerified ? (
                                   <View
                                     className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5"
@@ -1392,28 +1455,47 @@ export default function Donnees() {
                             </View>
                           );
                         })}
-                        {/* 3 boutons d'action — toujours visibles (parité web
-                            Prospect.jsx fn MesDonnees, lignes 2702-2724),
-                            flex-1 each pour width « evenly ». Le bouton
-                            Supprimer ouvre l'Alert de confirmation RGPD. */}
+                        {/* Message d'erreur placé AVANT le footer pour qu'il
+                            reste dans la zone fields (le footer bleed jusqu'au
+                            bord de la card et n'a pas de place sous lui). */}
+                        {tierAction.isError && (
+                          <Text className="mt-1 text-[14px] text-bad">
+                            Échec de l&apos;action. Réessayez.
+                          </Text>
+                        )}
+                        {/* Footer card — 3 boutons icon-only (Modifier,
+                            Masquer/Réafficher, Supprimer). Le footer bleed
+                            dans les 3 directions (-mx-5 -mb-4) pour épouser
+                            les bords de la card → cadre coloré haut+bas avec
+                            la teinte thématique du palier (m.bannerBg) ; les
+                            boutons restent en bg-paper pour ressortir sur le
+                            pastel.
+                            Le tap sur le stylo (Modifier) permet aussi de
+                            ré-éditer un champ déjà rempli (les pastilles
+                            add-circle-outline ne s'affichent que sur les
+                            champs vides). */}
                         {!removed ? (
-                          <View className="mt-3 flex-row gap-2">
+                          <View
+                            className="-mx-5 -mb-4 mt-5 flex-row gap-3 border-t border-line px-5 py-3.5"
+                            style={{ backgroundColor: m.bannerBg }}
+                          >
                             <Pressable
-                              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full border border-line py-2.5"
+                              accessibilityRole="button"
+                              accessibilityLabel="Modifier"
+                              className="flex-1 items-center justify-center rounded-full border border-line bg-paper py-2.5"
                               onPress={() => setEditing(k)}
                             >
                               <Ionicons
                                 name="pencil-outline"
-                                size={16}
+                                size={18}
                                 color="#283044"
                               />
-                              <Text className="text-base text-ink-2">
-                                Modifier
-                              </Text>
                             </Pressable>
                             <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={hidden ? "Réafficher" : "Masquer"}
                               disabled={tierAction.isPending}
-                              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full border border-line py-2.5"
+                              className="flex-1 items-center justify-center rounded-full border border-line bg-paper py-2.5"
                               onPress={() => {
                                 // Réafficher = action non destructive → mutate
                                 // direct. Masquer = action visible-impact →
@@ -1427,34 +1509,25 @@ export default function Donnees() {
                             >
                               <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}
-                                size={16}
+                                size={18}
                                 color="#283044"
                               />
-                              <Text className="text-base text-ink-2">
-                                {hidden ? "Réafficher" : "Masquer"}
-                              </Text>
                             </Pressable>
                             <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Supprimer"
                               disabled={tierAction.isPending}
-                              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full border border-bad py-2.5"
+                              className="flex-1 items-center justify-center rounded-full border border-bad bg-paper py-2.5"
                               onPress={() => setConfirmDelete(k)}
                             >
                               <Ionicons
                                 name="trash-outline"
-                                size={16}
+                                size={18}
                                 color="#DC2626"
                               />
-                              <Text className="text-base text-bad">
-                                Supprimer
-                              </Text>
                             </Pressable>
                           </View>
                         ) : null}
-                        {tierAction.isError && (
-                          <Text className="mt-1 text-[14px] text-bad">
-                            Échec de l&apos;action. Réessayez.
-                          </Text>
-                        )}
                       </View>
                     )}
                   </View>

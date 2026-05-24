@@ -3,10 +3,12 @@
 // (modales de confirmation, parité web Prospect.jsx).
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { resetOnboardingSeen } from "../lib/onboarding";
 import { useDeleteAccount } from "../lib/queries";
 
 const SOCIAL = [
@@ -104,6 +106,24 @@ export default function DrawerPanel() {
       );
     }
   }
+  // Outil DEV — relance le carrousel d'onboarding : on efface le flag
+  // SecureStore puis on signe-out + redirige vers /(onboarding). La
+  // déconnexion est nécessaire car le router racine (app/index.tsx) saute
+  // l'onboarding pour les comptes signed-in.
+  async function doResetOnboarding() {
+    setBusy(true);
+    try {
+      await resetOnboardingSeen();
+      await signOut();
+      router.replace("/(onboarding)");
+    } catch {
+      setBusy(false);
+      Alert.alert(
+        "Erreur",
+        "Impossible de réinitialiser l'onboarding.",
+      );
+    }
+  }
 
   return (
     <View className="flex-1">
@@ -132,19 +152,25 @@ export default function DrawerPanel() {
           width: W,
           transform: [{ translateX: tx }],
           elevation: 8,
-          // Violet #7C5CFC (même couleur que l'icône person du header).
-          // Opacité poussée à 0.97 pour mieux faire ressortir les labels
-          // blancs (la version 0.92 laissait trop transparaître le fond).
-          // Posé via `style` : NativeWind n'applique pas `className`
-          // sur Animated.View (sinon fond blanc).
-          backgroundColor: "rgba(124, 92, 252, 0.97)",
-          // Coins droits arrondis XL ; overflow hidden clippe le contenu.
-          // Le blanc derrière les coins est masqué par le scrim sombre.
+          // Coins droits arrondis XL ; overflow hidden clippe le contenu
+          // ET le gradient au radius. Le blanc derrière les coins est
+          // masqué par le scrim sombre.
           borderTopRightRadius: 40,
           borderBottomRightRadius: 40,
           overflow: "hidden",
         }}
       >
+        {/* Fond gradient violet → navy (mêmes teintes que la pastille
+            active de la tab bar et le bouton person du header) en
+            absolute-fill derrière le ScrollView. Diagonal top-left →
+            bottom-right pour cohérence avec les autres surfaces gradient
+            de l'app. */}
+        <LinearGradient
+          colors={["#7C5CFC", "#13235B"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <ScrollView
           className="flex-1"
           contentContainerClassName="gap-1.5 px-4 pb-6 pt-16"
@@ -184,6 +210,25 @@ export default function DrawerPanel() {
             danger
             onPress={() => setConfirm("delete")}
           />
+
+          {/* Outils DEV — section visible uniquement en build dev.
+              `__DEV__` est tree-shake'é en prod, ne ship jamais. */}
+          {__DEV__ ? (
+            <>
+              <View className="my-4 h-px bg-white/15" />
+              <Text
+                className="px-3 text-[13px] font-bold uppercase text-white/45"
+                style={{ letterSpacing: 1.2 }}
+              >
+                Outils dev
+              </Text>
+              <Row
+                icon="refresh-outline"
+                label="Revoir l'onboarding"
+                onPress={doResetOnboarding}
+              />
+            </>
+          ) : null}
         </ScrollView>
       </Animated.View>
 

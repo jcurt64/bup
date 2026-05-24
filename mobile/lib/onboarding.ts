@@ -20,3 +20,14 @@ export async function markOnboardingSeen(): Promise<void> {
     /* best-effort */
   }
 }
+
+// Réinitialise le flag — utilisé par l'outil DEV "Revoir l'onboarding"
+// dans le drawer pour permettre une nouvelle exécution complète du
+// carrousel (suivi d'une déconnexion + redirection /(onboarding)).
+export async function resetOnboardingSeen(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(KEY);
+  } catch {
+    /* best-effort */
+  }
+}
