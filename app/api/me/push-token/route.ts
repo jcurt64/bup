@@ -4,7 +4,7 @@
  *
  * DELETE /api/me/push-token — nettoyage au sign-out / désinscription.
  */
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/clerk/server";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
