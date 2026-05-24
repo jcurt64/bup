@@ -25,6 +25,7 @@ import {
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
 import { sendRelationInvitation } from "@/lib/email/relation";
+import { buildClassicPayload, buildFlashPayload, sendBatch, type ExpoPushMessage } from "@/lib/push/expo";
 import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
 
 export const runtime = "nodejs";
@@ -506,6 +507,85 @@ export async function POST(req: Request) {
         }),
       ),
   );
+
+  // Push notifications fire-and-forget — résolution des tokens Expo
+  // (push_tokens.user_id = prospects.clerk_user_id) puis envoi batch.
+  void (async () => {
+    try {
+      const isFlash = durationKey === "1h";
+      const prospectIds = matched.map((m) => m.prospectId);
+      if (prospectIds.length === 0) return;
+
+      // 1. Map prospect_id → clerk_user_id.
+      const { data: pRows, error: pErr } = await admin
+        .from("prospects")
+        .select("id, clerk_user_id")
+        .in("id", prospectIds);
+      if (pErr) {
+        console.error("[/api/pro/campaigns push] prospects lookup failed", pErr);
+        return;
+      }
+      const clerkByProspect = new Map<string, string>();
+      for (const r of pRows ?? []) {
+        if (r.clerk_user_id) clerkByProspect.set(r.id, r.clerk_user_id);
+      }
+
+      // 2. Récupère tous les tokens Expo de ces users.
+      const clerkIds = [...new Set([...clerkByProspect.values()])];
+      if (clerkIds.length === 0) return;
+      const { data: tokens, error: tErr } = await admin
+        .from("push_tokens")
+        .select("user_id, expo_token")
+        .in("user_id", clerkIds);
+      if (tErr) {
+        console.error("[/api/pro/campaigns push] tokens lookup failed", tErr);
+        return;
+      }
+
+      // 3. Index tokens par user_id (multi-device).
+      const tokensByClerk = new Map<string, string[]>();
+      for (const row of tokens ?? []) {
+        const list = tokensByClerk.get(row.user_id) ?? [];
+        list.push(row.expo_token);
+        tokensByClerk.set(row.user_id, list);
+      }
+
+      // 4. Construit un message par (prospect × token).
+      const messages: ExpoPushMessage[] = [];
+      for (const m of matched) {
+        const clerk = clerkByProspect.get(m.prospectId);
+        if (!clerk) continue;
+        const userTokens = tokensByClerk.get(clerk) ?? [];
+        if (userTokens.length === 0) continue;
+        const relationId = relationIdByProspect.get(m.prospectId);
+        if (!relationId) continue;
+        const rewardEur = rewardForProspect(m) / 100;
+        for (const token of userTokens) {
+          messages.push(
+            isFlash
+              ? buildFlashPayload({
+                  token,
+                  proName,
+                  rewardEur,
+                  relationId,
+                  campaignId: campaign.id,
+                })
+              : buildClassicPayload({
+                  token,
+                  proName,
+                  rewardEur,
+                  durationKey,
+                  relationId,
+                }),
+          );
+        }
+      }
+
+      await sendBatch(admin, messages);
+    } catch (e) {
+      console.error("[/api/pro/campaigns push] unexpected error", e);
+    }
+  })();
 
   return NextResponse.json({
     campaignId: campaign.id,
