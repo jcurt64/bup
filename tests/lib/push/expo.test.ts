@@ -123,4 +123,36 @@ describe("sendBatch", () => {
     // Token "bad" supprimé (par message ticket en erreur immédiate).
     expect(deleteSpy).toHaveBeenCalledWith("expo_token", ["ExponentPushToken[bad]"]);
   });
+
+  it("ne reject pas si le delete des tokens invalides throw", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            { status: "error", message: "DeviceNotRegistered", details: { error: "DeviceNotRegistered" } },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    const deleteSpy = vi.fn().mockRejectedValue(new Error("db down"));
+    const admin = fakeAdmin(deleteSpy);
+
+    const consoleErr = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // Doit résoudre sans rejeter, même si le delete throw.
+    await expect(
+      sendBatch(admin as never, [{ to: "ExponentPushToken[x]", title: "t", body: "b", data: {} }]),
+    ).resolves.toBeUndefined();
+
+    // L'erreur est loguée par deleteInvalidTokens.
+    expect(consoleErr).toHaveBeenCalledWith(
+      "[push] cleanup tokens threw",
+      expect.any(Error),
+    );
+
+    consoleErr.mockRestore();
+  });
 });

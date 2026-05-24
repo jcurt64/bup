@@ -85,6 +85,7 @@ export function buildFlashPayload(args: {
 
 const EXPO_API = "https://exp.host/--/api/v2";
 const CHUNK = 100;
+const RECEIPT_POLL_DELAY_MS = 2000;
 
 type Ticket =
   | { status: "ok"; id: string }
@@ -105,9 +106,13 @@ async function deleteInvalidTokens(
   tokens: string[],
 ): Promise<void> {
   if (tokens.length === 0) return;
-  const { error } = await admin.from("push_tokens").delete().in("expo_token", tokens);
-  if (error) {
-    console.error("[push] cleanup tokens failed", error);
+  try {
+    const { error } = await admin.from("push_tokens").delete().in("expo_token", tokens);
+    if (error) {
+      console.error("[push] cleanup tokens failed", error);
+    }
+  } catch (e) {
+    console.error("[push] cleanup tokens threw", e);
   }
 }
 
@@ -163,7 +168,7 @@ export async function sendBatch(
 
   // Poll receipts (best-effort, après ~2s d'attente).
   if (ticketIdToToken.size > 0) {
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, RECEIPT_POLL_DELAY_MS));
     const ids = [...ticketIdToToken.keys()];
     for (const batch of chunk(ids, CHUNK)) {
       try {
@@ -191,5 +196,9 @@ export async function sendBatch(
     }
   }
 
-  await deleteInvalidTokens(admin, [...new Set(invalidTokens)]);
+  try {
+    await deleteInvalidTokens(admin, [...new Set(invalidTokens)]);
+  } catch (e) {
+    console.error("[push] final cleanup failed", e);
+  }
 }
