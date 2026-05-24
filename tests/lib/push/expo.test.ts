@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildClassicPayload, buildFlashPayload } from "@/lib/push/expo";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildClassicPayload, buildFlashPayload, sendBatch } from "@/lib/push/expo";
 
 describe("buildClassicPayload", () => {
   it("compose le payload Expo classique avec emoji 👋", () => {
@@ -58,5 +58,69 @@ describe("buildFlashPayload", () => {
       priority: "high",
       ttl: 3600,
     });
+  });
+});
+
+describe("sendBatch", () => {
+  const realFetch = global.fetch;
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    global.fetch = realFetch;
+    vi.useRealTimers();
+  });
+
+  function fakeAdmin(deleteSpy: ReturnType<typeof vi.fn>) {
+    return {
+      from: vi.fn().mockReturnValue({
+        delete: vi.fn().mockReturnValue({
+          in: deleteSpy,
+        }),
+      }),
+    };
+  }
+
+  it("envoie en chunks de 100, log les tickets ok, et delete les tokens DeviceNotRegistered", async () => {
+    const fetchSpy = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith("/push/send")) {
+        return new Response(
+          JSON.stringify({
+            data: [
+              { status: "ok", id: "t1" },
+              { status: "error", message: "DeviceNotRegistered", details: { error: "DeviceNotRegistered" } },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.endsWith("/push/getReceipts")) {
+        return new Response(
+          JSON.stringify({ data: { t1: { status: "ok" } } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error("unexpected url " + url);
+    });
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    const deleteSpy = vi.fn().mockResolvedValue({ data: null, error: null });
+    const admin = fakeAdmin(deleteSpy);
+
+    const messages = [
+      { to: "ExponentPushToken[good]", title: "t", body: "b", data: {} },
+      { to: "ExponentPushToken[bad]", title: "t", body: "b", data: {} },
+    ];
+
+    const promise = sendBatch(admin as never, messages);
+    // Avancer le setTimeout 2s entre /send et /getReceipts.
+    await vi.advanceTimersByTimeAsync(2100);
+    await promise;
+
+    // 2 appels fetch attendus.
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // Token "bad" supprimé (par message ticket en erreur immédiate).
+    expect(deleteSpy).toHaveBeenCalledWith("expo_token", ["ExponentPushToken[bad]"]);
   });
 });
