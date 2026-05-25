@@ -1064,9 +1064,56 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
           </div>
         )}
         {camps !== null && camps.length === 0 && (
-          <div className="card" style={{ padding: 28, textAlign: 'center' }}>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-              Aucune campagne pour le moment.
+          // Empty state aligné sur le pattern déjà utilisé pour la boîte aux
+          // lettres (cf. Prospect.jsx) : cercle pastel + illustration 3D
+          // thiings.co + titre serif + sous-texte amical. L'image est dans
+          // public/empty-campaigns.png.
+          <div
+            className="card"
+            style={{
+              padding: '32px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: 176,
+                height: 176,
+                borderRadius: '50%',
+                background: 'color-mix(in oklab, #F97316 10%, var(--paper))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <img
+                src="/empty-campaigns.png"
+                alt="Fusée prête à décoller"
+                width={140}
+                height={140}
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
+            <div
+              className="serif"
+              style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}
+            >
+              Prêt à décoller&nbsp;?
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: 'var(--ink-4)',
+                maxWidth: 320,
+                marginBottom: 18,
+              }}
+            >
+              Lancez votre première campagne pour atteindre des prospects qualifiés en quelques minutes.
             </div>
             <button className="btn btn-primary btn-sm" onClick={onCreate}>
               <Icon name="plus" size={12}/> Créer votre première campagne
