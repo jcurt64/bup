@@ -2243,12 +2243,19 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       const reached = Boolean(p?.capReached);
       setCapReached(reached);
       if (reached) {
+        // Renouvellement obligatoire : on ignore tout acquittement
+        // précédent et on force la popup.
+        clearPlanAck();
         setPlanModalOpen(true);
         setPlanChosen(false);
-      } else if (nextCycle === 0 && !draftRestoredRef.current) {
+      } else if (nextCycle === 0 && !draftRestoredRef.current && !planAlreadyAck()) {
+        // 1re campagne du cycle ET ni brouillon en cours ni popup
+        // déjà acquittée → ouverture normale.
         setPlanModalOpen(true);
         setPlanChosen(false);
       } else {
+        // Brouillon en cours OU popup déjà acquittée OU déjà dans
+        // le cycle → on respecte l'état choisi.
         setPlanModalOpen(false);
         setPlanChosen(true);
       }
@@ -2302,8 +2309,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // Cela évite de devoir refaire tout le wizard. La clé est nettoyée
   // dès la restauration pour ne pas rejouer un brouillon obsolète.
   const DRAFT_KEY = 'bupp:campaign-draft';
+  // Marqueur "le pro a acquitté la popup de choix de plan pour le cycle
+  // en cours". Persisté en sessionStorage pour survivre aux allers-retours
+  // sur l'onglet "Créer une campagne" même quand l'utilisateur n'a encore
+  // rien saisi (donc pas de brouillon à restaurer). Reset au lancement
+  // réussi (nouveau cycle) ; ignoré quand le serveur signale capReached
+  // (renouvellement obligatoire, popup forcée).
+  const PLAN_ACK_KEY = 'bupp:plan-acknowledged';
   const safeTopSession = () => {
     try { return window.top.sessionStorage; } catch { return window.sessionStorage; }
+  };
+  const planAlreadyAck = () => {
+    try { return safeTopSession().getItem(PLAN_ACK_KEY) === '1'; } catch { return false; }
+  };
+  const setPlanAck = () => {
+    try { safeTopSession().setItem(PLAN_ACK_KEY, '1'); } catch {}
+  };
+  const clearPlanAck = () => {
+    try { safeTopSession().removeItem(PLAN_ACK_KEY); } catch {}
   };
   const saveDraft = () => {
     try {
@@ -2325,6 +2348,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   };
   const clearDraft = () => {
     try { safeTopSession().removeItem(DRAFT_KEY); } catch {}
+    // Lancement réussi = nouveau cycle. On efface aussi l'acquittement
+    // pour que la popup s'affiche normalement à la prochaine 1re
+    // campagne du cycle suivant.
+    clearPlanAck();
   };
   // Restaure le brouillon si présent au montage du wizard. Deux scénarios :
   //   1) retour de Stripe (`?continue_campaign=1` dans le `search` parent)
@@ -4255,6 +4282,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
             setPlan(p);
             setPlanChosen(true);
             setPlanModalOpen(false);
+            // Mémorise l'acquittement pour la session : tant que la
+            // campagne n'est pas lancée, la popup ne se rouvrira pas
+            // au retour sur l'onglet (cf. load() au mount).
+            setPlanAck();
             // Choisir un mode (re)démarre un cycle : le compteur côté
             // serveur a été remis à 0, on resynchronise localement.
             setCycleCount(0);
@@ -4647,7 +4678,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
 
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Mes contacts" title="Prospects ayant accepté" desc="Coordonnées accessibles dans l'interface uniquement — watermarking appliqué à chaque fiche." action={
+      <SectionTitle eyebrow="Mes contacts" title="Prospects ayant accepté" desc="Données des prospects accessibles dans l'interface uniquement — watermarking appliqué à chaque fiche." action={
         <button className="btn btn-ghost btn-sm" style={{ opacity: 0.5, cursor: 'not-allowed' }} disabled><Icon name="lock" size={12}/> Export CSV indisponible</button>
       }/>
 
@@ -4993,7 +5024,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         <div className="row center gap-3">
           <span style={{ color: '#B91C1C', display: 'inline-flex' }}><Icon name="shield" size={16}/></span>
           <div style={{ fontSize: 13 }}>
-            <strong style={{ color: '#B91C1C' }}>Politique d'usage.</strong> <span style={{ color: 'rgba(185,28,28,.75)' }}>Les coordonnées sont watermarquées individuellement. Toute diffusion hors périmètre de la campagne déclenchera une enquête automatique et peut entraîner la résiliation du compte.</span>
+            <strong style={{ color: '#B91C1C' }}>Politique d'usage.</strong> <span style={{ color: 'rgba(185,28,28,.75)' }}>Les données des prospects sont watermarquées individuellement. Toute diffusion hors périmètre de la campagne déclenchera une enquête automatique et peut entraîner la résiliation du compte.</span>
           </div>
         </div>
       </div>
