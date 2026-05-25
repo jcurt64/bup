@@ -80,8 +80,27 @@ export default function TopupReconciler() {
         console.warn("[topup-reconcile] network error", e);
       }
       if (cancelled) return;
-      notifyIframe();
-      cleanupUrl();
+
+      // L'iframe prototype (shell.html + Babel + ~820 Ko de JSX) peut
+      // mettre 1–3 s à mount son listener `message`. Un seul postMessage
+      // immédiat se perdait souvent → le wallet restait sur l'ancien
+      // solde jusqu'à un F5 manuel. On envoie plusieurs pings espacés
+      // pour couvrir la fenêtre de chargement ; côté iframe c'est
+      // idempotent (invalidate cache + refetch wallet).
+      // Idem pour le cleanup URL : `Pro.jsx` lit aussi `continue_campaign=1`
+      // depuis le `search` du parent — on lui laisse le temps de le voir.
+      let pings = 0;
+      const ping = () => {
+        if (cancelled) return;
+        notifyIframe();
+        pings++;
+        if (pings < 8) {
+          setTimeout(ping, 600);
+        } else {
+          cleanupUrl();
+        }
+      };
+      ping();
     })();
 
     return () => {

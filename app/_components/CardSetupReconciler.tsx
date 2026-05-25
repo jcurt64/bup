@@ -74,8 +74,22 @@ export default function CardSetupReconciler() {
         console.warn("[card-setup-reconcile] network error", e);
       }
       if (cancelled) return;
-      notifyIframe();
-      cleanupUrl();
+
+      // Cf. TopupReconciler : l'iframe prototype peut mettre 1–3 s à
+      // mount son listener `message`. On envoie plusieurs pings espacés
+      // pour couvrir la fenêtre de chargement (idempotent côté iframe).
+      let pings = 0;
+      const ping = () => {
+        if (cancelled) return;
+        notifyIframe();
+        pings++;
+        if (pings < 8) {
+          setTimeout(ping, 600);
+        } else {
+          cleanupUrl();
+        }
+      };
+      ping();
     })();
 
     return () => {
