@@ -4567,12 +4567,62 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         </div>
       )}
 
-      {allRows !== null && rows.length === 0 && (
+      {allRows !== null && rows.length === 0 && allRows.length === 0 && (
+        // Empty state aligné sur le pattern boîte aux lettres /
+        // campagnes (cf. Prospect.jsx + Campagnes ci-dessus) : cercle
+        // pastel + illustration 3D thiings.co + titre serif + sous-texte.
+        <div
+          className="card"
+          style={{
+            padding: '32px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 176,
+              height: 176,
+              borderRadius: '50%',
+              background: 'color-mix(in oklab, #10B981 10%, var(--paper))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <img
+              src="/empty-contacts.png"
+              alt="Poignée de main — en attente de mises en relation"
+              width={140}
+              height={140}
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+          <div
+            className="serif"
+            style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}
+          >
+            Vos futurs contacts arrivent
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: 'var(--ink-4)',
+              maxWidth: 340,
+            }}
+          >
+            Dès qu'un prospect acceptera une mise en relation, il apparaîtra ici avec ses coordonnées et le contexte de la campagne.
+          </div>
+        </div>
+      )}
+      {allRows !== null && rows.length === 0 && allRows.length > 0 && (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            {allRows.length === 0
-              ? "Aucun prospect n'a encore accepté de mise en relation."
-              : "Aucun prospect ne correspond aux filtres activés."}
+            Aucun prospect ne correspond aux filtres activés.
           </div>
         </div>
       )}
@@ -6083,43 +6133,79 @@ function Facturation() {
     <div className="col gap-6">
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-        {[
-          [
-            'Abonnement actuel',
-            planInfo ? planInfo.label : '…',
-            (planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap)))
+        <div className="card" style={{ padding: 20 }}>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Abonnement actuel</div>
+          <div className="serif" style={{ fontSize: 24 }}>{planInfo ? planInfo.label : '…'}</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            {(planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap)))
               ? `${Number(planInfo.cycleCount)}/${Number(planInfo.cap)} campagnes utilisées · ${Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount))} restante(s)`
-              : '—',
-          ],
-          [
-            'Carte enregistrée',
-            payCard === undefined
-              ? '…'
-              : (payCard
-                  ? `${payCard.brand ? payCard.brand.charAt(0).toUpperCase() + payCard.brand.slice(1) : 'Carte'} ••${payCard.last4 ?? '????'}`
-                  : 'Aucune carte enregistrée'),
-            payCard === null
-              ? (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={cardSetupLoading}
-                    onClick={startCardSetup}
-                    style={{ marginTop: 4 }}
-                  >
-                    {cardSetupLoading ? '…' : 'Enregistrer une carte'}
-                  </button>
-                )
-              : (payCard && payCard.expMonth && payCard.expYear)
-                ? `Expire ${String(payCard.expMonth).padStart(2, '0')}/${payCard.expYear}`
-                : '—',
-          ],
-        ].map((r, i) => (
-          <div key={i} className="card" style={{ padding: 20 }}>
-            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{r[0]}</div>
-            <div className="serif" style={{ fontSize: 24 }}>{r[1]}</div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{r[2]}</div>
+              : '—'}
           </div>
-        ))}
+        </div>
+        {payCard === null ? (
+          // Empty state aligné sur le pattern campagnes / contacts :
+          // cercle pastel + illustration 3D thiings.co + texte + CTA.
+          // Layout compact pour rester dans la cellule de grille (1/2 largeur).
+          <div
+            className="card"
+            style={{
+              padding: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10, alignSelf: 'flex-start' }}>
+              Carte enregistrée
+            </div>
+            <div
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: '50%',
+                background: 'color-mix(in oklab, #6366F1 10%, var(--paper))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 10,
+              }}
+            >
+              <img
+                src="/empty-card.png"
+                alt="Aucune carte bancaire enregistrée"
+                width={76}
+                height={76}
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
+            <div className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Aucune carte enregistrée</div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 12, maxWidth: 280, lineHeight: 1.5 }}>
+              Ajoutez votre carte pour recharger votre wallet et lancer vos campagnes.
+            </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={cardSetupLoading}
+              onClick={startCardSetup}
+            >
+              {cardSetupLoading ? '…' : 'Enregistrer une carte'}
+            </button>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 20 }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Carte enregistrée</div>
+            <div className="serif" style={{ fontSize: 24 }}>
+              {payCard === undefined
+                ? '…'
+                : `${payCard.brand ? payCard.brand.charAt(0).toUpperCase() + payCard.brand.slice(1) : 'Carte'} ••${payCard.last4 ?? '????'}`}
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              {(payCard && payCard.expMonth && payCard.expYear)
+                ? `Expire ${String(payCard.expMonth).padStart(2, '0')}/${payCard.expYear}`
+                : '—'}
+            </div>
+          </div>
+        )}
       </div>
       <div className="card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 18 }}>
