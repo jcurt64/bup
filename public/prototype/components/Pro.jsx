@@ -2183,6 +2183,82 @@ function GeoTargetAutocomplete({ geo, value, onPick }) {
   );
 }
 
+/* Toast "On a tout gardé" affiché quand le wizard restaure un brouillon
+   au retour sur l'onglet (cf. CreateCampaign / restoreDraft). Slide-in
+   en haut au centre, illustration thiings.co (bookmark), auto-dismiss
+   après 6 s ou via bouton "Continuer". Identique en style aux empty
+   states de l'app (cercle pastel + image 3D). */
+function DraftRestoredToast({ onDismiss }) {
+  React.useEffect(() => {
+    const t = setTimeout(onDismiss, 6000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  return (
+    <>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1200,
+          maxWidth: 'calc(100vw - 32px)',
+          background: 'var(--paper)',
+          border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))',
+          borderRadius: 14,
+          boxShadow: '0 14px 40px -12px rgba(15, 22, 41, 0.18)',
+          padding: '14px 18px 14px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          animation: 'bupp-toast-in .35s cubic-bezier(.18, 1.2, .4, 1)',
+        }}
+      >
+        <div
+          style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <img
+            src="/draft-restored.png"
+            alt=""
+            width={44}
+            height={44}
+            style={{ objectFit: 'contain' }}
+          />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="serif" style={{ fontSize: 16, lineHeight: 1.2, marginBottom: 2 }}>
+            On a tout gardé&nbsp;!
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--ink-4)', lineHeight: 1.45 }}>
+            Reprenez votre campagne là où vous vous êtes arrêté.
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="btn btn-ghost btn-sm"
+          style={{ flexShrink: 0, padding: '6px 10px' }}
+          aria-label="Fermer"
+        >
+          Continuer
+        </button>
+      </div>
+      <style>{`
+        @keyframes bupp-toast-in {
+          from { opacity: 0; transform: translate(-50%, -16px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
+    </>
+  );
+}
+
 function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
@@ -2399,6 +2475,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // Le restore tourne UNE SEULE FOIS dès que `userEmail` est résolu via
   // /api/me (cf. useEffect plus haut). Expiration 1 h.
   const restoreRanRef = React.useRef(false);
+  // Toast "On a tout gardé, continuez où vous vous êtes arrêté" — affiché
+  // une fois quand un brouillon est restauré côté "retour normal" sur
+  // l'onglet (pas Stripe : ce flow-là affiche déjà sa propre modale de
+  // paiement réussi). Auto-dismiss après ~6 s ou via clic.
+  const [showRestoreToast, setShowRestoreToast] = useState(false);
   useEffect(() => {
     if (!userEmail || restoreRanRef.current) return;
     restoreRanRef.current = true;
@@ -2464,6 +2545,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (Number.isInteger(restoredStep) && restoredStep >= 1 && restoredStep <= WIZ_TOTAL) {
           setStep(restoredStep);
         }
+        // Affiche le toast de confirmation "on a tout gardé". On garde un
+        // léger délai (300 ms) pour que l'animation arrive APRÈS le
+        // premier render — sinon le slide-in est invisible.
+        setTimeout(() => setShowRestoreToast(true), 300);
         // Ne PAS clear le draft : il doit survivre aux allers-retours.
       }
     } catch (e) { console.warn('restoreDraft failed', e); }
@@ -4295,6 +4380,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
             setConfirmExcludeCertified(false);
           }}
         />
+      )}
+      {showRestoreToast && (
+        <DraftRestoredToast onDismiss={() => setShowRestoreToast(false)} />
       )}
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
       {insufficient && (
