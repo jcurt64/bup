@@ -6645,13 +6645,42 @@ function Facturation() {
     <div className="col gap-6">
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-        <div className="card" style={{ padding: 20 }}>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Abonnement actuel</div>
-          <div className="serif" style={{ fontSize: 24 }}>{planInfo ? planInfo.label : '…'}</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            {(planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap)))
-              ? `${Number(planInfo.cycleCount)}/${Number(planInfo.cap)} campagnes utilisées · ${Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount))} restante(s)`
-              : '—'}
+        <div className="card" style={{ padding: 20, display: 'flex', gap: 14, alignItems: 'center' }}>
+          {/* Illustration thiings.co (couronne) — symbolise l'abonnement
+              actif. Taille compacte (44 px dans un cercle 56) pour ne
+              pas déséquilibrer la grille 1/2 largeur. */}
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'color-mix(in oklab, #F59E0B 12%, var(--paper))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <img
+              src="/empty-plan.png"
+              alt=""
+              width={44}
+              height={44}
+              loading="lazy"
+              decoding="async"
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Abonnement actuel</div>
+            <div className="serif" style={{ fontSize: 22, lineHeight: 1.15 }}>{planInfo ? planInfo.label : '…'}</div>
+            {(planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap))) ? (
+              <div style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  {Number(planInfo.cycleCount)}/{Number(planInfo.cap)} utilisées
+                </span>
+                <span className="muted"> · </span>
+                <span style={{ color: 'var(--good)', fontWeight: 600 }}>
+                  {Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount))} restante{Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount)) > 1 ? 's' : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>—</div>
+            )}
           </div>
         </div>
         {payCard === null ? (
