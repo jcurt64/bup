@@ -489,6 +489,18 @@ function CookieTable({ cookies }: { cookies: CookieEntry[] }) {
                 <span className="mono" style={{ color: "var(--ink)" }}>
                   {c.name}
                 </span>
+                {c.storage && c.storage !== "Cookie HTTP" && (
+                  <div
+                    className="mono"
+                    style={{
+                      fontSize: 10,
+                      color: "var(--ink-4)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {c.storage}
+                  </div>
+                )}
               </Td>
               <Td>{c.provider}</Td>
               <Td style={{ minWidth: 220 }}>{c.purpose}</Td>

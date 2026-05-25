@@ -189,6 +189,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Sous-traitants : Brevo (France, UE) prend en charge SMS ET e-mails (transactionnels + broadcasts), domaine buupp.com authentifié SPF/DKIM/DMARC ; transmission e-mail rapatriée de Gmail SMTP (US) vers Brevo (UE), supprimant un transfert hors-UE. Précision : hash IP de la waitlist salé avec un secret serveur (pseudonymisation non réversible).",
       },
+      {
+        version: "1.4",
+        date: "2026-05-25",
+        summary:
+          "Palier 2 (Localisation) enrichi avec la « région » administrative : déduite côté UI au moment où le prospect/pro sélectionne sa ville dans l'autocomplétion geo.api.gouv.fr et persistée en base. Aucune nouvelle donnée tierce : la région est déjà publique et liée au code postal.",
+      },
     ],
   },
   {
@@ -198,6 +204,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
     section: "legal",
     history: [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
+      {
+        version: "1.1",
+        date: "2026-05-25",
+        summary:
+          "Ajout des équivalents techniques de cookies (localStorage / sessionStorage) à la catégorie « Cookies essentiels » : brouillon de campagne du professionnel (bupp:campaign-draft), acquittement de la formule tarifaire (bupp:plan-acknowledged) et marqueur de session du wizard (bupp:wizard-session-mounted).",
+      },
     ],
   },
   {

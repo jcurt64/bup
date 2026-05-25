@@ -10,6 +10,14 @@ export type CookieEntry = {
   purpose: string;
   duration: string;
   type: "Premier" | "Tiers";
+  /**
+   * Mécanisme de stockage côté navigateur. La CNIL applique le même
+   * régime de consentement aux cookies HTTP, à `localStorage` et à
+   * `sessionStorage` ; on les liste ici sur un pied d'égalité avec un
+   * libellé explicite pour la transparence. Optionnel : par défaut
+   * `"Cookie HTTP"`.
+   */
+  storage?: "Cookie HTTP" | "localStorage" | "sessionStorage";
 };
 
 export type CookieCategoryId =
@@ -32,7 +40,7 @@ export const COOKIE_CATEGORIES: CookieCategory[] = [
     id: "essential",
     title: "Cookies essentiels",
     description:
-      "Indispensables au fonctionnement du site (authentification, sécurité, persistance du panier de consentement). Ils ne peuvent pas être désactivés.",
+      "Indispensables au fonctionnement du site (authentification, sécurité, persistance du panier de consentement et du brouillon de campagne pour les professionnels). Cette catégorie inclut aussi des équivalents techniques de cookies — `localStorage` et `sessionStorage` — soumis au même régime de consentement par la CNIL. Ils ne peuvent pas être désactivés.",
     legalBasis: "Intérêt légitime — exemption de consentement (art. 82 LIL)",
     required: true,
     cookies: [
@@ -64,6 +72,33 @@ export const COOKIE_CATEGORIES: CookieCategory[] = [
           "Distinction entre trafic humain et automatisé pour la protection anti-bot.",
         duration: "30 minutes",
         type: "Tiers",
+      },
+      {
+        name: "bupp:campaign-draft:{email}",
+        provider: "BUUPP",
+        purpose:
+          "Sauvegarde locale du brouillon de campagne en cours de saisie par un professionnel (objectif, ciblage, budget, mots-clés, description). Permet de retrouver la campagne là où elle a été laissée après une déconnexion, un changement d'onglet ou un retour de paiement Stripe. Aucune donnée nominative de prospect n'y figure — uniquement les paramètres de campagne saisis par le pro lui-même. La clé est namespacée par e-mail pour qu'un autre compte connecté sur le même appareil ne puisse pas y accéder. Expiration applicative : 1 h après la dernière modification, puis nettoyage automatique.",
+        duration: "1 h glissante (ou jusqu'au lancement de la campagne)",
+        type: "Premier",
+        storage: "localStorage",
+      },
+      {
+        name: "bupp:plan-acknowledged:{email}",
+        provider: "BUUPP",
+        purpose:
+          "Mémorise qu'un professionnel a déjà choisi sa formule tarifaire (Starter ou Pro) pour le cycle de campagnes en cours, afin de ne pas réafficher la popup de sélection au retour sur l'onglet \"Créer une campagne\". Nettoyé automatiquement au lancement effectif de la campagne (nouveau cycle).",
+        duration: "Jusqu'au lancement d'une campagne",
+        type: "Premier",
+        storage: "localStorage",
+      },
+      {
+        name: "bupp:wizard-session-mounted",
+        provider: "BUUPP",
+        purpose:
+          "Marqueur de session de navigateur pour la création de campagne — sert à détecter une reprise après reconnexion afin d'afficher le bandeau \"On a tout gardé !\".",
+        duration: "Session (effacé à la fermeture de l'onglet)",
+        type: "Premier",
+        storage: "sessionStorage",
       },
     ],
   },

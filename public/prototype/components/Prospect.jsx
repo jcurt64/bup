@@ -1398,6 +1398,8 @@ function MessagesPanel({ highlightId, onHighlightConsumed }) {
               alt="Boîte aux lettres vide"
               width={140}
               height={140}
+              loading="lazy"
+              decoding="async"
               style={{ objectFit: 'contain' }}
             />
           </div>

@@ -143,8 +143,8 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Palier 2 (Localisation)</strong>&nbsp;: adresse,
-              code postal, ville, type de logement, mobilité géographique
-              — facultatif.
+              code postal, ville, région, type de logement, mobilité
+              géographique — facultatif.
             </li>
             <li>
               <strong>Palier 3 (Style de vie)</strong>&nbsp;: famille,
