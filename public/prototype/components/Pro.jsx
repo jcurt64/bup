@@ -2308,27 +2308,61 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // wizard dans `window.top.sessionStorage`, puis on restore au retour.
   // Cela évite de devoir refaire tout le wizard. La clé est nettoyée
   // dès la restauration pour ne pas rejouer un brouillon obsolète.
-  const DRAFT_KEY = 'bupp:campaign-draft';
-  // Marqueur "le pro a acquitté la popup de choix de plan pour le cycle
-  // en cours". Persisté en sessionStorage pour survivre aux allers-retours
-  // sur l'onglet "Créer une campagne" même quand l'utilisateur n'a encore
-  // rien saisi (donc pas de brouillon à restaurer). Reset au lancement
-  // réussi (nouveau cycle) ; ignoré quand le serveur signale capReached
-  // (renouvellement obligatoire, popup forcée).
-  const PLAN_ACK_KEY = 'bupp:plan-acknowledged';
-  const safeTopSession = () => {
-    try { return window.top.sessionStorage; } catch { return window.sessionStorage; }
+  // Persistance brouillon + acquittement de plan dans localStorage (et
+  // non sessionStorage) → survit à la fermeture du navigateur ET à un
+  // sign-out / sign-in Clerk. Clé namespacée par email utilisateur pour
+  // qu'un autre compte connecté sur le même device ne récupère pas le
+  // brouillon. Email résolu via /api/me au mount (cf. useEffect plus bas).
+  // Tant que l'email n'est pas connu (`userEmail === null`), on skip les
+  // reads/writes pour ne pas corrompre une clé générique. La migration
+  // automatique des anciens drafts sessionStorage n'est PAS faite : les
+  // utilisateurs en cours retomberont une fois sur étape 1 (acceptable).
+  const DRAFT_KEY_PREFIX = 'bupp:campaign-draft:';
+  const PLAN_ACK_KEY_PREFIX = 'bupp:plan-acknowledged:';
+  const safeTopLocal = () => {
+    try { return window.top.localStorage; } catch { return window.localStorage; }
   };
+  const [userEmail, setUserEmail] = useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/me', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j?.email) setUserEmail(String(j.email).toLowerCase()); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const draftKey = () => userEmail ? (DRAFT_KEY_PREFIX + userEmail) : null;
+  const planAckKey = () => userEmail ? (PLAN_ACK_KEY_PREFIX + userEmail) : null;
+  // Correcteur asynchrone : `load()` du plan peut résoudre AVANT que
+  // /api/me ait fini de poser `userEmail`. Dans ce cas planAlreadyAck()
+  // renvoie false et `load()` ouvre la popup à tort. Dès que userEmail
+  // arrive, on relit le marqueur et on referme la popup si l'utilisateur
+  // l'avait déjà acquittée. Sans incidence si capReached (priorité au
+  // renouvellement obligatoire).
+  React.useEffect(() => {
+    if (!userEmail) return;
+    if (capReached) return;
+    if (planAlreadyAck()) {
+      setPlanModalOpen(false);
+      setPlanChosen(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail, capReached]);
   const planAlreadyAck = () => {
-    try { return safeTopSession().getItem(PLAN_ACK_KEY) === '1'; } catch { return false; }
+    const k = planAckKey(); if (!k) return false;
+    try { return safeTopLocal().getItem(k) === '1'; } catch { return false; }
   };
   const setPlanAck = () => {
-    try { safeTopSession().setItem(PLAN_ACK_KEY, '1'); } catch {}
+    const k = planAckKey(); if (!k) return;
+    try { safeTopLocal().setItem(k, '1'); } catch {}
   };
   const clearPlanAck = () => {
-    try { safeTopSession().removeItem(PLAN_ACK_KEY); } catch {}
+    const k = planAckKey(); if (!k) return;
+    try { safeTopLocal().removeItem(k); } catch {}
   };
   const saveDraft = () => {
+    const k = draftKey();
+    if (!k) return; // userEmail pas encore résolu — on retentera au prochain auto-save tick
     try {
       const draft = {
         version: 2,
@@ -2343,11 +2377,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         keywords, kwInput, kwFilter,
         startDate, endDate, brief,
       };
-      safeTopSession().setItem(DRAFT_KEY, JSON.stringify(draft));
+      safeTopLocal().setItem(k, JSON.stringify(draft));
     } catch (e) { console.warn('saveDraft failed', e); }
   };
   const clearDraft = () => {
-    try { safeTopSession().removeItem(DRAFT_KEY); } catch {}
+    const k = draftKey();
+    if (k) { try { safeTopLocal().removeItem(k); } catch {} }
     // Lancement réussi = nouveau cycle. On efface aussi l'acquittement
     // pour que la popup s'affiche normalement à la prochaine 1re
     // campagne du cycle suivant.
@@ -2358,12 +2393,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   //      → on force l'étape Récap pour finaliser le paiement, puis on
   //      nettoie le brouillon (one-shot).
   //   2) simple retour sur l'onglet "Créer une campagne" (user a quitté
-  //      vers une autre section puis est revenu) → on restore l'étape
-  //      en cours et on CONSERVE le brouillon (pour qu'il survive à un
-  //      nouveau aller-retour). Expiration 1 h.
+  //      vers une autre section, voire s'est déconnecté/reconnecté) → on
+  //      restore l'étape en cours et on CONSERVE le brouillon. Stocké
+  //      en localStorage namespacé par email Clerk → survit aux sign-outs.
+  // Le restore tourne UNE SEULE FOIS dès que `userEmail` est résolu via
+  // /api/me (cf. useEffect plus haut). Expiration 1 h.
+  const restoreRanRef = React.useRef(false);
   useEffect(() => {
+    if (!userEmail || restoreRanRef.current) return;
+    restoreRanRef.current = true;
     try {
-      const raw = safeTopSession().getItem(DRAFT_KEY);
+      const raw = safeTopLocal().getItem(draftKey());
       if (!raw) return;
       const d = JSON.parse(raw);
       // Compat brouillons v1 (sans `step`) : on les considère comme
@@ -2428,7 +2468,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       }
     } catch (e) { console.warn('restoreDraft failed', e); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userEmail]);
   // À chaque changement d'étape du wizard, on remonte automatiquement en
   // haut de la page : sinon l'utilisateur, qui vient de cliquer "Continuer"
   // en bas, atterrit sur l'étape suivante… toujours en bas. Mauvaise UX.
