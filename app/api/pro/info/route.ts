@@ -1,8 +1,9 @@
 /**
  * /api/pro/info — informations société du pro courant.
  *
- *   GET   → { raisonSociale, adresse, ville, codePostal, siren, secteur,
- *             formeJuridique, capitalSocialEur, siret, rcsVille, rmNumber }
+ *   GET   → { raisonSociale, adresse, ville, codePostal, region, siren,
+ *             secteur, formeJuridique, capitalSocialEur, siret, rcsVille,
+ *             rmNumber }
  *   PATCH → applique un update partiel sur pro_accounts (mêmes champs).
  *
  * Les 5 derniers champs (forme juridique, capital social, SIRET, RCS,
@@ -24,6 +25,7 @@ type InfoBody = {
   adresse?: string | null;
   ville?: string | null;
   codePostal?: string | null;
+  region?: string | null;
   siren?: string | null;
   secteur?: string | null;
   // Mentions légales facture
@@ -57,7 +59,7 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("pro_accounts")
-    .select("raison_sociale, adresse, ville, code_postal, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
+    .select("raison_sociale, adresse, ville, code_postal, region, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
     .eq("id", proId!)
     .single();
   if (error || !data) {
@@ -69,6 +71,7 @@ export async function GET() {
     adresse: data.adresse ?? "",
     ville: data.ville ?? "",
     codePostal: data.code_postal ?? "",
+    region: data.region ?? "",
     siren: data.siren ?? "",
     secteur: data.secteur ?? "",
     formeJuridique: data.forme_juridique ?? "",
@@ -102,6 +105,7 @@ export async function PATCH(req: Request) {
   if ("adresse"       in body) update.adresse        = coerce(body.adresse);
   if ("ville"         in body) update.ville          = coerce(body.ville);
   if ("codePostal"    in body) update.code_postal    = coerce(body.codePostal);
+  if ("region"        in body) update.region         = coerce(body.region);
   if ("siren"         in body) update.siren          = coerce(body.siren);
   if ("secteur"       in body) update.secteur        = coerce(body.secteur);
   if ("formeJuridique" in body) update.forme_juridique = coerce(body.formeJuridique);

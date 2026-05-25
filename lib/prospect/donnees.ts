@@ -57,6 +57,11 @@ export const TIERS: Record<TierKey, TierMap> = {
       adresse: "adresse",
       ville: "ville",
       codePostal: "code_postal",
+      // Région administrative (ex. "Île-de-France") — déduite côté UI via
+      // l'autocomplétion geo.api.gouv.fr (`fields=...,region`) en même
+      // temps que ville+CP. Persistée pour l'affichage et les futurs
+      // ciblages au niveau région.
+      region: "region",
       // Préférence "Zone géographique" (rayon en km autour de la ville
       // déclarée, 5-100 km — slider dans /prospect → Préférences).
       // Stocké côté localisation parce qu'il n'a de sens que conjugué

@@ -47,6 +47,7 @@ function ProDashboard({ go }) {
     adresse: '',
     ville: '',
     codePostal: '',
+    region: '',
     siren: '',
     secteur: '',
     formeJuridique: '',
@@ -1980,24 +1981,57 @@ function GeoTargetAutocomplete({ geo, value, onPick }) {
   useEffect(() => { if (!value) setQuery(''); }, [value]);
 
   // Debounced search vers l'endpoint adapté au mode.
+  // Comportement par défaut : recherche par nom (lettres).
+  // Si la saisie est numérique on bascule sur la recherche par code :
+  //   - ville  : codePostal (2 à 5 chiffres, ex. "750", "75001")
+  //   - dept   : code département (ex. "33", "2A")
+  //   - region : code région (1-2 chiffres officiels INSEE)
+  // Permet à un pro qui connaît son code postal de retrouver vite sa
+  // commune sans devoir taper le nom complet.
   useEffect(() => {
     const q = query.trim();
     if (!geo || geo === 'national' || q.length < 1) { setItems([]); setLoading(false); return; }
     setLoading(true);
+    const isNumeric = /^\d+$/.test(q);
     const timer = setTimeout(async () => {
       try {
         let url;
         if (geo === 'ville') {
-          url = `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&boost=population&limit=10`;
+          if (isNumeric) {
+            // Code postal partiel ou complet : l'API filtre les communes
+            // dont au moins un codesPostaux commence par `q`.
+            url = `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&limit=20`;
+          } else {
+            url = `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&boost=population&limit=10`;
+          }
         } else if (geo === 'dept') {
-          url = `https://geo.api.gouv.fr/departements?nom=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
+          if (isNumeric) {
+            url = `https://geo.api.gouv.fr/departements?code=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
+          } else {
+            url = `https://geo.api.gouv.fr/departements?nom=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
+          }
         } else { // region
-          url = `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
+          if (isNumeric) {
+            url = `https://geo.api.gouv.fr/regions?code=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
+          } else {
+            url = `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
+          }
         }
         const r = await fetch(url);
         if (!r.ok) { setItems([]); setLoading(false); return; }
-        const data = await r.json();
-        setItems(Array.isArray(data) ? data : []);
+        let data = await r.json();
+        if (!Array.isArray(data)) data = [];
+        // Pour le mode ville en saisie numérique : si l'utilisateur a tapé
+        // un code postal partiel, on remonte uniquement les communes dont
+        // un CP commence vraiment par la saisie (le `codePostal=` côté
+        // API filtre déjà mais on garantit le tri).
+        if (geo === 'ville' && isNumeric) {
+          data = data.filter(c =>
+            Array.isArray(c.codesPostaux) &&
+            c.codesPostaux.some(cp => cp.startsWith(q))
+          );
+        }
+        setItems(data);
       } catch (e) {
         console.warn('[geo.api.gouv.fr] error', e);
         setItems([]);
@@ -2063,9 +2097,9 @@ function GeoTargetAutocomplete({ geo, value, onPick }) {
   };
 
   const placeholder =
-    geo === 'ville' ? 'Tapez le nom d\'une ville (ex. Bordeaux)' :
-    geo === 'dept' ? 'Tapez le nom d\'un département (ex. Gironde)' :
-    geo === 'region' ? 'Tapez le nom d\'une région (ex. Nouvelle-Aquitaine)' :
+    geo === 'ville' ? 'Tapez le nom d\'une ville ou un code postal (ex. Bordeaux, 33000)' :
+    geo === 'dept' ? 'Tapez le nom ou le code d\'un département (ex. Gironde, 33)' :
+    geo === 'region' ? 'Tapez le nom ou le code d\'une région (ex. Nouvelle-Aquitaine, 75)' :
     '';
 
   // Rendu du résumé d'item (clé contextuelle = code dept pour ville/dept,
@@ -2175,6 +2209,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [cycleCount, setCycleCount] = useState(null);
   const [cycleCap, setCycleCap] = useState(null);
   const [capReached, setCapReached] = useState(false);
+  // Drapeau « un brouillon de campagne a été restauré au mount » — posé
+  // par restoreDraft (cf. plus bas). Le `load()` du plan tourne async et
+  // peut résoudre APRÈS restoreDraft : sans ce drapeau, il écraserait
+  // `planChosen` en rouvrant la popup quand `cycleCount === 0` (cas de
+  // l'utilisateur qui quitte le wizard avant de lancer sa 1re campagne
+  // du cycle et qui y revient).
+  const draftRestoredRef = React.useRef(false);
   useEffect(() => {
     let cancelled = false;
     const load = () => fetch('/api/pro/plan', { cache: 'no-store' })
@@ -2191,11 +2232,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setCycleCap(nextCap);
       // Décide si le popup doit s'ouvrir :
       //  - quota du cycle atteint → ouvre en mode "renouveler cycle"
-      //  - 1re campagne du cycle (compteur = 0) → ouvre en mode normal
+      //    (toujours prioritaire — même si un brouillon est en cours, il
+      //    faut que le pro renouvelle son cycle avant de lancer)
+      //  - 1re campagne du cycle (compteur = 0) ET pas de brouillon
+      //    restauré → ouvre en mode normal (1re visite)
+      //  - brouillon restauré → on respecte le `planChosen` posé par
+      //    restoreDraft : le pro a déjà fait son choix avant de partir,
+      //    on n'a aucune raison de lui réinfliger la popup.
       //  - sinon → skip silencieusement, le mode courant est conservé
       const reached = Boolean(p?.capReached);
       setCapReached(reached);
-      if (reached || nextCycle === 0) {
+      if (reached) {
+        setPlanModalOpen(true);
+        setPlanChosen(false);
+      } else if (nextCycle === 0 && !draftRestoredRef.current) {
         setPlanModalOpen(true);
         setPlanChosen(false);
       } else {
@@ -2258,8 +2308,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const saveDraft = () => {
     try {
       const draft = {
-        version: 1,
+        version: 2,
         ts: Date.now(),
+        step,
         plan,
         selectedObj,
         selectedSubs: Array.from(selectedSubs),
@@ -2272,17 +2323,28 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       safeTopSession().setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch (e) { console.warn('saveDraft failed', e); }
   };
-  // Restaure le brouillon si présent (au montage du wizard, juste après
-  // un retour de Stripe success). Saute directement à l'étape Récap.
+  const clearDraft = () => {
+    try { safeTopSession().removeItem(DRAFT_KEY); } catch {}
+  };
+  // Restaure le brouillon si présent au montage du wizard. Deux scénarios :
+  //   1) retour de Stripe (`?continue_campaign=1` dans le `search` parent)
+  //      → on force l'étape Récap pour finaliser le paiement, puis on
+  //      nettoie le brouillon (one-shot).
+  //   2) simple retour sur l'onglet "Créer une campagne" (user a quitté
+  //      vers une autre section puis est revenu) → on restore l'étape
+  //      en cours et on CONSERVE le brouillon (pour qu'il survive à un
+  //      nouveau aller-retour). Expiration 1 h.
   useEffect(() => {
     try {
       const raw = safeTopSession().getItem(DRAFT_KEY);
       if (!raw) return;
       const d = JSON.parse(raw);
-      if (!d || d.version !== 1) return;
+      // Compat brouillons v1 (sans `step`) : on les considère comme
+      // venant d'un retour Stripe → force Récap, comportement historique.
+      if (!d || (d.version !== 1 && d.version !== 2)) return;
       // Considère le brouillon obsolète après 1 h.
       if (Date.now() - Number(d.ts || 0) > 60 * 60 * 1000) {
-        safeTopSession().removeItem(DRAFT_KEY);
+        clearDraft();
         return;
       }
       setSelectedObj(d.selectedObj ?? null);
@@ -2308,12 +2370,35 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setEndDate(d.endDate || isoPlusDays(8));
       setBrief(d.brief || '');
       // On considère que le plan est déjà acté (l'utilisateur a déjà
-      // choisi avant de partir recharger).
+      // choisi avant de partir recharger ou avant de changer d'onglet).
+      // Le drapeau bloque l'écrasement asynchrone par `load()` qui
+      // pourrait arriver après nous (cf. useEffect plus haut).
+      draftRestoredRef.current = true;
       setPlanChosen(true);
       setPlanModalOpen(false);
-      // Saute directement à l'étape Récap pour finaliser le paiement.
-      setStep(WIZ_TOTAL);
-      safeTopSession().removeItem(DRAFT_KEY);
+
+      // Détection du retour Stripe : `continue_campaign=1` est posé par
+      // /api/stripe/checkout dans le success_url. Lecture côté parent
+      // car l'iframe a son propre search (?v=…).
+      let isStripeReturn = false;
+      try {
+        const parentSearch = (window.top || window).location.search || '';
+        isStripeReturn = parentSearch.includes('continue_campaign=1');
+      } catch {}
+
+      if (isStripeReturn || d.version === 1) {
+        // Saute directement à l'étape Récap pour finaliser le paiement
+        // (et nettoie le brouillon : c'est un one-shot).
+        setStep(WIZ_TOTAL);
+        clearDraft();
+      } else {
+        // Retour normal sur l'onglet : reprend l'étape sauvegardée.
+        const restoredStep = Number(d.step);
+        if (Number.isInteger(restoredStep) && restoredStep >= 1 && restoredStep <= WIZ_TOTAL) {
+          setStep(restoredStep);
+        }
+        // Ne PAS clear le draft : il doit survivre aux allers-retours.
+      }
     } catch (e) { console.warn('restoreDraft failed', e); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2367,7 +2452,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (d.name) setDupSourceName(d.name);
         // Le plan a déjà été choisi (la campagne d'origine existe), on
         // saute la popup. Si le quota est atteint, l'effet `load()` ouvrira
-        // automatiquement le sélecteur de mode au-dessus du récap.
+        // automatiquement le sélecteur de mode au-dessus du récap. On
+        // marque aussi `draftRestoredRef` pour que `load()` (async) ne
+        // réinflige pas la popup si `cycleCount === 0`.
+        draftRestoredRef.current = true;
         setPlanChosen(true);
         setPlanModalOpen(false);
         setStep(WIZ_TOTAL);
@@ -2429,6 +2517,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
   const [kwFilter, setKwFilter] = useState(false);
+  // Référence sur l'input mot-clé pour pouvoir le focus depuis le bouton
+  // "+ Ajouter" quand l'input est vide (cf. étape 6 : on garde le bouton
+  // toujours cliquable visuellement plutôt que de le griser).
+  const kwInputRef = React.useRef(null);
   // Étape 2 : dates de lancement / fin de campagne
   const [startDate, setStartDate] = useState(isoPlusDays(1));
   const [endDate, setEndDate] = useState(isoPlusDays(8));
@@ -2445,6 +2537,31 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // tente de lancer sans cocher, on affiche la bordure rouge + l'erreur.
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState(false);
+
+  // Auto-save du brouillon : à chaque modification d'un state du wizard,
+  // on persiste l'intégralité du draft dans sessionStorage (top) avec
+  // un debounce 500 ms. Permet à l'utilisateur de quitter l'onglet
+  // "Créer une campagne" et de retrouver son travail en revenant.
+  // Skip tant qu'il n'a rien commencé (étape 1 vierge) pour ne pas
+  // créer de brouillon fantôme. Nettoyage : au lancement réussi
+  // (cf. clearDraft après setLaunched) et après restore "force récap".
+  useEffect(() => {
+    const hasContent =
+      step > 1 ||
+      selectedObj != null ||
+      selectedSubs.size > 0 ||
+      keywords.length > 0 ||
+      brief.length > 0 ||
+      geoTarget != null;
+    if (!hasContent) return;
+    const t = setTimeout(() => saveDraft(), 500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    step, plan, selectedObj, selectedSubs, selectedTiers,
+    geo, geoTarget, ages, verif, contacts, durationKey, poolMode,
+    keywords, kwInput, kwFilter, startDate, endDate, brief,
+  ]);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
   const objAllowedTiers = obj?.allowedTiers || [1,2,3,4,5];
@@ -3450,21 +3567,36 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
               </div>
 
               <div className="row gap-2 wizard-kw-input-row" style={{ marginBottom: 14 }}>
-                <input value={kwInput} onChange={e => setKwInput(e.target.value)}
+                <input
+                  ref={kwInputRef}
+                  value={kwInput}
+                  onChange={e => setKwInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKw(); } }}
                   placeholder="Ex : véhicule, immobilier, retraite…" maxLength={40}
                   className="input" style={{ flex: 1, fontSize: 13 }}/>
-                <button onClick={() => addKw()} disabled={!kwInput.trim()}
-                  className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap', opacity: kwInput.trim() ? 1 : 0.4, cursor: kwInput.trim() ? 'pointer' : 'not-allowed' }}>
+                {/* Bouton toujours actif visuellement : si l'input est vide,
+                    on focus le champ pour inviter à saisir au lieu de griser
+                    le CTA (UX). Ajout effectif uniquement avec une valeur. */}
+                <button
+                  onClick={() => {
+                    if (!kwInput.trim()) { kwInputRef.current?.focus(); return; }
+                    addKw();
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ whiteSpace: 'nowrap' }}>
                   <Icon name="plus" size={12}/> Ajouter
                 </button>
               </div>
 
-              {keywords.length === 0 && (
+              {/* Suggestions rapides : on les affiche TANT qu'il en reste à
+                  proposer, même après une première sélection (pour permettre
+                  d'en ajouter plusieurs d'un clic). Les mots déjà ajoutés
+                  sont filtrés pour éviter le doublon visuel. */}
+              {KW_SUGGESTIONS.some(kw => !keywords.includes(kw)) && (
                 <div style={{ marginBottom: 14 }}>
                   <div className="mono muted" style={{ fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.1em' }}>Suggestions rapides</div>
                   <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                    {KW_SUGGESTIONS.map(kw => (
+                    {KW_SUGGESTIONS.filter(kw => !keywords.includes(kw)).map(kw => (
                       <button key={kw} onClick={() => addKw(kw)} className="chip" style={{ cursor: 'pointer', fontSize: 11, padding: '5px 10px' }}>{kw}</button>
                     ))}
                   </div>
@@ -4019,6 +4151,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                     // pour que le header et la facturation se rafraîchissent.
                     invalidateProWallet();
                     try { window.dispatchEvent(new Event('pro:wallet-changed')); } catch {}
+                    // Lancement OK → on libère le brouillon, sinon le
+                    // prochain mount du wizard rouvrirait une campagne
+                    // déjà créée.
+                    clearDraft();
                     setLaunched({ code: j.code, name: obj?.name, matched: j.matchedCount });
                   } catch (e) {
                     // Réseau / parse / inattendu — pas d'erreur backend
@@ -7590,7 +7726,12 @@ const PRO_INFO_FIELDS = [
   { key: 'raisonSociale',  label: 'Raison sociale / Nom de la société', placeholder: 'Atelier Mercier' },
   { key: 'formeJuridique', label: 'Forme juridique',                    placeholder: 'SARL, SAS, EI, Auto-entrepreneur…' },
   { key: 'adresse',        label: 'Adresse du siège social',            placeholder: '12 rue des Artisans' },
-  { key: 'ville',          label: 'Ville',                              placeholder: 'Lyon' },
+  // Les trois champs ci-dessous sont édités via un même flow d'autocomplétion
+  // (CityPostalAutocomplete) : sélectionner une ville renseigne aussi le
+  // code postal et la région. Cf. ProInfoEditModal (flag `cityPostal: true`).
+  { key: 'ville',          label: 'Ville',                              placeholder: 'Lyon',                                      cityPostal: true },
+  { key: 'codePostal',     label: 'Code postal',                        placeholder: '5 chiffres — rempli avec la ville',          cityPostal: true, mono: true },
+  { key: 'region',         label: 'Région',                             placeholder: 'Auto-renseignée à la sélection de la ville', cityPostal: true },
   // Champs facturation : facultatifs au sens "raison sociale + ville"
   // restent les seuls indispensables pour activer la création de
   // campagne, mais ils sont obligatoires pour générer une facture
@@ -7868,7 +8009,22 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
       )}
       {confirmFieldDelete && (
         <ProInfoFieldDeleteModal field={confirmFieldDelete}
-          onConfirm={() => { setInfo(prev => ({ ...prev, [confirmFieldDelete.key]: '' })); setConfirmFieldDelete(null); }}
+          onConfirm={() => {
+            setInfo(prev => {
+              const next = { ...prev, [confirmFieldDelete.key]: '' };
+              // Ville / Code postal / Région sont édités via le même flow
+              // d'autocomplétion : effacer l'un revient à effacer le groupe
+              // pour ne pas laisser de combinaison incohérente en BDD.
+              const f = PRO_INFO_FIELDS.find(x => x.key === confirmFieldDelete.key);
+              if (f?.cityPostal) {
+                next.ville = '';
+                next.codePostal = '';
+                next.region = '';
+              }
+              return next;
+            });
+            setConfirmFieldDelete(null);
+          }}
           onClose={() => setConfirmFieldDelete(null)}/>
       )}
       {confirmAllDelete && (
@@ -8103,7 +8259,69 @@ function ProSaveIndicator({ status }) {
   );
 }
 
+/* Sous-modale dédiée à l'édition groupée Ville + Code postal + Région
+   via CityPostalAutocomplete (geo.api.gouv.fr). Une sélection patche
+   atomiquement les trois champs en passant `{ replaceFields }` au
+   callback parent — déjà supporté par MesInformations.onSave.
+   CityPostalAutocomplete est défini côté Prospect.jsx mais hoisté au
+   scope global après transpile Babel-standalone (pattern identique à
+   EmailTrackingConsentCard). */
+function CityPostalEditCard({ edit, onSave, onClose }) {
+  const [pair, setPair] = useState(null); // { ville, codePostal, region }
+  // Affiche les valeurs courantes (ville/CP/région) pour rappel — utile
+  // quand on rouvre la modale pour ajuster la sélection.
+  const currentSummary = (edit.value || '').trim();
+  return (
+    <ProInfoModalShell title={'Modifier : ' + edit.label} onClose={onClose}>
+      <div className="muted" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.55 }}>
+        Tapez les premières lettres de votre ville ou son code postal puis
+        sélectionnez-la dans la liste — <strong>Ville</strong>,{' '}
+        <strong>Code postal</strong> et <strong>Région</strong> seront
+        renseignés automatiquement.
+      </div>
+      <CityPostalAutocomplete
+        value={currentSummary}
+        onPick={(item) => setPair(item)}
+        autoFocus
+      />
+      {pair && (
+        <div className="row gap-2" style={{ marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="chip">{pair.ville}</span>
+          <span className="chip mono">{pair.codePostal}</span>
+          {pair.region && <span className="chip">{pair.region}</span>}
+          <span className="muted" style={{ fontSize: 12 }}>Sélection prête à enregistrer.</span>
+        </div>
+      )}
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 22 }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
+        <button
+          onClick={() => pair && onSave({
+            replaceFields: {
+              ville: pair.ville,
+              codePostal: pair.codePostal,
+              region: pair.region || '',
+            },
+          })}
+          disabled={!pair}
+          className="btn btn-primary btn-sm"
+        >
+          Enregistrer
+        </button>
+      </div>
+    </ProInfoModalShell>
+  );
+}
+
 function ProInfoEditModal({ edit, onSave, onAutoSave, onClose }) {
+  // Flow groupé ville + code postal + région via autocomplétion
+  // geo.api.gouv.fr. Tous les hooks ci-dessous (vérif SIRENE, auto-save…)
+  // sont inutiles pour ce flow ; on délègue à CityPostalEditCard qui
+  // gère son propre cycle de vie. Early-return safe : l'instance de la
+  // modale est démontée/remontée à chaque ouverture (`editing` parent).
+  if (edit.cityPostal) {
+    return <CityPostalEditCard edit={edit} onSave={onSave} onClose={onClose} />;
+  }
+
   const isSiren = edit.key === 'siren';
   const isSiret = edit.key === 'siret';
   // Champs dont la valeur peut être croisée avec la fiche SIRENE.

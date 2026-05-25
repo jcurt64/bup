@@ -2685,11 +2685,12 @@ const DATA_CATEGORIES = [
   },
   {
     key: 'localisation', tier: 2, label: 'Localisation', icon: 'france',
-    desc: "Adresse, ville, code postal.",
+    desc: "Adresse, ville, code postal, région.",
     fields: [
       ['adresse', 'Adresse postale'],
       ['ville', 'Ville'],
       ['codePostal', 'Code postal'],
+      ['region', 'Région'],
     ],
   },
   {
@@ -3093,11 +3094,14 @@ function MesDonnees({ onGoPrefs }) {
         <EditFieldModal edit={editing}
           profileForCategory={profile?.[editing.category] || {}}
           onSave={(v) => {
-            // Autocomplétion ville+CP → patch atomique des deux champs.
+            // Autocomplétion ville+CP+région → patch atomique des trois
+            // champs (un seul PATCH /api/prospect/donnees). La région
+            // peut être vide si l'API n'a pas renvoyé d'objet `region`.
             if (v && typeof v === 'object' && v.pair) {
               ctx?.updateFields(editing.category, {
                 ville: v.pair.ville,
                 codePostal: v.pair.codePostal,
+                region: v.pair.region || '',
               });
             } else if (v && typeof v === 'object' && v.multi) {
               // tag+text (ex. animaux + animauxDetail) → patch atomique.
@@ -3129,12 +3133,13 @@ function MesDonnees({ onGoPrefs }) {
               setAdding(null);
               return;
             }
-            // Autocomplétion ville+CP : updateFields atomique au lieu
-            // d'updateField (un seul PATCH, deux champs).
+            // Autocomplétion ville+CP+région : updateFields atomique au
+            // lieu d'updateField (un seul PATCH, trois champs).
             if (value && typeof value === 'object' && value.pair) {
               ctx?.updateFields(adding, {
                 ville: value.pair.ville,
                 codePostal: value.pair.codePostal,
+                region: value.pair.region || '',
               });
             } else if (value && typeof value === 'object' && value.multi) {
               ctx?.updateFields(adding, value.multi);
@@ -3269,12 +3274,14 @@ function isNaissanceValid(s) {
   );
 }
 
-/* Autocomplétion ville + code postal (France) basée sur l'API officielle
-   `geo.api.gouv.fr`. CORS autorisé, gratuit, pas d'install.
+/* Autocomplétion ville + code postal + région (France) basée sur l'API
+   officielle `geo.api.gouv.fr`. CORS autorisé, gratuit, pas d'install.
    - Si l'utilisateur tape des chiffres → recherche par code postal.
    - Sinon → recherche par nom de commune.
    Une commune peut avoir plusieurs codes postaux (Paris, Lyon...) :
-   chaque combinaison ville+CP est éclatée en suggestion distincte. */
+   chaque combinaison ville+CP est éclatée en suggestion distincte. La
+   région administrative est récupérée via `fields=...,region` (objet
+   `{ code, nom }`) et propagée dans `onPick({ ville, codePostal, region })`. */
 function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
   const [query, setQuery] = useState(value || '');
   const [items, setItems] = useState([]);
@@ -3292,20 +3299,21 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
       try {
         const isPostal = /^\d{2,5}$/.test(q);
         const url = isPostal
-          ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux&limit=20`
-          : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=10`;
+          ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&limit=20`
+          : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&boost=population&limit=10`;
         const r = await fetch(url);
         if (!r.ok) { setItems([]); setLoading(false); return; }
         const data = await r.json();
         const exploded = [];
         for (const c of data || []) {
           const codes = Array.isArray(c.codesPostaux) ? c.codesPostaux : [];
+          const region = c?.region?.nom || '';
           for (const cp of codes) {
             // Si l'utilisateur a saisi un code postal partiel, on filtre les
             // codes qui ne commencent pas par cette saisie pour réduire le
             // bruit (ex. taper "750" ne doit pas faire remonter "75116").
             if (isPostal && !cp.startsWith(q)) continue;
-            exploded.push({ ville: c.nom, codePostal: cp });
+            exploded.push({ ville: c.nom, codePostal: cp, region });
           }
         }
         // Tri : code postal croissant pour les résultats par CP, ordre
@@ -3404,10 +3412,18 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
                 background: highlight === i ? 'var(--ivory-2)' : 'transparent',
                 border: 'none', cursor: 'pointer', fontSize: 14,
                 color: 'var(--ink)',
+                gap: 12,
               }}
             >
-              <span>{it.ville}</span>
-              <span className="mono" style={{ color: 'var(--ink-4)' }}>{it.codePostal}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.ville}</span>
+                {it.region && (
+                  <span style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {it.region}
+                  </span>
+                )}
+              </span>
+              <span className="mono" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>{it.codePostal}</span>
             </button>
           ))}
         </div>
@@ -3573,14 +3589,16 @@ function isFieldSavable(category, field, value, detail) {
 function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory }) {
   const cfg = fieldConfig(edit.category, edit.field);
   const isNaissance = edit.field === 'naissance';
-  const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal');
+  // Ville, code postal et région partagent le même flow d'autocomplétion :
+  // une sélection patche atomiquement les trois champs (cf. CityPostalAutocomplete).
+  const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal' || edit.field === 'region');
   const [val, setVal] = useState(edit.value);
   const initialDetail =
     cfg.type === 'tag+text' && cfg.detailField
       ? (profileForCategory?.[cfg.detailField] || '')
       : '';
   const [detail, setDetail] = useState(initialDetail);
-  const [pair, setPair] = useState(null); // { ville, codePostal } après sélection
+  const [pair, setPair] = useState(null); // { ville, codePostal, region } après sélection
   // Auto-save indicator : "saving" pendant le PATCH, "saved" après ack.
   // Permet à l'utilisateur de fermer la modale sans crainte de perte de
   // données — la persistance s'est déjà faite à chaque pause de saisie.
@@ -3622,7 +3640,7 @@ function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory 
     return (
       <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
         <div className="muted" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
-          Tapez les premières lettres de votre ville ou son code postal puis sélectionnez-la dans la liste — les deux champs (Ville et Code postal) seront renseignés automatiquement.
+          Tapez les premières lettres de votre ville ou son code postal puis sélectionnez-la dans la liste — Ville, Code postal et Région seront renseignés automatiquement.
         </div>
         <CityPostalAutocomplete
           value={edit.value}
@@ -3633,6 +3651,7 @@ function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory 
           <div className="row gap-2" style={{ marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="chip">{pair.ville}</span>
             <span className="chip mono">{pair.codePostal}</span>
+            {pair.region && <span className="chip">{pair.region}</span>}
             <span className="muted" style={{ fontSize: 12 }}>Sélection prête à enregistrer.</span>
           </div>
         )}
@@ -3746,7 +3765,7 @@ function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
 
   const cfg = fieldConfig(category.key, field);
   const isNaissance = field === 'naissance';
-  const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal');
+  const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal' || field === 'region');
 
   // Auto-save : 700 ms après la dernière modif valide → PATCH sans
   // fermer la modale. Ne s'applique pas au flow ville+CP (Enregistrer
@@ -3821,7 +3840,7 @@ function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
       {isCityPostal ? (
         <>
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 }}>
-            Tapez les premières lettres de votre ville (ou son code postal) puis cliquez sur la bonne entrée — Ville et Code postal seront renseignés ensemble.
+            Tapez les premières lettres de votre ville (ou son code postal) puis cliquez sur la bonne entrée — Ville, Code postal et Région seront renseignés ensemble.
           </div>
           <CityPostalAutocomplete
             value={existing[field] || ''}
@@ -3832,6 +3851,7 @@ function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
             <div className="row gap-2" style={{ marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <span className="chip">{pair.ville}</span>
               <span className="chip mono">{pair.codePostal}</span>
+              {pair.region && <span className="chip">{pair.region}</span>}
             </div>
           )}
           <div style={{ marginBottom: 20 }} />

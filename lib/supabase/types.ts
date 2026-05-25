@@ -389,6 +389,7 @@ export type Database = {
           plan_cycle_count: number
           raison_sociale: string
           rcs_ville: string | null
+          region: string | null
           rm_number: string | null
           secteur: string | null
           siren: string | null
@@ -421,6 +422,7 @@ export type Database = {
           plan_cycle_count?: number
           raison_sociale: string
           rcs_ville?: string | null
+          region?: string | null
           rm_number?: string | null
           secteur?: string | null
           siren?: string | null
@@ -453,6 +455,7 @@ export type Database = {
           plan_cycle_count?: number
           raison_sociale?: string
           rcs_ville?: string | null
+          region?: string | null
           rm_number?: string | null
           secteur?: string | null
           siren?: string | null
@@ -632,6 +635,7 @@ export type Database = {
           code_postal: string | null
           national_opt_in: boolean
           prospect_id: string
+          region: string | null
           targeting_radius_km: number
           updated_at: string
           ville: string | null
@@ -641,6 +645,7 @@ export type Database = {
           code_postal?: string | null
           national_opt_in?: boolean
           prospect_id: string
+          region?: string | null
           targeting_radius_km?: number
           updated_at?: string
           ville?: string | null
@@ -650,6 +655,7 @@ export type Database = {
           code_postal?: string | null
           national_opt_in?: boolean
           prospect_id?: string
+          region?: string | null
           targeting_radius_km?: number
           updated_at?: string
           ville?: string | null
