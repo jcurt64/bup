@@ -539,7 +539,14 @@ function Overview({ onCreate }) {
           <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition par palier</div>
           <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume cumulés depuis l'ouverture</div>
           {tiers.every(t => t.contacts === 0) && (
-            <div className="muted" style={{ fontSize: 13 }}>Aucun contact accepté pour le moment.</div>
+            <CardEmptyState
+              compact
+              image="/empty-tiers.png"
+              alt="Aucun contact pour le moment"
+              tint="#F59E0B"
+              title="Aucun palier rempli"
+              sub="Dès que des prospects accepteront vos campagnes, ils se répartiront ici par palier."
+            />
           )}
           {!tiers.every(t => t.contacts === 0) && tiers.map((r, i) => (
             <div key={i} style={{ padding: '10px 0', borderBottom: i < tiers.length - 1 ? '1px solid var(--line)' : 'none' }}>
@@ -565,28 +572,33 @@ function Overview({ onCreate }) {
             Voir tout <Icon name="arrow" size={12}/>
           </button>
         </div>
-        <div className="tbl-scroll">
-          <table className="tbl">
-            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
-            <tbody>
-              {last.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
-                  <span className="muted" style={{ fontSize: 13 }}>Aucune acceptation pour le moment.</span>
-                </td></tr>
-              )}
-              {last.map((r, i) => (
-                <tr key={i}>
-                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
-                  <td>{r.campaign}</td>
-                  <td><span className="chip">Palier {r.tier}</span></td>
-                  <td><span className="mono tnum">{r.score}</span></td>
-                  <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
-                  <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {last.length === 0 ? (
+          <CardEmptyState
+            image="/empty-contacts.png"
+            alt="Aucune acceptation pour le moment"
+            tint="#10B981"
+            title="Première acceptation à venir"
+            sub="Vos plus récentes mises en relation acceptées s'afficheront ici, avec le palier et le coût unitaire."
+          />
+        ) : (
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+              <tbody>
+                {last.map((r, i) => (
+                  <tr key={i}>
+                    <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                    <td>{r.campaign}</td>
+                    <td><span className="chip">Palier {r.tier}</span></td>
+                    <td><span className="mono tnum">{r.score}</span></td>
+                    <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
+                    <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {roiInfoOpen && (
@@ -872,6 +884,39 @@ function AllAcceptancesModal({ fmt2, onClose }) {
   );
 }
 
+/* Empty-state compact à intégrer DANS une card existante (overview /
+   analytics). Même langage visuel que les autres empty states (cercle
+   pastel + illustration 3D thiings.co + titre serif + sous-texte) mais
+   tailles réduites pour rester dans une card de tableau de bord. */
+function CardEmptyState({ image, alt, title, sub, tint, compact }) {
+  const ringSize = compact ? 120 : 148;
+  const imgSize = compact ? 92 : 116;
+  const t = tint || '#7C3AED';
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      textAlign: 'center', padding: compact ? '18px 12px' : '24px 16px',
+    }}>
+      <div style={{
+        width: ringSize, height: ringSize, borderRadius: '50%',
+        background: 'color-mix(in oklab, ' + t + ' 10%, var(--paper))',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: 14,
+      }}>
+        <img src={image} alt={alt || ''} width={imgSize} height={imgSize}
+          loading="lazy" decoding="async"
+          style={{ objectFit: 'contain' }}/>
+      </div>
+      <div className="serif" style={{ fontSize: 18, color: 'var(--ink)', marginBottom: 6 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-4)', maxWidth: 320 }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
 function BarChart({ buckets }) {
   const data = (buckets || []).map(b => Number(b.count) || 0);
   const labels = (buckets || []).map(b => b.label);
@@ -945,6 +990,14 @@ function PerformanceCard() {
       </div>
       {series === null ? (
         <div className="muted" style={{ fontSize: 13, padding: 32, textAlign: 'center' }}>Chargement…</div>
+      ) : totalCount === 0 ? (
+        <CardEmptyState
+          image="/empty-performance.png"
+          alt="Aucune donnée de performance"
+          tint="#7C3AED"
+          title="Pas encore de courbe à tracer"
+          sub="Vos acceptations apparaîtront ici dès qu'une campagne tourne."
+        />
       ) : (
         <BarChart buckets={buckets}/>
       )}
@@ -1096,6 +1149,8 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
                 alt="Fusée prête à décoller"
                 width={140}
                 height={140}
+                loading="lazy"
+                decoding="async"
                 style={{ objectFit: 'contain' }}
               />
             </div>
@@ -2193,69 +2248,144 @@ function DraftRestoredToast({ onDismiss }) {
     const t = setTimeout(onDismiss, 6000);
     return () => clearTimeout(t);
   }, [onDismiss]);
+  // Toast en flow normal (pas position fixed) — s'insère sous le
+  // SectionTitle du wizard. Compact sur desktop (max-width 460 px,
+  // centré), wrap sur mobile (≤ 520 px) avec bouton plein-écran sur
+  // la 2e ligne pour le tap target.
   return (
     <>
-      <div
-        role="status"
-        aria-live="polite"
-        style={{
-          position: 'fixed',
-          top: 20,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1200,
-          maxWidth: 'calc(100vw - 32px)',
-          background: 'var(--paper)',
-          border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))',
-          borderRadius: 14,
-          boxShadow: '0 14px 40px -12px rgba(15, 22, 41, 0.18)',
-          padding: '14px 18px 14px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-          animation: 'bupp-toast-in .35s cubic-bezier(.18, 1.2, .4, 1)',
-        }}
-      >
-        <div
-          style={{
-            width: 56, height: 56, borderRadius: '50%',
-            background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
+      <div className="wizard-restore-toast" role="status" aria-live="polite">
+        <div className="wizard-restore-toast__icon">
           <img
             src="/draft-restored.png"
             alt=""
-            width={44}
-            height={44}
-            style={{ objectFit: 'contain' }}
+            className="wizard-restore-toast__img"
+            loading="lazy"
+            decoding="async"
           />
         </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="serif" style={{ fontSize: 16, lineHeight: 1.2, marginBottom: 2 }}>
+        <div className="wizard-restore-toast__body">
+          <div className="serif wizard-restore-toast__title">
             On a tout gardé&nbsp;!
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--ink-4)', lineHeight: 1.45 }}>
+          <div className="wizard-restore-toast__sub">
             Reprenez votre campagne là où vous vous êtes arrêté.
           </div>
         </div>
         <button
           onClick={onDismiss}
-          className="btn btn-ghost btn-sm"
-          style={{ flexShrink: 0, padding: '6px 10px' }}
+          className="btn btn-ghost btn-sm wizard-restore-toast__btn"
           aria-label="Fermer"
         >
           Continuer
         </button>
       </div>
       <style>{`
+        .wizard-restore-toast {
+          max-width: 460px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          background: var(--paper);
+          border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--line));
+          border-radius: 14px;
+          box-shadow: 0 14px 40px -12px rgba(15, 22, 41, 0.18);
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          animation: bupp-toast-in .35s cubic-bezier(.18, 1.2, .4, 1);
+        }
+        .wizard-restore-toast__icon {
+          width: 44px; height: 44px; border-radius: 50%;
+          background: color-mix(in oklab, var(--accent) 12%, var(--paper));
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .wizard-restore-toast__img {
+          width: 34px; height: 34px; object-fit: contain;
+        }
+        .wizard-restore-toast__body { min-width: 0; flex: 1 1 0%; }
+        .wizard-restore-toast__title {
+          font-size: 14px; line-height: 1.2; margin-bottom: 2px;
+        }
+        .wizard-restore-toast__sub {
+          font-size: 12px; color: var(--ink-4); line-height: 1.4;
+        }
+        .wizard-restore-toast__btn {
+          flex-shrink: 0; padding: 6px 10px;
+        }
         @keyframes bupp-toast-in {
-          from { opacity: 0; transform: translate(-50%, -16px); }
-          to   { opacity: 1; transform: translate(-50%, 0); }
+          from { opacity: 0; transform: translateY(-12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 520px) {
+          /* Layout vertical sur mobile : icône au-dessus, texte au
+             milieu, bouton dessous, tout centré. Plus lisible et plus
+             tappable qu'un wrap horizontal sur petit écran. */
+          .wizard-restore-toast {
+            max-width: 100%;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 14px 16px;
+            gap: 10px;
+          }
+          .wizard-restore-toast__body {
+            flex: 0 1 auto;
+            width: 100%;
+          }
+          .wizard-restore-toast__btn {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+            padding: 8px 14px;
+          }
         }
       `}</style>
     </>
+  );
+}
+
+/* Confirmation du bouton "Tout effacer" dans le header du wizard.
+   Réinitialise toutes les étapes (l'utilisateur revient à l'étape 1
+   avec les champs vidés). Le plan choisi est PRÉSERVÉ. */
+function WizardResetConfirmModal({ onCancel, onConfirm }) {
+  return (
+    <ProInfoModalShell title="Tout effacer ?" onClose={onCancel}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 14,
+        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: '#DC2626', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
+            Réinitialiser le brouillon
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Toutes les étapes en cours (objectif, ciblage, budget, mots-clés,
+            description…) seront <strong>effacées</strong>. Vous repartirez
+            de l'étape 1 avec un brouillon vierge.
+          </div>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
+            Le plan déjà choisi (Starter / Pro) reste sélectionné.
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onCancel} className="btn btn-ghost btn-sm">Annuler</button>
+        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
+          <Icon name="trash" size={12}/> Tout effacer
+        </button>
+      </div>
+    </ProInfoModalShell>
   );
 }
 
@@ -2263,6 +2393,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
+  // Modale de confirmation du bouton "Tout effacer" (header du wizard).
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   // Erreur de lancement (autre que solde insuffisant) — affichée dans
   // un modal stylé plutôt qu'un alert() natif. Forme: {title, message}.
   const [launchError, setLaunchError] = useState(null);
@@ -2306,35 +2438,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setPlanSpecs(p?.specs || null);
       setCycleCount(nextCycle);
       setCycleCap(nextCap);
-      // Décide si le popup doit s'ouvrir :
-      //  - quota du cycle atteint → ouvre en mode "renouveler cycle"
-      //    (toujours prioritaire — même si un brouillon est en cours, il
-      //    faut que le pro renouvelle son cycle avant de lancer)
-      //  - 1re campagne du cycle (compteur = 0) ET pas de brouillon
-      //    restauré → ouvre en mode normal (1re visite)
-      //  - brouillon restauré → on respecte le `planChosen` posé par
-      //    restoreDraft : le pro a déjà fait son choix avant de partir,
-      //    on n'a aucune raison de lui réinfliger la popup.
-      //  - sinon → skip silencieusement, le mode courant est conservé
-      const reached = Boolean(p?.capReached);
-      setCapReached(reached);
-      if (reached) {
-        // Renouvellement obligatoire : on ignore tout acquittement
-        // précédent et on force la popup.
-        clearPlanAck();
-        setPlanModalOpen(true);
-        setPlanChosen(false);
-      } else if (nextCycle === 0 && !draftRestoredRef.current && !planAlreadyAck()) {
-        // 1re campagne du cycle ET ni brouillon en cours ni popup
-        // déjà acquittée → ouverture normale.
-        setPlanModalOpen(true);
-        setPlanChosen(false);
-      } else {
-        // Brouillon en cours OU popup déjà acquittée OU déjà dans
-        // le cycle → on respecte l'état choisi.
-        setPlanModalOpen(false);
-        setPlanChosen(true);
-      }
+      // NB : la décision d'ouverture/fermeture de la popup plan est
+      // centralisée dans un useEffect dédié (cf. "effet décision popup
+      // plan" plus bas). Ici on se contente de poser les data plan
+      // (capReached, cycleCount, cycleCap, plan). Cela évite le flash :
+      // sans le useEffect, load() — qui résout souvent avant /api/me
+      // et avant restoreDraft — ouvrait la popup quelques ms avant que
+      // les signaux d'acquittement (userEmail, restoreRan) n'arrivent.
+      setCapReached(Boolean(p?.capReached));
     });
     load();
     // Si l'utilisateur change de formule depuis "Mes informations" pendant
@@ -2409,21 +2520,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   }, []);
   const draftKey = () => userEmail ? (DRAFT_KEY_PREFIX + userEmail) : null;
   const planAckKey = () => userEmail ? (PLAN_ACK_KEY_PREFIX + userEmail) : null;
-  // Correcteur asynchrone : `load()` du plan peut résoudre AVANT que
-  // /api/me ait fini de poser `userEmail`. Dans ce cas planAlreadyAck()
-  // renvoie false et `load()` ouvre la popup à tort. Dès que userEmail
-  // arrive, on relit le marqueur et on referme la popup si l'utilisateur
-  // l'avait déjà acquittée. Sans incidence si capReached (priorité au
-  // renouvellement obligatoire).
-  React.useEffect(() => {
-    if (!userEmail) return;
-    if (capReached) return;
-    if (planAlreadyAck()) {
-      setPlanModalOpen(false);
-      setPlanChosen(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail, capReached]);
   const planAlreadyAck = () => {
     const k = planAckKey(); if (!k) return false;
     try { return safeTopLocal().getItem(k) === '1'; } catch { return false; }
@@ -2474,15 +2570,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   //      en localStorage namespacé par email Clerk → survit aux sign-outs.
   // Le restore tourne UNE SEULE FOIS dès que `userEmail` est résolu via
   // /api/me (cf. useEffect plus haut). Expiration 1 h.
-  const restoreRanRef = React.useRef(false);
+  // `restoreRan` est volontairement un state (pas un ref) : l'effet de
+  // décision popup plan (ajouté plus bas) en dépendra pour ne pas
+  // ouvrir la popup tant que le restore n'a pas eu lieu.
+  const [restoreRan, setRestoreRan] = useState(false);
   // Toast "On a tout gardé, continuez où vous vous êtes arrêté" — affiché
   // une fois quand un brouillon est restauré côté "retour normal" sur
   // l'onglet (pas Stripe : ce flow-là affiche déjà sa propre modale de
   // paiement réussi). Auto-dismiss après ~6 s ou via clic.
   const [showRestoreToast, setShowRestoreToast] = useState(false);
   useEffect(() => {
-    if (!userEmail || restoreRanRef.current) return;
-    restoreRanRef.current = true;
+    if (!userEmail || restoreRan) return;
+    // Toujours signaler "restore terminé" (qu'il y ait eu un brouillon
+    // ou pas) pour débloquer l'effet de décision popup plan.
+    setRestoreRan(true);
     try {
       const raw = safeTopLocal().getItem(draftKey());
       if (!raw) return;
@@ -2517,13 +2618,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setStartDate(d.startDate || isoPlusDays(1));
       setEndDate(d.endDate || isoPlusDays(8));
       setBrief(d.brief || '');
-      // On considère que le plan est déjà acté (l'utilisateur a déjà
-      // choisi avant de partir recharger ou avant de changer d'onglet).
-      // Le drapeau bloque l'écrasement asynchrone par `load()` qui
-      // pourrait arriver après nous (cf. useEffect plus haut).
+      // Le drapeau bloque l'écrasement asynchrone par l'effet décision
+      // popup plan (cf. plus bas) qui n'a pas à rouvrir la popup quand
+      // un brouillon vient d'être restauré.
       draftRestoredRef.current = true;
-      setPlanChosen(true);
-      setPlanModalOpen(false);
 
       // Détection du retour Stripe : `continue_campaign=1` est posé par
       // /api/stripe/checkout dans le success_url. Lecture côté parent
@@ -2545,15 +2643,67 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (Number.isInteger(restoredStep) && restoredStep >= 1 && restoredStep <= WIZ_TOTAL) {
           setStep(restoredStep);
         }
-        // Affiche le toast de confirmation "on a tout gardé". On garde un
-        // léger délai (300 ms) pour que l'animation arrive APRÈS le
-        // premier render — sinon le slide-in est invisible.
-        setTimeout(() => setShowRestoreToast(true), 300);
+        // Conditions d'affichage du toast — 2 cas seulement :
+        //   (a) Nouvelle session de tab : sessionStorage marker absent.
+        //       Couvre une nouvelle tab, et le sign-out/sign-in suivi
+        //       d'une fermeture/réouverture de la tab.
+        //   (b) Brouillon resté en pause ≥ 5 min : draft.ts vieux.
+        // Va-et-vient rapide entre onglets (< 5 min, même tab) → pas
+        // de toast, l'utilisateur sait ce qu'il vient de quitter.
+        const SESSION_MARK_KEY = 'bupp:wizard-session-mounted';
+        let isNewSession = false;
+        try {
+          const sess = (window.top || window).sessionStorage;
+          isNewSession = !sess.getItem(SESSION_MARK_KEY);
+          sess.setItem(SESSION_MARK_KEY, '1');
+        } catch {}
+        const draftAgeMs = Date.now() - Number(d.ts || 0);
+        const isStale = draftAgeMs > 5 * 60 * 1000;
+        if (isNewSession || isStale) {
+          // Délai 300 ms : laisse le 1er render se faire — sinon le
+          // slide-in de l'animation est invisible.
+          setTimeout(() => setShowRestoreToast(true), 300);
+        }
         // Ne PAS clear le draft : il doit survivre aux allers-retours.
       }
     } catch (e) { console.warn('restoreDraft failed', e); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail]);
+
+  // Effet décision popup plan — centralise l'ouverture/fermeture pour
+  // éviter le flash. Conditions PRÉ-REQUISES :
+  //   - userEmail résolu (sinon planAlreadyAck() retourne false à tort)
+  //   - restoreRan vrai (sinon draftRestoredRef pas encore renseigné)
+  //   - cycleCount résolu (sinon on ne sait pas si 1re du cycle)
+  // Tant qu'une de ces conditions manque, on ne touche pas à l'état
+  // popup → état initial `planModalOpen=false, planChosen=false`
+  // affiché tel quel (pas de popup intempestive).
+  React.useEffect(() => {
+    if (!userEmail) return;
+    if (!restoreRan) return;
+    if (cycleCount == null) return;
+    if (capReached) {
+      // Renouvellement obligatoire : on ignore tout acquittement
+      // précédent et on force la popup.
+      clearPlanAck();
+      setPlanModalOpen(true);
+      setPlanChosen(false);
+      return;
+    }
+    if (cycleCount === 0 && !draftRestoredRef.current && !planAlreadyAck()) {
+      // 1re campagne du cycle ET ni brouillon en cours ni popup déjà
+      // acquittée → ouverture normale.
+      setPlanModalOpen(true);
+      setPlanChosen(false);
+      return;
+    }
+    // Brouillon en cours OU popup déjà acquittée OU déjà dans le cycle
+    // → on respecte l'état choisi.
+    setPlanModalOpen(false);
+    setPlanChosen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail, restoreRan, cycleCount, capReached]);
+
   // À chaque changement d'étape du wizard, on remonte automatiquement en
   // haut de la page : sinon l'utilisateur, qui vient de cliquer "Continuer"
   // en bas, atterrit sur l'étape suivante… toujours en bas. Mauvaise UX.
@@ -2602,14 +2752,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (typeof d.plannedContacts === 'number' && d.plannedContacts > 0) setContacts(d.plannedContacts);
         if (typeof d.brief === 'string') setBrief(d.brief);
         if (d.name) setDupSourceName(d.name);
-        // Le plan a déjà été choisi (la campagne d'origine existe), on
-        // saute la popup. Si le quota est atteint, l'effet `load()` ouvrira
-        // automatiquement le sélecteur de mode au-dessus du récap. On
-        // marque aussi `draftRestoredRef` pour que `load()` (async) ne
-        // réinflige pas la popup si `cycleCount === 0`.
+        // Le plan a déjà été choisi (la campagne d'origine existe).
+        // L'effet décision popup plan (plus haut) lira `draftRestoredRef`
+        // pour ne pas rouvrir la popup même si `cycleCount === 0`.
+        // Si le quota est atteint (capReached), il l'ouvrira quand même
+        // (renouvellement obligatoire — au-dessus du Récap).
         draftRestoredRef.current = true;
-        setPlanChosen(true);
-        setPlanModalOpen(false);
+        setRestoreRan(true); // débloque l'effet décision dès la duplication
         setStep(WIZ_TOTAL);
       })
       .catch(() => {})
@@ -2802,6 +2951,36 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     else n.delete('Tous');
     return n;
   });
+  // Réinitialise complètement le wizard (étape 1, tous les champs vides).
+  // Le plan choisi est PRÉSERVÉ (on ne réinflige pas la popup au user
+  // qui veut juste repartir d'un ciblage neuf). Déclenché par le bouton
+  // "Tout effacer" du header.
+  const resetWizard = () => {
+    setStep(1);
+    setSelectedObj(null);
+    setSelectedSubs(new Set());
+    setSelectedTiers(new Set([1]));
+    setGeo('ville');
+    setGeoTarget(null);
+    setAges(new Set());
+    setVerif('p0');
+    setContacts(10);
+    setDurationKey('7d');
+    setPoolMode('standard');
+    setExcludeCertified(false);
+    setConfirmExcludeCertified(false);
+    setFounderBonusEnabled(false);
+    setKeywords([]);
+    setKwInput('');
+    setKwFilter(false);
+    setStartDate(isoPlusDays(1));
+    setEndDate(isoPlusDays(8));
+    setBrief('');
+    setBriefError(false);
+    setTermsAccepted(false);
+    setTermsError(false);
+  };
+
   const addKw = (val) => {
     const kw = (val ?? kwInput).trim();
     if (kw && !keywords.includes(kw)) setKeywords(prev => [...prev, kw]);
@@ -2977,7 +3156,23 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
 
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Nouvelle campagne" title={"Étape " + step + " · " + WIZ_STEPS[step-1]}/>
+      <SectionTitle
+        eyebrow="Nouvelle campagne"
+        title={"Étape " + step + " · " + WIZ_STEPS[step-1]}
+        action={step >= 2 ? (
+          <button
+            onClick={() => setConfirmResetOpen(true)}
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--danger)' }}
+            title="Effacer toutes les étapes et repartir de zéro"
+          >
+            <Icon name="trash" size={12}/> Tout effacer
+          </button>
+        ) : undefined}
+      />
+      {showRestoreToast && (
+        <DraftRestoredToast onDismiss={() => setShowRestoreToast(false)} />
+      )}
       {stepperBar}
       {!canLaunch && (
         <div className="alert-block" style={{
@@ -4381,8 +4576,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           }}
         />
       )}
-      {showRestoreToast && (
-        <DraftRestoredToast onDismiss={() => setShowRestoreToast(false)} />
+      {confirmResetOpen && (
+        <WizardResetConfirmModal
+          onCancel={() => setConfirmResetOpen(false)}
+          onConfirm={() => { resetWizard(); setConfirmResetOpen(false); }}
+        />
       )}
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
       {insufficient && (
@@ -4893,6 +5091,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               alt="Poignée de main — en attente de mises en relation"
               width={140}
               height={140}
+              loading="lazy"
+              decoding="async"
               style={{ objectFit: 'contain' }}
             />
           </div>
@@ -6203,24 +6403,29 @@ function Analytics() {
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition géographique</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Pourcentage de contacts acceptés par zone</div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 12,
-        }}>
-          {geo.length === 0 && (
-            <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 13, padding: 16 }}>
-              Aucune ville renseignée chez vos prospects acceptés pour le moment.
-            </div>
-          )}
-          {geo.map((r, i) => (
-            <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
-              <div className="serif" style={{ fontSize: 18 }}>{r.ville}</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r.pct}%</div>
-              <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{r.contacts} contact{r.contacts > 1 ? 's' : ''}</div>
-            </div>
-          ))}
-        </div>
+        {geo.length === 0 ? (
+          <CardEmptyState
+            image="/empty-geo.png"
+            alt="Aucune ville disponible"
+            tint="#0EA5E9"
+            title="La carte est encore vide"
+            sub="Les villes de vos prospects acceptés s'afficheront ici dès vos premières mises en relation."
+          />
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 12,
+          }}>
+            {geo.map((r, i) => (
+              <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
+                <div className="serif" style={{ fontSize: 18 }}>{r.ville}</div>
+                <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r.pct}%</div>
+                <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{r.contacts} contact{r.contacts > 1 ? 's' : ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par tranche d'âge</div>
@@ -6244,33 +6449,45 @@ function Analytics() {
       <div className="card" style={{ padding: 28 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par sexe</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par genre déclaré</div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: 16,
-        }}>
-          {[
-            [sex[0].label, sex[0].pct, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
-            [sex[1].label, sex[1].pct, 'var(--accent)'],
-            [sex[2].label, sex[2].pct, 'var(--ink-4)'],
-          ].map(([l, v, c], i) => (
-            <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
-              <div className="row between center" style={{ marginBottom: 10 }}>
-                <div className="mono caps muted" style={{ fontSize: 10 }}>{l}</div>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: c }}/>
-              </div>
-              <div className="serif tnum" style={{ fontSize: 36, color: c }}>{v}%</div>
-              <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 12, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: v + '%', background: c, borderRadius: 999 }}/>
-              </div>
+        {sex.every(s => Number(s.pct) === 0) ? (
+          <CardEmptyState
+            image="/empty-sex.png"
+            alt="Aucun profil pour le moment"
+            tint="#EC4899"
+            title="Pas encore de profils à comparer"
+            sub="La répartition femmes / hommes / autre apparaîtra ici dès vos premières acceptations."
+          />
+        ) : (
+          <>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+              gap: 16,
+            }}>
+              {[
+                [sex[0].label, sex[0].pct, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
+                [sex[1].label, sex[1].pct, 'var(--accent)'],
+                [sex[2].label, sex[2].pct, 'var(--ink-4)'],
+              ].map(([l, v, c], i) => (
+                <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
+                  <div className="row between center" style={{ marginBottom: 10 }}>
+                    <div className="mono caps muted" style={{ fontSize: 10 }}>{l}</div>
+                    <span style={{ width: 10, height: 10, borderRadius: 999, background: c }}/>
+                  </div>
+                  <div className="serif tnum" style={{ fontSize: 36, color: c }}>{v}%</div>
+                  <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 12, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: v + '%', background: c, borderRadius: 999 }}/>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 22, height: 14, borderRadius: 999, overflow: 'hidden', display: 'flex', border: '1px solid var(--line)' }}>
-          <div style={{ width: sex[0].pct + '%', background: 'color-mix(in oklab, var(--accent) 90%, #EC4899)' }}/>
-          <div style={{ width: sex[1].pct + '%', background: 'var(--accent)' }}/>
-          <div style={{ width: sex[2].pct + '%', background: 'var(--ink-4)' }}/>
-        </div>
+            <div style={{ marginTop: 22, height: 14, borderRadius: 999, overflow: 'hidden', display: 'flex', border: '1px solid var(--line)' }}>
+              <div style={{ width: sex[0].pct + '%', background: 'color-mix(in oklab, var(--accent) 90%, #EC4899)' }}/>
+              <div style={{ width: sex[1].pct + '%', background: 'var(--accent)' }}/>
+              <div style={{ width: sex[2].pct + '%', background: 'var(--ink-4)' }}/>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -6471,6 +6688,8 @@ function Facturation() {
                 alt="Aucune carte bancaire enregistrée"
                 width={76}
                 height={76}
+                loading="lazy"
+                decoding="async"
                 style={{ objectFit: 'contain' }}
               />
             </div>
