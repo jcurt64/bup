@@ -20,8 +20,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
 import {
+  filterValidSubTypes,
   objectiveLabel,
   objectiveToCampaignType,
+  SUB_TYPES_BY_OBJECTIVE,
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
 import { sendRelationInvitation } from "@/lib/email/relation";
@@ -127,6 +129,14 @@ export async function POST(req: Request) {
     !body.budgetCents || body.budgetCents < 1
   ) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+  }
+
+  if (!SUB_TYPES_BY_OBJECTIVE[body.objectiveId]) {
+    return NextResponse.json({ error: "invalid_objective" }, { status: 400 });
+  }
+  const validSubTypes = filterValidSubTypes(body.objectiveId, body.subTypes);
+  if (validSubTypes.length === 0) {
+    return NextResponse.json({ error: "invalid_sub_types" }, { status: 400 });
   }
 
   const startTs = new Date(body.startDate).getTime();
@@ -330,7 +340,7 @@ export async function POST(req: Request) {
   const geoTarget = normalizeGeoTarget(body.geoTarget);
   const targeting = {
     objectiveId: body.objectiveId,
-    subTypes: body.subTypes,
+    subTypes: validSubTypes,
     requiredTiers: body.requiredTiers,
     requiredTierKeys: tierNumsToKeys(body.requiredTiers),
     geo: body.geo,

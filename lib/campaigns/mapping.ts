@@ -43,6 +43,64 @@ export function objectiveLabel(objectiveId: string | null | undefined): string {
   return OBJECTIVE_TO_LABEL[objectiveId] ?? "Campagne";
 }
 
+/**
+ * Sous-types valides par objectif — miroir de la liste `OBJECTIVES.sub`
+ * du wizard (`public/prototype/components/Pro.jsx`). L'entrée 'autres'
+ * est ajoutée à chaque objectif : elle permet au pro de cocher une
+ * option fourre-tout quand aucun sous-type pré-défini ne convient
+ * (le détail est alors précisé à l'étape Description).
+ */
+export const SUB_TYPES_BY_OBJECTIVE: Record<string, readonly string[]> = {
+  contact: [
+    "email", "sms", "mms", "postal", "phone", "wa", "pushweb", "pushapp", "autres",
+  ],
+  rdv: [
+    "rdvphys", "rdvtel", "rdvvisio", "consult", "devis", "essai", "autres",
+  ],
+  evt: [
+    "webinar", "portes", "atelier", "conf", "network", "demo", "launch", "tournoi", "autres",
+  ],
+  dl: [
+    "wb", "etude", "cat", "guide", "info", "rapport", "tpl", "check", "replay", "autres",
+  ],
+  survey: [
+    "csat", "nps", "poll", "panel", "test", "focus", "interview", "vote", "autres",
+  ],
+  promo: [
+    "coupon", "welcome", "flash", "contest", "autres",
+  ],
+  addigital: [
+    "meta", "google", "tiktok", "linkedin", "snap", "x", "autres",
+  ],
+};
+
+/**
+ * Garde-fou serveur : ne stocke que les sous-types reconnus pour
+ * l'objectif demandé. Dédoublonne, conserve l'ordre d'entrée et
+ * borne le résultat à 32 éléments (protection JSONB). Si l'objectif
+ * est inconnu, retourne un tableau vide.
+ */
+export function filterValidSubTypes(
+  objectiveId: string,
+  subTypes: unknown,
+): string[] {
+  if (!Array.isArray(subTypes)) return [];
+  const allowed = SUB_TYPES_BY_OBJECTIVE[objectiveId];
+  if (!allowed) return [];
+  const allowSet = new Set(allowed);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of subTypes) {
+    if (typeof raw !== "string") continue;
+    if (!allowSet.has(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push(raw);
+    if (out.length >= 32) break;
+  }
+  return out;
+}
+
 const VERIF_ACCEPTABLE: Record<string, VerificationLevelDb[]> = {
   p0: ["basique", "verifie", "certifie", "confiance", "certifie_confiance"],
   p1: ["verifie", "certifie", "confiance", "certifie_confiance"],
