@@ -28,12 +28,14 @@ import {
 } from "../../components/screen";
 import {
   useMeTyped,
+  useParrainage,
   useProspectMovements,
   useProspectScore,
   useProspectVerification,
   useProspectWallet,
   type MovementRelation,
 } from "../../lib/queries";
+import { ReferralBadge } from "../../components/referral-badge";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // Mirror Prospect.jsx — libellés affichés pour chaque tier de vérif.
@@ -115,6 +117,9 @@ export default function Portefeuille() {
   const me = useMeTyped();
   const verif = useProspectVerification();
   const score = useProspectScore();
+  const parrainage = useParrainage();
+  const badgeTier = parrainage.data?.badgeTier ?? null;
+  const founderNumber = parrainage.data?.founderNumber ?? null;
   useRefetchOnFocus(w, m, verif, score);
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
@@ -184,12 +189,12 @@ export default function Portefeuille() {
         end={{ x: 1, y: 1 }}
         style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
       >
-        <Text
-          className="mb-4 font-serif text-xl text-paper"
-          numberOfLines={1}
-        >
-          {greeting}
-        </Text>
+        <View className="mb-4 flex-row items-center gap-2">
+          <Text className="flex-1 font-serif text-xl text-paper" numberOfLines={1}>
+            {greeting}
+          </Text>
+          {badgeTier ? <ReferralBadge tier={badgeTier} founderNumber={founderNumber} /> : null}
+        </View>
         {/* Vérification prend toute la largeur restante (flex: 1) pour
             afficher son chip en totalité (« Basique · Niveau 1/3 »).
             BUUPP Score est poussé à droite, aligné à droite, à largeur
