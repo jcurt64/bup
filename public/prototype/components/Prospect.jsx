@@ -1970,7 +1970,7 @@ function ReferralBadgePopup({ tier, founderNumber, onClose, onNav }) {
         {tier !== 'or' && (
           <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 12, background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))', border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))' }}>
             <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-2, var(--ink))' }}>
-              Parrainez des prospects pour monter de palier et devenir un <strong>Golden Buupper</strong>. Votre lien de parrainage se trouve dans l'onglet Parrainage.
+              Parrainez des prospects pour monter de palier et devenir un <strong style={{ color: REFERRAL_TIER_COLOR.or }}>Golden Buupper</strong>. Votre lien de parrainage se trouve dans l'onglet Parrainage.
             </div>
             <button
               type="button"
