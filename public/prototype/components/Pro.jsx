@@ -257,132 +257,9 @@ function invalidateProOverview() {
   _proOverviewPromise = null;
 }
 
-// Cache module-level de l'état de parrainage (badge couronne + numéro).
-// Pas d'invalidation : le palier de parrainage ne change pas en cours de session.
-let _referralCache = null;
-let _referralPromise = null;
-async function fetchReferral() {
-  if (_referralCache) return _referralCache;
-  if (_referralPromise) return _referralPromise;
-  _referralPromise = fetch('/api/me/referral', { cache: 'no-store' })
-    .then(r => r.ok ? r.json() : null)
-    .then(j => { _referralCache = j; _referralPromise = null; return j; })
-    .catch(() => { _referralPromise = null; return null; });
-  return _referralPromise;
-}
-
 const _eurFmt = new Intl.NumberFormat('fr-FR', {
   style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
 });
-
-// Couleurs des paliers (couronne). Cohérent avec le doré CoinBadge.
-const REFERRAL_TIERS = [
-  { tier: 'cuivre', label: 'Cuivre', range: '1–2 filleuls',  color: '#B87333', advantage: 'Avantage à venir' },
-  { tier: 'argent', label: 'Argent', range: '3–9 filleuls',  color: '#9CA3AF', advantage: 'Avantage à venir' },
-  { tier: 'or',     label: 'Or',     range: '10 filleuls',   color: '#D4AF37', advantage: 'Avantage à venir' },
-];
-const REFERRAL_TIER_COLOR = Object.fromEntries(REFERRAL_TIERS.map(t => [t.tier, t.color]));
-
-function CrownSvg({ color, size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
-      style={{ display: 'block' }}>
-      <path
-        d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.6 11.2a1 1 0 0 1-1 .8H5.6a1 1 0 0 1-1-.8L3 7z"
-        fill={color} stroke="rgba(0,0,0,.25)" strokeWidth="0.8"
-        strokeLinejoin="round" />
-      <circle cx="3" cy="7" r="1.4" fill={color} />
-      <circle cx="12" cy="4" r="1.4" fill={color} />
-      <circle cx="21" cy="7" r="1.4" fill={color} />
-    </svg>
-  );
-}
-
-function ReferralBadgePopup({ tier, founderNumber, onClose }) {
-  return (
-    <div role="dialog" aria-modal="true" aria-labelledby="referral-popup-title"
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,.45)', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--paper)', color: 'var(--ink)',
-          borderRadius: 18, padding: 24, width: 'min(420px, 100%)',
-          boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
-        <div className="row center gap-3" style={{ marginBottom: 4 }}>
-          <CrownSvg color={REFERRAL_TIER_COLOR[tier] || '#9CA3AF'} size={28} />
-          {founderNumber != null && (
-            <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>
-              Fondateur #{founderNumber}
-            </span>
-          )}
-        </div>
-        <div id="referral-popup-title" className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-          Votre palier de parrainage
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {REFERRAL_TIERS.map(t => {
-            const current = t.tier === tier;
-            return (
-              <div key={t.tier} className="row center gap-3"
-                style={{ padding: '12px 14px', borderRadius: 12,
-                  border: current ? `2px solid ${t.color}` : '1px solid var(--line)',
-                  background: current ? `color-mix(in oklab, ${t.color} 10%, var(--paper))` : 'transparent' }}>
-                <CrownSvg color={t.color} size={22} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600 }}>
-                    {t.label} <span className="muted" style={{ fontWeight: 400 }}>· {t.range}</span>
-                    {current && <span style={{ marginLeft: 8, color: t.color, fontWeight: 700 }}>• Votre palier</span>}
-                  </div>
-                  <div className="muted" style={{ fontSize: 12.5 }}>{t.advantage}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <button className="btn btn-ghost" style={{ marginTop: 18, width: '100%' }} onClick={onClose}>
-          Fermer
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ReferralBadge() {
-  const [ref, setRef] = useState(null);
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    fetchReferral().then(j => { if (!cancelled) setRef(j); });
-    return () => { cancelled = true; };
-  }, []);
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open]);
-  if (!ref || !ref.badgeTier) return null;
-  const color = REFERRAL_TIER_COLOR[ref.badgeTier] || '#9CA3AF';
-  return (
-    <>
-      <button
-        type="button"
-        title="Votre badge de parrainage"
-        aria-label="Voir votre badge de parrainage"
-        onClick={() => setOpen(true)}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-          marginLeft: 8, padding: '2px 8px', borderRadius: 999,
-          border: `1px solid ${color}`, background: `color-mix(in oklab, ${color} 14%, var(--paper))`,
-          cursor: 'pointer' }}>
-        <CrownSvg color={color} size={14} />
-      </button>
-      {open && (
-        <ReferralBadgePopup tier={ref.badgeTier} founderNumber={ref.founderNumber} onClose={() => setOpen(false)} />
-      )}
-    </>
-  );
-}
 
 function ProHeader({ companyInfo, onCreate, onRecharge }) {
   // Reflète en direct la raison sociale saisie dans "Mes informations".
@@ -520,10 +397,7 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
     <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
-          <div className="mono caps muted" style={{ marginBottom: 8, display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>
-            — {raison}{secteur ? ' · ' + secteur : ''}
-            <ReferralBadge />
-          </div>
+          <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison}{secteur ? ' · ' + secteur : ''}</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
             <em>{balanceText}</em> de crédit disponible · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>

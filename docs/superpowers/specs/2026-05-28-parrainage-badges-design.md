@@ -45,8 +45,8 @@ partagent le même back-end `/api/*`.
   (web + mobile) quand `remaining === 0` : lien grisé + message
   « Plafond de 10 filleuls atteint ».
 - **Emplacements du badge** :
-  - **Web** : `Pro.jsx` → `ProHeader`, à droite du label
-    `— {raison sociale} · {secteur}`.
+  - **Web** : `Prospect.jsx` → `ProspectHeader`, à droite du greeting
+    `— Bonjour {prénom}` (après le badge Fondateur·ice éventuel).
   - **Mobile** : `app/(prospect)/portefeuille.tsx` (écran d'accueil) →
     hero gradient, à droite du greeting.
 - Centraliser la logique de palier (seuils) dans **une seule** lib
@@ -63,7 +63,7 @@ partagent le même back-end `/api/*`.
 - Badge / numéro pour un membre à **0 filleul** (pas de surface
   d'affichage — choix produit assumé).
 - Affichage du badge ailleurs que les 2 emplacements ci-dessus (ex :
-  dashboard prospect web, listes de contacts pro…).
+  dashboard pro web, listes de contacts pro…).
 
 ## Décisions tranchées
 
@@ -72,9 +72,9 @@ partagent le même back-end `/api/*`.
 2. **0 filleul = pas de badge** → donc ni popup ni numéro visible.
 3. **Couronne mobile = pastille `LinearGradient`** aux couleurs du palier
    (pattern existant `CoinBadge`), **sans** ajouter `react-native-svg`.
-4. **Web sur `Pro.jsx`** (choix explicite utilisateur) : le badge
-   n'apparaît pour un pro **que si son e-mail est dans la waitlist**.
-   Sinon `badgeTier = null` → rien ne s'affiche. Comportement assumé.
+4. **Web sur `Prospect.jsx`** (dashboard prospect) : le badge
+   n'apparaît **que si son e-mail est dans la waitlist** avec au moins
+   1 filleul. Sinon `badgeTier = null` → rien ne s'affiche. Comportement assumé.
 
 ## Architecture
 
@@ -130,27 +130,18 @@ Le calcul du numéro réutilise `created_at` de la row waitlist : un simple
   - `founderNumber: number | null`
   - `isFounder: boolean`
 
-  Consommé par : écran Parrainage web (`Prospect.jsx`), écran + hero
-  mobile (`useParrainage`).
-
-- **Nouveau** `GET /api/me/referral/route.ts** : wrapper neutre (role-
-  agnostique) qui appelle `getReferralStatus` et renvoie
-  `{ badgeTier, founderNumber, isFounder, count, cap, remaining, refCode }`.
-  Consommé par `ProHeader` (espace pro) pour éviter d'appeler un endpoint
-  nommé « prospect » depuis le dashboard pro.
+  Consommé par : `ProspectHeader` (badge greeting web), écran Parrainage
+  web (`Prospect.jsx`), écran + hero mobile (`useParrainage`).
 
 ### 3. Front-end web
 
-- **`public/prototype/components/Pro.jsx`** :
-  - `ProHeader` (≈ ligne 400) : fetch `/api/me/referral`, rendu d'un
-    `<ReferralBadge tier founderNumber/>` à droite du label
-    `— {raison} · {secteur}` (seulement si `badgeTier !== null`).
-  - Composant **`ReferralBadge`** (couronne SVG inline recolorée par
-    palier) + **`ReferralBadgePopup`** (modal : couronne + `#numéro` +
-    3 paliers avec avantage placeholder + palier courant en surbrillance).
-    Réutilisable, défini dans `Pro.jsx` (ou un petit fichier partagé du
-    prototype si déjà chargé par les deux dashboards).
 - **`public/prototype/components/Prospect.jsx`** :
+  - `ProspectHeader` : badge `<ReferralBadge tier founderNumber/>` à droite
+    du greeting `— Bonjour {prénom}` (après le badge Fondateur·ice éventuel),
+    lu depuis l'état `parrainage` existant (fetch `/api/prospect/parrainage`).
+    Composants **`ReferralBadge`**, **`ReferralBadgePopup`**, **`CrownSvg`**,
+    **`REFERRAL_TIERS`**, **`REFERRAL_TIER_COLOR`** définis dans `Prospect.jsx`
+    juste avant `ProspectHeader`.
   - Écran Parrainage (`Parrainage()`, ≈ 6287-6573) : quand
     `remaining === 0`, griser le lien/bouton de copie + message
     « Plafond de 10 filleuls atteint ».
@@ -181,8 +172,8 @@ les `tone` NativeWind du mobile lors de l'implémentation.
 
 ## Flux de données
 
-1. À l'affichage du dashboard pro (web) / de l'accueil (mobile), le front
-   appelle l'API (`/api/me/referral` ou `useParrainage`).
+1. À l'affichage du dashboard prospect (web) / de l'accueil (mobile), le front
+   appelle l'API (`/api/prospect/parrainage` ou `useParrainage`).
 2. L'API lit la waitlist par e-mail Clerk → `getReferralStatus`.
 3. Le front affiche le badge si `badgeTier !== null`.
 4. Au clic/tap, le popup affiche numéro + paliers + palier courant
@@ -191,10 +182,9 @@ les `tone` NativeWind du mobile lors de l'implémentation.
 
 ## Gestion des erreurs / cas limites
 
-- **Pas d'e-mail primaire Clerk** → API renvoie l'état « pas de badge »
-  (comme aujourd'hui : 400 `no_email` sur `/api/prospect/parrainage` ;
-  `/api/me/referral` renverra `badgeTier: null` plutôt que 400 pour ne
-  pas casser le header).
+- **Pas d'e-mail primaire Clerk** → `/api/prospect/parrainage` renvoie
+  400 `no_email` ; le header `ProspectHeader` lit `parrainage?.badgeTier`
+  et n'affiche rien si null.
 - **Pas inscrit waitlist** → `founderNumber: null`, `isFounder: false`,
   `badgeTier` dérivé du count (0 → null).
 - **Membre à 0 filleul** → aucun badge, aucun popup (assumé).
@@ -209,9 +199,7 @@ les `tone` NativeWind du mobile lors de l'implémentation.
   3→argent, 9→argent, 10→or, 11→or.
 - **Unitaire** `getReferralStatus` (mock Supabase) : présence/absence de
   row waitlist, calcul du rang, calcul du count.
-- **API** `/api/me/referral` : authentifié vs non, e-mail dans/hors
-  waitlist.
-- **Manuel web** : badge visible dans `ProHeader` selon le count, popup au
+- **Manuel web** : badge visible dans `ProspectHeader` selon le count, popup au
   clic, lien grisé à 10 dans l'écran Parrainage.
 - **Manuel mobile** : badge dans le hero accueil, popup au tap, lien grisé
   à 10 dans l'écran parrainage.
@@ -220,5 +208,4 @@ les `tone` NativeWind du mobile lors de l'implémentation.
 
 - L'extension de `/api/prospect/parrainage` est **rétro-compatible**
   (champs ajoutés, rien retiré) → ne casse pas le mobile existant.
-- Le nouveau `/api/me/referral` est additif.
 - Aucune migration DB (calcul à la lecture).
