@@ -1871,18 +1871,67 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 const REFERRAL_TIERS = [
   { tier: 'cuivre', label: 'Cuivre', range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage à venir' },
   { tier: 'argent', label: 'Argent', range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Avantage à venir' },
-  { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#D4AF37', advantage: 'Avantage à venir' },
+  { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#E6B422', advantage: 'Avantage à venir' },
 ];
 const REFERRAL_TIER_COLOR = Object.fromEntries(REFERRAL_TIERS.map(t => [t.tier, t.color]));
 
-function CrownSvg({ color, size = 16 }) {
+const _CROWN_PATH = "M3 7l4.5 4L12 4l4.5 7L21 7l-1.6 11.2a1 1 0 0 1-1 .8H5.6a1 1 0 0 1-1-.8L3 7z";
+let _crownSeq = 0;
+
+// `shiny` (palier or) : dégradé doré métallique + halo + reflet balayant +
+// étincelles scintillantes. Les autres paliers restent en aplat.
+function CrownSvg({ color, size = 16, shiny = false }) {
+  const [uid] = useState(() => 'crown' + (_crownSeq++));
+  if (!shiny) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'block' }}>
+        <path d={_CROWN_PATH} fill={color} stroke="rgba(0,0,0,.25)" strokeWidth="0.8" strokeLinejoin="round" />
+        <circle cx="3" cy="7" r="1.4" fill={color} />
+        <circle cx="12" cy="4" r="1.4" fill={color} />
+        <circle cx="21" cy="7" r="1.4" fill={color} />
+      </svg>
+    );
+  }
+  const gid = uid + '-g';
+  const sweep = uid + '-s';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'block' }}>
-      <path d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.6 11.2a1 1 0 0 1-1 .8H5.6a1 1 0 0 1-1-.8L3 7z"
-        fill={color} stroke="rgba(0,0,0,.25)" strokeWidth="0.8" strokeLinejoin="round" />
-      <circle cx="3" cy="7" r="1.4" fill={color} />
-      <circle cx="12" cy="4" r="1.4" fill={color} />
-      <circle cx="21" cy="7" r="1.4" fill={color} />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
+      style={{ display: 'block', overflow: 'visible',
+        filter: 'drop-shadow(0 0 1.5px rgba(255,215,0,.9)) drop-shadow(0 0 4px rgba(255,193,7,.55))' }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#FFF7CC" />
+          <stop offset="30%" stopColor="#FFE066" />
+          <stop offset="55%" stopColor="#F5B400" />
+          <stop offset="80%" stopColor="#E0A100" />
+          <stop offset="100%" stopColor="#B8860B" />
+        </linearGradient>
+        <linearGradient id={sweep} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+          <stop offset="50%" stopColor="rgba(255,255,255,.85)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          <animate attributeName="x1" values="-1;1" dur="2.4s" repeatCount="indefinite" />
+          <animate attributeName="x2" values="0;2" dur="2.4s" repeatCount="indefinite" />
+        </linearGradient>
+      </defs>
+      <path d={_CROWN_PATH} fill={'url(#' + gid + ')'} stroke="rgba(120,80,0,.45)" strokeWidth="0.8" strokeLinejoin="round" />
+      <path d={_CROWN_PATH} fill={'url(#' + sweep + ')'} stroke="none" />
+      <circle cx="3" cy="7" r="1.6" fill={'url(#' + gid + ')'} />
+      <circle cx="12" cy="4" r="1.6" fill={'url(#' + gid + ')'} />
+      <circle cx="21" cy="7" r="1.6" fill={'url(#' + gid + ')'} />
+      <g fill="#FFFDF0">
+        <circle cx="20" cy="3" r="0.9">
+          <animate attributeName="opacity" values="0;1;0" dur="1.6s" repeatCount="indefinite" />
+          <animate attributeName="r" values="0.3;1.2;0.3" dur="1.6s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="6" cy="5" r="0.7">
+          <animate attributeName="opacity" values="0;1;0" dur="1.9s" begin="0.7s" repeatCount="indefinite" />
+          <animate attributeName="r" values="0.2;0.9;0.2" dur="1.9s" begin="0.7s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="14" cy="9" r="0.6">
+          <animate attributeName="opacity" values="0;1;0" dur="2.2s" begin="1.1s" repeatCount="indefinite" />
+        </circle>
+      </g>
     </svg>
   );
 }
@@ -1894,7 +1943,7 @@ function ReferralBadgePopup({ tier, founderNumber, onClose }) {
       <div onClick={e => e.stopPropagation()}
         style={{ background: 'var(--paper)', color: 'var(--ink)', borderRadius: 18, padding: 24, width: 'min(420px, 100%)', boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
         <div className="row center gap-3" style={{ marginBottom: 4 }}>
-          <CrownSvg color={REFERRAL_TIER_COLOR[tier] || '#9CA3AF'} size={28} />
+          <CrownSvg color={REFERRAL_TIER_COLOR[tier] || '#9CA3AF'} size={28} shiny={tier === 'or'} />
           {founderNumber != null && (
             <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>Fondateur #{founderNumber}</span>
           )}
@@ -1906,7 +1955,7 @@ function ReferralBadgePopup({ tier, founderNumber, onClose }) {
             return (
               <div key={t.tier} className="row center gap-3"
                 style={{ padding: '12px 14px', borderRadius: 12, border: current ? `2px solid ${t.color}` : '1px solid var(--line)', background: current ? `color-mix(in oklab, ${t.color} 10%, var(--paper))` : 'transparent' }}>
-                <CrownSvg color={t.color} size={22} />
+                <CrownSvg color={t.color} size={22} shiny={t.tier === 'or'} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600 }}>
                     {t.label} <span className="muted" style={{ fontWeight: 400 }}>· {t.range}</span>
@@ -1939,7 +1988,7 @@ function ReferralBadge({ tier, founderNumber }) {
       <button type="button" title="Votre badge de parrainage" aria-label="Voir votre badge de parrainage"
         onClick={() => setOpen(true)}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 8, padding: '2px 8px', borderRadius: 999, border: `1px solid ${color}`, background: `color-mix(in oklab, ${color} 14%, var(--paper))`, cursor: 'pointer' }}>
-        <CrownSvg color={color} size={14} />
+        <CrownSvg color={color} size={14} shiny={tier === 'or'} />
       </button>
       {open && <ReferralBadgePopup tier={tier} founderNumber={founderNumber} onClose={() => setOpen(false)} />}
     </>
