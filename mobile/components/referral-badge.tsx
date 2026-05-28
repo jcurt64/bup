@@ -90,7 +90,7 @@ export function ReferralBadge({
             {tier !== "or" ? (
               <View className="mt-4 rounded-2xl p-3" style={{ backgroundColor: "rgba(124,92,252,0.08)", borderWidth: 1, borderColor: "rgba(124,92,252,0.25)" }}>
                 <Text className="text-[13px] leading-5 text-ink-2">
-                  Parrainez des prospects pour monter de palier et devenir un <Text className="font-semibold">Golden Buupper</Text>. Votre lien est dans l'onglet Parrainage.
+                  Parrainez des prospects pour monter de palier et devenir un <Text className="font-semibold" style={{ color: "#E6B422" }}>Golden Buupper</Text>. Votre lien est dans l'onglet Parrainage.
                 </Text>
                 <Pressable
                   onPress={() => { setOpen(false); router.push("/(prospect)/parrainage"); }}
