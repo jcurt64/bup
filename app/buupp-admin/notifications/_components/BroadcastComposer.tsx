@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Audience = "prospects" | "pros" | "all";
+type Audience = "prospects" | "pros" | "all" | "founders_gold";
 
 const AUDIENCE_OPTIONS: { value: Audience; label: string; hint: string }[] = [
   { value: "prospects", label: "Tous les prospects", hint: "Envoie à tous les particuliers inscrits." },
   { value: "pros", label: "Tous les pros", hint: "Envoie à tous les comptes professionnels." },
   { value: "all", label: "Tous les utilisateurs", hint: "Prospects + pros — usage parcimonieux." },
+  { value: "founders_gold", label: "Fondateurs Or", hint: "Prospects au palier Or (10 filleuls)." },
 ];
 
 const MAX_TITLE = 200;
@@ -156,7 +157,7 @@ export default function BroadcastComposer() {
       </Field>
 
       <Field label="Audience">
-        <div className="grid sm:grid-cols-3 gap-2">
+        <div className="grid sm:grid-cols-2 gap-2">
           {AUDIENCE_OPTIONS.map((opt) => {
             const active = audience === opt.value;
             return (
@@ -419,12 +420,13 @@ function ConfirmSendModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel, submitting]);
 
-  const audienceLabel =
-    audience === "all"
-      ? "tous les utilisateurs (prospects + pros)"
-      : audience === "prospects"
-        ? "tous les prospects"
-        : "tous les pros";
+  const AUDIENCE_LABEL_MAP: Record<Audience, string> = {
+    all: "tous les utilisateurs (prospects + pros)",
+    prospects: "tous les prospects",
+    pros: "tous les pros",
+    founders_gold: "les fondateurs Or (10 filleuls)",
+  };
+  const audienceLabel = AUDIENCE_LABEL_MAP[audience];
 
   return (
     <div

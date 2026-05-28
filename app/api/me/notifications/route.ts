@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isGoldFounder } from "@/lib/waitlist/referral";
 
 export const runtime = "nodejs";
 
@@ -43,11 +44,21 @@ export async function GET() {
       .eq("clerk_user_id", userId)
       .maybeSingle(),
   ]);
-  const audiences: ("prospects" | "pros" | "all")[] = proRow
+  const audiences: ("prospects" | "pros" | "all" | "founders_gold")[] = proRow
     ? ["pros", "all"]
     : prospectRow
       ? ["prospects", "all"]
       : ["all"];
+  if (prospectRow && !proRow) {
+    const { data: idRow } = await admin
+      .from("prospect_identity")
+      .select("email")
+      .eq("prospect_id", prospectRow.id)
+      .maybeSingle();
+    if (await isGoldFounder(admin, idRow?.email ?? null)) {
+      audiences.push("founders_gold");
+    }
+  }
   const userSignupAt: string | null =
     proRow?.created_at ?? prospectRow?.created_at ?? null;
 
@@ -73,18 +84,22 @@ export async function GET() {
   // S'applique aussi aux broadcasts ciblés par sécurité — l'admin ne
   // pourrait techniquement pas viser un user inexistant, mais on borne
   // par cohérence avec la règle générale.
+  // Cast volontaire : `founders_gold` n'est pas encore dans l'enum DB Supabase
+  // (migration manuelle à venir via SQL Editor). PostgREST accepte la valeur.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const audiencesForQuery = audiences as any[];
   const audienceQuery = admin
     .from("admin_broadcasts")
     .select(SELECT_COLS)
     .is("target_clerk_user_id", null)
-    .in("audience", audiences)
+    .in("audience", audiencesForQuery)
     .order("created_at", { ascending: false })
     .limit(LIST_CAP);
   const targetedQuery = admin
     .from("admin_broadcasts")
     .select(SELECT_COLS)
     .eq("target_clerk_user_id", userId)
-    .in("audience", audiences)
+    .in("audience", audiencesForQuery)
     .order("created_at", { ascending: false })
     .limit(LIST_CAP);
   if (userSignupAt) {

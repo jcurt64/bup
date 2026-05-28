@@ -18,6 +18,7 @@ import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
 import { signOptOutToken } from "@/lib/email-tracking/token";
+import { referralBadgeTier } from "@/lib/waitlist/referral";
 
 // Liste de destinataires AVANT insertion en base (sans recipient_id). Une
 // fois en base, on enrichit avec l'UUID retourné pour pouvoir embarquer
@@ -33,7 +34,7 @@ type RawRecipient = {
 
 export const runtime = "nodejs";
 
-const AUDIENCES = ["prospects", "pros", "all"] as const;
+const AUDIENCES = ["prospects", "pros", "all", "founders_gold"] as const;
 type Audience = (typeof AUDIENCES)[number];
 
 // Allowlist mimetype pour l'upload. Largement défensif — on accepte les
@@ -101,12 +102,16 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdminClient();
 
   // 1. Insert de la row d'abord — on a besoin de l'id pour le path Storage.
+  // `founders_gold` n'est pas encore dans l'enum DB Supabase (migration
+  // manuelle prévue via SQL Editor) — cast volontaire le temps de la migration.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const audienceForInsert = audience as any;
   const { data: created, error: insertErr } = await admin
     .from("admin_broadcasts")
     .insert({
       title,
       body,
-      audience,
+      audience: audienceForInsert,
       created_by_admin_id: adminUserId,
     })
     .select("id")
@@ -346,6 +351,53 @@ async function collectRecipients(
     seenEmails.add(key);
     recipients.push({ email, role, clerkUserId, trackingConsent });
   };
+
+  if (audience === "founders_gold") {
+    // 1. ref_codes ayant atteint le palier Or (>= 10 filleuls).
+    const { data: refRows, error: refErr } = await admin
+      .from("waitlist")
+      .select("referrer_ref_code")
+      .not("referrer_ref_code", "is", null);
+    if (refErr) {
+      console.error("[broadcasts] founders_gold referrers read failed", refErr);
+      return recipients;
+    }
+    const counts = new Map<string, number>();
+    for (const r of refRows ?? []) {
+      const c = r.referrer_ref_code as string;
+      counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    const goldCodes = [...counts.entries()]
+      .filter(([, n]) => referralBadgeTier(n) === "or")
+      .map(([code]) => code);
+    if (goldCodes.length === 0) return recipients;
+
+    // 2. emails des parrains gold (waitlist.ref_code ∈ goldCodes).
+    const { data: parrainRows } = await admin
+      .from("waitlist")
+      .select("email, ref_code")
+      .in("ref_code", goldCodes);
+    const goldEmails = new Set(
+      (parrainRows ?? []).map((r) => (r.email ?? "").toLowerCase()).filter(Boolean),
+    );
+    if (goldEmails.size === 0) return recipients;
+
+    // 3. prospects correspondants (email + clerk_user_id + consentement CNIL).
+    const { data: rows, error } = await admin
+      .from("prospect_identity")
+      .select("email, email_tracking_consent, email_tracking_consent_given_at, prospects(clerk_user_id)")
+      .not("email", "is", null);
+    if (error) {
+      console.error("[broadcasts] founders_gold prospect_identity read failed", error);
+    } else {
+      for (const r of rows ?? []) {
+        if (!goldEmails.has((r.email ?? "").toLowerCase())) continue;
+        const clerkUserId = (r.prospects as { clerk_user_id: string } | null)?.clerk_user_id ?? null;
+        addUnique(r.email, "prospect", clerkUserId, hasExplicitEmailTrackingConsent(r));
+      }
+    }
+    return recipients;
+  }
 
   if (audience === "prospects" || audience === "all") {
     // Prospects : join prospect_identity ↔ prospects pour récupérer

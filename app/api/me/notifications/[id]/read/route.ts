@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isGoldFounder } from "@/lib/waitlist/referral";
 
 export const runtime = "nodejs";
 
@@ -50,10 +51,23 @@ export async function POST(
     admin.from("prospects").select("id").eq("clerk_user_id", userId).maybeSingle(),
   ]);
   const role: "pro" | "prospect" | null = proRow ? "pro" : prospectRow ? "prospect" : null;
+  // Cast volontaire : `founders_gold` n'est pas encore dans l'enum DB Supabase
+  // (migration manuelle à venir). La valeur est bien stockée et relue en DB.
+  const broadcastAudience = broadcast.audience as string;
+  let gold = false;
+  if (broadcastAudience === "founders_gold" && role === "prospect" && prospectRow) {
+    const { data: idRow } = await admin
+      .from("prospect_identity")
+      .select("email")
+      .eq("prospect_id", prospectRow.id)
+      .maybeSingle();
+    gold = await isGoldFounder(admin, idRow?.email ?? null);
+  }
   const eligible =
-    broadcast.audience === "all" ||
-    (broadcast.audience === "pros" && role === "pro") ||
-    (broadcast.audience === "prospects" && role === "prospect");
+    broadcastAudience === "all" ||
+    (broadcastAudience === "pros" && role === "pro") ||
+    (broadcastAudience === "prospects" && role === "prospect") ||
+    (broadcastAudience === "founders_gold" && gold);
   if (!eligible) {
     return NextResponse.json({ error: "forbidden_audience" }, { status: 403 });
   }

@@ -2,6 +2,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
 
+export async function isGoldFounder(
+  admin: SupabaseClient<Database>,
+  email: string | null,
+): Promise<boolean> {
+  if (!email) return false;
+  const { data: row } = await admin
+    .from("waitlist")
+    .select("ref_code")
+    .ilike("email", email)
+    .maybeSingle();
+  const refCode = row?.ref_code ?? refCodeFromEmail(email);
+  const { count } = await admin
+    .from("waitlist")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_ref_code", refCode);
+  return referralBadgeTier(count ?? 0) === "or";
+}
+
 export type ReferralBadgeTier = "cuivre" | "argent" | "or";
 
 /**

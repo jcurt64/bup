@@ -3,10 +3,11 @@ import BroadcastComposer from "./_components/BroadcastComposer";
 
 export const dynamic = "force-dynamic";
 
-const AUDIENCE_LABEL: Record<"prospects" | "pros" | "all", string> = {
+const AUDIENCE_LABEL: Record<"prospects" | "pros" | "all" | "founders_gold", string> = {
   prospects: "Tous les prospects",
   pros: "Tous les pros",
   all: "Tous les utilisateurs",
+  founders_gold: "Fondateurs Or",
 };
 
 export default async function NotificationsAdminPage() {
@@ -115,7 +116,7 @@ export default async function NotificationsAdminPage() {
                           {b.title}
                         </td>
                         <td className="px-3 py-2 text-xs" style={{ color: "var(--ink-3)" }}>
-                          {AUDIENCE_LABEL[b.audience]}
+                          {AUDIENCE_LABEL[b.audience as keyof typeof AUDIENCE_LABEL] ?? b.audience}
                         </td>
                         <td
                           className="px-3 py-2 text-xs"

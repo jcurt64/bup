@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { referralBadgeTier, getReferralStatus } from "@/lib/waitlist/referral";
+import { referralBadgeTier, getReferralStatus, isGoldFounder } from "@/lib/waitlist/referral";
 
 // Faux client Supabase admin paramétrable. getReferralStatus fait 3 appels
 // distincts à .from("waitlist") :
@@ -77,5 +77,20 @@ describe("getReferralStatus", () => {
     expect(s.count).toBe(0);
     expect(s.badgeTier).toBeNull();
     expect(s.refCode).toMatch(/^[0-9A-Z]{7}$/); // dérivé de l'email
+  });
+});
+
+describe("isGoldFounder", () => {
+  it("true à 10 filleuls", async () => {
+    const admin = makeAdmin({ waitlistRow: { ref_code: "ABC1234", created_at: "2026-05-01T00:00:00Z" }, filleulCount: 10 });
+    expect(await isGoldFounder(admin, "a@b.com")).toBe(true);
+  });
+  it("false à 9 filleuls", async () => {
+    const admin = makeAdmin({ waitlistRow: { ref_code: "ABC1234", created_at: "2026-05-01T00:00:00Z" }, filleulCount: 9 });
+    expect(await isGoldFounder(admin, "a@b.com")).toBe(false);
+  });
+  it("false si email null", async () => {
+    const admin = makeAdmin({});
+    expect(await isGoldFounder(admin, null)).toBe(false);
   });
 });
