@@ -16,7 +16,7 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
+import { getReferralStatus } from "@/lib/waitlist/referral";
 import {
   VIP_FILLEUL_THRESHOLD,
   VIP_BUDGET_MIN_CENTS,
@@ -24,8 +24,6 @@ import {
 } from "@/lib/founders";
 
 export const runtime = "nodejs";
-
-const REFERRER_CAP = 10;
 
 export async function GET() {
   const { userId } = await auth();
@@ -46,52 +44,32 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
+  const status = await getReferralStatus(supabase, email);
 
-  // Récupère la row waitlist correspondant à l'email (insensible à la
-  // casse). Si l'utilisateur s'est inscrit sur la liste d'attente, sa
-  // row contient son `ref_code` persisté ; sinon on retombe sur le code
-  // dérivé de l'email (l'algo est déterministe et identique côté client).
-  const { data: row } = await supabase
-    .from("waitlist")
-    .select("ref_code")
-    .ilike("email", email)
-    .maybeSingle();
-
-  const refCode = row?.ref_code ?? refCodeFromEmail(email);
-
-  // Date de lancement officiel (singleton `app_config`). Le lien de
-  // parrainage n'est valable que pendant la phase de pré-inscription :
-  // le dashboard en dérive un compte à rebours. Lecture tolérante — si
-  // la table n'existe pas encore on renvoie `launchAt: null` plutôt que
-  // de planter l'endpoint.
   const [filleulsRes, configRes] = await Promise.all([
+    // Liste des filleuls : toujours filtrée par le ref_code de l'utilisateur.
     supabase
       .from("waitlist")
       .select("prenom, nom, ville, created_at")
-      .eq("referrer_ref_code", refCode)
+      .eq("referrer_ref_code", status.refCode)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("app_config")
-      .select("launch_at")
-      .eq("id", true)
-      .maybeSingle(),
+    supabase.from("app_config").select("launch_at").eq("id", true).maybeSingle(),
   ]);
 
   const list = filleulsRes.data ?? [];
 
-  // Palier VIP : seuil à 10 filleuls (= cap). Le bonus exceptionnel
-  // +5,00 € s'applique en lieu et place du ×2 fondateur, uniquement
-  // sur les campagnes dont le budget total dépasse 300,00 €.
-  // Le UI dashboard utilise ces 4 champs pour expliquer la mécanique.
-  const vipEligible = list.length >= VIP_FILLEUL_THRESHOLD;
-
   return NextResponse.json({
-    refCode,
+    refCode: status.refCode,
     launchAt: configRes.data?.launch_at ?? null,
-    cap: REFERRER_CAP,
-    count: list.length,
-    remaining: Math.max(0, REFERRER_CAP - list.length),
-    vipEligible,
+    cap: status.cap,
+    count: status.count,
+    remaining: status.remaining,
+    // Nouveaux champs :
+    badgeTier: status.badgeTier,
+    founderNumber: status.founderNumber,
+    isFounder: status.isFounder,
+    // Champs VIP conservés (rétro-compat) :
+    vipEligible: status.count >= VIP_FILLEUL_THRESHOLD,
     vipThreshold: VIP_FILLEUL_THRESHOLD,
     vipBudgetMinEur: VIP_BUDGET_MIN_CENTS / 100,
     vipFlatBonusEur: VIP_FLAT_BONUS_CENTS / 100,
