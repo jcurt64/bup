@@ -1869,7 +1869,7 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 
 // Badge couronne de parrainage (palier selon le nombre de filleuls).
 const REFERRAL_TIERS = [
-  { tier: 'cuivre', label: 'Bronze', range: '1–2 filleuls', color: '#B87333', advantage: 'Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul.' },
+  { tier: 'cuivre', label: 'Bronze', range: '1–2 filleuls', color: '#B87333', advantage: 'Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul (1er mois post-lancement).' },
   { tier: 'argent', label: 'Argent', range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Prioritaire : tous les avantages Bronze + accès aux offres flash 1 h avant tout le monde.' },
   { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#E6B422', advantage: 'Governor : tous les avantages + consulté·e par BUUPP sur les nouveautés (droit de vote).' },
 ];
