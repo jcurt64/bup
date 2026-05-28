@@ -6444,10 +6444,6 @@ function Parrainage() {
   const filleuls = data?.filleuls || [];
   const count = data?.count ?? filleuls.length;
   const capReached = count >= cap;
-  const vipThreshold = data?.vipThreshold ?? 10;
-  const vipBudgetMinEur = data?.vipBudgetMinEur ?? 300;
-  const vipFlatBonusEur = data?.vipFlatBonusEur ?? 5;
-  const vipEligible = data?.vipEligible === true;
   const link = 'buupp.com/ref/' + refCode;
 
   // Fenêtre de validité du lien : ouverte tant que `now < launchAt`.
@@ -6478,34 +6474,26 @@ function Parrainage() {
   return (
     <div className="col gap-6">
       <SectionTitle
-        eyebrow="Parrainage = statut Fondateur·ice"
-        title="Recommandez, débloquez le palier VIP"
-        desc={`Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Bonus ×2 sur vos gains pendant 1 mois post-lancement. À ${vipThreshold} filleuls (cap), vous passez VIP : +${vipFlatBonusEur} € exceptionnels par acceptation, sur acceptation du professionnel.`}
+        eyebrow="Parrainage = avantages fondateur"
+        title="Recommandez, montez de palier"
+        desc="Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs (1er mois post-lancement) : Bronze (1-2) — bonus de 50 % des coins sur la 1ʳᵉ acceptation de chaque filleul ; Argent (3-9) — accès aux offres flash 20 min avant tout le monde ; Or (10) — statut Governor, consulté·e sur les nouveautés."
       />
 
-      {vipEligible && !loading && (
-        <div className="card" style={{
-          padding: 18,
-          background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 60%, #FCD34D 100%)',
-          border: '1px solid #F59E0B',
-          color: '#78350F',
-          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-        }}>
-          <div style={{
-            fontSize: 28, lineHeight: 1, flexShrink: 0,
-          }} aria-hidden="true">🏆</div>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 4 }}>
-              Palier VIP atteint
-            </div>
-            <div style={{ fontSize: 14, lineHeight: 1.55 }}>
-              Bravo — vous avez {count} filleuls. Sur acceptation du professionnel,
-              chaque acceptation vous rapporte <strong>+{vipFlatBonusEur} € exceptionnels</strong>
-              {' '}(à la place du ×2 standard), pendant le 1er mois post-lancement.
+      {!loading && data?.badgeTier && (() => {
+        const t = REFERRAL_TIERS.find((x) => x.tier === data.badgeTier);
+        if (!t) return null;
+        return (
+          <div className="card" style={{ padding: 18, background: `color-mix(in oklab, ${t.color} 12%, var(--paper))`, border: `1px solid ${t.color}`, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }} aria-hidden="true">👑</div>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 4 }}>
+                Palier {t.label} atteint
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.55 }}>{t.advantage}</div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="card ref-link-card" style={{ padding: 28, background: 'var(--ink)', color: 'var(--paper)' }}>
         <div className="ref-link-head row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
@@ -6638,12 +6626,12 @@ function Parrainage() {
         {[
           ['Filleuls actifs', loading ? '…' : String(count), `/ ${cap} max`],
           ['Places restantes', loading ? '…' : String(Math.max(0, cap - count)), 'avant plafond'],
-          ['Bonus actuel', loading ? '…' : (vipEligible ? `+${vipFlatBonusEur} €` : '×2'), vipEligible ? 'sur acceptation du pro' : '1er mois post-lancement'],
-          ['Statut', vipEligible ? 'VIP' : (count > 0 ? 'Actif' : 'En attente'), vipEligible ? 'Palier débloqué' : (count >= cap ? 'Plafond atteint' : 'Invitez vos proches')],
+          ['Votre palier', loading ? '…' : (REFERRAL_TIERS.find((x) => x.tier === data?.badgeTier)?.label ?? '—'), count > 0 ? 'avantages débloqués' : 'invitez pour débloquer'],
+          ['Statut', count > 0 ? 'Actif' : 'En attente', count >= cap ? 'Plafond atteint' : 'Invitez vos proches'],
         ].map(([l, v, s], i) => (
           <div key={i} className="card" style={{ padding: 20 }}>
             <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{l}</div>
-            <div className="serif tnum" style={{ fontSize: 30, color: (i === 3 && vipEligible) || (i === 2 && vipEligible) ? '#B45309' : undefined }}>{v}</div>
+            <div className="serif tnum" style={{ fontSize: 30, color: undefined }}>{v}</div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{s}</div>
           </div>
         ))}
@@ -6682,7 +6670,7 @@ function Parrainage() {
               )}
               {!loading && filleuls.length === 0 && (
                 <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>
-                  Vous n'avez pas encore de filleul. Partagez votre lien pour gagner les avantages VIP.
+                  Vous n'avez pas encore de filleul. Partagez votre lien pour débloquer vos avantages fondateur.
                 </td></tr>
               )}
               {!loading && filleuls.map((f, i) => {

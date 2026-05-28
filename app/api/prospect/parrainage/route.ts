@@ -17,11 +17,6 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getReferralStatus } from "@/lib/waitlist/referral";
-import {
-  VIP_FILLEUL_THRESHOLD,
-  VIP_BUDGET_MIN_CENTS,
-  VIP_FLAT_BONUS_CENTS,
-} from "@/lib/founders";
 
 export const runtime = "nodejs";
 
@@ -64,15 +59,9 @@ export async function GET() {
     cap: status.cap,
     count: status.count,
     remaining: status.remaining,
-    // Nouveaux champs :
     badgeTier: status.badgeTier,
     founderNumber: status.founderNumber,
     isFounder: status.isFounder,
-    // Champs VIP conservés (rétro-compat) :
-    vipEligible: status.count >= VIP_FILLEUL_THRESHOLD,
-    vipThreshold: VIP_FILLEUL_THRESHOLD,
-    vipBudgetMinEur: VIP_BUDGET_MIN_CENTS / 100,
-    vipFlatBonusEur: VIP_FLAT_BONUS_CENTS / 100,
     filleuls: list.map((f) => ({
       prenom: f.prenom,
       nom: f.nom,
