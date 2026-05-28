@@ -65,6 +65,8 @@ export default function ParrainageScreen() {
           const launchMs = d.launchAt ? new Date(d.launchAt).getTime() : null;
           const hasLaunch = launchMs != null && !Number.isNaN(launchMs);
           const expired = hasLaunch && now >= launchMs;
+          const capReached = (d?.count ?? 0) >= (d?.cap ?? 10);
+          const linkDisabled = expired || capReached;
           const cd = hasLaunch ? splitCountdown(launchMs - now) : null;
           const urgent =
             hasLaunch && !expired && launchMs - now <= 86_400_000;
@@ -92,29 +94,25 @@ export default function ParrainageScreen() {
                 <View className="mt-3 flex-row gap-3">
                   <Pressable
                     className="flex-1 items-center rounded-full bg-paper py-2.5"
-                    disabled={expired}
-                    style={expired ? { opacity: 0.5 } : undefined}
+                    disabled={linkDisabled}
+                    style={linkDisabled ? { opacity: 0.5 } : undefined}
                     onPress={async () => {
-                      if (expired) return;
+                      if (linkDisabled) return;
                       await Clipboard.setStringAsync(d.refCode);
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
                   >
                     <Text className="text-sm font-semibold text-ink">
-                      {expired
-                        ? "Lien expiré"
-                        : copied
-                          ? "Copié ✓"
-                          : "Copier"}
+                      {capReached ? "Plafond atteint" : expired ? "Lien expiré" : copied ? "Copié ✓" : "Copier"}
                     </Text>
                   </Pressable>
                   <Pressable
                     className="flex-1 items-center rounded-full border border-paper/30 py-2.5"
-                    disabled={expired}
-                    style={expired ? { opacity: 0.5 } : undefined}
+                    disabled={linkDisabled}
+                    style={linkDisabled ? { opacity: 0.5 } : undefined}
                     onPress={() => {
-                      if (expired) return;
+                      if (linkDisabled) return;
                       Share.share({
                         message: `Rejoins BUUPP avec mon code ${d.refCode} : https://www.buupp.com/inscription/prospect?ref=${d.refCode}`,
                       });
@@ -125,6 +123,11 @@ export default function ParrainageScreen() {
                     </Text>
                   </Pressable>
                 </View>
+                {capReached ? (
+                  <Text className="mt-3 text-[12.5px] leading-5 text-paper/80">
+                    Plafond de {d.cap} filleuls atteint — votre lien est désormais désactivé. Bravo !
+                  </Text>
+                ) : null}
               </Card>
 
               {hasLaunch && !expired && cd ? (
