@@ -130,6 +130,9 @@ export type Parrainage = {
   cap: number;
   count: number;
   remaining: number;
+  badgeTier: "cuivre" | "argent" | "or" | null;
+  founderNumber: number | null;
+  isFounder: boolean;
   vipEligible: boolean;
   vipThreshold: number;
   vipBudgetMinEur: number;
