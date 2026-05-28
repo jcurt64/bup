@@ -211,43 +211,66 @@ export default function ParrainageScreen() {
               </View>
               <View className="flex-row gap-3">
                 <Stat
-                  label="Bonus actuel"
-                  value={d.vipEligible ? `+${d.vipFlatBonusEur} €` : "×2"}
-                  hint={
-                    d.vipEligible
-                      ? `flat (budget > ${d.vipBudgetMinEur} €)`
-                      : "1er mois post-lancement"
+                  label="Votre palier"
+                  value={
+                    d.badgeTier === "or"
+                      ? "Or"
+                      : d.badgeTier === "argent"
+                        ? "Argent"
+                        : d.badgeTier === "cuivre"
+                          ? "Bronze"
+                          : "—"
                   }
-                  accent={d.vipEligible}
+                  hint={
+                    d.badgeTier === "or"
+                      ? "Governor"
+                      : d.badgeTier === "argent"
+                        ? "Flash 20 min avant"
+                        : d.badgeTier === "cuivre"
+                          ? "Bonus 50 % coins"
+                          : "Invitez vos proches"
+                  }
+                  accent={d.badgeTier != null}
                 />
                 <Stat
                   label="Statut"
-                  value={
-                    d.vipEligible
-                      ? "VIP"
-                      : d.count > 0
-                        ? "Actif"
-                        : "En attente"
-                  }
+                  value={d.count > 0 ? "Actif" : "En attente"}
                   hint={
-                    d.vipEligible
-                      ? "Palier débloqué"
-                      : d.count >= d.cap
-                        ? "Plafond atteint"
-                        : "Invitez vos proches"
+                    d.count >= d.cap
+                      ? "Plafond atteint"
+                      : "Invitez vos proches"
                   }
-                  accent={d.vipEligible}
                 />
               </View>
 
-              {d.vipEligible ? (
-                <Card>
-                  <Text className="text-sm text-good">
-                    ✓ Éligible VIP ({d.vipThreshold} filleuls) — bonus{" "}
-                    {d.vipFlatBonusEur} €
-                  </Text>
-                </Card>
-              ) : null}
+              <Card badge={{ icon: "trophy-outline", tone: "amber" }}>
+                <Text className="font-serif text-base text-ink">
+                  Avantages fondateur·ice (1er mois post-lancement)
+                </Text>
+                <Text className="mt-1.5 text-[13px] leading-5 text-ink-3">
+                  Inscrire un filleul le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs :
+                </Text>
+                <View className="mt-3 gap-2">
+                  <View className="flex-row items-start gap-2">
+                    <Text className="text-[13px] font-semibold text-amber">Bronze</Text>
+                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
+                      (1-2 filleuls) — Bonus 50 % des BUUPP coins sur la 1ʳᵉ acceptation de chaque filleul.
+                    </Text>
+                  </View>
+                  <View className="flex-row items-start gap-2">
+                    <Text className="text-[13px] font-semibold text-ink-3">Argent</Text>
+                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
+                      (3-9 filleuls) — Prioritaire : accès aux offres flash 20 min avant tout le monde.
+                    </Text>
+                  </View>
+                  <View className="flex-row items-start gap-2">
+                    <Text className="text-[13px] font-semibold text-gold">Or</Text>
+                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
+                      (10 filleuls) — Governor : consulté·e par BUUPP sur les nouveautés, droit de vote.
+                    </Text>
+                  </View>
+                </View>
+              </Card>
 
               <Card badge={{ icon: "people-outline", tone: "coral" }}>
                 <View className="flex-row items-center justify-between">
@@ -278,7 +301,7 @@ export default function ParrainageScreen() {
                 ) : (
                   <Text className="mt-1 text-xs text-ink-4">
                     Vous n&apos;avez pas encore de filleul. Partagez votre
-                    lien pour gagner les avantages VIP.
+                    lien pour débloquer vos avantages fondateur·ice.
                   </Text>
                 )}
               </Card>
