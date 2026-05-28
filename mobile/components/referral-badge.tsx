@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 
 export type BadgeTier = "cuivre" | "argent" | "or";
 
@@ -15,9 +16,9 @@ const TIER_GRADIENT: Record<BadgeTier, [string, string]> = {
 };
 
 const TIERS: { tier: BadgeTier; label: string; range: string; advantage: string }[] = [
-  { tier: "cuivre", label: "Cuivre", range: "1–2 filleuls", advantage: "Avantage à venir" },
-  { tier: "argent", label: "Argent", range: "3–9 filleuls", advantage: "Avantage à venir" },
-  { tier: "or", label: "Or", range: "10 filleuls", advantage: "Avantage à venir" },
+  { tier: "cuivre", label: "Bronze", range: "1–2 filleuls", advantage: "Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul." },
+  { tier: "argent", label: "Argent", range: "3–9 filleuls", advantage: "Prioritaire : tous les avantages Bronze + accès aux offres flash 1 h avant tout le monde." },
+  { tier: "or", label: "Or", range: "10 filleuls", advantage: "Governor : tous les avantages + consulté·e par BUUPP sur les nouveautés (droit de vote)." },
 ];
 
 function CrownPill({ tier, size = 22 }: { tier: BadgeTier; size?: number }) {
@@ -85,6 +86,20 @@ export function ReferralBadge({
                 );
               })}
             </View>
+
+            {tier !== "or" ? (
+              <View className="mt-4 rounded-2xl p-3" style={{ backgroundColor: "rgba(124,92,252,0.08)", borderWidth: 1, borderColor: "rgba(124,92,252,0.25)" }}>
+                <Text className="text-[13px] leading-5 text-ink-2">
+                  Parrainez des prospects pour monter de palier et devenir un <Text className="font-semibold">Golden Buupper</Text>. Votre lien est dans l'onglet Parrainage.
+                </Text>
+                <Pressable
+                  onPress={() => { setOpen(false); router.push("/(prospect)/parrainage"); }}
+                  className="mt-3 items-center rounded-full bg-violet py-2.5"
+                >
+                  <Text className="text-sm font-semibold text-paper">Voir mon lien de parrainage →</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             <Pressable className="mt-4 items-center rounded-full border border-ink/15 py-3" onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer">
               <Text className="font-semibold text-ink">Fermer</Text>
