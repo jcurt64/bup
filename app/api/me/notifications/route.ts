@@ -84,22 +84,18 @@ export async function GET() {
   // S'applique aussi aux broadcasts ciblés par sécurité — l'admin ne
   // pourrait techniquement pas viser un user inexistant, mais on borne
   // par cohérence avec la règle générale.
-  // Cast volontaire : `founders_gold` n'est pas encore dans l'enum DB Supabase
-  // (migration manuelle à venir via SQL Editor). PostgREST accepte la valeur.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const audiencesForQuery = audiences as any[];
   const audienceQuery = admin
     .from("admin_broadcasts")
     .select(SELECT_COLS)
     .is("target_clerk_user_id", null)
-    .in("audience", audiencesForQuery)
+    .in("audience", audiences)
     .order("created_at", { ascending: false })
     .limit(LIST_CAP);
   const targetedQuery = admin
     .from("admin_broadcasts")
     .select(SELECT_COLS)
     .eq("target_clerk_user_id", userId)
-    .in("audience", audiencesForQuery)
+    .in("audience", audiences)
     .order("created_at", { ascending: false })
     .limit(LIST_CAP);
   if (userSignupAt) {

@@ -102,16 +102,12 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdminClient();
 
   // 1. Insert de la row d'abord — on a besoin de l'id pour le path Storage.
-  // `founders_gold` n'est pas encore dans l'enum DB Supabase (migration
-  // manuelle prévue via SQL Editor) — cast volontaire le temps de la migration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const audienceForInsert = audience as any;
   const { data: created, error: insertErr } = await admin
     .from("admin_broadcasts")
     .insert({
       title,
       body,
-      audience: audienceForInsert,
+      audience,
       created_by_admin_id: adminUserId,
     })
     .select("id")

@@ -51,9 +51,7 @@ export async function POST(
     admin.from("prospects").select("id").eq("clerk_user_id", userId).maybeSingle(),
   ]);
   const role: "pro" | "prospect" | null = proRow ? "pro" : prospectRow ? "prospect" : null;
-  // Cast volontaire : `founders_gold` n'est pas encore dans l'enum DB Supabase
-  // (migration manuelle à venir). La valeur est bien stockée et relue en DB.
-  const broadcastAudience = broadcast.audience as string;
+  const broadcastAudience = broadcast.audience;
   let gold = false;
   if (broadcastAudience === "founders_gold" && role === "prospect" && prospectRow) {
     const { data: idRow } = await admin

@@ -56,9 +56,7 @@ export async function DELETE(
   ]);
   const role: "pro" | "prospect" | null = proRow ? "pro" : prospectRow ? "prospect" : null;
   const isTargeted = broadcast.target_clerk_user_id === userId;
-  // Cast volontaire : `founders_gold` n'est pas encore dans l'enum DB Supabase
-  // (migration manuelle à venir). La valeur est bien stockée et relue en DB.
-  const broadcastAudience = broadcast.audience as string;
+  const broadcastAudience = broadcast.audience;
   let gold = false;
   if (broadcastAudience === "founders_gold" && role === "prospect" && prospectRow) {
     const { data: idRow } = await admin

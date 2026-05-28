@@ -1455,7 +1455,7 @@ export type Database = {
     }
     Enums: {
       account_kind: "prospect" | "pro"
-      admin_broadcast_audience: "prospects" | "pros" | "all"
+      admin_broadcast_audience: "prospects" | "pros" | "all" | "founders_gold"
       admin_event_severity: "info" | "warning" | "critical"
       campaign_status: "draft" | "active" | "paused" | "completed" | "canceled"
       campaign_type:
@@ -1622,7 +1622,7 @@ export const Constants = {
   public: {
     Enums: {
       account_kind: ["prospect", "pro"],
-      admin_broadcast_audience: ["prospects", "pros", "all"],
+      admin_broadcast_audience: ["prospects", "pros", "all", "founders_gold"],
       admin_event_severity: ["info", "warning", "critical"],
       campaign_status: ["draft", "active", "paused", "completed", "canceled"],
       campaign_type: [
