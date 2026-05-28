@@ -6320,6 +6320,7 @@ function Parrainage() {
   const cap = data?.cap ?? 10;
   const filleuls = data?.filleuls || [];
   const count = data?.count ?? filleuls.length;
+  const capReached = count >= cap;
   const vipThreshold = data?.vipThreshold ?? 10;
   const vipBudgetMinEur = data?.vipBudgetMinEur ?? 300;
   const vipFlatBonusEur = data?.vipFlatBonusEur ?? 5;
@@ -6332,6 +6333,7 @@ function Parrainage() {
   const launchMs = data?.launchAt ? new Date(data.launchAt).getTime() : null;
   const hasLaunch = launchMs != null && !Number.isNaN(launchMs);
   const expired = hasLaunch && now >= launchMs;
+  const linkDisabled = expired || capReached;
   const linkActive = !expired;
   const cd = hasLaunch ? splitCountdown(launchMs - now) : null;
   // Dernière ligne droite : il reste moins de 24 h. On passe UNIQUEMENT
@@ -6393,25 +6395,32 @@ function Parrainage() {
           <div className="ref-link-actions row gap-2">
             <button
               className="btn"
-              disabled={loading || !data || expired}
-              title={expired ? 'Lien expiré — la phase de pré-inscription est terminée' : undefined}
-              style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: (loading || expired) ? 0.5 : 1, cursor: expired ? 'not-allowed' : undefined }}
+              disabled={loading || !data || linkDisabled}
+              title={capReached ? 'Plafond de 10 filleuls atteint' : expired ? 'Lien expiré — la phase de pré-inscription est terminée' : undefined}
+              style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: (loading || linkDisabled) ? 0.5 : 1, cursor: linkDisabled ? 'not-allowed' : undefined }}
               onClick={async () => {
-                if (expired) return;
+                if (linkDisabled) return;
                 const ok = await copyTextRobust(link);
                 if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
                 else { setCopyErr(true); setTimeout(() => setCopyErr(false), 2500); }
               }}>
-              <Icon name="copy" size={14}/> {expired ? 'Lien expiré' : copied ? 'Copié !' : copyErr ? 'Échec — copiez à la main' : 'Copier'}
+              <Icon name="copy" size={14}/> {capReached ? 'Plafond atteint' : expired ? 'Lien expiré' : copied ? 'Copié !' : copyErr ? 'Échec — copiez à la main' : 'Copier'}
             </button>
             <button
               className="btn btn-ghost"
-              disabled={expired}
-              style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)', opacity: expired ? 0.5 : 1, cursor: expired ? 'not-allowed' : undefined }}>
+              disabled={linkDisabled}
+              style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.3)', opacity: linkDisabled ? 0.5 : 1, cursor: linkDisabled ? 'not-allowed' : undefined }}>
               <Icon name="ext" size={14}/> Partager
             </button>
           </div>
         </div>
+
+        {capReached && (
+          <div className="ref-cap-banner" style={{ marginTop: 18, padding: 14, borderRadius: 12,
+            background: 'rgba(212,175,55,.14)', border: '1px solid #D4AF37', color: 'var(--paper)' }}>
+            Plafond de {cap} filleuls atteint — votre lien de parrainage est désormais désactivé. Bravo !
+          </div>
+        )}
 
         {hasLaunch && !expired && (
           <div
