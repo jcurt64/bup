@@ -538,7 +538,7 @@ function ProspectDashboardInner({ go, initialTab }) {
   const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
   return (
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
-      header={<ProspectHeader />} overrideName={overrideName}>
+      header={<ProspectHeader onNav={setSec} />} overrideName={overrideName}>
       {sec === 'portefeuille' && <Portefeuille pendingDetail={pendingDetail} onPendingConsumed={() => setPendingDetail(null)}/>}
       {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
       {sec === 'relations' && <Relations />}
@@ -1869,9 +1869,9 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 
 // Badge couronne de parrainage (palier selon le nombre de filleuls).
 const REFERRAL_TIERS = [
-  { tier: 'cuivre', label: 'Cuivre', range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage à venir' },
-  { tier: 'argent', label: 'Argent', range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Avantage à venir' },
-  { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#E6B422', advantage: 'Avantage à venir' },
+  { tier: 'cuivre', label: 'Bronze', range: '1–2 filleuls', color: '#B87333', advantage: 'Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul.' },
+  { tier: 'argent', label: 'Argent', range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Prioritaire : tous les avantages Bronze + accès aux offres flash 1 h avant tout le monde.' },
+  { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#E6B422', advantage: 'Governor : tous les avantages + consulté·e par BUUPP sur les nouveautés (droit de vote).' },
 ];
 const REFERRAL_TIER_COLOR = Object.fromEntries(REFERRAL_TIERS.map(t => [t.tier, t.color]));
 
@@ -1936,7 +1936,7 @@ function CrownSvg({ color, size = 16, shiny = false }) {
   );
 }
 
-function ReferralBadgePopup({ tier, founderNumber, onClose }) {
+function ReferralBadgePopup({ tier, founderNumber, onClose, onNav }) {
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="referral-popup-title" onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -1967,13 +1967,26 @@ function ReferralBadgePopup({ tier, founderNumber, onClose }) {
             );
           })}
         </div>
+        {tier !== 'or' && (
+          <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 12, background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))', border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))' }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-2, var(--ink))' }}>
+              Parrainez des prospects pour monter de palier et devenir un <strong>Golden Buupper</strong>. Votre lien de parrainage se trouve dans l'onglet Parrainage.
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); if (onNav) onNav('parrainage'); }}
+              style={{ marginTop: 12, width: '100%', padding: '10px 14px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--accent)', color: 'var(--paper)', fontWeight: 600, fontSize: 14 }}>
+              Voir mon lien de parrainage →
+            </button>
+          </div>
+        )}
         <button className="btn btn-ghost" style={{ marginTop: 18, width: '100%' }} onClick={onClose}>Fermer</button>
       </div>
     </div>
   );
 }
 
-function ReferralBadge({ tier, founderNumber }) {
+function ReferralBadge({ tier, founderNumber, onNav }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1990,12 +2003,12 @@ function ReferralBadge({ tier, founderNumber }) {
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 8, padding: '2px 8px', borderRadius: 999, border: `1px solid ${color}`, background: `color-mix(in oklab, ${color} 14%, var(--paper))`, cursor: 'pointer' }}>
         <CrownSvg color={color} size={14} shiny={tier === 'or'} />
       </button>
-      {open && <ReferralBadgePopup tier={tier} founderNumber={founderNumber} onClose={() => setOpen(false)} />}
+      {open && <ReferralBadgePopup tier={tier} founderNumber={founderNumber} onClose={() => setOpen(false)} onNav={onNav} />}
     </>
   );
 }
 
-function ProspectHeader() {
+function ProspectHeader({ onNav }) {
   const {
     profile,
     pendingRelations, pendingRelationsCount, relationsHydrated,
@@ -2084,7 +2097,7 @@ function ProspectHeader() {
           <div className="mono caps muted" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0 }}>
             — {greeting} {prenom || '—'}
             {parrainage?.badgeTier && (
-              <ReferralBadge tier={parrainage.badgeTier} founderNumber={parrainage.founderNumber} />
+              <ReferralBadge tier={parrainage.badgeTier} founderNumber={parrainage.founderNumber} onNav={onNav} />
             )}
           </div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
