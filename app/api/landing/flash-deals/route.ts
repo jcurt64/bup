@@ -16,11 +16,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
-import {
-  getFounderContext,
-  VIP_BUDGET_MIN_CENTS,
-  VIP_FLAT_BONUS_CENTS,
-} from "@/lib/founders";
+import { getFounderContext } from "@/lib/founders";
 
 export const runtime = "nodejs";
 
@@ -68,8 +64,9 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] founder context failed", e);
   }
 
-  // Fenêtre +10 min : seuls les fondateurs voient un flash deal créé il
-  // y a moins de 10 min. Pour tout le monde d'autre, filtre serveur.
+  // Priorité « prioritaire » (palier argent+) : seuls les fondateurs ayant
+  // au moins 3 filleuls voient un flash deal pendant ses 20 premières
+  // minutes. Au-delà, il devient visible pour tout le monde (filtre serveur).
   let campaignQuery = admin
     .from("campaigns")
     .select(
@@ -82,10 +79,10 @@ export async function GET() {
     .order("ends_at", { ascending: true })
     .limit(20);
 
-  if (!founder.isFounder) {
+  if (founder.filleulCount < 3) {
     campaignQuery = campaignQuery.lt(
       "created_at",
-      new Date(Date.now() - 10 * 60_000).toISOString(),
+      new Date(Date.now() - 20 * 60_000).toISOString(),
     );
   }
 
@@ -191,24 +188,10 @@ export async function GET() {
       ? requiredTierKeys.filter((k) => !tierFilled![k])
       : null;
     const baseCostCents = Number(r.cost_per_contact_cents ?? 0);
-    const campaignBudgetCents = Number(r.budget_cents ?? 0);
-    // Bonus fondateur éligible globalement (toggle pro + fenêtre + statut).
-    const founderBonusEligible =
-      founder.isFounder &&
-      founder.isWithinBonusWindow &&
-      r.founder_bonus_enabled === true;
-    // Palier VIP : 10 filleuls atteints ET budget campagne > 300 €.
-    // Remplace le ×2 standard par un +5 € flat (cf. RPC accept_relation_tx).
-    const founderVipEligible =
-      founderBonusEligible &&
-      founder.isVipEligible &&
-      campaignBudgetCents > VIP_BUDGET_MIN_CENTS;
-    let displayedCostCents = baseCostCents;
-    if (founderVipEligible) {
-      displayedCostCents = baseCostCents + VIP_FLAT_BONUS_CENTS;
-    } else if (founderBonusEligible) {
-      displayedCostCents = baseCostCents * 2;
-    }
+    // Le filleul voit sa récompense normale. Le bonus parrain (50 % à sa
+    // 1ʳᵉ acceptation) est versé au PARRAIN, pas au filleul — il n'apparaît
+    // donc pas comme un gain du prospect courant (cf. RPC accept_relation_tx).
+    const displayedCostCents = baseCostCents;
     return {
       id: r.id,
       name: r.name,
@@ -216,8 +199,8 @@ export async function GET() {
       brief: r.brief,
       multiplier,
       costPerContactCents: displayedCostCents,
-      founderBonusApplied: founderBonusEligible && !founderVipEligible,
-      founderVipBonusApplied: founderVipEligible,
+      founderBonusApplied: false,
+      founderVipBonusApplied: false,
       requiredTiers,
       requiredTierKeys,
       proName: pro?.raison_sociale ?? null,
