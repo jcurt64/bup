@@ -16,7 +16,7 @@ const TIER_GRADIENT: Record<BadgeTier, [string, string]> = {
 };
 
 const TIERS: { tier: BadgeTier; label: string; range: string; advantage: string }[] = [
-  { tier: "cuivre", label: "Bronze", range: "1–2 filleuls", advantage: "Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul." },
+  { tier: "cuivre", label: "Bronze", range: "1–2 filleuls", advantage: "Bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul (1er mois post-lancement)." },
   { tier: "argent", label: "Argent", range: "3–9 filleuls", advantage: "Prioritaire : tous les avantages Bronze + accès aux offres flash 1 h avant tout le monde." },
   { tier: "or", label: "Or", range: "10 filleuls", advantage: "Governor : tous les avantages + consulté·e par BUUPP sur les nouveautés (droit de vote)." },
 ];
