@@ -120,7 +120,7 @@ export default function Portefeuille() {
   const parrainage = useParrainage();
   const badgeTier = parrainage.data?.badgeTier ?? null;
   const founderNumber = parrainage.data?.founderNumber ?? null;
-  useRefetchOnFocus(w, m, verif, score);
+  useRefetchOnFocus(w, m, verif, score, parrainage);
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
@@ -178,7 +178,7 @@ export default function Portefeuille() {
   return (
     <ScrollScreen
       onRefresh={() =>
-        Promise.all([w.refetch(), m.refetch(), verif.refetch(), score.refetch()])
+        Promise.all([w.refetch(), m.refetch(), verif.refetch(), score.refetch(), parrainage.refetch()])
       }
       compactExtras={compactExtras}
     >

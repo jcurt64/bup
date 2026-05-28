@@ -43,7 +43,7 @@ export function ReferralBadge({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Pressable accessibilityLabel="Votre badge de parrainage" onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable accessibilityLabel="Votre badge de parrainage" accessibilityRole="button" onPress={() => setOpen(true)} hitSlop={8}>
         <CrownPill tier={tier} size={22} />
       </Pressable>
 
@@ -52,7 +52,7 @@ export function ReferralBadge({
           onPress={() => setOpen(false)}
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 20 }}
         >
-          <Pressable onPress={() => {}} className="w-full rounded-3xl bg-paper p-5" style={{ maxWidth: 420 }}>
+          <Pressable onPress={() => {}} className="rounded-3xl bg-paper p-5" style={{ width: "100%", maxWidth: 420 }}>
             <View className="flex-row items-center gap-3">
               <CrownPill tier={tier} size={30} />
               {founderNumber != null && (
@@ -86,7 +86,7 @@ export function ReferralBadge({
               })}
             </View>
 
-            <Pressable className="mt-4 items-center rounded-full border border-ink/15 py-3" onPress={() => setOpen(false)}>
+            <Pressable className="mt-4 items-center rounded-full border border-ink/15 py-3" onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer">
               <Text className="font-semibold text-ink">Fermer</Text>
             </Pressable>
           </Pressable>
