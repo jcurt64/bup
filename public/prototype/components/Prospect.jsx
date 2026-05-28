@@ -6388,7 +6388,7 @@ function Parrainage() {
         <div className="ref-link-head row between center" style={{ gap: 24, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <div className="mono caps" style={{ color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>— Votre lien unique</div>
-            <div className="serif ref-link-url" style={{ fontSize: 28, opacity: expired ? 0.45 : 1, textDecoration: expired ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+            <div className="serif ref-link-url" style={{ fontSize: 28, opacity: (expired || capReached) ? 0.45 : 1, textDecoration: expired ? 'line-through' : 'none', wordBreak: 'break-word' }}>
               buupp.com/ref/<em style={{ color: '#A5B4FC' }}>{loading ? '…' : refCode}</em>
             </div>
           </div>
@@ -6396,7 +6396,7 @@ function Parrainage() {
             <button
               className="btn"
               disabled={loading || !data || linkDisabled}
-              title={capReached ? 'Plafond de 10 filleuls atteint' : expired ? 'Lien expiré — la phase de pré-inscription est terminée' : undefined}
+              title={capReached ? `Plafond de ${cap} filleuls atteint` : expired ? 'Lien expiré — la phase de pré-inscription est terminée' : undefined}
               style={{ background: 'var(--paper)', color: 'var(--ink)', opacity: (loading || linkDisabled) ? 0.5 : 1, cursor: linkDisabled ? 'not-allowed' : undefined }}
               onClick={async () => {
                 if (linkDisabled) return;

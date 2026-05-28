@@ -258,6 +258,7 @@ function invalidateProOverview() {
 }
 
 // Cache module-level de l'état de parrainage (badge couronne + numéro).
+// Pas d'invalidation : le palier de parrainage ne change pas en cours de session.
 let _referralCache = null;
 let _referralPromise = null;
 async function fetchReferral() {
@@ -280,7 +281,7 @@ const REFERRAL_TIERS = [
   { tier: 'argent', label: 'Argent', range: '3–9 filleuls',  color: '#9CA3AF', advantage: 'Avantage à venir' },
   { tier: 'or',     label: 'Or',     range: '10 filleuls',   color: '#D4AF37', advantage: 'Avantage à venir' },
 ];
-const REFERRAL_TIER_COLOR = { cuivre: '#B87333', argent: '#9CA3AF', or: '#D4AF37' };
+const REFERRAL_TIER_COLOR = Object.fromEntries(REFERRAL_TIERS.map(t => [t.tier, t.color]));
 
 function CrownSvg({ color, size = 16 }) {
   return (
@@ -299,7 +300,7 @@ function CrownSvg({ color, size = 16 }) {
 
 function ReferralBadgePopup({ tier, founderNumber, onClose }) {
   return (
-    <div role="dialog" aria-modal="true"
+    <div role="dialog" aria-modal="true" aria-labelledby="referral-popup-title"
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,.45)', display: 'flex',
@@ -316,7 +317,7 @@ function ReferralBadgePopup({ tier, founderNumber, onClose }) {
             </span>
           )}
         </div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+        <div id="referral-popup-title" className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
           Votre palier de parrainage
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -355,6 +356,12 @@ function ReferralBadge() {
     fetchReferral().then(j => { if (!cancelled) setRef(j); });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open]);
   if (!ref || !ref.badgeTier) return null;
   const color = REFERRAL_TIER_COLOR[ref.badgeTier] || '#9CA3AF';
   return (
@@ -362,6 +369,7 @@ function ReferralBadge() {
       <button
         type="button"
         title="Votre badge de parrainage"
+        aria-label="Voir votre badge de parrainage"
         onClick={() => setOpen(true)}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
           marginLeft: 8, padding: '2px 8px', borderRadius: 999,
