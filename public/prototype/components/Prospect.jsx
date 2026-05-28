@@ -1948,7 +1948,7 @@ function ReferralBadge({ tier, founderNumber }) {
 
 function ProspectHeader() {
   const {
-    profile, isFounder,
+    profile,
     pendingRelations, pendingRelationsCount, relationsHydrated,
   } = useProspect() || {};
   const prenom = profile?.identity?.prenom || 'Marie';
@@ -2034,27 +2034,6 @@ function ProspectHeader() {
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0 }}>
             — {greeting} {prenom || '—'}
-            {isFounder && (
-              <span
-                title="Vous êtes fondateur·ice — priorité 10 min sur les flash deals + bonus 2× le 1er mois"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '3px 10px',
-                  borderRadius: 999,
-                  background: '#FFF1B8',
-                  color: '#5C4400',
-                  border: '1px solid #F2C879',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: '.04em',
-                  marginLeft: 8,
-                }}
-              >
-                🎖️ Fondateur·ice
-              </span>
-            )}
             {parrainage?.badgeTier && (
               <ReferralBadge tier={parrainage.badgeTier} founderNumber={parrainage.founderNumber} />
             )}
