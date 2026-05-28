@@ -14,6 +14,7 @@ vi.mock("@/lib/supabase/server", () => ({
 const getReferralStatusMock = vi.fn();
 vi.mock("@/lib/waitlist/referral", () => ({
   getReferralStatus: (...args: unknown[]) => getReferralStatusMock(...args),
+  REFERRER_CAP: 10,
 }));
 
 describe("GET /api/me/referral", () => {

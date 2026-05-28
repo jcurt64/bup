@@ -20,7 +20,7 @@ export function referralBadgeTier(count: number): ReferralBadgeTier | null {
   return null;
 }
 
-const REFERRER_CAP = 10;
+export const REFERRER_CAP = 10;
 
 export type ReferralStatus = {
   refCode: string;
@@ -48,24 +48,26 @@ export async function getReferralStatus(
   const refCode = row?.ref_code ?? refCodeFromEmail(email);
   const isFounder = !!row;
 
-  // 2. Nombre de filleuls (count head, pas de payload).
-  const { count: filleulCount } = await admin
-    .from("waitlist")
-    .select("id", { count: "exact", head: true })
-    .eq("referrer_ref_code", refCode);
+  // 2 & 3 en parallèle (indépendants) : nombre de filleuls + rang d'inscription.
+  //   - filleuls = rows dont referrer_ref_code = mon refCode
+  //   - rang = nb de rows inscrites à <= ma date de création (1-based)
+  const rankQuery = row?.created_at
+    ? admin
+        .from("waitlist")
+        .select("id", { count: "exact", head: true })
+        .lte("created_at", row.created_at)
+    : null;
 
-  const count = filleulCount ?? 0;
-
-  // 3. Rang d'inscription (uniquement si inscrit). Rang = nb de rows
-  //    inscrites à <= ma date de création.
-  let founderNumber: number | null = null;
-  if (row?.created_at) {
-    const { count: rank } = await admin
+  const [countRes, rankRes] = await Promise.all([
+    admin
       .from("waitlist")
       .select("id", { count: "exact", head: true })
-      .lte("created_at", row.created_at);
-    founderNumber = rank ?? null;
-  }
+      .eq("referrer_ref_code", refCode),
+    rankQuery,
+  ]);
+
+  const count = countRes.count ?? 0;
+  const founderNumber = rankRes?.count ?? null;
 
   return {
     refCode,

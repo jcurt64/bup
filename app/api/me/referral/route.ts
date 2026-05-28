@@ -7,15 +7,15 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { getReferralStatus } from "@/lib/waitlist/referral";
+import { getReferralStatus, REFERRER_CAP } from "@/lib/waitlist/referral";
 
 export const runtime = "nodejs";
 
 const EMPTY = {
   refCode: "",
   count: 0,
-  cap: 10,
-  remaining: 10,
+  cap: REFERRER_CAP,
+  remaining: REFERRER_CAP,
   badgeTier: null,
   founderNumber: null,
   isFounder: false,
