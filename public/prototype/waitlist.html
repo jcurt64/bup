@@ -502,6 +502,35 @@
         text-transform: uppercase;
         letter-spacing: 1px;
       }
+      /* Compte à rebours segmenté de l'encart « Lancement » (j/h/min/s live). */
+      .lc-item-cd { min-width: 150px; }
+      .lc-cd {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-family: "DM Mono", monospace;
+        line-height: 1;
+      }
+      .lc-cd-seg {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+      }
+      .lc-cd-seg b {
+        font-size: 24px;
+        font-weight: 900;
+        color: var(--gold);
+        letter-spacing: -1px;
+      }
+      .lc-cd-seg i {
+        font-size: 9px;
+        font-style: normal;
+        color: var(--muted2);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
 
       /* ═══════════════════════════════════════════════════════════════════
    MAIN LAYOUT : waitlist + calculator side by side
@@ -2038,8 +2067,13 @@
             <div class="lc-val" id="ctr-villes">0</div>
             <div class="lc-label">Villes</div>
           </div>
-          <div class="lc-item">
-            <div class="lc-val">J-<span id="ctr-days">23</span></div>
+          <div class="lc-item lc-item-cd">
+            <div class="lc-cd" aria-label="Compte à rebours avant le lancement">
+              <span class="lc-cd-seg"><b id="cd-d">—</b><i>j</i></span>
+              <span class="lc-cd-seg"><b id="cd-h">—</b><i>h</i></span>
+              <span class="lc-cd-seg"><b id="cd-m">—</b><i>min</i></span>
+              <span class="lc-cd-seg"><b id="cd-s">—</b><i>s</i></span>
+            </div>
             <div class="lc-label">Lancement</div>
           </div>
           <div class="lc-item">
@@ -2877,33 +2911,37 @@
       }
       function updateCountdown() {
         const cdEl = document.getElementById("countdown");
-        const ctrEl = document.getElementById("ctr-days");
+        const dEl = document.getElementById("cd-d");
+        const hEl = document.getElementById("cd-h");
+        const mEl = document.getElementById("cd-m");
+        const sEl = document.getElementById("cd-s");
+        const pad = (n) => String(n).padStart(2, "0");
+        const setCard = (d, h, m, s) => {
+          if (dEl) dEl.textContent = d;
+          if (hEl) hEl.textContent = h;
+          if (mEl) mEl.textContent = m;
+          if (sEl) sEl.textContent = s;
+        };
         if (!launchDate) {
           if (cdEl) cdEl.textContent = "—";
-          if (ctrEl) ctrEl.textContent = "—";
+          setCard("—", "—", "—", "—");
           return;
         }
         const diff = launchDate.getTime() - Date.now();
         if (diff <= 0) {
           if (cdEl) cdEl.textContent = "ouvert ✓";
-          if (ctrEl) ctrEl.textContent = "0";
+          setCard("0", "00", "00", "00");
           return;
         }
         const days = Math.floor(diff / 86_400_000);
         const hours = Math.floor((diff % 86_400_000) / 3_600_000);
         const mins = Math.floor((diff % 3_600_000) / 60_000);
         const secs = Math.floor((diff % 60_000) / 1000);
-        // Format adaptatif : > 1 jour → "X jours" ; > 1 h → "X h Y min" ;
-        // < 1 h → "X min Y s" pour suivre le décompte minute par minute.
-        let label;
-        if (days >= 1) label = days + " jour" + (days > 1 ? "s" : "");
-        else if (hours >= 1)
-          label = hours + " h " + String(mins).padStart(2, "0") + " min";
-        else
-          label =
-            mins + " min " + String(secs).padStart(2, "0") + " s";
-        if (cdEl) cdEl.textContent = label;
-        if (ctrEl) ctrEl.textContent = days >= 1 ? String(days) : label;
+        // Vrai compte à rebours live j/h/m/s — header compact + segments du card.
+        if (cdEl)
+          cdEl.textContent =
+            days + "j " + pad(hours) + "h " + pad(mins) + "m " + pad(secs) + "s";
+        setCard(String(days), pad(hours), pad(mins), pad(secs));
       }
       // Override simulation : ?simulate-launch=3 → lance dans 3 minutes
       // (testable sans toucher à la DB ; le verrou empêche la réponse de
@@ -2940,7 +2978,7 @@
           );
 
           // Badge auto-suffisant en haut à droite : affiche son propre
-          // countdown sans dépendre de #countdown / #ctr-days.
+          // countdown sans dépendre du compteur principal (#countdown / segments j/h/m/s).
           const badge = document.createElement("div");
           badge.style.cssText =
             "position:fixed;top:8px;right:8px;z-index:10000;" +
