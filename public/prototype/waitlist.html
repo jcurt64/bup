@@ -1932,6 +1932,7 @@
               style="height: 49px; width: auto; display: block" /></picture
         ></a>
         <div class="nav-pill">
+          <span aria-hidden="true" style="font-size: 14px; line-height: 1">🚀</span>
           <div class="pulse-dot" aria-hidden="true"></div>
           <span>Lancement dans <span id="countdown">23 jours</span></span>
         </div>
@@ -2071,7 +2072,7 @@
             <div class="lc-cd" aria-label="Compte à rebours avant le lancement">
               <span class="lc-cd-seg"><b id="cd-d">—</b><i>j</i></span>
               <span class="lc-cd-seg"><b id="cd-h">—</b><i>h</i></span>
-              <span class="lc-cd-seg"><b id="cd-m">—</b><i>min</i></span>
+              <span class="lc-cd-seg"><b id="cd-m">—</b><i>mn</i></span>
               <span class="lc-cd-seg"><b id="cd-s">—</b><i>s</i></span>
             </div>
             <div class="lc-label">Lancement</div>
@@ -2940,7 +2941,7 @@
         // Vrai compte à rebours live j/h/m/s — header compact + segments du card.
         if (cdEl)
           cdEl.textContent =
-            days + "j " + pad(hours) + "h " + pad(mins) + "m " + pad(secs) + "s";
+            days + "j " + pad(hours) + "h " + pad(mins) + "mn " + pad(secs) + "s";
         setCard(String(days), pad(hours), pad(mins), pad(secs));
       }
       // Override simulation : ?simulate-launch=3 → lance dans 3 minutes
