@@ -2800,6 +2800,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     const t = setTimeout(() => setTier1Notice(false), 4000);
     return () => clearTimeout(t);
   }, [tier1Notice]);
+  // Popup pédagogique « multi-paliers » : s'affiche une seule fois par
+  // campagne, dès que le pro sélectionne un 2ᵉ palier. But : rappeler que
+  // le matching est CUMULATIF (le prospect doit avoir renseigné TOUS les
+  // paliers demandés). `multiTierNoticeShown` verrouille l'affichage pour
+  // la campagne en cours ; il est remis à false par resetWizard et au
+  // remontage du wizard (= nouvelle campagne).
+  const [multiTierModalOpen, setMultiTierModalOpen] = useState(false);
+  const [multiTierNoticeShown, setMultiTierNoticeShown] = useState(false);
   const [geo, setGeo] = useState('national');
   // Cible géo précise (ville/dept/région choisie via l'autocomplete
   // geo.api.gouv.fr). Reset à null quand on bascule `geo` parce que la
@@ -2936,7 +2944,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setTier1Notice(true);
       return;
     }
+    const willAdd = !selectedTiers.has(tid);
     setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+    // 1ʳᵉ fois qu'on dépasse 1 palier sur cette campagne → popup explicatif
+    // (le palier 1 étant toujours présent, ajouter un palier = ≥ 2 requis).
+    if (willAdd && !multiTierNoticeShown && selectedTiers.size + 1 >= 2) {
+      setMultiTierNoticeShown(true);
+      setMultiTierModalOpen(true);
+    }
   };
   // "Tous" agit comme un raccourci "tout cocher" — pas de pré-sélection
   // au démarrage : toutes les pills sont vides (y compris "Tous"). Cliquer
@@ -2967,6 +2982,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setSelectedObj(null);
     setSelectedSubs(new Set());
     setSelectedTiers(new Set([1]));
+    setMultiTierModalOpen(false);
+    setMultiTierNoticeShown(false);
     setGeo('national');
     setGeoTarget(null);
     setAges(new Set());
@@ -4562,6 +4579,51 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           onCancel={() => setConfirmResetOpen(false)}
           onConfirm={() => { resetWizard(); setConfirmResetOpen(false); }}
         />
+      )}
+      {multiTierModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="multitier-title"
+          onClick={() => setMultiTierModalOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(15,22,41,.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--paper)', color: 'var(--ink)', borderRadius: 18,
+              padding: '28px 26px', width: 'min(460px, 100%)', textAlign: 'center',
+              boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
+            }}
+          >
+            <div style={{ fontSize: 44, lineHeight: 1, marginBottom: 10 }} aria-hidden="true">🎯</div>
+            <div id="multitier-title" className="serif" style={{ fontSize: 23, lineHeight: 1.2, marginBottom: 12 }}>
+              Mode chasseur de précision activé !
+            </div>
+            <div className="muted" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              Vous demandez {selectedTiers.size} paliers de données
+              {' ('}
+              <strong style={{ color: 'var(--ink)' }}>
+                {[...selectedTiers].sort((a, b) => a - b).map((t) => 'palier ' + t).join(', ')}
+              </strong>
+              {').'}
+              <br /><br />
+              ⚠️ Seuls les prospects qui ont renseigné <strong style={{ color: 'var(--ink)' }}>tous ces paliers</strong> pourront matcher avec votre campagne. Plus vous demandez de données, plus votre cible est qualifiée… mais plus le cercle se resserre 🔍
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              onClick={() => setMultiTierModalOpen(false)}
+            >
+              OK, j'ai capté 🚀
+            </button>
+          </div>
+        </div>
       )}
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
       {insufficient && (
