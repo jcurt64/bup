@@ -5,7 +5,7 @@
 // "{X} mois · {Y} mise(s) en relation", et colonne Palier sur les
 // mouvements. Le mobile omet l'action "Retirer" et l'export CSV (hors
 // périmètre — parité de données uniquement).
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -386,10 +386,29 @@ export default function Portefeuille() {
         )}
       </QueryGate>
 
-      <Card
-        badge={{ icon: "swap-vertical", tone: "sky", square: true, color: "#3F7FD6" }}
-        tone="sky"
-      >
+      <Card tone="sky">
+        {/* Icône au-dessus du label « Mouvements » : deux flèches
+            (gauche ↓ / droite ↑) comme dans redesign.png. Le web rend
+            l'icône lucide « arrow-down-up » ; faute de lucide/SVG, on
+            prend MaterialCommunityIcons swap-vertical (deux flèches fines)
+            miroité horizontalement pour obtenir la même orientation. */}
+        <View
+          className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
+          style={{
+            shadowColor: "#0F1629",
+            shadowOpacity: 0.06,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 2,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="swap-vertical"
+            size={20}
+            color="#3F7FD6"
+            style={{ transform: [{ scaleX: -1 }] }}
+          />
+        </View>
         <Text
           className="text-[13px] font-bold uppercase text-ink-4"
           style={{ letterSpacing: 1.2 }}
