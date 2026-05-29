@@ -20,19 +20,22 @@ const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   donnees: "albums-outline", // remplacé par MaterialCommunityIcons database-outline au rendu
   relations: "people-outline",
   preferences: "options-outline",
+  reglages: "settings-outline",
 };
 const LABEL: Record<string, string> = {
   portefeuille: "Accueil",
   donnees: "Données",
   relations: "Relations",
   preferences: "Préf.",
+  reglages: "Réglages",
 };
-const TABS = ["portefeuille", "relations", "donnees", "preferences"];
+const TABS = ["portefeuille", "relations", "donnees", "preferences", "reglages"];
 // Hauteur d'un item = hauteur de la pilule active. Le contenu (icône +
-// label) est centré verticalement à l'intérieur pour des marges haut/bas
-// équilibrées ; la pilule reste plus large que haute (stadium horizontal,
+// label) est centré verticalement à l'intérieur ; une hauteur un peu plus
+// généreuse laisse du padding vertical autour du contenu quand l'onglet
+// est actif. La pilule reste plus large que haute (stadium horizontal,
 // pas un rond — cf. redesign.png).
-const ITEM_H = 48;
+const ITEM_H = 52;
 // Écart vertical icône → label (resserré : le label « remonte » juste
 // sous l'icône au lieu d'être collé au bas).
 const LABEL_GAP = 2;
@@ -148,9 +151,10 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               />
             )}
             <Text
+              numberOfLines={1}
               style={{
                 marginTop: LABEL_GAP,
-                fontSize: 10.5,
+                fontSize: 9.5,
                 fontWeight: "600",
                 color: focused ? "#FFFFFF" : INACTIVE,
               }}

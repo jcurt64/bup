@@ -368,6 +368,20 @@ export default function Portefeuille() {
             </View>
 
             <Card tone="amber">
+              {/* Tuile icône (carré arrondi blanc) au-dessus du label,
+                  même style que les cards Portefeuille / Mouvements. */}
+              <View
+                className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
+                style={{
+                  shadowColor: "#0F1629",
+                  shadowOpacity: 0.06,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 3 },
+                  elevation: 2,
+                }}
+              >
+                <Ionicons name="trophy-outline" size={20} color="#F2B65A" />
+              </View>
               <Text
                 className="text-[12px] font-bold uppercase text-ink-4"
                 style={{ letterSpacing: 0.8 }}

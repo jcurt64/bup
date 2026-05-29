@@ -46,6 +46,7 @@ const PAGE_LABELS: Record<string, string> = {
   donnees: "Données",
   relations: "Relations",
   preferences: "Préférences",
+  reglages: "Réglages",
   messages: "Messages",
   verification: "Vérification",
   score: "BUUPP Score",
