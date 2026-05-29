@@ -10,7 +10,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
 const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
@@ -141,13 +141,17 @@ export default function Portefeuille() {
   const hour = new Date().getHours();
   const hello = hour >= 19 ? "Bonsoir" : "Bonjour";
   const firstName = me.data?.prenom?.trim() || null;
-  const greeting = firstName ? `${hello} ${firstName}` : hello;
-  const verifValue = verif.data
-    ? `${VERIF_LABELS[verif.data.tier] ?? "Basique"} · Niveau ${verifTierPosition(verif.data.tier)}/3`
+  // Pastille Vérification (haut-droite du hero) — format compact
+  // « Basique · 1/3 » (parité redesign.png).
+  const verifPill = verif.data
+    ? `${VERIF_LABELS[verif.data.tier] ?? "Basique"} · ${verifTierPosition(verif.data.tier)}/3`
     : "…";
-  // Affichage "{score}/1000" — la borne haute (1000) est explicitée dans
-  // l'API (cf. /api/prospect/score) et la page Score (« {p.score} / 1000 »).
-  const scoreValue = score.data ? `${score.data.score}/1000` : "…";
+  // Score affiché en hero : nombre brut + barre de progression /1000.
+  // La borne haute (1000) est explicitée dans l'API (/api/prospect/score)
+  // et la page Score (« {p.score} / 1000 »).
+  const scoreNum = score.data?.score ?? null;
+  const scorePct =
+    scoreNum != null ? Math.max(0, Math.min(1, scoreNum / 1000)) : 0;
 
   // Extras du header compact (visibles quand la page est scrollée vers
   // le bas) : disponible + séquestre, chacun précédé d'une petite
@@ -161,14 +165,16 @@ export default function Portefeuille() {
       w.data
         ? [
             {
-              icon: "wallet" as const,
+              icon: "card-outline" as const,
               value: eurCompact(w.data.availableEur),
               color: "#7C5CFC",
+              bg: "#F2EDFF",
             },
             {
-              icon: "lock-closed" as const,
+              icon: "lock-closed-outline" as const,
               value: eurCompact(w.data.escrowEur),
               color: "#F2B65A",
+              bg: "#F6ECD8",
             },
           ]
         : undefined,
@@ -182,71 +188,112 @@ export default function Portefeuille() {
       }
       compactExtras={compactExtras}
     >
-      {/* Hero gradient — greeting + Vérification + BUUPP Score (parité web) */}
-      <LinearGradient
-        colors={["#7C5CFC", "#13235B"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
-      >
-        <View className="mb-4 flex-row items-center gap-2">
-          <Text className="flex-1 font-serif text-xl text-paper" numberOfLines={1}>
-            {greeting}
-          </Text>
-          {badgeTier ? <ReferralBadge tier={badgeTier} founderNumber={founderNumber} /> : null}
-        </View>
-        {/* Vérification prend toute la largeur restante (flex: 1) pour
-            afficher son chip en totalité (« Basique · Niveau 1/3 »).
-            BUUPP Score est poussé à droite, aligné à droite, à largeur
-            auto. */}
-        <View className="flex-row items-start gap-3">
+      {/* Hero — fond indigo très sombre + glow violet diagonal depuis le
+          coin haut-droit (parité redesign.png, échantillons : TR #3E2E83,
+          BR #0C091F). Deux LinearGradient superposés car expo-linear-
+          gradient ne fait pas de radial : base verticale sombre + halo
+          violet semi-transparent du coin haut-droit. */}
+      <View style={{ borderRadius: 28, overflow: "hidden" }}>
+        <LinearGradient
+          colors={["#1E1646", "#0A0820"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={["rgba(124,92,252,0.45)", "rgba(124,92,252,0)"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0.1, y: 0.95 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={{ padding: 20, paddingTop: 22 }}>
+        {/* Ligne haute : salutation (+ prénom) à gauche ; badge parrainage
+            éventuel + pastille Vérification à droite. */}
+        <View className="flex-row items-start justify-between gap-3">
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              className="font-mono text-[10px] uppercase text-white/60"
-              style={{ letterSpacing: 1 }}
-            >
-              Vérification
-            </Text>
-            <View className="mt-1.5 self-start rounded-full bg-white/15 px-3 py-1.5">
+            {firstName ? (
+              <>
+                <Text className="font-serif text-base text-white/80">
+                  {hello},
+                </Text>
+                <Text
+                  className="font-serif-italic text-2xl text-paper"
+                  numberOfLines={1}
+                >
+                  {firstName}
+                </Text>
+              </>
+            ) : (
+              <Text className="font-serif text-2xl text-paper">{hello}</Text>
+            )}
+          </View>
+          <View className="flex-row items-center gap-2">
+            {badgeTier ? (
+              <ReferralBadge tier={badgeTier} founderNumber={founderNumber} />
+            ) : null}
+            <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
+              <Ionicons name="shield-checkmark" size={13} color="#C4B5FD" />
               <Text
                 className="text-[12px] font-semibold text-paper"
                 numberOfLines={1}
               >
-                {verifValue}
-              </Text>
-            </View>
-          </View>
-          <View className="items-end">
-            <Text
-              className="font-mono text-[10px] uppercase text-white/60"
-              style={{ letterSpacing: 1 }}
-            >
-              BUUPP Score
-            </Text>
-            <View
-              className="mt-1.5 self-end rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "rgba(22, 163, 74, 0.35)" }}
-            >
-              <Text className="text-[12px] font-semibold text-paper">
-                {scoreValue}
+                {verifPill}
               </Text>
             </View>
           </View>
         </View>
-      </LinearGradient>
+
+        {/* BUUPP Score — eyebrow : icône jauge (= icône de l'onglet BUUPP
+            Score du web, `gauge` lucide → speedometer-outline côté mobile,
+            faute de react-native-svg) sur pastille claire ronde, + gros
+            nombre /1000 + barre de progression. */}
+        <View className="mt-5 flex-row items-center gap-2">
+          <View className="h-7 w-7 items-center justify-center rounded-full bg-white/15">
+            <Ionicons name="speedometer-outline" size={15} color="#FFFFFF" />
+          </View>
+          <Text
+            className="font-mono text-[11px] uppercase text-white/60"
+            style={{ letterSpacing: 1.5 }}
+          >
+            BUUPP Score
+          </Text>
+        </View>
+        <View className="mt-1 flex-row items-end gap-1">
+          <Text className="font-serif text-5xl text-paper">
+            {scoreNum != null ? scoreNum : "…"}
+          </Text>
+          <Text className="mb-1.5 font-mono text-sm text-white/55">/ 1000</Text>
+        </View>
+        <View className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
+          <View
+            className="h-full rounded-full"
+            style={{ width: `${scorePct * 100}%`, backgroundColor: "#C4B5FD" }}
+          />
+        </View>
+        </View>
+      </View>
 
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card tone="violet">
-              {/* Header : label + icône wallet alignés horizontalement.
-                  Remplace l'ancien badge auto-rendu par <Card badge=...>. */}
+            <Card tone="violet" gradient={["#FAF8FE", "#FFFFFF"]}>
+              {/* Header : label + tuile icône carte (carré arrondi blanc,
+                  parité redesign.png). */}
               <View className="mb-3 flex-row items-center justify-between">
                 <Text className="font-serif text-xl text-ink">
                   Votre portefeuille
                 </Text>
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-violet-soft">
-                  <Ionicons name="wallet-outline" size={20} color="#7C5CFC" />
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-2xl bg-white"
+                  style={{
+                    shadowColor: "#0F1629",
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 2,
+                  }}
+                >
+                  <Ionicons name="card-outline" size={20} color="#7C5CFC" />
                 </View>
               </View>
               <Text className="font-mono text-[13px] uppercase text-ink-4">
@@ -256,26 +303,67 @@ export default function Portefeuille() {
                 {eur(d.availableEur)}
               </Text>
               <CoinsLine coins={coins(d.availableCents)} />
-              <Text className="mt-1 text-sm text-ink-4">
-                {d.canWithdraw
-                  ? "Retirable immédiatement · minimum de 5 €"
-                  : `Retirable à partir de ${eur(d.withdrawThresholdEur)} de gains`}
-              </Text>
+
+              {/* Progression vers le seuil de retrait — barre + « X / Y € »
+                  (parité redesign.png). Données dérivées (aucun back). */}
+              <View className="mt-3 h-px bg-line" />
+              <View className="mt-3 flex-row items-end justify-between">
+                <Text className="flex-1 pr-3 text-sm text-ink-4">
+                  {d.canWithdraw
+                    ? "Retirable immédiatement · minimum de 5 €"
+                    : `Retirable à partir de ${eur(d.withdrawThresholdEur)}`}
+                </Text>
+                <Text className="font-mono text-[12px] text-ink-3">
+                  {`${Math.round(d.availableEur)} / ${Math.round(d.withdrawThresholdEur)} €`}
+                </Text>
+              </View>
+              <View
+                className="mt-2 h-2 overflow-hidden rounded-full"
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#C4B5FD",
+                }}
+              >
+                <View
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${
+                      d.withdrawThresholdEur > 0
+                        ? Math.max(
+                            0,
+                            Math.min(
+                              1,
+                              d.availableEur / d.withdrawThresholdEur,
+                            ),
+                          ) * 100
+                        : 0
+                    }%`,
+                    backgroundColor: "#7C5CFC",
+                  }}
+                />
+              </View>
             </Card>
 
             <View className="flex-row gap-3">
+              {/* Icônes en tuiles blanches carrées (parité redesign.png) :
+                  cadenas ambre / flèche trending-up verte. */}
               <Stat
                 label="En séquestre"
                 value={eur(d.escrowEur)}
                 coins={coins(d.escrowCents)}
-                icon="lock-closed"
+                icon="lock-closed-outline"
                 tone="amber"
+                squareIcon
+                iconColor="#F2B65A"
               />
               <Stat
                 label="Ce mois"
                 value={eur(d.monthGainsEur)}
                 icon="trending-up"
                 tone="teal"
+                squareIcon
+                iconColor="#5AA86A"
               />
             </View>
 
@@ -298,7 +386,10 @@ export default function Portefeuille() {
         )}
       </QueryGate>
 
-      <Card badge={{ icon: "swap-vertical-outline", tone: "sky" }} tone="sky">
+      <Card
+        badge={{ icon: "swap-vertical", tone: "sky", square: true, color: "#3F7FD6" }}
+        tone="sky"
+      >
         <Text
           className="text-[13px] font-bold uppercase text-ink-4"
           style={{ letterSpacing: 1.2 }}

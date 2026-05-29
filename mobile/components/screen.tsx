@@ -280,13 +280,25 @@ export function Card({
   className = "",
   badge,
   tone,
+  gradient,
 }: {
   children: ReactNode;
   dark?: boolean;
   className?: string;
-  badge?: { icon: keyof typeof Ionicons.glyphMap; tone?: Tone };
+  badge?: {
+    icon: keyof typeof Ionicons.glyphMap;
+    tone?: Tone;
+    /** Rend la pastille en tuile blanche carrée arrondie (parité
+     *  redesign.png) au lieu du cercle pastel par défaut. */
+    square?: boolean;
+    /** Couleur d'icône explicite (sinon dérivée du `tone`). */
+    color?: string;
+  };
   /** Teinte pastel du fond de carte (différenciation visuelle). */
   tone?: Tone;
+  /** Dégradé de fond custom — surcharge TONE_GRADIENT quand `tone` est
+   *  défini (ex. card Portefeuille éclaircie sur la home). */
+  gradient?: [string, string];
 }) {
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
@@ -297,20 +309,32 @@ export function Card({
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
       };
+  const badgeColor = badge ? badge.color ?? TONE_FG[badge.tone ?? "violet"] : undefined;
   const inner = (
     <>
       {badge ? (
-        <View
-          className={`mb-3 h-10 w-10 items-center justify-center rounded-full ${
-            TONE_BADGE_BG[badge.tone ?? "violet"]
-          }`}
-        >
-          <Ionicons
-            name={badge.icon}
-            size={20}
-            color={TONE_FG[badge.tone ?? "violet"]}
-          />
-        </View>
+        badge.square ? (
+          <View
+            className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
+            style={{
+              shadowColor: "#0F1629",
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 3 },
+              elevation: 2,
+            }}
+          >
+            <Ionicons name={badge.icon} size={20} color={badgeColor} />
+          </View>
+        ) : (
+          <View
+            className={`mb-3 h-10 w-10 items-center justify-center rounded-full ${
+              TONE_BADGE_BG[badge.tone ?? "violet"]
+            }`}
+          >
+            <Ionicons name={badge.icon} size={20} color={badgeColor} />
+          </View>
+        )
       ) : null}
       {children}
     </>
@@ -318,7 +342,7 @@ export function Card({
   if (!dark && tone) {
     return (
       <LinearGradient
-        colors={TONE_GRADIENT[tone]}
+        colors={gradient ?? TONE_GRADIENT[tone]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -351,6 +375,8 @@ export function Stat({
   icon,
   tone,
   coins,
+  squareIcon = false,
+  iconColor,
 }: {
   label: string;
   value: string;
@@ -361,22 +387,39 @@ export function Stat({
   tone?: Tone;
   /** Si fourni : ligne pastille dorée "{coins} BUUPP Coins". */
   coins?: string;
+  /** Rend l'icône en tuile blanche carrée arrondie (parité redesign.png)
+   *  au lieu du cercle pastel par défaut. */
+  squareIcon?: boolean;
+  /** Couleur d'icône explicite (sinon dérivée du `tone`). */
+  iconColor?: string;
 }) {
   const bg = tone ? TONE_BG[tone] : "bg-paper";
+  const fg = iconColor ?? (tone ? TONE_FG[tone] : "#7C5CFC");
   const inner = (
     <>
       {icon ? (
-        <View
-          className={`mb-2 h-8 w-8 items-center justify-center rounded-full ${
-            tone ? "bg-white/70" : "bg-ivory"
-          }`}
-        >
-          <Ionicons
-            name={icon}
-            size={16}
-            color={tone ? TONE_FG[tone] : "#7C5CFC"}
-          />
-        </View>
+        squareIcon ? (
+          <View
+            className="mb-2 h-9 w-9 items-center justify-center rounded-xl bg-white"
+            style={{
+              shadowColor: "#0F1629",
+              shadowOpacity: 0.06,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
+            }}
+          >
+            <Ionicons name={icon} size={17} color={fg} />
+          </View>
+        ) : (
+          <View
+            className={`mb-2 h-8 w-8 items-center justify-center rounded-full ${
+              tone ? "bg-white/70" : "bg-ivory"
+            }`}
+          >
+            <Ionicons name={icon} size={16} color={fg} />
+          </View>
+        )
       ) : null}
       <Text
         className="text-[10px] font-bold uppercase text-ink-4"

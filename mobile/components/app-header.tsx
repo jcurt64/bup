@@ -146,12 +146,23 @@ function IconButton({
       hitSlop={8}
       accessibilityLabel={accessibilityLabel}
       className={`h-10 w-10 items-center justify-center rounded-full ${bg ?? ""} active:opacity-70`}
+      style={LIGHT_BTN_SHADOW}
     >
       <Ionicons name={icon} size={20} color={color} />
       {badge}
     </Pressable>
   );
 }
+
+// Ombre douce des boutons ronds clairs du header (cercles paper sur le
+// fond ivoire translucide) — leur donne du relief comme dans la maquette.
+const LIGHT_BTN_SHADOW = {
+  shadowColor: "#0F1629",
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 3,
+} as const;
 
 function FlashHeaderButton({
   onPress,
@@ -209,16 +220,16 @@ function FlashHeaderButton({
             width: 40,
             height: 40,
             borderRadius: 999,
-            backgroundColor: "#4F46E5",
+            backgroundColor: "#F2B65A",
           },
           ringStyle,
         ]}
       />
       <View
-        className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: "#0F1629" }}
+        className="h-10 w-10 items-center justify-center rounded-full bg-paper"
+        style={LIGHT_BTN_SHADOW}
       >
-        <Ionicons name="flash" size={20} color="#FFFFFF" />
+        <Ionicons name="flash" size={20} color="#F2B65A" />
       </View>
     </Pressable>
   );
@@ -229,16 +240,14 @@ function FlashHeaderButton({
 // du titre de page.
 function BrandMark() {
   return (
-    <LinearGradient
-      colors={["#13235B", "#2F44C0"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={{
         width: 32,
         height: 32,
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: "#0F1629",
       }}
     >
       <Text
@@ -247,7 +256,7 @@ function BrandMark() {
       >
         b
       </Text>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -362,9 +371,9 @@ export function AppHeader() {
             ]}
           >
             <IconButton
-              icon="person-outline"
-              gradient={["#7C5CFC", "#13235B"]}
-              color="#FFFFFF"
+              icon="menu"
+              bg="bg-paper"
+              color="#0F1629"
               label="Ouvrir le menu"
               onPress={() => router.push("/drawer")}
             />
@@ -374,23 +383,23 @@ export function AppHeader() {
               <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
             </View>
 
-            <View className="flex-row items-center gap-4">
+            <View className="flex-row items-center gap-3">
               <FlashHeaderButton
                 onPress={() => flashSheet.open()}
                 active={flashCount > 0}
               />
               <IconButton
                 icon="notifications-outline"
-                bg="bg-amber-soft"
-                color="#F2B65A"
+                bg="bg-paper"
+                color="#0F1629"
                 label="Messages"
                 onPress={() => setShowMessages(true)}
                 badgeCount={unread}
               />
               <IconButton
-                icon="menu"
-                bg="bg-teal-soft"
-                color="#2FB8A6"
+                icon="person-outline"
+                bg="bg-paper"
+                color="#0F1629"
                 label="Mon compte"
                 onPress={() => router.push("/account")}
               />
@@ -428,26 +437,27 @@ export function AppHeader() {
               </Text>
             </View>
             {ctx?.compactExtras?.length ? (
-              <View className="flex-row items-center gap-4">
+              <View className="flex-row items-center gap-2">
                 {ctx.compactExtras.map((e, i) => (
                   <View
                     key={i}
-                    className="flex-row items-center gap-2"
+                    className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1"
+                    style={e.bg ? { backgroundColor: e.bg } : undefined}
                   >
                     {e.iconLib === "material" ? (
                       <MaterialCommunityIcons
                         name={e.icon}
-                        size={20}
+                        size={16}
                         color={e.color ?? "#0F1629"}
                       />
                     ) : (
                       <Ionicons
                         name={e.icon}
-                        size={20}
+                        size={16}
                         color={e.color ?? "#0F1629"}
                       />
                     )}
-                    <Text className="font-mono text-[17px] font-semibold text-ink">
+                    <Text className="font-mono text-[14px] font-semibold text-ink">
                       {e.value}
                     </Text>
                   </View>

@@ -1,11 +1,11 @@
-// Tab bar pilule flottante (cf. public/prototype/tab.png) : barre
-// rounded-full / Liquid Glass, ombre. Onglet actif = pilule dégradé
-// violet→navy qui GLISSE d'un onglet à l'autre (Reanimated, withSpring),
-// icône blanche + libellé court ; inactif = icône discrète.
+// Tab bar pilule flottante (cf. public/prototype/redesign.png) : barre
+// rounded-full / Liquid Glass, ombre. Onglet actif = pilule navy PLEINE
+// qui englobe l'icône ET le libellé (icône + texte blancs) et GLISSE
+// d'un onglet à l'autre (Reanimated, withSpring) ; inactif = icône +
+// libellé navy discrets sur le fond clair.
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import Animated, {
@@ -17,8 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "home-outline",
-  donnees: "albums-outline",
-  relations: "albums-outline", // remplacé par MaterialCommunityIcons handshake-outline au rendu
+  donnees: "albums-outline", // remplacé par MaterialCommunityIcons database-outline au rendu
+  relations: "people-outline",
   preferences: "options-outline",
 };
 const LABEL: Record<string, string> = {
@@ -28,7 +28,23 @@ const LABEL: Record<string, string> = {
   preferences: "Préf.",
 };
 const TABS = ["portefeuille", "relations", "donnees", "preferences"];
-const PILL = 44;
+// Hauteur d'un item = hauteur de la pilule active. Le contenu (icône +
+// label) est centré verticalement à l'intérieur pour des marges haut/bas
+// équilibrées ; la pilule reste plus large que haute (stadium horizontal,
+// pas un rond — cf. redesign.png).
+const ITEM_H = 48;
+// Écart vertical icône → label (resserré : le label « remonte » juste
+// sous l'icône au lieu d'être collé au bas).
+const LABEL_GAP = 2;
+// Marge horizontale entre la pilule active et les bords de son slot.
+// Combinée au paddingHorizontal de la barre (4), la marge gauche de la
+// pilule la plus à gauche = 4 + 3 = 7px, égale à la marge haute/basse
+// (paddingVertical 7) → marges parfaitement équilibrées (cf. redesign).
+const PILL_INSET = 3;
+// Couleurs : pilule pleine = ink (échantillon maquette ≈ #0A1628),
+// items inactifs = navy discret sur le fond clair.
+const PILL_BG = "#0F1629";
+const INACTIVE = "#13235B";
 
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -56,7 +72,8 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
   const [rowW, setRowW] = useState(0);
   const n = items.length || 1;
   const slot = rowW > 0 ? rowW / n : 0;
-  const target = slot > 0 ? slot * activePos + (slot - PILL) / 2 : 0;
+  const pillW = slot > 0 ? slot - PILL_INSET * 2 : 0;
+  const target = slot > 0 ? slot * activePos + PILL_INSET : 0;
 
   const tx = useSharedValue(0);
   const inited = useRef(false);
@@ -91,21 +108,14 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               position: "absolute",
               left: 0,
               top: 0,
-              width: PILL,
-              height: PILL,
+              width: pillW,
+              height: ITEM_H,
               borderRadius: 999,
-              overflow: "hidden",
+              backgroundColor: PILL_BG,
             },
             pillStyle,
           ]}
-        >
-          <LinearGradient
-            colors={["#7C5CFC", "#13235B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ flex: 1 }}
-          />
-        </Animated.View>
+        />
       ) : null}
 
       {items.map((it) => {
@@ -117,41 +127,36 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
             accessibilityRole="button"
             accessibilityState={{ selected: focused }}
             accessibilityLabel={LABEL[it.name]}
-            style={{ flex: 1, alignItems: "center" }}
+            style={{
+              flex: 1,
+              height: ITEM_H,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <View
+            {it.name === "donnees" ? (
+              <MaterialCommunityIcons
+                name="database-outline"
+                size={22}
+                color={focused ? "#FFFFFF" : INACTIVE}
+              />
+            ) : (
+              <Ionicons
+                name={ICON[it.name]}
+                size={21}
+                color={focused ? "#FFFFFF" : INACTIVE}
+              />
+            )}
+            <Text
               style={{
-                width: PILL,
-                height: PILL,
-                alignItems: "center",
-                justifyContent: "center",
+                marginTop: LABEL_GAP,
+                fontSize: 10.5,
+                fontWeight: "600",
+                color: focused ? "#FFFFFF" : INACTIVE,
               }}
             >
-              {it.name === "relations" ? (
-                <MaterialCommunityIcons
-                  name="handshake-outline"
-                  size={22}
-                  color={focused ? "#FFFFFF" : "#8A91A1"}
-                />
-              ) : (
-                <Ionicons
-                  name={ICON[it.name]}
-                  size={20}
-                  color={focused ? "#FFFFFF" : "#8A91A1"}
-                />
-              )}
-            </View>
-            <View style={{ height: 16, justifyContent: "center" }}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: "600",
-                  color: focused ? "#0F1629" : "#8A91A1",
-                }}
-              >
-                {LABEL[it.name]}
-              </Text>
-            </View>
+              {LABEL[it.name]}
+            </Text>
           </Pressable>
         );
       })}
@@ -175,8 +180,8 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
           tintColor="rgba(255, 255, 255, 0.34)"
           style={{
             borderRadius: 999,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
+            paddingHorizontal: 4,
+            paddingVertical: 7,
             ...shadow,
           }}
         >
@@ -185,7 +190,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
       ) : (
         <View
           className="rounded-full bg-paper"
-          style={{ paddingHorizontal: 12, paddingVertical: 8, ...shadow }}
+          style={{ paddingHorizontal: 4, paddingVertical: 7, ...shadow }}
         >
           {row}
         </View>

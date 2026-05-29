@@ -33,12 +33,15 @@ export type CompactExtra =
       value: string;
       /** Couleur de l'icône. Défaut = ink (#0F1629). */
       color?: string;
+      /** Fond de la pilule (teinte douce). Si absent : aucun fond. */
+      bg?: string;
     }
   | {
       iconLib: "material";
       icon: keyof typeof MaterialCommunityIcons.glyphMap;
       value: string;
       color?: string;
+      bg?: string;
     };
 
 export type HeaderScrollContextValue = {

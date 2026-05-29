@@ -71,6 +71,16 @@ function softBg(hex: string, mix = 0.16): string {
   return `rgba(${r}, ${g}, ${b}, ${mix})`;
 }
 
+// Ombre douce des tuiles d'icône blanches (carré arrondi) — parité
+// redesign.png : tuile blanche détachée sur la carte ivoire.
+const TILE_SHADOW = {
+  shadowColor: "#0F1629",
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 2,
+} as const;
+
 // "21/05/2026" — date courte fr-FR depuis un ISO "YYYY-MM-DD".
 function fmtDateShort(iso: string): string {
   if (!iso) return "";
@@ -114,8 +124,8 @@ function Row({
       }`}
     >
       <View
-        className="h-9 w-9 items-center justify-center rounded-full"
-        style={{ backgroundColor: softBg(color) }}
+        className="h-11 w-11 items-center justify-center rounded-xl border border-line bg-white"
+        style={TILE_SHADOW}
       >
         {emoji ? (
           <Text style={{ fontSize: 18, lineHeight: 22 }}>{emoji}</Text>
@@ -123,22 +133,34 @@ function Row({
           <Ionicons name={icon} size={18} color={color} />
         ) : null}
       </View>
-      <View className="flex-1">
+      <View className="flex-1 items-center px-1">
         <Text
-          className={`text-[15px] ${danger ? "font-semibold text-bad" : "text-ink"}`}
-          numberOfLines={1}
+          className={`text-center text-[15px] font-semibold ${danger ? "text-bad" : "text-ink"}`}
+          numberOfLines={2}
         >
           {label}
         </Text>
         {version || date ? (
-          <Text
-            className="mt-0.5 font-mono text-[10.5px] text-ink-4"
-            numberOfLines={1}
-          >
-            {version ? `v${version}` : ""}
-            {version && date ? " · " : ""}
-            {date ? fmtDateShort(date) : ""}
-          </Text>
+          <View className="mt-1 flex-row items-center gap-2">
+            {version ? (
+              <View
+                className="rounded-full px-2 py-0.5"
+                style={{ backgroundColor: softBg(color, 0.18) }}
+              >
+                <Text
+                  className="font-mono text-[10.5px] font-bold"
+                  style={{ color }}
+                >
+                  v{version}
+                </Text>
+              </View>
+            ) : null}
+            {date ? (
+              <Text className="font-mono text-[11px] text-ink-4">
+                {fmtDateShort(date)}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color="#B7BCC7" />
@@ -268,9 +290,11 @@ export default function AccountPage() {
         >
           <Ionicons name="chevron-back" size={22} color="#0F1629" />
         </Pressable>
-        <Text className="flex-1 font-serif-bold text-2xl text-ink">
+        <Text className="flex-1 text-center font-serif-bold text-2xl text-ink">
           Informations utiles
         </Text>
+        {/* Espaceur symétrique au bouton retour pour centrer le titre. */}
+        <View className="h-10 w-10" />
       </View>
 
       <ScrollView
