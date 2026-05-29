@@ -338,12 +338,19 @@ export async function POST(req: Request) {
   // de geoTarget envoyé par le client (potentielle injection PostgREST si
   // on relâchait les regex). normalizeGeoTarget renvoie null si invalide.
   const geoTarget = normalizeGeoTarget(body.geoTarget);
+  // Portée géographique : `national` par défaut (zone sélectionnée par
+  // défaut dans le wizard). Toute valeur inconnue retombe sur `national`
+  // pour rester cohérent avec le front et éviter un filtre involontaire.
+  const ALLOWED_GEO = ["ville", "dept", "region", "national"] as const;
+  const geo = (ALLOWED_GEO as readonly string[]).includes(body.geo)
+    ? body.geo
+    : "national";
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: validSubTypes,
     requiredTiers: body.requiredTiers,
     requiredTierKeys: tierNumsToKeys(body.requiredTiers),
-    geo: body.geo,
+    geo,
     geoTarget,
     ages: body.ages,
     verifLevel: body.verifLevel,
@@ -438,7 +445,7 @@ export async function POST(req: Request) {
     matched = await findMatchingProspects(admin, {
       objectiveId: body.objectiveId,
       requiredTiers: body.requiredTiers,
-      geo: body.geo,
+      geo,
       geoTarget,
       proCodePostal: pro.code_postal ?? null,
       ages: body.ages,

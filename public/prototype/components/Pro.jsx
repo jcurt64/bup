@@ -2606,7 +2606,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setSelectedObj(d.selectedObj ?? null);
       setSelectedSubs(new Set(d.selectedSubs || []));
       setSelectedTiers(new Set(d.selectedTiers || [1]));
-      setGeo(d.geo ?? 'ville');
+      setGeo(d.geo ?? 'national');
       // Important : setGeo() ré-init geoTarget via useEffect → on doit
       // setter geoTarget APRÈS dans la tick suivant. Ici on l'enrobe d'un
       // micro-task pour que la reset useEffect ne masque pas la valeur
@@ -2800,7 +2800,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     const t = setTimeout(() => setTier1Notice(false), 4000);
     return () => clearTimeout(t);
   }, [tier1Notice]);
-  const [geo, setGeo] = useState('ville');
+  const [geo, setGeo] = useState('national');
   // Cible géo précise (ville/dept/région choisie via l'autocomplete
   // geo.api.gouv.fr). Reset à null quand on bascule `geo` parce que la
   // sélection précédente n'a plus de sens (autre échelle).
@@ -2967,7 +2967,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setSelectedObj(null);
     setSelectedSubs(new Set());
     setSelectedTiers(new Set([1]));
-    setGeo('ville');
+    setGeo('national');
     setGeoTarget(null);
     setAges(new Set());
     setVerif('p0');
