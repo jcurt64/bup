@@ -11,6 +11,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
 const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
@@ -109,6 +117,49 @@ function lifetimeSub(accountCreatedAt: string | null, relationsCount: number) {
       (now.getMonth() - created.getMonth()),
   );
   return `${months} mois · ${rel}`;
+}
+
+// Anneau « sonar » animé : un cercle qui grandit et s'estompe en boucle,
+// émanant du centre (empty state Mouvements). `delay` décale les vagues
+// successives pour un effet radar continu.
+function PulseRing({ delay }: { delay: number }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 2600, easing: Easing.out(Easing.quad) }),
+        -1,
+        false,
+      ),
+    );
+  }, [p, delay]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.45 + p.value * 0.95 }],
+    opacity: (1 - p.value) * 0.45,
+  }));
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        { alignItems: "center", justifyContent: "center" },
+      ]}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 120,
+            height: 120,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: "#7FA8F0",
+          },
+          style,
+        ]}
+      />
+    </View>
+  );
 }
 
 export default function Portefeuille() {
@@ -401,61 +452,128 @@ export default function Portefeuille() {
       </QueryGate>
 
       <Card tone="sky">
-        {/* Icône au-dessus du label « Mouvements » : deux flèches
-            (gauche ↓ / droite ↑) comme dans redesign.png. Le web rend
-            l'icône lucide « arrow-down-up » ; faute de lucide/SVG, on
-            prend MaterialCommunityIcons swap-vertical (deux flèches fines)
-            miroité horizontalement pour obtenir la même orientation. */}
-        <View
-          className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
-          style={{
-            shadowColor: "#0F1629",
-            shadowOpacity: 0.06,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 2,
-          }}
-        >
-          <MaterialCommunityIcons
-            name="swap-vertical"
-            size={20}
-            color="#3F7FD6"
-            style={{ transform: [{ scaleX: -1 }] }}
-          />
+        {/* En-tête raffiné : tuile icône (swap-vertical miroité = flèches
+            gauche ↓ / droite ↑, faute de lucide/SVG côté mobile) + eyebrow
+            « Activité » et titre serif « Mouvements ». */}
+        <View className="mb-1 flex-row items-center gap-3">
+          <View
+            className="h-11 w-11 items-center justify-center rounded-2xl bg-white"
+            style={{
+              shadowColor: "#1B3A8F",
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 3,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="swap-vertical"
+              size={21}
+              color="#3F7FD6"
+              style={{ transform: [{ scaleX: -1 }] }}
+            />
+          </View>
+          <View className="flex-1">
+            <Text
+              className="font-mono text-[10px] uppercase"
+              style={{ letterSpacing: 1.6, color: "#5B8DEF" }}
+            >
+              Activité
+            </Text>
+            <Text
+              className="font-serif text-xl text-ink"
+              style={{ lineHeight: 24 }}
+            >
+              Mouvements
+            </Text>
+          </View>
         </View>
-        <Text
-          className="text-[13px] font-bold uppercase text-ink-4"
-          style={{ letterSpacing: 1.2 }}
-        >
-          Mouvements
-        </Text>
         <QueryGate query={m}>
           {(d) => (
             (d.movements?.length ?? 0) === 0 ? (
-              // Empty state — illustration 3D thiings.co (Empty Wallet)
-              // sur cercle pastel ambre, titre serif + sous-titre amical
-              // (esthétique cohérente avec messages-sheet.tsx).
-              <View className="mt-4 items-center px-4 pb-2">
+              // Empty state premium — composition « radar » : anneaux
+              // concentriques (effet sonar « en attente d'activité ») + halo
+              // teinté + disque blanc flottant portant l'illustration 3D
+              // (thiings.co Empty Wallet, conservée), titre serif, sous-titre
+              // et indicateur d'état discret.
+              <View className="mt-4 items-center pb-1">
                 <View
-                  className="mb-3 h-40 w-40 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "rgba(242, 182, 90, 0.10)" }}
+                  className="mb-5 items-center justify-center rounded-full"
+                  style={{
+                    width: 190,
+                    height: 190,
+                    borderWidth: 1,
+                    borderColor: "rgba(91,141,239,0.10)",
+                  }}
                 >
-                  <Image
-                    source={EMPTY_WALLET}
-                    style={{ width: 128, height: 128 }}
-                    contentFit="contain"
-                    accessibilityLabel="Portefeuille vide"
-                  />
+                  {/* Vagues sonar animées (derrière le disque). */}
+                  <PulseRing delay={0} />
+                  <PulseRing delay={870} />
+                  <PulseRing delay={1740} />
+                  <View
+                    className="items-center justify-center rounded-full"
+                    style={{
+                      width: 150,
+                      height: 150,
+                      borderWidth: 1,
+                      borderColor: "rgba(91,141,239,0.18)",
+                      backgroundColor: "rgba(91,141,239,0.05)",
+                    }}
+                  >
+                    <View
+                      className="items-center justify-center rounded-full bg-white"
+                      style={{
+                        width: 116,
+                        height: 116,
+                        shadowColor: "#1B3A8F",
+                        shadowOpacity: 0.16,
+                        shadowRadius: 18,
+                        shadowOffset: { width: 0, height: 10 },
+                        elevation: 6,
+                      }}
+                    >
+                      <Image
+                        source={EMPTY_WALLET}
+                        style={{ width: 84, height: 84 }}
+                        contentFit="contain"
+                        accessibilityLabel="Aucun mouvement"
+                      />
+                    </View>
+                  </View>
                 </View>
-                <Text className="font-serif text-xl text-ink">
+                <Text className="font-serif text-2xl text-ink">
                   Aucun mouvement
                 </Text>
-                <Text className="mt-1.5 text-center text-[14px] leading-5 text-ink-4">
-                  Vos prochaines mises en relation,{"\n"}gains et retraits s'afficheront ici.
+                <Text
+                  className="mt-2 text-center text-[14px] leading-5 text-ink-4"
+                  style={{ maxWidth: 264 }}
+                >
+                  Vos mises en relation, gains et retraits apparaîtront ici dès
+                  votre première activité.
                 </Text>
+                <View
+                  className="mt-4 flex-row items-center gap-2 rounded-full px-3 py-1.5"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.7)",
+                    borderWidth: 0.7,
+                    borderColor: "#E6E3DA",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      backgroundColor: "#5B8DEF",
+                    }}
+                  />
+                  <Text className="font-mono text-[11px] text-ink-3">
+                    En attente de votre première activité
+                  </Text>
+                </View>
               </View>
             ) : (
-            <View className="mt-3 gap-2">
+            <View className="mt-4 gap-2.5">
               {d.movements.map((mv) => {
                 const tList = movementTiers(mv);
                 const tStr = tList ? formatPaliers(tList) : null;
@@ -466,6 +584,9 @@ export default function Portefeuille() {
                 // Retraits IBAN / parrainages sans campagne restent
                 // non interactifs — parité avec le tableau web.
                 const clickable = !!mv.relation;
+                // Crédit (entrée, +) → violet, flèche entrante ; sinon
+                // (séquestre/retrait) → ambre, flèche sortante.
+                const positive = mv.amountCents > 0;
                 return (
                 <Pressable
                   key={mv.id}
@@ -473,53 +594,75 @@ export default function Portefeuille() {
                   disabled={!clickable}
                   accessibilityRole={clickable ? "button" : undefined}
                   accessibilityLabel={
-                    clickable
-                      ? `Détail de ${mv.origin}`
-                      : undefined
+                    clickable ? `Détail de ${mv.origin}` : undefined
                   }
-                  // items-start (au lieu d'items-center) : le montant +
-                  // chevron remontent en haut, alignés sur la ligne
-                  // « origine ». Le chip Palier de la ligne 2 ne touche
-                  // plus la rémunération à droite.
-                  className={`flex-row items-start justify-between rounded-2xl bg-paper p-3 ${
+                  className={`flex-row items-center gap-3 rounded-2xl bg-paper px-4 py-3.5 ${
                     clickable ? "active:opacity-70" : ""
                   }`}
-                  style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+                  style={{
+                    borderWidth: 0.7,
+                    borderColor: "#ECE9E0",
+                    shadowColor: "#0F1629",
+                    shadowOpacity: 0.04,
+                    shadowRadius: 10,
+                    shadowOffset: { width: 0, height: 4 },
+                  }}
                 >
-                  <View className="flex-1 pr-3">
-                    <Text className="text-base text-ink-2" numberOfLines={1}>
+                  {/* Avatar de direction. */}
+                  <View
+                    className="h-11 w-11 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: positive
+                        ? "rgba(124,92,252,0.12)"
+                        : "rgba(224,145,90,0.14)",
+                    }}
+                  >
+                    <Ionicons
+                      name={positive ? "arrow-down" : "arrow-up"}
+                      size={20}
+                      color={positive ? "#7C5CFC" : "#E0915A"}
+                    />
+                  </View>
+
+                  {/* Libellé + méta (date · statut) sur deux lignes. */}
+                  <View className="flex-1">
+                    <Text className="text-[15px] text-ink" numberOfLines={1}>
                       {mv.origin}
                     </Text>
-                    <View className="mt-0.5 flex-row items-center gap-2">
-                      <Text className="font-mono text-[12px] text-ink-4">
-                        {dateFr(mv.date)} · {mv.statusLabel}
-                      </Text>
-                      {tStr ? (
-                        <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
-                          <Text className="font-mono text-[11px] text-ink-3">
-                            {tLabel} {tStr}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
+                    <Text
+                      className="mt-1 font-mono text-[12px] text-ink-4"
+                      numberOfLines={1}
+                    >
+                      {dateFr(mv.date)} · {mv.statusLabel}
+                    </Text>
                   </View>
-                  <View className="flex-row items-center gap-2">
+
+                  {/* Montant (proéminent) + chip palier empilé. */}
+                  <View className="items-end gap-1">
                     <Text
                       className={`font-serif text-lg ${
-                        mv.amountCents > 0 ? "text-violet" : "text-ink-3"
+                        positive ? "text-violet" : "text-ink-3"
                       }`}
                     >
                       {mv.sign}
                       {eur(Math.abs(mv.amountEur))}
                     </Text>
-                    {clickable ? (
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color="#B7BCC7"
-                      />
+                    {tStr ? (
+                      <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
+                        <Text className="font-mono text-[10.5px] text-ink-3">
+                          {tLabel} {tStr}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
+
+                  {clickable ? (
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color="#C5C0B2"
+                    />
+                  ) : null}
                 </Pressable>
                 );
               })}

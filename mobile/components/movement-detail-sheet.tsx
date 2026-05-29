@@ -6,8 +6,10 @@
 //   + actions Accepter/Refuser/Fermer mirror les conditions canAccept /
 //   canRefuse côté web.
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -21,17 +23,18 @@ import { ReportProSheet } from "./report-pro-sheet";
 import { ApiError } from "../lib/api";
 import { useDecideRelation, type MovementRelation } from "../lib/queries";
 
-// Couleur "bleu logo" — navy de la palette brand, même teinte que le
-// dégradé violet→navy du GradientHero. Appliquée à toutes les lettres
-// du mot signature « buupp ».
-const LOGO_BLUE = "#13235B";
+// Footer signature inversé — panneau navy (#0F1629, façon hero du site
+// web) : le mot « buupp » et le slogan passent en clair pour contraster.
+const SIGNATURE_COLOR = "#FBF8F1"; // « buupp » (Dancing Script) clair
 
-// Palette « celebrate-popper » appliquée aux 3 segments du slogan
-// « BE USED · PAID & PROUD » (un seul point médian après USED).
-const SLOGAN_BLUE = "#13235B"; // BE USED
-const SLOGAN_ORANGE = "#E0915A"; // PAID & (orange cône de l'illustration)
-const SLOGAN_GRAY = "#5B6478"; // PROUD
-const SLOGAN_DOT = "#B7BCC7"; // séparateur · neutre
+// Slogan « BE USED · PAID & PROUD » adapté au fond sombre.
+const SLOGAN_BLUE = "#C7D2FE"; // BE USED — indigo clair (glow hero web)
+const SLOGAN_ORANGE = "#F2994A"; // PAID & — orange chaud
+const SLOGAN_GRAY = "rgba(255,255,255,0.72)"; // PROUD
+const SLOGAN_DOT = "rgba(255,255,255,0.35)"; // séparateur ·
+
+// Fond du panneau footer (navy hero web).
+const FOOTER_BG = "#0F1629";
 
 // Délai initial avant que la 1ʳᵉ lettre démarre — laisse le temps à la
 // modale de bottom-sheet de finir son slide-in (~250 ms) puis ~200 ms
@@ -67,7 +70,7 @@ function BuuppLetter({ char, index }: { char: string; index: number }) {
           fontFamily: "DancingScript_700Bold",
           fontSize: 48,
           lineHeight: 56,
-          color: LOGO_BLUE,
+          color: SIGNATURE_COLOR,
         },
         style,
       ]}
@@ -116,36 +119,15 @@ function BuuppSlogan() {
   );
 }
 
-// Quadrillage ellipse — petit fond grille (parité visuelle avec GridBg
-// des pages) clippé en ellipse via borderRadius: 999 + overflow: hidden.
-// Positionné absolument derrière le contenu de la signature, centré sur
-// le mot "buupp", pour ne pas envahir tout le footer.
-function FooterGrid() {
-  const W = 300;
-  const H = 130;
-  const STEP = 14;
-  const cols = Math.ceil(W / STEP);
-  const rows = Math.ceil(H / STEP);
+// Quadrillage blanc pleine surface du panneau footer (façon grille du
+// hero web, lignes blanches très discrètes). Clippé par l'overflow du
+// panneau ; on dessine large pour couvrir toute hauteur/largeur.
+function FooterGridDark() {
+  const STEP = 24;
+  const N = 36;
   return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        // Centré horizontalement sur le wrapper signature (left 50% −
-        // demi-largeur). Vertical : démarre 5 px sous le séparateur
-        // pour que l'ellipse "berce" le mot buupp sans dépasser sous
-        // le slogan.
-        top: 5,
-        left: "50%",
-        marginLeft: -W / 2,
-        width: W,
-        height: H,
-        borderRadius: 999,
-        overflow: "hidden",
-        opacity: 0.45,
-      }}
-    >
-      {Array.from({ length: rows }).map((_, i) => (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: N }).map((_, i) => (
         <View
           key={`h${i}`}
           style={{
@@ -154,11 +136,11 @@ function FooterGrid() {
             right: 0,
             top: i * STEP,
             height: 1,
-            backgroundColor: "#E6E3DA",
+            backgroundColor: "rgba(255,255,255,0.06)",
           }}
         />
       ))}
-      {Array.from({ length: cols }).map((_, i) => (
+      {Array.from({ length: N }).map((_, i) => (
         <View
           key={`v${i}`}
           style={{
@@ -167,7 +149,7 @@ function FooterGrid() {
             bottom: 0,
             left: i * STEP,
             width: 1,
-            backgroundColor: "#E6E3DA",
+            backgroundColor: "rgba(255,255,255,0.06)",
           }}
         />
       ))}
@@ -180,12 +162,41 @@ function FooterGrid() {
 // des lettres. La key sur le wrapper repose sur relation.id pour rejouer
 // l'animation à chaque nouveau mouvement ouvert.
 function BuuppSignature() {
+  const insets = useSafeAreaInsets();
   const letters = "buupp".split("");
   return (
-    <View className="mt-4 items-center border-t border-line pt-5">
-      {/* FooterGrid en premier dans le DOM → rendu derrière le contenu
-          qui suit (les lettres + slogan). */}
-      <FooterGrid />
+    // Bande footer navy PLEINE LARGEUR : marges négatives pour annuler le
+    // px-5 de la sheet (→ bords gauche/droit) et la paddingBottom (→ bord
+    // bas de l'écran), coins SUPÉRIEURS arrondis (harmonisés avec le haut
+    // de la sheet).
+    <View
+      className="items-center overflow-hidden px-6 pt-7"
+      style={{
+        backgroundColor: FOOTER_BG,
+        marginHorizontal: -20,
+        marginBottom: -(insets.bottom + 16),
+        paddingBottom: insets.bottom + 22,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+      }}
+    >
+      {/* Grille blanche (derrière le contenu). */}
+      <FooterGridDark />
+      {/* Glow indigo (haut-droite) + orange (bas-gauche), façon hero web. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(165,180,252,0.16)", "rgba(165,180,252,0)"]}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.25, y: 0.85 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(242,153,74,0)", "rgba(242,153,74,0.14)"]}
+        start={{ x: 0.6, y: 0.1 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <View className="flex-row">
         {letters.map((c, i) => (
           <BuuppLetter key={`${c}-${i}`} char={c} index={i} />
@@ -418,10 +429,11 @@ export function MovementDetailSheet({
         : { bg: "#F7F4EC", border: "#E6E3DA", icon: "#8A91A1" as const, label: "Clôturée" };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPct={88}>
+    <BottomSheet visible={visible} onClose={onClose} heightPct={80} topRadius={32}>
       <ScrollView
+        className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ gap: 16, paddingBottom: 12 }}
+        contentContainerStyle={{ gap: 16, paddingBottom: 18 }}
       >
         {/* Bannière contextuelle */}
         <View
@@ -462,11 +474,27 @@ export function MovementDetailSheet({
 
         {/* En-tête : avatar pastel + raison sociale + secteur + chip palier */}
         <View className="flex-row items-start gap-3">
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-violet-soft">
-            <Text className="font-serif-bold text-base text-violet">
+          <LinearGradient
+            colors={["#7C5CFC", "#13235B"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#13235B",
+              shadowOpacity: 0.25,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 5 },
+              elevation: 4,
+            }}
+          >
+            <Text className="font-serif-bold text-base text-paper">
               {initials(r.pro)}
             </Text>
-          </View>
+          </LinearGradient>
           <View className="flex-1">
             <Text className="font-serif text-xl text-ink" numberOfLines={2}>
               {r.pro}
@@ -535,12 +563,29 @@ export function MovementDetailSheet({
           </View>
         </View>
 
-        {/* Récompense + délai */}
-        <View className="flex-row items-center justify-between rounded-2xl border border-line bg-paper px-4 py-3.5">
+        {/* Récompense + délai — carte mise en valeur (dégradé violet doux). */}
+        <LinearGradient
+          colors={["#EDE9FE", "#FFFFFF"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: "#E4DEF5",
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <LabelValue label="Récompense">
-            <Text className="font-serif text-2xl text-violet">
-              {fmtEur(r.reward)}
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons name="gift" size={18} color="#7C5CFC" />
+              <Text className="font-serif text-2xl text-violet">
+                {fmtEur(r.reward)}
+              </Text>
+            </View>
           </LabelValue>
           <LabelValue
             icon="flash-outline"
@@ -555,7 +600,7 @@ export function MovementDetailSheet({
                   : "Clôturée"}
             </Text>
           </LabelValue>
-        </View>
+        </LinearGradient>
 
         {/* Footer secondaire — signalement (parité web : action discrète
             placée au-dessus des actions principales). Bascule sur un
@@ -617,12 +662,13 @@ export function MovementDetailSheet({
             </Pressable>
           ) : null}
         </View>
-
-        {/* Signature « buupp » + slogan. `key` sur relation.id : la modale
-            ne démonte pas son contenu entre 2 ouvertures, donc on force le
-            remount pour rejouer l'animation à chaque mouvement consulté. */}
-        <BuuppSignature key={`sig-${r.id}`} />
       </ScrollView>
+
+      {/* Bande signature « buupp » PLEINE LARGEUR, hors du ScrollView pour
+          atteindre les bords de l'écran. `key` sur relation.id : force le
+          remount pour rejouer l'animation à chaque mouvement consulté. */}
+      <BuuppSignature key={`sig-${r.id}`} />
+
       <ReportProSheet
         visible={reportOpen}
         onClose={() => setReportOpen(false)}

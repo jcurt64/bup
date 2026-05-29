@@ -10,11 +10,14 @@ export function BottomSheet({
   children,
   /** Hauteur fixe en % de l'écran (ex. 80). Sinon : auto, plafonné à 85%. */
   heightPct,
+  /** Rayon des coins supérieurs (px). Défaut : rounded-t-3xl (24). */
+  topRadius,
 }: {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
   heightPct?: number;
+  topRadius?: number;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -25,15 +28,35 @@ export function BottomSheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
+      {/* Pas d'overlay sombre : la page reste visible derrière. C'est
+          l'ombre foncée + le liseré au-dessus du bord arrondi qui détachent
+          la sheet (un scrim sombre rendait au contraire l'ombre invisible).
+          Le Pressable transparent garde le tap-pour-fermer. */}
       <Pressable
-        className="flex-1 bg-black/40"
+        className="flex-1"
         onPress={onClose}
         accessibilityLabel="Fermer"
       />
       <View
-        className="rounded-t-3xl bg-ivory px-5 pt-3"
+        className={`${topRadius == null ? "rounded-t-3xl" : ""} bg-ivory px-5 pt-3`}
         style={{
           paddingBottom: insets.bottom + 16,
+          // Ombre portée vers le HAUT : assombrit juste au-dessus du bord
+          // arrondi → le détache de la page claire visible derrière.
+          shadowColor: "#0F1629",
+          shadowOpacity: 0.4,
+          shadowRadius: 28,
+          shadowOffset: { width: 0, height: -12 },
+          elevation: 24,
+          // Liseré contrasté (tan) sur le bord supérieur : souligne la
+          // courbe arrondie sur le fond ivoire clair de la page.
+          borderTopWidth: 1.5,
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: "#C2BCAE",
+          ...(topRadius != null
+            ? { borderTopLeftRadius: topRadius, borderTopRightRadius: topRadius }
+            : null),
           ...(heightPct
             ? { height: `${heightPct}%` as const }
             : { maxHeight: "85%" as const }),
