@@ -1869,9 +1869,9 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 
 // Badge couronne de parrainage (palier selon le nombre de filleuls).
 const REFERRAL_TIERS = [
-  { tier: 'cuivre', label: 'Bronze', range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul (1er mois post-lancement).' },
-  { tier: 'argent', label: 'Argent', range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Avantage prioritaire : tous les avantages bonus + accès aux offres flash 20 min avant tout le monde.' },
-  { tier: 'or',     label: 'Or',     range: '10 filleuls',  color: '#E6B422', advantage: 'Avantage governor : tous les avantages bonus + avantages prioritaire + consulté·e par BUUPP sur les nouveautés (droit de vote).' },
+  { tier: 'cuivre', label: 'Used',  range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul (1er mois post-lancement).' },
+  { tier: 'argent', label: 'Paid',  range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Avantage prioritaire : tous les avantages bonus + accès aux offres flash 20 min avant tout le monde.' },
+  { tier: 'or',     label: 'Proud', range: '10 filleuls',  color: '#E6B422', advantage: 'Avantage governor : tous les avantages bonus + avantages prioritaire + consulté·e par BUUPP sur les nouveautés (droit de vote).' },
 ];
 const REFERRAL_TIER_COLOR = Object.fromEntries(REFERRAL_TIERS.map(t => [t.tier, t.color]));
 
@@ -1970,7 +1970,7 @@ function ReferralBadgePopup({ tier, founderNumber, onClose, onNav }) {
         {tier !== 'or' && (
           <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 12, background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))', border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))' }}>
             <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-2, var(--ink))' }}>
-              Parrainez des prospects pour monter de palier et devenir un <strong style={{ color: REFERRAL_TIER_COLOR.or }}>Golden Buupper</strong>. Votre lien de parrainage se trouve dans l'onglet Parrainage.
+              Parrainez des prospects pour monter de palier et devenir un <strong style={{ color: REFERRAL_TIER_COLOR.or }}>Proud Buupper</strong>. Votre lien de parrainage se trouve dans l'onglet Parrainage.
             </div>
             <button
               type="button"
@@ -6476,7 +6476,7 @@ function Parrainage() {
       <SectionTitle
         eyebrow="Parrainage = avantages fondateur"
         title="Recommandez, montez de palier"
-        desc="Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs (1er mois post-lancement) : Bronze (1-2) — bonus de 50 % des coins sur la 1ʳᵉ acceptation de chaque filleul ; Argent (3-9) — accès aux offres flash 20 min avant tout le monde ; Or (10) — statut Governor, consulté·e sur les nouveautés."
+        desc="Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs (1er mois post-lancement) : Used (1-2) — bonus de 50 % des coins sur la 1ʳᵉ acceptation de chaque filleul ; Paid (3-9) — accès aux offres flash 20 min avant tout le monde ; Proud (10) — statut Governor, consulté·e sur les nouveautés."
       />
 
       {!loading && data?.badgeTier && (() => {
