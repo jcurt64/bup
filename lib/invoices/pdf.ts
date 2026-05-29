@@ -92,22 +92,32 @@ async function docToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   });
 }
 
-export async function buildInvoicePdf(
-  invoice: InvoiceData,
-  pro: ProBillingInfo,
-): Promise<Buffer> {
+/** Crée un document PDFKit configuré (A4, marges, police, métadonnées). */
+function newDoc(title: string, subject: string): PDFKit.PDFDocument {
   const doc = new PDFDocument({
     size: "A4",
     margins: { top: 56, bottom: 56, left: 56, right: 56 },
     info: {
-      Title: `Facture ${invoice.number}`,
+      Title: title,
       Author: SELLER.name,
-      Subject: invoice.label,
+      Subject: subject,
     },
   });
-
   doc.font("Helvetica");
+  return doc;
+}
 
+/**
+ * Dessine une facture complète sur la page courante du document.
+ * Toutes les positions sont relatives à la page en cours, donc cette
+ * fonction peut être rappelée après `doc.addPage()` pour empiler
+ * plusieurs factures dans un même document (cf. `buildInvoicesPdf`).
+ */
+function renderInvoice(
+  doc: PDFKit.PDFDocument,
+  invoice: InvoiceData,
+  pro: ProBillingInfo,
+): void {
   // ─── En-tête : BUUPP + numéro de facture ─────────────────────────
   doc
     .fontSize(22)
@@ -240,7 +250,39 @@ export async function buildInvoicePdf(
     "TVA non applicable, art. 293 B du CGI (le cas échéant). Document généré électroniquement, sans signature manuscrite requise.",
     { width: doc.page.width - 56 * 2, align: "center" },
   );
+}
 
+/** Génère le PDF d'une facture unique. */
+export async function buildInvoicePdf(
+  invoice: InvoiceData,
+  pro: ProBillingInfo,
+): Promise<Buffer> {
+  const doc = newDoc(`Facture ${invoice.number}`, invoice.label);
+  renderInvoice(doc, invoice, pro);
+  return docToBuffer(doc);
+}
+
+/**
+ * Génère un PDF unique regroupant plusieurs factures, une par page
+ * (bouton « Tout télécharger » de l'onglet Facturation). L'ordre des
+ * factures est conservé. Lève si la liste est vide (l'appelant doit
+ * filtrer en amont).
+ */
+export async function buildInvoicesPdf(
+  invoices: InvoiceData[],
+  pro: ProBillingInfo,
+): Promise<Buffer> {
+  if (invoices.length === 0) {
+    throw new Error("no_invoices");
+  }
+  const doc = newDoc(
+    `Factures BUUPP — ${pro.raisonSociale} (${invoices.length})`,
+    "Historique des factures",
+  );
+  invoices.forEach((invoice, i) => {
+    if (i > 0) doc.addPage();
+    renderInvoice(doc, invoice, pro);
+  });
   return docToBuffer(doc);
 }
 

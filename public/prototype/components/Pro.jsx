@@ -6574,11 +6574,30 @@ function Facturation() {
       })
       .catch(() => { setCardSetupLoading(false); alert("Erreur réseau. Réessayez."); });
   };
+  // Déclenche le téléchargement d'un PDF servi en `Content-Disposition:
+  // attachment`. On évite `window.open('_blank')` : appelé APRÈS l'await
+  // du PATCH /api/pro/info, il a perdu l'activation utilisateur du clic
+  // et le navigateur le bloque comme une popup (rien ne se passe). Un
+  // <a> cliqué programmatiquement n'est, lui, pas soumis au bloqueur de
+  // popups et hérite du nom de fichier du header serveur.
+  const downloadAttachment = (url) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
   // État du modal "Compléter la facture" : la facture qu'on s'apprête
   // à télécharger. La modale pré-remplit les mentions légales lues
   // depuis /api/pro/info, et persiste les modifs avant de déclencher
   // l'ouverture du PDF.
   const [pdfPrompt, setPdfPrompt] = useState(null);
+  // État du bouton "Tout télécharger" : true = modale de mentions
+  // légales ouverte en mode bulk. À la confirmation, on ouvre le PDF
+  // combiné (/api/pro/invoices/download-all).
+  const [bulkPrompt, setBulkPrompt] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const refresh = () =>
@@ -6734,7 +6753,19 @@ function Facturation() {
       <div className="card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 18 }}>
           <div className="serif" style={{ fontSize: 22 }}>Historique des factures</div>
-          <button className="btn btn-ghost btn-sm btn-telecharger"><Icon name="download" size={12}/> Tout télécharger</button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-telecharger"
+            onClick={() => setBulkPrompt(true)}
+            disabled={!invoices || invoices.length === 0}
+            title={
+              invoices && invoices.length
+                ? 'Télécharger toutes les factures (un seul PDF)'
+                : 'Aucune facture à télécharger'
+            }
+          >
+            <Icon name="download" size={12}/> Tout télécharger
+          </button>
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
@@ -6795,8 +6826,21 @@ function Facturation() {
             // Patch a réussi : on ouvre le PDF dans un nouvel onglet et
             // on referme la modale.
             const url = `/api/pro/invoices/${encodeURIComponent(savedInvoice.transactionId)}/pdf`;
-            window.open(url, '_blank', 'noopener,noreferrer');
+            downloadAttachment(url);
             setPdfPrompt(null);
+          }}
+        />
+      )}
+      {bulkPrompt && (
+        <InvoiceFieldsModal
+          bulk
+          invoiceCount={invoices ? invoices.length : 0}
+          onClose={() => setBulkPrompt(false)}
+          onConfirmed={() => {
+            // Mentions légales enregistrées : on ouvre le PDF combiné de
+            // toutes les factures dans un nouvel onglet.
+            downloadAttachment('/api/pro/invoices/download-all');
+            setBulkPrompt(false);
           }}
         />
       )}
@@ -6809,7 +6853,7 @@ function Facturation() {
    permet de compléter les mentions légales obligatoires, persiste
    les modifications via PATCH /api/pro/info, puis renvoie au parent
    pour qu'il déclenche le téléchargement PDF. */
-function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
+function InvoiceFieldsModal({ invoice, onClose, onConfirmed, bulk = false, invoiceCount = 0 }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -7034,7 +7078,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
       }}>
         <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 4 }}>
           <div>
-            <div className="mono caps muted" style={{ fontSize: 11, marginBottom: 6 }}>— Génération facture</div>
+            <div className="mono caps muted" style={{ fontSize: 11, marginBottom: 6 }}>{bulk ? '— Téléchargement des factures' : '— Génération facture'}</div>
             <div className="serif" style={{ fontSize: 22, lineHeight: 1.2 }}>
               Compléter les mentions légales
             </div>
@@ -7042,7 +7086,11 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
           <button onClick={onClose} aria-label="Fermer" style={{ color: 'var(--ink-4)', padding: 4, fontSize: 20, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
         </div>
         <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 8, marginBottom: 18 }}>
-          Vérifiez (et complétez si nécessaire) les informations qui apparaîtront sur votre facture <strong>{invoice.number}</strong>. Elles seront automatiquement enregistrées dans <strong>Mes informations</strong> pour les prochaines factures.
+          {bulk ? (
+            <>Vérifiez (et complétez si nécessaire) les informations qui apparaîtront sur {invoiceCount > 1 ? <>vos <strong>{invoiceCount} factures</strong></> : <>votre facture</>}. Elles seront automatiquement enregistrées dans <strong>Mes informations</strong> pour les prochaines factures.</>
+          ) : (
+            <>Vérifiez (et complétez si nécessaire) les informations qui apparaîtront sur votre facture <strong>{invoice.number}</strong>. Elles seront automatiquement enregistrées dans <strong>Mes informations</strong> pour les prochaines factures.</>
+          )}
         </div>
 
         {loading ? (
@@ -7252,7 +7300,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed }) {
                 : undefined
             }
           >
-            {saving ? 'Enregistrement…' : 'Enregistrer & télécharger le PDF'}
+            {saving ? 'Enregistrement…' : (bulk ? 'Enregistrer & tout télécharger' : 'Enregistrer & télécharger le PDF')}
           </button>
         </div>
       </div>
