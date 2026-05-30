@@ -26,6 +26,7 @@ import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 export const runtime = "nodejs";
 
 type CampaignsJoin = {
+  name: string | null;
   status: string | null;
   brief: string | null;
   starts_at: string | null;
@@ -161,7 +162,7 @@ export async function GET() {
       `id, type, status, amount_cents, description, created_at, relation_id,
        relations:relation_id (
          id, motif, reward_cents, status, sent_at, expires_at, decided_at,
-         campaigns ( status, brief, starts_at, ends_at, targeting ),
+         campaigns ( name, status, brief, starts_at, ends_at, targeting ),
          pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )
        )`,
     )
@@ -257,6 +258,9 @@ export async function GET() {
       sector: sectorParts.join(" · "),
       motif: rel.motif ?? "",
       brief: rel.campaigns?.brief ?? null,
+      // Titre de la campagne (campaigns.name) — « objet de la demande »
+      // distinct du brief (« le mot du professionnel »).
+      campaignName: rel.campaigns?.name ?? null,
       reward,
       tier: tier ?? 1,
       tiers,
