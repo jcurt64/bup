@@ -16,6 +16,7 @@ import {
 const EMPTY_MAILBOX = require("../assets/images/empty-mailbox.png");
 
 import { BottomSheet } from "./bottom-sheet";
+import { BuuppFooter } from "./buupp-footer";
 import { BuuppLoader } from "./loader";
 import { Card, dateFr } from "./screen";
 import {
@@ -242,6 +243,11 @@ export function MessagesSheet({
           ))}
         </ScrollView>
       )}
+
+      {/* Footer signature « buupp » — couloir ivoire quadrillé (parité
+          ancienne version). `key` sur `visible` pour rejouer l'animation
+          à chaque ouverture. */}
+      <BuuppFooter variant="ivory" key={visible ? "open" : "closed"} />
     </BottomSheet>
   );
 }

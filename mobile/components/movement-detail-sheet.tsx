@@ -12,6 +12,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -157,6 +158,73 @@ function FooterGridDark() {
   );
 }
 
+// Flash néon : un TRAIT lumineux horizontal (dégradé violet → blanc →
+// violet, extrémités fondues + halo) balaie le footer de gauche à droite
+// en faisant quelques montées/descentes, UNE SEULE FOIS. Aucune ligne
+// statique tracée ; ce n'est pas une boule mais un éclat allongé.
+function NeonTrace() {
+  const [w, setW] = useState(0);
+  const p = useSharedValue(0);
+  useEffect(() => {
+    if (w <= 0) return;
+    p.value = 0;
+    p.value = withTiming(1, { duration: 2200, easing: Easing.linear });
+  }, [w, p]);
+  const STREAK = 52;
+  const yA = 30;
+  const yB = 80;
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(p.value, [0, 0.05, 0.9, 1], [0, 1, 1, 0]),
+    transform: [
+      { translateX: interpolate(p.value, [0, 1], [-STREAK, w]) },
+      // Trajectoire LINÉAIRE : descente régulière en ligne droite (pas
+      // d'escalier).
+      { translateY: interpolate(p.value, [0, 1], [yA, yB]) },
+    ],
+  }));
+  return (
+    <View
+      pointerEvents="none"
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      style={{ position: "absolute", top: 0, left: 0, right: 0, height: 120 }}
+    >
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: STREAK,
+            height: 1,
+            marginTop: -0.5,
+            borderRadius: 999,
+            shadowColor: "#A78BFA",
+            shadowOpacity: 0.95,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 12,
+          },
+          style,
+        ]}
+      >
+        <LinearGradient
+          colors={[
+            "rgba(167,139,250,0)",
+            "rgba(167,139,250,0.85)",
+            "#FFFFFF",
+            "rgba(167,139,250,0.85)",
+            "rgba(167,139,250,0)",
+          ]}
+          locations={[0, 0.3, 0.5, 0.7, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flex: 1, borderRadius: 999 }}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
 // Footer signature de la modale détail — "buupp" en Dancing Script (navy)
 // + slogan tri-couleur en mono caps qui apparaît à la fin de l'animation
 // des lettres. La key sur le wrapper repose sur relation.id pour rejouer
@@ -197,6 +265,8 @@ function BuuppSignature() {
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {/* Néon qui trace le quadrillage en escalier (une seule fois). */}
+      <NeonTrace />
       <View className="flex-row">
         {letters.map((c, i) => (
           <BuuppLetter key={`${c}-${i}`} char={c} index={i} />
