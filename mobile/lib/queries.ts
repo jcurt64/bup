@@ -212,6 +212,10 @@ export type MovementRelation = {
   sector: string;
   motif: string;
   brief: string | null;
+  /** Titre de la campagne (campaigns.name) — « objet de la demande »,
+   *  distinct du brief. Optionnel : absent tant que l'API prod n'expose
+   *  pas encore le champ. */
+  campaignName?: string | null;
   reward: number;
   tier: number;
   tiers?: number[] | null;
@@ -234,6 +238,14 @@ export type MovementRelation = {
    *  bouton « Signaler » de la modale détail au lieu d'envoyer un POST
    *  qui ferait 409 silencieux. */
   reported?: boolean;
+  /** Référence lisible "BPP-XXXX-XXXX" dérivée de l'id relation (API
+   *  movements). Affichée dans le tableau de la modale détail. */
+  reference?: string;
+  /** Solde disponible du portefeuille juste après cette opération (même
+   *  définition que /api/prospect/wallet). null quand la relation ne
+   *  provient pas d'une transaction (ex. écran Relations). */
+  balanceAfterCents?: number | null;
+  balanceAfterEur?: number | null;
 };
 
 export type Movement = {

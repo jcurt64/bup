@@ -304,6 +304,50 @@ function fmtEur(n: number): string {
   return `${n.toFixed(2).replace(".", ",")} €`;
 }
 
+// "+1,50 €" / "−1,50 €" — montant signé (récompense en tête de la carte).
+function fmtEurSigned(n: number): string {
+  return `${n < 0 ? "−" : "+"}${fmtEur(Math.abs(n))}`;
+}
+
+// Nom FR du palier (parité preferences.tsx / flash-deals-sheet.tsx).
+const TIER_NAME_FR: Record<number, string> = {
+  1: "Identification",
+  2: "Localisation",
+  3: "Style de vie",
+  4: "Données pro",
+  5: "Patrimoine",
+};
+
+// "BPP-2C8F-7A10" — fallback client (les relations issues de l'écran
+// Relations n'ont pas de `reference` côté API). Même dérivation que la
+// route movements : 8 premiers caractères hex de l'id, groupés 4-4.
+function makeReference(id: string): string {
+  const hex = (id || "").replace(/[^0-9a-fA-F]/g, "").slice(0, 8).toUpperCase();
+  if (hex.length < 8) return `BPP-${hex || "—"}`;
+  return `BPP-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}
+
+// Ligne du tableau récapitulatif (libellé gris à gauche · valeur à droite).
+function DetailRow({
+  label,
+  children,
+  last = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <View
+      className="flex-row items-center justify-between py-3"
+      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: "#EFEADD" }}
+    >
+      <Text className="text-[13.5px] text-ink-3">{label}</Text>
+      <View className="ml-3 shrink-0">{children}</View>
+    </View>
+  );
+}
+
 // "dispo le 12/12/2026" — parité web (Prospect.jsx fn formatAvailableAt).
 // Retourne null si l'iso est absent / invalide.
 function formatAvailableAt(iso: string | null): string | null {
@@ -498,6 +542,36 @@ export function MovementDetailSheet({
         ? { bg: "#FEF2F2", border: "#FECACA", icon: "#DC2626" as const, label: "Refusée" }
         : { bg: "#F7F4EC", border: "#E6E3DA", icon: "#8A91A1" as const, label: "Clôturée" };
 
+  // Pastille d'état affichée en regard de la récompense (carte d'en-tête).
+  const rewardPill =
+    r.relationStatus === "settled"
+      ? { bg: "#E8F5EE", border: "#B8DDC4", color: "#16A34A", icon: "checkmark-circle" as const, label: "Crédité" }
+      : alreadyAccepted
+        ? { bg: "#FCEFD6", border: "#F2DDB0", color: "#B45309", icon: "lock-closed" as const, label: "En séquestre" }
+        : alreadyRefused
+          ? { bg: "#FEF2F2", border: "#FECACA", color: "#DC2626", icon: "close-circle" as const, label: "Refusée" }
+          : canAccept
+            ? { bg: "#EEF2FF", border: "#C7D2FE", color: "#4F46E5", icon: "time-outline" as const, label: "Ouverte" }
+            : { bg: "#F2EEE4", border: "#E6E3DA", color: "#8A91A1", icon: "ellipse-outline" as const, label: "Clôturée" };
+
+  // Lignes du tableau récapitulatif (toutes dérivées de la base).
+  const statusCampaign =
+    r.decision === "Acceptée"
+      ? { label: "Acceptée", color: "#16A34A" }
+      : r.decision === "Refusée"
+        ? { label: "Refusée", color: "#DC2626" }
+        : { label: r.decision || "—", color: "#0F1629" };
+
+  const primaryTier =
+    Array.isArray(r.tiers) && r.tiers.length > 0
+      ? Math.max(...r.tiers.filter((n) => Number.isFinite(n)))
+      : r.tier;
+  const tierName = TIER_NAME_FR[primaryTier] ?? null;
+  const palierLabel = tierName ? `${tierChipLabel(r)} · ${tierName}` : tierChipLabel(r);
+
+  const reference = r.reference ?? makeReference(r.id);
+  const soldeApres = r.balanceAfterEur != null ? fmtEur(r.balanceAfterEur) : "—";
+
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={80} topRadius={32}>
       <ScrollView
@@ -505,6 +579,80 @@ export function MovementDetailSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ gap: 16, paddingBottom: 18 }}
       >
+        {/* Carte d'en-tête combinée : pro + chip palier · séparateur ·
+            récompense + pastille d'état (cf. det.pdf). */}
+        <View
+          className="rounded-3xl px-4 pb-4 pt-4"
+          style={{ backgroundColor: "#F4F2FC", borderWidth: 1, borderColor: "#E7E2F6" }}
+        >
+          <View className="flex-row items-start gap-3">
+            <LinearGradient
+              colors={["#7C5CFC", "#13235B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#13235B",
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 5 },
+                elevation: 4,
+              }}
+            >
+              <Text className="font-serif-bold text-base text-paper">
+                {initials(r.pro)}
+              </Text>
+            </LinearGradient>
+            <View className="flex-1">
+              <Text className="font-serif-bold text-xl text-ink" numberOfLines={2}>
+                {r.pro}
+              </Text>
+              {r.sector ? (
+                <Text className="mt-0.5 text-[13px] text-ink-4" numberOfLines={1}>
+                  {r.sector}
+                </Text>
+              ) : null}
+            </View>
+            <View
+              className="rounded-full bg-paper px-3 py-1"
+              style={{ borderWidth: 1, borderColor: "#D9D0F2" }}
+            >
+              <Text className="text-[11px] font-semibold text-violet">
+                {tierChipLabel(r)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="my-3.5 h-px" style={{ backgroundColor: "#E2DCF3" }} />
+
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text
+                className="font-mono text-[10px] uppercase text-ink-4"
+                style={{ letterSpacing: 0.8 }}
+              >
+                Récompense
+              </Text>
+              <Text className="mt-0.5 font-serif-bold text-[34px] leading-10 text-violet">
+                {fmtEurSigned(r.reward)}
+              </Text>
+            </View>
+            <View
+              className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+              style={{ backgroundColor: rewardPill.bg, borderWidth: 1, borderColor: rewardPill.border }}
+            >
+              <Ionicons name={rewardPill.icon} size={14} color={rewardPill.color} />
+              <Text className="text-[12.5px] font-semibold" style={{ color: rewardPill.color }}>
+                {rewardPill.label}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {/* Bannière contextuelle */}
         <View
           className="flex-row items-center gap-2.5 rounded-2xl px-4 py-3"
@@ -513,205 +661,146 @@ export function MovementDetailSheet({
           <Ionicons name="information-circle" size={18} color={bannerTone.icon} />
           <Text className="flex-1 text-[13px] leading-5 text-ink">
             {alreadyAccepted ? (
-              <>
-                <Text className="font-semibold">Déjà acceptée</Text> — votre récompense est
-                {r.relationStatus === "settled" ? (
-                  " créditée."
-                ) : (() => {
-                  const avail = formatAvailableAt(r.availableAt);
-                  return avail ? (
-                    <>
-                      {" en séquestre · "}
-                      <Text className="font-semibold text-good">{avail}</Text>
-                      {"."}
-                    </>
-                  ) : (
-                    " en séquestre."
-                  );
-                })()}
-              </>
+              r.relationStatus === "settled" ? (
+                <>
+                  <Text className="font-semibold">Déjà acceptée</Text> — votre récompense a été créditée sur votre portefeuille.
+                </>
+              ) : (() => {
+                const avail = formatAvailableAt(r.availableAt);
+                return (
+                  <>
+                    <Text className="font-semibold">Déjà acceptée</Text> — votre récompense est
+                    {avail ? (
+                      <>
+                        {" en séquestre · "}
+                        <Text className="font-semibold text-good">{avail}</Text>
+                        {"."}
+                      </>
+                    ) : (
+                      " en séquestre."
+                    )}
+                  </>
+                );
+              })()
             ) : canAccept ? (
               <>
-                Cette campagne est <Text className="font-semibold">encore ouverte</Text> — vous pouvez l'accepter rétroactivement.
+                Cette campagne est <Text className="font-semibold">encore ouverte</Text> — vous pouvez l’accepter rétroactivement.
               </>
             ) : alreadyRefused ? (
               <>Vous avez <Text className="font-semibold">refusé</Text> cette demande.</>
             ) : (
-              <>Cette campagne est <Text className="font-semibold">clôturée</Text> — l'acceptation n'est plus possible.</>
+              <>Cette campagne est <Text className="font-semibold">clôturée</Text> — l’acceptation n’est plus possible.</>
             )}
           </Text>
         </View>
 
-        {/* En-tête : avatar pastel + raison sociale + secteur + chip palier */}
-        <View className="flex-row items-start gap-3">
-          <LinearGradient
-            colors={["#7C5CFC", "#13235B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: "#13235B",
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 5 },
-              elevation: 4,
-            }}
-          >
-            <Text className="font-serif-bold text-base text-paper">
-              {initials(r.pro)}
-            </Text>
-          </LinearGradient>
-          <View className="flex-1">
-            <Text className="font-serif text-xl text-ink" numberOfLines={2}>
-              {r.pro}
-            </Text>
-            {r.sector ? (
-              <Text className="mt-0.5 text-[13px] text-ink-4" numberOfLines={1}>
-                {r.sector}
-              </Text>
-            ) : null}
-          </View>
-          <View className="rounded-full bg-accent-soft px-3 py-1">
-            <Text className="text-[11px] font-semibold text-accent-ink">
-              {tierChipLabel(r)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Brief campagne (le mot du pro) — encart accent doux, italique */}
+        {/* Le mot du professionnel — label au-dessus, encart lavande avec
+            grand guillemet + texte en italique. */}
         {r.brief ? (
-          <View
-            className="rounded-2xl px-4 py-3"
-            style={{ backgroundColor: "#F4F1FB", borderWidth: 1, borderColor: "#E4DEF5" }}
-          >
+          <View>
             <Text
-              className="font-mono text-[10px] uppercase text-violet"
+              className="mb-1.5 font-mono text-[10px] uppercase text-ink-4"
               style={{ letterSpacing: 0.8 }}
             >
               Le mot du professionnel
             </Text>
-            <Text className="mt-1.5 font-serif-italic text-[14px] leading-6 text-ink">
-              « {r.brief} »
-            </Text>
+            <View
+              className="flex-row rounded-2xl px-4 py-3.5"
+              style={{ backgroundColor: "#F0ECFA", borderWidth: 1, borderColor: "#E2DCF3" }}
+            >
+              <Text
+                className="font-serif-bold text-3xl text-violet"
+                style={{ marginTop: -8, marginRight: 6, opacity: 0.55 }}
+              >
+                “
+              </Text>
+              <Text className="flex-1 font-serif-italic text-[15px] leading-7 text-ink">
+                {r.brief}
+              </Text>
+            </View>
           </View>
         ) : null}
 
-        {/* Motif */}
-        {r.motif ? (
+        {/* Objet de la demande — titre de la campagne (campaigns.name),
+            distinct du brief. Fallback sur motif tant que l'API prod
+            n'expose pas campaignName. */}
+        {(r.campaignName ?? r.motif) ? (
           <View>
             <Text
-              className="font-mono text-[10px] uppercase text-ink-4"
+              className="mb-1 font-mono text-[10px] uppercase text-ink-4"
               style={{ letterSpacing: 0.8 }}
             >
               Objet de la demande
             </Text>
-            <Text className="mt-1 text-[14px] leading-6 text-ink-2">
-              {r.motif}
+            <Text className="font-serif-bold text-[17px] leading-6 text-ink">
+              {r.campaignName ?? r.motif}
             </Text>
           </View>
         ) : null}
 
         {/* Dates : Lancement / Fin */}
         <View className="flex-row gap-3">
-          <View className="flex-1 rounded-2xl border border-line bg-ivory px-3.5 py-3">
+          <View className="flex-1 rounded-2xl border border-line bg-paper px-3.5 py-3">
             <LabelValue icon="calendar-outline" label="Lancement">
-              <Text className="text-[13px] font-medium text-ink">
+              <Text className="font-serif-bold text-[15px] text-ink">
                 {fmtLongDate(r.startDate)}
               </Text>
             </LabelValue>
           </View>
-          <View className="flex-1 rounded-2xl border border-line bg-ivory px-3.5 py-3">
+          <View className="flex-1 rounded-2xl border border-line bg-paper px-3.5 py-3">
             <LabelValue icon="flag-outline" label="Fin">
-              <Text className="text-[13px] font-medium text-ink">
+              <Text className="font-serif-bold text-[15px] text-ink">
                 {fmtLongDate(r.endDate)}
               </Text>
             </LabelValue>
           </View>
         </View>
 
-        {/* Récompense + délai — carte mise en valeur (dégradé violet doux). */}
-        <LinearGradient
-          colors={["#EDE9FE", "#FFFFFF"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: "#E4DEF5",
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+        {/* Tableau récapitulatif — statut · palier · référence · solde. */}
+        <View
+          className="rounded-2xl bg-paper px-4"
+          style={{ borderWidth: 1, borderColor: "#EFEADD" }}
         >
-          <LabelValue label="Récompense">
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons name="gift" size={18} color="#7C5CFC" />
-              <Text className="font-serif text-2xl text-violet">
-                {fmtEur(r.reward)}
-              </Text>
-            </View>
-          </LabelValue>
-          <LabelValue
-            icon="flash-outline"
-            label={canAccept && !alreadyAccepted ? "Ouverte jusqu'au" : "Campagne"}
-            align="right"
-          >
-            <Text className="font-mono text-[13px] font-medium text-ink">
-              {canAccept && !alreadyAccepted
-                ? fmtLongDate(r.endDate)
-                : alreadyAccepted
-                  ? "Acceptée"
-                  : "Clôturée"}
+          <DetailRow label="Statut campagne">
+            <Text className="text-[14px] font-semibold" style={{ color: statusCampaign.color }}>
+              {statusCampaign.label}
             </Text>
-          </LabelValue>
-        </LinearGradient>
-
-        {/* Footer secondaire — signalement (parité web : action discrète
-            placée au-dessus des actions principales). Bascule sur un
-            chip « déjà transmis » après envoi. */}
-        <View className="border-t border-line pt-3">
-          {reportedLocal ? (
-            <View className="flex-row items-center gap-1.5 self-start rounded-full bg-ivory-2 px-3 py-1">
-              <Ionicons name="flag" size={11} color="#8A91A1" />
-              <Text className="text-[11px] text-ink-4">
-                Signalement déjà transmis
-              </Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => setReportOpen(true)}
-              className="flex-row items-center gap-1.5 self-start py-1 active:opacity-60"
-              accessibilityRole="button"
-              accessibilityLabel="Signaler ce professionnel"
-            >
-              <Ionicons name="flag-outline" size={13} color="#DC2626" />
-              <Text className="text-[12.5px] font-medium text-bad">
-                Signaler ce professionnel
-              </Text>
-            </Pressable>
-          )}
+          </DetailRow>
+          <DetailRow label="Palier partagé">
+            <Text className="text-[14px] font-semibold text-ink">{palierLabel}</Text>
+          </DetailRow>
+          <DetailRow label="Référence">
+            <Text className="font-mono text-[13px] text-ink-2">{reference}</Text>
+          </DetailRow>
+          <DetailRow label="Solde après opération" last>
+            <Text className="text-[14px] font-semibold text-ink">{soldeApres}</Text>
+          </DetailRow>
         </View>
 
-        {/* Actions — mirror web (cf. RelationDetailModal action block) */}
+        {/* Actions — un seul bouton selon l'état :
+            · acceptée → « Refuser » (fond clair, bordure navy fine). Passe
+              en mode INACTIF/grisé si la campagne a expiré (plus de refund
+              possible).
+            · pas encore acceptée + ouverte → « Accepter ».
+            · sinon → « Fermer ». */}
         <View className="mt-1 flex-row gap-3">
-          {canRefuse ? (
+          {alreadyAccepted ? (
             <Pressable
-              disabled={busy !== null}
-              onPress={() => act("refuse")}
-              className="flex-1 items-center rounded-full border border-line bg-paper py-3.5 active:opacity-70"
+              disabled={busy !== null || !canRefuse}
+              onPress={canRefuse ? () => act("refuse") : undefined}
+              className={`flex-1 items-center rounded-full border bg-paper py-3.5 ${
+                canRefuse ? "border-navy active:opacity-70" : "border-ink-5"
+              }`}
+              style={canRefuse ? undefined : { opacity: 0.55 }}
+              accessibilityState={{ disabled: !canRefuse }}
             >
-              <Text className="text-sm font-semibold text-bad">
+              <Text
+                className={`text-sm font-semibold ${canRefuse ? "text-navy" : "text-ink-4"}`}
+              >
                 {busy === "refuse" ? "…" : "Refuser"}
               </Text>
             </Pressable>
-          ) : null}
-          {!alreadyAccepted && canAccept ? (
+          ) : canAccept ? (
             <Pressable
               disabled={busy !== null}
               onPress={() => act("accept")}
@@ -721,16 +810,38 @@ export function MovementDetailSheet({
                 {busy === "accept" ? "…" : "Accepter"}
               </Text>
             </Pressable>
-          ) : null}
-          {/* Fermer : seul bouton si aucune action métier possible */}
-          {!canRefuse && (alreadyAccepted || !canAccept) ? (
+          ) : (
             <Pressable
               onPress={onClose}
               className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
             >
               <Text className="text-sm font-semibold text-paper">Fermer</Text>
             </Pressable>
-          ) : null}
+          )}
+        </View>
+
+        {/* Signaler ce professionnel — centré sous le bouton (cf. det.pdf). */}
+        <View className="mt-0.5 items-center">
+          {reportedLocal ? (
+            <View className="flex-row items-center gap-1.5 rounded-full bg-ivory-2 px-3 py-1">
+              <Ionicons name="flag" size={11} color="#8A91A1" />
+              <Text className="text-[11px] text-ink-4">
+                Signalement déjà transmis
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setReportOpen(true)}
+              className="flex-row items-center gap-1.5 py-1 active:opacity-60"
+              accessibilityRole="button"
+              accessibilityLabel="Signaler ce professionnel"
+            >
+              <Ionicons name="flag-outline" size={13} color="#DC2626" />
+              <Text className="text-[12.5px] font-medium text-bad">
+                Signaler ce professionnel
+              </Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
 

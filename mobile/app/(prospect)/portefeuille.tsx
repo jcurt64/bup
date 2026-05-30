@@ -41,6 +41,7 @@ import {
   useProspectScore,
   useProspectVerification,
   useProspectWallet,
+  type Movement,
   type MovementRelation,
 } from "../../lib/queries";
 import { ReferralBadge } from "../../components/referral-badge";
@@ -175,6 +176,42 @@ export default function Portefeuille() {
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
+
+  // « Solde après opération » affiché dans la modale détail. L'API prod
+  // (bup-rouge) ne renvoie pas encore ce champ : on le calcule ici à partir
+  // des données déjà chargées (liste des mouvements + solde disponible du
+  // wallet). Même définition que /api/prospect/wallet : solde disponible =
+  // crédits/parrainages encaissés − retraits exécutés (les séquestres en
+  // attente ne comptent pas). On ancre sur le solde disponible courant puis
+  // on remonte la liste triée du plus récent au plus ancien.
+  const balanceAfterById = useMemo(() => {
+    const map = new Map<string, number>();
+    const available = w.data?.availableCents;
+    if (available == null) return map;
+    let running = available;
+    for (const mv of m.data?.movements ?? []) {
+      map.set(mv.id, running);
+      // Contribution de la ligne au solde disponible : +crédit, −retrait,
+      // 0 sinon (séquestre, annulé, remboursé…).
+      const delta =
+        mv.statusLabel === "Crédité" ? mv.amountCents
+        : mv.statusLabel === "Exécuté" ? -mv.amountCents
+        : 0;
+      running -= delta;
+    }
+    return map;
+  }, [m.data?.movements, w.data?.availableCents]);
+
+  // Ouvre la modale détail en injectant le solde après opération calculé.
+  function openDetail(mv: Movement) {
+    if (!mv.relation) return;
+    const cents = balanceAfterById.get(mv.id);
+    setDetail(
+      cents != null
+        ? { ...mv.relation, balanceAfterCents: cents, balanceAfterEur: Math.round(cents) / 100 }
+        : mv.relation,
+    );
+  }
 
   // Deep-link push : ?openFlash=<dealId> → ouvre le FlashDealsSheet.
   // V1 : on ignore la valeur de dealId (l'user voit la liste complète).
@@ -590,7 +627,7 @@ export default function Portefeuille() {
                 return (
                 <Pressable
                   key={mv.id}
-                  onPress={clickable ? () => setDetail(mv.relation) : undefined}
+                  onPress={clickable ? () => openDetail(mv) : undefined}
                   disabled={!clickable}
                   accessibilityRole={clickable ? "button" : undefined}
                   accessibilityLabel={
