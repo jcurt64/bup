@@ -13,6 +13,7 @@ import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { eur, QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
+import { useTheme } from "../../lib/theme";
 import {
   useDeleteRib,
   useEmailTracking,
@@ -34,7 +35,6 @@ import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // Accent violet global (pre.html)
 const VIOLET = "#7C5CFF";
-const VIOLET_DEEP = "#5B3FE0";
 
 // Listes source-of-truth alignées sur Prospect.jsx (web)
 const CAMPAIGN_TYPE_LIST = [
@@ -70,7 +70,7 @@ const TIER_ROWS: { n: number; key: TierKey; name: string; range: string }[] = [
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
 
-// Carte blanche standard : rounded 20, bordure #E7E1D2, padding 20, ombre.
+// Carte blanche standard : rounded 20, bordure thème, padding 20, ombre.
 function PrefCard({
   iconBg,
   icon,
@@ -85,15 +85,16 @@ function PrefCard({
   right?: ReactNode;
   children: ReactNode;
 }) {
+  const { c } = useTheme();
   return (
     <View
       className="bg-paper"
       style={{
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: "#E7E1D2",
+        borderColor: c.borderSoft,
         padding: 20,
-        shadowColor: "#0A1628",
+        shadowColor: "#000000",
         shadowOpacity: 0.05,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 5 },
@@ -134,6 +135,7 @@ function AllButton({
   label: string;
   onPress: () => void;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -145,21 +147,21 @@ function AllButton({
         paddingVertical: 8,
         paddingHorizontal: 14,
         borderRadius: 999,
-        backgroundColor: active ? VIOLET : "#FFFFFF",
+        backgroundColor: active ? VIOLET : c.surface,
         borderWidth: 1.5,
-        borderColor: active ? VIOLET : "#E7E1D2",
+        borderColor: active ? VIOLET : c.borderSoft,
       }}
     >
       <Ionicons
         name="checkmark"
         size={13}
-        color={active ? "#FFFFFF" : VIOLET_DEEP}
+        color={active ? "#FFFFFF" : c.accVioletDeep}
       />
       <Text
         style={{
           fontSize: 12.5,
           fontWeight: "600",
-          color: active ? "#FFFFFF" : "#0A1628",
+          color: active ? "#FFFFFF" : c.text,
         }}
       >
         {label}
@@ -179,6 +181,7 @@ function SelectChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -190,17 +193,17 @@ function SelectChip({
         paddingVertical: 8,
         paddingHorizontal: 14,
         borderRadius: 999,
-        backgroundColor: active ? "#0A1628" : "#FFFFFF",
+        backgroundColor: active ? c.btnBg : c.surface,
         borderWidth: active ? 1 : 1.5,
-        borderColor: active ? "#0A1628" : "#E7E1D2",
+        borderColor: active ? c.btnBg : c.borderSoft,
       }}
     >
-      {active ? <Ionicons name="checkmark" size={13} color="#FFFFFF" /> : null}
+      {active ? <Ionicons name="checkmark" size={13} color={c.btnText} /> : null}
       <Text
         style={{
           fontSize: 13.5,
           fontWeight: "500",
-          color: active ? "#FFFFFF" : "#6B7384",
+          color: active ? c.btnText : c.textSub,
         }}
       >
         {label}
@@ -210,10 +213,11 @@ function SelectChip({
 }
 
 function H3({ children }: { children: ReactNode }) {
+  const { c } = useTheme();
   return (
     <Text
       className="font-serif"
-      style={{ fontSize: 21, color: "#0A1628", marginTop: 15 }}
+      style={{ fontSize: 21, color: c.text, marginTop: 15 }}
     >
       {children}
     </Text>
@@ -221,9 +225,10 @@ function H3({ children }: { children: ReactNode }) {
 }
 
 function Desc({ children }: { children: ReactNode }) {
+  const { c } = useTheme();
   return (
     <Text
-      style={{ fontSize: 13, lineHeight: 19, color: "#6B7384", marginTop: 7 }}
+      style={{ fontSize: 13, lineHeight: 19, color: c.textSub, marginTop: 7 }}
     >
       {children}
     </Text>
@@ -240,6 +245,7 @@ function DarkButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       disabled={disabled}
@@ -249,15 +255,15 @@ function DarkButton({
         marginTop: 13,
         paddingVertical: 15,
         borderRadius: 13,
-        backgroundColor: "#0A1628",
-        shadowColor: "#0A1628",
+        backgroundColor: c.btnBg,
+        shadowColor: "#000000",
         shadowOpacity: 0.2,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 8 },
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#FBF9F4" }}>
+      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.btnText }}>
         {label}
       </Text>
     </Pressable>
@@ -265,20 +271,23 @@ function DarkButton({
 }
 
 // Champ texte façon pre.html (fond ivoire, bordure douce, rounded 13).
-const FIELD_STYLE = {
-  marginTop: 11,
-  paddingVertical: 14,
-  paddingHorizontal: 16,
-  borderRadius: 13,
-  backgroundColor: "#FBF9F4",
-  borderWidth: 1,
-  borderColor: "#E7E1D2",
-  fontSize: 14.5,
-  color: "#0A1628",
-} as const;
+function fieldStyle(c: ReturnType<typeof useTheme>["c"]) {
+  return {
+    marginTop: 11,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 13,
+    backgroundColor: c.field,
+    borderWidth: 1,
+    borderColor: c.borderSoft,
+    fontSize: 14.5,
+    color: c.text,
+  } as const;
+}
 
 // Case à cocher carrée arrondie 22×22 (violette une fois cochée).
 function CheckBox({ checked }: { checked: boolean }) {
+  const { c, isDark } = useTheme();
   return (
     <View
       className="items-center justify-center"
@@ -287,9 +296,9 @@ function CheckBox({ checked }: { checked: boolean }) {
         height: 22,
         borderRadius: 7,
         flexShrink: 0,
-        backgroundColor: checked ? VIOLET : "#FFFFFF",
+        backgroundColor: checked ? VIOLET : c.surface,
         borderWidth: 1.5,
-        borderColor: checked ? VIOLET : "#D8D1C0",
+        borderColor: checked ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
       }}
     >
       {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
@@ -309,6 +318,7 @@ function PrefToggle({
   disabled?: boolean;
   label: string;
 }) {
+  const { c, isDark } = useTheme();
   return (
     <Pressable
       disabled={disabled}
@@ -320,7 +330,7 @@ function PrefToggle({
         width: 48,
         height: 28,
         borderRadius: 999,
-        backgroundColor: value ? VIOLET : "#D8D1C0",
+        backgroundColor: value ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
         flexShrink: 0,
         justifyContent: "center",
       }}
@@ -333,7 +343,7 @@ function PrefToggle({
           width: 22,
           height: 22,
           borderRadius: 999,
-          backgroundColor: "#FFFFFF",
+          backgroundColor: c.surface,
           shadowColor: "#000000",
           shadowOpacity: 0.2,
           shadowRadius: 3,
@@ -346,6 +356,7 @@ function PrefToggle({
 }
 
 export default function Preferences() {
+  const { c } = useTheme();
   const don = useProspectDonnees();
   const ver = useProspectVerification();
   const pay = usePayoutStatus();
@@ -435,23 +446,23 @@ export default function Preferences() {
           ? {
               iconLib: "material",
               icon: "phone-check",
-              color: "#16A34A",
-              bg: "#DCFCE7",
+              color: c.good,
+              bg: c.goodSoft,
               accessibilityLabel: "Téléphone vérifié",
             }
           : {
               iconLib: "material",
               icon: "phone-off",
-              color: "#9AA1AD",
-              bg: "#F4F1E9",
+              color: c.textMuted,
+              bg: c.surface2,
               accessibilityLabel: "Téléphone non vérifié",
             },
         {
           iconLib: "ionicons",
           icon: "location-outline",
           value: zoneLabel,
-          color: VIOLET,
-          bg: "#EDE9FE",
+          color: c.accViolet,
+          bg: c.accentSoft,
         },
       ]
     : undefined;
@@ -492,7 +503,7 @@ export default function Preferences() {
           Préférences
         </Text>
         <Text
-          className="font-serif text-paper"
+          className="font-serif text-white"
           style={{ fontSize: 25, lineHeight: 28, marginTop: 4 }}
         >
           Qui peut vous contacter
@@ -505,9 +516,9 @@ export default function Preferences() {
 
       {/* ── 1. Types de campagne acceptés ──────────────────────────────── */}
       <PrefCard
-        iconBg="#DDE9F8"
+        iconBg={c.tintBlue}
         icon="megaphone-outline"
-        iconColor="#3F7FD6"
+        iconColor={c.accBlue}
         right={
           <AllButton
             active={allTypes}
@@ -538,9 +549,9 @@ export default function Preferences() {
 
       {/* ── 2. Catégories autorisées ───────────────────────────────────── */}
       <PrefCard
-        iconBg="#F8E8C9"
+        iconBg={c.tintAmber}
         icon="pricetags-outline"
-        iconColor="#B45309"
+        iconColor={c.accAmber}
         right={
           <AllButton
             active={allCats}
@@ -570,7 +581,7 @@ export default function Preferences() {
       </PrefCard>
 
       {/* ── 3. Zone géographique ───────────────────────────────────────── */}
-      <PrefCard iconBg="#F9DDD5" icon="location-outline" iconColor="#DD5F48">
+      <PrefCard iconBg={c.tintCoral} icon="location-outline" iconColor={c.accCoral}>
         <H3>Zone géographique</H3>
         <QueryGate query={don}>
           {(d) => {
@@ -593,12 +604,12 @@ export default function Preferences() {
                   style={{ gap: 14, marginTop: 16 }}
                 >
                   <View>
-                    <Text style={{ fontSize: 12, color: "#6B7384" }}>
+                    <Text style={{ fontSize: 12, color: c.textSub }}>
                       Centrée sur
                     </Text>
                     <Text
                       className="font-serif"
-                      style={{ fontSize: 16, color: "#0A1628", marginTop: 3 }}
+                      style={{ fontSize: 16, color: c.text, marginTop: 3 }}
                     >
                       {zoneLocked
                         ? "Ville non renseignée"
@@ -608,10 +619,10 @@ export default function Preferences() {
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 12, color: "#6B7384" }}>Rayon</Text>
+                    <Text style={{ fontSize: 12, color: c.textSub }}>Rayon</Text>
                     <Text
                       className="font-serif"
-                      style={{ fontSize: 17, color: VIOLET_DEEP, marginTop: 3 }}
+                      style={{ fontSize: 17, color: c.accVioletDeep, marginTop: 3 }}
                     >
                       {nationalOptIn ? "National" : `${radius} km`}
                     </Text>
@@ -630,9 +641,9 @@ export default function Preferences() {
                       style={{
                         paddingVertical: 11,
                         borderRadius: 13,
-                        backgroundColor: "#FFFFFF",
+                        backgroundColor: c.surface,
                         borderWidth: 1,
-                        borderColor: "#E7E1D2",
+                        borderColor: c.borderSoft,
                       }}
                       onPress={() =>
                         patchDon.mutate({
@@ -641,7 +652,7 @@ export default function Preferences() {
                         })
                       }
                     >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
                         −5 km
                       </Text>
                     </Pressable>
@@ -651,9 +662,9 @@ export default function Preferences() {
                       style={{
                         paddingVertical: 11,
                         borderRadius: 13,
-                        backgroundColor: "#FFFFFF",
+                        backgroundColor: c.surface,
                         borderWidth: 1,
-                        borderColor: "#E7E1D2",
+                        borderColor: c.borderSoft,
                       }}
                       onPress={() =>
                         patchDon.mutate({
@@ -662,7 +673,7 @@ export default function Preferences() {
                         })
                       }
                     >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
                         +5 km
                       </Text>
                     </Pressable>
@@ -676,7 +687,7 @@ export default function Preferences() {
                       marginTop: 12,
                       fontSize: 12.5,
                       lineHeight: 19,
-                      color: "#6B7384",
+                      color: c.textSub,
                     }}
                   >
                     Renseignez votre ville dans « Mes données » → Localisation
@@ -697,9 +708,9 @@ export default function Preferences() {
                     paddingVertical: 14,
                     paddingHorizontal: 15,
                     borderRadius: 14,
-                    backgroundColor: "#F2EDFF",
+                    backgroundColor: c.tintViolet,
                     borderWidth: 1,
-                    borderColor: "#E8E0FF",
+                    borderColor: c.violetSoft,
                     opacity: zoneLocked ? 0.5 : 1,
                   }}
                   onPress={() => {
@@ -712,14 +723,14 @@ export default function Preferences() {
                 >
                   <CheckBox checked={nationalOptIn} />
                   <View className="flex-1">
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#0A1628" }}>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: c.text }}>
                       Étendre au niveau national
                     </Text>
                     <Text
                       style={{
                         fontSize: 12.5,
                         lineHeight: 18,
-                        color: "#6B7384",
+                        color: c.textSub,
                         marginTop: 3,
                       }}
                     >
@@ -733,14 +744,14 @@ export default function Preferences() {
           }}
         </QueryGate>
         {patchDon.isError && (
-          <Text style={{ marginTop: 10, fontSize: 12.5, color: "#DC2626" }}>
+          <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
             Échec — réessayez.
           </Text>
         )}
       </PrefCard>
 
       {/* ── 4. Paliers partageables ────────────────────────────────────── */}
-      <PrefCard iconBg="#F2EDFF" icon="layers-outline" iconColor={VIOLET_DEEP}>
+      <PrefCard iconBg={c.tintViolet} icon="layers-outline" iconColor={c.accVioletDeep}>
         <H3>Paliers partageables</H3>
         <Desc>
           Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne
@@ -770,7 +781,7 @@ export default function Preferences() {
                         gap: 12,
                         paddingVertical: 13,
                         borderBottomWidth: isLast ? 0 : 1,
-                        borderBottomColor: "#ECE7D9",
+                        borderBottomColor: c.track,
                         opacity: removed ? 0.5 : 1,
                       }}
                       onPress={() => {
@@ -784,13 +795,13 @@ export default function Preferences() {
                       <CheckBox checked={shared} />
                       <Text
                         className="font-serif"
-                        style={{ fontSize: 16, color: "#0A1628" }}
+                        style={{ fontSize: 16, color: c.text }}
                       >
                         Palier {row.n}
                       </Text>
                       <Text
                         numberOfLines={1}
-                        style={{ flex: 1, fontSize: 13, color: "#6B7384" }}
+                        style={{ flex: 1, fontSize: 13, color: c.textSub }}
                       >
                         {row.name}
                       </Text>
@@ -798,18 +809,18 @@ export default function Preferences() {
                         <View
                           style={{
                             borderRadius: 999,
-                            backgroundColor: "#ECE7D9",
+                            backgroundColor: c.track,
                             paddingHorizontal: 8,
                             paddingVertical: 2,
                           }}
                         >
-                          <Text style={{ fontSize: 10, color: "#9AA1AD" }}>
+                          <Text style={{ fontSize: 10, color: c.textMuted }}>
                             supprimé
                           </Text>
                         </View>
                       ) : (
                         <Text
-                          style={{ fontSize: 12.5, fontWeight: "500", color: "#9AA1AD" }}
+                          style={{ fontSize: 12.5, fontWeight: "500", color: c.textMuted }}
                         >
                           {row.range}
                         </Text>
@@ -822,14 +833,14 @@ export default function Preferences() {
           }}
         </QueryGate>
         {tierAction.isError && (
-          <Text style={{ marginTop: 10, fontSize: 12.5, color: "#DC2626" }}>
+          <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
             Échec — réessayez.
           </Text>
         )}
       </PrefCard>
 
       {/* ── 5. Téléphone & vérification SMS ────────────────────────────── */}
-      <PrefCard iconBg="#F2EDFF" icon="call-outline" iconColor={VIOLET_DEEP}>
+      <PrefCard iconBg={c.tintViolet} icon="call-outline" iconColor={c.accVioletDeep}>
         <H3>Téléphone</H3>
         <QueryGate query={don}>
           {(d) => {
@@ -840,9 +851,9 @@ export default function Preferences() {
               <View>
                 <View
                   className="flex-row items-center justify-between"
-                  style={FIELD_STYLE}
+                  style={fieldStyle(c)}
                 >
-                  <Text style={{ fontSize: 14.5, color: "#0A1628" }}>
+                  <Text style={{ fontSize: 14.5, color: c.text }}>
                     {tel || "Numéro vérifié"}
                   </Text>
                   <View
@@ -852,11 +863,11 @@ export default function Preferences() {
                       paddingVertical: 3,
                       paddingHorizontal: 9,
                       borderRadius: 999,
-                      backgroundColor: "#DCFCE7",
+                      backgroundColor: c.goodSoft,
                     }}
                   >
-                    <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
-                    <Text style={{ fontSize: 11.5, fontWeight: "600", color: "#15803D" }}>
+                    <Ionicons name="checkmark-circle" size={13} color={c.good} />
+                    <Text style={{ fontSize: 11.5, fontWeight: "600", color: c.good }}>
                       Vérifié
                     </Text>
                   </View>
@@ -868,9 +879,9 @@ export default function Preferences() {
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="+33 6 12 34 56 78"
-                  placeholderTextColor="#9AA1AD"
+                  placeholderTextColor={c.textMuted}
                   keyboardType="phone-pad"
-                  style={FIELD_STYLE}
+                  style={fieldStyle(c)}
                 />
                 <DarkButton
                   label={phoneStart.isPending ? "…" : "Recevoir un code SMS"}
@@ -883,9 +894,9 @@ export default function Preferences() {
                       value={code}
                       onChangeText={setCode}
                       placeholder="Code à 6 chiffres"
-                      placeholderTextColor="#9AA1AD"
+                      placeholderTextColor={c.textMuted}
                       keyboardType="number-pad"
-                      style={FIELD_STYLE}
+                      style={fieldStyle(c)}
                     />
                     <Pressable
                       disabled={phoneVerify.isPending}
@@ -896,11 +907,11 @@ export default function Preferences() {
                         paddingVertical: 14,
                         borderRadius: 13,
                         borderWidth: 1,
-                        borderColor: "#E7E1D2",
-                        backgroundColor: "#FFFFFF",
+                        borderColor: c.borderSoft,
+                        backgroundColor: c.surface,
                       }}
                     >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
                         {phoneVerify.isPending ? "…" : "Valider le code"}
                       </Text>
                     </Pressable>
@@ -913,18 +924,18 @@ export default function Preferences() {
       </PrefCard>
 
       {/* ── 6. Coordonnées bancaires (RIB / IBAN) ──────────────────────── */}
-      <PrefCard iconBg="#DCEFDF" icon="card-outline" iconColor="#198E80">
+      <PrefCard iconBg={c.tintGreen} icon="card-outline" iconColor={c.accGreen}>
         <H3>Coordonnées bancaires</H3>
         <QueryGate query={ver}>
           {(v) =>
             v.rib ? (
               <View style={{ marginTop: 4 }}>
-                <View style={FIELD_STYLE}>
-                  <Text style={{ fontSize: 14.5, color: "#0A1628" }}>
+                <View style={fieldStyle(c)}>
+                  <Text style={{ fontSize: 14.5, color: c.text }}>
                     {v.rib.ibanMasked}
                   </Text>
                 </View>
-                <Text style={{ marginTop: 8, fontSize: 12.5, color: "#6B7384" }}>
+                <Text style={{ marginTop: 8, fontSize: 12.5, color: c.textSub }}>
                   {v.rib.holderName} · {v.rib.bic} ·{" "}
                   {v.rib.validated ? "validé" : "en attente"}
                 </Text>
@@ -937,7 +948,7 @@ export default function Preferences() {
                     paddingHorizontal: 16,
                     borderRadius: 999,
                     borderWidth: 1,
-                    borderColor: "#E7E1D2",
+                    borderColor: c.borderSoft,
                   }}
                   onPress={() =>
                     Alert.alert(
@@ -954,12 +965,12 @@ export default function Preferences() {
                     )
                   }
                 >
-                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#DC2626" }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.bad }}>
                     {delRib.isPending ? "…" : "Supprimer le RIB"}
                   </Text>
                 </Pressable>
                 {delRib.isError && (
-                  <Text style={{ marginTop: 8, fontSize: 12.5, color: "#DC2626" }}>
+                  <Text style={{ marginTop: 8, fontSize: 12.5, color: c.bad }}>
                     Échec — réessayez.
                   </Text>
                 )}
@@ -970,24 +981,24 @@ export default function Preferences() {
                   value={iban}
                   onChangeText={setIban}
                   placeholder="IBAN"
-                  placeholderTextColor="#9AA1AD"
+                  placeholderTextColor={c.textMuted}
                   autoCapitalize="characters"
-                  style={FIELD_STYLE}
+                  style={fieldStyle(c)}
                 />
                 <TextInput
                   value={bic}
                   onChangeText={setBic}
                   placeholder="BIC"
-                  placeholderTextColor="#9AA1AD"
+                  placeholderTextColor={c.textMuted}
                   autoCapitalize="characters"
-                  style={FIELD_STYLE}
+                  style={fieldStyle(c)}
                 />
                 <TextInput
                   value={holder}
                   onChangeText={setHolder}
                   placeholder="Titulaire du compte"
-                  placeholderTextColor="#9AA1AD"
-                  style={FIELD_STYLE}
+                  placeholderTextColor={c.textMuted}
+                  style={fieldStyle(c)}
                 />
                 <DarkButton
                   label={saveRib.isPending ? "…" : "Enregistrer le RIB"}
@@ -1001,7 +1012,7 @@ export default function Preferences() {
       </PrefCard>
 
       {/* ── 7. Retrait des gains (Stripe Connect) ──────────────────────── */}
-      <PrefCard iconBg="#F2EDFF" icon="cash-outline" iconColor={VIOLET_DEEP}>
+      <PrefCard iconBg={c.tintViolet} icon="cash-outline" iconColor={c.accVioletDeep}>
         <H3>Retrait des gains</H3>
         <QueryGate query={pay}>
           {(p) =>
@@ -1016,7 +1027,7 @@ export default function Preferences() {
               />
             ) : (
               <View>
-                <Text style={{ marginTop: 11, fontSize: 12.5, color: "#6B7384" }}>
+                <Text style={{ marginTop: 11, fontSize: 12.5, color: c.textSub }}>
                   Disponible :{" "}
                   {wal.isPending
                     ? "…"
@@ -1028,9 +1039,9 @@ export default function Preferences() {
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="Montant en €"
-                  placeholderTextColor="#9AA1AD"
+                  placeholderTextColor={c.textMuted}
                   keyboardType="decimal-pad"
-                  style={FIELD_STYLE}
+                  style={fieldStyle(c)}
                 />
                 <DarkButton
                   label={withdraw.isPending ? "…" : "Demander un retrait"}
@@ -1049,10 +1060,10 @@ export default function Preferences() {
         style={{
           borderRadius: 20,
           borderWidth: 1,
-          borderColor: "#E7E1D2",
+          borderColor: c.borderSoft,
           padding: 20,
           gap: 14,
-          shadowColor: "#0A1628",
+          shadowColor: "#000000",
           shadowOpacity: 0.05,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 5 },
@@ -1065,11 +1076,11 @@ export default function Preferences() {
             width: 42,
             height: 42,
             borderRadius: 13,
-            backgroundColor: "#F8E8C9",
+            backgroundColor: c.tintAmber,
             flexShrink: 0,
           }}
         >
-          <Ionicons name="mail-outline" size={21} color="#B45309" />
+          <Ionicons name="mail-outline" size={21} color={c.accAmber} />
         </View>
         <View className="flex-1">
           <View
@@ -1078,7 +1089,7 @@ export default function Preferences() {
           >
             <Text
               className="flex-1 font-serif"
-              style={{ fontSize: 19, color: "#0A1628" }}
+              style={{ fontSize: 19, color: c.text }}
             >
               Suivi des emails BUUPP
             </Text>
@@ -1098,7 +1109,7 @@ export default function Preferences() {
               marginTop: 8,
               fontSize: 12.5,
               lineHeight: 19,
-              color: "#6B7384",
+              color: c.textSub,
             }}
           >
             Les communications BUUPP peuvent inclure un pixel transparent pour

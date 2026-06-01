@@ -20,6 +20,7 @@ import {
 import { BottomSheet } from "../../components/bottom-sheet";
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
+import { useTheme } from "../../lib/theme";
 import {
   useProspectDonnees,
   usePatchDonnees,
@@ -201,12 +202,13 @@ function FieldIcon({
   icon: keyof typeof Ionicons.glyphMap;
   size?: number;
 }) {
+  const { c } = useTheme();
   return (
     <View
       className="items-center justify-center rounded-full bg-accent-soft"
       style={{ width: size, height: size }}
     >
-      <Ionicons name={icon} size={Math.round(size * 0.5)} color="#4F46E5" />
+      <Ionicons name={icon} size={Math.round(size * 0.5)} color={c.accent} />
     </View>
   );
 }
@@ -247,6 +249,7 @@ function DateField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { c } = useTheme();
   const [open, setOpen] = useState(false);
   const parsed = parseDateFr(value);
   const today = new Date();
@@ -283,7 +286,7 @@ function DateField({
         >
           {value || "JJ/MM/AAAA"}
         </Text>
-        <Ionicons name="calendar-outline" size={18} color="#8A91A1" />
+        <Ionicons name="calendar-outline" size={18} color={c.ink4} />
       </Pressable>
       {open ? (
         <>
@@ -337,6 +340,7 @@ function TagPicker({
   multi?: boolean;
   onChange: (v: string) => void;
 }) {
+  const { c } = useTheme();
   const selected = multi ? new Set(csvToList(value)) : null;
   return (
     <View className="flex-row flex-wrap gap-2">
@@ -364,15 +368,15 @@ function TagPicker({
               paddingHorizontal: 14,
               borderRadius: 999,
               borderWidth: 1.5,
-              borderColor: active ? TAG_VIOLET : "#E6E3DA",
-              backgroundColor: active ? TAG_VIOLET : "#FFFFFF",
+              borderColor: active ? TAG_VIOLET : c.borderSoft,
+              backgroundColor: active ? TAG_VIOLET : c.surface,
             }}
           >
             <Text
               style={{
                 fontSize: 13,
                 fontWeight: active ? "600" : "500",
-                color: active ? "#FFFFFF" : "#0F1629",
+                color: active ? "#FFFFFF" : c.text,
               }}
             >
               {opt}
@@ -502,6 +506,7 @@ function CityPostalAutocomplete({
   codePostal: string;
   onPick: (v: CityPostalItem) => void;
 }) {
+  const { c: theme } = useTheme();
   const initial =
     ville && codePostal
       ? `${codePostal} ${ville}`
@@ -562,7 +567,7 @@ function CityPostalAutocomplete({
         }}
         onFocus={() => setOpen(true)}
         placeholder="Tapez votre ville ou un code postal"
-        placeholderTextColor="#9AA1AD"
+        placeholderTextColor={theme.textMuted}
         autoCorrect={false}
         className="rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink"
       />
@@ -664,6 +669,19 @@ const TIER_META: Record<TierKey, TierMeta> = {
 
 const TIERS: TierKey[] = ["identity", "localisation", "vie", "pro", "patrimoine"];
 
+// Variante sombre des couleurs par palier (fusionnée sur TIER_META quand le
+// thème sombre est actif) : tuiles re-densifiées + accents lumineux.
+const TIER_DARK: Record<
+  TierKey,
+  { headerBg: string; footerBg: string; boxBorder: string; accent: string }
+> = {
+  identity: { headerBg: "#242147", footerBg: "#201D38", boxBorder: "#322C5C", accent: "#9785FF" },
+  localisation: { headerBg: "#18283F", footerBg: "#152338", boxBorder: "#2A3F5E", accent: "#6FA0FF" },
+  vie: { headerBg: "#16302A", footerBg: "#142A24", boxBorder: "#244A3A", accent: "#4FBF7E" },
+  pro: { headerBg: "#322914", footerBg: "#2A2310", boxBorder: "#4A3D1E", accent: "#E8B468" },
+  patrimoine: { headerBg: "#34231D", footerBg: "#2A1C17", boxBorder: "#4F302A", accent: "#FF8C7E" },
+};
+
 // Accent violet global (do.html) — pastilles « Ajouter », anneau de
 // complétude, header compact.
 const VIOLET = "#7C5CFF";
@@ -714,9 +732,9 @@ function ProgressRing({
   size = 60,
   stroke = 6,
   pct,
-  color = VIOLET,
-  track = "#ECE7D9",
-  hole = "#FFFFFF",
+  color,
+  track,
+  hole,
   children,
 }: {
   size?: number;
@@ -727,6 +745,10 @@ function ProgressRing({
   hole?: string;
   children?: React.ReactNode;
 }) {
+  const { c } = useTheme();
+  const ringColor = color ?? c.violet;
+  const trackColor = track ?? c.track;
+  const holeColor = hole ?? c.surface;
   const p = Math.max(0, Math.min(100, pct));
   const half = size / 2;
   const rightDeg = p <= 50 ? (p / 50) * 180 : 180; // 0..180
@@ -769,7 +791,7 @@ function ProgressRing({
             left: clip === "right" ? 0 : half,
             width: half,
             height: size,
-            backgroundColor: color,
+            backgroundColor: ringColor,
             borderTopLeftRadius: clip === "right" ? half : 0,
             borderBottomLeftRadius: clip === "right" ? half : 0,
             borderTopRightRadius: clip === "left" ? half : 0,
@@ -795,7 +817,7 @@ function ProgressRing({
           width: size,
           height: size,
           borderRadius: half,
-          backgroundColor: track,
+          backgroundColor: trackColor,
         }}
       />
       <Sweep clip="right" rotate={rightDeg} />
@@ -806,7 +828,7 @@ function ProgressRing({
           width: size - 2 * stroke,
           height: size - 2 * stroke,
           borderRadius: (size - 2 * stroke) / 2,
-          backgroundColor: hole,
+          backgroundColor: holeColor,
         }}
       />
       {children}
@@ -846,6 +868,7 @@ function RowFieldIcon({
 // lecture. Toujours violette quel que soit le palier. Tap → ouvre
 // l'édition du palier.
 function AddPill({ onPress, label }: { onPress: () => void; label: string }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -861,14 +884,14 @@ function AddPill({ onPress, label }: { onPress: () => void; label: string }) {
         paddingLeft: 8,
         paddingRight: 11,
         borderRadius: 999,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: c.surface,
         borderWidth: 1.5,
-        borderColor: "#E8E0FF",
+        borderColor: c.violetSoft,
         flexShrink: 0,
       }}
     >
-      <Ionicons name="add" size={15} color={VIOLET_DEEP} />
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: VIOLET_DEEP }}>
+      <Ionicons name="add" size={15} color={c.accVioletDeep} />
+      <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.accVioletDeep }}>
         Ajouter
       </Text>
     </Pressable>
@@ -1147,6 +1170,7 @@ function DeleteTierSheet({
 }
 
 export default function Donnees() {
+  const { c, isDark } = useTheme();
   const q = useProspectDonnees();
   const patch = usePatchDonnees();
   const tierAction = useTierAction();
@@ -1197,14 +1221,14 @@ export default function Donnees() {
         {
           icon: "layers-outline",
           value: `${headerStats.completeness}% · ${headerStats.reachedTiers}/${headerStats.visibleCount}`,
-          color: VIOLET,
-          bg: "#EDE9FE",
+          color: c.accViolet,
+          bg: c.accentSoft,
         },
         {
           icon: pseudonymized ? "eye-off-outline" : "eye-outline",
           onPress: () => setPseudonymized((v) => !v),
-          color: pseudonymized ? "#FFFFFF" : VIOLET_DEEP,
-          bg: pseudonymized ? VIOLET : "#EDE9FE",
+          color: pseudonymized ? "#FFFFFF" : c.accVioletDeep,
+          bg: pseudonymized ? VIOLET : c.accentSoft,
           accessibilityLabel: pseudonymized
             ? "Afficher mes données"
             : "Masquer mes données",
@@ -1239,7 +1263,7 @@ export default function Donnees() {
             >
               Mes données
             </Text>
-            <Text className="mt-1 font-serif text-2xl text-paper">
+            <Text className="mt-1 font-serif text-2xl text-white">
               Vos paliers
             </Text>
             <Text className="mt-2 text-[14px] leading-5 text-white/80">
@@ -1271,9 +1295,9 @@ export default function Donnees() {
           gap: 13,
           padding: 16,
           borderRadius: 18,
-          backgroundColor: "#F8E8C9",
+          backgroundColor: c.tintAmber,
           borderWidth: 1,
-          borderColor: "#EFD9A8",
+          borderColor: c.borderSoft,
           alignItems: "flex-start",
         }}
       >
@@ -1282,25 +1306,25 @@ export default function Donnees() {
             width: 38,
             height: 38,
             borderRadius: 11,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: c.surface,
             borderWidth: 1,
-            borderColor: "#EFD9A8",
+            borderColor: c.borderSoft,
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
           }}
         >
-          <Ionicons name="shield-checkmark-outline" size={19} color="#B45309" />
+          <Ionicons name="shield-checkmark-outline" size={19} color={c.accAmber} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text className="font-serif" style={{ fontSize: 16.5, color: "#7A4A08" }}>
+          <Text className="font-serif" style={{ fontSize: 16.5, color: c.text }}>
             Vos droits sur vos données
           </Text>
           <Text
             style={{
               fontSize: 11,
               fontWeight: "700",
-              color: "#E0972F",
+              color: c.accAmber,
               marginTop: 2,
             }}
           >
@@ -1311,7 +1335,7 @@ export default function Donnees() {
               marginTop: 8,
               fontSize: 12.5,
               lineHeight: 19,
-              color: "#6B4A18",
+              color: c.textSub,
             }}
           >
             Rendez-vous sur la{" "}
@@ -1348,8 +1372,8 @@ export default function Donnees() {
               style={{
                 padding: 18,
                 borderWidth: 1,
-                borderColor: "#E7E1D2",
-                shadowColor: "#0A1628",
+                borderColor: c.borderSoft,
+                shadowColor: "#000000",
                 shadowOpacity: 0.05,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 5 },
@@ -1360,7 +1384,7 @@ export default function Donnees() {
                 <ProgressRing pct={completeness} size={60} stroke={6}>
                   <Text
                     className="font-serif"
-                    style={{ fontSize: 16, color: "#0A1628" }}
+                    style={{ fontSize: 16, color: c.text }}
                   >
                     {completeness}
                     <Text style={{ fontSize: 11 }}>%</Text>
@@ -1372,7 +1396,7 @@ export default function Donnees() {
                       fontSize: 10,
                       letterSpacing: 1.6,
                       fontWeight: "600",
-                      color: "#6B7384",
+                      color: c.textSub,
                       textTransform: "uppercase",
                     }}
                   >
@@ -1383,11 +1407,11 @@ export default function Donnees() {
                     style={{ gap: 8, marginTop: 3 }}
                   >
                     <Text
-                      style={{ fontSize: 13, fontWeight: "600", color: "#0A1628" }}
+                      style={{ fontSize: 13, fontWeight: "600", color: c.text }}
                     >
                       {reachedTiers}/{visibleCount} paliers
                     </Text>
-                    <Text style={{ fontSize: 12.5, color: "#9AA1AD" }}>
+                    <Text style={{ fontSize: 12.5, color: c.textMuted }}>
                       · {filledFields}/{totalFields} champs renseignés
                     </Text>
                   </View>
@@ -1398,7 +1422,7 @@ export default function Donnees() {
                   marginTop: 13,
                   fontSize: 12.5,
                   lineHeight: 19,
-                  color: "#6B7384",
+                  color: c.textSub,
                 }}
               >
                 Un palier est atteint dès qu&apos;au moins une donnée y est
@@ -1407,7 +1431,9 @@ export default function Donnees() {
               </Text>
               <View style={{ marginTop: 16, gap: 13 }}>
                 {tierStats.map((s) => {
-                  const m = TIER_META[s.key];
+                  const m = isDark
+                    ? { ...TIER_META[s.key], ...TIER_DARK[s.key] }
+                    : TIER_META[s.key];
                   const pct =
                     s.total === 0 ? 0 : Math.round((s.filled / s.total) * 100);
                   return (
@@ -1421,7 +1447,7 @@ export default function Donnees() {
                           style={{
                             fontSize: 13,
                             fontWeight: "500",
-                            color: "#0A1628",
+                            color: c.text,
                             flexShrink: 1,
                           }}
                         >
@@ -1431,7 +1457,7 @@ export default function Donnees() {
                           style={{
                             fontSize: 12.5,
                             fontWeight: "600",
-                            color: s.filled > 0 ? m.accent : "#9AA1AD",
+                            color: s.filled > 0 ? m.accent : c.textMuted,
                             marginLeft: 10,
                           }}
                         >
@@ -1444,7 +1470,7 @@ export default function Donnees() {
                         style={{
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: "#ECE7D9",
+                          backgroundColor: c.track,
                           overflow: "hidden",
                         }}
                       >
@@ -1453,7 +1479,7 @@ export default function Donnees() {
                             width: `${pct}%`,
                             height: "100%",
                             borderRadius: 3,
-                            backgroundColor: s.isHidden ? "#9AA1AD" : m.accent,
+                            backgroundColor: s.isHidden ? c.textMuted : m.accent,
                           }}
                         />
                       </View>
@@ -1479,9 +1505,9 @@ export default function Donnees() {
                 paddingHorizontal: 16,
                 paddingVertical: 15,
                 borderRadius: 18,
-                backgroundColor: "#F2EDFF",
+                backgroundColor: c.tintViolet,
                 borderWidth: 1,
-                borderColor: "#E8E0FF",
+                borderColor: c.violetSoft,
               }}
             >
               <View
@@ -1490,26 +1516,26 @@ export default function Donnees() {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: pseudonymized ? VIOLET : "#FFFFFF",
+                  backgroundColor: pseudonymized ? VIOLET : c.surface,
                   borderWidth: 1,
-                  borderColor: pseudonymized ? VIOLET : "#E8E0FF",
+                  borderColor: pseudonymized ? VIOLET : c.violetSoft,
                   flexShrink: 0,
                 }}
               >
                 <Ionicons
                   name={pseudonymized ? "eye-off-outline" : "eye-outline"}
                   size={19}
-                  color={pseudonymized ? "#FFFFFF" : VIOLET_DEEP}
+                  color={pseudonymized ? "#FFFFFF" : c.accVioletDeep}
                 />
               </View>
               <View className="flex-1">
                 <Text
                   className="font-serif"
-                  style={{ fontSize: 16.5, color: "#0A1628" }}
+                  style={{ fontSize: 16.5, color: c.text }}
                 >
                   Pseudonymiser vos données
                 </Text>
-                <Text style={{ fontSize: 12.5, color: "#6B7384", marginTop: 2 }}>
+                <Text style={{ fontSize: 12.5, color: c.textSub, marginTop: 2 }}>
                   {pseudonymized
                     ? "Affichage masqué — vos données restent en clair en base"
                     : "Masquez l'affichage de toutes vos données."}
@@ -1521,7 +1547,7 @@ export default function Donnees() {
                   width: 46,
                   height: 27,
                   borderRadius: 999,
-                  backgroundColor: pseudonymized ? VIOLET : "#D8D1C0",
+                  backgroundColor: pseudonymized ? VIOLET : (isDark ? c.ink5 : "#D8D1C0"),
                   flexShrink: 0,
                   justifyContent: "center",
                 }}
@@ -1534,7 +1560,7 @@ export default function Donnees() {
                     width: 21,
                     height: 21,
                     borderRadius: 999,
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: c.surface,
                     shadowColor: "#000000",
                     shadowOpacity: 0.2,
                     shadowRadius: 3,
@@ -1546,7 +1572,7 @@ export default function Donnees() {
             </Pressable>
 
             {TIERS.map((k) => {
-              const m = TIER_META[k];
+              const m = isDark ? { ...TIER_META[k], ...TIER_DARK[k] } : TIER_META[k];
               const row = (d[k] ?? {}) as Record<string, unknown>;
               const hidden = d.hiddenTiers.includes(k);
               const removed = d.removedTiers.includes(k);
@@ -1557,8 +1583,8 @@ export default function Donnees() {
                   className={`overflow-hidden rounded-[20px] bg-paper ${removed || hidden ? "opacity-60" : ""}`}
                   style={{
                     borderWidth: 1,
-                    borderColor: "#E7E1D2",
-                    shadowColor: "#0A1628",
+                    borderColor: c.borderSoft,
+                    shadowColor: "#000000",
                     shadowOpacity: 0.05,
                     shadowRadius: 16,
                     shadowOffset: { width: 0, height: 5 },
@@ -1583,7 +1609,7 @@ export default function Donnees() {
                         width: 40,
                         height: 40,
                         borderRadius: 12,
-                        backgroundColor: "#FFFFFF",
+                        backgroundColor: c.surface,
                         borderWidth: 1,
                         borderColor: m.boxBorder,
                         flexShrink: 0,
@@ -1607,7 +1633,7 @@ export default function Donnees() {
                         numberOfLines={1}
                         style={{
                           fontSize: 19,
-                          color: "#0A1628",
+                          color: c.text,
                           lineHeight: 22,
                           marginTop: 1,
                         }}
@@ -1846,7 +1872,7 @@ export default function Donnees() {
                               }
                             }}
                           >
-                            <Text className="text-base font-semibold text-paper">
+                            <Text className="text-base font-semibold text-white">
                               {patch.isPending ? "…" : "Enregistrer"}
                             </Text>
                           </Pressable>
@@ -1902,7 +1928,7 @@ export default function Donnees() {
                                 paddingHorizontal: 16,
                                 paddingVertical: 12,
                                 borderBottomWidth: isLast ? 0 : 1,
-                                borderBottomColor: "#ECE7D9",
+                                borderBottomColor: c.track,
                               }}
                             >
                               <RowFieldIcon
@@ -1916,7 +1942,7 @@ export default function Donnees() {
                                   flex: 1,
                                   fontSize: 14.5,
                                   fontWeight: main ? "500" : "400",
-                                  color: main ? "#0A1628" : "#6B7384",
+                                  color: main ? c.text : c.textSub,
                                 }}
                               >
                                 {f.label}
@@ -1937,7 +1963,7 @@ export default function Donnees() {
                                       flexShrink: 1,
                                       textAlign: "right",
                                       fontSize: 13.5,
-                                      color: isEmpty ? "#9AA1AD" : "#0A1628",
+                                      color: isEmpty ? c.textMuted : c.text,
                                     }}
                                   >
                                     {displayed}
@@ -1950,14 +1976,14 @@ export default function Donnees() {
                                       width: 18,
                                       height: 18,
                                       borderRadius: 999,
-                                      backgroundColor: "#DCEFDF",
+                                      backgroundColor: c.goodSoft,
                                       flexShrink: 0,
                                     }}
                                   >
                                     <Ionicons
                                       name="checkmark"
                                       size={11}
-                                      color="#15803D"
+                                      color={c.good}
                                     />
                                   </View>
                                 ) : null}
@@ -1997,21 +2023,21 @@ export default function Donnees() {
                                 gap: 7,
                                 height: 40,
                                 borderRadius: 12,
-                                backgroundColor: "#FFFFFF",
+                                backgroundColor: c.surface,
                                 borderWidth: 1,
-                                borderColor: "#E7E1D2",
+                                borderColor: c.borderSoft,
                               }}
                             >
                               <Ionicons
                                 name="pencil-outline"
                                 size={16}
-                                color="#0A1628"
+                                color={c.text}
                               />
                               <Text
                                 style={{
                                   fontSize: 12.5,
                                   fontWeight: "600",
-                                  color: "#0A1628",
+                                  color: c.text,
                                 }}
                               >
                                 Modifier
@@ -2035,21 +2061,21 @@ export default function Donnees() {
                                 gap: 7,
                                 height: 40,
                                 borderRadius: 12,
-                                backgroundColor: "#FFFFFF",
+                                backgroundColor: c.surface,
                                 borderWidth: 1,
-                                borderColor: "#E7E1D2",
+                                borderColor: c.borderSoft,
                               }}
                             >
                               <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}
                                 size={16}
-                                color="#6B7384"
+                                color={c.textSub}
                               />
                               <Text
                                 style={{
                                   fontSize: 12.5,
                                   fontWeight: "600",
-                                  color: "#6B7384",
+                                  color: c.textSub,
                                 }}
                               >
                                 {hidden ? "Réafficher" : "Masquer"}
@@ -2065,15 +2091,15 @@ export default function Donnees() {
                                 width: 56,
                                 height: 40,
                                 borderRadius: 12,
-                                backgroundColor: "#FFFFFF",
+                                backgroundColor: c.surface,
                                 borderWidth: 1,
-                                borderColor: "#F9DDD5",
+                                borderColor: c.badSoft,
                               }}
                             >
                               <Ionicons
                                 name="trash-outline"
                                 size={16}
-                                color="#DD5F48"
+                                color={c.bad}
                               />
                             </Pressable>
                           </View>
@@ -2093,8 +2119,8 @@ export default function Donnees() {
               style={{
                 padding: 20,
                 borderWidth: 1,
-                borderColor: "#E7E1D2",
-                shadowColor: "#0A1628",
+                borderColor: c.borderSoft,
+                shadowColor: "#000000",
                 shadowOpacity: 0.05,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 5 },
@@ -2108,7 +2134,7 @@ export default function Donnees() {
                     width: 40,
                     height: 40,
                     borderRadius: 12,
-                    backgroundColor: "#F2EDFF",
+                    backgroundColor: c.tintViolet,
                     flexShrink: 0,
                   }}
                 >
@@ -2116,7 +2142,7 @@ export default function Donnees() {
                 </View>
                 <Text
                   className="flex-1 font-serif"
-                  style={{ fontSize: 20, color: "#0A1628" }}
+                  style={{ fontSize: 20, color: c.text }}
                 >
                   Affinez vos préférences
                 </Text>
@@ -2126,7 +2152,7 @@ export default function Donnees() {
                   marginTop: 13,
                   fontSize: 13.5,
                   lineHeight: 21,
-                  color: "#6B7384",
+                  color: c.textSub,
                 }}
               >
                 Vos données nourrissent votre BUUPP Score. Réglez en plus vos
@@ -2140,7 +2166,7 @@ export default function Donnees() {
                 className="mt-4 flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
               >
                 <Ionicons name="options-outline" size={16} color="#FFFFFF" />
-                <Text className="text-base font-semibold text-paper">
+                <Text className="text-base font-semibold text-white">
                   Ouvrir mes préférences
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
