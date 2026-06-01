@@ -260,7 +260,7 @@ export default function DrawerPanel() {
             bottom-right pour cohérence avec les autres surfaces gradient
             de l'app. */}
         <LinearGradient
-          colors={["#FBFAFF", "#ECE6FD"]}
+          colors={["#E7E0F7", "#D2C7EF"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
