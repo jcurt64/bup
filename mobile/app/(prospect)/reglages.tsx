@@ -1,19 +1,19 @@
-// Réglages — réglages de l'application (BROUILLON DESIGN, aligné pixel sur
-// reg.html). Notifications, mode d'affichage (thèmes), langue et divers.
-// Les contrôles sont interactifs en local (useState) mais NON persistés et
-// NON câblés à un vrai système de thème : à brancher ultérieurement.
-// Aucun appel back-end — purement design.
+// Réglages — réglages de l'application (aligné pixel sur reg.html).
+// Notifications, mode d'affichage (thèmes), langue et divers.
+// Le mode d'affichage « Clair » / « Sombre » est RÉEL (branché sur le
+// ThemeProvider, persté via expo-secure-store). Les autres thèmes et les
+// toggles notifications/général restent un brouillon local non persté.
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { ScrollScreen } from "../../components/screen";
+import { useTheme, type Palette } from "../../lib/theme";
 
 const VIOLET = "#7C5CFF";
-const VIOLET_DEEP = "#5B3FE0";
 
-// Thèmes d'affichage — dégradé d'aperçu (150° ≈ diagonal) aligné reg.html.
+// Thèmes d'affichage — dégradé d'aperçu (≈ diagonal) aligné reg.html.
 const THEMES = [
   { key: "buupp", label: "BUUPP", colors: ["#7C5CFF", "#5B3FE0"] as const },
   { key: "clair", label: "Clair", colors: ["#FBF9F4", "#ECE7D9"] as const },
@@ -25,19 +25,20 @@ const THEMES = [
 
 type ThemeKey = (typeof THEMES)[number]["key"];
 
-// Style commun des cartes blanches (reg.html).
-const CARD = {
-  backgroundColor: "#FFFFFF",
-  borderRadius: 20,
-  borderWidth: 1,
-  borderColor: "#E7E1D2",
-  padding: 20,
-  shadowColor: "#0A1628",
-  shadowOpacity: 0.05,
-  shadowRadius: 16,
-  shadowOffset: { width: 0, height: 5 },
-  elevation: 2,
-} as const;
+function cardStyle(c: Palette) {
+  return {
+    backgroundColor: c.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: c.borderSoft,
+    padding: 20,
+    shadowColor: "#000000",
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+  } as const;
+}
 
 // Carte de section : tuile icône (42) + titre Fraunces + desc + contenu.
 function SettingsCard({
@@ -55,8 +56,9 @@ function SettingsCard({
   desc?: string;
   children?: ReactNode;
 }) {
+  const { c } = useTheme();
   return (
-    <View style={CARD}>
+    <View style={cardStyle(c)}>
       <View
         className="items-center justify-center"
         style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: iconBg }}
@@ -65,13 +67,13 @@ function SettingsCard({
       </View>
       <Text
         className="font-serif"
-        style={{ fontSize: 21, color: "#0A1628", marginTop: 15 }}
+        style={{ fontSize: 21, color: c.text, marginTop: 15 }}
       >
         {title}
       </Text>
       {desc ? (
         <Text
-          style={{ fontSize: 13, lineHeight: 19, color: "#6B7384", marginTop: 7 }}
+          style={{ fontSize: 13, lineHeight: 19, color: c.textSub, marginTop: 7 }}
         >
           {desc}
         </Text>
@@ -81,7 +83,7 @@ function SettingsCard({
   );
 }
 
-// Toggle pill 52×30 (reg.html) — violet ON, gris OFF, knob 24 qui glisse.
+// Toggle pill 52×30 (reg.html) — violet ON, neutre OFF, knob 24 qui glisse.
 function Toggle({
   value,
   onValueChange,
@@ -93,6 +95,7 @@ function Toggle({
   disabled?: boolean;
   label: string;
 }) {
+  const { c, isDark } = useTheme();
   return (
     <Pressable
       disabled={disabled}
@@ -104,7 +107,7 @@ function Toggle({
         width: 52,
         height: 30,
         borderRadius: 999,
-        backgroundColor: value ? VIOLET : "#D8D1C0",
+        backgroundColor: value ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
         flexShrink: 0,
         justifyContent: "center",
       }}
@@ -152,6 +155,7 @@ function SettingRow({
   disabled?: boolean;
   last?: boolean;
 }) {
+  const { c } = useTheme();
   return (
     <View
       className="flex-row items-center"
@@ -159,7 +163,7 @@ function SettingRow({
         gap: 13,
         paddingVertical: 14,
         borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: "#ECE7D9",
+        borderBottomColor: c.track,
         opacity: disabled ? 0.45 : 1,
       }}
     >
@@ -178,13 +182,13 @@ function SettingRow({
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           className="font-serif"
-          style={{ fontSize: 16.5, color: "#0A1628", lineHeight: 19 }}
+          style={{ fontSize: 16.5, color: c.text, lineHeight: 19 }}
         >
           {title}
         </Text>
         {desc ? (
           <Text
-            style={{ fontSize: 12.5, color: "#6B7384", marginTop: 2, lineHeight: 17 }}
+            style={{ fontSize: 12.5, color: c.textSub, marginTop: 2, lineHeight: 17 }}
           >
             {desc}
           </Text>
@@ -213,6 +217,7 @@ function ThemeSwatch({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -227,7 +232,7 @@ function ThemeSwatch({
           borderRadius: 16,
           overflow: "hidden",
           borderWidth: 1.5,
-          borderColor: selected ? VIOLET : "#E7E1D2",
+          borderColor: selected ? VIOLET : c.borderSoft,
           ...(selected
             ? {
                 shadowColor: VIOLET,
@@ -237,7 +242,7 @@ function ThemeSwatch({
                 elevation: 4,
               }
             : {
-                shadowColor: "#0A1628",
+                shadowColor: "#000000",
                 shadowOpacity: 0.04,
                 shadowRadius: 8,
                 shadowOffset: { width: 0, height: 2 },
@@ -252,10 +257,10 @@ function ThemeSwatch({
           style={{ height: 64 }}
         />
         <View
-          className="flex-row items-center justify-between bg-paper"
-          style={{ paddingHorizontal: 12, paddingVertical: 9 }}
+          className="flex-row items-center justify-between"
+          style={{ paddingHorizontal: 12, paddingVertical: 9, backgroundColor: c.surface }}
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#0A1628" }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
             {label}
           </Text>
           {selected ? (
@@ -272,7 +277,7 @@ function ThemeSwatch({
                 height: 18,
                 borderRadius: 999,
                 borderWidth: 1.5,
-                borderColor: "#D8D1C0",
+                borderColor: c.ink5,
               }}
             />
           )}
@@ -283,15 +288,29 @@ function ThemeSwatch({
 }
 
 export default function Reglages() {
-  // États locaux (brouillon — non persistés / non appliqués).
+  const { c, isDark, setMode } = useTheme();
+  // États locaux (brouillon — non persistés / non appliqués), SAUF le mode
+  // clair/sombre qui est réel (ThemeProvider).
   const [pushAll, setPushAll] = useState(true);
   const [notifRelations, setNotifRelations] = useState(true);
   const [notifFlash, setNotifFlash] = useState(true);
   const [notifGains, setNotifGains] = useState(true);
-  const [theme, setTheme] = useState<ThemeKey>("buupp");
+  // Sélection visuelle : « sombre » si le thème sombre est actif, sinon le
+  // dernier choix local (défaut « BUUPP »).
+  const [lightChoice, setLightChoice] = useState<ThemeKey>("buupp");
+  const selectedTheme: ThemeKey = isDark ? "sombre" : lightChoice;
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [haptics, setHaptics] = useState(true);
+
+  const pickTheme = (key: ThemeKey) => {
+    if (key === "sombre") {
+      setMode("dark");
+    } else {
+      setLightChoice(key);
+      setMode("light");
+    }
+  };
 
   return (
     <ScrollScreen>
@@ -318,7 +337,7 @@ export default function Reglages() {
           Réglages
         </Text>
         <Text
-          className="font-serif text-paper"
+          className="font-serif text-white"
           style={{ fontSize: 25, lineHeight: 28, marginTop: 4 }}
         >
           Personnalisez votre espace
@@ -330,26 +349,26 @@ export default function Reglages() {
 
       {/* ── Notifications ─────────────────────────────────────────────── */}
       <SettingsCard
-        iconBg="#F8E8C9"
+        iconBg={c.tintAmber}
         icon="notifications-outline"
-        iconColor="#B45309"
+        iconColor={c.accAmber}
         title="Notifications"
         desc="Choisissez ce pour quoi vous souhaitez être alerté."
       >
         <View style={{ marginTop: 6 }}>
           <SettingRow
-            iconBg="#F8E8C9"
+            iconBg={c.tintAmber}
             icon="notifications"
-            iconColor="#B45309"
+            iconColor={c.accAmber}
             title="Notifications push"
             desc="Activer ou couper toutes les notifications"
             value={pushAll}
             onValueChange={setPushAll}
           />
           <SettingRow
-            iconBg="#F9DDD5"
+            iconBg={c.tintCoral}
             icon="people"
-            iconColor="#DD5F48"
+            iconColor={c.accCoral}
             title="Mises en relation"
             desc="Quand un professionnel souhaite vous contacter"
             value={notifRelations}
@@ -357,9 +376,9 @@ export default function Reglages() {
             disabled={!pushAll}
           />
           <SettingRow
-            iconBg="#F2EDFF"
+            iconBg={c.tintViolet}
             icon="flash"
-            iconColor={VIOLET_DEEP}
+            iconColor={c.accVioletDeep}
             title="Flash deals"
             desc="Offres limitées dans le temps"
             value={notifFlash}
@@ -367,9 +386,9 @@ export default function Reglages() {
             disabled={!pushAll}
           />
           <SettingRow
-            iconBg="#DCEFDF"
+            iconBg={c.tintGreen}
             icon="wallet"
-            iconColor="#198E80"
+            iconColor={c.accGreen}
             title="Gains & retraits"
             desc="Mouvements sur votre portefeuille"
             value={notifGains}
@@ -382,9 +401,9 @@ export default function Reglages() {
 
       {/* ── Mode d'affichage (thèmes) ─────────────────────────────────── */}
       <SettingsCard
-        iconBg="#F2EDFF"
+        iconBg={c.tintViolet}
         icon="color-palette-outline"
-        iconColor={VIOLET_DEEP}
+        iconColor={c.accVioletDeep}
         title="Mode d'affichage"
         desc="Choisissez l'apparence de l'application."
       >
@@ -397,8 +416,8 @@ export default function Reglages() {
               key={t.key}
               label={t.label}
               colors={t.colors}
-              selected={theme === t.key}
-              onPress={() => setTheme(t.key)}
+              selected={selectedTheme === t.key}
+              onPress={() => pickTheme(t.key)}
             />
           ))}
         </View>
@@ -406,9 +425,9 @@ export default function Reglages() {
 
       {/* ── Langue ────────────────────────────────────────────────────── */}
       <SettingsCard
-        iconBg="#DDE9F8"
+        iconBg={c.tintBlue}
         icon="language-outline"
-        iconColor="#3F7FD6"
+        iconColor={c.accBlue}
         title="Langue"
         desc="Langue de l'interface."
       >
@@ -419,9 +438,9 @@ export default function Reglages() {
             marginTop: 16,
             padding: 5,
             borderRadius: 16,
-            backgroundColor: "#F4F1E9",
+            backgroundColor: c.surface2,
             borderWidth: 1,
-            borderColor: "#E7E1D2",
+            borderColor: c.borderSoft,
           }}
         >
           {[
@@ -437,14 +456,14 @@ export default function Reglages() {
                 style={{
                   paddingVertical: 13,
                   borderRadius: 12,
-                  backgroundColor: on ? "#0A1628" : "transparent",
+                  backgroundColor: on ? c.btnBg : "transparent",
                 }}
               >
                 <Text
                   style={{
                     fontSize: 14.5,
                     fontWeight: "600",
-                    color: on ? "#FBF9F4" : "#6B7384",
+                    color: on ? c.btnText : c.textSub,
                   }}
                 >
                   {o.l}
@@ -457,25 +476,25 @@ export default function Reglages() {
 
       {/* ── Général / accessibilité ───────────────────────────────────── */}
       <SettingsCard
-        iconBg="#F9DDD5"
+        iconBg={c.tintCoral}
         icon="options-outline"
-        iconColor="#DD5F48"
+        iconColor={c.accCoral}
         title="Général"
       >
         <View style={{ marginTop: 6 }}>
           <SettingRow
-            iconBg="#F2EDFF"
+            iconBg={c.tintViolet}
             icon="phone-portrait-outline"
-            iconColor={VIOLET_DEEP}
+            iconColor={c.accVioletDeep}
             title="Retour haptique"
             desc="Vibrations légères lors des interactions"
             value={haptics}
             onValueChange={setHaptics}
           />
           <SettingRow
-            iconBg="#DCEFDF"
+            iconBg={c.tintGreen}
             icon="accessibility-outline"
-            iconColor="#198E80"
+            iconColor={c.accGreen}
             title="Animations réduites"
             desc="Limiter les effets de mouvement"
             value={reducedMotion}
@@ -493,11 +512,12 @@ export default function Reglages() {
           fontSize: 12,
           fontStyle: "italic",
           lineHeight: 18,
-          color: "#9AA1AD",
+          color: c.textMuted,
         }}
       >
         Version préliminaire — l&apos;enregistrement des réglages et
-        l&apos;application des thèmes seront branchés prochainement.
+        l&apos;application des thèmes (hors clair / sombre) seront branchés
+        prochainement.
       </Text>
     </ScrollScreen>
   );

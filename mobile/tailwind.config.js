@@ -4,34 +4,70 @@
 module.exports = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   presets: [require("nativewind/preset")],
+  darkMode: "class",
   theme: {
     extend: {
+      // Couleurs sémantiques pilotées par des variables CSS (cf. lib/theme.tsx) :
+      // la valeur des variables bascule clair ⇄ sombre via le vars() wrapper du
+      // ThemeProvider, donc toutes ces classes (bg-paper, text-ink, border-line…)
+      // suivent le thème automatiquement. Triplets « r g b » + <alpha-value>
+      // pour préserver bg-ink/70, text-white-like alpha, etc.
       colors: {
         ink: {
-          DEFAULT: "#0F1629",
-          2: "#283044",
-          3: "#5B6478",
-          4: "#8A91A1",
-          5: "#B7BCC7",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          2: "rgb(var(--ink-2) / <alpha-value>)",
+          3: "rgb(var(--ink-3) / <alpha-value>)",
+          4: "rgb(var(--ink-4) / <alpha-value>)",
+          5: "rgb(var(--ink-5) / <alpha-value>)",
         },
-        paper: "#FFFFFF",
-        ivory: { DEFAULT: "#F7F4EC", 2: "#EFEADD" },
-        line: "#E6E3DA",
-        accent: { DEFAULT: "#4F46E5", soft: "#EEF2FF", ink: "#3730A3" },
+        paper: "rgb(var(--paper) / <alpha-value>)",
+        ivory: {
+          DEFAULT: "rgb(var(--ivory) / <alpha-value>)",
+          2: "rgb(var(--ivory-2) / <alpha-value>)",
+        },
+        line: "rgb(var(--line) / <alpha-value>)",
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft) / <alpha-value>)",
+          ink: "rgb(var(--accent-ink) / <alpha-value>)",
+        },
         // Violet des mots en italique / liens dans les maquettes onboarding+auth
-        violet: { DEFAULT: "#7C5CFC", soft: "#EDE9FE", muted: "#F2EEF5", deep: "#5B3FD6" },
+        violet: {
+          DEFAULT: "rgb(var(--violet) / <alpha-value>)",
+          soft: "rgb(var(--violet-soft) / <alpha-value>)",
+          muted: "rgb(var(--violet-muted) / <alpha-value>)",
+          deep: "rgb(var(--violet-deep) / <alpha-value>)",
+        },
         // Navy du chip logo "buupp"
-        navy: { DEFAULT: "#13235B", deep: "#0A1330" },
-        good: "#16A34A",
-        warn: "#D97706",
-        bad: "#DC2626",
-        // `.muted` = variantes désaturées (mix ~50% avec ivory) utilisées
-        // par TONE_BG sur les cartes Portefeuille pour une teinte plus douce.
-        coral: { DEFAULT: "#FF7A6B", soft: "#FFE7E3", muted: "#FBEDE7" },
-        teal: { DEFAULT: "#2FB8A6", soft: "#DCF4F0", muted: "#E9F4EE" },
-        amber: { DEFAULT: "#F2B65A", soft: "#FCEFD6", muted: "#F9F1E1" },
-        sky: { DEFAULT: "#5B8DEF", soft: "#E4ECFD", muted: "#EDF0F4" },
-        gold: "#B45309",
+        navy: {
+          DEFAULT: "rgb(var(--navy) / <alpha-value>)",
+          deep: "rgb(var(--navy-deep) / <alpha-value>)",
+        },
+        good: "rgb(var(--good) / <alpha-value>)",
+        warn: "rgb(var(--warn) / <alpha-value>)",
+        bad: "rgb(var(--bad) / <alpha-value>)",
+        // `.muted` = variantes désaturées utilisées par TONE_BG (cartes).
+        coral: {
+          DEFAULT: "rgb(var(--coral) / <alpha-value>)",
+          soft: "rgb(var(--coral-soft) / <alpha-value>)",
+          muted: "rgb(var(--coral-muted) / <alpha-value>)",
+        },
+        teal: {
+          DEFAULT: "rgb(var(--teal) / <alpha-value>)",
+          soft: "rgb(var(--teal-soft) / <alpha-value>)",
+          muted: "rgb(var(--teal-muted) / <alpha-value>)",
+        },
+        amber: {
+          DEFAULT: "rgb(var(--amber) / <alpha-value>)",
+          soft: "rgb(var(--amber-soft) / <alpha-value>)",
+          muted: "rgb(var(--amber-muted) / <alpha-value>)",
+        },
+        sky: {
+          DEFAULT: "rgb(var(--sky) / <alpha-value>)",
+          soft: "rgb(var(--sky-soft) / <alpha-value>)",
+          muted: "rgb(var(--sky-muted) / <alpha-value>)",
+        },
+        gold: "rgb(var(--gold) / <alpha-value>)",
       },
       fontFamily: {
         // Fraunces (police serif du prototype web), chargée via

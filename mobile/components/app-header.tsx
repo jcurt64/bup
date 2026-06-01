@@ -37,6 +37,7 @@ import {
   useHeaderScroll,
 } from "../lib/header-scroll";
 import { useFlashDeals, useNotifications } from "../lib/queries";
+import { useTheme } from "../lib/theme";
 
 // Mapping pathname → libellé de page affiché dans le header compact.
 // On match sur la fin du segment (ignore les groupes (prospect)/(pro)).
@@ -247,6 +248,7 @@ function FlashHeaderButton({
 // pour le header compact. Garde l'identité Buupp sans manger la place
 // du titre de page.
 function BrandMark() {
+  const { c } = useTheme();
   return (
     <View
       style={{
@@ -255,12 +257,12 @@ function BrandMark() {
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#0F1629",
+        backgroundColor: c.logoBg,
       }}
     >
       <Text
-        className="font-serif-bold text-paper"
-        style={{ fontSize: 18, lineHeight: 22 }}
+        className="font-serif-bold"
+        style={{ fontSize: 18, lineHeight: 22, color: "#FFFFFF" }}
       >
         b
       </Text>
@@ -279,6 +281,7 @@ export function AppHeader() {
   const flashCount = useFlashDeals().data?.deals.length ?? 0;
   const glass = isLiquidGlassAvailable();
   const pageName = pageNameFromPathname(pathname);
+  const { c, isDark } = useTheme();
 
   // Transition smooth entre expanded et compact via `withTiming` (300 ms,
   // easing cubique in-out) plutôt qu'une interpolation linéaire 1-pour-1
@@ -330,8 +333,10 @@ export function AppHeader() {
             ivoire à 78 % d'opacité. Aucun border pour rester discret. */}
         {glass ? (
           <GlassView
-            glassEffectStyle="regular"
-            tintColor="rgba(247, 244, 236, 0.34)"
+            glassEffectStyle={isDark ? "clear" : "regular"}
+            tintColor={
+              isDark ? "rgba(14, 18, 31, 0.45)" : "rgba(247, 244, 236, 0.34)"
+            }
             style={{ position: "absolute", inset: 0 } as never}
           />
         ) : (
@@ -343,7 +348,9 @@ export function AppHeader() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(247, 244, 236, 0.78)",
+              backgroundColor: isDark
+                ? "rgba(14, 18, 31, 0.82)"
+                : "rgba(247, 244, 236, 0.78)",
             }}
           />
         )}
@@ -381,7 +388,7 @@ export function AppHeader() {
             <IconButton
               icon="menu"
               bg="bg-paper"
-              color="#0F1629"
+              color={c.ink}
               label="Ouvrir le menu"
               onPress={() => router.push("/drawer")}
             />
@@ -399,7 +406,7 @@ export function AppHeader() {
               <IconButton
                 icon="notifications-outline"
                 bg="bg-paper"
-                color="#0F1629"
+                color={c.ink}
                 label="Messages"
                 onPress={() => setShowMessages(true)}
                 badgeCount={unread}
@@ -407,7 +414,7 @@ export function AppHeader() {
               <IconButton
                 icon="person-outline"
                 bg="bg-paper"
-                color="#0F1629"
+                color={c.ink}
                 label="Mon compte"
                 onPress={() => router.push("/account")}
               />
@@ -453,13 +460,13 @@ export function AppHeader() {
                         <MaterialCommunityIcons
                           name={e.icon}
                           size={18}
-                          color={e.color ?? "#0F1629"}
+                          color={e.color ?? c.ink}
                         />
                       ) : (
                         <Ionicons
                           name={e.icon}
                           size={18}
-                          color={e.color ?? "#0F1629"}
+                          color={e.color ?? c.ink}
                         />
                       )}
                       {e.value ? (

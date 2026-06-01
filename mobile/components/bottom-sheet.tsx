@@ -4,6 +4,8 @@ import { type ReactNode } from "react";
 import { Modal, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useTheme } from "../lib/theme";
+
 export function BottomSheet({
   visible,
   onClose,
@@ -20,6 +22,10 @@ export function BottomSheet({
   topRadius?: number;
 }) {
   const insets = useSafeAreaInsets();
+  // Le contenu d'un Modal RN est rendu hors de l'arbre du ThemeProvider →
+  // on ré-applique les variables du thème (varStyle) sur le panneau pour
+  // que ses classes NativeWind basculent en sombre.
+  const { c, varStyle } = useTheme();
   return (
     <Modal
       visible={visible}
@@ -39,28 +45,28 @@ export function BottomSheet({
       />
       <View
         className={`${topRadius == null ? "rounded-t-3xl" : ""} bg-ivory px-5 pt-3`}
-        style={{
+        style={[varStyle, {
           paddingBottom: insets.bottom + 16,
           // Ombre portée vers le HAUT : assombrit juste au-dessus du bord
           // arrondi → le détache de la page claire visible derrière.
-          shadowColor: "#0F1629",
+          shadowColor: "#000000",
           shadowOpacity: 0.4,
           shadowRadius: 28,
           shadowOffset: { width: 0, height: -12 },
           elevation: 24,
-          // Liseré contrasté (tan) sur le bord supérieur : souligne la
-          // courbe arrondie sur le fond ivoire clair de la page.
+          // Liseré contrasté sur le bord supérieur : souligne la courbe
+          // arrondie au-dessus du fond de page.
           borderTopWidth: 1.5,
           borderLeftWidth: 1,
           borderRightWidth: 1,
-          borderColor: "#C2BCAE",
+          borderColor: c.borderSoft,
           ...(topRadius != null
             ? { borderTopLeftRadius: topRadius, borderTopRightRadius: topRadius }
             : null),
           ...(heightPct
             ? { height: `${heightPct}%` as const }
             : { maxHeight: "85%" as const }),
-        }}
+        }]}
       >
         <View className="mb-3 h-1 w-10 self-center rounded-full bg-ink-5" />
         {children}

@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Valeurs par défaut (thème clair) des variables de couleur. Le
+   ThemeProvider (lib/theme.tsx) ré-applique ces variables via un vars()
+   wrapper et bascule vers le jeu sombre quand le mode « Sombre » est actif.
+   Ces défauts couvrent tout rendu situé hors du provider. */
+@layer base {
+  :root {
+    --ink: 15 22 41;
+    --ink-2: 40 48 68;
+    --ink-3: 91 100 120;
+    --ink-4: 138 145 161;
+    --ink-5: 183 188 199;
+    --paper: 255 255 255;
+    --ivory: 247 244 236;
+    --ivory-2: 239 234 221;
+    --line: 230 227 218;
+    --accent: 79 70 229;
+    --accent-soft: 238 242 255;
+    --accent-ink: 55 48 163;
+    --violet: 124 92 252;
+    --violet-soft: 237 233 254;
+    --violet-muted: 242 238 245;
+    --violet-deep: 91 63 214;
+    --navy: 19 35 91;
+    --navy-deep: 10 19 48;
+    --good: 22 163 74;
+    --warn: 217 119 6;
+    --bad: 220 38 38;
+    --coral: 255 122 107;
+    --coral-soft: 255 231 227;
+    --coral-muted: 251 237 231;
+    --teal: 47 184 166;
+    --teal-soft: 220 244 240;
+    --teal-muted: 233 244 238;
+    --amber: 242 182 90;
+    --amber-soft: 252 239 214;
+    --amber-muted: 249 241 225;
+    --sky: 91 141 239;
+    --sky-soft: 228 236 253;
+    --sky-muted: 237 240 244;
+    --gold: 180 83 9;
+  }
+}

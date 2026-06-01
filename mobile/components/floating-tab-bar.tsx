@@ -20,6 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useProspectRelations } from "../lib/queries";
+import { useTheme } from "../lib/theme";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "home-outline",
@@ -89,6 +90,9 @@ function Tab({
   onPress,
   badgeCount = 0,
 }: TabProps) {
+  const { c, isDark } = useTheme();
+  // Icône inactive : navy discret en clair, gris clair lisible en sombre.
+  const inactiveColor = isDark ? c.ink3 : INACTIVE;
   const tabStyle = useAnimatedStyle(() => ({
     width: wInactive + (wActive - wInactive) * share(index, ap.value),
   }));
@@ -114,13 +118,13 @@ function Tab({
             <MaterialCommunityIcons
               name="database-outline"
               size={22}
-              color={focused ? "#FFFFFF" : INACTIVE}
+              color={focused ? "#FFFFFF" : inactiveColor}
             />
           ) : (
             <Ionicons
               name={ICON[routeName]}
               size={21}
-              color={focused ? "#FFFFFF" : INACTIVE}
+              color={focused ? "#FFFFFF" : inactiveColor}
             />
           )}
           {badgeCount > 0 ? (
@@ -173,6 +177,10 @@ function Tab({
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const glass = isLiquidGlassAvailable();
+  const { c, isDark } = useTheme();
+  // Pilule active : navy en clair, accent violet lumineux en sombre (fort
+  // contraste sur la barre foncée).
+  const pillBg = isDark ? c.accent : PILL_BG;
   // Badge onglet Relations : nombre de demandes EN ATTENTE (on exclut celles
   // déjà acceptées qui restent dans le carrousel avec leur badge ✓).
   const pendingCount = (useProspectRelations().data?.pending ?? []).filter(
@@ -246,7 +254,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               top: 0,
               height: ITEM_H,
               borderRadius: 999,
-              backgroundColor: PILL_BG,
+              backgroundColor: pillBg,
             },
             pillStyle,
           ]}
@@ -281,9 +289,9 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
     >
       {glass ? (
         <GlassView
-          glassEffectStyle="regular"
+          glassEffectStyle={isDark ? "clear" : "regular"}
           isInteractive
-          tintColor="rgba(255, 255, 255, 0.34)"
+          tintColor={isDark ? "rgba(32, 39, 58, 0.55)" : "rgba(255, 255, 255, 0.34)"}
           style={{
             borderRadius: 999,
             paddingHorizontal: 4,

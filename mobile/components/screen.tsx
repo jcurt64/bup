@@ -22,6 +22,7 @@ import { AppHeader } from "./app-header";
 import { GridBg } from "./grid-bg";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
+import { useTheme } from "../lib/theme";
 import {
   type CompactExtra,
   HEADER_BASE_HEIGHT,
@@ -71,7 +72,7 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: 
       {nav === "menu" ? (
         <View className="mb-3 flex-row items-center justify-between gap-3">
           <Text
-            className="flex-1 font-serif text-xl text-paper"
+            className="flex-1 font-serif text-xl text-white"
             numberOfLines={1}
           >
             {greeting}
@@ -79,7 +80,7 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: 
           {tier ? (
             <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
               <Ionicons name="trophy" size={14} color={tier.color} />
-              <Text className="text-xs font-semibold text-paper">
+              <Text className="text-xs font-semibold text-white">
                 {tier.label}
               </Text>
             </View>
@@ -103,7 +104,7 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: 
           {eyebrow}
         </Text>
       ) : null}
-      <Text className="mt-1 font-serif text-2xl text-paper">{title}</Text>
+      <Text className="mt-1 font-serif text-2xl text-white">{title}</Text>
       {desc ? (
         <Text className="mt-1 text-lg leading-6 text-white/75">{desc}</Text>
       ) : null}
@@ -226,10 +227,7 @@ export function QueryGate<T>({
   const d = query.data as T;
   if (isEmpty && isEmpty(d)) {
     return (
-      <View
-        className="items-center rounded-2xl bg-paper p-8"
-        style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
-      >
+      <View className="items-center rounded-2xl border border-line bg-paper p-8">
         <Text className="text-center text-sm text-ink-4">{emptyLabel}</Text>
       </View>
     );
@@ -300,6 +298,15 @@ export function Card({
    *  défini (ex. card Portefeuille éclaircie sur la home). */
   gradient?: [string, string];
 }) {
+  const { c, isDark } = useTheme();
+  // Teinte de tuile par tone (pour le dégradé de carte en sombre).
+  const toneTint: Record<Tone, string> = {
+    violet: c.tintViolet,
+    coral: c.tintCoral,
+    teal: c.tintGreen,
+    amber: c.tintAmber,
+    sky: c.tintBlue,
+  };
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
     ? undefined
@@ -315,7 +322,7 @@ export function Card({
       {badge ? (
         badge.square ? (
           <View
-            className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
+            className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-paper"
             style={{
               shadowColor: "#0F1629",
               shadowOpacity: 0.06,
@@ -342,11 +349,11 @@ export function Card({
   if (!dark && tone) {
     return (
       <LinearGradient
-        colors={gradient ?? TONE_GRADIENT[tone]}
+        colors={gradient ?? (isDark ? [toneTint[tone], c.surface] : TONE_GRADIENT[tone])}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
-          { borderRadius: 24, padding: 20, borderWidth: 0.7, borderColor: "#CBC7B9" },
+          { borderRadius: 24, padding: 20, borderWidth: 0.7, borderColor: c.borderSoft },
           shadow,
         ]}
       >
@@ -359,7 +366,7 @@ export function Card({
       className={`rounded-3xl p-5 ${bg} ${className}`}
       style={[
         shadow,
-        dark ? null : { borderWidth: 0.7, borderColor: "#CBC7B9" },
+        dark ? null : { borderWidth: 0.7, borderColor: c.borderSoft },
       ]}
     >
       {inner}
@@ -393,14 +400,22 @@ export function Stat({
   /** Couleur d'icône explicite (sinon dérivée du `tone`). */
   iconColor?: string;
 }) {
+  const { c, isDark } = useTheme();
+  const toneTint: Record<Tone, string> = {
+    violet: c.tintViolet,
+    coral: c.tintCoral,
+    teal: c.tintGreen,
+    amber: c.tintAmber,
+    sky: c.tintBlue,
+  };
   const bg = tone ? TONE_BG[tone] : "bg-paper";
-  const fg = iconColor ?? (tone ? TONE_FG[tone] : "#7C5CFC");
+  const fg = iconColor ?? (tone ? TONE_FG[tone] : c.violet);
   const inner = (
     <>
       {icon ? (
         squareIcon ? (
           <View
-            className="mb-2 h-9 w-9 items-center justify-center rounded-xl bg-white"
+            className="mb-2 h-9 w-9 items-center justify-center rounded-xl bg-paper"
             style={{
               shadowColor: "#0F1629",
               shadowOpacity: 0.06,
@@ -414,7 +429,7 @@ export function Stat({
         ) : (
           <View
             className={`mb-2 h-8 w-8 items-center justify-center rounded-full ${
-              tone ? "bg-white/70" : "bg-ivory"
+              tone ? "bg-paper/70" : "bg-ivory"
             }`}
           >
             <Ionicons name={icon} size={16} color={fg} />
@@ -441,7 +456,7 @@ export function Stat({
   if (tone) {
     return (
       <LinearGradient
-        colors={TONE_GRADIENT[tone]}
+        colors={isDark ? [toneTint[tone], c.surface] : TONE_GRADIENT[tone]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -449,7 +464,7 @@ export function Stat({
           borderRadius: 24,
           padding: 16,
           borderWidth: 0.7,
-          borderColor: "#CBC7B9",
+          borderColor: c.borderSoft,
         }}
       >
         {inner}
@@ -459,7 +474,7 @@ export function Stat({
   return (
     <View
       className={`flex-1 rounded-3xl p-4 ${bg}`}
-      style={{ borderWidth: 0.7, borderColor: "#CBC7B9" }}
+      style={{ borderWidth: 0.7, borderColor: c.borderSoft }}
     >
       {inner}
     </View>

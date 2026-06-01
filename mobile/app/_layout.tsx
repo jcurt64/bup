@@ -27,6 +27,13 @@ import "react-native-reanimated";
 import { PushBannerProvider, usePushBanner } from "../components/in-app-push-banner";
 import { tokenCache } from "../lib/clerk-token-cache";
 import { ensurePushChannelsAndroid, registerForPushNotifications } from "../lib/push";
+import { ThemeProvider, useTheme } from "../lib/theme";
+
+// StatusBar dont les icônes (claires/sombres) suivent le thème actif.
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? "light" : "dark"} />;
+}
 
 // Handler global — bannière OS off en foreground (on a notre bannière
 // in-app), mais on garde la notification dans la "Notification list"
@@ -148,6 +155,7 @@ export default function RootLayout() {
     >
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
+          <ThemeProvider>
           <PushBannerProvider>
             <PushBridge />
             <Stack screenOptions={{ headerShown: false }}>
@@ -172,8 +180,9 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-            <StatusBar style="auto" />
+            <ThemedStatusBar />
           </PushBannerProvider>
+          </ThemeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </ClerkProvider>
