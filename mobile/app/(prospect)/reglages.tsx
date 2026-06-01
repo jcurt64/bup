@@ -16,11 +16,9 @@ const VIOLET = "#7C5CFF";
 // Thèmes d'affichage — dégradé d'aperçu (≈ diagonal) aligné reg.html.
 const THEMES = [
   { key: "buupp", label: "BUUPP", colors: ["#7C5CFF", "#5B3FE0"] as const },
-  { key: "clair", label: "Clair", colors: ["#FBF9F4", "#ECE7D9"] as const },
   { key: "sombre", label: "Sombre", colors: ["#1A2238", "#0A1628"] as const },
   { key: "forest", label: "Forest", colors: ["#2F8D5B", "#1D6B42"] as const },
-  { key: "bluelight", label: "Blue light", colors: ["#7DB4F0", "#3F7FD6"] as const },
-  { key: "fushia", label: "Fushia", colors: ["#F25AA0", "#D63B80"] as const },
+  { key: "fushia", label: "Light Fushia", colors: ["#F25AA0", "#D63B80"] as const },
 ] as const;
 
 type ThemeKey = (typeof THEMES)[number]["key"];
