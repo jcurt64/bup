@@ -103,13 +103,11 @@ function IconButton({
         paddingHorizontal: 4,
         borderRadius: 9,
         backgroundColor: "#DC2626",
-        borderWidth: 2,
-        borderColor: "#F7F4EC",
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Text className="font-mono text-[10px] font-bold text-paper">
+      <Text className="font-mono text-[10px] font-bold text-white">
         {badgeText}
       </Text>
     </View>
@@ -248,16 +246,19 @@ function FlashHeaderButton({
 // pour le header compact. Garde l'identité Buupp sans manger la place
 // du titre de page.
 function BrandMark() {
-  const { c } = useTheme();
+  // Logo « b » en pastille dégradé bleu buupp (navy → bleu) — même identité
+  // que BrandLogo, lisible sur header clair comme sombre.
   return (
-    <View
+    <LinearGradient
+      colors={["#13235B", "#2F44C0"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={{
         width: 32,
         height: 32,
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: c.logoBg,
       }}
     >
       <Text
@@ -266,7 +267,7 @@ function BrandMark() {
       >
         b
       </Text>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -470,7 +471,10 @@ export function AppHeader() {
                         />
                       )}
                       {e.value ? (
-                        <Text className="font-mono text-[14px] font-semibold text-ink">
+                        <Text
+                          className="font-mono text-[14px] font-semibold"
+                          style={{ color: e.color ?? c.ink }}
+                        >
                           {e.value}
                         </Text>
                       ) : null}

@@ -368,7 +368,7 @@ export default function Portefeuille() {
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card tone="violet" gradient={["#FAF8FE", "#FFFFFF"]}>
+            <Card tone="violet">
               {/* Header : label + tuile icône carte (carré arrondi blanc,
                   parité redesign.png). */}
               <View className="mb-3 flex-row items-center justify-between">
@@ -637,12 +637,11 @@ export default function Portefeuille() {
                   accessibilityLabel={
                     clickable ? `Détail de ${mv.origin}` : undefined
                   }
-                  className={`flex-row items-center gap-3 rounded-2xl bg-paper px-4 py-3.5 ${
+                  className={`flex-row items-center gap-3 rounded-2xl border-line bg-paper px-4 py-3.5 ${
                     clickable ? "active:opacity-70" : ""
                   }`}
                   style={{
                     borderWidth: 0.7,
-                    borderColor: "#ECE9E0",
                     shadowColor: "#0F1629",
                     shadowOpacity: 0.04,
                     shadowRadius: 10,

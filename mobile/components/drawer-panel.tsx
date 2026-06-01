@@ -10,6 +10,7 @@ import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, Sty
 
 import { unregisterPushToken } from "../lib/push";
 import { resetOnboardingSeen } from "../lib/onboarding";
+import { useTheme } from "../lib/theme";
 import {
   useDeleteAccount,
   useMeTyped,
@@ -70,13 +71,18 @@ function Row({
   chevron?: boolean;
   onPress: () => void;
 }) {
-  const color = danger ? DANGER : "#FFFFFF";
+  const { c, isDark } = useTheme();
+  const color = danger ? DANGER : c.text;
+  const tile = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,22,41,0.05)";
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-2xl px-3 py-3 active:bg-white/10"
+      className="flex-row items-center gap-3 rounded-2xl px-3 py-3 active:opacity-70"
     >
-      <View className="h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+      <View
+        className="h-11 w-11 items-center justify-center rounded-2xl"
+        style={{ backgroundColor: tile }}
+      >
         <Ionicons name={icon} size={20} color={color} />
       </View>
       <View className="flex-1">
@@ -84,15 +90,13 @@ function Row({
           {label}
         </Text>
         {sub ? (
-          <Text className="mt-0.5 text-[12.5px] text-white/55">{sub}</Text>
+          <Text className="mt-0.5 text-[12.5px]" style={{ color: c.textMuted }}>
+            {sub}
+          </Text>
         ) : null}
       </View>
       {chevron ? (
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color="rgba(255,255,255,0.45)"
-        />
+        <Ionicons name="chevron-forward" size={18} color={c.textMuted} />
       ) : null}
     </Pressable>
   );
@@ -102,23 +106,30 @@ function Row({
 // affichant « {score} / 1000 » en haut à droite du drawer (parité
 // redesign.png, sans l'arc de progression).
 function ScoreRing({ score }: { score: number | null }) {
+  const { c } = useTheme();
   return (
     <View
       className="h-14 w-14 items-center justify-center rounded-full"
-      style={{ borderWidth: 3, borderColor: "rgba(255,255,255,0.25)" }}
+      style={{ borderWidth: 3, borderColor: c.accent }}
     >
       <Text
-        className="font-serif-bold text-base text-paper"
-        style={{ lineHeight: 18 }}
+        className="font-serif-bold text-base"
+        style={{ lineHeight: 18, color: c.text }}
       >
         {score != null ? score : "…"}
       </Text>
-      <Text className="font-mono text-[8px] text-white/55">/ 1000</Text>
+      <Text className="font-mono text-[8px]" style={{ color: c.textMuted }}>
+        / 1000
+      </Text>
     </View>
   );
 }
 
 export default function DrawerPanel() {
+  const { c, isDark } = useTheme();
+  // Tuile/encart discret sur le fond (clair : voile sombre léger ; sombre :
+  // voile clair léger).
+  const tile = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,22,41,0.05)";
   const { signOut, getToken } = useAuth();
   const del = useDeleteAccount();
   // Données lecture seule (aucun back modifié) alimentant la carte de
@@ -246,7 +257,7 @@ export default function DrawerPanel() {
             bottom-right pour cohérence avec les autres surfaces gradient
             de l'app. */}
         <LinearGradient
-          colors={["#7C5CFC", "#13235B"]}
+          colors={isDark ? [c.surface, c.bg] : ["#FBFAFF", "#ECE6FD"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -260,14 +271,14 @@ export default function DrawerPanel() {
           <View className="flex-row items-start justify-between px-3 pb-3">
             <View>
               <Text
-                className="font-serif-bold text-2xl text-paper"
-                style={{ lineHeight: 28 }}
+                className="font-serif-bold text-2xl"
+                style={{ lineHeight: 28, color: c.text }}
               >
                 Mon statut
               </Text>
               <Text
-                className="font-serif-italic text-2xl text-paper"
-                style={{ lineHeight: 28 }}
+                className="font-serif-italic text-2xl"
+                style={{ lineHeight: 28, color: c.text }}
               >
                 buupper
               </Text>
@@ -277,19 +288,27 @@ export default function DrawerPanel() {
 
           {/* Carte de statut : avatar + prénom + palier de vérification,
               et pastille « ⚡ {score} » bordée ambre à droite. */}
-          <View className="mb-3 flex-row items-center gap-3 rounded-2xl bg-white/10 px-3 py-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-white/15">
-              <Ionicons name="person-outline" size={20} color="#FFFFFF" />
+          <View
+            className="mb-3 flex-row items-center gap-3 rounded-2xl px-3 py-3"
+            style={{ backgroundColor: tile }}
+          >
+            <View
+              className="h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: c.tintViolet }}
+            >
+              <Ionicons name="person-outline" size={20} color={c.accViolet} />
             </View>
             <View className="flex-1">
               <Text
-                className="text-[15px] font-semibold text-paper"
+                className="text-[15px] font-semibold"
+                style={{ color: c.text }}
                 numberOfLines={1}
               >
                 {firstName ?? "Mon compte"}
               </Text>
               <Text
-                className="mt-0.5 text-[12px] text-white/65"
+                className="mt-0.5 text-[12px]"
+                style={{ color: c.textSub }}
                 numberOfLines={1}
               >
                 Vérification {tierLabel} · Niveau {tierPos}/3
@@ -300,11 +319,11 @@ export default function DrawerPanel() {
               style={{
                 borderWidth: 1,
                 borderColor: "rgba(242,182,90,0.7)",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(242,182,90,0.12)",
               }}
             >
-              <Ionicons name="flash" size={12} color="#F2B65A" />
-              <Text className="text-[13px] font-bold text-paper">
+              <Ionicons name="flash" size={12} color={c.amber} />
+              <Text className="text-[13px] font-bold" style={{ color: c.text }}>
                 {scoreNum != null ? scoreNum : "…"}
               </Text>
             </View>
@@ -321,8 +340,8 @@ export default function DrawerPanel() {
           ))}
 
           <Text
-            className="mt-5 px-3 text-[13px] font-bold uppercase text-white/45"
-            style={{ letterSpacing: 1.2 }}
+            className="mt-5 px-3 text-[13px] font-bold uppercase"
+            style={{ letterSpacing: 1.2, color: c.textMuted }}
           >
             Suivez-nous
           </Text>
@@ -333,14 +352,15 @@ export default function DrawerPanel() {
                 onPress={() => Linking.openURL(s.url)}
                 accessibilityLabel={s.label}
                 accessibilityRole="link"
-                className="h-11 w-11 items-center justify-center rounded-2xl bg-white/10 active:opacity-70"
+                className="h-11 w-11 items-center justify-center rounded-2xl active:opacity-70"
+                style={{ backgroundColor: tile }}
               >
-                <Ionicons name={s.icon} size={18} color="#FFFFFF" />
+                <Ionicons name={s.icon} size={18} color={c.text} />
               </Pressable>
             ))}
           </View>
 
-          <View className="my-4 h-px bg-white/15" />
+          <View className="my-4 h-px" style={{ backgroundColor: c.borderSoft }} />
           <Row icon="power" label="Déconnexion" onPress={() => setConfirm("signout")} />
           <Row
             icon="trash-outline"
@@ -354,10 +374,10 @@ export default function DrawerPanel() {
               `__DEV__` est tree-shake'é en prod, ne ship jamais. */}
           {__DEV__ ? (
             <>
-              <View className="my-4 h-px bg-white/15" />
+              <View className="my-4 h-px" style={{ backgroundColor: c.borderSoft }} />
               <Text
-                className="px-3 text-[13px] font-bold uppercase text-white/45"
-                style={{ letterSpacing: 1.2 }}
+                className="px-3 text-[13px] font-bold uppercase"
+                style={{ letterSpacing: 1.2, color: c.textMuted }}
               >
                 Outils dev
               </Text>
