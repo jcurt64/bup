@@ -317,7 +317,11 @@ export default function Portefeuille() {
           </View>
           <View className="flex-row items-center gap-2">
             {badgeTier ? (
-              <ReferralBadge tier={badgeTier} founderNumber={founderNumber} />
+              <ReferralBadge
+                tier={badgeTier}
+                founderNumber={founderNumber}
+                filleulCount={parrainage.data?.count ?? 0}
+              />
             ) : null}
             <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
               <Ionicons name="shield-checkmark" size={13} color="#C4B5FD" />
