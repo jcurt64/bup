@@ -728,7 +728,26 @@ export function useSetEmailTracking() {
         method: "PATCH",
         body: JSON.stringify(v),
       }),
-    onSuccess: () =>
+    // Mise à jour optimiste : le toggle bascule instantanément sans
+    // attendre l'aller-retour serveur (sinon il paraît « ne pas réagir »).
+    // Rollback en cas d'erreur, resync via invalidate au settled.
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["me", "email-tracking"] });
+      const prev = qc.getQueryData<EmailTracking>(["me", "email-tracking"]);
+      if (prev) {
+        qc.setQueryData<EmailTracking>(["me", "email-tracking"], {
+          ...prev,
+          consent: v.consent,
+        });
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) {
+        qc.setQueryData<EmailTracking>(["me", "email-tracking"], ctx.prev);
+      }
+    },
+    onSettled: () =>
       qc.invalidateQueries({ queryKey: ["me", "email-tracking"] }),
   });
 }

@@ -1,21 +1,18 @@
-// Préférences — miroir de la section Prefs du dashboard web
-// (Prospect.jsx fn Prefs). Données : /api/prospect/donnees,
-// /api/prospect/verification, /api/prospect/payout/status,
-// /api/me/email-tracking. Actions : phone/rib/payout/email-tracking,
-// zone géographique (rayon + nationalOptIn via patchDonnees),
-// paliers partageables (tierAction hide/restore),
-// types de campagne et catégories (note: pas d'endpoint dédié côté API
-// — blocs rendus read-only, voir concern en bas).
-import { useState } from "react";
-import { Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
+// Préférences — refonte visuelle alignée pixel sur pre.html (prototype
+// design). Données : /api/prospect/donnees, /api/prospect/verification,
+// /api/prospect/payout/status, /api/me/email-tracking. Actions :
+// phone/rib/payout/email-tracking, zone géographique (rayon + nationalOptIn
+// via patchDonnees), paliers partageables (tierAction hide/restore).
+// Types de campagne et catégories = pas d'endpoint dédié côté API → blocs
+// rendus en lecture seule (badge « Verrouillé »).
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
+import { type ReactNode, useState } from "react";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
-import {
-  Card,
-  eur,
-  QueryGate,
-  ScrollScreen,
-} from "../../components/screen";
+import { eur, QueryGate, ScrollScreen } from "../../components/screen";
+import type { CompactExtra } from "../../lib/header-scroll";
 import {
   useDeleteRib,
   useEmailTracking,
@@ -34,6 +31,10 @@ import {
   type TierKey,
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
+
+// Accent violet global (pre.html)
+const VIOLET = "#7C5CFF";
+const VIOLET_DEEP = "#5B3FE0";
 
 // Listes source-of-truth alignées sur Prospect.jsx (web)
 const CAMPAIGN_TYPE_LIST = [
@@ -67,6 +68,283 @@ const TIER_ROWS: { n: number; key: TierKey; name: string; range: string }[] = [
   { n: 5, key: "patrimoine",  name: "Patrimoine",     range: "5,00 – 10,00 €" },
 ];
 
+// ── Primitives de style (pre.html) ──────────────────────────────────────
+
+// Carte blanche standard : rounded 20, bordure #E7E1D2, padding 20, ombre.
+function PrefCard({
+  iconBg,
+  icon,
+  iconColor,
+  right,
+  children,
+}: {
+  iconBg: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  /** Slot à droite de l'en-tête (badge « Verrouillé », toggle…). */
+  right?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <View
+      className="bg-paper"
+      style={{
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#E7E1D2",
+        padding: 20,
+        shadowColor: "#0A1628",
+        shadowOpacity: 0.05,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 5 },
+        elevation: 2,
+      }}
+    >
+      <View
+        className="flex-row items-center justify-between"
+        style={{ gap: 12 }}
+      >
+        <View
+          className="items-center justify-center"
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 13,
+            backgroundColor: iconBg,
+            flexShrink: 0,
+          }}
+        >
+          <Ionicons name={icon} size={21} color={iconColor} />
+        </View>
+        {right ?? null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+// Bouton « Tous / Toutes » (parité web Prospect.jsx) — bascule le mode
+// « tout sélectionné ». Violet plein quand actif, contour sinon.
+function AllButton({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      className="flex-row items-center active:opacity-80"
+      style={{
+        gap: 5,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 999,
+        backgroundColor: active ? VIOLET : "#FFFFFF",
+        borderWidth: 1.5,
+        borderColor: active ? VIOLET : "#E7E1D2",
+      }}
+    >
+      <Ionicons
+        name="checkmark"
+        size={13}
+        color={active ? "#FFFFFF" : VIOLET_DEEP}
+      />
+      <Text
+        style={{
+          fontSize: 12.5,
+          fontWeight: "600",
+          color: active ? "#FFFFFF" : "#0A1628",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Chip sélectionnable (types de campagne / catégories) — parité web :
+// fond ink + ✓ quand actif, contour clair sinon.
+function SelectChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      className="flex-row items-center active:opacity-70"
+      style={{
+        gap: 5,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 999,
+        backgroundColor: active ? "#0A1628" : "#FFFFFF",
+        borderWidth: active ? 1 : 1.5,
+        borderColor: active ? "#0A1628" : "#E7E1D2",
+      }}
+    >
+      {active ? <Ionicons name="checkmark" size={13} color="#FFFFFF" /> : null}
+      <Text
+        style={{
+          fontSize: 13.5,
+          fontWeight: "500",
+          color: active ? "#FFFFFF" : "#6B7384",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function H3({ children }: { children: ReactNode }) {
+  return (
+    <Text
+      className="font-serif"
+      style={{ fontSize: 21, color: "#0A1628", marginTop: 15 }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function Desc({ children }: { children: ReactNode }) {
+  return (
+    <Text
+      style={{ fontSize: 13, lineHeight: 19, color: "#6B7384", marginTop: 7 }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+// Bouton plein sombre (pre.html) — actions principales (SMS, RIB, payout).
+function DarkButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      className="items-center active:opacity-90"
+      style={{
+        marginTop: 13,
+        paddingVertical: 15,
+        borderRadius: 13,
+        backgroundColor: "#0A1628",
+        shadowColor: "#0A1628",
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#FBF9F4" }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Champ texte façon pre.html (fond ivoire, bordure douce, rounded 13).
+const FIELD_STYLE = {
+  marginTop: 11,
+  paddingVertical: 14,
+  paddingHorizontal: 16,
+  borderRadius: 13,
+  backgroundColor: "#FBF9F4",
+  borderWidth: 1,
+  borderColor: "#E7E1D2",
+  fontSize: 14.5,
+  color: "#0A1628",
+} as const;
+
+// Case à cocher carrée arrondie 22×22 (violette une fois cochée).
+function CheckBox({ checked }: { checked: boolean }) {
+  return (
+    <View
+      className="items-center justify-center"
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 7,
+        flexShrink: 0,
+        backgroundColor: checked ? VIOLET : "#FFFFFF",
+        borderWidth: 1.5,
+        borderColor: checked ? VIOLET : "#D8D1C0",
+      }}
+    >
+      {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+    </View>
+  );
+}
+
+// Toggle pill 48×28 (pre.html) — suivi des emails.
+function PrefToggle({
+  value,
+  onPress,
+  disabled,
+  label,
+}: {
+  value: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+      style={{
+        width: 48,
+        height: 28,
+        borderRadius: 999,
+        backgroundColor: value ? VIOLET : "#D8D1C0",
+        flexShrink: 0,
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 3,
+          left: value ? 23 : 3,
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#000000",
+          shadowOpacity: 0.2,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+    </Pressable>
+  );
+}
+
 export default function Preferences() {
   const don = useProspectDonnees();
   const ver = useProspectVerification();
@@ -92,6 +370,44 @@ export default function Preferences() {
   const [holder,  setHolder]  = useState("");
   const [amount,  setAmount]  = useState("");
 
+  // Types de campagne & catégories acceptés — state LOCAL (parité web
+  // Prospect.jsx : pas d'endpoint API dédié, sélection non persistée).
+  // `allX` = mode « tout sélectionné » ; sinon le Set `selX` fait foi.
+  const [allTypes, setAllTypes] = useState(true);
+  const [selTypes, setSelTypes] = useState<Set<string>>(new Set());
+  const [allCats, setAllCats] = useState(true);
+  const [selCats, setSelCats] = useState<Set<string>>(new Set());
+
+  // Toggle d'un chip : depuis le mode « Tous », un clic désélectionne ce
+  // chip (et conserve les autres) en basculant en mode partiel = liste
+  // entière sauf celui-ci (parité toggleCampaignType/toggleCategory web).
+  const toggleType = (t: string) => {
+    if (allTypes) {
+      setSelTypes(new Set(CAMPAIGN_TYPE_LIST.filter((x) => x !== t)));
+      setAllTypes(false);
+      return;
+    }
+    setSelTypes((prev) => {
+      const n = new Set(prev);
+      if (n.has(t)) n.delete(t);
+      else n.add(t);
+      return n;
+    });
+  };
+  const toggleCat = (c: string) => {
+    if (allCats) {
+      setSelCats(new Set(CATEGORY_LIST.filter((x) => x !== c)));
+      setAllCats(false);
+      return;
+    }
+    setSelCats((prev) => {
+      const n = new Set(prev);
+      if (n.has(c)) n.delete(c);
+      else n.add(c);
+      return n;
+    });
+  };
+
   // NaN-guard sur le montant de retrait
   const amountCents = Math.round(
     parseFloat(amount.replace(",", ".")) * 100,
@@ -100,6 +416,45 @@ export default function Preferences() {
     withdraw.isPending ||
     !Number.isFinite(amountCents) ||
     amountCents <= 0;
+
+  // ── Extras du header compact (au scroll) ───────────────────────────────
+  // 1) Téléphone : icône pleine si vérifié, barrée sinon.
+  // 2) Zone géographique renseignée (National ou rayon en km).
+  const d0 = don.data;
+  const loc0 = (d0?.localisation ?? {}) as Record<string, unknown>;
+  const phoneVerified = Boolean(d0?.identityMeta?.phoneVerifiedAt);
+  const national0 = loc0.nationalOptIn !== "false" && loc0.nationalOptIn !== null;
+  const radius0 = (() => {
+    const p = parseInt(String(loc0.targetingRadiusKm ?? "25"), 10);
+    return Number.isFinite(p) && p >= 5 && p <= 100 ? p : 25;
+  })();
+  const zoneLabel = national0 ? "National" : `${radius0} km`;
+  const compactExtras: CompactExtra[] | undefined = d0
+    ? [
+        phoneVerified
+          ? {
+              iconLib: "material",
+              icon: "phone-check",
+              color: "#16A34A",
+              bg: "#DCFCE7",
+              accessibilityLabel: "Téléphone vérifié",
+            }
+          : {
+              iconLib: "material",
+              icon: "phone-off",
+              color: "#9AA1AD",
+              bg: "#F4F1E9",
+              accessibilityLabel: "Téléphone non vérifié",
+            },
+        {
+          iconLib: "ionicons",
+          icon: "location-outline",
+          value: zoneLabel,
+          color: VIOLET,
+          bg: "#EDE9FE",
+        },
+      ]
+    : undefined;
 
   return (
     <ScrollScreen
@@ -112,72 +467,111 @@ export default function Preferences() {
           mail.refetch(),
         ])
       }
-      hero={{
-        eyebrow: "Préférences",
-        title: "Qui peut vous contacter",
-        desc: "Types de campagne, catégories, zone, paliers de données, téléphone, coordonnées bancaires et communications.",
-      }}
+      compactExtras={compactExtras}
     >
-      {/* ── 1. Types de campagne acceptés ───────────────────────────────
-          Bloc web : ctx.profile.allCampaignTypes / campaignTypes.
-          Pas d'endpoint dédié en production → affiché en lecture seule
-          (cf. concern : l'API /api/prospect/donnees ne retourne pas
-          ces champs). */}
-      <Card className="gap-3" badge={{ icon: "megaphone-outline", tone: "sky" }}>
-        <Text className="font-serif text-lg text-ink">
-          Types de campagne acceptés
+      {/* Hero — card gradient violet (pre.html). */}
+      <LinearGradient
+        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        locations={[0, 0.6, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0.85 }}
+        style={{
+          borderRadius: 22,
+          padding: 22,
+          shadowColor: "#5B3FE0",
+          shadowOpacity: 0.26,
+          shadowRadius: 30,
+          shadowOffset: { width: 0, height: 14 },
+          elevation: 6,
+        }}
+      >
+        <Text
+          className="text-[11px] font-bold uppercase text-white/70"
+          style={{ letterSpacing: 1.6 }}
+        >
+          Préférences
         </Text>
-        <Text className="text-xs text-ink-4">
+        <Text
+          className="font-serif text-paper"
+          style={{ fontSize: 25, lineHeight: 28, marginTop: 4 }}
+        >
+          Qui peut vous contacter
+        </Text>
+        <Text className="mt-2 text-[14px] leading-5 text-white/80">
+          Types de campagne, catégories, zone, paliers de données, téléphone,
+          coordonnées bancaires et communications.
+        </Text>
+      </LinearGradient>
+
+      {/* ── 1. Types de campagne acceptés ──────────────────────────────── */}
+      <PrefCard
+        iconBg="#DDE9F8"
+        icon="megaphone-outline"
+        iconColor="#3F7FD6"
+        right={
+          <AllButton
+            active={allTypes}
+            label="Tous"
+            onPress={() => setAllTypes((v) => !v)}
+          />
+        }
+      >
+        <H3>Types de campagne acceptés</H3>
+        <Desc>
           Choisissez pour quels types de campagne vous acceptez d&apos;être
           sollicité.
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
+        </Desc>
+        <View
+          className="flex-row flex-wrap"
+          style={{ gap: 9, marginTop: 15 }}
+        >
           {CAMPAIGN_TYPE_LIST.map((t) => (
-            <View
+            <SelectChip
               key={t}
-              className="rounded-full border border-line bg-paper px-3 py-1.5"
-            >
-              <Text className="text-xs text-ink-3">{t}</Text>
-            </View>
+              label={t}
+              active={allTypes || selTypes.has(t)}
+              onPress={() => toggleType(t)}
+            />
           ))}
         </View>
-        <Text className="text-[10px] italic text-ink-4">
-          Préférence non modifiable pour le moment.
-        </Text>
-      </Card>
+      </PrefCard>
 
-      {/* ── 2. Catégories autorisées ─────────────────────────────────────
-          Même situation : pas d'endpoint API dédié → lecture seule. */}
-      <Card className="gap-3" badge={{ icon: "pricetags-outline", tone: "amber" }}>
-        <Text className="font-serif text-lg text-ink">
-          Catégories autorisées
-        </Text>
-        <Text className="text-xs text-ink-4">
-          Seuls les professionnels de ces secteurs pourront vous adresser
-          une demande.
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
+      {/* ── 2. Catégories autorisées ───────────────────────────────────── */}
+      <PrefCard
+        iconBg="#F8E8C9"
+        icon="pricetags-outline"
+        iconColor="#B45309"
+        right={
+          <AllButton
+            active={allCats}
+            label="Toutes"
+            onPress={() => setAllCats((v) => !v)}
+          />
+        }
+      >
+        <H3>Catégories autorisées</H3>
+        <Desc>
+          Seuls les professionnels de ces secteurs pourront vous adresser une
+          demande.
+        </Desc>
+        <View
+          className="flex-row flex-wrap"
+          style={{ gap: 9, marginTop: 15 }}
+        >
           {CATEGORY_LIST.map((c) => (
-            <View
+            <SelectChip
               key={c}
-              className="rounded-full border border-line bg-paper px-3 py-1.5"
-            >
-              <Text className="text-xs text-ink-3">{c}</Text>
-            </View>
+              label={c}
+              active={allCats || selCats.has(c)}
+              onPress={() => toggleCat(c)}
+            />
           ))}
         </View>
-        <Text className="text-[10px] italic text-ink-4">
-          Préférence non modifiable pour le moment.
-        </Text>
-      </Card>
+      </PrefCard>
 
-      {/* ── 3. Zone géographique ─────────────────────────────────────────
-          Données : localisation.targetingRadiusKm + nationalOptIn
-          depuis /api/prospect/donnees. Mutation : PATCH donnees tier
-          localisation. Le slider est remplacé par +/- boutons (pas de
-          Slider natif inclus dans la spec Expo). */}
-      <Card className="gap-3" badge={{ icon: "location-outline", tone: "coral" }}>
-        <Text className="font-serif text-lg text-ink">Zone géographique</Text>
+      {/* ── 3. Zone géographique ───────────────────────────────────────── */}
+      <PrefCard iconBg="#F9DDD5" icon="location-outline" iconColor="#DD5F48">
+        <H3>Zone géographique</H3>
         <QueryGate query={don}>
           {(d) => {
             const loc = (d.localisation ?? {}) as Record<string, unknown>;
@@ -187,19 +581,25 @@ export default function Preferences() {
             const radius     = Number.isFinite(persisted) && persisted >= 5 && persisted <= 100
               ? persisted
               : 25;
-            // rowToUi serialises the boolean column as the string "true"/"false"
-            // (TierFields = Record<string,string|null>). Compare against "false"
-            // to recover the real boolean; absent/null → default true.
             const nationalOptIn =
               loc.nationalOptIn !== "false" && loc.nationalOptIn !== null;
             const zoneLocked = !ville;
 
             return (
-              <View className="gap-3">
-                <View className="flex-row items-center justify-between">
+              <View>
+                {/* Centrée sur / Rayon */}
+                <View
+                  className="flex-row items-end justify-between"
+                  style={{ gap: 14, marginTop: 16 }}
+                >
                   <View>
-                    <Text className="text-[10px] text-ink-4">Centrée sur</Text>
-                    <Text className="text-sm font-medium text-ink">
+                    <Text style={{ fontSize: 12, color: "#6B7384" }}>
+                      Centrée sur
+                    </Text>
+                    <Text
+                      className="font-serif"
+                      style={{ fontSize: 16, color: "#0A1628", marginTop: 3 }}
+                    >
                       {zoneLocked
                         ? "Ville non renseignée"
                         : codePostal
@@ -207,63 +607,101 @@ export default function Preferences() {
                           : ville}
                     </Text>
                   </View>
-                  <View className="items-end">
-                    <Text className="text-[10px] text-ink-4">Rayon</Text>
-                    <Text className="font-serif text-xl text-violet">
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontSize: 12, color: "#6B7384" }}>Rayon</Text>
+                    <Text
+                      className="font-serif"
+                      style={{ fontSize: 17, color: VIOLET_DEEP, marginTop: 3 }}
+                    >
                       {nationalOptIn ? "National" : `${radius} km`}
                     </Text>
                   </View>
                 </View>
 
-                {/* Boutons +/- en remplacement du slider */}
+                {/* Boutons +/- (remplacent le slider — pas de Slider Expo) */}
                 {!nationalOptIn && !zoneLocked && (
-                  <View className="flex-row items-center gap-3">
+                  <View
+                    className="flex-row items-center"
+                    style={{ gap: 10, marginTop: 14 }}
+                  >
                     <Pressable
                       disabled={radius <= 5 || patchDon.isPending}
-                      className="flex-1 items-center rounded-xl border border-line bg-paper py-2"
+                      className="flex-1 items-center active:opacity-70"
+                      style={{
+                        paddingVertical: 11,
+                        borderRadius: 13,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: "#E7E1D2",
+                      }}
                       onPress={() =>
                         patchDon.mutate({
                           tier: "localisation",
-                          fields: {
-                            targetingRadiusKm: Math.max(5, radius - 5),
-                          },
+                          fields: { targetingRadiusKm: Math.max(5, radius - 5) },
                         })
                       }
                     >
-                      <Text className="text-base font-semibold text-ink">−5 km</Text>
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
+                        −5 km
+                      </Text>
                     </Pressable>
                     <Pressable
                       disabled={radius >= 100 || patchDon.isPending}
-                      className="flex-1 items-center rounded-xl border border-line bg-paper py-2"
+                      className="flex-1 items-center active:opacity-70"
+                      style={{
+                        paddingVertical: 11,
+                        borderRadius: 13,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: "#E7E1D2",
+                      }}
                       onPress={() =>
                         patchDon.mutate({
                           tier: "localisation",
-                          fields: {
-                            targetingRadiusKm: Math.min(100, radius + 5),
-                          },
+                          fields: { targetingRadiusKm: Math.min(100, radius + 5) },
                         })
                       }
                     >
-                      <Text className="text-base font-semibold text-ink">+5 km</Text>
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
+                        +5 km
+                      </Text>
                     </Pressable>
                   </View>
                 )}
+
+                {/* Note ville à renseigner */}
                 {zoneLocked && (
-                  <Text className="text-xs text-ink-4">
-                    Renseignez votre ville dans &quot;Mes données&quot; → Localisation
+                  <Text
+                    style={{
+                      marginTop: 12,
+                      fontSize: 12.5,
+                      lineHeight: 19,
+                      color: "#6B7384",
+                    }}
+                  >
+                    Renseignez votre ville dans « Mes données » → Localisation
                     pour activer le rayon de ciblage.
                   </Text>
                 )}
 
-                {/* Étendre au niveau national */}
+                {/* Étendre au niveau national — box violette + checkbox */}
                 <Pressable
                   disabled={zoneLocked || patchDon.isPending}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: nationalOptIn }}
-                  accessibilityLabel="Ciblage national"
-                  className={`flex-row items-start gap-3 rounded-xl border p-3 ${
-                    nationalOptIn ? "border-violet bg-violet/5" : "border-line bg-paper"
-                  } ${zoneLocked ? "opacity-50" : ""}`}
+                  accessibilityLabel="Étendre au niveau national"
+                  className="flex-row items-start active:opacity-80"
+                  style={{
+                    gap: 12,
+                    marginTop: 14,
+                    paddingVertical: 14,
+                    paddingHorizontal: 15,
+                    borderRadius: 14,
+                    backgroundColor: "#F2EDFF",
+                    borderWidth: 1,
+                    borderColor: "#E8E0FF",
+                    opacity: zoneLocked ? 0.5 : 1,
+                  }}
                   onPress={() => {
                     if (zoneLocked) return;
                     patchDon.mutate({
@@ -272,22 +710,21 @@ export default function Preferences() {
                     });
                   }}
                 >
-                  <View
-                    className={`mt-0.5 h-4 w-4 items-center justify-center rounded ${
-                      nationalOptIn ? "bg-violet" : "border border-line bg-paper"
-                    }`}
-                  >
-                    {nationalOptIn && (
-                      <Text className="text-[9px] font-bold text-paper">✓</Text>
-                    )}
-                  </View>
+                  <CheckBox checked={nationalOptIn} />
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-ink">
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#0A1628" }}>
                       Étendre au niveau national
                     </Text>
-                    <Text className="text-[11px] leading-4 text-ink-4">
-                      J&apos;accepte d&apos;être contacté par des pros partout en
-                      France, indépendamment du rayon local.
+                    <Text
+                      style={{
+                        fontSize: 12.5,
+                        lineHeight: 18,
+                        color: "#6B7384",
+                        marginTop: 3,
+                      }}
+                    >
+                      J&apos;accepte d&apos;être contacté par des pros partout
+                      en France, indépendamment du rayon local.
                     </Text>
                   </View>
                 </Pressable>
@@ -296,30 +733,31 @@ export default function Preferences() {
           }}
         </QueryGate>
         {patchDon.isError && (
-          <Text className="text-xs text-bad">Échec — réessayez.</Text>
+          <Text style={{ marginTop: 10, fontSize: 12.5, color: "#DC2626" }}>
+            Échec — réessayez.
+          </Text>
         )}
-      </Card>
+      </PrefCard>
 
-      {/* ── 4. Paliers partageables ───────────────────────────────────────
-          Données : hiddenTiers + removedTiers depuis /api/prospect/donnees.
-          Mutation : POST /api/prospect/tier (action: hide | restore). */}
-      <Card className="gap-3" badge={{ icon: "layers-outline", tone: "violet" }}>
-        <Text className="font-serif text-lg text-ink">Paliers partageables</Text>
-        <Text className="text-xs text-ink-4">
-          Tous vos paliers sont partagés par défaut. Décochez ceux que vous
-          ne souhaitez pas voir transmis (réversible — aucune donnée n&apos;est
+      {/* ── 4. Paliers partageables ────────────────────────────────────── */}
+      <PrefCard iconBg="#F2EDFF" icon="layers-outline" iconColor={VIOLET_DEEP}>
+        <H3>Paliers partageables</H3>
+        <Desc>
+          Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne
+          souhaitez pas voir transmis (réversible — aucune donnée n&apos;est
           effacée).
-        </Text>
+        </Desc>
         <QueryGate query={don}>
           {(d) => {
             const hiddenSet  = new Set(d.hiddenTiers ?? []);
             const removedSet = new Set(d.removedTiers ?? []);
             return (
-              <View>
+              <View style={{ marginTop: 16 }}>
                 {TIER_ROWS.map((row, idx) => {
                   const hidden  = hiddenSet.has(row.key);
                   const removed = removedSet.has(row.key);
                   const shared  = !hidden && !removed;
+                  const isLast  = idx === TIER_ROWS.length - 1;
                   return (
                     <Pressable
                       key={row.key}
@@ -327,11 +765,14 @@ export default function Preferences() {
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: shared }}
                       accessibilityLabel={`Palier ${row.n} — ${row.name}`}
-                      className={`flex-row items-center justify-between py-3 ${
-                        idx < TIER_ROWS.length - 1
-                          ? "border-b border-line"
-                          : ""
-                      } ${removed ? "opacity-50" : ""}`}
+                      className="flex-row items-center active:opacity-70"
+                      style={{
+                        gap: 12,
+                        paddingVertical: 13,
+                        borderBottomWidth: isLast ? 0 : 1,
+                        borderBottomColor: "#ECE7D9",
+                        opacity: removed ? 0.5 : 1,
+                      }}
                       onPress={() => {
                         if (removed) return;
                         tierAction.mutate({
@@ -340,33 +781,39 @@ export default function Preferences() {
                         });
                       }}
                     >
-                      <View className="flex-row items-center gap-3">
-                        <View
-                          className={`h-4 w-4 items-center justify-center rounded ${
-                            shared ? "bg-violet" : "border border-line bg-paper"
-                          }`}
-                        >
-                          {shared && (
-                            <Text className="text-[9px] font-bold text-paper">
-                              ✓
-                            </Text>
-                          )}
-                        </View>
-                        <Text className="font-serif text-base text-ink">
-                          Palier {row.n}
-                        </Text>
-                        <Text className="text-xs text-ink-4">{row.name}</Text>
-                        {removed && (
-                          <View className="rounded-full bg-line px-2 py-0.5">
-                            <Text className="text-[9px] text-ink-4">
-                              supprimé
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text className="font-mono text-[10px] text-ink-4">
-                        {row.range}
+                      <CheckBox checked={shared} />
+                      <Text
+                        className="font-serif"
+                        style={{ fontSize: 16, color: "#0A1628" }}
+                      >
+                        Palier {row.n}
                       </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{ flex: 1, fontSize: 13, color: "#6B7384" }}
+                      >
+                        {row.name}
+                      </Text>
+                      {removed ? (
+                        <View
+                          style={{
+                            borderRadius: 999,
+                            backgroundColor: "#ECE7D9",
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                          }}
+                        >
+                          <Text style={{ fontSize: 10, color: "#9AA1AD" }}>
+                            supprimé
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text
+                          style={{ fontSize: 12.5, fontWeight: "500", color: "#9AA1AD" }}
+                        >
+                          {row.range}
+                        </Text>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -375,82 +822,123 @@ export default function Preferences() {
           }}
         </QueryGate>
         {tierAction.isError && (
-          <Text className="text-xs text-bad">Échec — réessayez.</Text>
+          <Text style={{ marginTop: 10, fontSize: 12.5, color: "#DC2626" }}>
+            Échec — réessayez.
+          </Text>
         )}
-      </Card>
+      </PrefCard>
 
-      {/* ── 5. Téléphone & vérification SMS ─────────────────────────────
-          Données : identityMeta.phoneVerifiedAt depuis /api/prospect/donnees.
-          Mutations : POST /api/prospect/phone/start + /verify. */}
-      <Card className="gap-3" badge={{ icon: "call-outline", tone: "sky" }}>
-        <Text className="font-serif text-lg text-ink">Téléphone</Text>
+      {/* ── 5. Téléphone & vérification SMS ────────────────────────────── */}
+      <PrefCard iconBg="#F2EDFF" icon="call-outline" iconColor={VIOLET_DEEP}>
+        <H3>Téléphone</H3>
         <QueryGate query={don}>
-          {(d) =>
-            d.identityMeta.phoneVerifiedAt ? (
-              <Text className="text-sm text-good">✓ Numéro vérifié</Text>
+          {(d) => {
+            const tel = String(
+              (d.identity as Record<string, unknown> | null)?.telephone ?? "",
+            ).trim();
+            return d.identityMeta.phoneVerifiedAt ? (
+              <View>
+                <View
+                  className="flex-row items-center justify-between"
+                  style={FIELD_STYLE}
+                >
+                  <Text style={{ fontSize: 14.5, color: "#0A1628" }}>
+                    {tel || "Numéro vérifié"}
+                  </Text>
+                  <View
+                    className="flex-row items-center"
+                    style={{
+                      gap: 5,
+                      paddingVertical: 3,
+                      paddingHorizontal: 9,
+                      borderRadius: 999,
+                      backgroundColor: "#DCFCE7",
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
+                    <Text style={{ fontSize: 11.5, fontWeight: "600", color: "#15803D" }}>
+                      Vérifié
+                    </Text>
+                  </View>
+                </View>
+              </View>
             ) : (
-              <View className="gap-2">
+              <View>
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
-                  placeholder="+33612345678"
+                  placeholder="+33 6 12 34 56 78"
+                  placeholderTextColor="#9AA1AD"
                   keyboardType="phone-pad"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                  style={FIELD_STYLE}
                 />
-                <Pressable
+                <DarkButton
+                  label={phoneStart.isPending ? "…" : "Recevoir un code SMS"}
                   disabled={phoneStart.isPending}
-                  className="items-center rounded-full bg-ink py-3"
                   onPress={() => phoneStart.mutate({ phone })}
-                >
-                  <Text className="text-sm font-semibold text-paper">
-                    {phoneStart.isPending ? "…" : "Recevoir un code SMS"}
-                  </Text>
-                </Pressable>
+                />
                 {phoneStart.isSuccess && (
                   <>
                     <TextInput
                       value={code}
                       onChangeText={setCode}
                       placeholder="Code à 6 chiffres"
+                      placeholderTextColor="#9AA1AD"
                       keyboardType="number-pad"
-                      className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                      style={FIELD_STYLE}
                     />
                     <Pressable
                       disabled={phoneVerify.isPending}
-                      className="items-center rounded-full border border-line py-3"
                       onPress={() => phoneVerify.mutate({ code })}
+                      className="items-center active:opacity-70"
+                      style={{
+                        marginTop: 11,
+                        paddingVertical: 14,
+                        borderRadius: 13,
+                        borderWidth: 1,
+                        borderColor: "#E7E1D2",
+                        backgroundColor: "#FFFFFF",
+                      }}
                     >
-                      <Text className="text-sm text-ink-2">
+                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: "#0A1628" }}>
                         {phoneVerify.isPending ? "…" : "Valider le code"}
                       </Text>
                     </Pressable>
                   </>
                 )}
               </View>
-            )
-          }
+            );
+          }}
         </QueryGate>
-      </Card>
+      </PrefCard>
 
-      {/* ── 6. RIB / IBAN ────────────────────────────────────────────────
-          Données : ver.rib depuis /api/prospect/verification.
-          Mutation : POST /api/prospect/rib { iban, bic, holderName }. */}
-      <Card className="gap-3" badge={{ icon: "card-outline", tone: "teal" }}>
-        <Text className="font-serif text-lg text-ink">
-          Coordonnées bancaires
-        </Text>
+      {/* ── 6. Coordonnées bancaires (RIB / IBAN) ──────────────────────── */}
+      <PrefCard iconBg="#DCEFDF" icon="card-outline" iconColor="#198E80">
+        <H3>Coordonnées bancaires</H3>
         <QueryGate query={ver}>
           {(v) =>
             v.rib ? (
-              <View>
-                <Text className="text-sm text-ink-2">{v.rib.ibanMasked}</Text>
-                <Text className="text-xs text-ink-4">
+              <View style={{ marginTop: 4 }}>
+                <View style={FIELD_STYLE}>
+                  <Text style={{ fontSize: 14.5, color: "#0A1628" }}>
+                    {v.rib.ibanMasked}
+                  </Text>
+                </View>
+                <Text style={{ marginTop: 8, fontSize: 12.5, color: "#6B7384" }}>
                   {v.rib.holderName} · {v.rib.bic} ·{" "}
                   {v.rib.validated ? "validé" : "en attente"}
                 </Text>
                 <Pressable
                   disabled={delRib.isPending}
-                  className="mt-2 self-start rounded-full border border-line px-4 py-2"
+                  className="self-start active:opacity-70"
+                  style={{
+                    marginTop: 12,
+                    paddingVertical: 9,
+                    paddingHorizontal: 16,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: "#E7E1D2",
+                  }}
                   onPress={() =>
                     Alert.alert(
                       "Supprimer le RIB ?",
@@ -466,77 +954,69 @@ export default function Preferences() {
                     )
                   }
                 >
-                  <Text className="text-xs text-bad">
+                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#DC2626" }}>
                     {delRib.isPending ? "…" : "Supprimer le RIB"}
                   </Text>
                 </Pressable>
                 {delRib.isError && (
-                  <Text className="text-xs text-bad">Échec — réessayez.</Text>
+                  <Text style={{ marginTop: 8, fontSize: 12.5, color: "#DC2626" }}>
+                    Échec — réessayez.
+                  </Text>
                 )}
               </View>
             ) : (
-              <View className="gap-2">
+              <View>
                 <TextInput
                   value={iban}
                   onChangeText={setIban}
                   placeholder="IBAN"
+                  placeholderTextColor="#9AA1AD"
                   autoCapitalize="characters"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                  style={FIELD_STYLE}
                 />
                 <TextInput
                   value={bic}
                   onChangeText={setBic}
                   placeholder="BIC"
+                  placeholderTextColor="#9AA1AD"
                   autoCapitalize="characters"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                  style={FIELD_STYLE}
                 />
                 <TextInput
                   value={holder}
                   onChangeText={setHolder}
                   placeholder="Titulaire du compte"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                  placeholderTextColor="#9AA1AD"
+                  style={FIELD_STYLE}
                 />
-                <Pressable
+                <DarkButton
+                  label={saveRib.isPending ? "…" : "Enregistrer le RIB"}
                   disabled={saveRib.isPending}
-                  className="items-center rounded-full bg-ink py-3"
-                  onPress={() =>
-                    saveRib.mutate({ iban, bic, holderName: holder })
-                  }
-                >
-                  <Text className="text-sm font-semibold text-paper">
-                    {saveRib.isPending ? "…" : "Enregistrer le RIB"}
-                  </Text>
-                </Pressable>
+                  onPress={() => saveRib.mutate({ iban, bic, holderName: holder })}
+                />
               </View>
             )
           }
         </QueryGate>
-      </Card>
+      </PrefCard>
 
-      {/* ── 7. Retrait des gains (Stripe Connect) ───────────────────────
-          Données : pay (PayoutStatus) + wal.availableEur.
-          Mutations : POST /api/prospect/payout/onboarding (URL Stripe)
-                     POST /api/prospect/payout/withdraw { amountCents, method }. */}
-      <Card className="gap-3" badge={{ icon: "cash-outline", tone: "violet" }}>
-        <Text className="font-serif text-lg text-ink">Retrait des gains</Text>
+      {/* ── 7. Retrait des gains (Stripe Connect) ──────────────────────── */}
+      <PrefCard iconBg="#F2EDFF" icon="cash-outline" iconColor={VIOLET_DEEP}>
+        <H3>Retrait des gains</H3>
         <QueryGate query={pay}>
           {(p) =>
             !p.detailsSubmitted ? (
-              <Pressable
+              <DarkButton
+                label={onboard.isPending ? "…" : "Configurer les paiements"}
                 disabled={onboard.isPending}
-                className="items-center rounded-full bg-ink py-3"
                 onPress={async () => {
                   const r = await onboard.mutateAsync();
                   await WebBrowser.openBrowserAsync(r.url);
                 }}
-              >
-                <Text className="text-sm font-semibold text-paper">
-                  {onboard.isPending ? "…" : "Configurer les paiements"}
-                </Text>
-              </Pressable>
+              />
             ) : (
-              <View className="gap-2">
-                <Text className="text-xs text-ink-4">
+              <View>
+                <Text style={{ marginTop: 11, fontSize: 12.5, color: "#6B7384" }}>
                   Disponible :{" "}
                   {wal.isPending
                     ? "…"
@@ -548,54 +1028,86 @@ export default function Preferences() {
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="Montant en €"
+                  placeholderTextColor="#9AA1AD"
                   keyboardType="decimal-pad"
-                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+                  style={FIELD_STYLE}
                 />
-                <Pressable
+                <DarkButton
+                  label={withdraw.isPending ? "…" : "Demander un retrait"}
                   disabled={withdrawDisabled}
-                  className={`items-center rounded-full py-3 ${
-                    withdrawDisabled ? "bg-ink/40" : "bg-ink"
-                  }`}
                   onPress={() => withdraw.mutate({ amountCents })}
-                >
-                  <Text className="text-sm font-semibold text-paper">
-                    {withdraw.isPending ? "…" : "Demander un retrait"}
-                  </Text>
-                </Pressable>
+                />
               </View>
             )
           }
         </QueryGate>
-      </Card>
+      </PrefCard>
 
-      {/* ── 8. Suivi des emails BUUPP ────────────────────────────────────
-          Données : mail.consent depuis /api/me/email-tracking (GET).
-          Mutation : POST /api/me/email-tracking { consent }.
-          Conformité CNIL n° 2026-042 (cf. web EmailTrackingConsentCard). */}
-      <Card className="flex-row items-center justify-between" badge={{ icon: "mail-outline", tone: "amber" }}>
-        <View className="flex-1 pr-3">
-          <Text className="font-serif text-lg text-ink">
-            Suivi des emails BUUPP
-          </Text>
-          <Text className="text-xs leading-4 text-ink-4">
-            Les communications BUUPP peuvent inclure un pixel transparent
-            pour mesurer le taux d&apos;ouverture de façon agrégée. Aucune IP,
-            aucun fingerprint stocké.{"\n"}
-            <Text className="text-[10px] text-ink-4">
-              Recommandation CNIL n° 2026-042 — modifiable à tout moment.
+      {/* ── 8. Suivi des emails BUUPP (CNIL n° 2026-042) ───────────────── */}
+      <View
+        className="bg-paper flex-row"
+        style={{
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: "#E7E1D2",
+          padding: 20,
+          gap: 14,
+          shadowColor: "#0A1628",
+          shadowOpacity: 0.05,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 5 },
+          elevation: 2,
+        }}
+      >
+        <View
+          className="items-center justify-center"
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 13,
+            backgroundColor: "#F8E8C9",
+            flexShrink: 0,
+          }}
+        >
+          <Ionicons name="mail-outline" size={21} color="#B45309" />
+        </View>
+        <View className="flex-1">
+          <View
+            className="flex-row items-start justify-between"
+            style={{ gap: 12 }}
+          >
+            <Text
+              className="flex-1 font-serif"
+              style={{ fontSize: 19, color: "#0A1628" }}
+            >
+              Suivi des emails BUUPP
             </Text>
+            <QueryGate query={mail}>
+              {(m) => (
+                <PrefToggle
+                  value={m.consent}
+                  disabled={setMail.isPending}
+                  label="Suivi des emails BUUPP"
+                  onPress={() => setMail.mutate({ consent: !m.consent })}
+                />
+              )}
+            </QueryGate>
+          </View>
+          <Text
+            style={{
+              marginTop: 8,
+              fontSize: 12.5,
+              lineHeight: 19,
+              color: "#6B7384",
+            }}
+          >
+            Les communications BUUPP peuvent inclure un pixel transparent pour
+            mesurer le taux d&apos;ouverture de façon agrégée. Aucune IP, aucun
+            fingerprint stocké.{"\n"}
+            Recommandation CNIL n° 2026-042 — modifiable à tout moment.
           </Text>
         </View>
-        <QueryGate query={mail}>
-          {(m) => (
-            <Switch
-              value={m.consent}
-              onValueChange={(v) => setMail.mutate({ consent: v })}
-              accessibilityLabel="Suivi des emails BUUPP"
-            />
-          )}
-        </QueryGate>
-      </Card>
+      </View>
     </ScrollScreen>
   );
 }

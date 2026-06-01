@@ -29,19 +29,28 @@ export type CompactExtra =
   | {
       iconLib?: "ionicons";
       icon: keyof typeof Ionicons.glyphMap;
-      /** Valeur affichée (ex. « 1 234 € »). */
-      value: string;
+      /** Valeur affichée (ex. « 1 234 € »). Optionnelle : un extra
+       *  icône-seul (ex. bouton œil de visibilité) la laisse vide. */
+      value?: string;
       /** Couleur de l'icône. Défaut = ink (#0F1629). */
       color?: string;
       /** Fond de la pilule (teinte douce). Si absent : aucun fond. */
       bg?: string;
+      /** Si défini, l'extra devient un bouton (Pressable) — ex. l'œil
+       *  de pseudonymisation sur la page Données. */
+      onPress?: () => void;
+      /** Libellé d'accessibilité (recommandé quand `onPress` est défini
+       *  et que `value` est vide). */
+      accessibilityLabel?: string;
     }
   | {
       iconLib: "material";
       icon: keyof typeof MaterialCommunityIcons.glyphMap;
-      value: string;
+      value?: string;
       color?: string;
       bg?: string;
+      onPress?: () => void;
+      accessibilityLabel?: string;
     };
 
 export type HeaderScrollContextValue = {

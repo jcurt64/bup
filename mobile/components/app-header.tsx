@@ -446,30 +446,55 @@ export function AppHeader() {
             </View>
             {ctx?.compactExtras?.length ? (
               <View className="flex-row items-center gap-2">
-                {ctx.compactExtras.map((e, i) => (
-                  <View
-                    key={i}
-                    className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1"
-                    style={e.bg ? { backgroundColor: e.bg } : undefined}
-                  >
-                    {e.iconLib === "material" ? (
-                      <MaterialCommunityIcons
-                        name={e.icon}
-                        size={18}
-                        color={e.color ?? "#0F1629"}
-                      />
-                    ) : (
-                      <Ionicons
-                        name={e.icon}
-                        size={18}
-                        color={e.color ?? "#0F1629"}
-                      />
-                    )}
-                    <Text className="font-mono text-[14px] font-semibold text-ink">
-                      {e.value}
-                    </Text>
-                  </View>
-                ))}
+                {ctx.compactExtras.map((e, i) => {
+                  const content = (
+                    <>
+                      {e.iconLib === "material" ? (
+                        <MaterialCommunityIcons
+                          name={e.icon}
+                          size={18}
+                          color={e.color ?? "#0F1629"}
+                        />
+                      ) : (
+                        <Ionicons
+                          name={e.icon}
+                          size={18}
+                          color={e.color ?? "#0F1629"}
+                        />
+                      )}
+                      {e.value ? (
+                        <Text className="font-mono text-[14px] font-semibold text-ink">
+                          {e.value}
+                        </Text>
+                      ) : null}
+                    </>
+                  );
+                  // padding réduit pour un extra icône-seul (bouton œil)
+                  const padCls = e.value ? "px-2.5 py-1" : "h-8 w-8 justify-center";
+                  // Extra interactif (onPress défini) → Pressable bouton ;
+                  // sinon simple pilule décorative (comportement historique).
+                  return e.onPress ? (
+                    <Pressable
+                      key={i}
+                      onPress={e.onPress}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={e.accessibilityLabel ?? e.value}
+                      className={`flex-row items-center gap-1.5 rounded-full active:opacity-70 ${padCls}`}
+                      style={e.bg ? { backgroundColor: e.bg } : undefined}
+                    >
+                      {content}
+                    </Pressable>
+                  ) : (
+                    <View
+                      key={i}
+                      className={`flex-row items-center gap-1.5 rounded-full ${padCls}`}
+                      style={e.bg ? { backgroundColor: e.bg } : undefined}
+                    >
+                      {content}
+                    </View>
+                  );
+                })}
               </View>
             ) : null}
           </Animated.View>

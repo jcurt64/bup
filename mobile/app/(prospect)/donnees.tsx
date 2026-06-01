@@ -5,6 +5,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -17,7 +18,8 @@ import {
 } from "react-native";
 
 import { BottomSheet } from "../../components/bottom-sheet";
-import { Card, QueryGate, ScrollScreen } from "../../components/screen";
+import { QueryGate, ScrollScreen } from "../../components/screen";
+import type { CompactExtra } from "../../lib/header-scroll";
 import {
   useProspectDonnees,
   usePatchDonnees,
@@ -25,6 +27,10 @@ import {
   type TierKey,
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
+
+// Base web (= prod que pointe le mobile) — sert les pages légales (/rgpd…),
+// même logique que openLegal() dans components/ui.tsx.
+const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
 
 // Config par champ — parité avec FIELD_CONFIG côté web (Prospect.jsx).
 // L'absence de `cfg` = type text par défaut.
@@ -378,10 +384,114 @@ function TagPicker({
   );
 }
 
-// Ville + Code postal — autocomplétion via geo.api.gouv.fr (parité avec
-// Prospect.jsx fn CityPostalAutocomplete). Une commune avec plusieurs CP
-// (Paris/Lyon/Marseille…) est éclatée en suggestions distinctes.
+// Ville + Code postal — autocomplétion. Deux sources publiques gratuites
+// (HTTPS, sans clé) avec fallback croisé pour fiabiliser le mobile :
+//   • noms de ville → API BAN (api-adresse.data.gouv.fr, type=municipality)
+//     excellente dès 1 lettre, renvoie ville + code postal (arrondissements
+//     inclus) ; fallback geo.api.gouv.fr (?nom=).
+//   • codes postaux → geo.api.gouv.fr (?codePostal=) ; fallback BAN
+//     (recherche générale) pour les préfixes partiels.
+// Une commune à plusieurs CP (Paris/Lyon/Marseille…) est éclatée en
+// suggestions distinctes. Parité fonctionnelle avec Prospect.jsx (web).
 type CityPostalItem = { ville: string; codePostal: string };
+
+type BanFeature = {
+  properties?: { city?: string; name?: string; postcode?: string };
+};
+type GeoCommune = { nom: string; codesPostaux?: string[] };
+
+// GET + parse JSON tolérant : renvoie null sur échec réseau (la source est
+// alors considérée « indisponible »), relance uniquement l'AbortError.
+async function safeJson<T>(url: string, signal: AbortSignal): Promise<T | null> {
+  try {
+    const r = await fetch(url, { signal });
+    if (!r.ok) return null;
+    return (await r.json()) as T;
+  } catch (e) {
+    if ((e as { name?: string }).name === "AbortError") throw e;
+    return null;
+  }
+}
+
+// Récupère les suggestions ville/CP. Chaque source est interrogée de façon
+// tolérante (si l'une est injoignable, l'autre prend le relais) :
+//   • Saisie texte → on interroge EN PARALLÈLE BAN (type=municipality) ET
+//     geo (?nom=) et on fusionne → une lettre propose toujours des villes,
+//     sans dépendre du code postal.
+//   • Saisie chiffres → geo (?codePostal=) puis fallback BAN (préfixes).
+// `anyOk` = au moins une source a répondu (pour distinguer « 0 résultat »
+// de « hors ligne »).
+async function fetchCityPostal(
+  q: string,
+  signal: AbortSignal,
+): Promise<{ items: CityPostalItem[]; anyOk: boolean }> {
+  const isPostal = /^\d+$/.test(q);
+  const seen = new Set<string>();
+  const out: CityPostalItem[] = [];
+  const push = (ville?: string | null, cp?: string | null) => {
+    if (!ville || !cp) return;
+    const key = `${cp}-${ville}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ ville, codePostal: cp });
+  };
+  let anyOk = false;
+
+  if (isPostal) {
+    // 1) geo.api.gouv.fr — codes postaux.
+    const geo = await safeJson<GeoCommune[]>(
+      `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux&limit=20`,
+      signal,
+    );
+    if (geo) {
+      anyOk = true;
+      for (const c of geo)
+        for (const cp of c.codesPostaux ?? [])
+          if (cp.startsWith(q)) push(c.nom, cp);
+    }
+    // 2) Fallback BAN pour les préfixes partiels (ex. « 750 »).
+    if (out.length === 0) {
+      const ban = await safeJson<{ features?: BanFeature[] }>(
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=15`,
+        signal,
+      );
+      if (ban) {
+        anyOk = true;
+        for (const f of ban.features ?? []) {
+          const p = f.properties;
+          if (p?.postcode?.startsWith(q)) push(p.city ?? p.name, p.postcode);
+        }
+      }
+    }
+    out.sort((a, b) => a.codePostal.localeCompare(b.codePostal));
+  } else {
+    // Texte : les deux sources en parallèle, fusionnées (résilient si l'une
+    // est bloquée sur l'appareil).
+    const [ban, geo] = await Promise.all([
+      safeJson<{ features?: BanFeature[] }>(
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&type=municipality&autocomplete=1&limit=10`,
+        signal,
+      ),
+      safeJson<GeoCommune[]>(
+        `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=10`,
+        signal,
+      ),
+    ]);
+    if (ban) {
+      anyOk = true;
+      for (const f of ban.features ?? []) {
+        const p = f.properties;
+        push(p?.city ?? p?.name, p?.postcode);
+      }
+    }
+    if (geo) {
+      anyOk = true;
+      for (const c of geo)
+        for (const cp of c.codesPostaux ?? []) push(c.nom, cp);
+    }
+  }
+  return { items: out.slice(0, 30), anyOk };
+}
 
 function CityPostalAutocomplete({
   ville,
@@ -400,57 +510,44 @@ function CityPostalAutocomplete({
   const [items, setItems] = useState<CityPostalItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) {
+    // Déclenchement dès le 1er caractère (lettre ou chiffre).
+    if (q.length < 1) {
       setItems([]);
       setLoading(false);
+      setError(false);
       return;
     }
+    const ctrl = new AbortController();
     setLoading(true);
+    setError(false);
     const timer = setTimeout(async () => {
       try {
-        const isPostal = /^\d{2,5}$/.test(q);
-        const url = isPostal
-          ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux&limit=20`
-          : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=10`;
-        const r = await fetch(url);
-        if (!r.ok) {
-          setItems([]);
-          return;
-        }
-        const data = (await r.json()) as
-          | { nom: string; codesPostaux?: string[] }[]
-          | null;
-        const exploded: CityPostalItem[] = [];
-        for (const c of data ?? []) {
-          const codes = Array.isArray(c.codesPostaux) ? c.codesPostaux : [];
-          for (const cp of codes) {
-            // Filtre les CP qui ne commencent pas par la saisie partielle
-            // pour éviter de noyer dans des codes hors zone (ex. "750"
-            // → ne remonter que les codes 750xx).
-            if (isPostal && !cp.startsWith(q)) continue;
-            exploded.push({ ville: c.nom, codePostal: cp });
-          }
-        }
-        if (isPostal) {
-          exploded.sort((a, b) =>
-            a.codePostal.localeCompare(b.codePostal),
-          );
-        }
-        setItems(exploded.slice(0, 30));
-      } catch {
+        const { items: res, anyOk } = await fetchCityPostal(q, ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        setItems(res);
+        // Erreur réseau seulement si AUCUNE source n'a répondu.
+        setError(!anyOk);
+      } catch (e) {
+        if ((e as { name?: string }).name === "AbortError") return;
         setItems([]);
+        setError(true);
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
-    }, 220);
-    return () => clearTimeout(timer);
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, [query]);
 
   function pick(item: CityPostalItem) {
     setQuery(`${item.codePostal} ${item.ville}`);
+    setItems([]);
     setOpen(false);
     onPick(item);
   }
@@ -465,12 +562,18 @@ function CityPostalAutocomplete({
         }}
         onFocus={() => setOpen(true)}
         placeholder="Tapez votre ville ou un code postal"
+        placeholderTextColor="#9AA1AD"
+        autoCorrect={false}
         className="rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink"
       />
-      {open && query.trim().length >= 2 ? (
+      {open && query.trim().length >= 1 ? (
         <View className="mt-1.5 overflow-hidden rounded-xl border border-line bg-paper">
           {loading && items.length === 0 ? (
             <Text className="px-3 py-2.5 text-sm text-ink-4">Recherche…</Text>
+          ) : error ? (
+            <Text className="px-3 py-2.5 text-sm text-bad">
+              Recherche indisponible — vérifiez votre connexion.
+            </Text>
           ) : items.length === 0 ? (
             <Text className="px-3 py-2.5 text-sm text-ink-4">
               Aucune ville trouvée.
@@ -495,16 +598,20 @@ function CityPostalAutocomplete({
   );
 }
 
-// Méta par palier : numéro, label, icône thématique et couleurs du banner
-// (header full-width coloré). Couleurs choisies dans la palette BUUPP pour
-// que chaque card ait une identité visuelle distincte.
+// Méta par palier : numéro, label, icône thématique et palette de couleurs
+// (alignée pixel sur do.html). Chaque palier a une identité visuelle :
+//   headerBg  = bandeau d'en-tête + fond des pastilles de ligne
+//   footerBg  = même teinte à 40 % d'opacité (footer d'actions)
+//   boxBorder = bordure des tuiles icône blanches (en-tête de card)
+//   accent    = couleur forte (PALIER N, barre de progression, icônes)
 type TierMeta = {
   n: number;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  bannerBg: string;
-  iconBg: string;
-  iconFg: string;
+  headerBg: string;
+  footerBg: string;
+  boxBorder: string;
+  accent: string;
 };
 
 const TIER_META: Record<TierKey, TierMeta> = {
@@ -512,45 +619,261 @@ const TIER_META: Record<TierKey, TierMeta> = {
     n: 1,
     label: "Identification",
     icon: "finger-print-outline",
-    bannerBg: "#F4EFFE",
-    iconBg: "#EDE9FE",
-    iconFg: "#5B3FD6",
+    headerBg: "#F2EDFF",
+    footerBg: "rgba(242,237,255,0.4)",
+    boxBorder: "#E8E0FF",
+    accent: "#7C5CFF",
   },
   localisation: {
     n: 2,
     label: "Localisation",
     icon: "map-outline",
-    bannerBg: "#EEF3FE",
-    iconBg: "#E4ECFD",
-    iconFg: "#3E6DDD",
+    headerBg: "#DDE9F8",
+    footerBg: "rgba(221,233,248,0.4)",
+    boxBorder: "#CFE0F4",
+    accent: "#3F7FD6",
   },
   vie: {
     n: 3,
     label: "Style de vie",
     icon: "heart-outline",
-    bannerBg: "#EAF8F4",
-    iconBg: "#DCF4F0",
-    iconFg: "#198E80",
+    headerBg: "#DCEFDF",
+    footerBg: "rgba(220,239,223,0.4)",
+    boxBorder: "#CCE5D1",
+    accent: "#3F9056",
   },
   pro: {
     n: 4,
     label: "Données professionnelles",
     icon: "briefcase-outline",
-    bannerBg: "#FDF6E7",
-    iconBg: "#FCEFD6",
-    iconFg: "#B45309",
+    headerBg: "#F8E8C9",
+    footerBg: "rgba(248,232,201,0.4)",
+    boxBorder: "#EFD9A8",
+    accent: "#E0972F",
   },
   patrimoine: {
     n: 5,
     label: "Patrimoine & projets",
     icon: "diamond-outline",
-    bannerBg: "#FFF0EC",
-    iconBg: "#FFE7E3",
-    iconFg: "#E74F3B",
+    headerBg: "#F9DDD5",
+    footerBg: "rgba(249,221,213,0.4)",
+    boxBorder: "#F0C6BB",
+    accent: "#DD5F48",
   },
 };
 
 const TIERS: TierKey[] = ["identity", "localisation", "vie", "pro", "patrimoine"];
+
+// Accent violet global (do.html) — pastilles « Ajouter », anneau de
+// complétude, header compact.
+const VIOLET = "#7C5CFF";
+const VIOLET_DEEP = "#5B3FE0";
+
+// Récap complétude — même définition que le web (Prospect.jsx fn
+// MesDonnees) : les paliers supprimés (removedTiers) sont exclus du
+// calcul ; un palier masqué (hiddenTiers) reste compté mais avec 0 champ
+// rempli ; un palier est « atteint » dès qu'au moins un champ est rempli.
+// Extrait au niveau module pour être réutilisé par le header compact
+// (niveau de palier) et la card « Niveau de palier ».
+type DonneesData = ReturnType<typeof useProspectDonnees>["data"];
+function computeStats(d: NonNullable<DonneesData>) {
+  const isFilled = (v: unknown) => v != null && String(v).trim() !== "";
+  const visibleTiers = TIERS.filter((k) => !d.removedTiers.includes(k));
+  const tierStats = visibleTiers.map((k) => {
+    const row = (d[k] ?? {}) as Record<string, unknown>;
+    const isHidden = d.hiddenTiers.includes(k);
+    const total = FIELDS[k].length;
+    const filled = isHidden
+      ? 0
+      : FIELDS[k].filter((f) => isFilled(row[f.key])).length;
+    const reached = !isHidden && filled > 0;
+    return { key: k, total, filled, reached, isHidden };
+  });
+  const reachedTiers = tierStats.filter((s) => s.reached).length;
+  const completeness =
+    visibleTiers.length === 0
+      ? 0
+      : Math.round((reachedTiers / visibleTiers.length) * 100);
+  const totalFields = tierStats.reduce((a, s) => a + s.total, 0);
+  const filledFields = tierStats.reduce((a, s) => a + s.filled, 0);
+  return {
+    tierStats,
+    reachedTiers,
+    visibleCount: visibleTiers.length,
+    completeness,
+    totalFields,
+    filledFields,
+  };
+}
+
+// Anneau de progression circulaire SANS react-native-svg (exclu du
+// projet). Technique : deux demi-disques colorés pivotant autour du
+// centre, clippés à gauche/droite, + un trou central qui transforme le
+// disque plein en anneau. Couvre correctement 0–100 %.
+function ProgressRing({
+  size = 60,
+  stroke = 6,
+  pct,
+  color = VIOLET,
+  track = "#ECE7D9",
+  hole = "#FFFFFF",
+  children,
+}: {
+  size?: number;
+  stroke?: number;
+  pct: number;
+  color?: string;
+  track?: string;
+  hole?: string;
+  children?: React.ReactNode;
+}) {
+  const p = Math.max(0, Math.min(100, pct));
+  const half = size / 2;
+  const rightDeg = p <= 50 ? (p / 50) * 180 : 180; // 0..180
+  const leftDeg = p > 50 ? ((p - 50) / 50) * 180 : 0; // 0..180
+
+  // Demi-disque coloré bulgeant d'un côté, pivotant autour du centre du
+  // conteneur, clippé sur une moitié verticale. À 0° il est hors-clip
+  // (invisible) ; à 180° il remplit la moitié visible.
+  const Sweep = ({
+    clip,
+    rotate,
+  }: {
+    clip: "right" | "left";
+    rotate: number;
+  }) => (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: clip === "right" ? half : 0,
+        width: half,
+        height: size,
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: clip === "right" ? -half : 0,
+          width: size,
+          height: size,
+          transform: [{ rotate: `${rotate}deg` }],
+        }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: clip === "right" ? 0 : half,
+            width: half,
+            height: size,
+            backgroundColor: color,
+            borderTopLeftRadius: clip === "right" ? half : 0,
+            borderBottomLeftRadius: clip === "right" ? half : 0,
+            borderTopRightRadius: clip === "left" ? half : 0,
+            borderBottomRightRadius: clip === "left" ? half : 0,
+          }}
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: half,
+          backgroundColor: track,
+        }}
+      />
+      <Sweep clip="right" rotate={rightDeg} />
+      {p > 50 ? <Sweep clip="left" rotate={leftDeg} /> : null}
+      <View
+        style={{
+          position: "absolute",
+          width: size - 2 * stroke,
+          height: size - 2 * stroke,
+          borderRadius: (size - 2 * stroke) / 2,
+          backgroundColor: hole,
+        }}
+      />
+      {children}
+    </View>
+  );
+}
+
+// Pastille icône d'une ligne en mode lecture (do.html) : tuile arrondie
+// 34×34 teintée à la couleur du palier, icône en accent du palier.
+function RowFieldIcon({
+  icon,
+  bg,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        backgroundColor: bg,
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <Ionicons name={icon} size={17} color={color} />
+    </View>
+  );
+}
+
+// Pastille « Ajouter » (do.html) — affordance des champs vides en mode
+// lecture. Toujours violette quel que soit le palier. Tap → ouvre
+// l'édition du palier.
+function AddPill({ onPress, label }: { onPress: () => void; label: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={`Renseigner ${label}`}
+      className="active:opacity-70"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingVertical: 5,
+        paddingLeft: 8,
+        paddingRight: 11,
+        borderRadius: 999,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1.5,
+        borderColor: "#E8E0FF",
+        flexShrink: 0,
+      }}
+    >
+      <Ionicons name="add" size={15} color={VIOLET_DEEP} />
+      <Text style={{ fontSize: 12.5, fontWeight: "600", color: VIOLET_DEEP }}>
+        Ajouter
+      </Text>
+    </Pressable>
+  );
+}
 
 // Sheet de confirmation « Masquer cette catégorie ? » — réplique mobile
 // de ConfirmHideModal (Prospect.jsx) : titre, encart warn avec icône
@@ -862,223 +1185,364 @@ export default function Donnees() {
     }
   }
 
+  // Stats au niveau composant (q.data dispo) — alimentent le header
+  // compact. Recalculées à l'identique dans le QueryGate pour le rendu
+  // détaillé (la même fonction garantit la cohérence).
+  const headerStats = q.data ? computeStats(q.data) : null;
+  // Extras du header compact (au scroll) : niveau de palier (pastille
+  // layers « 20% · 1/5 ») + œil de pseudonymisation synchronisé avec le
+  // toggle de la page.
+  const compactExtras: CompactExtra[] | undefined = headerStats
+    ? [
+        {
+          icon: "layers-outline",
+          value: `${headerStats.completeness}% · ${headerStats.reachedTiers}/${headerStats.visibleCount}`,
+          color: VIOLET,
+          bg: "#EDE9FE",
+        },
+        {
+          icon: pseudonymized ? "eye-off-outline" : "eye-outline",
+          onPress: () => setPseudonymized((v) => !v),
+          color: pseudonymized ? "#FFFFFF" : VIOLET_DEEP,
+          bg: pseudonymized ? VIOLET : "#EDE9FE",
+          accessibilityLabel: pseudonymized
+            ? "Afficher mes données"
+            : "Masquer mes données",
+        },
+      ]
+    : undefined;
+
   return (
-    <ScrollScreen
-      onRefresh={q.refetch}
-      hero={{
-        eyebrow: "Mes données",
-        title: "Vos paliers",
-        desc: "Plus vous renseignez de données, plus votre BUUPP Score et vos gains augmentent. Vous restez maître de ce que vous partagez.",
-        // Signature visuelle de la page Données — icône layers (palier)
-        // top-right, accent violet pour matcher le thème violet de la
-        // page (barre de complétude, badge ✓ vérifié, pseudonymize…).
-        topRight: (
-          <Ionicons
-            name="layers-outline"
-            size={56}
-            color="#7C5CFC"
-            style={{ opacity: 0.85 }}
-          />
-        ),
-      }}
-    >
-      {/* Bannière droits RGPD — gradient jaune et palette ambre exactement
-          alignés sur Prospect.jsx (web) :
-            linear-gradient(120deg, #FEF3C7 → #FCD34D)
-            border #F59E0B, texte #78350F, footer mono #92400E
-            icône shield dans cercle #FDE68A bordé #B45309. */}
+    <ScrollScreen onRefresh={q.refetch} compactExtras={compactExtras}>
+      {/* Hero — card gradient violet (do.html). Eyebrow + titre + desc à
+          gauche, tuile icône layers translucide à droite. */}
       <LinearGradient
-        colors={["#FEF3C7", "#FCD34D"]}
+        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        locations={[0, 0.6, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0.85 }}
         style={{
-          borderRadius: 14,
-          borderWidth: 1.5,
-          borderColor: "#F59E0B",
+          borderRadius: 22,
           padding: 20,
+          shadowColor: "#5B3FE0",
+          shadowOpacity: 0.26,
+          shadowRadius: 30,
+          shadowOffset: { width: 0, height: 14 },
+          elevation: 6,
+        }}
+      >
+        <View className="flex-row items-start justify-between gap-3.5">
+          <View className="flex-1">
+            <Text
+              className="text-[11px] font-bold uppercase text-white/70"
+              style={{ letterSpacing: 1.6 }}
+            >
+              Mes données
+            </Text>
+            <Text className="mt-1 font-serif text-2xl text-paper">
+              Vos paliers
+            </Text>
+            <Text className="mt-2 text-[14px] leading-5 text-white/80">
+              Plus vous renseignez de données, plus votre BUUPP Score et vos
+              gains augmentent. Vous restez maître de ce que vous partagez.
+            </Text>
+          </View>
+          <View
+            className="items-center justify-center"
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 14,
+              backgroundColor: "rgba(255,255,255,0.16)",
+              flexShrink: 0,
+            }}
+          >
+            <Ionicons name="layers-outline" size={24} color="#FFFFFF" />
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Card droits RGPD — card plate ambre (do.html) : fond #F8E8C9,
+          bordure #EFD9A8, tuile icône blanche, titre Fraunces, surtitre
+          caps ambre, puis le renvoi vers la page de gestion des données. */}
+      <View
+        style={{
           flexDirection: "row",
-          gap: 16,
+          gap: 13,
+          padding: 16,
+          borderRadius: 18,
+          backgroundColor: "#F8E8C9",
+          borderWidth: 1,
+          borderColor: "#EFD9A8",
           alignItems: "flex-start",
         }}
       >
         <View
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 999,
-            backgroundColor: "#FDE68A",
-            borderWidth: 1.5,
-            borderColor: "#B45309",
+            width: 38,
+            height: 38,
+            borderRadius: 11,
+            backgroundColor: "#FFFFFF",
+            borderWidth: 1,
+            borderColor: "#EFD9A8",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
           }}
         >
-          <Ionicons name="shield-outline" size={20} color="#78350F" />
+          <Ionicons name="shield-checkmark-outline" size={19} color="#B45309" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text
-            className="font-serif text-xl"
-            style={{ color: "#78350F" }}
-          >
-            Vos droits sur vos données — articles 15 à 22 du RGPD
+          <Text className="font-serif" style={{ fontSize: 16.5, color: "#7A4A08" }}>
+            Vos droits sur vos données
           </Text>
           <Text
-            className="mt-1.5 text-base leading-6"
-            style={{ color: "#78350F" }}
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: "#E0972F",
+              marginTop: 2,
+            }}
           >
-            Vous disposez des droits d&apos;accès, de rectification, d&apos;effacement,
-            de limitation du traitement, de portabilité et d&apos;opposition sur
-            l&apos;intégralité de vos données personnelles. Ces droits s&apos;exercent
-            directement depuis cette page — chaque action est horodatée et tracée.
+            ARTICLES 15 À 22 DU RGPD
           </Text>
           <Text
-            className="mt-2.5 font-mono text-[12px] uppercase"
-            style={{ color: "#92400E", letterSpacing: 0.7 }}
+            style={{
+              marginTop: 8,
+              fontSize: 12.5,
+              lineHeight: 19,
+              color: "#6B4A18",
+            }}
           >
-            RGPD · Articles 15 à 22 · Règlement (UE) 2016/679
+            Rendez-vous sur la{" "}
+            <Text
+              style={{ fontWeight: "600", textDecorationLine: "underline" }}
+              onPress={() =>
+                void WebBrowser.openBrowserAsync(
+                  `${WEB_BASE}/rgpd?from=mobile-app`,
+                  {
+                    presentationStyle:
+                      WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                  },
+                )
+              }
+            >
+              page de gestion des données personnelles
+            </Text>{" "}
+            pour toute information et l&apos;exercice de vos droits.
           </Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <QueryGate query={q}>
         {(d) => {
-          // Récap complétude — même définition que le web (Prospect.jsx
-          // fn MesDonnees) : les paliers supprimés définitivement
-          // (removedTiers) sont exclus du calcul ; un palier masqué
-          // (hiddenTiers) reste compté mais avec 0 champ rempli ; un
-          // palier est "atteint" dès qu'au moins un champ est renseigné.
-          const isFilled = (v: unknown) =>
-            v != null && String(v).trim() !== "";
-          const visibleTiers = TIERS.filter(
-            (k) => !d.removedTiers.includes(k),
-          );
-          const tierStats = visibleTiers.map((k) => {
-            const row = (d[k] ?? {}) as Record<string, unknown>;
-            const isHidden = d.hiddenTiers.includes(k);
-            const total = FIELDS[k].length;
-            const filled = isHidden
-              ? 0
-              : FIELDS[k].filter((f) => isFilled(row[f.key])).length;
-            const reached = !isHidden && filled > 0;
-            return { key: k, total, filled, reached, isHidden };
-          });
-          const reachedTiers = tierStats.filter((s) => s.reached).length;
-          const completeness =
-            visibleTiers.length === 0
-              ? 0
-              : Math.round((reachedTiers / visibleTiers.length) * 100);
-          const totalFields = tierStats.reduce((a, s) => a + s.total, 0);
-          const filledFields = tierStats.reduce((a, s) => a + s.filled, 0);
+          const { tierStats, reachedTiers, visibleCount, completeness, totalFields, filledFields } =
+            computeStats(d);
           return (
           <View className="gap-3">
-            {/* Récap complétude — % global + paliers atteints + champs renseignés */}
-            <Card badge={{ icon: "stats-chart-outline", tone: "violet" }}>
-              <Text className="font-mono text-[12px] uppercase text-ink-4">
-                Niveau de palier
-              </Text>
-              <Text className="font-serif text-3xl text-ink">
-                {completeness}
-                <Text className="text-xl text-ink-4">%</Text>
-              </Text>
-              <Text className="mt-1 text-sm text-ink-3">
-                <Text className="text-ink-2">
-                  {reachedTiers}/{visibleTiers.length} paliers atteints
-                </Text>
-                {"  ·  "}
-                {filledFields}/{totalFields} champs renseignés
-              </Text>
-              <Text className="mt-1.5 text-[14px] leading-5 text-ink-4">
+            {/* Card « Niveau de palier » (do.html) — anneau circulaire +
+                récap, puis une barre de progression par palier dans la
+                couleur d'accent du palier. */}
+            <View
+              className="rounded-[20px] bg-paper"
+              style={{
+                padding: 18,
+                borderWidth: 1,
+                borderColor: "#E7E1D2",
+                shadowColor: "#0A1628",
+                shadowOpacity: 0.05,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 5 },
+                elevation: 2,
+              }}
+            >
+              <View className="flex-row items-center" style={{ gap: 14 }}>
+                <ProgressRing pct={completeness} size={60} stroke={6}>
+                  <Text
+                    className="font-serif"
+                    style={{ fontSize: 16, color: "#0A1628" }}
+                  >
+                    {completeness}
+                    <Text style={{ fontSize: 11 }}>%</Text>
+                  </Text>
+                </ProgressRing>
+                <View className="flex-1">
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: 1.6,
+                      fontWeight: "600",
+                      color: "#6B7384",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Niveau de palier
+                  </Text>
+                  <View
+                    className="flex-row flex-wrap items-baseline"
+                    style={{ gap: 8, marginTop: 3 }}
+                  >
+                    <Text
+                      style={{ fontSize: 13, fontWeight: "600", color: "#0A1628" }}
+                    >
+                      {reachedTiers}/{visibleCount} paliers
+                    </Text>
+                    <Text style={{ fontSize: 12.5, color: "#9AA1AD" }}>
+                      · {filledFields}/{totalFields} champs renseignés
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Text
+                style={{
+                  marginTop: 13,
+                  fontSize: 12.5,
+                  lineHeight: 19,
+                  color: "#6B7384",
+                }}
+              >
                 Un palier est atteint dès qu&apos;au moins une donnée y est
                 renseignée. Plus vous remplissez de champs, plus votre BUUPP
                 Score augmente.
               </Text>
-              <View className="mt-3.5 gap-2.5">
+              <View style={{ marginTop: 16, gap: 13 }}>
                 {tierStats.map((s) => {
                   const m = TIER_META[s.key];
                   const pct =
-                    s.total === 0
-                      ? 0
-                      : Math.round((s.filled / s.total) * 100);
+                    s.total === 0 ? 0 : Math.round((s.filled / s.total) * 100);
                   return (
                     <View key={s.key}>
-                      <View className="flex-row justify-between">
-                        <Text className="text-sm text-ink-3">
+                      <View
+                        className="flex-row items-center justify-between"
+                        style={{ marginBottom: 6 }}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "500",
+                            color: "#0A1628",
+                            flexShrink: 1,
+                          }}
+                        >
                           Palier {m.n} · {m.label}
                         </Text>
-                        <Text className="font-mono text-sm text-ink-3">
+                        <Text
+                          style={{
+                            fontSize: 12.5,
+                            fontWeight: "600",
+                            color: s.filled > 0 ? m.accent : "#9AA1AD",
+                            marginLeft: 10,
+                          }}
+                        >
                           {s.filled}/{s.total}
                         </Text>
                       </View>
-                      {/* Barre niveau de palier — violet accent (parité web
-                          var(--accent) = #4F46E5). Variante grise quand le
-                          palier est masqué (parité web var(--warn)). */}
-                      <View className="mt-1.5 h-2 overflow-hidden rounded-full bg-line">
+                      {/* Barre — couleur d'accent du palier (do.html), grise
+                          si le palier est masqué. */}
+                      <View
+                        style={{
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: "#ECE7D9",
+                          overflow: "hidden",
+                        }}
+                      >
                         <View
-                          className={`h-full rounded-full ${s.isHidden ? "bg-ink-4" : "bg-accent"}`}
-                          style={{ width: `${pct}%` }}
+                          style={{
+                            width: `${pct}%`,
+                            height: "100%",
+                            borderRadius: 3,
+                            backgroundColor: s.isHidden ? "#9AA1AD" : m.accent,
+                          }}
                         />
                       </View>
                     </View>
                   );
                 })}
               </View>
-            </Card>
+            </View>
 
-            {/* Toggle "Pseudonymiser vos données" — masque l'affichage des
-                valeurs avec •••• sans toucher au stockage. Icône eye / eye-off
-                comme bouton de bascule (parité visuelle avec les contrôles
-                de visibilité sur le reste de la page).
-                Fond : gradient violet pâle diagonal (#F3EEFE → #FBFAFF),
-                cohérent avec l'accent violet de la page (barre niveau de
-                palier, pastilles FieldIcon, bouton actif). Plus saturé que
-                bg-paper, plus doux que la bannière Identification, ne marche
-                sur les pieds d'aucun palier. */}
+            {/* Card « Pseudonymiser vos données » (do.html) — fond violet
+                pâle, tuile icône blanche, libellé + sous-texte, switch pill
+                à droite. Synchronisé avec l'œil du header compact. */}
             <Pressable
               onPress={() => setPseudonymized((v) => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: pseudonymized }}
               accessibilityLabel="Pseudonymiser vos données"
               className="active:opacity-80"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 15,
+                borderRadius: 18,
+                backgroundColor: "#F2EDFF",
+                borderWidth: 1,
+                borderColor: "#E8E0FF",
+              }}
             >
-              <LinearGradient
-                colors={["#F3EEFE", "#FBFAFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <View
+                className="items-center justify-center"
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  borderRadius: 16,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderWidth: 0.7,
-                  borderColor: "#CBC7B9",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: pseudonymized ? VIOLET : "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: pseudonymized ? VIOLET : "#E8E0FF",
+                  flexShrink: 0,
+                }}
+              >
+                <Ionicons
+                  name={pseudonymized ? "eye-off-outline" : "eye-outline"}
+                  size={19}
+                  color={pseudonymized ? "#FFFFFF" : VIOLET_DEEP}
+                />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="font-serif"
+                  style={{ fontSize: 16.5, color: "#0A1628" }}
+                >
+                  Pseudonymiser vos données
+                </Text>
+                <Text style={{ fontSize: 12.5, color: "#6B7384", marginTop: 2 }}>
+                  {pseudonymized
+                    ? "Affichage masqué — vos données restent en clair en base"
+                    : "Masquez l'affichage de toutes vos données."}
+                </Text>
+              </View>
+              {/* Switch pill (do.html) : 46×27, knob 21 qui glisse */}
+              <View
+                style={{
+                  width: 46,
+                  height: 27,
+                  borderRadius: 999,
+                  backgroundColor: pseudonymized ? VIOLET : "#D8D1C0",
+                  flexShrink: 0,
+                  justifyContent: "center",
                 }}
               >
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-full"
                   style={{
-                    backgroundColor: pseudonymized ? "#4F46E5" : "#EEF2FF",
+                    position: "absolute",
+                    top: 3,
+                    left: pseudonymized ? 22 : 3,
+                    width: 21,
+                    height: 21,
+                    borderRadius: 999,
+                    backgroundColor: "#FFFFFF",
+                    shadowColor: "#000000",
+                    shadowOpacity: 0.2,
+                    shadowRadius: 3,
+                    shadowOffset: { width: 0, height: 1 },
+                    elevation: 2,
                   }}
-                >
-                  <Ionicons
-                    name={pseudonymized ? "eye-off-outline" : "eye-outline"}
-                    size={18}
-                    color={pseudonymized ? "#FFFFFF" : "#4F46E5"}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-serif text-base text-ink">
-                    Pseudonymiser vos données
-                  </Text>
-                  <Text className="mt-0.5 text-[13px] text-ink-4">
-                    {pseudonymized
-                      ? "Affichage masqué — vos données restent en clair en base"
-                      : "Touchez pour masquer l'affichage de toutes vos données"}
-                  </Text>
-                </View>
-              </LinearGradient>
+                />
+              </View>
             </Pressable>
 
             {TIERS.map((k) => {
@@ -1090,36 +1554,67 @@ export default function Donnees() {
               return (
                 <View
                   key={k}
-                  className={`overflow-hidden rounded-3xl bg-paper ${removed || hidden ? "opacity-60" : ""}`}
+                  className={`overflow-hidden rounded-[20px] bg-paper ${removed || hidden ? "opacity-60" : ""}`}
                   style={{
-                    borderWidth: 0.7,
-                    borderColor: "#CBC7B9",
-                    shadowColor: "#0F1629",
+                    borderWidth: 1,
+                    borderColor: "#E7E1D2",
+                    shadowColor: "#0A1628",
                     shadowOpacity: 0.05,
-                    shadowRadius: 14,
-                    shadowOffset: { width: 0, height: 6 },
+                    shadowRadius: 16,
+                    shadowOffset: { width: 0, height: 5 },
                     elevation: 2,
                   }}
                 >
-                  {/* Banner full-width : logo thématique + titre « Palier N
-                      · Label » à droite. Fond pastel propre à chaque palier
-                      (TIER_META.bannerBg). */}
+                  {/* En-tête de card (do.html) : fond teinté du palier,
+                      tuile icône blanche bordée, « PALIER N » en accent +
+                      nom du palier en Fraunces. */}
                   <View
-                    className="flex-row items-center gap-3 px-5 py-4"
-                    style={{ backgroundColor: m.bannerBg }}
+                    className="flex-row items-center"
+                    style={{
+                      gap: 13,
+                      paddingHorizontal: 16,
+                      paddingVertical: 15,
+                      backgroundColor: m.headerBg,
+                    }}
                   >
                     <View
-                      className="h-11 w-11 items-center justify-center rounded-full"
-                      style={{ backgroundColor: m.iconBg }}
+                      className="items-center justify-center"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: m.boxBorder,
+                        flexShrink: 0,
+                      }}
                     >
-                      <Ionicons name={m.icon} size={22} color={m.iconFg} />
+                      <Ionicons name={m.icon} size={20} color={m.accent} />
                     </View>
-                    <Text
-                      className="flex-1 font-serif text-xl text-ink"
-                      numberOfLines={2}
-                    >
-                      Palier {m.n} · {m.label}
-                    </Text>
+                    <View className="flex-1">
+                      <Text
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: "700",
+                          letterSpacing: 0.8,
+                          color: m.accent,
+                        }}
+                      >
+                        PALIER {m.n}
+                      </Text>
+                      <Text
+                        className="font-serif"
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 19,
+                          color: "#0A1628",
+                          lineHeight: 22,
+                          marginTop: 1,
+                        }}
+                      >
+                        {m.label}
+                      </Text>
+                    </View>
                     {hidden || removed ? (
                       <View className="rounded-full bg-paper px-3 py-1">
                         <Text className="font-mono text-sm text-ink-4">
@@ -1129,8 +1624,10 @@ export default function Donnees() {
                     ) : null}
                   </View>
 
-                  {/* Body — padding standard 20 (px-5 py-4). */}
-                  <View className="px-5 py-4">
+                  {/* Body — édition : padding standard (px-5 py-4).
+                      Lecture : lignes pleine largeur séparées par des
+                      filets (do.html), donc padding géré au niveau ligne. */}
+                  <View className={isEditing ? "px-5 py-4" : ""}>
                     {isEditing ? (
                       <View className="gap-3">
                         {FIELDS[k].map((f) => {
@@ -1356,8 +1853,8 @@ export default function Donnees() {
                         </View>
                       </View>
                     ) : (
-                      <View className="gap-2.5">
-                        {FIELDS[k].map((f) => {
+                      <View>
+                        {FIELDS[k].map((f, idx) => {
                           // Concatène la valeur principale + le détail
                           // ("SUV · Tesla", "Oui · Chat") pour les champs
                           // tag+text en mode lecture.
@@ -1380,10 +1877,9 @@ export default function Donnees() {
                           // le tiret "—" pour signaler le champ non rempli).
                           const isMasked = pseudonymized && main !== "";
                           if (isMasked) displayed = "•••• ••••";
-                          // Badge "✓ Vérifié" pour le téléphone une fois
-                          // validé par SMS (parité web Prospect.jsx ligne
-                          // 2796). Masqué si pseudonymisé pour rester
-                          // cohérent.
+                          // Badge ✓ vérifié pour le téléphone une fois
+                          // validé par SMS (parité web). Masqué si
+                          // pseudonymisé pour rester cohérent.
                           const isPhone =
                             k === "identity" && f.key === "telephone";
                           const phoneVerified =
@@ -1391,139 +1887,193 @@ export default function Donnees() {
                             Boolean(d.identityMeta?.phoneVerifiedAt) &&
                             main !== "" &&
                             !isMasked;
-                          // Champ vide & éditable → on remplace le « — » par
-                          // un bouton add-circle-outline qui ouvre l'édition
-                          // du palier en un tap. Pour les champs read-only
-                          // (téléphone : vérif SMS via Préférences), on garde
-                          // le « — » pour ne pas suggérer une action qui
-                          // n'aboutira pas ici.
+                          // Champ vide & éditable → pastille « Ajouter »
+                          // (do.html) qui ouvre l'édition du palier. Champ
+                          // read-only (téléphone) vide → on garde « — ».
                           const isEmpty = main === "";
                           const showAddButton = isEmpty && !f.readOnly;
+                          const isLast = idx === FIELDS[k].length - 1;
                           return (
                             <View
                               key={f.key}
-                              className="flex-row items-center gap-2.5"
+                              className="flex-row items-center"
+                              style={{
+                                gap: 13,
+                                paddingHorizontal: 16,
+                                paddingVertical: 12,
+                                borderBottomWidth: isLast ? 0 : 1,
+                                borderBottomColor: "#ECE7D9",
+                              }}
                             >
-                              <FieldIcon icon={f.icon} />
-                              <Text className="flex-1 text-[15px] text-ink-3">
+                              <RowFieldIcon
+                                icon={f.icon}
+                                bg={m.headerBg}
+                                color={m.accent}
+                              />
+                              <Text
+                                numberOfLines={1}
+                                style={{
+                                  flex: 1,
+                                  fontSize: 14.5,
+                                  fontWeight: main ? "500" : "400",
+                                  color: main ? "#0A1628" : "#6B7384",
+                                }}
+                              >
                                 {f.label}
                               </Text>
                               <View
-                                className="max-w-[60%] flex-row items-center justify-end gap-1.5"
+                                className="flex-row items-center justify-end"
+                                style={{ gap: 7, maxWidth: "55%" }}
                               >
                                 {showAddButton ? (
-                                  <Pressable
+                                  <AddPill
                                     onPress={() => setEditing(k)}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Renseigner ${f.label}`}
-                                    hitSlop={8}
-                                    className="active:opacity-60"
-                                  >
-                                    <Ionicons
-                                      name="add-circle-outline"
-                                      size={22}
-                                      color="#7C5CFC"
-                                    />
-                                  </Pressable>
+                                    label={f.label}
+                                  />
                                 ) : (
                                   <Text
-                                    className="shrink text-right text-[15px] text-ink-2"
                                     numberOfLines={1}
+                                    style={{
+                                      flexShrink: 1,
+                                      textAlign: "right",
+                                      fontSize: 13.5,
+                                      color: isEmpty ? "#9AA1AD" : "#0A1628",
+                                    }}
                                   >
                                     {displayed}
                                   </Text>
                                 )}
                                 {phoneVerified ? (
                                   <View
-                                    className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5"
-                                    style={{ backgroundColor: "#DCFCE7" }}
+                                    className="items-center justify-center"
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: 999,
+                                      backgroundColor: "#DCEFDF",
+                                      flexShrink: 0,
+                                    }}
                                   >
                                     <Ionicons
-                                      name="checkmark-circle"
-                                      size={12}
-                                      color="#16A34A"
+                                      name="checkmark"
+                                      size={11}
+                                      color="#15803D"
                                     />
-                                    <Text
-                                      className="text-[11px] font-semibold"
-                                      style={{ color: "#15803D" }}
-                                    >
-                                      Vérifié
-                                    </Text>
                                   </View>
                                 ) : null}
                               </View>
                             </View>
                           );
                         })}
-                        {/* Message d'erreur placé AVANT le footer pour qu'il
-                            reste dans la zone fields (le footer bleed jusqu'au
-                            bord de la card et n'a pas de place sous lui). */}
+                        {/* Message d'erreur placé AVANT le footer (le footer
+                            occupe le bas de la card). */}
                         {tierAction.isError && (
-                          <Text className="mt-1 text-[14px] text-bad">
+                          <Text
+                            className="text-[14px] text-bad"
+                            style={{ paddingHorizontal: 16, paddingTop: 10 }}
+                          >
                             Échec de l&apos;action. Réessayez.
                           </Text>
                         )}
-                        {/* Footer card — 3 boutons icon-only (Modifier,
-                            Masquer/Réafficher, Supprimer). Le footer bleed
-                            dans les 3 directions (-mx-5 -mb-4) pour épouser
-                            les bords de la card → cadre coloré haut+bas avec
-                            la teinte thématique du palier (m.bannerBg) ; les
-                            boutons restent en bg-paper pour ressortir sur le
-                            pastel.
-                            Le tap sur le stylo (Modifier) permet aussi de
-                            ré-éditer un champ déjà rempli (les pastilles
-                            add-circle-outline ne s'affichent que sur les
-                            champs vides). */}
+                        {/* Footer d'actions (do.html) : fond teinté du palier
+                            à 40 %, Modifier + Masquer/Réafficher (libellés) +
+                            Supprimer (icône, terracotta). */}
                         {!removed ? (
                           <View
-                            className="-mx-5 -mb-4 mt-5 flex-row gap-3 border-t border-line px-5 py-3.5"
-                            style={{ backgroundColor: m.bannerBg }}
+                            className="flex-row"
+                            style={{
+                              gap: 9,
+                              paddingHorizontal: 14,
+                              paddingVertical: 12,
+                              backgroundColor: m.footerBg,
+                            }}
                           >
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel="Modifier"
-                              className="flex-1 items-center justify-center rounded-full border border-line bg-paper py-2.5"
                               onPress={() => setEditing(k)}
+                              className="flex-1 flex-row items-center justify-center active:opacity-70"
+                              style={{
+                                gap: 7,
+                                height: 40,
+                                borderRadius: 12,
+                                backgroundColor: "#FFFFFF",
+                                borderWidth: 1,
+                                borderColor: "#E7E1D2",
+                              }}
                             >
                               <Ionicons
                                 name="pencil-outline"
-                                size={18}
-                                color="#283044"
+                                size={16}
+                                color="#0A1628"
                               />
+                              <Text
+                                style={{
+                                  fontSize: 12.5,
+                                  fontWeight: "600",
+                                  color: "#0A1628",
+                                }}
+                              >
+                                Modifier
+                              </Text>
                             </Pressable>
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={hidden ? "Réafficher" : "Masquer"}
                               disabled={tierAction.isPending}
-                              className="flex-1 items-center justify-center rounded-full border border-line bg-paper py-2.5"
                               onPress={() => {
-                                // Réafficher = action non destructive → mutate
-                                // direct. Masquer = action visible-impact →
-                                // confirmation via sheet (parité web).
+                                // Réafficher = non destructif → mutate direct.
+                                // Masquer = impact visible → confirmation.
                                 if (hidden) {
                                   void runTierAction(k, "restore");
                                 } else {
                                   setConfirmHide(k);
                                 }
                               }}
+                              className="flex-1 flex-row items-center justify-center active:opacity-70"
+                              style={{
+                                gap: 7,
+                                height: 40,
+                                borderRadius: 12,
+                                backgroundColor: "#FFFFFF",
+                                borderWidth: 1,
+                                borderColor: "#E7E1D2",
+                              }}
                             >
                               <Ionicons
                                 name={hidden ? "eye-outline" : "eye-off-outline"}
-                                size={18}
-                                color="#283044"
+                                size={16}
+                                color="#6B7384"
                               />
+                              <Text
+                                style={{
+                                  fontSize: 12.5,
+                                  fontWeight: "600",
+                                  color: "#6B7384",
+                                }}
+                              >
+                                {hidden ? "Réafficher" : "Masquer"}
+                              </Text>
                             </Pressable>
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel="Supprimer"
                               disabled={tierAction.isPending}
-                              className="flex-1 items-center justify-center rounded-full border border-bad bg-paper py-2.5"
                               onPress={() => setConfirmDelete(k)}
+                              className="items-center justify-center active:opacity-70"
+                              style={{
+                                width: 56,
+                                height: 40,
+                                borderRadius: 12,
+                                backgroundColor: "#FFFFFF",
+                                borderWidth: 1,
+                                borderColor: "#F9DDD5",
+                              }}
                             >
                               <Ionicons
                                 name="trash-outline"
-                                size={18}
-                                color="#DC2626"
+                                size={16}
+                                color="#DD5F48"
                               />
                             </Pressable>
                           </View>
@@ -1539,29 +2089,46 @@ export default function Donnees() {
                 canaux de communication, rayon de ciblage et types de
                 sollicitations (réglages au-delà de la simple donnée). */}
             <View
-              className="rounded-3xl bg-paper px-5 py-5"
+              className="rounded-[20px] bg-paper"
               style={{
-                borderWidth: 0.7,
-                borderColor: "#CBC7B9",
-                shadowColor: "#0F1629",
+                padding: 20,
+                borderWidth: 1,
+                borderColor: "#E7E1D2",
+                shadowColor: "#0A1628",
                 shadowOpacity: 0.05,
-                shadowRadius: 14,
-                shadowOffset: { width: 0, height: 6 },
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 5 },
                 elevation: 2,
               }}
             >
-              <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View
-                  className="h-11 w-11 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "#EDE9FE" }}
+                  className="items-center justify-center"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: "#F2EDFF",
+                    flexShrink: 0,
+                  }}
                 >
-                  <Ionicons name="options-outline" size={22} color="#5B3FD6" />
+                  <Ionicons name="options-outline" size={20} color={VIOLET_DEEP} />
                 </View>
-                <Text className="flex-1 font-serif text-xl text-ink">
+                <Text
+                  className="flex-1 font-serif"
+                  style={{ fontSize: 20, color: "#0A1628" }}
+                >
                   Affinez vos préférences
                 </Text>
               </View>
-              <Text className="mt-2.5 text-base leading-6 text-ink-3">
+              <Text
+                style={{
+                  marginTop: 13,
+                  fontSize: 13.5,
+                  lineHeight: 21,
+                  color: "#6B7384",
+                }}
+              >
                 Vos données nourrissent votre BUUPP Score. Réglez en plus vos
                 canaux de communication, votre rayon de ciblage et les types
                 de sollicitations directement dans la page Préférences.

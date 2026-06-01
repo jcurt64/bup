@@ -1,40 +1,140 @@
-// Réglages — réglages de l'application (BROUILLON DESIGN). Notifications,
-// mode d'affichage (thèmes), langue et divers. Les contrôles sont
-// interactifs en local (useState) mais NON persistés et NON câblés à un
-// vrai système de thème : à brancher ultérieurement (« on le modifiera
-// après »). Aucun appel back-end — purement design.
+// Réglages — réglages de l'application (BROUILLON DESIGN, aligné pixel sur
+// reg.html). Notifications, mode d'affichage (thèmes), langue et divers.
+// Les contrôles sont interactifs en local (useState) mais NON persistés et
+// NON câblés à un vrai système de thème : à brancher ultérieurement.
+// Aucun appel back-end — purement design.
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { Pressable, Switch, Text, View } from "react-native";
+import { type ReactNode, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
-import { Card, ScrollScreen } from "../../components/screen";
+import { ScrollScreen } from "../../components/screen";
 
-// Mélange un hex `#RRGGBB` avec du blanc (alpha) → fond pastel discret.
-function softBg(hex: string, mix = 0.16): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${mix})`;
-}
+const VIOLET = "#7C5CFF";
+const VIOLET_DEEP = "#5B3FE0";
 
-// Thèmes d'affichage proposés — l'aperçu est un dégradé représentatif.
+// Thèmes d'affichage — dégradé d'aperçu (150° ≈ diagonal) aligné reg.html.
 const THEMES = [
-  { key: "buupp", label: "BUUPP", colors: ["#7C5CFC", "#13235B"] as const },
-  { key: "clair", label: "Clair", colors: ["#FFFFFF", "#EFEADD"] as const },
-  { key: "sombre", label: "Sombre", colors: ["#1E1646", "#0A0820"] as const },
-  { key: "forest", label: "Forest", colors: ["#2E8B57", "#1F5E3A"] as const },
-  { key: "bluelight", label: "Blue light", colors: ["#7FB2FF", "#3E6FE0"] as const },
-  { key: "fushia", label: "Fushia", colors: ["#FF5CA8", "#C8246B"] as const },
+  { key: "buupp", label: "BUUPP", colors: ["#7C5CFF", "#5B3FE0"] as const },
+  { key: "clair", label: "Clair", colors: ["#FBF9F4", "#ECE7D9"] as const },
+  { key: "sombre", label: "Sombre", colors: ["#1A2238", "#0A1628"] as const },
+  { key: "forest", label: "Forest", colors: ["#2F8D5B", "#1D6B42"] as const },
+  { key: "bluelight", label: "Blue light", colors: ["#7DB4F0", "#3F7FD6"] as const },
+  { key: "fushia", label: "Fushia", colors: ["#F25AA0", "#D63B80"] as const },
 ] as const;
 
 type ThemeKey = (typeof THEMES)[number]["key"];
 
-// Ligne « libellé + description + interrupteur ». Séparateur bas sauf
-// dernière ligne (`last`).
-function ToggleRow({
+// Style commun des cartes blanches (reg.html).
+const CARD = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: "#E7E1D2",
+  padding: 20,
+  shadowColor: "#0A1628",
+  shadowOpacity: 0.05,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 5 },
+  elevation: 2,
+} as const;
+
+// Carte de section : tuile icône (42) + titre Fraunces + desc + contenu.
+function SettingsCard({
+  iconBg,
   icon,
-  color,
+  iconColor,
+  title,
+  desc,
+  children,
+}: {
+  iconBg: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  title: string;
+  desc?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <View style={CARD}>
+      <View
+        className="items-center justify-center"
+        style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: iconBg }}
+      >
+        <Ionicons name={icon} size={21} color={iconColor} />
+      </View>
+      <Text
+        className="font-serif"
+        style={{ fontSize: 21, color: "#0A1628", marginTop: 15 }}
+      >
+        {title}
+      </Text>
+      {desc ? (
+        <Text
+          style={{ fontSize: 13, lineHeight: 19, color: "#6B7384", marginTop: 7 }}
+        >
+          {desc}
+        </Text>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
+// Toggle pill 52×30 (reg.html) — violet ON, gris OFF, knob 24 qui glisse.
+function Toggle({
+  value,
+  onValueChange,
+  disabled,
+  label,
+}: {
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={() => onValueChange(!value)}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value, disabled }}
+      accessibilityLabel={label}
+      style={{
+        width: 52,
+        height: 30,
+        borderRadius: 999,
+        backgroundColor: value ? VIOLET : "#D8D1C0",
+        flexShrink: 0,
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 3,
+          left: value ? 25 : 3,
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#000000",
+          shadowOpacity: 0.22,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+    </Pressable>
+  );
+}
+
+// Ligne « tuile icône + titre + sous-titre + toggle ». Filet bas sauf
+// dernière ligne (`last`).
+function SettingRow({
+  iconBg,
+  icon,
+  iconColor,
   title,
   desc,
   value,
@@ -42,8 +142,9 @@ function ToggleRow({
   disabled,
   last,
 }: {
+  iconBg: string;
   icon: keyof typeof Ionicons.glyphMap;
-  color: string;
+  iconColor: string;
   title: string;
   desc?: string;
   value: boolean;
@@ -53,34 +154,54 @@ function ToggleRow({
 }) {
   return (
     <View
-      className={`flex-row items-center gap-3 py-3 ${last ? "" : "border-b border-line"}`}
-      style={disabled ? { opacity: 0.45 } : undefined}
+      className="flex-row items-center"
+      style={{
+        gap: 13,
+        paddingVertical: 14,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: "#ECE7D9",
+        opacity: disabled ? 0.45 : 1,
+      }}
     >
       <View
-        className="h-9 w-9 items-center justify-center rounded-xl"
-        style={{ backgroundColor: softBg(color) }}
+        className="items-center justify-center"
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 11,
+          backgroundColor: iconBg,
+          flexShrink: 0,
+        }}
       >
-        <Ionicons name={icon} size={18} color={color} />
+        <Ionicons name={icon} size={18} color={iconColor} />
       </View>
-      <View className="flex-1">
-        <Text className="text-[15px] text-ink">{title}</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          className="font-serif"
+          style={{ fontSize: 16.5, color: "#0A1628", lineHeight: 19 }}
+        >
+          {title}
+        </Text>
         {desc ? (
-          <Text className="mt-0.5 text-[12px] leading-4 text-ink-4">{desc}</Text>
+          <Text
+            style={{ fontSize: 12.5, color: "#6B7384", marginTop: 2, lineHeight: 17 }}
+          >
+            {desc}
+          </Text>
         ) : null}
       </View>
-      <Switch
+      <Toggle
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        trackColor={{ true: "#7C5CFC", false: "#D7D3C7" }}
-        thumbColor="#FFFFFF"
-        ios_backgroundColor="#D7D3C7"
+        label={title}
       />
     </View>
   );
 }
 
-// Carte d'aperçu de thème sélectionnable (dégradé + libellé + coche).
+// Aperçu de thème sélectionnable (reg.html) : bandeau dégradé 64 px +
+// pied (nom + indicateur). Sélectionné = bordure violette + ombre violette.
 function ThemeSwatch({
   label,
   colors,
@@ -98,32 +219,62 @@ function ThemeSwatch({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`Thème ${label}`}
-      style={{ width: "48%", marginBottom: 12 }}
+      style={{ width: "48%", marginBottom: 11 }}
       className="active:opacity-80"
     >
       <View
-        className="overflow-hidden rounded-2xl"
         style={{
-          borderWidth: selected ? 2 : 1,
-          borderColor: selected ? "#7C5CFC" : "#E6E3DA",
+          borderRadius: 16,
+          overflow: "hidden",
+          borderWidth: 1.5,
+          borderColor: selected ? VIOLET : "#E7E1D2",
+          ...(selected
+            ? {
+                shadowColor: VIOLET,
+                shadowOpacity: 0.2,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 4,
+              }
+            : {
+                shadowColor: "#0A1628",
+                shadowOpacity: 0.04,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 1,
+              }),
         }}
       >
         <LinearGradient
           colors={colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ height: 54 }}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={{ height: 64 }}
         />
-        <View className="flex-row items-center justify-between bg-paper px-3 py-2">
-          <Text
-            className={`text-[13px] ${selected ? "font-semibold text-ink" : "text-ink-3"}`}
-          >
+        <View
+          className="flex-row items-center justify-between bg-paper"
+          style={{ paddingHorizontal: 12, paddingVertical: 9 }}
+        >
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#0A1628" }}>
             {label}
           </Text>
           {selected ? (
-            <Ionicons name="checkmark-circle" size={16} color="#7C5CFC" />
+            <View
+              className="items-center justify-center"
+              style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: VIOLET }}
+            >
+              <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+            </View>
           ) : (
-            <View className="h-4 w-4 rounded-full border border-line" />
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderColor: "#D8D1C0",
+              }}
+            />
           )}
         </View>
       </View>
@@ -137,56 +288,88 @@ export default function Reglages() {
   const [notifRelations, setNotifRelations] = useState(true);
   const [notifFlash, setNotifFlash] = useState(true);
   const [notifGains, setNotifGains] = useState(true);
-  // Défaut = thème signature de l'application (BUUPP).
   const [theme, setTheme] = useState<ThemeKey>("buupp");
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [haptics, setHaptics] = useState(true);
 
   return (
-    <ScrollScreen
-      hero={{
-        eyebrow: "Réglages",
-        title: "Personnalisez votre espace",
-        desc: "Notifications, apparence et préférences de l'application.",
-      }}
-    >
-      {/* ── Notifications ─────────────────────────────────────────────── */}
-      <Card className="gap-1" badge={{ icon: "notifications-outline", tone: "amber" }}>
-        <Text className="font-serif text-lg text-ink">Notifications</Text>
-        <Text className="text-xs text-ink-4">
-          Choisissez ce pour quoi vous souhaitez être alerté.
+    <ScrollScreen>
+      {/* Hero — card gradient violet (reg.html). */}
+      <LinearGradient
+        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        locations={[0, 0.6, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0.85 }}
+        style={{
+          borderRadius: 22,
+          padding: 22,
+          shadowColor: "#5B3FE0",
+          shadowOpacity: 0.26,
+          shadowRadius: 30,
+          shadowOffset: { width: 0, height: 14 },
+          elevation: 6,
+        }}
+      >
+        <Text
+          className="text-[11px] font-bold uppercase text-white/70"
+          style={{ letterSpacing: 1.6 }}
+        >
+          Réglages
         </Text>
-        <View className="mt-1">
-          <ToggleRow
+        <Text
+          className="font-serif text-paper"
+          style={{ fontSize: 25, lineHeight: 28, marginTop: 4 }}
+        >
+          Personnalisez votre espace
+        </Text>
+        <Text className="mt-2 text-[14px] leading-5 text-white/80">
+          Notifications, apparence et préférences de l&apos;application.
+        </Text>
+      </LinearGradient>
+
+      {/* ── Notifications ─────────────────────────────────────────────── */}
+      <SettingsCard
+        iconBg="#F8E8C9"
+        icon="notifications-outline"
+        iconColor="#B45309"
+        title="Notifications"
+        desc="Choisissez ce pour quoi vous souhaitez être alerté."
+      >
+        <View style={{ marginTop: 6 }}>
+          <SettingRow
+            iconBg="#F8E8C9"
             icon="notifications"
-            color="#F2B65A"
+            iconColor="#B45309"
             title="Notifications push"
             desc="Activer ou couper toutes les notifications"
             value={pushAll}
             onValueChange={setPushAll}
           />
-          <ToggleRow
+          <SettingRow
+            iconBg="#F9DDD5"
             icon="people"
-            color="#FF7A6B"
+            iconColor="#DD5F48"
             title="Mises en relation"
             desc="Quand un professionnel souhaite vous contacter"
             value={notifRelations}
             onValueChange={setNotifRelations}
             disabled={!pushAll}
           />
-          <ToggleRow
+          <SettingRow
+            iconBg="#F2EDFF"
             icon="flash"
-            color="#7C5CFC"
+            iconColor={VIOLET_DEEP}
             title="Flash deals"
             desc="Offres limitées dans le temps"
             value={notifFlash}
             onValueChange={setNotifFlash}
             disabled={!pushAll}
           />
-          <ToggleRow
+          <SettingRow
+            iconBg="#DCEFDF"
             icon="wallet"
-            color="#2FB8A6"
+            iconColor="#198E80"
             title="Gains & retraits"
             desc="Mouvements sur votre portefeuille"
             value={notifGains}
@@ -195,15 +378,20 @@ export default function Reglages() {
             last
           />
         </View>
-      </Card>
+      </SettingsCard>
 
       {/* ── Mode d'affichage (thèmes) ─────────────────────────────────── */}
-      <Card className="gap-1" badge={{ icon: "color-palette-outline", tone: "violet" }}>
-        <Text className="font-serif text-lg text-ink">Mode d&apos;affichage</Text>
-        <Text className="mb-3 text-xs text-ink-4">
-          Choisissez l&apos;apparence de l&apos;application.
-        </Text>
-        <View className="flex-row flex-wrap justify-between">
+      <SettingsCard
+        iconBg="#F2EDFF"
+        icon="color-palette-outline"
+        iconColor={VIOLET_DEEP}
+        title="Mode d'affichage"
+        desc="Choisissez l'apparence de l'application."
+      >
+        <View
+          className="flex-row flex-wrap justify-between"
+          style={{ marginTop: 16 }}
+        >
           {THEMES.map((t) => (
             <ThemeSwatch
               key={t.key}
@@ -214,13 +402,28 @@ export default function Reglages() {
             />
           ))}
         </View>
-      </Card>
+      </SettingsCard>
 
       {/* ── Langue ────────────────────────────────────────────────────── */}
-      <Card className="gap-1" badge={{ icon: "language-outline", tone: "sky" }}>
-        <Text className="font-serif text-lg text-ink">Langue</Text>
-        <Text className="mb-2 text-xs text-ink-4">Langue de l&apos;interface.</Text>
-        <View className="flex-row gap-2">
+      <SettingsCard
+        iconBg="#DDE9F8"
+        icon="language-outline"
+        iconColor="#3F7FD6"
+        title="Langue"
+        desc="Langue de l'interface."
+      >
+        <View
+          className="flex-row"
+          style={{
+            gap: 8,
+            marginTop: 16,
+            padding: 5,
+            borderRadius: 16,
+            backgroundColor: "#F4F1E9",
+            borderWidth: 1,
+            borderColor: "#E7E1D2",
+          }}
+        >
           {[
             { k: "fr" as const, l: "Français" },
             { k: "en" as const, l: "English" },
@@ -230,12 +433,19 @@ export default function Reglages() {
               <Pressable
                 key={o.k}
                 onPress={() => setLang(o.k)}
-                className={`flex-1 items-center rounded-full py-2.5 ${
-                  on ? "bg-ink" : "border border-line bg-paper"
-                } active:opacity-80`}
+                className="flex-1 items-center active:opacity-80"
+                style={{
+                  paddingVertical: 13,
+                  borderRadius: 12,
+                  backgroundColor: on ? "#0A1628" : "transparent",
+                }}
               >
                 <Text
-                  className={`text-sm ${on ? "font-semibold text-paper" : "text-ink-3"}`}
+                  style={{
+                    fontSize: 14.5,
+                    fontWeight: "600",
+                    color: on ? "#FBF9F4" : "#6B7384",
+                  }}
                 >
                   {o.l}
                 </Text>
@@ -243,23 +453,29 @@ export default function Reglages() {
             );
           })}
         </View>
-      </Card>
+      </SettingsCard>
 
       {/* ── Général / accessibilité ───────────────────────────────────── */}
-      <Card className="gap-1" badge={{ icon: "options-outline", tone: "coral" }}>
-        <Text className="font-serif text-lg text-ink">Général</Text>
-        <View className="mt-1">
-          <ToggleRow
+      <SettingsCard
+        iconBg="#F9DDD5"
+        icon="options-outline"
+        iconColor="#DD5F48"
+        title="Général"
+      >
+        <View style={{ marginTop: 6 }}>
+          <SettingRow
+            iconBg="#F2EDFF"
             icon="phone-portrait-outline"
-            color="#5B8DEF"
+            iconColor={VIOLET_DEEP}
             title="Retour haptique"
             desc="Vibrations légères lors des interactions"
             value={haptics}
             onValueChange={setHaptics}
           />
-          <ToggleRow
+          <SettingRow
+            iconBg="#DCEFDF"
             icon="accessibility-outline"
-            color="#16A34A"
+            iconColor="#198E80"
             title="Animations réduites"
             desc="Limiter les effets de mouvement"
             value={reducedMotion}
@@ -267,9 +483,19 @@ export default function Reglages() {
             last
           />
         </View>
-      </Card>
+      </SettingsCard>
 
-      <Text className="px-2 text-center text-[12px] leading-4 text-ink-4">
+      <Text
+        style={{
+          marginTop: 4,
+          paddingHorizontal: 8,
+          textAlign: "center",
+          fontSize: 12,
+          fontStyle: "italic",
+          lineHeight: 18,
+          color: "#9AA1AD",
+        }}
+      >
         Version préliminaire — l&apos;enregistrement des réglages et
         l&apos;application des thèmes seront branchés prochainement.
       </Text>
