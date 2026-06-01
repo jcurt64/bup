@@ -20,6 +20,7 @@ import { dateFr, eur, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
+import { useTheme } from "../../lib/theme";
 
 // ── Filtre cyclique historique ──────────────────────────────────────
 type HistoryFilter = "all" | "accepted" | "refused";
@@ -40,23 +41,34 @@ function initials(name: string): string {
     .join("") || "?";
 }
 
-// Palette du redesign Relations (cf. public/prototype/det.html).
-const DV = "#7c5cff"; // violet
-const DVD = "#5b3fe0"; // violet deep
-const DVXL = "#f2edff"; // violet extra light
-const DVL = "#e8e0ff"; // violet light
-const DGREEN = "#5aa86a";
-const DGREEN_TXT = "#2f6b3c";
-const DGREENL = "#dcefdf";
-const DCORAL = "#dd5f48";
-const DCORALL = "#f9ddd5";
-const DAMBER_TXT = "#8a5a12";
-const DAMBERL = "#f8e8c9";
-const DAMBER_BD = "#efd9a8";
-const DNAVY = "#0a1628";
-const DMUTED = "#6b7384";
-const DMUTEDL = "#9aa1ad";
-const DLINE = "#e7e1d2";
+// Palette du redesign Relations (cf. public/prototype/det.html), désormais
+// thématisée clair/sombre. Chaque composant fait `const R = useRel()` et
+// référence R.DV, R.DNAVY, etc. (accents vifs conservés, neutres/tints
+// basculés via le thème).
+function useRel() {
+  const { c, isDark } = useTheme();
+  return {
+    DV: c.accViolet,
+    DVD: c.accVioletDeep,
+    DVXL: c.tintViolet,
+    DVL: c.violetSoft,
+    DGREEN: c.accGreen,
+    DGREEN_TXT: c.good,
+    DGREENL: c.tintGreen,
+    DCORAL: c.accCoral,
+    DCORALL: c.tintCoral,
+    DAMBER_TXT: isDark ? c.accAmber : "#8a5a12",
+    DAMBERL: c.tintAmber,
+    DAMBER_BD: c.borderSoft,
+    DNAVY: c.text,
+    DMUTED: c.textSub,
+    DMUTEDL: c.textMuted,
+    DLINE: c.borderSoft,
+    surface: c.surface,
+    field: c.field,
+    track: c.track,
+  };
+}
 
 // Convertit un Relation (API /relations) vers le shape MovementRelation
 // attendu par MovementDetailSheet. Les champs manquants côté Relation
@@ -102,9 +114,10 @@ function HistoryRow({
   onPress: () => void;
   focused?: boolean;
 }) {
+  const R = useRel();
   const isRefused = r.decision === "Refusée";
   const isAccepted = r.decision === "Acceptée";
-  const accent = isAccepted ? DGREEN : isRefused ? DCORAL : DV;
+  const accent = isAccepted ? R.DGREEN : isRefused ? R.DCORAL : R.DV;
   const gainPositive = r.gain != null && r.gain > 0;
   const gainStr = gainPositive ? "+" + eur(r.gain) : "—";
   return (
@@ -118,10 +131,10 @@ function HistoryRow({
         style={{
           borderRadius: 18,
           overflow: "hidden",
-          backgroundColor: "#fff",
+          backgroundColor: R.surface,
           borderWidth: focused ? 2 : 1,
-          borderColor: focused ? DV : DLINE,
-          shadowColor: "#0F1629",
+          borderColor: focused ? R.DV : R.DLINE,
+          shadowColor: "#000000",
           shadowOpacity: 0.05,
           shadowRadius: 10,
           shadowOffset: { width: 0, height: 4 },
@@ -134,7 +147,7 @@ function HistoryRow({
           {/* Avatar + nom/secteur + date */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <LinearGradient
-              colors={[DV, DVD]}
+              colors={[R.DV, R.DVD]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
@@ -152,14 +165,14 @@ function HistoryRow({
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
                 className="font-serif"
-                style={{ fontSize: 17, color: DNAVY }}
+                style={{ fontSize: 17, color: R.DNAVY }}
                 numberOfLines={1}
               >
                 {r.pro}
               </Text>
               {r.sector ? (
                 <Text
-                  style={{ fontSize: 13, color: DMUTED, marginTop: 1 }}
+                  style={{ fontSize: 13, color: R.DMUTED, marginTop: 1 }}
                   numberOfLines={1}
                 >
                   {r.sector}
@@ -167,7 +180,7 @@ function HistoryRow({
               ) : null}
             </View>
             <Text
-              style={{ fontSize: 12.5, color: DMUTEDL, fontStyle: "italic" }}
+              style={{ fontSize: 12.5, color: R.DMUTEDL, fontStyle: "italic" }}
               numberOfLines={1}
             >
               {dateFr(r.date)}
@@ -176,7 +189,7 @@ function HistoryRow({
 
           {/* Séparateur */}
           <View
-            style={{ height: 1, backgroundColor: "#F0ECE2", marginTop: 12, marginBottom: 12 }}
+            style={{ height: 1, backgroundColor: R.DLINE, marginTop: 12, marginBottom: 12 }}
           />
 
           {/* Palier · statut · gain */}
@@ -189,13 +202,13 @@ function HistoryRow({
                 paddingVertical: 5,
                 paddingHorizontal: 9,
                 borderRadius: 999,
-                backgroundColor: DAMBERL,
+                backgroundColor: R.DAMBERL,
                 borderWidth: 1,
-                borderColor: DAMBER_BD,
+                borderColor: R.DAMBER_BD,
               }}
             >
-              <Ionicons name="trending-up" size={12} color={DAMBER_TXT} />
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: DAMBER_TXT }}>
+              <Ionicons name="trending-up" size={12} color={R.DAMBER_TXT} />
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}>
                 Palier {r.tier}
               </Text>
             </View>
@@ -207,7 +220,7 @@ function HistoryRow({
                 paddingVertical: 5,
                 paddingHorizontal: 10,
                 borderRadius: 999,
-                backgroundColor: isRefused ? DCORALL : DGREENL,
+                backgroundColor: isRefused ? R.DCORALL : R.DGREENL,
               }}
             >
               <View
@@ -215,14 +228,14 @@ function HistoryRow({
                   width: 6,
                   height: 6,
                   borderRadius: 999,
-                  backgroundColor: isRefused ? DCORAL : DGREEN,
+                  backgroundColor: isRefused ? R.DCORAL : R.DGREEN,
                 }}
               />
               <Text
                 style={{
                   fontSize: 12.5,
                   fontWeight: "600",
-                  color: isRefused ? DCORAL : DGREEN_TXT,
+                  color: isRefused ? R.DCORAL : R.DGREEN_TXT,
                 }}
               >
                 {r.decision || "—"}
@@ -231,7 +244,7 @@ function HistoryRow({
             <View style={{ flex: 1 }} />
             <Text
               className="font-serif-bold"
-              style={{ fontSize: 17, color: gainPositive ? DVD : DMUTEDL }}
+              style={{ fontSize: 17, color: gainPositive ? R.DVD : R.DMUTEDL }}
             >
               {gainStr}
             </Text>
@@ -256,6 +269,7 @@ function SollicitationCard({
   r: Relation;
   onOpen: (r: Relation) => void;
 }) {
+  const R = useRel();
   const start = r.startDate ? new Date(r.startDate).getTime() : 0;
   const end = r.expiresAt
     ? new Date(r.expiresAt).getTime()
@@ -272,12 +286,12 @@ function SollicitationCard({
       style={{
         width: REL_CARD_W,
         flexShrink: 0,
-        backgroundColor: "#fff",
+        backgroundColor: R.surface,
         borderRadius: 22,
         borderWidth: 1,
-        borderColor: DLINE,
+        borderColor: R.DLINE,
         overflow: "hidden",
-        shadowColor: DNAVY,
+        shadowColor: R.DNAVY,
         shadowOpacity: 0.07,
         shadowRadius: 11,
         shadowOffset: { width: 0, height: 8 },
@@ -285,7 +299,7 @@ function SollicitationCard({
       }}
     >
       <LinearGradient
-        colors={[DV, DVD]}
+        colors={[R.DV, R.DVD]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{ height: 4 }}
@@ -306,7 +320,7 @@ function SollicitationCard({
               paddingVertical: 5,
               paddingHorizontal: 11,
               borderRadius: 999,
-              backgroundColor: DNAVY,
+              backgroundColor: R.DNAVY,
             }}
           >
             <Ionicons name="sparkles" size={12} color="#fff" />
@@ -323,11 +337,11 @@ function SollicitationCard({
                 paddingVertical: 5,
                 paddingHorizontal: 10,
                 borderRadius: 999,
-                backgroundColor: "#E8F5EE",
+                backgroundColor: R.DGREENL,
               }}
             >
-              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: "#16A34A" }}>
+              <Ionicons name="checkmark-circle" size={14} color={R.DGREEN_TXT} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DGREEN_TXT }}>
                 Acceptée
               </Text>
             </View>
@@ -337,12 +351,12 @@ function SollicitationCard({
                 paddingVertical: 5,
                 paddingHorizontal: 10,
                 borderRadius: 999,
-                backgroundColor: DVXL,
+                backgroundColor: R.DVXL,
                 borderWidth: 1,
-                borderColor: DVL,
+                borderColor: R.DVL,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: DVD }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
                 Palier {r.tier}
               </Text>
             </View>
@@ -353,14 +367,14 @@ function SollicitationCard({
           <Text
             className="font-serif"
             numberOfLines={1}
-            style={{ fontSize: 20, color: DNAVY }}
+            style={{ fontSize: 20, color: R.DNAVY }}
           >
             {r.pro}
           </Text>
           {r.sector ? (
             <Text
               numberOfLines={1}
-              style={{ fontSize: 12.5, color: DMUTED, marginTop: 3 }}
+              style={{ fontSize: 12.5, color: R.DMUTED, marginTop: 3 }}
             >
               {r.sector}
             </Text>
@@ -373,9 +387,9 @@ function SollicitationCard({
             paddingVertical: 13,
             paddingHorizontal: 15,
             borderRadius: 16,
-            backgroundColor: "#f4f1e9",
+            backgroundColor: R.track,
             borderWidth: 1,
-            borderColor: DLINE,
+            borderColor: R.DLINE,
           }}
         >
           <View
@@ -385,17 +399,17 @@ function SollicitationCard({
               justifyContent: "space-between",
             }}
           >
-            <Text style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: DMUTED }}>
+            <Text style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: R.DMUTED }}>
               RÉCOMPENSE
             </Text>
-            <Text style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: DV }}>
+            <Text style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: R.DV }}>
               À ACCEPTER
             </Text>
           </View>
-          <Text className="font-serif" style={{ fontSize: 30, color: DNAVY, marginTop: 5 }}>
+          <Text className="font-serif" style={{ fontSize: 30, color: R.DNAVY, marginTop: 5 }}>
             {eur(r.reward)}
           </Text>
-          <Text style={{ fontSize: 11.5, color: DMUTED, marginTop: 5 }}>
+          <Text style={{ fontSize: 11.5, color: R.DMUTED, marginTop: 5 }}>
             Versée dès que vous acceptez
           </Text>
         </View>
@@ -409,13 +423,13 @@ function SollicitationCard({
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-              <Ionicons name="time-outline" size={15} color={DCORAL} />
+              <Ionicons name="time-outline" size={15} color={R.DCORAL} />
               <Text
                 className="font-mono"
                 style={{
                   fontSize: 15.5,
                   fontWeight: "600",
-                  color: expired ? DCORAL : DNAVY,
+                  color: expired ? R.DCORAL : R.DNAVY,
                   fontVariant: ["tabular-nums"],
                 }}
               >
@@ -427,7 +441,7 @@ function SollicitationCard({
                 fontSize: 11,
                 fontWeight: "600",
                 letterSpacing: 0.4,
-                color: DCORAL,
+                color: R.DCORAL,
                 textTransform: "uppercase",
               }}
             >
@@ -438,13 +452,13 @@ function SollicitationCard({
             style={{
               height: 5,
               borderRadius: 3,
-              backgroundColor: "#ece7d9",
+              backgroundColor: R.track,
               overflow: "hidden",
               marginTop: 7,
             }}
           >
             <LinearGradient
-              colors={["#e0972f", DCORAL]}
+              colors={["#e0972f", R.DCORAL]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{ width: `${Math.round(left * 100)}%`, height: "100%", borderRadius: 3 }}
@@ -458,7 +472,7 @@ function SollicitationCard({
             marginTop: 15,
             paddingVertical: 13,
             borderRadius: 13,
-            backgroundColor: DNAVY,
+            backgroundColor: R.DNAVY,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
@@ -476,6 +490,7 @@ function SollicitationCard({
 }
 
 export default function Relations() {
+  const R = useRel();
   const q = useProspectRelations();
   useRefetchOnFocus(q);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
@@ -527,18 +542,18 @@ export default function Relations() {
         iconLib: "ionicons" as const,
         icon: "hourglass" as const,
         value: String(pendingCount),
-        color: "#FF7A6B",
-        bg: "#FFE7E3",
+        color: R.DCORAL,
+        bg: R.DCORALL,
       },
       {
         iconLib: "ionicons" as const,
         icon: "checkmark-circle" as const,
         value: String(acceptedCount),
-        color: "#16A34A",
-        bg: "#DCFCE7",
+        color: R.DGREEN_TXT,
+        bg: R.DGREENL,
       },
     ],
-    [pendingCount, acceptedCount],
+    [pendingCount, acceptedCount, R.DCORAL, R.DCORALL, R.DGREEN_TXT, R.DGREENL],
   );
 
   return (
@@ -547,7 +562,7 @@ export default function Relations() {
           conservé (on ne reprend pas la barre « b Relations » de la maquette). */}
       <View style={{ borderRadius: 24, overflow: "hidden" }}>
         <LinearGradient
-          colors={[DV, DVD]}
+          colors={[R.DV, R.DVD]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ padding: 18 }}
@@ -626,9 +641,9 @@ export default function Relations() {
             <View
               style={{
                 borderRadius: 22,
-                backgroundColor: "#fff",
+                backgroundColor: R.surface,
                 borderWidth: 1,
-                borderColor: DLINE,
+                borderColor: R.DLINE,
                 paddingVertical: 28,
                 paddingHorizontal: 20,
                 alignItems: "center",
@@ -639,7 +654,7 @@ export default function Relations() {
                   width: 88,
                   height: 88,
                   borderRadius: 999,
-                  backgroundColor: DVXL,
+                  backgroundColor: R.DVXL,
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 14,
@@ -652,7 +667,7 @@ export default function Relations() {
                     height: 50,
                     borderRadius: 999,
                     borderWidth: 1.5,
-                    borderColor: DVL,
+                    borderColor: R.DVL,
                   }}
                 />
                 <View
@@ -662,24 +677,24 @@ export default function Relations() {
                     height: 30,
                     borderRadius: 999,
                     borderWidth: 1.5,
-                    borderColor: DV,
+                    borderColor: R.DV,
                     opacity: 0.55,
                   }}
                 />
                 <View
-                  style={{ width: 12, height: 12, borderRadius: 999, backgroundColor: DV }}
+                  style={{ width: 12, height: 12, borderRadius: 999, backgroundColor: R.DV }}
                 />
               </View>
               <Text
                 className="font-serif"
-                style={{ fontSize: 21, color: DNAVY, textAlign: "center" }}
+                style={{ fontSize: 21, color: R.DNAVY, textAlign: "center" }}
               >
                 Aucune demande pour l’instant
               </Text>
               <Text
                 style={{
                   fontSize: 13.5,
-                  color: DMUTED,
+                  color: R.DMUTED,
                   textAlign: "center",
                   lineHeight: 20,
                   marginTop: 6,
@@ -698,13 +713,13 @@ export default function Relations() {
                   paddingVertical: 7,
                   paddingHorizontal: 14,
                   borderRadius: 999,
-                  backgroundColor: DVXL,
+                  backgroundColor: R.DVXL,
                 }}
               >
                 <View
-                  style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: DV }}
+                  style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: R.DV }}
                 />
-                <Text style={{ fontSize: 12.5, fontWeight: "600", color: DVD }}>
+                <Text style={{ fontSize: 12.5, fontWeight: "600", color: R.DVD }}>
                   Notifications activées
                 </Text>
               </View>
@@ -713,7 +728,7 @@ export default function Relations() {
             <View>
               <Text
                 className="font-mono"
-                style={{ fontSize: 13, color: DMUTED, marginBottom: 4 }}
+                style={{ fontSize: 13, color: R.DMUTED, marginBottom: 4 }}
               >
                 {d.pending.length}{" "}
                 {d.pending.length === 1
@@ -761,7 +776,7 @@ export default function Relations() {
                           width: on ? 18 : 7,
                           height: 7,
                           borderRadius: 999,
-                          backgroundColor: on ? DV : DLINE,
+                          backgroundColor: on ? R.DV : R.DLINE,
                         }}
                       />
                     );
@@ -781,12 +796,12 @@ export default function Relations() {
               width: 30,
               height: 30,
               borderRadius: 999,
-              backgroundColor: DVXL,
+              backgroundColor: R.DVXL,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="time-outline" size={16} color={DV} />
+            <Ionicons name="time-outline" size={16} color={R.DV} />
           </View>
           <Text
             style={{
@@ -794,7 +809,7 @@ export default function Relations() {
               fontWeight: "700",
               letterSpacing: 1.3,
               textTransform: "uppercase",
-              color: DMUTED,
+              color: R.DMUTED,
             }}
           >
             Historique · {filteredHistory.length}
@@ -807,15 +822,15 @@ export default function Relations() {
             const isAcc = f.key === "accepted";
             const isRef = f.key === "refused";
             const on = isAcc
-              ? { bg: DGREENL, bd: DGREENL, txt: DGREEN_TXT }
+              ? { bg: R.DGREENL, bd: R.DGREENL, txt: R.DGREEN_TXT }
               : isRef
-                ? { bg: DCORALL, bd: DCORALL, txt: DCORAL }
-                : { bg: DNAVY, bd: DNAVY, txt: "#fff" };
+                ? { bg: R.DCORALL, bd: R.DCORALL, txt: R.DCORAL }
+                : { bg: R.DNAVY, bd: R.DNAVY, txt: R.surface };
             const off = isAcc
-              ? { bg: "#fff", bd: DGREEN, txt: DGREEN_TXT }
+              ? { bg: R.surface, bd: R.DGREEN, txt: R.DGREEN_TXT }
               : isRef
-                ? { bg: "#fff", bd: DCORAL, txt: DCORAL }
-                : { bg: "#fff", bd: DLINE, txt: DNAVY };
+                ? { bg: R.surface, bd: R.DCORAL, txt: R.DCORAL }
+                : { bg: R.surface, bd: R.DLINE, txt: R.DNAVY };
             const s = active ? on : off;
             return (
               <Pressable
@@ -842,19 +857,19 @@ export default function Relations() {
           <View
             style={{
               borderRadius: 18,
-              backgroundColor: "#fff",
+              backgroundColor: R.surface,
               borderWidth: 1,
-              borderColor: DLINE,
+              borderColor: R.DLINE,
               paddingVertical: 28,
               paddingHorizontal: 20,
               alignItems: "center",
             }}
           >
-            <Text className="font-serif" style={{ fontSize: 18, color: DNAVY }}>
+            <Text className="font-serif" style={{ fontSize: 18, color: R.DNAVY }}>
               Rien à afficher
             </Text>
             <Text
-              style={{ fontSize: 13, color: DMUTED, textAlign: "center", marginTop: 4 }}
+              style={{ fontSize: 13, color: R.DMUTED, textAlign: "center", marginTop: 4 }}
             >
               {historyFilter === "accepted"
                 ? "Vos sollicitations acceptées s’afficheront ici."
