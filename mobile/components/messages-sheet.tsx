@@ -1,31 +1,176 @@
-// Sheet « Messages » (icône cloche du header). Bottom-sheet ~80% de
-// l'écran : notifications /api/me/notifications, lecture + pièce jointe
-// (même données/logique que l'écran Messages, sans ScrollScreen/hero).
+// Sheet « Messages » (icône cloche du header). Bottom-sheet : état vide
+// (cf. mes1.html) ou liste de cards par catégorie (cf. mes2.html). « Lire le
+// message » ouvre le détail (Modal MessageDetailModal) PAR-DESSUS la sheet —
+// la liste reste montée dessous, donc le retour/la suppression reviennent à
+// la liste (pas à l'accueil). Données/logique inchangées (/api/me/notifications).
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { useEffect } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-
-// Illustration 3D thiings.co (Mailbox) — empty state convivial.
-const EMPTY_MAILBOX = require("../assets/images/empty-mailbox.png");
+import { useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
 import { BuuppLoader } from "./loader";
-import { Card, dateFr } from "./screen";
+import { MessageDetailModal } from "./message-detail";
 import {
+  deleteMockNotif,
+  isMockNotif,
+  markMockNotifRead,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
+  type Notif,
 } from "../lib/queries";
-import { useAuthedDownload } from "../lib/use-authed-download";
+import {
+  CAT_CONF,
+  categorizeMessage,
+  fmtMessageDate,
+} from "../lib/message-category";
+
+
+const LINE = "#ECE9E0";
+const FOOTER_LINE = "#F0ECE2";
+
+function MessageCard({
+  n,
+  onOpen,
+  onDelete,
+}: {
+  n: Notif;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const cat = CAT_CONF[n.category ?? categorizeMessage(n.title, n.body)];
+  return (
+    <View
+      style={{
+        borderRadius: 18,
+        overflow: "hidden",
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: LINE,
+        shadowColor: "#0F1629",
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+      }}
+    >
+      {/* Barre d'accent gauche colorée selon la catégorie. */}
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          backgroundColor: cat.color,
+        }}
+      />
+      <Pressable onPress={onOpen} style={{ padding: 14, paddingLeft: 18 }}>
+        <View style={{ flexDirection: "row", gap: 11 }}>
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 11,
+              backgroundColor: cat.bg,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name={cat.icon} size={17} color={cat.color} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: "700",
+                  letterSpacing: 0.8,
+                  color: cat.color,
+                }}
+              >
+                {cat.label}
+              </Text>
+              <Text style={{ fontSize: 11.5, color: "#9AA1AD" }}>
+                {fmtMessageDate(n.createdAt)}
+              </Text>
+            </View>
+            <Text
+              className="font-serif"
+              numberOfLines={2}
+              style={{
+                fontSize: 16.5,
+                color: n.unread ? "#0F1629" : "#5A6068",
+                marginTop: 3,
+              }}
+            >
+              {n.unread ? <Text style={{ color: cat.color }}>• </Text> : null}
+              {n.title}
+            </Text>
+            {n.body ? (
+              <Text
+                numberOfLines={2}
+                style={{ fontSize: 13.5, lineHeight: 19, color: "#6B7280", marginTop: 4 }}
+              >
+                {n.body}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
+
+      {/* Pied de card : Lire le message · Supprimer. */}
+      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: FOOTER_LINE }}>
+        <Pressable
+          onPress={onOpen}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingVertical: 12,
+            paddingLeft: 18,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Lire le message"
+        >
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#0F1629" }}>
+            Lire le message
+          </Text>
+          <Ionicons name="chevron-forward" size={15} color="#0F1629" />
+        </Pressable>
+        <Pressable
+          onPress={onDelete}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderLeftWidth: 1,
+            borderLeftColor: FOOTER_LINE,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Supprimer ce message"
+        >
+          <Ionicons name="trash-outline" size={15} color="#DC2626" />
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#DC2626" }}>
+            Supprimer
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 export function MessagesSheet({
   visible,
@@ -38,27 +183,20 @@ export function MessagesSheet({
   const read = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
   const del = useDeleteNotification();
-  const download = useAuthedDownload();
+  const qc = useQueryClient();
+  // Détail ouvert PAR-DESSUS la sheet (la liste reste montée dessous) — évite
+  // le flash sur l'accueil et garde le retour/suppression vers la liste.
+  const [openDetail, setOpenDetail] = useState<Notif | null>(null);
   const notifs = q.data?.notifications ?? [];
   const unreadIds = notifs.filter((n) => n.unread).map((n) => n.id);
+  const unreadCount = q.data?.unreadCount ?? unreadIds.length;
 
-  // Synchro web ⇄ mobile : refetch à chaque ouverture du sheet pour
-  // refléter immédiatement les suppressions/lectures faites côté web
-  // (les deux écrivent dans la même table admin_broadcast_dismissals).
-  // Sans ce refetch, le client mobile garde la version en cache (15 s
-  // staleTime) jusqu'à expiration.
+  // Refetch à l'ouverture (synchro web ⇄ mobile, cf. dismissals).
   useEffect(() => {
-    if (visible) {
-      q.refetch();
-    }
-    // q.refetch identité stable côté React Query ; on déclenche
-    // uniquement sur l'ouverture.
+    if (visible) q.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // Confirmation native + suppression optimiste (parité web :
-  // "Supprimer ce message" → "Confirmer la suppression"). Le broadcast
-  // en base reste intact, on POSE juste une row admin_broadcast_dismissals.
   function confirmDelete(id: string, title: string) {
     Alert.alert(
       "Supprimer ce message ?",
@@ -71,6 +209,12 @@ export function MessagesSheet({
           text: "Supprimer",
           style: "destructive",
           onPress: () => {
+            // Messages fictifs : suppression simulée (pas d'appel API).
+            if (isMockNotif(id)) {
+              deleteMockNotif(id);
+              qc.invalidateQueries({ queryKey: ["me", "notifications"] });
+              return;
+            }
             del.mutate(
               { id },
               {
@@ -87,34 +231,73 @@ export function MessagesSheet({
     );
   }
 
+  function openMessage(n: Notif) {
+    if (n.unread) {
+      if (isMockNotif(n.id)) {
+        markMockNotifRead(n.id);
+        qc.invalidateQueries({ queryKey: ["me", "notifications"] });
+      } else {
+        read.mutate({ id: n.id });
+      }
+    }
+    // Ouvre le détail PAR-DESSUS la sheet (pas de fermeture/navigation).
+    setOpenDetail(n);
+  }
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPct={80}>
+    <BottomSheet visible={visible} onClose={onClose} heightPct={86}>
       <View className="flex-row items-center justify-between gap-2">
         <View className="flex-row items-center gap-2">
           <Text className="font-serif text-2xl text-ink">Messages</Text>
           {notifs.length > 0 ? (
-            <View className="rounded-full bg-ink px-2.5 py-0.5">
-              <Text className="font-mono text-[11px] font-semibold text-paper">
+            <View
+              style={{
+                minWidth: 22,
+                height: 22,
+                borderRadius: 999,
+                backgroundColor: "#0F1629",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 6,
+              }}
+            >
+              <Text className="font-mono text-[11px] font-bold text-paper">
                 {notifs.length}
               </Text>
             </View>
           ) : null}
         </View>
-        {/* « Tout marquer comme lu » — visible uniquement quand il y a
-            au moins 1 non lu (parité web MessagesPanel.markAll). */}
         {unreadIds.length > 0 ? (
           <Pressable
             onPress={() => {
               if (markAll.isPending) return;
-              markAll.mutate({ ids: unreadIds });
+              // Sépare mocks (lecture simulée) et réels (API markAll).
+              const mockUnread = unreadIds.filter(isMockNotif);
+              const realUnread = unreadIds.filter((id) => !isMockNotif(id));
+              if (mockUnread.length > 0) {
+                mockUnread.forEach(markMockNotifRead);
+                qc.invalidateQueries({ queryKey: ["me", "notifications"] });
+              }
+              if (realUnread.length > 0) markAll.mutate({ ids: realUnread });
             }}
             disabled={markAll.isPending}
             accessibilityRole="button"
-            accessibilityLabel={`Tout marquer comme lu — ${unreadIds.length} non lus`}
-            className="rounded-full border border-line bg-paper px-3 py-1.5 active:opacity-70"
+            accessibilityLabel={`Tout lire — ${unreadIds.length} non lus`}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingVertical: 8,
+              paddingHorizontal: 13,
+              borderRadius: 999,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: LINE,
+            }}
           >
-            <Text className="text-[12.5px] font-medium text-ink-2">
-              {markAll.isPending ? "…" : "Tout marquer comme lu"}
+            <Ionicons name="checkmark-done" size={15} color="#0F1629" />
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#0F1629" }}>
+              {markAll.isPending ? "…" : "Tout lire"}
             </Text>
           </Pressable>
         ) : null}
@@ -123,8 +306,8 @@ export function MessagesSheet({
         {notifs.length === 0
           ? "Aucun message pour le moment."
           : `${notifs.length} message${notifs.length > 1 ? "s" : ""}${
-              q.data?.unreadCount
-                ? ` · ${q.data.unreadCount} non lu${q.data.unreadCount > 1 ? "s" : ""}`
+              unreadCount
+                ? ` · ${unreadCount} non lu${unreadCount > 1 ? "s" : ""}`
                 : ""
             }`}
       </Text>
@@ -140,27 +323,68 @@ export function MessagesSheet({
           </Text>
         </View>
       ) : notifs.length === 0 ? (
+        // État vide (cf. mes1.html) — illustration vectorielle : cercle
+        // violet + anneau pointillé + enveloppe + étincelle orange.
         <View className="flex-1 items-center justify-center px-6">
-          {/* Empty state — illustration 3D thiings.co (Mailbox) sur cercle
-              pastel violet, titre serif + subtitle ink-4 (esthétique
-              em.png : illustration centrée + texte amical). */}
           <View
-            className="mb-3 h-44 w-44 items-center justify-center rounded-full"
-            style={{ backgroundColor: "rgba(124, 92, 252, 0.08)" }}
+            className="mb-3 items-center justify-center"
+            style={{ width: 176, height: 176 }}
+            accessibilityLabel="Boîte de réception vide"
           >
-            <Image
-              source={EMPTY_MAILBOX}
-              style={{ width: 140, height: 140 }}
-              contentFit="contain"
-              accessibilityLabel="Boîte aux lettres vide"
+            {/* Cercle violet doux */}
+            <View
+              style={{
+                position: "absolute",
+                width: 176,
+                height: 176,
+                borderRadius: 999,
+                backgroundColor: "rgba(124, 92, 252, 0.10)",
+              }}
             />
+            {/* Anneau pointillé */}
+            <View
+              style={{
+                position: "absolute",
+                width: 132,
+                height: 132,
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderStyle: "dotted",
+                borderColor: "rgba(124, 92, 252, 0.35)",
+              }}
+            />
+            {/* Enveloppe */}
+            <Ionicons name="mail" size={62} color="#7C5CFC" />
+            {/* Étincelle orange (coin haut-droit de l'enveloppe) */}
+            <View style={{ position: "absolute", top: 50, right: 50 }}>
+              <Ionicons name="sparkles" size={20} color="#E0972F" />
+            </View>
           </View>
-          <Text className="font-serif text-xl text-ink">
-            Votre boîte est vide
-          </Text>
+          <Text className="font-serif text-xl text-ink">Votre boîte est vide</Text>
           <Text className="mt-1.5 text-center text-[13px] leading-5 text-ink-4">
-            Les annonces, alertes et communications BUUPP{"\n"}s'afficheront ici dès qu'elles arriveront.
+            Les annonces, alertes et communications BUUPP{"\n"}s&apos;afficheront ici dès qu&apos;elles arriveront.
           </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 7,
+              marginTop: 16,
+              paddingVertical: 7,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: "#DCEFDF",
+            }}
+          >
+            <View
+              style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: "#5AA86A" }}
+            />
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#2F6B3C" }}>
+              Notifications activées
+            </Text>
+          </View>
         </View>
       ) : (
         <ScrollView
@@ -169,85 +393,27 @@ export function MessagesSheet({
           showsVerticalScrollIndicator={false}
         >
           {notifs.map((n) => (
-            <Pressable
+            <MessageCard
               key={n.id}
-              onPress={() => {
-                if (n.unread) read.mutate({ id: n.id });
-              }}
-            >
-              <Card badge={{ icon: "notifications-outline", tone: "amber" }}>
-                <View className="flex-row items-start gap-3">
-                  <View
-                    className={`mt-1.5 h-2 w-2 rounded-full ${
-                      n.unread ? "bg-violet" : "bg-ink-5"
-                    }`}
-                  />
-                  <View className="flex-1">
-                    <View className="flex-row justify-between">
-                      <Text
-                        className={`flex-1 pr-2 text-lg ${
-                          n.unread ? "font-semibold text-ink" : "text-ink-2"
-                        }`}
-                      >
-                        {n.title}
-                      </Text>
-                      <Text className="font-mono text-[12px] text-ink-4">
-                        {dateFr(n.createdAt)}
-                      </Text>
-                    </View>
-                    {n.body ? (
-                      <Text className="mt-1 text-base leading-6 text-ink-3">
-                        {n.body}
-                      </Text>
-                    ) : null}
-                    {n.hasAttachment ? (
-                      <Pressable
-                        className="mt-3 self-start rounded-full border border-line px-4 py-2"
-                        onPress={async () => {
-                          if (n.unread) read.mutate({ id: n.id });
-                          try {
-                            await download(
-                              `/api/me/notifications/${n.id}/attachment`,
-                              n.attachmentFilename ?? undefined,
-                            );
-                          } catch {
-                            Alert.alert("Erreur", "Téléchargement impossible.");
-                          }
-                        }}
-                      >
-                        <Text className="text-sm text-ink-2">
-                          📎 {n.attachmentFilename ?? "Pièce jointe"}
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                    {/* Footer action : supprimer ce message (parité web).
-                        Discret, danger color, en bas de la carte. */}
-                    <Pressable
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        confirmDelete(n.id, n.title);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Supprimer ce message"
-                      className="mt-3 flex-row items-center gap-1.5 self-start py-1 active:opacity-60"
-                    >
-                      <Ionicons name="trash-outline" size={15} color="#DC2626" />
-                      <Text className="text-sm font-medium text-bad">
-                        Supprimer ce message
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </Card>
-            </Pressable>
+              n={n}
+              onOpen={() => openMessage(n)}
+              onDelete={() => confirmDelete(n.id, n.title)}
+            />
           ))}
         </ScrollView>
       )}
 
-      {/* Footer signature « buupp » — couloir ivoire quadrillé (parité
-          ancienne version). `key` sur `visible` pour rejouer l'animation
-          à chaque ouverture. */}
       <BuuppFooter variant="ivory" key={visible ? "open" : "closed"} />
+
+      {/* Détail PAR-DESSUS la sheet — rendu en ENFANT du Modal de la sheet
+          (le Modal parent présente le Modal enfant ; iOS interdit de présenter
+          deux Modals frères). `transparent` (overFullScreen) → plein écran
+          correct. Retour/suppression reviennent à la liste. */}
+      <MessageDetailModal
+        notif={openDetail}
+        visible={openDetail !== null}
+        onClose={() => setOpenDetail(null)}
+      />
     </BottomSheet>
   );
 }

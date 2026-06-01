@@ -45,13 +45,97 @@ export type Notif = {
   attachmentFilename: string | null;
   createdAt: string;
   unread: boolean;
+  /** Catégorie d'affichage forcée (mocks DEV) ; sinon dérivée du contenu. */
+  category?: "annonce" | "alerte" | "communication";
 };
-export const useNotifications = () =>
-  useGet<{ notifications: Notif[]; unreadCount: number }>(
-    ["me", "notifications"],
-    "/api/me/notifications",
-    15_000,
-  );
+
+// DEV : injecte des messages fictifs (cf. maquettes mes2/mes3) pour
+// visualiser la liste de messages + la page de détail sans dépendre de
+// broadcasts réels. Mettre à `false` (ou supprimer) avant la prod.
+const SHOW_MOCK_NOTIFICATIONS = true;
+
+function buildMockNotifications(): Notif[] {
+  const now = Date.now();
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+  const base = { audience: "prospects", hasAttachment: false, attachmentFilename: null };
+  return [
+    {
+      ...base,
+      id: "mock-notif-1",
+      title: "Nouveau flash deal près de chez vous",
+      body: "Solaria propose un bilan énergétique — gains ×3 pendant 45 min. Saisissez-le avant la fin du compte à rebours pour empocher 10,20 € au lieu de 3,40 €.",
+      createdAt: iso(2 * 3600_000),
+      unread: true,
+      category: "annonce",
+    },
+    {
+      ...base,
+      id: "mock-notif-2",
+      title: "Récompense bientôt créditée",
+      body: "Votre mise en relation avec FitOne est en séquestre. Le crédit arrive sous 24 h sur votre portefeuille, dès la validation du professionnel.",
+      createdAt: iso(3 * 3600_000 + 27 * 60_000),
+      unread: true,
+      category: "alerte",
+    },
+    {
+      ...base,
+      id: "mock-notif-3",
+      title: "Bienvenue chez buupp 👋",
+      body: "Bienvenue très cher buupper ! Complétez votre profil pour débloquer davantage de mises en relation rémunérées et faire grimper votre BUUPP Score.",
+      createdAt: iso(26 * 3600_000),
+      unread: true,
+      category: "communication",
+    },
+    {
+      ...base,
+      id: "mock-notif-4",
+      title: "Votre relevé de mai est disponible",
+      body: "7,50 € de récompenses cumulées ce mois-ci. Consultez le détail de vos mouvements depuis votre portefeuille.",
+      createdAt: iso(50 * 3600_000),
+      unread: false,
+      category: "communication",
+    },
+  ];
+}
+
+const MOCK_NOTIFICATIONS: Notif[] = SHOW_MOCK_NOTIFICATIONS
+  ? buildMockNotifications()
+  : [];
+// État simulé des mocks (lecture / suppression) — appliqué dans le queryFn.
+const mockReadNotifs = new Set<string>();
+const mockDeletedNotifs = new Set<string>();
+export function isMockNotif(id: string): boolean {
+  return id.startsWith("mock-notif-");
+}
+export function markMockNotifRead(id: string): void {
+  mockReadNotifs.add(id);
+}
+export function deleteMockNotif(id: string): void {
+  mockDeletedNotifs.add(id);
+}
+
+type NotifsResponse = { notifications: Notif[]; unreadCount: number };
+export const useNotifications = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["me", "notifications"],
+    // Fusion des mocks DANS le queryFn (cf. note structuralSharing ailleurs).
+    queryFn: async () => {
+      const d = await api<NotifsResponse>("/api/me/notifications");
+      if (!SHOW_MOCK_NOTIFICATIONS) return d;
+      const mocks = MOCK_NOTIFICATIONS.filter(
+        (n) => !mockDeletedNotifs.has(n.id),
+      ).map((n) => (mockReadNotifs.has(n.id) ? { ...n, unread: false } : n));
+      const mockUnread = mocks.filter((n) => n.unread).length;
+      return {
+        notifications: [...mocks, ...d.notifications],
+        unreadCount: d.unreadCount + mockUnread,
+      };
+    },
+    staleTime: 15_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 // ───────── Prospect ─────────
 export type ProspectWallet = {
