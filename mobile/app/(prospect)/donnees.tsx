@@ -2163,13 +2163,17 @@ export default function Donnees() {
                 onPress={() => router.push("/(prospect)/preferences")}
                 accessibilityRole="button"
                 accessibilityLabel="Ouvrir mes préférences"
-                className="mt-4 flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
+                className="mt-4 flex-row items-center justify-center gap-2 rounded-full py-3 active:opacity-80"
+                style={{ backgroundColor: c.btnBg }}
               >
-                <Ionicons name="options-outline" size={16} color="#FFFFFF" />
-                <Text className="text-base font-semibold text-white">
+                <Ionicons name="options-outline" size={16} color={c.btnText} />
+                <Text
+                  className="text-base font-semibold"
+                  style={{ color: c.btnText }}
+                >
                   Ouvrir mes préférences
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+                <Ionicons name="chevron-forward" size={16} color={c.btnText} />
               </Pressable>
             </View>
           </View>
