@@ -10,23 +10,48 @@ import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, Sty
 
 import { unregisterPushToken } from "../lib/push";
 import { resetOnboardingSeen } from "../lib/onboarding";
-
-// Le drawer garde un fond CLAIR (dégradé ivoire → violet doux) et un
-// contenu sombre, dans les DEUX thèmes (demande explicite). Palette fixe :
-const D_TEXT = "#0F1629";
-const D_SUB = "#5B6478";
-const D_MUTED = "#8A91A1";
-const D_TILE = "rgba(15,22,41,0.05)";
-const D_BORDER = "#E6E3DA";
-const D_ACCENT = "#5B3FD6";
-const D_TINT = "#EDE9FE";
-const D_AMBER = "#D9921F";
+import { useTheme } from "../lib/theme";
 import {
   useDeleteAccount,
   useMeTyped,
   useProspectScore,
   useProspectVerification,
 } from "../lib/queries";
+
+// Couleurs du drawer selon le thème :
+//   • clair (« buupp ») → drawer D'ORIGINE : dégradé violet → navy + contenu
+//     blanc.
+//   • sombre → fond CLAIR (violet clair) + contenu sombre (meilleure
+//     lisibilité demandée en dark mode).
+function dcolors(isDark: boolean) {
+  return isDark
+    ? {
+        gradient: ["#D9CFF1", "#C0B2E6"] as const,
+        text: "#0F1629",
+        sub: "#5B6478",
+        muted: "#8A91A1",
+        tile: "rgba(15,22,41,0.05)",
+        border: "#E6E3DA",
+        ring: "#5B3FD6",
+        avatarTile: "#EDE9FE",
+        avatarIcon: "#5B3FD6",
+        amber: "#D9921F",
+        flashPill: "rgba(217,146,31,0.12)",
+      }
+    : {
+        gradient: ["#7C5CFC", "#13235B"] as const,
+        text: "#FFFFFF",
+        sub: "rgba(255,255,255,0.65)",
+        muted: "rgba(255,255,255,0.45)",
+        tile: "rgba(255,255,255,0.10)",
+        border: "rgba(255,255,255,0.15)",
+        ring: "rgba(255,255,255,0.25)",
+        avatarTile: "rgba(255,255,255,0.15)",
+        avatarIcon: "#FFFFFF",
+        amber: "#F2B65A",
+        flashPill: "rgba(255,255,255,0.08)",
+      };
+}
 
 // Libellés + position 1-based des paliers de vérification (parité
 // Prospect.jsx / portefeuille.tsx — affichés dans la carte de statut).
@@ -81,7 +106,9 @@ function Row({
   chevron?: boolean;
   onPress: () => void;
 }) {
-  const color = danger ? DANGER : D_TEXT;
+  const { isDark } = useTheme();
+  const d = dcolors(isDark);
+  const color = danger ? DANGER : d.text;
   return (
     <Pressable
       onPress={onPress}
@@ -89,7 +116,7 @@ function Row({
     >
       <View
         className="h-11 w-11 items-center justify-center rounded-2xl"
-        style={{ backgroundColor: D_TILE }}
+        style={{ backgroundColor: d.tile }}
       >
         <Ionicons name={icon} size={20} color={color} />
       </View>
@@ -98,13 +125,13 @@ function Row({
           {label}
         </Text>
         {sub ? (
-          <Text className="mt-0.5 text-[12.5px]" style={{ color: D_MUTED }}>
+          <Text className="mt-0.5 text-[12.5px]" style={{ color: d.muted }}>
             {sub}
           </Text>
         ) : null}
       </View>
       {chevron ? (
-        <Ionicons name="chevron-forward" size={18} color={D_MUTED} />
+        <Ionicons name="chevron-forward" size={18} color={d.muted} />
       ) : null}
     </Pressable>
   );
@@ -114,18 +141,20 @@ function Row({
 // affichant « {score} / 1000 » en haut à droite du drawer (parité
 // redesign.png, sans l'arc de progression).
 function ScoreRing({ score }: { score: number | null }) {
+  const { isDark } = useTheme();
+  const d = dcolors(isDark);
   return (
     <View
       className="h-14 w-14 items-center justify-center rounded-full"
-      style={{ borderWidth: 3, borderColor: D_ACCENT }}
+      style={{ borderWidth: 3, borderColor: d.ring }}
     >
       <Text
         className="font-serif-bold text-base"
-        style={{ lineHeight: 18, color: D_TEXT }}
+        style={{ lineHeight: 18, color: d.text }}
       >
         {score != null ? score : "…"}
       </Text>
-      <Text className="font-mono text-[8px]" style={{ color: D_MUTED }}>
+      <Text className="font-mono text-[8px]" style={{ color: d.muted }}>
         / 1000
       </Text>
     </View>
@@ -133,6 +162,8 @@ function ScoreRing({ score }: { score: number | null }) {
 }
 
 export default function DrawerPanel() {
+  const { isDark } = useTheme();
+  const d = dcolors(isDark);
   const { signOut, getToken } = useAuth();
   const del = useDeleteAccount();
   // Données lecture seule (aucun back modifié) alimentant la carte de
@@ -260,7 +291,7 @@ export default function DrawerPanel() {
             bottom-right pour cohérence avec les autres surfaces gradient
             de l'app. */}
         <LinearGradient
-          colors={["#D9CFF1", "#C0B2E6"]}
+          colors={d.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -275,13 +306,13 @@ export default function DrawerPanel() {
             <View>
               <Text
                 className="font-serif-bold text-2xl"
-                style={{ lineHeight: 28, color: D_TEXT }}
+                style={{ lineHeight: 28, color: d.text }}
               >
                 Mon statut
               </Text>
               <Text
                 className="font-serif-italic text-2xl"
-                style={{ lineHeight: 28, color: D_TEXT }}
+                style={{ lineHeight: 28, color: d.text }}
               >
                 buupper
               </Text>
@@ -293,25 +324,25 @@ export default function DrawerPanel() {
               et pastille « ⚡ {score} » bordée ambre à droite. */}
           <View
             className="mb-3 flex-row items-center gap-3 rounded-2xl px-3 py-3"
-            style={{ backgroundColor: D_TILE }}
+            style={{ backgroundColor: d.tile }}
           >
             <View
               className="h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: D_TINT }}
+              style={{ backgroundColor: d.avatarTile }}
             >
-              <Ionicons name="person-outline" size={20} color={D_ACCENT} />
+              <Ionicons name="person-outline" size={20} color={d.avatarIcon} />
             </View>
             <View className="flex-1">
               <Text
                 className="text-[15px] font-semibold"
-                style={{ color: D_TEXT }}
+                style={{ color: d.text }}
                 numberOfLines={1}
               >
                 {firstName ?? "Mon compte"}
               </Text>
               <Text
                 className="mt-0.5 text-[12px]"
-                style={{ color: D_SUB }}
+                style={{ color: d.sub }}
                 numberOfLines={1}
               >
                 Vérification {tierLabel} · Niveau {tierPos}/3
@@ -322,11 +353,11 @@ export default function DrawerPanel() {
               style={{
                 borderWidth: 1,
                 borderColor: "rgba(242,182,90,0.7)",
-                backgroundColor: "rgba(242,182,90,0.12)",
+                backgroundColor: d.flashPill,
               }}
             >
-              <Ionicons name="flash" size={12} color={D_AMBER} />
-              <Text className="text-[13px] font-bold" style={{ color: D_TEXT }}>
+              <Ionicons name="flash" size={12} color={d.amber} />
+              <Text className="text-[13px] font-bold" style={{ color: d.text }}>
                 {scoreNum != null ? scoreNum : "…"}
               </Text>
             </View>
@@ -344,7 +375,7 @@ export default function DrawerPanel() {
 
           <Text
             className="mt-5 px-3 text-[13px] font-bold uppercase"
-            style={{ letterSpacing: 1.2, color: D_MUTED }}
+            style={{ letterSpacing: 1.2, color: d.muted }}
           >
             Suivez-nous
           </Text>
@@ -356,14 +387,14 @@ export default function DrawerPanel() {
                 accessibilityLabel={s.label}
                 accessibilityRole="link"
                 className="h-11 w-11 items-center justify-center rounded-2xl active:opacity-70"
-                style={{ backgroundColor: D_TILE }}
+                style={{ backgroundColor: d.tile }}
               >
-                <Ionicons name={s.icon} size={18} color={D_TEXT} />
+                <Ionicons name={s.icon} size={18} color={d.text} />
               </Pressable>
             ))}
           </View>
 
-          <View className="my-4 h-px" style={{ backgroundColor: D_BORDER }} />
+          <View className="my-4 h-px" style={{ backgroundColor: d.border }} />
           <Row icon="power" label="Déconnexion" onPress={() => setConfirm("signout")} />
           <Row
             icon="trash-outline"
@@ -377,10 +408,10 @@ export default function DrawerPanel() {
               `__DEV__` est tree-shake'é en prod, ne ship jamais. */}
           {__DEV__ ? (
             <>
-              <View className="my-4 h-px" style={{ backgroundColor: D_BORDER }} />
+              <View className="my-4 h-px" style={{ backgroundColor: d.border }} />
               <Text
                 className="px-3 text-[13px] font-bold uppercase"
-                style={{ letterSpacing: 1.2, color: D_MUTED }}
+                style={{ letterSpacing: 1.2, color: d.muted }}
               >
                 Outils dev
               </Text>

@@ -9,8 +9,9 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
+import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -53,9 +54,8 @@ const PILL_INSET = 3;
 // donc la somme des largeurs reste exactement égale à la barre (pas de
 // débordement ni d'espace). « un peu plus grande » → ~40px.
 const ACTIVE_EXTRA = 40;
-// Couleurs : pilule pleine = ink (échantillon maquette ≈ #0A1628),
-// items inactifs = navy discret sur le fond clair.
-const PILL_BG = "#0F1629";
+// Pilule active = dégradé bleu du logo buupp (rendu en LinearGradient).
+// Items inactifs = navy discret sur le fond clair.
 const INACTIVE = "#13235B";
 
 // Part d'« activité » d'un onglet en fonction de la position active
@@ -177,10 +177,7 @@ function Tab({
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const glass = isLiquidGlassAvailable();
-  const { c, isDark } = useTheme();
-  // Pilule active : navy en clair, accent violet lumineux en sombre (fort
-  // contraste sur la barre foncée).
-  const pillBg = isDark ? c.accent : PILL_BG;
+  const { isDark } = useTheme();
   // Badge onglet Relations : nombre de demandes EN ATTENTE (on exclut celles
   // déjà acceptées qui restent dans le carrousel avec leur badge ✓).
   const pendingCount = (useProspectRelations().data?.pending ?? []).filter(
@@ -254,11 +251,20 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               top: 0,
               height: ITEM_H,
               borderRadius: 999,
-              backgroundColor: pillBg,
+              overflow: "hidden",
             },
             pillStyle,
           ]}
-        />
+        >
+          {/* Dégradé bleu du logo buupp (navy → bleu), comme la pastille
+              « b » du header. */}
+          <LinearGradient
+            colors={["#13235B", "#2F44C0"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
       ) : null}
 
       {items.map((it, i) => (
