@@ -124,7 +124,7 @@ function Row({
       }`}
     >
       <View
-        className="h-11 w-11 items-center justify-center rounded-xl border border-line bg-white"
+        className="h-11 w-11 items-center justify-center rounded-xl border border-line bg-paper"
         style={TILE_SHADOW}
       >
         {emoji ? (
@@ -409,7 +409,7 @@ export default function AccountPage() {
         />
 
         <Text className="mt-2 text-center text-[15px] text-ink-4">
-          Version de l'application {Application.nativeApplicationVersion ?? "1.0.0"}
+          Version de l&apos;application {Application.nativeApplicationVersion ?? "1.0.0"}
         </Text>
       </ScrollView>
 
@@ -516,7 +516,7 @@ export default function AccountPage() {
               style={{ backgroundColor: busy ? "#FCA5A5" : "#DC2626" }}
             >
               <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-              <Text className="text-sm font-semibold text-paper">
+              <Text className="text-sm font-semibold text-white">
                 {busy ? "Suppression…" : "Supprimer"}
               </Text>
             </Pressable>

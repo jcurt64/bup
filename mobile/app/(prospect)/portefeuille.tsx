@@ -305,14 +305,14 @@ export default function Portefeuille() {
                   {hello},
                 </Text>
                 <Text
-                  className="font-serif-italic text-2xl text-paper"
+                  className="font-serif-italic text-2xl text-white"
                   numberOfLines={1}
                 >
                   {firstName}
                 </Text>
               </>
             ) : (
-              <Text className="font-serif text-2xl text-paper">{hello}</Text>
+              <Text className="font-serif text-2xl text-white">{hello}</Text>
             )}
           </View>
           <View className="flex-row items-center gap-2">
@@ -326,7 +326,7 @@ export default function Portefeuille() {
             <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
               <Ionicons name="shield-checkmark" size={13} color="#C4B5FD" />
               <Text
-                className="text-[12px] font-semibold text-paper"
+                className="text-[12px] font-semibold text-white"
                 numberOfLines={1}
               >
                 {verifPill}
@@ -351,7 +351,7 @@ export default function Portefeuille() {
           </Text>
         </View>
         <View className="mt-1 flex-row items-end gap-1">
-          <Text className="font-serif text-5xl text-paper">
+          <Text className="font-serif text-5xl text-white">
             {scoreNum != null ? scoreNum : "…"}
           </Text>
           <Text className="mb-1.5 font-mono text-sm text-white/55">/ 1000</Text>
@@ -376,7 +376,7 @@ export default function Portefeuille() {
                   Votre portefeuille
                 </Text>
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-2xl bg-white"
+                  className="h-10 w-10 items-center justify-center rounded-2xl bg-paper"
                   style={{
                     shadowColor: "#0F1629",
                     shadowOpacity: 0.06,
@@ -463,7 +463,7 @@ export default function Portefeuille() {
               {/* Tuile icône (carré arrondi blanc) au-dessus du label,
                   même style que les cards Portefeuille / Mouvements. */}
               <View
-                className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-white"
+                className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-paper"
                 style={{
                   shadowColor: "#0F1629",
                   shadowOpacity: 0.06,
@@ -498,7 +498,7 @@ export default function Portefeuille() {
             « Activité » et titre serif « Mouvements ». */}
         <View className="mb-1 flex-row items-center gap-3">
           <View
-            className="h-11 w-11 items-center justify-center rounded-2xl bg-white"
+            className="h-11 w-11 items-center justify-center rounded-2xl bg-paper"
             style={{
               shadowColor: "#1B3A8F",
               shadowOpacity: 0.1,
@@ -562,7 +562,7 @@ export default function Portefeuille() {
                     }}
                   >
                     <View
-                      className="items-center justify-center rounded-full bg-white"
+                      className="items-center justify-center rounded-full bg-paper"
                       style={{
                         width: 116,
                         height: 116,
