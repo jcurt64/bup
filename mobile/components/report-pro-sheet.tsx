@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
+import { useTheme } from "../lib/theme";
 import {
   useReportRelation,
   type MovementRelation,
@@ -59,6 +60,7 @@ export function ReportProSheet({
    *  pour qu'il bascule l'UI sur l'état « déjà signalé ». */
   onSubmitted?: () => void;
 }) {
+  const { c, isDark } = useTheme();
   const report = useReportRelation();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [comment, setComment] = useState("");
@@ -161,8 +163,8 @@ export function ReportProSheet({
                 className="rounded-2xl px-4 py-3 active:opacity-80"
                 style={{
                   borderWidth: 1.5,
-                  borderColor: active ? "#4F46E5" : "#E6E3DA",
-                  backgroundColor: active ? "#EEF2FF" : "#FFFFFF",
+                  borderColor: active ? c.accent : c.borderSoft,
+                  backgroundColor: active ? c.accentSoft : c.surface,
                 }}
               >
                 <View className="flex-row items-center justify-between">
@@ -174,7 +176,7 @@ export function ReportProSheet({
                     {opt.label}
                   </Text>
                   {active ? (
-                    <Ionicons name="checkmark-circle" size={18} color="#4F46E5" />
+                    <Ionicons name="checkmark-circle" size={18} color={c.accent} />
                   ) : (
                     <View className="h-[18px] w-[18px] rounded-full border border-line" />
                   )}
@@ -200,14 +202,14 @@ export function ReportProSheet({
               value={comment}
               onChangeText={(t) => setComment(t.slice(0, 1000))}
               placeholder="Ajouter un détail à l'attention de l'équipe BUUPP (facultatif)"
-              placeholderTextColor="#B7BCC7"
+              placeholderTextColor={c.textMuted}
               multiline
               numberOfLines={4}
               style={{
                 minHeight: 80,
                 textAlignVertical: "top",
                 fontSize: 13,
-                color: "#0F1629",
+                color: c.text,
               }}
             />
           </View>
@@ -220,9 +222,9 @@ export function ReportProSheet({
           <View
             className="rounded-2xl px-3 py-2.5"
             style={{
-              backgroundColor: "#FEF2F2",
+              backgroundColor: isDark ? c.badSoft : "#FEF2F2",
               borderWidth: 1,
-              borderColor: "#FECACA",
+              borderColor: isDark ? c.bad : "#FECACA",
             }}
           >
             <Text className="text-[13px] text-bad">{error}</Text>

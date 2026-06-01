@@ -23,6 +23,7 @@ import { BuuppLoader } from "../components/loader";
 import { unregisterPushToken } from "../lib/push";
 import { useApi } from "../lib/api";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
+import { useTheme } from "../lib/theme";
 
 const WEB_BASE =
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
@@ -113,6 +114,7 @@ function Row({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -163,12 +165,13 @@ function Row({
           </View>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#B7BCC7" />
+      <Ionicons name="chevron-forward" size={18} color={c.ink5} />
     </Pressable>
   );
 }
 
 export default function AccountPage() {
+  const { c, isDark } = useTheme();
   const { signOut, getToken } = useAuth();
   const api = useApi();
   const versions = usePageVersions();
@@ -288,7 +291,7 @@ export default function AccountPage() {
           accessibilityLabel="Retour"
           className="h-10 w-10 items-center justify-center rounded-full bg-paper active:opacity-70"
         >
-          <Ionicons name="chevron-back" size={22} color="#0F1629" />
+          <Ionicons name="chevron-back" size={22} color={c.text} />
         </Pressable>
         <Text className="flex-1 text-center font-serif-bold text-2xl text-ink">
           Informations utiles
@@ -403,7 +406,7 @@ export default function AccountPage() {
         <Row
           icon="trash-outline"
           label="Suppression du compte"
-          color="#DC2626"
+          color={c.bad}
           danger
           onPress={() => setShowDeleteSheet(true)}
         />
@@ -428,16 +431,16 @@ export default function AccountPage() {
             <View
               className="mb-2.5 h-14 w-14 items-center justify-center rounded-full"
               style={{
-                backgroundColor: "#FEF2F2",
+                backgroundColor: isDark ? c.badSoft : "#FEF2F2",
                 borderWidth: 1,
-                borderColor: "#FCA5A5",
+                borderColor: isDark ? c.bad : "#FCA5A5",
               }}
             >
-              <Ionicons name="alert" size={28} color="#DC2626" />
+              <Ionicons name="alert" size={28} color={c.bad} />
             </View>
             <Text
               className="font-serif text-[20px] leading-6"
-              style={{ color: "#991B1B" }}
+              style={{ color: isDark ? c.bad : "#991B1B" }}
             >
               Suppression définitive du compte
             </Text>
@@ -450,18 +453,18 @@ export default function AccountPage() {
           <View
             className="rounded-xl"
             style={{
-              backgroundColor: "#FEF2F2",
+              backgroundColor: isDark ? c.badSoft : "#FEF2F2",
               borderLeftWidth: 3,
-              borderLeftColor: "#DC2626",
+              borderLeftColor: c.bad,
               borderWidth: 1,
-              borderColor: "#FCA5A5",
+              borderColor: isDark ? c.bad : "#FCA5A5",
               paddingHorizontal: 14,
               paddingVertical: 12,
             }}
           >
             <Text
               className="text-[13.5px] leading-5"
-              style={{ color: "#991B1B" }}
+              style={{ color: isDark ? c.bad : "#991B1B" }}
             >
               En supprimant définitivement votre compte, vous effacerez{" "}
               <Text className="font-semibold">
@@ -480,17 +483,17 @@ export default function AccountPage() {
           <View
             className="flex-row gap-2 rounded-xl"
             style={{
-              backgroundColor: "#FEF6E7",
+              backgroundColor: isDark ? c.tintAmber : "#FEF6E7",
               borderWidth: 1,
-              borderColor: "#F5C57A",
+              borderColor: isDark ? c.warn : "#F5C57A",
               paddingHorizontal: 12,
               paddingVertical: 10,
             }}
           >
-            <Ionicons name="warning-outline" size={16} color="#92400E" />
+            <Ionicons name="warning-outline" size={16} color={isDark ? c.gold : "#92400E"} />
             <Text
               className="flex-1 text-[12.5px] leading-5"
-              style={{ color: "#92400E" }}
+              style={{ color: isDark ? c.gold : "#92400E" }}
             >
               <Text className="font-semibold">Avant de continuer :</Text>{" "}
               pensez à récupérer vos gains — une fois supprimé, votre solde ne

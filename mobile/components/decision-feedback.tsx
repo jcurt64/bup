@@ -16,6 +16,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useTheme } from "../lib/theme";
+
 const POPPER = require("../assets/images/celebrate-popper.png");
 const PEACE = require("../assets/images/peace-sign.png");
 
@@ -132,6 +134,7 @@ export function DecisionFeedback({
 }: {
   decision: "accept" | "refuse";
 }) {
+  const { c } = useTheme();
   // Dimensions réelles de la card (mesurées) pour centrer l'éclatement.
   const [size, setSize] = useState({ w: 0, h: 0 });
   const onLayout = (e: LayoutChangeEvent) =>
@@ -144,9 +147,9 @@ export function DecisionFeedback({
         onLayout={onLayout}
         style={{
           padding: 18,
-          backgroundColor: "#FAF7FF",
+          backgroundColor: c.tintViolet,
           borderWidth: 1,
-          borderColor: "#E4DEF5",
+          borderColor: c.violetSoft,
           position: "relative",
         }}
       >
@@ -186,9 +189,9 @@ export function DecisionFeedback({
       className="rounded-2xl"
       style={{
         padding: 18,
-        backgroundColor: "#EFEADD",
+        backgroundColor: c.ivory2,
         borderWidth: 1,
-        borderColor: "#E6E3DA",
+        borderColor: c.borderSoft,
       }}
     >
       <View className="items-center">

@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useTheme } from "../lib/theme";
 
 export type BadgeTier = "cuivre" | "argent" | "or";
 
@@ -21,14 +22,12 @@ const TIER_GRADIENT: Record<BadgeTier, [string, string]> = {
 // Palette du popup (cf. pa.pdf).
 const VIOLET = "#7C5CFC";
 const VIOLET_DEEP = "#5B3FE0";
-const VIOLET_BG = "#F2EDFF"; // fonds cards violet clair (progress, CTA, palier courant)
+// Bordure lavande du popup en mode clair (basculée sur c.violetSoft en sombre).
 const VIOLET_BORDER = "#D5C8F7";
+// Pastille navy de l'en-tête (couleur de marque, identique dans les 2 modes).
 const NAVY = "#0F1629";
-const GRAY = "#6B7280";
-const GRAY_SOFT = "#8A91A1";
+// Doré « Golden Buupper » en mode clair (basculé sur c.gold en sombre).
 const GOLD = "#E0972F";
-const TAN = "#E6DFC9"; // segments / contours « à venir »
-const CARD_BORDER = "#ECE9E0";
 
 const TIER_ORDER: BadgeTier[] = ["cuivre", "argent", "or"];
 
@@ -99,6 +98,7 @@ function CrownPill({ tier, size = 22 }: { tier: BadgeTier; size?: number }) {
 // Stepper Bronze → Argent → Or : nœud passé = pastille pleine + ✓, nœud
 // courant = cercle blanc à liseré violet + numéro, nœud à venir = cercle vide.
 function Stepper({ currentIndex }: { currentIndex: number }) {
+  const { c } = useTheme();
   return (
     <View>
       <View style={{ height: 34, justifyContent: "center" }}>
@@ -117,7 +117,7 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
               flex: 1,
               height: 3,
               borderRadius: 2,
-              backgroundColor: currentIndex >= 1 ? VIOLET : TAN,
+              backgroundColor: currentIndex >= 1 ? VIOLET : c.track,
             }}
           />
           <View
@@ -125,7 +125,7 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
               flex: 1,
               height: 3,
               borderRadius: 2,
-              backgroundColor: currentIndex >= 2 ? VIOLET : TAN,
+              backgroundColor: currentIndex >= 2 ? VIOLET : c.track,
             }}
           />
         </View>
@@ -165,7 +165,7 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
                     width: 32,
                     height: 32,
                     borderRadius: 999,
-                    backgroundColor: "#fff",
+                    backgroundColor: c.surface,
                     borderWidth: 2.5,
                     borderColor: VIOLET,
                     alignItems: "center",
@@ -190,9 +190,9 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
                   width: 30,
                   height: 30,
                   borderRadius: 999,
-                  backgroundColor: "#fff",
+                  backgroundColor: c.surface,
                   borderWidth: 2,
-                  borderColor: TAN,
+                  borderColor: c.track,
                 }}
               />
             );
@@ -213,7 +213,7 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
             style={{
               fontSize: 13,
               fontWeight: i === currentIndex ? "700" : "500",
-              color: i === currentIndex ? VIOLET : GRAY_SOFT,
+              color: i === currentIndex ? VIOLET : c.textMuted,
             }}
           >
             {info.label}
@@ -260,6 +260,7 @@ export function ReferralBadge({
   founderNumber: number | null;
   filleulCount?: number;
 }) {
+  const { c, isDark } = useTheme();
   const [open, setOpen] = useState(false);
   const currentIndex = Math.max(0, TIER_ORDER.indexOf(tier));
   const remainingToOr = Math.max(0, 10 - filleulCount);
@@ -314,7 +315,7 @@ export function ReferralBadge({
           >
             {/* Dégradé en fond absolu (n'influe pas sur la layout). */}
             <LinearGradient
-              colors={["#EDE9F8", "#F7F4EC"]}
+              colors={isDark ? [c.surface, c.bg] : ["#EDE9F8", "#F7F4EC"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -356,7 +357,7 @@ export function ReferralBadge({
                     >
                       Programme parrainage
                     </Text>
-                    <Text className="font-serif" style={{ fontSize: 24, color: NAVY, marginTop: 1 }}>
+                    <Text className="font-serif" style={{ fontSize: 24, color: c.text, marginTop: 1 }}>
                       {founderNumber != null ? `Fondateur #${founderNumber}` : "Parrainage"}
                     </Text>
                   </View>
@@ -365,9 +366,9 @@ export function ReferralBadge({
                       paddingVertical: 7,
                       paddingHorizontal: 13,
                       borderRadius: 999,
-                      backgroundColor: VIOLET_BG,
+                      backgroundColor: c.tintViolet,
                       borderWidth: 1,
-                      borderColor: VIOLET_BORDER,
+                      borderColor: isDark ? c.violetSoft : VIOLET_BORDER,
                     }}
                   >
                     <Text style={{ fontSize: 13, color: VIOLET }}>
@@ -379,11 +380,11 @@ export function ReferralBadge({
                 {/* Carte progression : stepper + message */}
                 <View
                   style={{
-                    backgroundColor: "#EFEAFB",
+                    backgroundColor: c.tintViolet,
                     borderRadius: 22,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: "#E5DDF8",
+                    borderColor: isDark ? c.violetSoft : "#E5DDF8",
                   }}
                 >
                   <Stepper currentIndex={currentIndex} />
@@ -393,7 +394,7 @@ export function ReferralBadge({
                       flexDirection: "row",
                       alignItems: "center",
                       gap: 11,
-                      backgroundColor: "#fff",
+                      backgroundColor: c.surface,
                       borderRadius: 14,
                       padding: 12,
                     }}
@@ -403,14 +404,14 @@ export function ReferralBadge({
                         width: 32,
                         height: 32,
                         borderRadius: 10,
-                        backgroundColor: VIOLET_BG,
+                        backgroundColor: c.tintViolet,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
                       <Ionicons name="trending-up" size={16} color={VIOLET} />
                     </View>
-                    <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: NAVY }}>
+                    <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: c.text }}>
                       {isOr ? (
                         <>
                           Vous avez atteint le palier{" "}
@@ -442,9 +443,9 @@ export function ReferralBadge({
                         position: "relative",
                         borderRadius: 18,
                         padding: 16,
-                        backgroundColor: isCurrent ? VIOLET_BG : "#fff",
+                        backgroundColor: isCurrent ? c.tintViolet : c.surface,
                         borderWidth: isCurrent ? 1.5 : 1,
-                        borderColor: isCurrent ? VIOLET_BORDER : CARD_BORDER,
+                        borderColor: isCurrent ? (isDark ? c.violetSoft : VIOLET_BORDER) : c.borderSoft,
                         ...(isCurrent
                           ? {}
                           : {
@@ -493,14 +494,14 @@ export function ReferralBadge({
                           <View
                             style={{ flexDirection: "row", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}
                           >
-                            <Text className="font-serif" style={{ fontSize: 19, color: NAVY }}>
+                            <Text className="font-serif" style={{ fontSize: 19, color: c.text }}>
                               {info.label}
                             </Text>
                             <Text
                               style={{
                                 fontSize: 13,
                                 fontWeight: "600",
-                                color: isCurrent ? VIOLET : GRAY_SOFT,
+                                color: isCurrent ? VIOLET : c.textMuted,
                               }}
                             >
                               {info.range}
@@ -512,13 +513,13 @@ export function ReferralBadge({
                               fontSize: 11,
                               fontWeight: "700",
                               letterSpacing: 0.6,
-                              color: isCurrent ? VIOLET : NAVY,
+                              color: isCurrent ? VIOLET : c.text,
                             }}
                           >
                             {info.eyebrow}
                           </Text>
                           <Text
-                            style={{ marginTop: 6, fontSize: 13.5, lineHeight: 19, color: GRAY }}
+                            style={{ marginTop: 6, fontSize: 13.5, lineHeight: 19, color: c.textSub }}
                           >
                             {info.body}
                           </Text>
@@ -531,16 +532,16 @@ export function ReferralBadge({
                 {/* CTA */}
                 <View
                   style={{
-                    backgroundColor: VIOLET_BG,
+                    backgroundColor: c.tintViolet,
                     borderRadius: 18,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: "#E5DDF8",
+                    borderColor: isDark ? c.violetSoft : "#E5DDF8",
                   }}
                 >
-                  <Text style={{ fontSize: 14, lineHeight: 21, color: NAVY }}>
+                  <Text style={{ fontSize: 14, lineHeight: 21, color: c.text }}>
                     Parrainez des prospects pour monter de palier et devenir un{" "}
-                    <Text style={{ fontWeight: "700", color: GOLD }}>Golden Buupper</Text>.
+                    <Text style={{ fontWeight: "700", color: isDark ? c.gold : GOLD }}>Golden Buupper</Text>.
                     Votre lien se trouve dans l’onglet Parrainage.
                   </Text>
                   <Pressable
@@ -579,12 +580,12 @@ export function ReferralBadge({
                     alignItems: "center",
                     borderRadius: 16,
                     paddingVertical: 16,
-                    backgroundColor: "#fff",
+                    backgroundColor: c.surface,
                     borderWidth: 1,
-                    borderColor: CARD_BORDER,
+                    borderColor: c.borderSoft,
                   }}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: "600", color: NAVY }}>Fermer</Text>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: c.text }}>Fermer</Text>
                 </Pressable>
             </ScrollView>
           </View>

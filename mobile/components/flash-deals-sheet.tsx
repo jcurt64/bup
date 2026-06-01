@@ -34,6 +34,7 @@ import { BottomSheet } from "./bottom-sheet";
 import { DecisionFeedback } from "./decision-feedback";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
+import { useTheme } from "../lib/theme";
 import {
   isMockDeal,
   recordMockDealAccepted,
@@ -196,6 +197,7 @@ function Countdown({
   left: number;
   label?: string;
 }) {
+  const { c } = useTheme();
   const expired = hms === "Expirée";
   return (
     <View>
@@ -213,7 +215,7 @@ function Countdown({
             style={{
               fontSize: 15.5,
               fontWeight: "600",
-              color: expired ? B.coral : B.navy,
+              color: expired ? B.coral : c.text,
               letterSpacing: 0.5,
               fontVariant: ["tabular-nums"],
             }}
@@ -237,7 +239,7 @@ function Countdown({
         style={{
           height: 5,
           borderRadius: 3,
-          backgroundColor: B.ivoryD,
+          backgroundColor: c.track,
           overflow: "hidden",
           marginTop: 7,
         }}
@@ -269,6 +271,7 @@ function FlashDealCard({
   onOpen: (d: FlashDeal) => void;
   active: boolean;
 }) {
+  const { c, isDark } = useTheme();
   const hms = fmtHms(d.endsAt, nowTs);
   const left = progressLeft(d, nowTs);
   const m = dealMultNum(d);
@@ -299,10 +302,10 @@ function FlashDealCard({
     <Animated.View style={[{ width: CARD_W, flexShrink: 0 }, pulseStyle]}>
       <View
         style={{
-          backgroundColor: "#fff",
+          backgroundColor: c.surface,
           borderRadius: 22,
         borderWidth: 1,
-        borderColor: B.line,
+        borderColor: c.borderSoft,
         overflow: "hidden",
         shadowColor: B.navy,
         shadowOpacity: 0.07,
@@ -335,11 +338,11 @@ function FlashDealCard({
                 paddingVertical: 5,
                 paddingHorizontal: 10,
                 borderRadius: 999,
-                backgroundColor: "#E8F5EE",
+                backgroundColor: isDark ? c.goodSoft : "#E8F5EE",
               }}
             >
-              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: "#16A34A" }}>
+              <Ionicons name="checkmark-circle" size={14} color={c.good} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.good }}>
                 Accepté
               </Text>
             </View>
@@ -352,14 +355,14 @@ function FlashDealCard({
           <Text
             className="font-serif"
             numberOfLines={1}
-            style={{ fontSize: 20, color: B.navy }}
+            style={{ fontSize: 20, color: c.text }}
           >
             {d.proName ?? "Un professionnel"}
           </Text>
           {d.proSector ? (
             <Text
               numberOfLines={1}
-              style={{ fontSize: 12.5, color: B.muted, marginTop: 3 }}
+              style={{ fontSize: 12.5, color: c.textSub, marginTop: 3 }}
             >
               {d.proSector}
             </Text>
@@ -372,9 +375,9 @@ function FlashDealCard({
             paddingVertical: 13,
             paddingHorizontal: 15,
             borderRadius: 16,
-            backgroundColor: B.ivory,
+            backgroundColor: c.surface2,
             borderWidth: 1,
-            borderColor: B.line,
+            borderColor: c.borderSoft,
           }}
         >
           <View
@@ -385,20 +388,20 @@ function FlashDealCard({
             }}
           >
             <Text
-              style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: B.muted }}
+              style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: c.textSub }}
             >
               RÉCOMPENSE
             </Text>
             <Text
-              style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: tint.fg }}
+              style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: m >= 3 ? tint.fg : isDark ? c.gold : tint.fg }}
             >
               ×{m} GAINS
             </Text>
           </View>
-          <Text className="font-serif" style={{ fontSize: 30, color: B.navy, marginTop: 5 }}>
+          <Text className="font-serif" style={{ fontSize: 30, color: c.text, marginTop: 5 }}>
             {fmtEur(d.costPerContactCents)}
           </Text>
-          <Text style={{ fontSize: 11.5, color: B.muted, marginTop: 5 }}>
+          <Text style={{ fontSize: 11.5, color: c.textSub, marginTop: 5 }}>
             Gains multipliés ×{m} — fenêtre éclair
           </Text>
         </View>
@@ -413,17 +416,17 @@ function FlashDealCard({
             marginTop: 15,
             paddingVertical: 13,
             borderRadius: 13,
-            backgroundColor: B.navy,
+            backgroundColor: c.btnBg,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
           }}
         >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: B.ivoryW }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: c.btnText }}>
             Voir le détail
           </Text>
-          <Ionicons name="chevron-forward" size={16} color={B.ivoryW} />
+          <Ionicons name="chevron-forward" size={16} color={c.btnText} />
         </Pressable>
         </View>
       </View>
@@ -447,6 +450,7 @@ function FlashDealDetailSheet({
   onClose: () => void;
   nowTs: number;
 }) {
+  const { c, isDark } = useTheme();
   const decide = useDecideRelation();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
@@ -634,21 +638,21 @@ function FlashDealDetailSheet({
                 width: 30,
                 height: 30,
                 borderRadius: 999,
-                backgroundColor: "#fff",
+                backgroundColor: c.surface,
                 borderWidth: 1,
-                borderColor: B.line,
+                borderColor: c.borderSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="close" size={16} color={B.muted} />
+              <Ionicons name="close" size={16} color={c.textSub} />
             </Pressable>
           </View>
 
-          <Text className="font-serif" style={{ fontSize: 26, color: B.navy, marginTop: 14 }}>
+          <Text className="font-serif" style={{ fontSize: 26, color: c.text, marginTop: 14 }}>
             {d.proName ?? "Un professionnel"}
           </Text>
-          <Text style={{ fontSize: 14, color: B.muted, marginTop: 4 }}>
+          <Text style={{ fontSize: 14, color: c.textSub, marginTop: 4 }}>
             {[d.proSector, d.name].filter(Boolean).join(" · ")}
           </Text>
 
@@ -685,9 +689,9 @@ function FlashDealDetailSheet({
           >
             <Ionicons name="time-outline" size={15} color={B.coral} />
             {expired ? (
-              <Text style={{ fontSize: 13.5, color: B.navy }}>Cette offre a expiré.</Text>
+              <Text style={{ fontSize: 13.5, color: c.text }}>Cette offre a expiré.</Text>
             ) : (
-              <Text style={{ fontSize: 13.5, color: B.navy }}>
+              <Text style={{ fontSize: 13.5, color: c.text }}>
                 Plus que{" "}
                 <Text
                   className="font-mono"
@@ -708,9 +712,9 @@ function FlashDealDetailSheet({
                 paddingVertical: 15,
                 paddingHorizontal: 17,
                 borderRadius: 16,
-                backgroundColor: B.ivoryD,
+                backgroundColor: c.surface2,
                 borderWidth: 1,
-                borderColor: B.line,
+                borderColor: c.borderSoft,
               }}
             >
               <Text
@@ -719,14 +723,14 @@ function FlashDealDetailSheet({
                   fontWeight: "700",
                   letterSpacing: 1.2,
                   textTransform: "uppercase",
-                  color: B.muted,
+                  color: c.textSub,
                 }}
               >
                 Le mot du professionnel
               </Text>
               <Text
                 className="font-serif-italic"
-                style={{ fontSize: 16, color: B.navy, lineHeight: 22, marginTop: 8 }}
+                style={{ fontSize: 16, color: c.text, lineHeight: 22, marginTop: 8 }}
               >
                 « {d.brief} »
               </Text>
@@ -736,7 +740,7 @@ function FlashDealDetailSheet({
           {/* Données demandées */}
           {d.requiredTierKeys?.length > 0 ? (
             <View style={{ marginTop: 16 }}>
-              <Text style={{ fontSize: 13, color: B.muted, marginBottom: 9 }}>
+              <Text style={{ fontSize: 13, color: c.textSub, marginBottom: 9 }}>
                 Données demandées
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -749,14 +753,14 @@ function FlashDealDetailSheet({
                         paddingVertical: 7,
                         paddingHorizontal: 11,
                         borderRadius: 9,
-                        backgroundColor: miss ? "#FEF6E7" : "#fff",
+                        backgroundColor: miss ? (isDark ? c.tintAmber : "#FEF6E7") : c.surface,
                         borderWidth: 1,
-                        borderColor: miss ? "#F5C57A" : B.line,
+                        borderColor: miss ? (isDark ? c.warn : "#F5C57A") : c.borderSoft,
                       }}
                     >
                       <Text
                         className="font-mono"
-                        style={{ fontSize: 12.5, color: miss ? "#92400E" : B.navy }}
+                        style={{ fontSize: 12.5, color: miss ? (isDark ? c.gold : "#92400E") : c.text }}
                       >
                         {TIER_KEY_LABEL_FR[k] ?? k}
                       </Text>
@@ -775,9 +779,9 @@ function FlashDealDetailSheet({
               <View className="gap-2">
                 <View
                   className="rounded-xl px-3 py-2.5"
-                  style={{ backgroundColor: "#FEF6E7", borderWidth: 1, borderColor: "#F5C57A" }}
+                  style={{ backgroundColor: isDark ? c.tintAmber : "#FEF6E7", borderWidth: 1, borderColor: isDark ? c.warn : "#F5C57A" }}
                 >
-                  <Text className="text-[13px] leading-5" style={{ color: "#92400E" }}>
+                  <Text className="text-[13px] leading-5" style={{ color: isDark ? c.gold : "#92400E" }}>
                     Pour accepter ce deal, complétez d’abord{" "}
                     <Text className="font-semibold">
                       {missing.map((k) => TIER_KEY_LABEL_FR[k] ?? k).join(", ")}
@@ -799,7 +803,7 @@ function FlashDealDetailSheet({
                     <Text className="text-sm font-semibold text-paper">
                       Compléter mes données
                     </Text>
-                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    <Ionicons name="arrow-forward" size={14} color={c.btnText} />
                   </Pressable>
                 </View>
               </View>
@@ -828,11 +832,11 @@ function FlashDealDetailSheet({
               <View className="gap-2">
                 <View
                   className="rounded-xl px-3 py-2.5"
-                  style={{ backgroundColor: "#E8F5EE", borderWidth: 1, borderColor: "#B8DDC4" }}
+                  style={{ backgroundColor: isDark ? c.goodSoft : "#E8F5EE", borderWidth: 1, borderColor: isDark ? c.good : "#B8DDC4" }}
                 >
                   <View className="flex-row items-center gap-1.5">
-                    <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-                    <Text className="text-[13px] font-semibold" style={{ color: "#0F1629" }}>
+                    <Ionicons name="checkmark-circle" size={14} color={c.good} />
+                    <Text className="text-[13px] font-semibold" style={{ color: c.text }}>
                       Sollicitation déjà acceptée.
                     </Text>
                   </View>
@@ -853,7 +857,7 @@ function FlashDealDetailSheet({
               </View>
             ) : d.relationStatus === "settled" ? (
               <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-good/10 py-2.5">
-                <Ionicons name="checkmark-done-circle" size={14} color="#16A34A" />
+                <Ionicons name="checkmark-done-circle" size={14} color={c.good} />
                 <Text className="text-[13px] font-medium text-good">
                   Sollicitation acceptée · créditée
                 </Text>
@@ -862,9 +866,9 @@ function FlashDealDetailSheet({
               <View className="gap-2">
                 <View
                   className="rounded-xl px-3 py-2.5"
-                  style={{ backgroundColor: "#EFEADD", borderWidth: 1, borderColor: "#E6E3DA" }}
+                  style={{ backgroundColor: c.ivory2, borderWidth: 1, borderColor: c.line }}
                 >
-                  <Text className="text-[13px] font-semibold" style={{ color: "#0F1629" }}>
+                  <Text className="text-[13px] font-semibold" style={{ color: c.text }}>
                     Vous avez refusé cette sollicitation.
                   </Text>
                   <Text className="mt-1 text-[12px] leading-4 text-ink-4">
@@ -881,13 +885,13 @@ function FlashDealDetailSheet({
                     {busy === "accept" ? "Acceptation en cours…" : "Accepter finalement"}
                   </Text>
                   {busy === "accept" ? null : (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={14} color={c.btnText} />
                   )}
                 </Pressable>
               </View>
             ) : d.relationStatus === "refused" ? (
               <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-bad/10 py-2.5">
-                <Ionicons name="close-circle" size={14} color="#DC2626" />
+                <Ionicons name="close-circle" size={14} color={c.bad} />
                 <Text className="text-[13px] font-medium text-bad">
                   Sollicitation refusée
                 </Text>
@@ -896,16 +900,16 @@ function FlashDealDetailSheet({
               <Pressable
                 onPress={() => router.push("/(prospect)/donnees")}
                 className="flex-row items-center justify-center gap-2 rounded-full py-3 active:opacity-80"
-                style={{ backgroundColor: "#F2B65A" }}
+                style={{ backgroundColor: c.amber }}
               >
                 <Ionicons name="document-text-outline" size={16} color="#0F1629" />
-                <Text className="text-sm font-semibold text-ink">Compléter mes données</Text>
+                <Text className="text-sm font-semibold" style={{ color: "#0F1629" }}>Compléter mes données</Text>
               </Pressable>
             ) : (
               <View className="gap-2">
                 <View
                   className="rounded-xl px-3 py-2.5"
-                  style={{ backgroundColor: "#EFEADD", borderWidth: 1, borderColor: "#E6E3DA" }}
+                  style={{ backgroundColor: c.ivory2, borderWidth: 1, borderColor: c.line }}
                 >
                   <Text className="text-[12.5px] leading-5 text-ink-2">
                     Cette campagne ne correspond pas à votre profil (zone géographique,
@@ -920,7 +924,7 @@ function FlashDealDetailSheet({
                   <Text className="text-sm font-semibold text-paper">
                     Compléter mes données pour accepter le deal
                   </Text>
-                  <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                  <Ionicons name="arrow-forward" size={14} color={c.btnText} />
                 </Pressable>
               </View>
             )}
@@ -935,6 +939,7 @@ function FlashDealDetailSheet({
 // « RÉMUNÉRATION ×2 » + titre + pill ambre « Bonus ×2 » + intro. Partagé
 // par l'état vide et la liste de deals.
 function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
+  const { c, isDark } = useTheme();
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 13 }}>
@@ -964,14 +969,14 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
               fontWeight: "700",
               letterSpacing: 1.2,
               textTransform: "uppercase",
-              color: B.violet,
+              color: c.violet,
             }}
           >
             Rémunération ×2
           </Text>
           <Text
             className="font-serif"
-            style={{ fontSize: 25, color: B.navy, marginTop: 2 }}
+            style={{ fontSize: 25, color: c.text, marginTop: 2 }}
           >
             Flash deals
           </Text>
@@ -984,28 +989,28 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
             paddingVertical: 6,
             paddingHorizontal: 11,
             borderRadius: 999,
-            backgroundColor: B.amberL,
+            backgroundColor: c.tintAmber,
             borderWidth: 1,
-            borderColor: B.amberBorder,
+            borderColor: isDark ? c.warn : B.amberBorder,
           }}
         >
-          <Ionicons name="flash" size={12} color={B.amber} />
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: B.amberTxt }}>
+          <Ionicons name="flash" size={12} color={isDark ? c.gold : B.amber} />
+          <Text style={{ fontSize: 11.5, fontWeight: "700", color: isDark ? c.gold : B.amberTxt }}>
             Bonus ×2
           </Text>
         </View>
       </View>
       <Text
-        style={{ marginTop: 14, fontSize: 14.5, lineHeight: 22, color: B.muted }}
+        style={{ marginTop: 14, fontSize: 14.5, lineHeight: 22, color: c.textSub }}
       >
         {hasDeals ? (
           <>
             Les sollicitations les{" "}
-            <Text style={{ color: B.navy, fontWeight: "600" }}>
+            <Text style={{ color: c.text, fontWeight: "600" }}>
               mieux rémunérées
             </Text>{" "}
             du moment, avec un{" "}
-            <Text style={{ color: B.violetD, fontWeight: "600" }}>
+            <Text style={{ color: c.violetDeep, fontWeight: "600" }}>
               bonus ×2 immédiat
             </Text>
             . Elles partent vite — sautez sur l’occasion ! ⚡
@@ -1013,11 +1018,11 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
         ) : (
           <>
             Les sollicitations les{" "}
-            <Text style={{ color: B.navy, fontWeight: "600" }}>
+            <Text style={{ color: c.text, fontWeight: "600" }}>
               mieux rémunérées
             </Text>{" "}
             de buupp, avec un{" "}
-            <Text style={{ color: B.violetD, fontWeight: "600" }}>
+            <Text style={{ color: c.violetDeep, fontWeight: "600" }}>
               bonus ×2 immédiat
             </Text>
             . Elles partent vite — soyez prêt·e à saisir la prochaine.
@@ -1169,6 +1174,7 @@ function FlashRadar({ active }: { active: boolean }) {
 // Pastille « Scan actif · en veille » — point vert avec halo pulsant (fdpulse
 // de la maquette : scale 1→2.4, opacité 1→0).
 function ScanPill({ active }: { active: boolean }) {
+  const { c, isDark } = useTheme();
   const p = useSharedValue(0);
   useEffect(() => {
     if (!active) {
@@ -1197,9 +1203,9 @@ function ScanPill({ active }: { active: boolean }) {
         paddingVertical: 6,
         paddingHorizontal: 13,
         borderRadius: 999,
-        backgroundColor: "#fff",
+        backgroundColor: c.surface,
         borderWidth: 1,
-        borderColor: B.greenL,
+        borderColor: isDark ? c.good : B.greenL,
       }}
     >
       <View
@@ -1221,7 +1227,7 @@ function ScanPill({ active }: { active: boolean }) {
           style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: B.green }}
         />
       </View>
-      <Text style={{ fontSize: 11.5, fontWeight: "600", color: B.greenTxt }}>
+      <Text style={{ fontSize: 11.5, fontWeight: "600", color: c.good }}>
         Scan actif · en veille
       </Text>
     </View>
@@ -1242,13 +1248,14 @@ function RadarEmptyState({
   onCompleteData: () => void;
   active: boolean;
 }) {
+  const { c, isDark } = useTheme();
   const bars = [6, 9, 5, 28, 7, 5, 8];
   const pct = Math.max(0, Math.min(100, Math.round(profilePct)));
   return (
     <View>
       {/* Carte radar (fond dégradé violet clair → ivoire ≈ radial maquette) */}
       <LinearGradient
-        colors={[B.violetXL, B.ivoryW]}
+        colors={isDark ? [c.tintViolet, c.surface] : [B.violetXL, B.ivoryW]}
         locations={[0, 0.72]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -1257,7 +1264,7 @@ function RadarEmptyState({
           marginTop: 18,
           borderRadius: 24,
           borderWidth: 1,
-          borderColor: B.violetL,
+          borderColor: isDark ? c.violetSoft : B.violetL,
           paddingTop: 26,
           paddingHorizontal: 20,
           paddingBottom: 22,
@@ -1267,14 +1274,14 @@ function RadarEmptyState({
         <View style={{ alignItems: "center", marginTop: 4 }}>
           <Text
             className="font-serif"
-            style={{ fontSize: 21, color: B.navy, textAlign: "center" }}
+            style={{ fontSize: 21, color: c.text, textAlign: "center" }}
           >
             Aucun flash deal en cours
           </Text>
           <Text
             style={{
               fontSize: 13.5,
-              color: B.muted,
+              color: c.textSub,
               lineHeight: 20,
               marginTop: 6,
               maxWidth: 280,
@@ -1297,9 +1304,9 @@ function RadarEmptyState({
           paddingVertical: 14,
           paddingHorizontal: 15,
           borderRadius: 18,
-          backgroundColor: B.violetXL,
+          backgroundColor: c.tintViolet,
           borderWidth: 1,
-          borderColor: B.violetL,
+          borderColor: isDark ? c.violetSoft : B.violetL,
         }}
       >
         <View
@@ -1307,14 +1314,14 @@ function RadarEmptyState({
             width: 34,
             height: 34,
             borderRadius: 11,
-            backgroundColor: "#fff",
+            backgroundColor: c.surface,
             borderWidth: 1,
-            borderColor: B.violetL,
+            borderColor: isDark ? c.violetSoft : B.violetL,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Ionicons name="bulb-outline" size={17} color={B.violet} />
+          <Ionicons name="bulb-outline" size={17} color={c.violet} />
         </View>
         <View style={{ flex: 1 }}>
           <Text
@@ -1323,13 +1330,13 @@ function RadarEmptyState({
               fontWeight: "700",
               letterSpacing: 1.2,
               textTransform: "uppercase",
-              color: B.violetD,
+              color: c.violetDeep,
             }}
           >
             Astuce
           </Text>
           <Text
-            style={{ marginTop: 5, fontSize: 13, lineHeight: 20, color: B.navy }}
+            style={{ marginTop: 5, fontSize: 13, lineHeight: 20, color: c.text }}
           >
             Plus votre profil est complet, plus vous matchez de flash deals. La
             plupart partent en{" "}
@@ -1348,24 +1355,24 @@ function RadarEmptyState({
           paddingVertical: 13,
           paddingHorizontal: 16,
           borderRadius: 18,
-          backgroundColor: B.ivoryW,
+          backgroundColor: c.surface,
           borderWidth: 1,
-          borderColor: B.line,
+          borderColor: c.borderSoft,
         }}
       >
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7 }}>
             <Text
               className="font-serif"
-              style={{ fontSize: 26, color: B.navy }}
+              style={{ fontSize: 26, color: c.text }}
             >
               {acceptedCount}
             </Text>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: B.navy }}>
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
               {acceptedCount <= 1 ? "flash deal accepté" : "flash deals acceptés"}
             </Text>
           </View>
-          <Text style={{ fontSize: 11.5, color: B.mutedL, marginTop: 3 }}>
+          <Text style={{ fontSize: 11.5, color: c.textMuted, marginTop: 3 }}>
             sur les 7 derniers jours
           </Text>
         </View>
@@ -1384,7 +1391,7 @@ function RadarEmptyState({
                 width: 5,
                 height: h,
                 borderRadius: 2,
-                backgroundColor: h > 20 ? B.violet : B.lineD,
+                backgroundColor: h > 20 ? c.violet : c.track,
               }}
             />
           ))}
@@ -1401,8 +1408,8 @@ function RadarEmptyState({
             marginBottom: 8,
           }}
         >
-          <Text style={{ fontSize: 12.5, color: B.muted }}>Profil complété</Text>
-          <Text style={{ fontSize: 12.5, fontWeight: "700", color: B.violetD }}>
+          <Text style={{ fontSize: 12.5, color: c.textSub }}>Profil complété</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: "700", color: c.violetDeep }}>
             {pct} %
           </Text>
         </View>
@@ -1410,7 +1417,7 @@ function RadarEmptyState({
           style={{
             height: 7,
             borderRadius: 4,
-            backgroundColor: B.ivoryD,
+            backgroundColor: c.track,
             overflow: "hidden",
           }}
         >
@@ -1430,7 +1437,7 @@ function RadarEmptyState({
           marginTop: 14,
           paddingVertical: 16,
           borderRadius: 16,
-          backgroundColor: B.navy,
+          backgroundColor: c.btnBg,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
@@ -1442,17 +1449,17 @@ function RadarEmptyState({
           elevation: 6,
         }}
       >
-        <Text style={{ fontSize: 15, fontWeight: "600", color: B.ivoryW }}>
+        <Text style={{ fontSize: 15, fontWeight: "600", color: c.btnText }}>
           Compléter mes données
         </Text>
-        <Ionicons name="chevron-forward" size={17} color={B.ivoryW} />
+        <Ionicons name="chevron-forward" size={17} color={c.btnText} />
       </Pressable>
       <Text
         style={{
           textAlign: "center",
           marginTop: 9,
           fontSize: 11.5,
-          color: B.mutedL,
+          color: c.textMuted,
         }}
       >
         Débloquez davantage de flash deals à fort bonus
@@ -1615,6 +1622,7 @@ export function FlashDealsSheet({
   visible: boolean;
   onClose: () => void;
 }) {
+  const { c } = useTheme();
   const q = useFlashDeals();
   const deals = q.data?.deals ?? [];
   // Flash deals que CE prospect a acceptés sur les 7 derniers jours
@@ -1743,7 +1751,7 @@ export function FlashDealsSheet({
                       width: on ? 18 : 7,
                       height: 7,
                       borderRadius: 999,
-                      backgroundColor: on ? B.violet : B.lineD,
+                      backgroundColor: on ? c.violet : c.track,
                     }}
                   />
                 );

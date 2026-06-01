@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BottomSheet } from "./bottom-sheet";
 import { ReportProSheet } from "./report-pro-sheet";
 import { ApiError } from "../lib/api";
+import { useTheme } from "../lib/theme";
 import {
   isMockDeal,
   isMockSollicitation,
@@ -451,10 +452,11 @@ function DetailRow({
   children: React.ReactNode;
   last?: boolean;
 }) {
+  const { c } = useTheme();
   return (
     <View
       className="flex-row items-center justify-between py-3"
-      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: "#EFEADD" }}
+      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: c.borderSoft }}
     >
       <Text className="text-[13.5px] text-ink-3">{label}</Text>
       <View className="ml-3 shrink-0">{children}</View>
@@ -519,10 +521,11 @@ function LabelValue({
   children: React.ReactNode;
   align?: "left" | "right";
 }) {
+  const { c } = useTheme();
   return (
     <View style={{ alignItems: align === "right" ? "flex-end" : "flex-start" }}>
       <View className="flex-row items-center gap-1">
-        {icon ? <Ionicons name={icon} size={10} color="#8A91A1" /> : null}
+        {icon ? <Ionicons name={icon} size={10} color={c.textMuted} /> : null}
         <Text
           className="font-mono text-[10px] uppercase text-ink-4"
           style={{ letterSpacing: 0.8 }}
@@ -544,6 +547,7 @@ export function MovementDetailSheet({
   onClose: () => void;
   relation: MovementRelation | null;
 }) {
+  const { c } = useTheme();
   const decide = useDecideRelation();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
@@ -670,33 +674,35 @@ export function MovementDetailSheet({
   }
 
   // Couleurs de bannière selon état (parité web color-mix accent/good).
+  // Fonds = tints de la palette (basculent clair/sombre) ; bordure neutre
+  // borderSoft ; icône = accent vif. Lisible sur fond sombre.
   const bannerTone = alreadyAccepted
-    ? { bg: "#E8F5EE", border: "#B8DDC4", icon: "#16A34A" as const, label: "Acceptée" }
+    ? { bg: c.tintGreen, border: c.borderSoft, icon: c.good, label: "Acceptée" }
     : canAccept
-      ? { bg: "#EEF2FF", border: "#C7D2FE", icon: "#4F46E5" as const, label: "Encore ouverte" }
+      ? { bg: c.accentSoft, border: c.borderSoft, icon: c.accent, label: "Encore ouverte" }
       : alreadyRefused
-        ? { bg: "#FEF2F2", border: "#FECACA", icon: "#DC2626" as const, label: "Refusée" }
-        : { bg: "#F7F4EC", border: "#E6E3DA", icon: "#8A91A1" as const, label: "Clôturée" };
+        ? { bg: c.tintCoral, border: c.borderSoft, icon: c.bad, label: "Refusée" }
+        : { bg: c.field, border: c.borderSoft, icon: c.textMuted, label: "Clôturée" };
 
   // Pastille d'état affichée en regard de la récompense (carte d'en-tête).
   const rewardPill =
     r.relationStatus === "settled"
-      ? { bg: "#E8F5EE", border: "#B8DDC4", color: "#16A34A", icon: "checkmark-circle" as const, label: "Crédité" }
+      ? { bg: c.tintGreen, border: c.borderSoft, color: c.good, icon: "checkmark-circle" as const, label: "Crédité" }
       : alreadyAccepted
-        ? { bg: "#FCEFD6", border: "#F2DDB0", color: "#B45309", icon: "lock-closed" as const, label: "En séquestre" }
+        ? { bg: c.tintAmber, border: c.borderSoft, color: c.gold, icon: "lock-closed" as const, label: "En séquestre" }
         : alreadyRefused
-          ? { bg: "#FEF2F2", border: "#FECACA", color: "#DC2626", icon: "close-circle" as const, label: "Refusée" }
+          ? { bg: c.tintCoral, border: c.borderSoft, color: c.bad, icon: "close-circle" as const, label: "Refusée" }
           : canAccept
-            ? { bg: "#EEF2FF", border: "#C7D2FE", color: "#4F46E5", icon: "time-outline" as const, label: "Ouverte" }
-            : { bg: "#F2EEE4", border: "#E6E3DA", color: "#8A91A1", icon: "ellipse-outline" as const, label: "Clôturée" };
+            ? { bg: c.accentSoft, border: c.borderSoft, color: c.accent, icon: "time-outline" as const, label: "Ouverte" }
+            : { bg: c.field, border: c.borderSoft, color: c.textMuted, icon: "ellipse-outline" as const, label: "Clôturée" };
 
   // Lignes du tableau récapitulatif (toutes dérivées de la base).
   const statusCampaign =
     r.decision === "Acceptée"
-      ? { label: "Acceptée", color: "#16A34A" }
+      ? { label: "Acceptée", color: c.good }
       : r.decision === "Refusée"
-        ? { label: "Refusée", color: "#DC2626" }
-        : { label: r.decision || "—", color: "#0F1629" };
+        ? { label: "Refusée", color: c.bad }
+        : { label: r.decision || "—", color: c.text };
 
   const primaryTier =
     Array.isArray(r.tiers) && r.tiers.length > 0
@@ -719,7 +725,7 @@ export function MovementDetailSheet({
             récompense + pastille d'état (cf. det.pdf). */}
         <View
           className="rounded-3xl px-4 pb-4 pt-4"
-          style={{ backgroundColor: "#F4F2FC", borderWidth: 1, borderColor: "#E7E2F6" }}
+          style={{ backgroundColor: c.tintViolet, borderWidth: 1, borderColor: c.violetSoft }}
         >
           <View className="flex-row items-start gap-3">
             <LinearGradient
@@ -755,7 +761,7 @@ export function MovementDetailSheet({
             </View>
             <View
               className="rounded-full bg-paper px-3 py-1"
-              style={{ borderWidth: 1, borderColor: "#D9D0F2" }}
+              style={{ borderWidth: 1, borderColor: c.violetSoft }}
             >
               <Text className="text-[11px] font-semibold text-violet">
                 {tierChipLabel(r)}
@@ -763,7 +769,7 @@ export function MovementDetailSheet({
             </View>
           </View>
 
-          <View className="my-3.5 h-px" style={{ backgroundColor: "#E2DCF3" }} />
+          <View className="my-3.5 h-px" style={{ backgroundColor: c.violetSoft }} />
 
           <View className="flex-row items-center justify-between">
             <View>
@@ -843,7 +849,7 @@ export function MovementDetailSheet({
             </Text>
             <View
               className="flex-row rounded-2xl px-4 py-3.5"
-              style={{ backgroundColor: "#F0ECFA", borderWidth: 1, borderColor: "#E2DCF3" }}
+              style={{ backgroundColor: c.tintViolet, borderWidth: 1, borderColor: c.violetSoft }}
             >
               <Text
                 className="font-serif-bold text-3xl text-violet"
@@ -896,7 +902,7 @@ export function MovementDetailSheet({
         {/* Tableau récapitulatif — statut · palier · référence · solde. */}
         <View
           className="rounded-2xl bg-paper px-4"
-          style={{ borderWidth: 1, borderColor: "#EFEADD" }}
+          style={{ borderWidth: 1, borderColor: c.borderSoft }}
         >
           <DetailRow label="Statut campagne">
             <Text className="text-[14px] font-semibold" style={{ color: statusCampaign.color }}>
@@ -961,7 +967,7 @@ export function MovementDetailSheet({
         <View className="mt-0.5 items-center">
           {reportedLocal ? (
             <View className="flex-row items-center gap-1.5 rounded-full bg-ivory-2 px-3 py-1">
-              <Ionicons name="flag" size={11} color="#8A91A1" />
+              <Ionicons name="flag" size={11} color={c.textMuted} />
               <Text className="text-[11px] text-ink-4">
                 Signalement déjà transmis
               </Text>
@@ -973,7 +979,7 @@ export function MovementDetailSheet({
               accessibilityRole="button"
               accessibilityLabel="Signaler ce professionnel"
             >
-              <Ionicons name="flag-outline" size={13} color="#DC2626" />
+              <Ionicons name="flag-outline" size={13} color={c.bad} />
               <Text className="text-[12.5px] font-medium text-bad">
                 Signaler ce professionnel
               </Text>

@@ -21,6 +21,7 @@ import {
   type Notif,
 } from "../lib/queries";
 import { useAuthedDownload } from "../lib/use-authed-download";
+import { useTheme } from "../lib/theme";
 
 export function MessageDetailModal({
   notif,
@@ -31,6 +32,7 @@ export function MessageDetailModal({
   visible: boolean;
   onClose: () => void;
 }) {
+  const { c } = useTheme();
   const del = useDeleteNotification();
   const download = useAuthedDownload();
   const qc = useQueryClient();
@@ -84,7 +86,7 @@ export function MessageDetailModal({
           accessibilityLabel="Retour"
           className="h-10 w-10 flex-row items-center justify-center rounded-full bg-paper active:opacity-70"
         >
-          <Ionicons name="chevron-back" size={22} color="#0F1629" />
+          <Ionicons name="chevron-back" size={22} color={c.text} />
         </Pressable>
         <Text className="flex-1 font-serif-bold text-lg text-ink">Messages</Text>
         {notif ? (
@@ -94,7 +96,7 @@ export function MessageDetailModal({
             accessibilityLabel="Supprimer ce message"
             className="h-10 w-10 items-center justify-center rounded-full bg-paper active:opacity-70"
           >
-            <Ionicons name="trash-outline" size={19} color="#DC2626" />
+            <Ionicons name="trash-outline" size={19} color={c.bad} />
           </Pressable>
         ) : (
           <View className="h-10 w-10" />
@@ -103,7 +105,7 @@ export function MessageDetailModal({
 
       {!notif || !cat ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Ionicons name="mail-open-outline" size={40} color="#9AA1AD" />
+          <Ionicons name="mail-open-outline" size={40} color={c.textMuted} />
           <Text className="mt-3 text-center text-[15px] text-ink-3">
             Ce message n’est plus disponible.
           </Text>
@@ -143,7 +145,7 @@ export function MessageDetailModal({
           {/* Titre */}
           <Text
             className="font-serif"
-            style={{ fontSize: 27, lineHeight: 34, color: "#0F1629", marginTop: 14 }}
+            style={{ fontSize: 27, lineHeight: 34, color: c.text, marginTop: 14 }}
           >
             {notif.title}
           </Text>
@@ -168,17 +170,17 @@ export function MessageDetailModal({
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text style={{ fontSize: 14.5, fontWeight: "700", color: "#0F1629" }}>
+                <Text style={{ fontSize: 14.5, fontWeight: "700", color: c.text }}>
                   Équipe BUUPP
                 </Text>
-                <Ionicons name="checkmark-circle" size={14} color="#7C5CFC" />
+                <Ionicons name="checkmark-circle" size={14} color={c.violet} />
               </View>
-              <Text style={{ fontSize: 12.5, color: "#9AA1AD", marginTop: 1 }}>
+              <Text style={{ fontSize: 12.5, color: c.textMuted, marginTop: 1 }}>
                 Message officiel
               </Text>
             </View>
             <Text
-              style={{ fontSize: 12.5, color: "#9AA1AD", textAlign: "right" }}
+              style={{ fontSize: 12.5, color: c.textMuted, textAlign: "right" }}
               numberOfLines={2}
             >
               {fmtMessageDate(notif.createdAt)}
@@ -186,15 +188,15 @@ export function MessageDetailModal({
           </View>
 
           {/* Séparateur */}
-          <View style={{ height: 1, backgroundColor: "#E7E1D2", marginVertical: 18 }} />
+          <View style={{ height: 1, backgroundColor: c.borderSoft, marginVertical: 18 }} />
 
           {/* Corps */}
           {notif.body ? (
-            <Text style={{ fontSize: 15.5, lineHeight: 25, color: "#39414F" }}>
+            <Text style={{ fontSize: 15.5, lineHeight: 25, color: c.text }}>
               {notif.body}
             </Text>
           ) : (
-            <Text style={{ fontSize: 15, color: "#9AA1AD" }}>(Aucun contenu)</Text>
+            <Text style={{ fontSize: 15, color: c.textMuted }}>(Aucun contenu)</Text>
           )}
 
           {/* Pièce jointe */}
@@ -220,12 +222,12 @@ export function MessageDetailModal({
                 paddingHorizontal: 16,
                 borderRadius: 999,
                 borderWidth: 1,
-                borderColor: "#E7E1D2",
-                backgroundColor: "#fff",
+                borderColor: c.borderSoft,
+                backgroundColor: c.surface,
               }}
             >
-              <Ionicons name="document-attach-outline" size={17} color="#0F1629" />
-              <Text style={{ fontSize: 14, color: "#0F1629" }}>
+              <Ionicons name="document-attach-outline" size={17} color={c.text} />
+              <Text style={{ fontSize: 14, color: c.text }}>
                 {notif.attachmentFilename ?? "Pièce jointe"}
               </Text>
             </Pressable>
@@ -241,8 +243,8 @@ export function MessageDetailModal({
               marginTop: 22,
             }}
           >
-            <Ionicons name="checkmark" size={15} color="#9AA1AD" />
-            <Text style={{ fontSize: 12.5, color: "#9AA1AD" }}>Marqué comme lu</Text>
+            <Ionicons name="checkmark" size={15} color={c.textMuted} />
+            <Text style={{ fontSize: 12.5, color: c.textMuted }}>Marqué comme lu</Text>
           </View>
 
           <BuuppFooter variant="ivory" />

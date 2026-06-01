@@ -18,6 +18,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useTheme } from "../lib/theme";
+
 type Variant = "navy" | "ivory";
 
 const CONF: Record<
@@ -237,7 +239,27 @@ function Grid({ color, ellipse }: { color: string; ellipse?: boolean }) {
 
 export function BuuppFooter({ variant }: { variant: Variant }) {
   const insets = useSafeAreaInsets();
-  const conf = CONF[variant];
+  const { c, isDark } = useTheme();
+  // La variante "ivory" est censée FONDRE dans le fond ivoire de la
+  // BottomSheet. En sombre, ce fond devient foncé → on bascule le footer
+  // ivory sur la teinte sombre (bg = ivory du thème) et on éclaircit
+  // lettres/slogan/grille pour rester lisibles. La variante "navy" reste
+  // identique (déjà sombre par nature).
+  const conf =
+    variant === "ivory" && isDark
+      ? {
+          ...CONF.ivory,
+          bg: c.ivory,
+          letter: c.text,
+          slogan: {
+            blue: "#C7D2FE",
+            orange: "#F2994A",
+            gray: "rgba(255,255,255,0.72)",
+            dot: "rgba(255,255,255,0.35)",
+          },
+          grid: "rgba(255,255,255,0.06)",
+        }
+      : CONF[variant];
   const letters = "buupp".split("");
   return (
     <View

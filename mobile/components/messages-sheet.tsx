@@ -12,6 +12,7 @@ import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
 import { BuuppLoader } from "./loader";
 import { MessageDetailModal } from "./message-detail";
+import { useTheme } from "../lib/theme";
 import {
   deleteMockNotif,
   isMockNotif,
@@ -29,9 +30,6 @@ import {
 } from "../lib/message-category";
 
 
-const LINE = "#ECE9E0";
-const FOOTER_LINE = "#F0ECE2";
-
 function MessageCard({
   n,
   onOpen,
@@ -41,15 +39,16 @@ function MessageCard({
   onOpen: () => void;
   onDelete: () => void;
 }) {
+  const { c } = useTheme();
   const cat = CAT_CONF[n.category ?? categorizeMessage(n.title, n.body)];
   return (
     <View
       style={{
         borderRadius: 18,
         overflow: "hidden",
-        backgroundColor: "#fff",
+        backgroundColor: c.surface,
         borderWidth: 1,
-        borderColor: LINE,
+        borderColor: c.borderSoft,
         shadowColor: "#0F1629",
         shadowOpacity: 0.05,
         shadowRadius: 10,
@@ -100,7 +99,7 @@ function MessageCard({
               >
                 {cat.label}
               </Text>
-              <Text style={{ fontSize: 11.5, color: "#9AA1AD" }}>
+              <Text style={{ fontSize: 11.5, color: c.textMuted }}>
                 {fmtMessageDate(n.createdAt)}
               </Text>
             </View>
@@ -109,7 +108,7 @@ function MessageCard({
               numberOfLines={2}
               style={{
                 fontSize: 16.5,
-                color: n.unread ? "#0F1629" : "#5A6068",
+                color: n.unread ? c.text : c.textSub,
                 marginTop: 3,
               }}
             >
@@ -119,7 +118,7 @@ function MessageCard({
             {n.body ? (
               <Text
                 numberOfLines={2}
-                style={{ fontSize: 13.5, lineHeight: 19, color: "#6B7280", marginTop: 4 }}
+                style={{ fontSize: 13.5, lineHeight: 19, color: c.textSub, marginTop: 4 }}
               >
                 {n.body}
               </Text>
@@ -129,7 +128,7 @@ function MessageCard({
       </Pressable>
 
       {/* Pied de card : Lire le message · Supprimer. */}
-      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: FOOTER_LINE }}>
+      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: c.borderSoft }}>
         <Pressable
           onPress={onOpen}
           style={{
@@ -143,10 +142,10 @@ function MessageCard({
           accessibilityRole="button"
           accessibilityLabel="Lire le message"
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#0F1629" }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
             Lire le message
           </Text>
-          <Ionicons name="chevron-forward" size={15} color="#0F1629" />
+          <Ionicons name="chevron-forward" size={15} color={c.text} />
         </Pressable>
         <Pressable
           onPress={onDelete}
@@ -157,13 +156,13 @@ function MessageCard({
             paddingVertical: 12,
             paddingHorizontal: 16,
             borderLeftWidth: 1,
-            borderLeftColor: FOOTER_LINE,
+            borderLeftColor: c.borderSoft,
           }}
           accessibilityRole="button"
           accessibilityLabel="Supprimer ce message"
         >
-          <Ionicons name="trash-outline" size={15} color="#DC2626" />
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: "#DC2626" }}>
+          <Ionicons name="trash-outline" size={15} color={c.bad} />
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.bad }}>
             Supprimer
           </Text>
         </Pressable>
@@ -184,6 +183,7 @@ export function MessagesSheet({
   const markAll = useMarkAllNotificationsRead();
   const del = useDeleteNotification();
   const qc = useQueryClient();
+  const { c } = useTheme();
   // Détail ouvert PAR-DESSUS la sheet (la liste reste montée dessous) — évite
   // le flash sur l'accueil et garde le retour/suppression vers la liste.
   const [openDetail, setOpenDetail] = useState<Notif | null>(null);
@@ -255,7 +255,7 @@ export function MessagesSheet({
                 minWidth: 22,
                 height: 22,
                 borderRadius: 999,
-                backgroundColor: "#0F1629",
+                backgroundColor: c.text,
                 alignItems: "center",
                 justifyContent: "center",
                 paddingHorizontal: 6,
@@ -290,13 +290,13 @@ export function MessagesSheet({
               paddingVertical: 8,
               paddingHorizontal: 13,
               borderRadius: 999,
-              backgroundColor: "#fff",
+              backgroundColor: c.surface,
               borderWidth: 1,
-              borderColor: LINE,
+              borderColor: c.borderSoft,
             }}
           >
-            <Ionicons name="checkmark-done" size={15} color="#0F1629" />
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#0F1629" }}>
+            <Ionicons name="checkmark-done" size={15} color={c.text} />
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.text }}>
               {markAll.isPending ? "…" : "Tout lire"}
             </Text>
           </Pressable>
@@ -373,15 +373,15 @@ export function MessagesSheet({
               paddingVertical: 7,
               paddingHorizontal: 14,
               borderRadius: 999,
-              backgroundColor: "#fff",
+              backgroundColor: c.surface,
               borderWidth: 1,
-              borderColor: "#DCEFDF",
+              borderColor: c.goodSoft,
             }}
           >
             <View
-              style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: "#5AA86A" }}
+              style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: c.good }}
             />
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#2F6B3C" }}>
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.good }}>
               Notifications activées
             </Text>
           </View>

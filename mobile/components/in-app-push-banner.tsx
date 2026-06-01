@@ -15,6 +15,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useTheme } from "../lib/theme";
+
 export type PushBannerMessage = {
   type: "classic" | "flash";
   title: string;
@@ -39,6 +41,7 @@ const AUTO_DISMISS_MS = 4000;
 const SLIDE_MS = 280;
 
 export function PushBannerProvider({ children }: { children: React.ReactNode }) {
+  const { c } = useTheme();
   const [msg, setMsg] = useState<PushBannerMessage | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -132,7 +135,7 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
                 paddingVertical: 12,
                 borderRadius: 16,
                 borderLeftWidth: 4,
-                backgroundColor: msg.type === "flash" ? "#0F1629" : "#FFFFFF",
+                backgroundColor: msg.type === "flash" ? "#0F1629" : c.surface,
                 borderLeftColor: msg.type === "flash" ? "#FF7A6B" : "#7C5CFC",
                 shadowColor: "#0F1629",
                 shadowOpacity: 0.18,
@@ -149,7 +152,7 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor:
-                    msg.type === "flash" ? "rgba(255,122,107,0.18)" : "#EDE9FE",
+                    msg.type === "flash" ? "rgba(255,122,107,0.18)" : c.violetSoft,
                 }}
               >
                 <Text style={{ fontSize: 22 }}>
@@ -162,7 +165,7 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
                   style={{
                     fontWeight: "600",
                     fontSize: 14,
-                    color: msg.type === "flash" ? "#FFFFFF" : "#0F1629",
+                    color: msg.type === "flash" ? "#FFFFFF" : c.text,
                   }}
                 >
                   {msg.title}
@@ -172,7 +175,7 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
                   style={{
                     fontSize: 13,
                     marginTop: 2,
-                    color: msg.type === "flash" ? "rgba(255,255,255,0.85)" : "#5B6478",
+                    color: msg.type === "flash" ? "rgba(255,255,255,0.85)" : c.textSub,
                   }}
                 >
                   {msg.body}
@@ -186,7 +189,7 @@ export function PushBannerProvider({ children }: { children: React.ReactNode }) 
                 <Ionicons
                   name="close"
                   size={18}
-                  color={msg.type === "flash" ? "rgba(255,255,255,0.6)" : "#8A91A1"}
+                  color={msg.type === "flash" ? "rgba(255,255,255,0.6)" : c.textMuted}
                 />
               </Pressable>
             </Pressable>

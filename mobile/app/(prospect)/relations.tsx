@@ -67,6 +67,12 @@ function useRel() {
     surface: c.surface,
     field: c.field,
     track: c.track,
+    // Bouton/pille primaire : fond sombre + texte clair en mode clair, qui
+    // s'INVERSENT en sombre (fond clair + texte sombre). À utiliser pour les
+    // surfaces « pleines » — DNAVY (= c.text) ne convient pas car il bascule
+    // en clair et rend un texte clair illisible par-dessus.
+    btnBg: c.btnBg,
+    btnText: c.btnText,
   };
 }
 
@@ -320,11 +326,11 @@ function SollicitationCard({
               paddingVertical: 5,
               paddingHorizontal: 11,
               borderRadius: 999,
-              backgroundColor: R.DNAVY,
+              backgroundColor: R.btnBg,
             }}
           >
-            <Ionicons name="sparkles" size={12} color="#fff" />
-            <Text style={{ fontSize: 11.5, fontWeight: "600", color: "#fff" }}>
+            <Ionicons name="sparkles" size={12} color={R.btnText} />
+            <Text style={{ fontSize: 11.5, fontWeight: "600", color: R.btnText }}>
               Nouvelle demande
             </Text>
           </View>
@@ -472,17 +478,17 @@ function SollicitationCard({
             marginTop: 15,
             paddingVertical: 13,
             borderRadius: 13,
-            backgroundColor: R.DNAVY,
+            backgroundColor: R.btnBg,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
           }}
         >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: "#fbf9f4" }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: R.btnText }}>
             Voir le détail
           </Text>
-          <Ionicons name="chevron-forward" size={16} color="#fbf9f4" />
+          <Ionicons name="chevron-forward" size={16} color={R.btnText} />
         </Pressable>
       </View>
     </View>
@@ -561,8 +567,12 @@ export default function Relations() {
       {/* Hero « Demandes en attente » (cf. det.html). Le header de l'app est
           conservé (on ne reprend pas la barre « b Relations » de la maquette). */}
       <View style={{ borderRadius: 24, overflow: "hidden" }}>
+        {/* Dégradé violet vif FIGÉ (mêmes valeurs dans les 2 modes) : les
+            tokens d'accent (DV/DVD) s'éclaircissent en sombre, ce qui rendrait
+            le texte blanc du héros illisible. On garde donc un violet soutenu
+            pour préserver le contraste du titre dans les deux thèmes. */}
         <LinearGradient
-          colors={[R.DV, R.DVD]}
+          colors={["#7C5CFF", "#5B3FE0"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ padding: 18 }}
