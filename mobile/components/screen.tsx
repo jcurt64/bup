@@ -322,8 +322,9 @@ export function Card({
       {badge ? (
         badge.square ? (
           <View
-            className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-paper"
+            className={`mb-3 h-10 w-10 items-center justify-center rounded-2xl ${isDark ? "" : "bg-paper"}`}
             style={{
+              backgroundColor: isDark ? "rgba(255,255,255,0.12)" : undefined,
               shadowColor: "#0F1629",
               shadowOpacity: 0.06,
               shadowRadius: 8,
@@ -415,8 +416,9 @@ export function Stat({
       {icon ? (
         squareIcon ? (
           <View
-            className="mb-2 h-9 w-9 items-center justify-center rounded-xl bg-paper"
+            className={`mb-2 h-9 w-9 items-center justify-center rounded-xl ${isDark ? "" : "bg-paper"}`}
             style={{
+              backgroundColor: isDark ? "rgba(255,255,255,0.12)" : undefined,
               shadowColor: "#0F1629",
               shadowOpacity: 0.06,
               shadowRadius: 6,

@@ -85,6 +85,10 @@ function IconButton({
   onPress: () => void;
   badgeCount?: number;
 }) {
+  const { isDark } = useTheme();
+  // En sombre, le fond clair (bg-paper) se confond avec le header foncé →
+  // on utilise une pastille « givrée » (blanc translucide) bien visible.
+  const darkBtnBg = "rgba(255,255,255,0.13)";
   const showBadge = (badgeCount ?? 0) > 0;
   const badgeText = String(badgeCount ?? 0);
   const accessibilityLabel = showBadge
@@ -145,8 +149,8 @@ function IconButton({
       onPress={onPress}
       hitSlop={8}
       accessibilityLabel={accessibilityLabel}
-      className={`h-10 w-10 items-center justify-center rounded-full ${bg ?? ""} active:opacity-70`}
-      style={LIGHT_BTN_SHADOW}
+      className={`h-10 w-10 items-center justify-center rounded-full ${isDark ? "" : (bg ?? "")} active:opacity-70`}
+      style={[LIGHT_BTN_SHADOW, isDark ? { backgroundColor: darkBtnBg } : null]}
     >
       <Ionicons name={icon} size={22} color={color} />
       {badge}
@@ -178,6 +182,7 @@ function FlashHeaderButton({
   // couronne en expansion reste visible (effet radar, comme le box-shadow
   // animé du web).
   const PULSE_COLOR = "#4F46E5";
+  const { isDark } = useTheme();
   const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
 
@@ -233,8 +238,8 @@ function FlashHeaderButton({
         ]}
       />
       <View
-        className="h-10 w-10 items-center justify-center rounded-full bg-paper"
-        style={LIGHT_BTN_SHADOW}
+        className={`h-10 w-10 items-center justify-center rounded-full ${isDark ? "" : "bg-paper"}`}
+        style={[LIGHT_BTN_SHADOW, isDark ? { backgroundColor: "rgba(255,255,255,0.13)" } : null]}
       >
         <Ionicons name="flash" size={22} color="#7C5CFC" />
       </View>

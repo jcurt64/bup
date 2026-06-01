@@ -46,6 +46,7 @@ import {
 } from "../../lib/queries";
 import { ReferralBadge } from "../../components/referral-badge";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
+import { useTheme } from "../../lib/theme";
 
 // Mirror Prospect.jsx — libellés affichés pour chaque tier de vérif.
 const VERIF_LABELS: Record<string, string> = {
@@ -164,6 +165,10 @@ function PulseRing({ delay }: { delay: number }) {
 }
 
 export default function Portefeuille() {
+  const { isDark } = useTheme();
+  // Tuile icône blanche : givrée (translucide) en sombre pour ressortir sur
+  // la carte teintée foncée.
+  const tileBg = isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF";
   const w = useProspectWallet();
   const m = useProspectMovements();
   const me = useMeTyped();
@@ -376,8 +381,9 @@ export default function Portefeuille() {
                   Votre portefeuille
                 </Text>
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-2xl bg-paper"
+                  className="h-10 w-10 items-center justify-center rounded-2xl"
                   style={{
+                    backgroundColor: tileBg,
                     shadowColor: "#0F1629",
                     shadowOpacity: 0.06,
                     shadowRadius: 8,
@@ -412,7 +418,7 @@ export default function Portefeuille() {
               <View
                 className="mt-2 h-2 overflow-hidden rounded-full"
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF",
                   borderWidth: 1,
                   borderColor: "#C4B5FD",
                 }}
@@ -463,8 +469,9 @@ export default function Portefeuille() {
               {/* Tuile icône (carré arrondi blanc) au-dessus du label,
                   même style que les cards Portefeuille / Mouvements. */}
               <View
-                className="mb-3 h-10 w-10 items-center justify-center rounded-2xl bg-paper"
+                className="mb-3 h-10 w-10 items-center justify-center rounded-2xl"
                 style={{
+                  backgroundColor: tileBg,
                   shadowColor: "#0F1629",
                   shadowOpacity: 0.06,
                   shadowRadius: 8,
@@ -498,8 +505,9 @@ export default function Portefeuille() {
             « Activité » et titre serif « Mouvements ». */}
         <View className="mb-1 flex-row items-center gap-3">
           <View
-            className="h-11 w-11 items-center justify-center rounded-2xl bg-paper"
+            className="h-11 w-11 items-center justify-center rounded-2xl"
             style={{
+              backgroundColor: tileBg,
               shadowColor: "#1B3A8F",
               shadowOpacity: 0.1,
               shadowRadius: 10,
