@@ -134,7 +134,7 @@ function IconButton({
             justifyContent: "center",
           }}
         >
-          <Ionicons name={icon} size={20} color={color} />
+          <Ionicons name={icon} size={22} color={color} />
         </LinearGradient>
         {badge}
       </Pressable>
@@ -149,7 +149,7 @@ function IconButton({
       className={`h-10 w-10 items-center justify-center rounded-full ${bg ?? ""} active:opacity-70`}
       style={LIGHT_BTN_SHADOW}
     >
-      <Ionicons name={icon} size={20} color={color} />
+      <Ionicons name={icon} size={22} color={color} />
       {badge}
     </Pressable>
   );
@@ -237,7 +237,7 @@ function FlashHeaderButton({
         className="h-10 w-10 items-center justify-center rounded-full bg-paper"
         style={LIGHT_BTN_SHADOW}
       >
-        <Ionicons name="flash" size={20} color="#7C5CFC" />
+        <Ionicons name="flash" size={22} color="#7C5CFC" />
       </View>
     </Pressable>
   );
@@ -455,13 +455,13 @@ export function AppHeader() {
                     {e.iconLib === "material" ? (
                       <MaterialCommunityIcons
                         name={e.icon}
-                        size={16}
+                        size={18}
                         color={e.color ?? "#0F1629"}
                       />
                     ) : (
                       <Ionicons
                         name={e.icon}
-                        size={16}
+                        size={18}
                         color={e.color ?? "#0F1629"}
                       />
                     )}
