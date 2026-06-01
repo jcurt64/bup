@@ -262,22 +262,45 @@ function FlashDealCard({
   d,
   nowTs,
   onOpen,
+  active,
 }: {
   d: FlashDeal;
   nowTs: number;
   onOpen: (d: FlashDeal) => void;
+  active: boolean;
 }) {
   const hms = fmtHms(d.endsAt, nowTs);
   const left = progressLeft(d, nowTs);
   const m = dealMultNum(d);
   const tint = multTint(m);
+  // Deal déjà accepté → on stoppe la pulse et on affiche un badge « Accepté ».
+  const accepted =
+    d.relationStatus === "accepted" || d.relationStatus === "settled";
+  // Pulse (léger scale) UNIQUEMENT sur la card affichée à l'écran (active)
+  // ET pas encore acceptée.
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (!active || accepted) {
+      cancelAnimation(pulse);
+      pulse.value = withTiming(1, { duration: 200 });
+      return;
+    }
+    pulse.value = withRepeat(
+      withTiming(1.025, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(pulse);
+  }, [active, accepted, pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
   return (
-    <View
-      style={{
-        width: CARD_W,
-        flexShrink: 0,
-        backgroundColor: "#fff",
-        borderRadius: 22,
+    <Animated.View style={[{ width: CARD_W, flexShrink: 0 }, pulseStyle]}>
+      <View
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 22,
         borderWidth: 1,
         borderColor: B.line,
         overflow: "hidden",
@@ -303,7 +326,26 @@ function FlashDealCard({
           }}
         >
           <FlashPill small />
-          <MultBadge m={m} />
+          {accepted ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                paddingVertical: 5,
+                paddingHorizontal: 10,
+                borderRadius: 999,
+                backgroundColor: "#E8F5EE",
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#16A34A" }}>
+                Accepté
+              </Text>
+            </View>
+          ) : (
+            <MultBadge m={m} />
+          )}
         </View>
 
         <View style={{ marginTop: 14 }}>
@@ -383,8 +425,9 @@ function FlashDealCard({
           </Text>
           <Ionicons name="chevron-forward" size={16} color={B.ivoryW} />
         </Pressable>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -1670,12 +1713,13 @@ export function FlashDealsSheet({
             scrollEventThrottle={16}
             contentContainerStyle={{ gap: GAP, paddingTop: 28, paddingRight: 24 }}
           >
-            {deals.map((d) => (
+            {deals.map((d, i) => (
               <FlashDealCard
                 key={d.id}
                 d={d}
                 nowTs={nowTs}
                 onOpen={setOpenDeal}
+                active={i === Math.min(activeIdx, deals.length - 1)}
               />
             ))}
           </ScrollView>

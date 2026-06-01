@@ -10,7 +10,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { useEffect, useRef, useState } from "react";
-import { type LayoutChangeEvent, Pressable, View } from "react-native";
+import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -18,6 +18,8 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useProspectRelations } from "../lib/queries";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "home-outline",
@@ -73,9 +75,20 @@ type TabProps = {
   routeName: string;
   focused: boolean;
   onPress: () => void;
+  /** Badge (ex. demandes en attente) sur l'icône. 0 = masqué. */
+  badgeCount?: number;
 };
 
-function Tab({ index, ap, wInactive, wActive, routeName, focused, onPress }: TabProps) {
+function Tab({
+  index,
+  ap,
+  wInactive,
+  wActive,
+  routeName,
+  focused,
+  onPress,
+  badgeCount = 0,
+}: TabProps) {
   const tabStyle = useAnimatedStyle(() => ({
     width: wInactive + (wActive - wInactive) * share(index, ap.value),
   }));
@@ -96,19 +109,48 @@ function Tab({ index, ap, wInactive, wActive, routeName, focused, onPress }: Tab
           justifyContent: "center",
         }}
       >
-        {routeName === "donnees" ? (
-          <MaterialCommunityIcons
-            name="database-outline"
-            size={22}
-            color={focused ? "#FFFFFF" : INACTIVE}
-          />
-        ) : (
-          <Ionicons
-            name={ICON[routeName]}
-            size={21}
-            color={focused ? "#FFFFFF" : INACTIVE}
-          />
-        )}
+        <View>
+          {routeName === "donnees" ? (
+            <MaterialCommunityIcons
+              name="database-outline"
+              size={22}
+              color={focused ? "#FFFFFF" : INACTIVE}
+            />
+          ) : (
+            <Ionicons
+              name={ICON[routeName]}
+              size={21}
+              color={focused ? "#FFFFFF" : INACTIVE}
+            />
+          )}
+          {badgeCount > 0 ? (
+            // Badge : rouge si l'onglet est inactif, blanc s'il est actif.
+            <View
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -11,
+                minWidth: 16,
+                height: 16,
+                paddingHorizontal: 4,
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: focused ? "#FFFFFF" : "#DC2626",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: "700",
+                  color: focused ? "#13235B" : "#FFFFFF",
+                }}
+              >
+                {badgeCount > 9 ? "9+" : badgeCount}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Animated.Text
           numberOfLines={1}
           style={[
@@ -131,6 +173,11 @@ function Tab({ index, ap, wInactive, wActive, routeName, focused, onPress }: Tab
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const glass = isLiquidGlassAvailable();
+  // Badge onglet Relations : nombre de demandes EN ATTENTE (on exclut celles
+  // déjà acceptées qui restent dans le carrousel avec leur badge ✓).
+  const pendingCount = (useProspectRelations().data?.pending ?? []).filter(
+    (p) => !(p.relationStatus === "accepted" || p.decision === "Acceptée"),
+  ).length;
   const shadow = {
     shadowColor: "#0F1629",
     shadowOpacity: glass ? 0.1 : 0.16,
@@ -216,6 +263,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
           routeName={it.name}
           focused={it.key === activeKey}
           onPress={() => navigation.navigate(it.name as never)}
+          badgeCount={it.name === "relations" ? pendingCount : 0}
         />
       ))}
     </View>

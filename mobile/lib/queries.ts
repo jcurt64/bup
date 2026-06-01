@@ -202,12 +202,131 @@ export type Relation = {
   campaignOpen?: boolean;
   campaignActive?: boolean;
 };
-export const useProspectRelations = () =>
-  useGet<{ pending: Relation[]; history: Relation[] }>(
-    ["prospect", "relations"],
-    "/api/prospect/relations",
-    90_000,
-  );
+// DEV : 3 sollicitations (demandes en attente) fictives pour visualiser le
+// carrousel de la page Relations. Mettre à `false` avant la prod.
+const SHOW_MOCK_SOLLICITATIONS = true;
+
+function buildMockSollicitations(): Relation[] {
+  const now = Date.now();
+  const iso = (ms: number) => new Date(now + ms).toISOString();
+  const hms = (ms: number) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+  const base = {
+    isFlashDeal: false,
+    reported: false,
+    relationStatus: "pending",
+    campaignOpen: true,
+    campaignActive: true,
+  };
+  const mk = (
+    id: string,
+    pro: string,
+    sector: string,
+    motif: string,
+    brief: string,
+    reward: number,
+    tier: number,
+    expMs: number,
+  ): Relation => ({
+    ...base,
+    id,
+    campaignId: id,
+    pro,
+    proName: pro,
+    sector,
+    motif,
+    brief,
+    reward,
+    tier,
+    timer: hms(expMs),
+    startDate: iso(-6 * 3600_000),
+    endDate: iso(expMs),
+    expiresAt: iso(expMs),
+  });
+  return [
+    mk(
+      "mock-soll-1",
+      "Studio Verde",
+      "Architecture & déco",
+      "Projet de rénovation d’un loft — recherche de propriétaires.",
+      "Nous accompagnons les particuliers dans la rénovation de leur intérieur.",
+      2.5,
+      2,
+      12 * 3600_000,
+    ),
+    mk(
+      "mock-soll-2",
+      "NutriCoach",
+      "Nutrition & bien-être",
+      "Bilan nutritionnel personnalisé offert.",
+      "Coaching nutritionnel à distance pour reprendre de bonnes habitudes.",
+      1.8,
+      1,
+      5 * 3600_000 + 21 * 60_000,
+    ),
+    mk(
+      "mock-soll-3",
+      "Hexa Immo",
+      "Immobilier",
+      "Estimation gratuite de votre bien.",
+      "Agence locale : estimation et accompagnement à la vente.",
+      3.2,
+      3,
+      20 * 3600_000,
+    ),
+  ];
+}
+
+const MOCK_SOLLICITATIONS: Relation[] = SHOW_MOCK_SOLLICITATIONS
+  ? buildMockSollicitations()
+  : [];
+
+// État simulé des sollicitations fictives (accept/refuse) — appliqué au
+// queryFn. Une sollicitation acceptée RESTE dans le carrousel mais passe en
+// statut « accepted » (badge ✓) ; une refusée disparaît.
+const acceptedMockSoll = new Set<string>();
+const refusedMockSoll = new Set<string>();
+export function isMockSollicitation(id: string): boolean {
+  return id.startsWith("mock-soll-");
+}
+export function recordMockSollicitationAccepted(id: string): void {
+  acceptedMockSoll.add(id);
+  refusedMockSoll.delete(id);
+}
+export function recordMockSollicitationRefused(id: string): void {
+  refusedMockSoll.add(id);
+  acceptedMockSoll.delete(id);
+}
+
+export const useProspectRelations = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["prospect", "relations"],
+    // Fusion des sollicitations fictives DANS le queryFn (cf. note
+    // structuralSharing ailleurs).
+    queryFn: async () => {
+      const d = await api<{ pending: Relation[]; history: Relation[] }>(
+        "/api/prospect/relations",
+      );
+      if (!SHOW_MOCK_SOLLICITATIONS) return d;
+      const mockPending = MOCK_SOLLICITATIONS.filter(
+        (s) => !refusedMockSoll.has(s.id),
+      ).map((s) =>
+        acceptedMockSoll.has(s.id)
+          ? { ...s, relationStatus: "accepted", decision: "Acceptée" }
+          : s,
+      );
+      return { ...d, pending: [...mockPending, ...d.pending] };
+    },
+    staleTime: 90_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 export type Score = {
   score: number;

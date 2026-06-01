@@ -26,8 +26,11 @@ import { ReportProSheet } from "./report-pro-sheet";
 import { ApiError } from "../lib/api";
 import {
   isMockDeal,
+  isMockSollicitation,
   recordMockDealAccepted,
   recordMockDealRefused,
+  recordMockSollicitationAccepted,
+  recordMockSollicitationRefused,
   useDecideRelation,
   type MovementRelation,
 } from "../lib/queries";
@@ -571,6 +574,15 @@ export function MovementDetailSheet({
   const canRefuse = alreadyAccepted && !!r.campaignActive;
 
   async function act(action: "accept" | "refuse") {
+    // Sollicitation fictive (id mock-soll-*) : décision simulée → la card du
+    // carrousel Relations passe en « acceptée » (badge ✓) ou disparaît.
+    if (isMockSollicitation(r.id)) {
+      if (action === "accept") recordMockSollicitationAccepted(r.id);
+      else recordMockSollicitationRefused(r.id);
+      qc.invalidateQueries({ queryKey: ["prospect", "relations"] });
+      onClose();
+      return;
+    }
     // Mouvement issu d'un flash deal fictif (id mock-*) : décision simulée
     // sans appel API (parité avec la sheet flash deals). Refuser retire le
     // mouvement injecté.
