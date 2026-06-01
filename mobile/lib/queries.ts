@@ -71,8 +71,20 @@ export type ProspectWallet = {
   availableCents: number;
   escrowCents: number;
 };
-export const useProspectWallet = () =>
-  useGet<ProspectWallet>(["prospect", "wallet"], "/api/prospect/wallet", 60_000);
+export const useProspectWallet = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["prospect", "wallet"],
+    // DEV : ajoute le séquestre des flash deals fictifs acceptés DANS le
+    // queryFn (cf. note structuralSharing sur useFlashDeals).
+    queryFn: async () => {
+      const w = await api<ProspectWallet>("/api/prospect/wallet");
+      return applyMockEscrow(w);
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 export type Relation = {
   // Champs communs pending + history
@@ -265,12 +277,23 @@ export type Movement = {
   sign: string;
   relation: MovementRelation | null;
 };
-export const useProspectMovements = () =>
-  useGet<{ movements: Movement[] }>(
-    ["prospect", "movements"],
-    "/api/prospect/movements",
-    60_000,
-  );
+type MovementsResponse = { movements: Movement[] };
+export const useProspectMovements = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["prospect", "movements"],
+    // DEV : préfixe les mouvements des flash deals fictifs acceptés dans le
+    // queryFn (cf. note structuralSharing sur useFlashDeals).
+    queryFn: async () => {
+      const d = await api<MovementsResponse>("/api/prospect/movements");
+      return SHOW_MOCK_FLASH_DEALS
+        ? { ...d, movements: [...buildMockAcceptedMovements(), ...d.movements] }
+        : d;
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 // — Mes données — GET /api/prospect/donnees
 export type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
@@ -562,6 +585,8 @@ export type FlashDeal = {
   id: string;
   name: string;
   endsAt: string;
+  /** Date de lancement (création campagne) — pour la barre de progression. */
+  startsAt?: string;
   brief: string | null;
   multiplier: number;
   costPerContactCents: number;
@@ -576,12 +601,286 @@ export type FlashDeal = {
   relationStatus: string | null;
   missingTierKeys: string[];
 };
-export const useFlashDeals = () =>
-  useGet<{ deals: FlashDeal[]; stats?: { lastSevenDaysCount?: number } }>(
-    ["landing", "flash-deals"],
-    "/api/landing/flash-deals",
-    10_000,
-  );
+type FlashDealsResponse = {
+  deals: FlashDeal[];
+  stats?: {
+    lastSevenDaysCount?: number;
+    /** Flash deals que CE prospect a acceptés sur les 7 derniers jours. */
+    acceptedLast7DaysCount?: number;
+  };
+};
+
+// DEV : injecte 5 flash deals fictifs (durée ~24 h) pour visualiser le
+// carrousel et la sheet de détail sans dépendre de campagnes réelles en
+// base. Mettre à `false` (ou supprimer) avant la mise en prod. Les états
+// (pending / accepted / refused / fill_data) sont variés pour montrer
+// toutes les vues. Note : les actions Accepter/Refuser sur ces deals
+// échouent (relationId fictif) — c'est uniquement pour l'affichage.
+const SHOW_MOCK_FLASH_DEALS = true;
+
+function buildMockFlashDeals(): FlashDeal[] {
+  const now = Date.now();
+  // endsAt ≈ 24 h, légèrement échelonné pour des timers distincts.
+  const endsIn = (i: number) =>
+    new Date(now + 24 * 60 * 60_000 - i * 11 * 60_000).toISOString();
+  // startsAt échelonné (lancé il y a 1 h à ~13 h) → barres de progression
+  // variées dans le carrousel.
+  const startedAt = (i: number) =>
+    new Date(now - (i * 3 + 1) * 60 * 60_000).toISOString();
+  const base = {
+    multiplier: 2,
+    founderBonusApplied: false,
+    founderVipBonusApplied: false,
+    isAuthenticated: true,
+  };
+  return [
+    {
+      ...base,
+      id: "mock-fd-1",
+      name: "Bilan énergétique solaire offert",
+      endsAt: endsIn(0),
+      startsAt: startedAt(0),
+      brief:
+        "Installateur photovoltaïque : prospects propriétaires intéressés par l'auto-consommation solaire.",
+      costPerContactCents: 1020,
+      requiredTiers: [1, 2, 5],
+      requiredTierKeys: ["identity", "localisation", "patrimoine"],
+      proName: "Solaria",
+      proSector: "Énergies renouvelables",
+      relationId: "mock-rel-1",
+      relationStatus: "pending",
+      missingTierKeys: [],
+    },
+    {
+      ...base,
+      id: "mock-fd-2",
+      name: "Devis dépannage prioritaire",
+      endsAt: endsIn(1),
+      startsAt: startedAt(1),
+      brief:
+        "Dépannage et rénovation : foyers cherchant un artisan de confiance près de chez eux.",
+      costPerContactCents: 760,
+      requiredTiers: [1, 2],
+      requiredTierKeys: ["identity", "localisation"],
+      proName: "Plomberie Martin",
+      proSector: "Chauffage & sanitaire",
+      relationId: "mock-rel-2",
+      relationStatus: "pending",
+      missingTierKeys: [],
+    },
+    {
+      ...base,
+      id: "mock-fd-3",
+      name: "Séance découverte offerte",
+      endsAt: endsIn(2),
+      startsAt: startedAt(2),
+      brief:
+        "Coaching sportif à domicile : profils actifs souhaitant reprendre une activité régulière.",
+      costPerContactCents: 580,
+      requiredTiers: [1, 3],
+      requiredTierKeys: ["identity", "vie"],
+      proName: "Coach Attitude",
+      proSector: "Bien-être & santé",
+      relationId: "mock-rel-3",
+      relationStatus: "accepted",
+      missingTierKeys: [],
+    },
+    {
+      ...base,
+      id: "mock-fd-4",
+      name: "Shooting portrait évènement",
+      endsAt: endsIn(3),
+      startsAt: startedAt(3),
+      brief:
+        "Shooting portrait : particuliers à la recherche d'un photographe pour un évènement.",
+      costPerContactCents: 940,
+      requiredTiers: [1, 2],
+      requiredTierKeys: ["identity", "localisation"],
+      proName: "Studio Lumen",
+      proSector: "Photographie",
+      relationId: "mock-rel-4",
+      relationStatus: "refused",
+      missingTierKeys: [],
+    },
+    {
+      ...base,
+      id: "mock-fd-5",
+      name: "Essai vélo électrique",
+      endsAt: endsIn(4),
+      startsAt: startedAt(4),
+      brief:
+        "Vélos électriques : urbains envisageant de passer à la mobilité douce.",
+      costPerContactCents: 1240,
+      requiredTiers: [1, 2, 5],
+      requiredTierKeys: ["identity", "localisation", "patrimoine"],
+      proName: "Greenmove",
+      proSector: "Mobilité durable",
+      relationId: null,
+      relationStatus: null,
+      missingTierKeys: ["patrimoine"],
+    },
+  ];
+}
+
+// Mocks calculés UNE fois au chargement du module : endsAt fixés au démarrage
+// de l'app (+24 h) → les timers décomptent normalement. Un `select` stable
+// (défini hors du hook) évite que react-query ne régénère les deals à chaque
+// render (ce qui réinitialiserait les compteurs à chaque tick).
+const MOCK_FLASH_DEALS: FlashDeal[] = SHOW_MOCK_FLASH_DEALS
+  ? buildMockFlashDeals()
+  : [];
+const MOCK_DEAL_BY_ID = new Map(MOCK_FLASH_DEALS.map((d) => [d.id, d]));
+
+// ── DEV : décisions simulées sur les flash deals fictifs ───────────────
+// Les deals fictifs n'ont pas de relation réelle en base : on simule
+// l'accept/refuse côté client (pas d'appel API), et un deal accepté est
+// injecté dans les Mouvements du portefeuille (escrow « En séquestre »).
+// `acceptedMockDeals` : id deal fictif → ISO de la décision d'acceptation.
+const acceptedMockDeals = new Map<string, string>();
+// Mocks explicitement refusés (statut « refused » dans la liste → bouton
+// « Accepter finalement » tant que la campagne n'est pas clôturée).
+const refusedMockDeals = new Set<string>();
+// Pré-remplit selon le statut de base : accepted/settled → séquestre +
+// Mouvements d'emblée ; refused → bascule « Accepter finalement ».
+MOCK_FLASH_DEALS.forEach((d) => {
+  if (d.relationStatus === "accepted" || d.relationStatus === "settled") {
+    acceptedMockDeals.set(d.id, new Date().toISOString());
+  } else if (d.relationStatus === "refused") {
+    refusedMockDeals.add(d.id);
+  }
+});
+
+export function isMockDeal(id: string): boolean {
+  return id.startsWith("mock-");
+}
+export function recordMockDealAccepted(id: string): void {
+  acceptedMockDeals.set(id, new Date().toISOString());
+  refusedMockDeals.delete(id);
+}
+export function recordMockDealRefused(id: string): void {
+  acceptedMockDeals.delete(id);
+  refusedMockDeals.add(id);
+}
+
+// Montant total (cents) des flash deals fictifs acceptés — injecté dans le
+// séquestre du portefeuille (parité avec les Mouvements fictifs).
+function mockAcceptedEscrowCents(): number {
+  let c = 0;
+  acceptedMockDeals.forEach((_iso, id) => {
+    const d = MOCK_DEAL_BY_ID.get(id);
+    if (d) c += d.costPerContactCents;
+  });
+  return c;
+}
+// Ajoute le séquestre fictif au wallet (DEV). No-op si le flag est désactivé
+// ou si aucun mock n'est accepté.
+function applyMockEscrow(w: ProspectWallet): ProspectWallet {
+  if (!SHOW_MOCK_FLASH_DEALS) return w;
+  const extra = mockAcceptedEscrowCents();
+  if (extra <= 0) return w;
+  const escrowCents = w.escrowCents + extra;
+  return {
+    ...w,
+    escrowCents,
+    escrowEur: Math.round(escrowCents) / 100,
+    relationsCount: w.relationsCount + acceptedMockDeals.size,
+  };
+}
+
+// Construit la relation détaillée d'un mouvement fictif (réutilisée par la
+// modale détail des Mouvements).
+function buildMockMovementRelation(d: FlashDeal, iso: string): MovementRelation {
+  const reward = d.costPerContactCents / 100;
+  const tier =
+    d.requiredTiers && d.requiredTiers.length > 0
+      ? Math.max(...d.requiredTiers)
+      : 1;
+  return {
+    // On expose l'id du deal fictif (mock-fd-*) comme id de relation : la
+    // modale détail des Mouvements peut ainsi simuler un refus directement.
+    id: d.id,
+    date: iso,
+    pro: d.proName ?? "Un professionnel",
+    proName: d.proName ?? "Un professionnel",
+    sector: d.proSector ?? "",
+    motif: d.name,
+    brief: d.brief,
+    campaignName: d.name,
+    reward,
+    tier,
+    tiers: d.requiredTiers ?? null,
+    timer: "",
+    startDate: d.startsAt ?? null,
+    endDate: d.endsAt,
+    decision: "Acceptée",
+    status: "En séquestre",
+    availableAt: d.endsAt,
+    relationStatus: "accepted",
+    gain: reward,
+    campaignStatus: "active",
+    campaignOpen: true,
+    campaignActive: true,
+    reported: false,
+    balanceAfterCents: null,
+    balanceAfterEur: null,
+  };
+}
+
+// Mouvements fictifs « En séquestre » pour chaque deal fictif accepté
+// (plus récent d'abord), à préfixer aux vrais mouvements.
+function buildMockAcceptedMovements(): Movement[] {
+  const out: Movement[] = [];
+  acceptedMockDeals.forEach((iso, id) => {
+    const d = MOCK_DEAL_BY_ID.get(id);
+    if (!d) return;
+    out.push({
+      id: `mockmov-${id}`,
+      date: iso,
+      origin: d.proName ?? "Un professionnel",
+      tier:
+        d.requiredTiers && d.requiredTiers.length > 0
+          ? Math.max(...d.requiredTiers)
+          : null,
+      tiers: d.requiredTiers ?? null,
+      statusLabel: "En séquestre",
+      statusChip: "warn",
+      amountCents: d.costPerContactCents,
+      amountEur: d.costPerContactCents / 100,
+      sign: "+",
+      relation: buildMockMovementRelation(d, iso),
+    });
+  });
+  return out.reverse();
+}
+
+// Deals fictifs avec leur statut simulé (accepté / refusé) appliqué, pour
+// que le bon bouton « Refuser / Accepter finalement » s'affiche.
+function mockDealsForList(): FlashDeal[] {
+  return MOCK_FLASH_DEALS.map((m) => {
+    if (acceptedMockDeals.has(m.id)) return { ...m, relationStatus: "accepted" };
+    if (refusedMockDeals.has(m.id)) return { ...m, relationStatus: "refused" };
+    return m;
+  });
+}
+
+export const useFlashDeals = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["landing", "flash-deals"],
+    // Fusion des mocks DANS le queryFn (pas en `select`) : sinon, quand le
+    // serveur renvoie des données identiques, `structuralSharing` garde la
+    // même référence et le `select` mémoïsé ne reflète pas le nouvel état
+    // mock (séquestre / accepté / refusé).
+    queryFn: async () => {
+      const d = await api<FlashDealsResponse>("/api/landing/flash-deals");
+      return SHOW_MOCK_FLASH_DEALS
+        ? { ...d, deals: [...mockDealsForList(), ...d.deals] }
+        : d;
+    },
+    staleTime: 10_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 /** Marque toutes les notifications non lues passées en argument comme lues
  *  (parité web markAll : POST /api/me/notifications/[id]/read en parallèle

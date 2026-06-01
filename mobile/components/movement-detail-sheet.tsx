@@ -19,10 +19,18 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { BottomSheet } from "./bottom-sheet";
 import { ReportProSheet } from "./report-pro-sheet";
 import { ApiError } from "../lib/api";
-import { useDecideRelation, type MovementRelation } from "../lib/queries";
+import {
+  isMockDeal,
+  recordMockDealAccepted,
+  recordMockDealRefused,
+  useDecideRelation,
+  type MovementRelation,
+} from "../lib/queries";
 
 // Footer signature inversé — panneau navy (#0F1629, façon hero du site
 // web) : le mot « buupp » et le slogan passent en clair pour contraster.
@@ -162,13 +170,21 @@ function FooterGridDark() {
 // violet, extrémités fondues + halo) balaie le footer de gauche à droite
 // en faisant quelques montées/descentes, UNE SEULE FOIS. Aucune ligne
 // statique tracée ; ce n'est pas une boule mais un éclat allongé.
+// Retard avant le départ du néon : laisse à l'utilisateur le temps de
+// regarder l'éclat d'étoiles de la récompense (qui démarre dès l'ouverture)
+// avant de porter son attention sur le footer.
+const NEON_START_DELAY = 1000;
+
 function NeonTrace() {
   const [w, setW] = useState(0);
   const p = useSharedValue(0);
   useEffect(() => {
     if (w <= 0) return;
     p.value = 0;
-    p.value = withTiming(1, { duration: 2200, easing: Easing.linear });
+    p.value = withDelay(
+      NEON_START_DELAY,
+      withTiming(1, { duration: 2200, easing: Easing.linear }),
+    );
   }, [w, p]);
   const STREAK = 52;
   const yA = 30;
@@ -309,6 +325,101 @@ function fmtEurSigned(n: number): string {
   return `${n < 0 ? "−" : "+"}${fmtEur(Math.abs(n))}`;
 }
 
+// ── Éclat d'étoiles autour de la récompense ─────────────────────────────
+// À l'ouverture de la sheet, une bordée d'étoiles dorées/violettes éclate
+// autour du montant EN MÊME TEMPS qu'il apparaît, puis s'estompe tandis que
+// le chiffre RESTE affiché. Thème « récompense » : étoiles + paillettes,
+// tons or (#F4B740) et violet (#7C5CFC) pour coller à la palette de la carte.
+const REWARD_GOLD = "#F4B740";
+const REWARD_VIOLET = "#7C5CFC";
+
+type SparkConf = {
+  x: number; // position dans la zone (px, origine = coin haut-gauche du montant)
+  y: number;
+  size: number;
+  delay: number; // décalage d'apparition (stagger)
+  drift: number; // dérive verticale pendant la disparition (px, négatif = monte)
+  rotateTo: number; // rotation finale (deg)
+  color: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+// Étoiles disposées autour du montant (≈ 175 × 50 px). Mélange d'étoiles
+// pleines et de paillettes, tailles/délais variés pour un éclat organique.
+// Délais ≤ ~220 ms → toutes là « en même temps » que le chiffre, puis
+// disparition échelonnée.
+const SPARKS: SparkConf[] = [
+  { x: -6, y: 2, size: 13, delay: 40, drift: -10, rotateTo: -25, color: REWARD_GOLD, icon: "star" },
+  { x: 150, y: -4, size: 16, delay: 0, drift: -14, rotateTo: 30, color: REWARD_GOLD, icon: "sparkles" },
+  { x: 120, y: 34, size: 11, delay: 120, drift: 9, rotateTo: 20, color: REWARD_VIOLET, icon: "star" },
+  { x: 40, y: -9, size: 10, delay: 90, drift: -12, rotateTo: -18, color: REWARD_VIOLET, icon: "sparkles" },
+  { x: 172, y: 20, size: 12, delay: 180, drift: -8, rotateTo: 28, color: REWARD_GOLD, icon: "star" },
+  { x: -2, y: 30, size: 10, delay: 150, drift: 10, rotateTo: -22, color: REWARD_GOLD, icon: "sparkles" },
+  { x: 78, y: -10, size: 9, delay: 215, drift: -10, rotateTo: 15, color: REWARD_VIOLET, icon: "star" },
+];
+
+// Laisse la sheet finir son slide-in (~250 ms) avant l'éclat.
+const SPARK_INITIAL_DELAY = 230;
+// Durée de vie d'une étoile (apparition → disparition complète).
+const SPARK_LIFE = 1100;
+
+function Sparkle({ conf }: { conf: SparkConf }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(
+      SPARK_INITIAL_DELAY + conf.delay,
+      withTiming(1, { duration: SPARK_LIFE, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [conf.delay, p]);
+  const style = useAnimatedStyle(() => ({
+    // Pop-in vif, plateau, fondu de sortie (le chiffre, lui, persiste).
+    opacity: interpolate(p.value, [0, 0.15, 0.5, 1], [0, 1, 1, 0]),
+    transform: [
+      { translateY: interpolate(p.value, [0, 1], [0, conf.drift]) },
+      { scale: interpolate(p.value, [0, 0.28, 0.7, 1], [0.2, 1.15, 1, 0.7]) },
+      { rotate: `${interpolate(p.value, [0, 1], [0, conf.rotateTo])}deg` },
+    ],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[{ position: "absolute", left: conf.x, top: conf.y }, style]}
+    >
+      <Ionicons name={conf.icon} size={conf.size} color={conf.color} />
+    </Animated.View>
+  );
+}
+
+// Montant + éclat d'étoiles. Le chiffre fait un léger fade/scale-in
+// synchronisé avec les étoiles, puis reste affiché en permanence. Remonté à
+// chaque ouverture (key) pour rejouer l'animation.
+function RewardAmount({ value }: { value: string }) {
+  const reveal = useSharedValue(0);
+  useEffect(() => {
+    reveal.value = withDelay(
+      SPARK_INITIAL_DELAY,
+      withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [reveal]);
+  const numStyle = useAnimatedStyle(() => ({
+    opacity: reveal.value,
+    transform: [{ scale: interpolate(reveal.value, [0, 1], [0.82, 1]) }],
+  }));
+  return (
+    <View style={{ position: "relative" }}>
+      <Animated.Text
+        className="mt-0.5 font-serif-bold text-[34px] leading-10 text-violet"
+        style={numStyle}
+      >
+        {value}
+      </Animated.Text>
+      {SPARKS.map((conf, i) => (
+        <Sparkle key={i} conf={conf} />
+      ))}
+    </View>
+  );
+}
+
 // Nom FR du palier (parité preferences.tsx / flash-deals-sheet.tsx).
 const TIER_NAME_FR: Record<number, string> = {
   1: "Identification",
@@ -431,6 +542,7 @@ export function MovementDetailSheet({
   relation: MovementRelation | null;
 }) {
   const decide = useDecideRelation();
+  const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
   // Sous-modale de signalement + état local « déjà signalé » pour
   // basculer immédiatement le footer sans refetch. Initialisé depuis
@@ -459,6 +571,18 @@ export function MovementDetailSheet({
   const canRefuse = alreadyAccepted && !!r.campaignActive;
 
   async function act(action: "accept" | "refuse") {
+    // Mouvement issu d'un flash deal fictif (id mock-*) : décision simulée
+    // sans appel API (parité avec la sheet flash deals). Refuser retire le
+    // mouvement injecté.
+    if (isMockDeal(r.id)) {
+      if (action === "accept") recordMockDealAccepted(r.id);
+      else recordMockDealRefused(r.id);
+      qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
+      qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
+      onClose();
+      return;
+    }
     setBusy(action);
     try {
       // refused → accepted : l'API n'autorise pas la transition directe
@@ -573,7 +697,7 @@ export function MovementDetailSheet({
   const soldeApres = r.balanceAfterEur != null ? fmtEur(r.balanceAfterEur) : "—";
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPct={80} topRadius={32}>
+    <BottomSheet visible={visible} onClose={onClose} heightPct={86} topRadius={32}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -637,9 +761,10 @@ export function MovementDetailSheet({
               >
                 Récompense
               </Text>
-              <Text className="mt-0.5 font-serif-bold text-[34px] leading-10 text-violet">
-                {fmtEurSigned(r.reward)}
-              </Text>
+              <RewardAmount
+                key={`reward-${r.id}-${visible ? "on" : "off"}`}
+                value={fmtEurSigned(r.reward)}
+              />
             </View>
             <View
               className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"

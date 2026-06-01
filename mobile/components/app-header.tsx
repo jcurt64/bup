@@ -172,28 +172,35 @@ function FlashHeaderButton({
   onPress: () => void;
   active: boolean;
 }) {
-  const scale = useSharedValue(1);
+  // Anneau pulsant quand un flash deal est lancé (active). Reproduit le
+  // pulse de la bannière flash de l'app web (page d'accueil) : anneau qui
+  // s'étend puis s'estompe, couleur --accent (#4F46E5), cycle 2,4 s. Le
+  // disque coloré est masqué en son centre par le bouton blanc → seule la
+  // couronne en expansion reste visible (effet radar, comme le box-shadow
+  // animé du web).
+  const PULSE_COLOR = "#4F46E5";
+  const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
       cancelAnimation(scale);
       cancelAnimation(opacity);
-      scale.value = 1;
+      scale.value = 0.9;
       opacity.value = 0;
       return;
     }
-    scale.value = 1;
-    opacity.value = 0.25;
+    scale.value = 0.9;
+    opacity.value = 0.5;
     scale.value = withRepeat(
-      withTiming(1.3, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
+      withTiming(2.1, { duration: 2400, easing: Easing.out(Easing.ease) }),
       -1,
-      true,
+      false,
     );
     opacity.value = withRepeat(
-      withTiming(0.7, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0, { duration: 2400, easing: Easing.out(Easing.ease) }),
       -1,
-      true,
+      false,
     );
     return () => {
       cancelAnimation(scale);
@@ -221,7 +228,7 @@ function FlashHeaderButton({
             width: 40,
             height: 40,
             borderRadius: 999,
-            backgroundColor: "#F2B65A",
+            backgroundColor: PULSE_COLOR,
           },
           ringStyle,
         ]}
@@ -230,7 +237,7 @@ function FlashHeaderButton({
         className="h-10 w-10 items-center justify-center rounded-full bg-paper"
         style={LIGHT_BTN_SHADOW}
       >
-        <Ionicons name="flash" size={20} color="#F2B65A" />
+        <Ionicons name="flash" size={20} color="#7C5CFC" />
       </View>
     </Pressable>
   );

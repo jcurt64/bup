@@ -1,9 +1,10 @@
 // Encart affiché sous la card d'un flash deal juste après une décision
 // (accept ou refuse). Illustration 3D thiings.co + message amical
-// + confettis animés en RN (Reanimated) pour l'accept.
-import { useEffect } from "react";
+// + confettis animés en RN (Reanimated) pour l'accept : éclatement radial
+// depuis le centre puis retombée, par-dessus le contenu.
+import { useEffect, useState } from "react";
 import { Image } from "expo-image";
-import { Text, View, useWindowDimensions } from "react-native";
+import { type LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -11,6 +12,7 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 
@@ -27,58 +29,73 @@ const CONFETTI_COLORS = [
   "#16A34A", // good
 ];
 
-// Génère un confetti rectangulaire animé partant du centre haut et
-// retombant vers le bas avec une rotation. `delay` étale les particules
-// pour un effet "rafale" plutôt que synchro parfaite.
+const CONFETTI_COUNT = 38;
+
+// Confetti rectangulaire : part du centre de la card, éclate vers l'extérieur
+// (biais vers le haut), puis retombe avec gravité en tournant, et s'estompe.
 function ConfettiParticle({
   index,
+  count,
   width,
+  height,
 }: {
   index: number;
+  count: number;
   width: number;
+  height: number;
 }) {
-  // Position de départ : étalée horizontalement autour du centre.
-  const startX = ((index * 73) % width) - width / 2;
-  // Position cible : retombe en bas, dérive horizontale légère.
-  const targetY = 220 + (index % 3) * 30;
-  const targetX = startX + ((index % 5) - 2) * 30;
+  const cx = width / 2;
+  const cy = height * 0.42;
+  // Angle réparti sur le cercle + léger désordre déterministe.
+  const angle = (index / count) * Math.PI * 2 + (index % 3) * 0.25;
+  const speed = 46 + (index % 6) * 16;
+  const burstX = Math.cos(angle) * speed;
+  const burstY = Math.sin(angle) * speed - 26; // biais vers le haut
+  const fallY = burstY + height * 0.7 + (index % 4) * 22;
   const color = CONFETTI_COLORS[index % CONFETTI_COLORS.length];
   const sizeW = 6 + (index % 3) * 2;
-  const sizeH = 10 + (index % 2) * 2;
+  const sizeH = 9 + (index % 2) * 3;
 
-  const ty = useSharedValue(-40);
-  const tx = useSharedValue(startX);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
   const rot = useSharedValue(0);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    const delay = (index % 12) * 40;
-    const duration = 1400 + (index % 4) * 200;
-    opacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
-    ty.value = withDelay(
+    const delay = (index % 8) * 22;
+    // Opacité en UNE seule assignation (fade-in → tenue → fade-out). Deux
+    // assignations se seraient écrasées → opacité bloquée à 0 (confettis
+    // invisibles).
+    opacity.value = withDelay(
       delay,
-      withTiming(targetY, { duration, easing: Easing.out(Easing.quad) }),
+      withSequence(
+        withTiming(1, { duration: 90 }),
+        withTiming(1, { duration: 980 }),
+        withTiming(0, { duration: 340 }),
+      ),
     );
     tx.value = withDelay(
       delay,
-      withTiming(targetX, { duration, easing: Easing.out(Easing.quad) }),
+      withTiming(burstX * 1.12, { duration: 1300, easing: Easing.out(Easing.quad) }),
+    );
+    ty.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(burstY, { duration: 320, easing: Easing.out(Easing.quad) }),
+        withTiming(fallY, { duration: 980, easing: Easing.in(Easing.quad) }),
+      ),
     );
     rot.value = withDelay(
       delay,
-      withRepeat(withTiming(360, { duration: 800, easing: Easing.linear }), -1),
-    );
-    // Fade out à la fin pour ne pas s'accrocher à l'écran.
-    opacity.value = withDelay(
-      delay + duration - 300,
-      withTiming(0, { duration: 300 }),
+      withRepeat(withTiming(360, { duration: 700, easing: Easing.linear }), -1),
     );
     return () => {
-      cancelAnimation(ty);
       cancelAnimation(tx);
+      cancelAnimation(ty);
       cancelAnimation(rot);
       cancelAnimation(opacity);
     };
-    // index stable par particule, no dépendance dynamique.
+    // index stable par particule, pas de dépendance dynamique.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -97,8 +114,8 @@ function ConfettiParticle({
       style={[
         {
           position: "absolute",
-          top: 0,
-          left: width / 2 - sizeW / 2,
+          top: cy,
+          left: cx - sizeW / 2,
           width: sizeW,
           height: sizeH,
           backgroundColor: color,
@@ -115,14 +132,16 @@ export function DecisionFeedback({
 }: {
   decision: "accept" | "refuse";
 }) {
-  const { width } = useWindowDimensions();
-  // 40 particules pour un effet « rafale » sans surcharger le GPU.
-  const particleCount = decision === "accept" ? 40 : 0;
+  // Dimensions réelles de la card (mesurées) pour centrer l'éclatement.
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const onLayout = (e: LayoutChangeEvent) =>
+    setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
 
   if (decision === "accept") {
     return (
       <View
         className="overflow-hidden rounded-2xl"
+        onLayout={onLayout}
         style={{
           padding: 18,
           backgroundColor: "#FAF7FF",
@@ -131,22 +150,6 @@ export function DecisionFeedback({
           position: "relative",
         }}
       >
-        {/* Couche confettis (absolument positionnée, sous le contenu) */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            overflow: "hidden",
-          }}
-        >
-          {Array.from({ length: particleCount }).map((_, i) => (
-            <ConfettiParticle key={i} index={i} width={width - 40} />
-          ))}
-        </View>
         <View className="items-center">
           <Image
             source={POPPER}
@@ -154,14 +157,27 @@ export function DecisionFeedback({
             contentFit="contain"
             accessibilityLabel="Félicitations"
           />
-          <Text className="mt-2 font-serif text-xl text-ink">
-            Félicitations !
-          </Text>
+          <Text className="mt-2 font-serif text-xl text-ink">Félicitations !</Text>
           <Text className="mt-1 text-center text-[13.5px] leading-5 text-ink-3">
             Sollicitation acceptée. Vos coins arrivent{"\n"}
             sur votre portefeuille.
           </Text>
         </View>
+
+        {/* Couche confettis PAR-DESSUS le contenu (éclatement radial). */}
+        {size.w > 0 ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {Array.from({ length: CONFETTI_COUNT }).map((_, i) => (
+              <ConfettiParticle
+                key={i}
+                index={i}
+                count={CONFETTI_COUNT}
+                width={size.w}
+                height={size.h}
+              />
+            ))}
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -182,9 +198,7 @@ export function DecisionFeedback({
           contentFit="contain"
           accessibilityLabel="À la prochaine"
         />
-        <Text className="mt-2 font-serif text-xl text-ink">
-          C'est noté !
-        </Text>
+        <Text className="mt-2 font-serif text-xl text-ink">C’est noté !</Text>
         <Text className="mt-1 text-center text-[13.5px] leading-5 text-ink-3">
           Aucun souci, on se retrouve sur{"\n"}
           la prochaine occasion.

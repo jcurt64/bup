@@ -138,6 +138,43 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] 7d count failed", e);
   }
 
+  // Comptage PERSONNEL : flash deals que CE prospect a acceptés sur les 7
+  // derniers jours (relations status accepted/settled, decided_at récent,
+  // dont la campagne est un flash deal durationKey='1h'). Affiché dans
+  // l'empty state. 0 si anonyme ou en cas d'échec (fail-safe).
+  let acceptedLast7DaysCount = 0;
+  if (prospect) {
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60_000).toISOString();
+      // 1) relations acceptées/soldées récemment pour ce prospect.
+      const { data: accRels } = await admin
+        .from("relations")
+        .select("campaign_id")
+        .eq("prospect_id", prospect.id)
+        .in("status", ["accepted", "settled"])
+        .gte("decided_at", since)
+        .limit(500);
+      const accIds = [
+        ...new Set(
+          ((accRels ?? []) as { campaign_id: string }[]).map((r) => r.campaign_id),
+        ),
+      ];
+      // 2) ne garder que celles dont la campagne est un flash deal (1h).
+      if (accIds.length > 0) {
+        const { data: accCamps } = await admin
+          .from("campaigns")
+          .select("id, targeting")
+          .in("id", accIds)
+          .limit(500);
+        acceptedLast7DaysCount = ((accCamps ?? []) as {
+          targeting: { durationKey?: string } | null;
+        }[]).filter((c) => c.targeting?.durationKey === "1h").length;
+      }
+    } catch (e) {
+      console.warn("[/api/landing/flash-deals] 7d accepted count failed", e);
+    }
+  }
+
   // ─── Tier fill state + relations for authenticated prospects ────
   let tierFilled: Record<TierKey, boolean> | null = null;
   let relationsByCampaign: Map<string, { id: string; status: string }> | null = null;
@@ -213,6 +250,9 @@ export async function GET() {
       id: r.id,
       name: r.name,
       endsAt: r.ends_at,
+      // Date de lancement (création campagne) — permet à l'UI mobile de
+      // calculer la fraction de temps restant pour la barre de progression.
+      startsAt: r.created_at,
       brief: r.brief,
       multiplier,
       costPerContactCents: displayedCostCents,
@@ -229,5 +269,8 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ deals, stats: { lastSevenDaysCount } });
+  return NextResponse.json({
+    deals,
+    stats: { lastSevenDaysCount, acceptedLast7DaysCount },
+  });
 }
