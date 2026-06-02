@@ -12,6 +12,7 @@ export type CampaignDraft = {
   duration: string;
   tiers: number[];
   geo: string;
+  ages: string[];
   verif: string;
   excludeCertified: boolean;
   cpcCents: number;

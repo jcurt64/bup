@@ -27,6 +27,10 @@ export const VERIF_LEVELS: { key: VerifLevel; label: string; mult: number }[] = 
   { key: "p2", label: "Certifiés", mult: 2 },
 ];
 
+// Tranches d'âge (multi-sélection) — identiques au wizard web.
+export const AGE_RANGES = ["18–25", "26–35", "36–45", "46–55", "56–65", "65+", "Tous"];
+export const AGE_RANGES_NO_TOUS = AGE_RANGES.filter((a) => a !== "Tous");
+
 export const GEO_ZONES: { key: string; label: string; sub: string }[] = [
   { key: "ville", label: "Ville", sub: "rayon ~20 km" },
   { key: "dept", label: "Département", sub: "rayon ~50 km" },

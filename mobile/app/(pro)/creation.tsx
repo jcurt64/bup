@@ -1,14 +1,14 @@
-// Créer une campagne — étape 1 : choix de l'objectif (7 objectifs en grille
-// 2 colonnes, alignés sur le dashboard web). Chaque carte ouvre une page
-// dédiée (objectif/[id]) listant ses sous-opérations. Contexte réel (crédit,
-// plan) affiché en tête.
+// Créer une campagne — point d'entrée. Si un brouillon de campagne existe,
+// on REDIRIGE directement vers le wizard à l'étape sauvegardée (le pro
+// retombe là où il s'était arrêté). Sinon : grille des 7 objectifs (2 col.).
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
+import { BuuppLoader } from "../../components/loader";
 import { Card, eur, QueryGate, ScrollScreen } from "../../components/screen";
-import { loadDraft, type CampaignDraft } from "../../lib/campaign-draft";
+import { loadDraft } from "../../lib/campaign-draft";
 import { OBJECTIVES } from "../../lib/pro-objectives";
 import { useProPlan, useProWallet } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
@@ -17,24 +17,38 @@ export default function ProCreation() {
   const { c } = useTheme();
   const wallet = useProWallet();
   const plan = useProPlan();
-  const [draft, setDraft] = useState<CampaignDraft | null>(null);
+  // `checking` : on attend la lecture du brouillon avant de décider quoi
+  // afficher (évite un flash de la grille avant la redirection).
+  const [checking, setChecking] = useState(true);
 
-  // Recharge le brouillon à chaque fois que l'onglet reprend le focus
-  // (retour depuis le wizard ou une autre page).
   useFocusEffect(
     useCallback(() => {
       let alive = true;
+      setChecking(true);
       loadDraft().then((d) => {
-        if (alive) setDraft(d);
+        if (!alive) return;
+        if (d) {
+          // Brouillon en cours → on reprend à l'étape mémorisée.
+          router.replace(`/(pro)/objectif?id=${d.objectiveId}` as never);
+        } else {
+          setChecking(false);
+        }
       });
       return () => {
         alive = false;
       };
     }, []),
   );
-  const draftObj = draft
-    ? OBJECTIVES.find((o) => o.id === draft.objectiveId)
-    : null;
+
+  if (checking) {
+    return (
+      <ScrollScreen headerVariant="pro" hero={{ eyebrow: "Nouvelle campagne", title: "Créer une campagne" }}>
+        <View className="items-center py-16">
+          <BuuppLoader />
+        </View>
+      </ScrollScreen>
+    );
+  }
 
   return (
     <ScrollScreen
@@ -45,27 +59,6 @@ export default function ProCreation() {
         desc: "Ciblez des prospects qualifiés — vous ne payez que les acceptations.",
       }}
     >
-      {/* Brouillon en cours — « nous avons tout gardé pour vous ». */}
-      {draftObj ? (
-        <Pressable
-          onPress={() => router.push(`/(pro)/objectif?id=${draftObj.id}` as never)}
-          accessibilityRole="button"
-          className="flex-row items-center gap-3 rounded-2xl px-4 py-3 active:opacity-80"
-          style={{ backgroundColor: c.accentSoft, borderWidth: 1, borderColor: c.accent }}
-        >
-          <Ionicons name="bookmark" size={20} color={c.accentInk} />
-          <View className="flex-1">
-            <Text className="text-[14px] font-semibold" style={{ color: c.accentInk }}>
-              Reprendre votre campagne
-            </Text>
-            <Text className="text-[12px]" style={{ color: c.accentInk }}>
-              Nous avons tout gardé : {draftObj.name} (étape {draft?.step}/8).
-            </Text>
-          </View>
-          <Ionicons name="arrow-forward" size={18} color={c.accentInk} />
-        </Pressable>
-      ) : null}
-
       {/* Contexte réel : crédit + plan. */}
       <View className="flex-row gap-3">
         <QueryGate query={wallet}>

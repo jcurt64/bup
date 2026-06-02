@@ -11,6 +11,8 @@ import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "reac
 import { Card, eur, ScrollScreen } from "../../components/screen";
 import { OBJECTIVES } from "../../lib/pro-objectives";
 import {
+  AGE_RANGES,
+  AGE_RANGES_NO_TOUS,
   cpcRange,
   DURATIONS,
   durMs,
@@ -132,9 +134,10 @@ export default function ProWizard() {
   const [step, setStep] = useState(1);
   const [maxStep, setMaxStep] = useState(1);
   const [subTypes, setSubTypes] = useState<Set<string>>(new Set());
-  const [duration, setDuration] = useState<DurationKey>("24h");
+  const [duration, setDuration] = useState<DurationKey>("7d");
   const [tiers, setTiers] = useState<number[]>([1]);
   const [geo, setGeo] = useState("national");
+  const [ages, setAges] = useState<Set<string>>(new Set());
   const [verif, setVerif] = useState<VerifLevel>("p0");
   const [excludeCertified, setExcludeCertified] = useState(false);
   const [cpcCents, setCpcCents] = useState(100);
@@ -158,6 +161,7 @@ export default function ProWizard() {
         setDuration(d.duration as DurationKey);
         setTiers(d.tiers);
         setGeo(d.geo);
+        setAges(new Set(d.ages ?? []));
         setVerif(d.verif as VerifLevel);
         setExcludeCertified(d.excludeCertified);
         setCpcCents(d.cpcCents);
@@ -186,6 +190,7 @@ export default function ProWizard() {
       duration,
       tiers,
       geo,
+      ages: [...ages],
       verif,
       excludeCertified,
       cpcCents,
@@ -195,7 +200,7 @@ export default function ProWizard() {
       brief,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, tiers, geo, verif, excludeCertified, cpcCents, contacts, keywords, kwFilter, brief]);
+  }, [hydrated, id, step, subTypes, duration, tiers, geo, ages, verif, excludeCertified, cpcCents, contacts, keywords, kwFilter, brief]);
 
   const range = useMemo(() => cpcRange(tiers, duration, verif), [tiers, duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -222,6 +227,21 @@ export default function ProWizard() {
   };
   const toggleTier = (t: number) =>
     setTiers((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t].sort()));
+  // Tranches d'âge — « Tous » coche/décoche tout ; tout cocher ajoute « Tous »
+  // (logique miroir du wizard web).
+  const toggleAge = (a: string) =>
+    setAges((prev) => {
+      if (a === "Tous") {
+        const allOn = AGE_RANGES_NO_TOUS.every((r) => prev.has(r));
+        return allOn ? new Set() : new Set(AGE_RANGES);
+      }
+      const n = new Set(prev);
+      if (n.has(a)) n.delete(a);
+      else n.add(a);
+      if (AGE_RANGES_NO_TOUS.every((r) => n.has(r))) n.add("Tous");
+      else n.delete("Tous");
+      return n;
+    });
 
   if (!obj) {
     return (
@@ -266,7 +286,7 @@ export default function ProWizard() {
         subTypes: [...subTypes],
         requiredTiers: tiers,
         geo,
-        ages: [],
+        ages: [...ages],
         verifLevel: verif,
         contacts: contactsNum,
         startDate: new Date(now).toISOString(),
@@ -315,18 +335,29 @@ export default function ProWizard() {
     >
       <StepHeader step={step} max={maxStep} go={goTo} />
 
-      {/* Brouillon restauré — message « tout gardé pour vous » (dismissible). */}
+      {/* Brouillon restauré — message « tout gardé pour vous » + recommencer. */}
       {restored ? (
-        <View
-          className="flex-row items-center gap-2 rounded-2xl px-4 py-3"
-          style={{ backgroundColor: c.accentSoft }}
-        >
-          <Ionicons name="bookmark" size={18} color={c.accentInk} />
-          <Text className="flex-1 text-[12.5px]" style={{ color: c.accentInk }}>
-            Nous avons tout gardé pour vous — reprenez où vous en étiez.
-          </Text>
-          <Pressable onPress={() => setRestored(false)} hitSlop={8} accessibilityLabel="Fermer">
-            <Ionicons name="close" size={16} color={c.accentInk} />
+        <View className="rounded-2xl px-4 py-3" style={{ backgroundColor: c.accentSoft }}>
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="bookmark" size={18} color={c.accentInk} />
+            <Text className="flex-1 text-[12.5px]" style={{ color: c.accentInk }}>
+              Nous avons tout gardé pour vous — reprenez où vous en étiez.
+            </Text>
+            <Pressable onPress={() => setRestored(false)} hitSlop={8} accessibilityLabel="Fermer">
+              <Ionicons name="close" size={16} color={c.accentInk} />
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => {
+              void clearDraft();
+              router.replace("/(pro)/creation");
+            }}
+            accessibilityRole="button"
+            className="mt-1 self-start active:opacity-70"
+          >
+            <Text className="text-[12px] font-semibold underline" style={{ color: c.accentInk }}>
+              Recommencer une nouvelle campagne
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -398,14 +429,60 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 2 — Durée de diffusion. */}
+      {/* ÉTAPE 2 — Durée de diffusion. Le « flash deal » (1h) est mis en
+          avant ; les durées standard (24h/48h/7d) en dessous. */}
       {step === 2 ? (
-        <View className="gap-2">
+        <View className="gap-3">
           <Text className="text-[13px] text-ink-3">
             Durée de diffusion (et fenêtre de réponse du prospect).
           </Text>
+
+          {/* Flash deal — 1 heure, mis en valeur. */}
+          {(() => {
+            const on = duration === "1h";
+            return (
+              <Pressable
+                onPress={() => setDuration("1h")}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                className="rounded-3xl p-4 active:opacity-80"
+                style={{
+                  borderWidth: 2,
+                  borderColor: on ? c.amber : c.amberSoft,
+                  backgroundColor: c.amberSoft,
+                }}
+              >
+                <View className="flex-row items-center" style={{ gap: 10 }}>
+                  <View
+                    className="items-center justify-center"
+                    style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.amber }}
+                  >
+                    <Ionicons name="flash" size={22} color="#FFFFFF" />
+                  </View>
+                  <View className="flex-1">
+                    <View className="flex-row items-center" style={{ gap: 6 }}>
+                      <Text className="font-serif text-lg" style={{ color: c.accAmber }}>
+                        Flash deal · 1 heure
+                      </Text>
+                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: c.amber }}>
+                        <Text className="text-[10px] font-bold text-white">×3</Text>
+                      </View>
+                    </View>
+                    <Text className="mt-0.5 text-[12px] leading-4" style={{ color: c.accAmber }}>
+                      Diffusion express — rémunération prospect maximale, visibilité prioritaire dans l&apos;app.
+                    </Text>
+                  </View>
+                  {on ? <Ionicons name="checkmark-circle" size={22} color={c.amber} /> : null}
+                </View>
+              </Pressable>
+            );
+          })()}
+
+          <Text className="mt-1 text-[11px] font-bold uppercase text-ink-4" style={{ letterSpacing: 1 }}>
+            Durées standard
+          </Text>
           <View className="flex-row flex-wrap" style={{ gap: 10 }}>
-            {DURATIONS.map((d) => (
+            {DURATIONS.filter((d) => d.key !== "1h").map((d) => (
               <Chip
                 key={d.key}
                 label={d.label}
@@ -477,6 +554,32 @@ export default function ProWizard() {
               {GEO_ZONES.map((z) => (
                 <Chip key={z.key} label={z.label} sub={z.sub} on={geo === z.key} onPress={() => setGeo(z.key)} flex />
               ))}
+            </View>
+          </View>
+          <View>
+            <Text className="mb-2 text-[13px] text-ink-3">Tranche d&apos;âge (multi-sélection)</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {AGE_RANGES.map((a) => {
+                const on = ages.has(a);
+                return (
+                  <Pressable
+                    key={a}
+                    onPress={() => toggleAge(a)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    className="rounded-full px-3.5 py-2 active:opacity-80"
+                    style={{
+                      borderWidth: 1.5,
+                      borderColor: on ? c.accent : c.borderSoft,
+                      backgroundColor: on ? c.accent : c.surface,
+                    }}
+                  >
+                    <Text className="text-[13px] font-semibold" style={{ color: on ? c.btnText : c.textSub }}>
+                      {a}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
           <View>
