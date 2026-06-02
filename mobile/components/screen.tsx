@@ -271,6 +271,17 @@ const TONE_GRADIENT: Record<Tone, [string, string]> = {
   amber: ["#FCEFD6", "#FFFFFF"],
   sky: ["#E4ECFD", "#FFFFFF"],
 };
+// Variante RENFORCÉE — mêmes teintes que TONE_GRADIENT, simplement plus
+// soutenues (le jaune reste jaune, etc. — on n'ajoute PAS la couleur du
+// thème). Utilisée par forest/fushia pour mieux marquer le contraste
+// carte/page (qui y est plus pâle qu'en buupp).
+const TONE_GRADIENT_STRONG: Record<Tone, [string, string]> = {
+  violet: ["#DAD0FB", "#FFFFFF"],
+  coral: ["#FFD2C9", "#FFFFFF"],
+  teal: ["#C4EDE6", "#FFFFFF"],
+  amber: ["#FAE2B0", "#FFFFFF"],
+  sky: ["#D0DFFB", "#FFFFFF"],
+};
 
 export function Card({
   children,
@@ -352,10 +363,14 @@ export function Card({
       <LinearGradient
         colors={
           gradient ??
-          // buupp (clair) → dégradé pastel → blanc historique. Sombre +
-          // thèmes teintés (forest/fushia) → pastel → surface du thème,
-          // pour un fond renforcé et accordé au thème.
-          (mode === "light" ? TONE_GRADIENT[tone] : [toneTint[tone], c.surface])
+          // sombre → pastel → surface sombre. forest/fushia → mêmes teintes
+          // plus soutenues (contraste renforcé, sans couleur du thème).
+          // buupp → pastel → blanc historique.
+          (isDark
+            ? [toneTint[tone], c.surface]
+            : mode === "forest" || mode === "fushia"
+              ? TONE_GRADIENT_STRONG[tone]
+              : TONE_GRADIENT[tone])
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -465,7 +480,11 @@ export function Stat({
     return (
       <LinearGradient
         colors={
-          mode === "light" ? TONE_GRADIENT[tone] : [toneTint[tone], c.surface]
+          isDark
+            ? [toneTint[tone], c.surface]
+            : mode === "forest" || mode === "fushia"
+              ? TONE_GRADIENT_STRONG[tone]
+              : TONE_GRADIENT[tone]
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
