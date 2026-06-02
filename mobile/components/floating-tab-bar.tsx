@@ -302,7 +302,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
           wInactive={wInactive}
           wActive={wActive}
           routeName={it.name}
-          focused={it.key === activeKey}
+          focused={i === activePos}
           onPress={() => navigation.navigate(it.name as never)}
           badgeCount={it.name === "relations" ? pendingCount : 0}
         />

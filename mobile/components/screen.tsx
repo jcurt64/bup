@@ -23,6 +23,8 @@ import { GridBg } from "./grid-bg";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
+import { HERO_GRADIENT } from "../lib/pro-theme";
+import { getDrawerOrigin } from "../lib/drawer-origin";
 import {
   type CompactExtra,
   HEADER_BASE_HEIGHT,
@@ -42,8 +44,9 @@ type HeroProps = {
   title: string;
   eyebrow?: string;
   desc?: string;
-  /** "menu" ouvre le drawer, "back" revient en arrière, undefined = rien */
-  nav?: "menu" | "back";
+  /** "menu" ouvre le drawer, "back" revient en arrière, "drawer" réouvre le
+   *  drawer sur la page d'origine (pages issues du drawer), undefined = rien */
+  nav?: "menu" | "back" | "drawer";
   /** Décoration absolument positionnée en haut à droite (signature visuelle
    *  de la page — ex. icône handshake sur Relations). */
   topRight?: ReactNode;
@@ -53,6 +56,7 @@ type HeroProps = {
 };
 
 export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, children }: HeroProps) {
+  const { c, mode } = useTheme();
   const me = useMeTyped();
   const verif = useProspectVerification();
   const hour = new Date().getHours();
@@ -64,9 +68,45 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
       ? TIER_META[verif.data.tier]
       : undefined;
 
+  const goBack = () => {
+    if (nav === "drawer") {
+      // Réouvre le drawer SUR la page d'où il avait été ouvert.
+      const o = getDrawerOrigin();
+      if (o) {
+        router.replace(o.path as never);
+        router.push(o.drawer as never);
+        return;
+      }
+    }
+    router.back();
+  };
+
   return (
+    <>
+      {/* Bouton retour AU-DESSUS de la carte (hors gradient), bien visible. */}
+      {nav === "back" || nav === "drawer" ? (
+        <Pressable
+          onPress={goBack}
+          hitSlop={12}
+          accessibilityLabel="Retour"
+          className="mb-1 h-10 w-10 items-center justify-center rounded-full active:opacity-70"
+          style={{
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.borderSoft,
+            shadowColor: "#0F1629",
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 3,
+          }}
+        >
+          <Ionicons name="chevron-back" size={20} color={c.ink} />
+        </Pressable>
+      ) : null}
+
     <LinearGradient
-      colors={gradient ?? ["#7C5CFC", "#13235B"]}
+      colors={gradient ?? HERO_GRADIENT[mode]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
@@ -88,15 +128,6 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
             </View>
           ) : null}
         </View>
-      ) : nav === "back" ? (
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityLabel="Retour"
-          className="mb-3 h-9 w-9 items-center justify-center rounded-full bg-white/15"
-        >
-          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-        </Pressable>
       ) : null}
       {eyebrow ? (
         <Text
@@ -120,6 +151,7 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
         </View>
       ) : null}
     </LinearGradient>
+    </>
   );
 }
 

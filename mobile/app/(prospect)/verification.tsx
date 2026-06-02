@@ -48,7 +48,7 @@ export default function Verification() {
         eyebrow: "Paliers de vérification",
         title: "Vos paliers",
         desc: "Trois paliers : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque palier débloque des demandes plus exigeantes et mieux rémunérées.",
-        nav: "back",
+        nav: "drawer",
       }}
     >
       <QueryGate query={q}>

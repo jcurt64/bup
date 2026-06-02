@@ -49,7 +49,7 @@ export default function ProAnalytics() {
     <ScrollScreen
       headerVariant="pro"
       hero={{
-        nav: "back",
+        nav: "drawer",
         eyebrow: "Analytics",
         title: "Performance",
         desc: "Acceptations par profil sur les 30 derniers jours.",

@@ -55,7 +55,7 @@ export default function ParrainageScreen() {
         eyebrow: "Parrainage",
         title: "Invitez, gagnez plus",
         desc: "Partagez votre code. Chaque filleul inscrit augmente vos avantages.",
-        nav: "back",
+        nav: "drawer",
       }}
     >
       <QueryGate query={q}>

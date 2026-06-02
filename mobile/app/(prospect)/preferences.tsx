@@ -14,6 +14,7 @@ import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { eur, QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
+import { HERO_GRADIENT } from "../../lib/pro-theme";
 import {
   useDeleteRib,
   useEmailTracking,
@@ -356,7 +357,7 @@ function PrefToggle({
 }
 
 export default function Preferences() {
-  const { c } = useTheme();
+  const { c, mode } = useTheme();
   const don = useProspectDonnees();
   const ver = useProspectVerification();
   const pay = usePayoutStatus();
@@ -480,9 +481,9 @@ export default function Preferences() {
       }
       compactExtras={compactExtras}
     >
-      {/* Hero — card gradient violet (pre.html). */}
+      {/* Hero — card gradient thémé (pre.html). */}
       <LinearGradient
-        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        colors={HERO_GRADIENT[mode]}
         locations={[0, 0.6, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0.85 }}

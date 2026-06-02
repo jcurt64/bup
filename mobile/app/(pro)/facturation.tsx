@@ -18,7 +18,7 @@ export default function Facturation() {
   return (
     <ScrollScreen
       headerVariant="pro"
-      hero={{ nav: "back", eyebrow: "Facturation", title: "Crédit & factures" }}
+      hero={{ nav: "drawer", eyebrow: "Facturation", title: "Crédit & factures" }}
       onRefresh={async () => {
         await Promise.all([w.refetch(), inv.refetch()]);
       }}

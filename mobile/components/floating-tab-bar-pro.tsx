@@ -224,7 +224,7 @@ export default function FloatingTabBarPro({ state, navigation }: BottomTabBarPro
           wInactive={wInactive}
           wActive={wActive}
           routeName={it.name}
-          focused={it.key === activeKey}
+          focused={i === activePos}
           onPress={() => navigation.navigate(it.name as never)}
         />
       ))}

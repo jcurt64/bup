@@ -33,7 +33,7 @@ export default function Suggestions() {
         eyebrow: "Vos suggestions",
         title: "Faites-nous part de vos idées",
         desc: "Une remarque, un bug, une idée d'amélioration ? L'équipe BUUPP vous lit.",
-        nav: "back",
+        nav: "drawer",
       }}
     >
       <Card className="gap-3" badge={{ icon: "bulb-outline", tone: "amber" }}>

@@ -34,7 +34,7 @@ export default function ProSuggestions() {
     <ScrollScreen
       headerVariant="pro"
       hero={{
-        nav: "back",
+        nav: "drawer",
         eyebrow: "Vos suggestions",
         title: "Aidez-nous à progresser",
         desc: "Une idée, un manque, un bug ? Dites-nous tout.",

@@ -94,7 +94,7 @@ export default function ScoreScreen() {
         eyebrow: "BUUPP Score",
         title: "Votre cote de confiance",
         desc: "Calculé sur 1000 à partir de la complétude, la fraîcheur de vos données et votre taux d'acceptation.",
-        nav: "back",
+        nav: "drawer",
       }}
     >
       <QueryGate query={q}>

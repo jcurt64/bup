@@ -240,7 +240,7 @@ export default function ProInformations() {
     <ScrollScreen
       headerVariant="pro"
       hero={{
-        nav: "back",
+        nav: "drawer",
         eyebrow: "Mes informations",
         title: "Société",
         desc: "Utilisées sur vos factures et pour vos campagnes.",

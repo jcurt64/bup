@@ -32,6 +32,7 @@ import { FlashDealsSheet } from "./flash-deals-sheet";
 import { useFlashSheet } from "./flash-sheet-context";
 import { MessagesSheet } from "./messages-sheet";
 import { RechargeSheet } from "./recharge-sheet";
+import { setDrawerOrigin } from "../lib/drawer-origin";
 import {
   HEADER_BASE_HEIGHT,
   HEADER_SCROLL_THRESHOLD,
@@ -406,9 +407,11 @@ export function AppHeader({
               bg="bg-paper"
               color={iconColor}
               label="Ouvrir le menu"
-              onPress={() =>
-                router.push(variant === "pro" ? "/pro-drawer" : "/drawer")
-              }
+              onPress={() => {
+                const drawer = variant === "pro" ? "/pro-drawer" : "/drawer";
+                setDrawerOrigin(pathname, drawer);
+                router.push(drawer);
+              }}
             />
 
             <View className="flex-row items-center gap-2">

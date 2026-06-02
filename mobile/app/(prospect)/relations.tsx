@@ -21,6 +21,7 @@ import { useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
+import { HERO_GRADIENT } from "../../lib/pro-theme";
 
 // ── Filtre cyclique historique ──────────────────────────────────────
 type HistoryFilter = "all" | "accepted" | "refused";
@@ -497,6 +498,7 @@ function SollicitationCard({
 
 export default function Relations() {
   const R = useRel();
+  const { mode } = useTheme();
   const q = useProspectRelations();
   useRefetchOnFocus(q);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
@@ -572,7 +574,7 @@ export default function Relations() {
             le texte blanc du héros illisible. On garde donc un violet soutenu
             pour préserver le contraste du titre dans les deux thèmes. */}
         <LinearGradient
-          colors={["#7C5CFF", "#5B3FE0"]}
+          colors={HERO_GRADIENT[mode]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ padding: 18 }}

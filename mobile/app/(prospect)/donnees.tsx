@@ -21,6 +21,7 @@ import { BottomSheet } from "../../components/bottom-sheet";
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
+import { HERO_GRADIENT } from "../../lib/pro-theme";
 import {
   useProspectDonnees,
   usePatchDonnees,
@@ -1170,7 +1171,7 @@ function DeleteTierSheet({
 }
 
 export default function Donnees() {
-  const { c, isDark } = useTheme();
+  const { c, isDark, mode } = useTheme();
   const q = useProspectDonnees();
   const patch = usePatchDonnees();
   const tierAction = useTierAction();
@@ -1241,7 +1242,7 @@ export default function Donnees() {
       {/* Hero — card gradient violet (do.html). Eyebrow + titre + desc à
           gauche, tuile icône layers translucide à droite. */}
       <LinearGradient
-        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        colors={HERO_GRADIENT[mode]}
         locations={[0, 0.6, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0.85 }}

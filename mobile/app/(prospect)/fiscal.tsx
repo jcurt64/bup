@@ -47,7 +47,7 @@ export default function FiscalScreen() {
         eyebrow: "Informations fiscales",
         title: "Vos revenus déclarables",
         desc: "Récapitulatif annuel de vos gains BUUPP et seuils de déclaration DGFiP.",
-        nav: "back",
+        nav: "drawer",
       }}
     >
       <QueryGate query={q}>

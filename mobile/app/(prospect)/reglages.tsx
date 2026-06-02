@@ -10,6 +10,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { ScrollScreen } from "../../components/screen";
 import { useTheme, type Palette, type ThemeMode } from "../../lib/theme";
+import { HERO_GRADIENT } from "../../lib/pro-theme";
 
 // Thèmes d'affichage — dégradé d'aperçu (≈ diagonal) aligné reg.html.
 // `mode` = mode réel du ThemeProvider appliqué quand on sélectionne la
@@ -304,9 +305,9 @@ export default function Reglages() {
 
   return (
     <ScrollScreen>
-      {/* Hero — card gradient violet (reg.html). */}
+      {/* Hero — card gradient thémé (reg.html). */}
       <LinearGradient
-        colors={["#5B3FE0", "#7C5CFF", "#8A6BFF"]}
+        colors={HERO_GRADIENT[mode]}
         locations={[0, 0.6, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0.85 }}
