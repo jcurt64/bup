@@ -24,6 +24,7 @@ export default function ProLayout() {
         <Tabs.Screen name="contacts" />
         <Tabs.Screen name="reglages" />
         <Tabs.Screen name="objectif" options={{ href: null }} />
+        <Tabs.Screen name="campagne" options={{ href: null }} />
         <Tabs.Screen name="facturation" options={{ href: null }} />
         <Tabs.Screen name="analytics" options={{ href: null }} />
         <Tabs.Screen name="informations" options={{ href: null }} />

@@ -1175,9 +1175,72 @@ export type Campaign = {
   reachedCount: number;
   createdAt: string;
   avgCostEur: number;
+  code?: string | null;
+  authCode?: string | null;
+  durationKey?: string | null;
+  endsAt?: string | null;
 };
 export const useProCampaigns = () =>
   useGet<{ campaigns: Campaign[] }>(["pro", "campaigns"], "/api/pro/campaigns", 30_000);
+
+// — Détail d'une campagne — GET /api/pro/campaigns/[id]
+export type CampaignFunnel = {
+  matched: number;
+  sent: number;
+  pending: number;
+  accepted: number;
+  refused: number;
+  expired: number;
+  settled: number;
+};
+export type CampaignContact = {
+  id: string;
+  prospectId: string;
+  name: string;
+  score: number | null;
+  tierLabel: string;
+  decidedAt: string;
+  statusLabel: string;
+  statusChip: string;
+};
+export type ProCampaignDetail = {
+  id: string;
+  name: string;
+  status: string;
+  brief: string | null;
+  objectiveLabel: string;
+  objectiveId: string | null;
+  startsAtLabel: string;
+  endsAtLabel: string | null;
+  createdAtLabel: string;
+  budgetEur: number;
+  spentEur: number;
+  remainingEur: number;
+  costPerContactEur: number;
+  avgCostEur: number;
+  targeting: {
+    tierLabels: string[];
+    geoLabel: string;
+    verifLabel: string;
+    durationKey: string | null;
+  };
+  plannedContacts: number;
+  funnel: CampaignFunnel;
+  acceptanceRate: number | null;
+  decidedCount: number;
+  winCount: number;
+  contacts: CampaignContact[];
+};
+export function useProCampaign(id?: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["pro", "campaign", id ?? ""],
+    queryFn: () => api<ProCampaignDetail>(`/api/pro/campaigns/${id}`),
+    enabled: !!id,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
 
 export type ProContact = {
   relationId: string;
