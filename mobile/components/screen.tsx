@@ -262,20 +262,11 @@ const TONE_FG: Record<Tone, string> = {
   amber: "#F2B65A",
   sky: "#5B8DEF",
 };
-// Dégradé diagonal soft → paper appliqué en fond de Card/Stat quand `tone`
-// est défini. Donne de la profondeur sans saturer la teinte.
+// Dégradé diagonal pastel → blanc en fond de Card/Stat (thèmes clairs :
+// buupp/forest/fushia) quand `tone` est défini. Teintes soutenues pour bien
+// marquer le contraste carte/page — on intensifie la couleur PROPRE de la
+// carte (le jaune reste jaune…), jamais avec la couleur du thème.
 const TONE_GRADIENT: Record<Tone, [string, string]> = {
-  violet: ["#EDE9FE", "#FFFFFF"],
-  coral: ["#FFE7E3", "#FFFFFF"],
-  teal: ["#DCF4F0", "#FFFFFF"],
-  amber: ["#FCEFD6", "#FFFFFF"],
-  sky: ["#E4ECFD", "#FFFFFF"],
-};
-// Variante RENFORCÉE — mêmes teintes que TONE_GRADIENT, simplement plus
-// soutenues (le jaune reste jaune, etc. — on n'ajoute PAS la couleur du
-// thème). Utilisée par forest/fushia pour mieux marquer le contraste
-// carte/page (qui y est plus pâle qu'en buupp).
-const TONE_GRADIENT_STRONG: Record<Tone, [string, string]> = {
   violet: ["#DAD0FB", "#FFFFFF"],
   coral: ["#FFD2C9", "#FFFFFF"],
   teal: ["#C4EDE6", "#FFFFFF"],
@@ -320,7 +311,7 @@ export function Card({
    *  défini (ex. card Portefeuille éclaircie sur la home). */
   gradient?: [string, string];
 }) {
-  const { c, mode, isDark } = useTheme();
+  const { c, isDark } = useTheme();
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
     ? undefined
@@ -366,14 +357,9 @@ export function Card({
       <LinearGradient
         colors={
           gradient ??
-          // sombre → pastel → surface sombre. forest/fushia → mêmes teintes
-          // plus soutenues (contraste renforcé, sans couleur du thème).
-          // buupp → pastel → blanc historique.
-          (isDark
-            ? [TONE_TINT_DARK[tone], c.surface]
-            : mode === "forest" || mode === "fushia"
-              ? TONE_GRADIENT_STRONG[tone]
-              : TONE_GRADIENT[tone])
+          // sombre → pastel sombre → surface sombre. thèmes clairs → pastel
+          // soutenu → blanc (contraste renforcé, sans couleur du thème).
+          (isDark ? [TONE_TINT_DARK[tone], c.surface] : TONE_GRADIENT[tone])
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -425,7 +411,7 @@ export function Stat({
   /** Couleur d'icône explicite (sinon dérivée du `tone`). */
   iconColor?: string;
 }) {
-  const { c, mode, isDark } = useTheme();
+  const { c, isDark } = useTheme();
   const bg = tone ? TONE_BG[tone] : "bg-paper";
   const fg = iconColor ?? (tone ? TONE_FG[tone] : c.violet);
   const inner = (
@@ -476,11 +462,7 @@ export function Stat({
     return (
       <LinearGradient
         colors={
-          isDark
-            ? [TONE_TINT_DARK[tone], c.surface]
-            : mode === "forest" || mode === "fushia"
-              ? TONE_GRADIENT_STRONG[tone]
-              : TONE_GRADIENT[tone]
+          isDark ? [TONE_TINT_DARK[tone], c.surface] : TONE_GRADIENT[tone]
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
