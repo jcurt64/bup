@@ -1,25 +1,37 @@
-// Créer une campagne — point d'entrée du wizard (étapes alignées sur le
-// dashboard web pro). Cette première version affiche le contexte réel
-// (crédit disponible, plan & plafond de campagnes) + le déroulé des étapes ;
-// la logique complète du wizard (ciblage, budget, paiement) suit.
+// Créer une campagne — étape 1 : choix de l'objectif (7 objectifs, alignés
+// sur le dashboard web) puis sélection des sous-opérations. Le contexte réel
+// (crédit, plan) est affiché en tête. La suite du wizard (ciblage, budget,
+// paiement) viendra ensuite.
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 import { Card, eur, QueryGate, ScrollScreen } from "../../components/screen";
+import { OBJECTIVES } from "../../lib/pro-objectives";
 import { useProPlan, useProWallet } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
-
-const STEPS: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string }[] = [
-  { icon: "flag-outline", title: "Objectif", desc: "Type de campagne et sous-types de demande." },
-  { icon: "options-outline", title: "Ciblage", desc: "Paliers de données, zone géographique, âge, vérification, mots-clés." },
-  { icon: "time-outline", title: "Durée & budget", desc: "Durée de diffusion, nombre de contacts et coût par contact." },
-  { icon: "checkmark-done-outline", title: "Récapitulatif", desc: "Vérification puis lancement (débit sur votre crédit)." },
-];
 
 export default function ProCreation() {
   const { c } = useTheme();
   const wallet = useProWallet();
   const plan = useProPlan();
+  const [selectedObj, setSelectedObj] = useState<string | null>(null);
+  const [selectedSubs, setSelectedSubs] = useState<Set<string>>(new Set());
+
+  const obj = OBJECTIVES.find((o) => o.id === selectedObj) ?? null;
+
+  const toggleSub = (id: string) =>
+    setSelectedSubs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const pickObjective = (id: string) => {
+    setSelectedObj((cur) => (cur === id ? null : id));
+    setSelectedSubs(new Set()); // reset des sous-types au changement d'objectif
+  };
 
   return (
     <ScrollScreen
@@ -60,39 +72,103 @@ export default function ProCreation() {
       </View>
 
       <Text className="mt-2 text-[11px] font-bold uppercase text-ink-4" style={{ letterSpacing: 1.2 }}>
-        Étapes de création
+        1. Choisissez un objectif
       </Text>
 
       <View className="gap-3">
-        {STEPS.map((s, i) => (
-          <Card key={s.title}>
-            <View className="flex-row items-start" style={{ gap: 12 }}>
-              <View
-                className="items-center justify-center"
-                style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.tintViolet }}
+        {OBJECTIVES.map((o) => {
+          const on = selectedObj === o.id;
+          return (
+            <View key={o.id}>
+              <Pressable
+                onPress={() => pickObjective(o.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                className="flex-row items-center rounded-3xl p-4 active:opacity-80"
+                style={{
+                  gap: 12,
+                  backgroundColor: on ? c.accentSoft : c.surface,
+                  borderWidth: 1,
+                  borderColor: on ? c.accent : c.borderSoft,
+                }}
               >
-                <Ionicons name={s.icon} size={20} color={c.accVioletDeep} />
-              </View>
-              <View className="flex-1">
-                <Text className="font-serif text-lg text-ink">
-                  {i + 1}. {s.title}
-                </Text>
-                <Text className="mt-0.5 text-[13px] leading-5 text-ink-3">
-                  {s.desc}
-                </Text>
-              </View>
+                <View
+                  className="items-center justify-center"
+                  style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.tintViolet }}
+                >
+                  <Ionicons name={o.icon} size={22} color={c.accVioletDeep} />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-serif text-lg" style={{ color: on ? c.accentInk : c.text }}>
+                    {o.name}
+                  </Text>
+                  <Text className="mt-0.5 text-[12.5px] leading-4 text-ink-4">
+                    {o.desc}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={on ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={c.ink4}
+                />
+              </Pressable>
+
+              {/* Sous-opérations de l'objectif sélectionné. */}
+              {on ? (
+                <View className="mt-2 gap-2 pl-2">
+                  {o.sub.map((s) => {
+                    const subOn = selectedSubs.has(s.id);
+                    return (
+                      <Pressable
+                        key={s.id}
+                        onPress={() => toggleSub(s.id)}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: subOn }}
+                        className="flex-row items-center rounded-2xl border bg-paper p-3 active:opacity-80"
+                        style={{ gap: 10, borderColor: subOn ? c.accent : c.borderSoft }}
+                      >
+                        <View
+                          className="items-center justify-center"
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 7,
+                            borderWidth: 1.5,
+                            borderColor: subOn ? c.accent : c.ink5,
+                            backgroundColor: subOn ? c.accent : "transparent",
+                          }}
+                        >
+                          {subOn ? (
+                            <Ionicons name="checkmark" size={14} color={c.btnText} />
+                          ) : null}
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-[14px] font-medium text-ink">{s.name}</Text>
+                          <Text className="text-[11.5px] leading-4 text-ink-4">{s.desc}</Text>
+                        </View>
+                        <Text className="font-mono text-[12px] text-ink-3">
+                          {s.cost.toFixed(2)} €
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
-          </Card>
-        ))}
+          );
+        })}
       </View>
 
+      {/* Récapitulatif de sélection + suite du wizard (à venir). */}
       <View
         className="mt-1 flex-row items-center gap-2 rounded-2xl px-4 py-3"
         style={{ backgroundColor: c.accentSoft }}
       >
-        <Ionicons name="construct-outline" size={18} color={c.accentInk} />
+        <Ionicons name="information-circle-outline" size={18} color={c.accentInk} />
         <Text className="flex-1 text-[12.5px]" style={{ color: c.accentInk }}>
-          Le formulaire complet de création arrive prochainement dans l&apos;app.
+          {obj
+            ? `${obj.name} · ${selectedSubs.size} opération${selectedSubs.size > 1 ? "s" : ""} sélectionnée${selectedSubs.size > 1 ? "s" : ""}. Les étapes suivantes (ciblage, budget, paiement) arrivent prochainement.`
+            : "Sélectionnez un objectif pour découvrir ses opérations."}
         </Text>
       </View>
     </ScrollScreen>

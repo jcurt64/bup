@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FlashDealsSheet } from "./flash-deals-sheet";
 import { useFlashSheet } from "./flash-sheet-context";
 import { MessagesSheet } from "./messages-sheet";
+import { RechargeSheet } from "./recharge-sheet";
 import {
   HEADER_BASE_HEIGHT,
   HEADER_SCROLL_THRESHOLD,
@@ -289,6 +290,7 @@ export function AppHeader({
   const pathname = usePathname();
   const ctx = useHeaderScroll();
   const [showMessages, setShowMessages] = useState(false);
+  const [showRecharge, setShowRecharge] = useState(false);
   const flashSheet = useFlashSheet();
   const notif = useNotifications();
   const unread = notif.data?.unreadCount ?? 0;
@@ -419,21 +421,24 @@ export function AppHeader({
             </View>
 
             {variant === "pro" ? (
-              <View className="flex-row items-center gap-1.5">
-                <IconButton
-                  icon="add"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Lancer une campagne"
-                  onPress={() => router.push("/(pro)/creation")}
-                />
-                <IconButton
-                  icon="add"
-                  gradient={["#1E3A8A", "#13235B"]}
-                  color="#FFFFFF"
-                  label="Recharger mon compte"
-                  onPress={() => router.push("/(pro)/facturation")}
-                />
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                {/* Les deux « + » groupés avec un peu plus d'espace entre eux. */}
+                <View className="flex-row items-center" style={{ gap: 12 }}>
+                  <IconButton
+                    icon="add"
+                    gradient={["#2F44C0", "#13235B"]}
+                    color="#FFFFFF"
+                    label="Lancer une campagne"
+                    onPress={() => router.push("/(pro)/creation")}
+                  />
+                  <IconButton
+                    icon="add"
+                    bg="bg-paper"
+                    color={iconColor}
+                    label="Recharger mon compte"
+                    onPress={() => setShowRecharge(true)}
+                  />
+                </View>
                 <IconButton
                   icon="notifications-outline"
                   bg="bg-paper"
@@ -569,6 +574,12 @@ export function AppHeader({
         visible={showMessages}
         onClose={() => setShowMessages(false)}
       />
+      {variant === "pro" ? (
+        <RechargeSheet
+          visible={showRecharge}
+          onClose={() => setShowRecharge(false)}
+        />
+      ) : null}
       <FlashDealsSheet
         visible={flashSheet.isOpen}
         onClose={flashSheet.close}

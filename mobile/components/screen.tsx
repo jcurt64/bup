@@ -217,12 +217,23 @@ export function QueryGate<T>({
   }
   if (query.isError) {
     const unauth = query.error instanceof ApiError && query.error.status === 401;
+    // 401 = vraie erreur de session (rouge). Tout autre échec (endpoint pas
+    // encore déployé, donnée pas encore disponible) → état neutre rassurant
+    // plutôt qu'un message alarmant « impossible de charger ».
+    if (unauth) {
+      return (
+        <View className="rounded-2xl border-l-4 border-bad bg-paper p-4">
+          <Text className="text-sm text-bad">
+            Session expirée — reconnectez-vous.
+          </Text>
+        </View>
+      );
+    }
     return (
-      <View className="rounded-2xl border-l-4 border-bad bg-paper p-4">
-        <Text className="text-sm text-bad">
-          {unauth
-            ? "Session expirée — reconnectez-vous."
-            : "Impossible de charger ces données."}
+      <View className="items-center rounded-2xl border border-line bg-paper p-8">
+        <Text className="text-center text-sm text-ink-4">
+          Pas encore de données — elles s&apos;afficheront ici dès qu&apos;elles
+          seront disponibles.
         </Text>
       </View>
     );

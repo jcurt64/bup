@@ -1293,6 +1293,36 @@ export const useProAnalytics = (
   );
 };
 
+// — Recharge crédit (Stripe Checkout) —
+// POST /api/stripe/checkout { amountCents } → { url } (URL Checkout Stripe).
+export function useCreateTopupCheckout() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (v: { amountCents: number }) =>
+      api<{ url: string }>("/api/stripe/checkout", {
+        method: "POST",
+        body: JSON.stringify({ amountCents: v.amountCents }),
+      }),
+  });
+}
+
+// POST /api/pro/topup/reconcile { sessionId } → crédite (idempotent).
+export function useReconcileTopup() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { sessionId: string }) =>
+      api<{ ok: true; alreadyCredited: boolean; amountCents: number }>(
+        "/api/pro/topup/reconcile",
+        { method: "POST", body: JSON.stringify({ sessionId: v.sessionId }) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pro", "wallet"] });
+      qc.invalidateQueries({ queryKey: ["pro", "invoices"] });
+    },
+  });
+}
+
 // — Timeseries acceptations — GET /api/pro/timeseries?range
 export type ProTimeseries = {
   range: "7d" | "30d" | "90d";
