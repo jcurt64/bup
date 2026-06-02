@@ -13,7 +13,7 @@ import { Card, dateFr, eur, QueryGate, ScrollScreen } from "../../components/scr
 import { useProCampaign, type ProCampaignDetail } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
 
-type Tab = "overview" | "contacts" | "config" | "activity" | "billing";
+type Tab = "overview" | "contacts" | "config" | "activity";
 
 function statusMeta(status: string, c: ReturnType<typeof useTheme>["c"]) {
   switch (status) {
@@ -131,7 +131,6 @@ export default function ProCampaignDetailScreen() {
             { key: "contacts", label: `Contacts (${d.contacts.length})` },
             { key: "config", label: "Configuration" },
             { key: "activity", label: "Activité" },
-            { key: "billing", label: "Facturation" },
           ];
           return (
             <View className="gap-4">
@@ -275,8 +274,8 @@ export default function ProCampaignDetailScreen() {
                 )
               ) : null}
 
-              {tab === "billing" ? (
-                <Card>
+              {/* Carte Budget — toujours affichée en bas du détail. */}
+              <Card>
                   <Text className="font-serif text-lg text-ink">Budget</Text>
                   <Text className="mt-1 text-[13px] text-ink-2">{eur(d.spentEur)} engagés sur {eur(d.budgetEur)}</Text>
                   <View className="mt-2 h-2.5 overflow-hidden rounded-full" style={{ backgroundColor: c.track }}>
@@ -300,7 +299,6 @@ export default function ProCampaignDetailScreen() {
                     </Text>
                   </View>
                 </Card>
-              ) : null}
             </View>
           );
         }}
