@@ -282,6 +282,17 @@ const TONE_GRADIENT_STRONG: Record<Tone, [string, string]> = {
   amber: ["#FAE2B0", "#FFFFFF"],
   sky: ["#D0DFFB", "#FFFFFF"],
 };
+// Départ de dégradé RENFORCÉ pour le DARK MODE — mêmes teintes que les dark
+// tints de la palette mais plus soutenues, pour mieux marquer le contraste
+// carte/fond (le dégradé fond toujours vers la surface sombre). Local au
+// composant : ne touche pas les pastilles d'icônes qui utilisent c.tint*.
+const TONE_TINT_DARK: Record<Tone, string> = {
+  violet: "#3A3275",
+  coral: "#552E22",
+  teal: "#1E5040",
+  amber: "#50401C",
+  sky: "#284468",
+};
 
 export function Card({
   children,
@@ -310,14 +321,6 @@ export function Card({
   gradient?: [string, string];
 }) {
   const { c, mode, isDark } = useTheme();
-  // Teinte de tuile par tone (pour le dégradé de carte en sombre / themé).
-  const toneTint: Record<Tone, string> = {
-    violet: c.tintViolet,
-    coral: c.tintCoral,
-    teal: c.tintGreen,
-    amber: c.tintAmber,
-    sky: c.tintBlue,
-  };
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
     ? undefined
@@ -367,7 +370,7 @@ export function Card({
           // plus soutenues (contraste renforcé, sans couleur du thème).
           // buupp → pastel → blanc historique.
           (isDark
-            ? [toneTint[tone], c.surface]
+            ? [TONE_TINT_DARK[tone], c.surface]
             : mode === "forest" || mode === "fushia"
               ? TONE_GRADIENT_STRONG[tone]
               : TONE_GRADIENT[tone])
@@ -423,13 +426,6 @@ export function Stat({
   iconColor?: string;
 }) {
   const { c, mode, isDark } = useTheme();
-  const toneTint: Record<Tone, string> = {
-    violet: c.tintViolet,
-    coral: c.tintCoral,
-    teal: c.tintGreen,
-    amber: c.tintAmber,
-    sky: c.tintBlue,
-  };
   const bg = tone ? TONE_BG[tone] : "bg-paper";
   const fg = iconColor ?? (tone ? TONE_FG[tone] : c.violet);
   const inner = (
@@ -481,7 +477,7 @@ export function Stat({
       <LinearGradient
         colors={
           isDark
-            ? [toneTint[tone], c.surface]
+            ? [TONE_TINT_DARK[tone], c.surface]
             : mode === "forest" || mode === "fushia"
               ? TONE_GRADIENT_STRONG[tone]
               : TONE_GRADIENT[tone]
