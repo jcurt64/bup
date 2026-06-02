@@ -217,9 +217,10 @@ export function QueryGate<T>({
   }
   if (query.isError) {
     const unauth = query.error instanceof ApiError && query.error.status === 401;
-    // 401 = vraie erreur de session (rouge). Tout autre échec (endpoint pas
-    // encore déployé, donnée pas encore disponible) → état neutre rassurant
-    // plutôt qu'un message alarmant « impossible de charger ».
+    // 401 = session expirée (rouge). Toute autre erreur = vraie erreur de
+    // chargement → message honnête mais discret + invite à réessayer (la
+    // plupart des écrans ont le pull-to-refresh). On NE masque PAS l'erreur
+    // en « pas encore de données » (les états vides passent par `isEmpty`).
     if (unauth) {
       return (
         <View className="rounded-2xl border-l-4 border-bad bg-paper p-4">
@@ -230,10 +231,12 @@ export function QueryGate<T>({
       );
     }
     return (
-      <View className="items-center rounded-2xl border border-line bg-paper p-8">
-        <Text className="text-center text-sm text-ink-4">
-          Pas encore de données — elles s&apos;afficheront ici dès qu&apos;elles
-          seront disponibles.
+      <View className="items-center rounded-2xl border border-line bg-paper p-6">
+        <Text className="text-center text-sm font-medium text-ink-2">
+          Chargement impossible pour le moment.
+        </Text>
+        <Text className="mt-1 text-center text-[12px] text-ink-4">
+          Tirez vers le bas pour réessayer.
         </Text>
       </View>
     );
