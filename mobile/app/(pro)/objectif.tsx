@@ -20,8 +20,9 @@ import {
   type DurationKey,
   type VerifLevel,
 } from "../../lib/pro-pricing";
-import { useCreateCampaign, useProPlan, useProWallet } from "../../lib/queries";
+import { useCreateCampaign, useProInfo, useProPlan, useProWallet } from "../../lib/queries";
 import { ApiError } from "../../lib/api";
+import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
 import { useTheme } from "../../lib/theme";
 
 const STEPS = ["Objectif", "Dates", "Données", "Ciblage", "Budget", "Mots-clés", "Description", "Récap"];
@@ -114,7 +115,14 @@ export default function ProWizard() {
 
   const plan = useProPlan();
   const wallet = useProWallet();
+  const info = useProInfo();
   const create = useCreateCampaign();
+
+  // Gate « informations société » : la création de campagne est refusée
+  // côté backend sans raison sociale + ville → on bloque le lancement et on
+  // l'indique dès l'étape 1, avec un raccourci vers « Mes informations ».
+  const infoLoaded = info.isSuccess;
+  const infoComplete = !!(info.data?.raisonSociale?.trim() && info.data?.ville?.trim());
 
   const planTierCap = plan.data?.plan === "pro" ? 5 : 3;
   const cycleCount = plan.data?.cycleCount ?? 0;
@@ -135,6 +143,59 @@ export default function ProWizard() {
   const [kwFilter, setKwFilter] = useState(false);
   const [brief, setBrief] = useState("");
   const [cgu, setCgu] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  // Restaure le brouillon au montage (si c'est le même objectif). Tant que
+  // l'hydratation n'est pas finie, on NE sauvegarde PAS (sinon l'état par
+  // défaut écraserait le brouillon).
+  useEffect(() => {
+    let alive = true;
+    loadDraft().then((d) => {
+      if (!alive) return;
+      if (d && d.objectiveId === id) {
+        setSubTypes(new Set(d.subTypes));
+        setDuration(d.duration as DurationKey);
+        setTiers(d.tiers);
+        setGeo(d.geo);
+        setVerif(d.verif as VerifLevel);
+        setExcludeCertified(d.excludeCertified);
+        setCpcCents(d.cpcCents);
+        setContacts(d.contacts);
+        setKeywords(d.keywords);
+        setKwFilter(d.kwFilter);
+        setBrief(d.brief);
+        setStep(d.step);
+        setMaxStep(Math.max(d.step, 1));
+        setRestored(true);
+      }
+      setHydrated(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  // Sauvegarde continue du brouillon après hydratation.
+  useEffect(() => {
+    if (!hydrated || !id) return;
+    void saveDraft({
+      objectiveId: id,
+      step,
+      subTypes: [...subTypes],
+      duration,
+      tiers,
+      geo,
+      verif,
+      excludeCertified,
+      cpcCents,
+      contacts,
+      keywords,
+      kwFilter,
+      brief,
+      updatedAt: Date.now(),
+    });
+  }, [hydrated, id, step, subTypes, duration, tiers, geo, verif, excludeCertified, cpcCents, contacts, keywords, kwFilter, brief]);
 
   const range = useMemo(() => cpcRange(tiers, duration, verif), [tiers, duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -197,7 +258,7 @@ export default function ProWizard() {
   const goTo = (s: number) => s <= maxStep && setStep(s);
 
   async function launch() {
-    if (!obj || !cgu || !fundsOk) return;
+    if (!obj || !cgu || !fundsOk || !infoComplete) return;
     const now = Date.now();
     try {
       const res = await create.mutateAsync({
@@ -223,6 +284,7 @@ export default function ProWizard() {
         excludeCertified,
         founder_bonus_enabled: true,
       });
+      void clearDraft(); // campagne lancée → on jette le brouillon
       Alert.alert(
         "Campagne lancée 🎉",
         `${res.matchedCount} prospect${res.matchedCount > 1 ? "s" : ""} ciblé${res.matchedCount > 1 ? "s" : ""}.\nRéférence : ${res.code}`,
@@ -252,6 +314,48 @@ export default function ProWizard() {
       hero={{ nav: "back", eyebrow: `Étape ${step}/8 · ${STEPS[step - 1]}`, title: obj.name }}
     >
       <StepHeader step={step} max={maxStep} go={goTo} />
+
+      {/* Brouillon restauré — message « tout gardé pour vous » (dismissible). */}
+      {restored ? (
+        <View
+          className="flex-row items-center gap-2 rounded-2xl px-4 py-3"
+          style={{ backgroundColor: c.accentSoft }}
+        >
+          <Ionicons name="bookmark" size={18} color={c.accentInk} />
+          <Text className="flex-1 text-[12.5px]" style={{ color: c.accentInk }}>
+            Nous avons tout gardé pour vous — reprenez où vous en étiez.
+          </Text>
+          <Pressable onPress={() => setRestored(false)} hitSlop={8} accessibilityLabel="Fermer">
+            <Ionicons name="close" size={16} color={c.accentInk} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Gate informations société — visible dès l'étape 1, bloque le lancement. */}
+      {infoLoaded && !infoComplete ? (
+        <View
+          className="rounded-2xl px-4 py-3"
+          style={{ backgroundColor: c.amberSoft, borderWidth: 1, borderColor: c.amber }}
+        >
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="business-outline" size={18} color={c.accAmber} />
+            <Text className="flex-1 text-[12.5px] font-semibold" style={{ color: c.accAmber }}>
+              Complétez votre raison sociale et votre ville avant de lancer.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/(pro)/informations")}
+            accessibilityRole="button"
+            className="mt-2 flex-row items-center justify-center gap-1.5 rounded-full py-2.5 active:opacity-80"
+            style={{ backgroundColor: c.btnBg }}
+          >
+            <Ionicons name="arrow-forward" size={15} color={c.btnText} />
+            <Text className="text-[14px] font-semibold" style={{ color: c.btnText }}>
+              Compléter mes informations
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* ÉTAPE 1 — Objectif : sous-types en grille 2 colonnes. */}
       {step === 1 ? (
@@ -550,11 +654,11 @@ export default function ProWizard() {
           </Pressable>
 
           <Pressable
-            disabled={!cgu || !fundsOk || create.isPending}
+            disabled={!cgu || !fundsOk || !infoComplete || create.isPending}
             onPress={launch}
             accessibilityRole="button"
             className="flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
-            style={{ backgroundColor: c.btnBg, opacity: !cgu || !fundsOk ? 0.5 : 1 }}
+            style={{ backgroundColor: c.btnBg, opacity: !cgu || !fundsOk || !infoComplete ? 0.5 : 1 }}
           >
             {create.isPending ? (
               <ActivityIndicator color={c.btnText} />

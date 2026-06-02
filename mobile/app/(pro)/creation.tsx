@@ -3,10 +3,12 @@
 // dédiée (objectif/[id]) listant ses sous-opérations. Contexte réel (crédit,
 // plan) affiché en tête.
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Card, eur, QueryGate, ScrollScreen } from "../../components/screen";
+import { loadDraft, type CampaignDraft } from "../../lib/campaign-draft";
 import { OBJECTIVES } from "../../lib/pro-objectives";
 import { useProPlan, useProWallet } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
@@ -15,6 +17,24 @@ export default function ProCreation() {
   const { c } = useTheme();
   const wallet = useProWallet();
   const plan = useProPlan();
+  const [draft, setDraft] = useState<CampaignDraft | null>(null);
+
+  // Recharge le brouillon à chaque fois que l'onglet reprend le focus
+  // (retour depuis le wizard ou une autre page).
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      loadDraft().then((d) => {
+        if (alive) setDraft(d);
+      });
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+  const draftObj = draft
+    ? OBJECTIVES.find((o) => o.id === draft.objectiveId)
+    : null;
 
   return (
     <ScrollScreen
@@ -25,6 +45,27 @@ export default function ProCreation() {
         desc: "Ciblez des prospects qualifiés — vous ne payez que les acceptations.",
       }}
     >
+      {/* Brouillon en cours — « nous avons tout gardé pour vous ». */}
+      {draftObj ? (
+        <Pressable
+          onPress={() => router.push(`/(pro)/objectif?id=${draftObj.id}` as never)}
+          accessibilityRole="button"
+          className="flex-row items-center gap-3 rounded-2xl px-4 py-3 active:opacity-80"
+          style={{ backgroundColor: c.accentSoft, borderWidth: 1, borderColor: c.accent }}
+        >
+          <Ionicons name="bookmark" size={20} color={c.accentInk} />
+          <View className="flex-1">
+            <Text className="text-[14px] font-semibold" style={{ color: c.accentInk }}>
+              Reprendre votre campagne
+            </Text>
+            <Text className="text-[12px]" style={{ color: c.accentInk }}>
+              Nous avons tout gardé : {draftObj.name} (étape {draft?.step}/8).
+            </Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={c.accentInk} />
+        </Pressable>
+      ) : null}
+
       {/* Contexte réel : crédit + plan. */}
       <View className="flex-row gap-3">
         <QueryGate query={wallet}>
