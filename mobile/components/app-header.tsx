@@ -119,27 +119,23 @@ function IconButton({
   ) : null;
 
   if (gradient) {
+    // Même conteneur que la variante pleine (h-10 w-10 items-center) → l'icône
+    // est centrée par le Pressable, garantissant le même centre que les autres
+    // boutons. Le dégradé est un simple fond en absolute-fill.
     return (
       <Pressable
         onPress={onPress}
         hitSlop={8}
         accessibilityLabel={accessibilityLabel}
-        className="h-10 w-10 active:opacity-70"
+        className="h-10 w-10 items-center justify-center overflow-hidden rounded-full active:opacity-70"
       >
         <LinearGradient
           colors={gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 999,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name={icon} size={22} color={color} />
-        </LinearGradient>
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Ionicons name={icon} size={22} color={color} />
         {badge}
       </Pressable>
     );
