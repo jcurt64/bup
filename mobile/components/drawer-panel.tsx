@@ -10,7 +10,7 @@ import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, Sty
 
 import { unregisterPushToken } from "../lib/push";
 import { resetOnboardingSeen } from "../lib/onboarding";
-import { useTheme } from "../lib/theme";
+import { useTheme, type ThemeMode } from "../lib/theme";
 import {
   useDeleteAccount,
   useMeTyped,
@@ -18,15 +18,25 @@ import {
   useProspectVerification,
 } from "../lib/queries";
 
-// Couleurs du drawer selon le thème :
-//   • clair (« buupp ») → drawer D'ORIGINE : dégradé violet → navy + contenu
-//     blanc.
-//   • sombre → fond CLAIR (violet clair) + contenu sombre (meilleure
-//     lisibilité demandée en dark mode).
-function dcolors(isDark: boolean) {
-  return isDark
+// Dégradé de fond du drawer par thème (diagonal top-left → bottom-right) :
+//   • buupp → violet → navy ; forest → vert ; fushia → rose. Tous trois
+//     avec contenu BLANC.
+//   • sombre → fond CLAIR (violet clair) + contenu sombre (lisibilité
+//     demandée en dark mode).
+const DRAWER_GRADIENT: Record<ThemeMode, readonly [string, string]> = {
+  light: ["#7C5CFC", "#13235B"],
+  dark: ["#D9CFF1", "#C0B2E6"],
+  forest: ["#2F8D5B", "#103A26"],
+  fushia: ["#D63B80", "#7A2350"],
+};
+
+// Couleurs du drawer selon le thème. Le sombre inverse (contenu sombre sur
+// fond clair) ; buupp/forest/fushia partagent le schéma « contenu blanc sur
+// dégradé foncé », seul le dégradé change.
+function dcolors(mode: ThemeMode) {
+  return mode === "dark"
     ? {
-        gradient: ["#D9CFF1", "#C0B2E6"] as const,
+        gradient: DRAWER_GRADIENT.dark,
         text: "#0F1629",
         sub: "#5B6478",
         muted: "#8A91A1",
@@ -39,7 +49,7 @@ function dcolors(isDark: boolean) {
         flashPill: "rgba(217,146,31,0.12)",
       }
     : {
-        gradient: ["#7C5CFC", "#13235B"] as const,
+        gradient: DRAWER_GRADIENT[mode],
         text: "#FFFFFF",
         sub: "rgba(255,255,255,0.65)",
         muted: "rgba(255,255,255,0.45)",
@@ -106,8 +116,8 @@ function Row({
   chevron?: boolean;
   onPress: () => void;
 }) {
-  const { isDark } = useTheme();
-  const d = dcolors(isDark);
+  const { mode } = useTheme();
+  const d = dcolors(mode);
   const color = danger ? DANGER : d.text;
   return (
     <Pressable
@@ -141,8 +151,8 @@ function Row({
 // affichant « {score} / 1000 » en haut à droite du drawer (parité
 // redesign.png, sans l'arc de progression).
 function ScoreRing({ score }: { score: number | null }) {
-  const { isDark } = useTheme();
-  const d = dcolors(isDark);
+  const { mode } = useTheme();
+  const d = dcolors(mode);
   return (
     <View
       className="h-14 w-14 items-center justify-center rounded-full"
@@ -162,8 +172,8 @@ function ScoreRing({ score }: { score: number | null }) {
 }
 
 export default function DrawerPanel() {
-  const { isDark } = useTheme();
-  const d = dcolors(isDark);
+  const { mode } = useTheme();
+  const d = dcolors(mode);
   const { signOut, getToken } = useAuth();
   const del = useDeleteAccount();
   // Données lecture seule (aucun back modifié) alimentant la carte de

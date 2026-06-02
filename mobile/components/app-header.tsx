@@ -182,7 +182,10 @@ function FlashHeaderButton({
   // couronne en expansion reste visible (effet radar, comme le box-shadow
   // animé du web).
   const PULSE_COLOR = "#4F46E5";
-  const { isDark } = useTheme();
+  const { c, mode, isDark } = useTheme();
+  // Éclair teinté à l'accent du thème en forest/fushia, violet buupp sinon.
+  const flashColor =
+    mode === "forest" || mode === "fushia" ? c.accent : "#7C5CFC";
   const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
 
@@ -241,7 +244,7 @@ function FlashHeaderButton({
         className={`h-10 w-10 items-center justify-center rounded-full ${isDark ? "" : "bg-paper"}`}
         style={[LIGHT_BTN_SHADOW, isDark ? { backgroundColor: "rgba(255,255,255,0.13)" } : null]}
       >
-        <Ionicons name="flash" size={22} color="#7C5CFC" />
+        <Ionicons name="flash" size={22} color={flashColor} />
       </View>
     </Pressable>
   );
@@ -287,7 +290,11 @@ export function AppHeader() {
   const flashCount = useFlashDeals().data?.deals.length ?? 0;
   const glass = isLiquidGlassAvailable();
   const pageName = pageNameFromPathname(pathname);
-  const { c, isDark } = useTheme();
+  const { c, mode, isDark } = useTheme();
+  // Icônes des boutons du header : teinte de l'accent du thème en
+  // forest/fushia, ink (navy sombre) en buupp et sombre — inchangés.
+  const iconColor =
+    mode === "forest" || mode === "fushia" ? c.accent : c.ink;
 
   // Transition smooth entre expanded et compact via `withTiming` (300 ms,
   // easing cubique in-out) plutôt qu'une interpolation linéaire 1-pour-1
@@ -394,7 +401,7 @@ export function AppHeader() {
             <IconButton
               icon="menu"
               bg="bg-paper"
-              color={c.ink}
+              color={iconColor}
               label="Ouvrir le menu"
               onPress={() => router.push("/drawer")}
             />
@@ -412,7 +419,7 @@ export function AppHeader() {
               <IconButton
                 icon="notifications-outline"
                 bg="bg-paper"
-                color={c.ink}
+                color={iconColor}
                 label="Messages"
                 onPress={() => setShowMessages(true)}
                 badgeCount={unread}
@@ -420,7 +427,7 @@ export function AppHeader() {
               <IconButton
                 icon="person-outline"
                 bg="bg-paper"
-                color={c.ink}
+                color={iconColor}
                 label="Mon compte"
                 onPress={() => router.push("/account")}
               />
