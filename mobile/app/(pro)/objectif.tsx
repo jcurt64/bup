@@ -33,6 +33,7 @@ import {
 import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
 import { clearPlanAck, getPlanAck } from "../../lib/plan-ack";
+import { Confetti } from "../../components/confetti";
 import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
 import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
@@ -334,6 +335,7 @@ export default function ProWizard() {
   if (result) {
     return (
       <ScrollScreen headerVariant="pro">
+        <Confetti />
         <View className="items-center" style={{ paddingTop: 8 }}>
           <LinearGradient
             colors={HERO_GRADIENT[mode]}
