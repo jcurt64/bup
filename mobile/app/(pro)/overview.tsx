@@ -34,7 +34,19 @@ const dateShort = (iso: string | null) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
 
-function IndicatorCell({ label, value }: { label: string; value: string }) {
+function IndicatorCell({
+  icon,
+  tintBg,
+  iconColor,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tintBg: string;
+  iconColor: string;
+  label: string;
+  value: string;
+}) {
   const { c } = useTheme();
   return (
     <View
@@ -48,8 +60,14 @@ function IndicatorCell({ label, value }: { label: string; value: string }) {
         padding: 14,
       }}
     >
+      <View
+        className="items-center justify-center"
+        style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: tintBg }}
+      >
+        <Ionicons name={icon} size={18} color={iconColor} />
+      </View>
       <Text
-        className="font-mono uppercase"
+        className="mt-2.5 font-mono uppercase"
         style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.6, color: c.textSub }}
         numberOfLines={2}
       >
@@ -191,12 +209,48 @@ export default function ProOverviewScreen() {
                 Indicateurs
               </Text>
               <View className="flex-row flex-wrap justify-between">
-                <IndicatorCell label="Contacts acceptés (30j)" value={String(d.contactsAccepted30d)} />
-                <IndicatorCell label="Taux d'acceptation" value={`${d.acceptanceRate} %`} />
-                <IndicatorCell label="Coût moyen / contact" value={eur((d.avgCostCents ?? 0) / 100)} />
-                <IndicatorCell label="Campagnes actives" value={String(d.activeCampaignsCount)} />
-                <IndicatorCell label="Acceptés ce mois" value={String(d.contactsAcceptedThisMonth)} />
-                <IndicatorCell label="Vues estimées" value={String(reach)} />
+                <IndicatorCell
+                  icon="people-outline"
+                  tintBg={c.tintViolet}
+                  iconColor={c.accVioletDeep}
+                  label="Contacts acceptés (30j)"
+                  value={String(d.contactsAccepted30d)}
+                />
+                <IndicatorCell
+                  icon="trending-up"
+                  tintBg={c.tintBlue}
+                  iconColor={c.accBlue}
+                  label="Taux d'acceptation"
+                  value={`${d.acceptanceRate} %`}
+                />
+                <IndicatorCell
+                  icon="pricetag-outline"
+                  tintBg={c.tintAmber}
+                  iconColor={c.accAmber}
+                  label="Coût moyen / contact"
+                  value={eur((d.avgCostCents ?? 0) / 100)}
+                />
+                <IndicatorCell
+                  icon="megaphone-outline"
+                  tintBg={c.tintCoral}
+                  iconColor={c.accCoral}
+                  label="Campagnes actives"
+                  value={String(d.activeCampaignsCount)}
+                />
+                <IndicatorCell
+                  icon="calendar-outline"
+                  tintBg={c.tintGreen}
+                  iconColor={c.accGreen}
+                  label="Acceptés ce mois"
+                  value={String(d.contactsAcceptedThisMonth)}
+                />
+                <IndicatorCell
+                  icon="eye-outline"
+                  tintBg={c.tintViolet}
+                  iconColor={c.accVioletDeep}
+                  label="Vues estimées"
+                  value={String(reach)}
+                />
               </View>
 
               {/* DERNIÈRES ACCEPTATIONS */}
