@@ -8,8 +8,29 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
+import { ApiError } from "../lib/api";
 import { useCreateTopupCheckout, useReconcileTopup } from "../lib/queries";
 import { useTheme } from "../lib/theme";
+
+// Messages lisibles selon le code d'erreur de /api/stripe/checkout.
+function checkoutErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    let code = "";
+    try {
+      code = (JSON.parse(e.body) as { error?: string }).error ?? "";
+    } catch {
+      /* corps non-JSON */
+    }
+    if (e.status === 401) return "Session expirée — reconnectez-vous.";
+    if (code === "invalid_amount") return "Montant invalide (50 € à 10 000 €).";
+    if (e.status === 404)
+      return "Service de paiement indisponible (route absente sur ce déploiement).";
+    if (e.status >= 500)
+      return "Paiement momentanément indisponible côté serveur (Stripe non configuré ?).";
+    return `Erreur ${e.status}${code ? ` — ${code}` : ""}.`;
+  }
+  return e instanceof Error && e.message ? e.message : "Réessayez dans un instant.";
+}
 
 const PRESETS = [50, 100, 200, 500]; // €, min 50 € côté serveur
 
@@ -54,12 +75,7 @@ export function RechargeSheet({
       }
       onClose();
     } catch (e) {
-      Alert.alert(
-        "Recharge impossible",
-        e instanceof Error && e.message
-          ? e.message
-          : "Réessayez dans un instant.",
-      );
+      Alert.alert("Recharge impossible", checkoutErrorMessage(e));
     } finally {
       setBusy(false);
     }
