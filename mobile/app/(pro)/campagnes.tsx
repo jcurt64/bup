@@ -1,15 +1,25 @@
 // Campagnes (liste) — /api/pro/campaigns. Design aligné c.html : carte crédit
-// (violet, thémée) + ROI, puis cartes campagne (statut, code, barre budget,
-// Dupliquer / Voir le détail → détail).
+// (violet thémé) + ROI + stats (active / taux / réservé), filtres de statut,
+// puis cartes campagne (statut, chips CODE🔒 / date📅, stats budget/touchés/
+// contacts, barre budget consommé, Dupliquer / Voir le détail).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 import { useProCampaigns, useProOverview, useProWallet, type Campaign } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
+
+type Filter = "all" | "active" | "paused" | "ended";
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "Toutes" },
+  { key: "active", label: "Actives" },
+  { key: "paused", label: "En pause" },
+  { key: "ended", label: "Terminées" },
+];
 
 function statusMeta(status: string, c: ReturnType<typeof useTheme>["c"]) {
   switch (status) {
@@ -22,6 +32,26 @@ function statusMeta(status: string, c: ReturnType<typeof useTheme>["c"]) {
     default:
       return { label: "Terminée", color: c.textSub, bg: c.surface2 };
   }
+}
+const matchesFilter = (status: string, f: Filter) =>
+  f === "all" ||
+  (f === "active" && status === "active") ||
+  (f === "paused" && status === "paused") ||
+  (f === "ended" && status !== "active" && status !== "paused" && status !== "draft");
+
+const dateShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+
+function StatCol({ label, value }: { label: string; value: string }) {
+  const { c } = useTheme();
+  return (
+    <View>
+      <Text className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.6, color: c.textMuted }}>
+        {label}
+      </Text>
+      <Text className="mt-0.5 font-serif text-[17px] text-ink">{value}</Text>
+    </View>
+  );
 }
 
 function CampaignCard({ camp }: { camp: Campaign }) {
@@ -61,21 +91,39 @@ function CampaignCard({ camp }: { camp: Campaign }) {
         </View>
       </View>
 
-      {code ? (
-        <View className="mt-3 flex-row items-center" style={{ gap: 6 }}>
-          <Text className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: 1, color: c.textMuted }}>
-            Code
-          </Text>
-          <Text className="font-mono text-[12px] text-ink-3">{code}</Text>
+      {/* Chips CODE (cadenas + fond) + date (calendrier). */}
+      <View className="mt-3 flex-row flex-wrap items-center" style={{ gap: 8 }}>
+        {code ? (
+          <View
+            className="flex-row items-center rounded-full px-2.5 py-1"
+            style={{ gap: 5, backgroundColor: c.tintViolet }}
+          >
+            <Ionicons name="lock-closed" size={11} color={c.accVioletDeep} />
+            <Text className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: 0.6, color: c.accVioletDeep }}>
+              Code
+            </Text>
+            <Text className="font-mono text-[12px] font-semibold" style={{ color: c.accVioletDeep }}>
+              {code}
+            </Text>
+          </View>
+        ) : null}
+        <View className="flex-row items-center" style={{ gap: 5 }}>
+          <Ionicons name="calendar-outline" size={13} color={c.textMuted} />
+          <Text className="text-[12px] text-ink-3">{dateShort(camp.createdAt)}</Text>
         </View>
-      ) : null}
+      </View>
+
+      {/* Stats budget / touchés / contacts. */}
+      <View className="mt-3 flex-row" style={{ gap: 24 }}>
+        <StatCol label="Budget" value={eur(camp.budgetEur)} />
+        <StatCol label="Touchés" value={String(camp.reachedCount)} />
+        <StatCol label="Contacts" value={String(camp.contactsCount)} />
+      </View>
 
       {/* Barre budget consommé. */}
       <View className="mt-3">
         <View className="flex-row justify-between">
-          <Text className="text-[11px] text-ink-4">
-            Budget consommé · {eur(camp.spentEur)} / {eur(camp.budgetEur)}
-          </Text>
+          <Text className="text-[11px] text-ink-4">Budget consommé · dépensé {eur(camp.spentEur)}</Text>
           <Text className="font-mono text-[11px] text-ink-3">{pct} %</Text>
         </View>
         <View className="mt-1 h-2 overflow-hidden rounded-full" style={{ backgroundColor: c.track }}>
@@ -86,9 +134,6 @@ function CampaignCard({ camp }: { camp: Campaign }) {
             style={{ width: `${pct}%`, height: "100%", borderRadius: 999 }}
           />
         </View>
-        <Text className="mt-1 font-mono text-[11px] text-ink-4">
-          {camp.contactsCount} contact{camp.contactsCount > 1 ? "s" : ""}
-        </Text>
       </View>
 
       <View className="mt-3 flex-row" style={{ gap: 10 }}>
@@ -121,13 +166,14 @@ export default function Campagnes() {
   const q = useProCampaigns();
   const wallet = useProWallet();
   const overview = useProOverview();
-  const { mode } = useTheme();
+  const { c, mode } = useTheme();
+  const [filter, setFilter] = useState<Filter>("all");
   const roiPct = overview.data?.roi?.pct ?? null;
 
   return (
     <ScrollScreen
       onRefresh={async () => {
-        await Promise.all([q.refetch(), wallet.refetch()]);
+        await Promise.all([q.refetch(), wallet.refetch(), overview.refetch()]);
       }}
       headerVariant="pro"
     >
@@ -137,7 +183,7 @@ export default function Campagnes() {
         desc="Vous ne payez que les acceptations effectives."
       />
 
-      {/* Carte crédit disponible + ROI + nouvelle campagne. */}
+      {/* Carte crédit + ROI + stats + nouvelle campagne. */}
       <LinearGradient
         colors={HERO_GRADIENT[mode]}
         start={{ x: 0, y: 0 }}
@@ -165,6 +211,23 @@ export default function Campagnes() {
             </View>
           ) : null}
         </View>
+
+        {/* Stats : actives / taux moyen / réservé. */}
+        <View className="mt-4 flex-row" style={{ gap: 22 }}>
+          {[
+            ["Active", String(overview.data?.activeCampaignsCount ?? 0)],
+            ["Taux moyen", `${overview.data?.acceptanceRate ?? 0}%`],
+            ["Réservé", eur(wallet.data?.walletReservedEur ?? 0)],
+          ].map(([l, v]) => (
+            <View key={l}>
+              <Text className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.8, color: "rgba(255,255,255,0.6)" }}>
+                {l}
+              </Text>
+              <Text className="mt-0.5 font-serif text-base text-white">{v}</Text>
+            </View>
+          ))}
+        </View>
+
         <Pressable
           onPress={() => router.push("/(pro)/creation")}
           accessibilityRole="button"
@@ -178,18 +241,51 @@ export default function Campagnes() {
         </Pressable>
       </LinearGradient>
 
+      {/* Filtres de statut. */}
+      <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+        {FILTERS.map((f) => {
+          const on = filter === f.key;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              className="rounded-full px-3.5 py-1.5 active:opacity-80"
+              style={{
+                borderWidth: 1.5,
+                borderColor: on ? c.accent : c.borderSoft,
+                backgroundColor: on ? c.accent : c.surface,
+              }}
+            >
+              <Text className="text-[13px] font-semibold" style={{ color: on ? c.btnText : c.textSub }}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <QueryGate
         query={q}
         isEmpty={(d) => (d.campaigns?.length ?? 0) === 0}
         emptyLabel="Aucune campagne. Lancez-en une via l'onglet Créer."
       >
-        {(d) => (
-          <View className="gap-3">
-            {d.campaigns.map((camp) => (
-              <CampaignCard key={camp.id} camp={camp} />
-            ))}
-          </View>
-        )}
+        {(d) => {
+          const list = d.campaigns.filter((camp) => matchesFilter(camp.status, filter));
+          if (list.length === 0) {
+            return (
+              <View className="items-center rounded-2xl border p-8" style={{ borderColor: c.borderSoft, backgroundColor: c.surface }}>
+                <Text className="text-center text-sm text-ink-4">Aucune campagne dans ce filtre.</Text>
+              </View>
+            );
+          }
+          return (
+            <View className="gap-3">
+              {list.map((camp) => (
+                <CampaignCard key={camp.id} camp={camp} />
+              ))}
+            </View>
+          );
+        }}
       </QueryGate>
     </ScrollScreen>
   );

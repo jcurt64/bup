@@ -1219,10 +1219,20 @@ export type ProCampaignDetail = {
   costPerContactEur: number;
   avgCostEur: number;
   targeting: {
+    subTypes: string[];
+    requiredTiers: number[];
     tierLabels: string[];
+    geo: string | null;
     geoLabel: string;
+    ages: string[];
+    verifLevel: string | null;
     verifLabel: string;
+    keywords: string[];
+    kwFilter: boolean;
+    poolLabel: string;
+    days: number | null;
     durationKey: string | null;
+    excludeCertified: boolean;
   };
   plannedContacts: number;
   funnel: CampaignFunnel;
@@ -1230,6 +1240,7 @@ export type ProCampaignDetail = {
   decidedCount: number;
   winCount: number;
   contacts: CampaignContact[];
+  activity: { ts: string; kind: string; label: string }[];
 };
 export function useProCampaign(id?: string) {
   const api = useApi();
