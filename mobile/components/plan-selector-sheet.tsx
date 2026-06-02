@@ -21,7 +21,7 @@ export function PlanSelectorSheet({
   visible: boolean;
   capReached: boolean;
   onClose: () => void;
-  onChosen: () => void;
+  onChosen: (plan: PlanId) => void;
 }) {
   const { c } = useTheme();
   const plan = useProPlan();
@@ -35,7 +35,7 @@ export function PlanSelectorSheet({
     try {
       await setPlan.mutateAsync({ plan: id });
       await setPlanAck();
-      onChosen();
+      onChosen(id);
     } catch {
       Alert.alert("Erreur", "Impossible de changer de formule. Réessayez.");
     } finally {

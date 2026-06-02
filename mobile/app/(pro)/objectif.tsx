@@ -6,7 +6,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { Card, eur, ScrollScreen } from "../../components/screen";
@@ -272,6 +272,16 @@ export default function ProWizard() {
       alive = false;
     };
   }, [plan.isSuccess, hydrated, restored, capReached, cycleCount]);
+
+  // Valeur PAR DÉFAUT du slider selon la formule (Starter → 25, Pro → 50),
+  // appliquée une fois sur un wizard frais (pas de brouillon restauré).
+  const defaultApplied = useRef(false);
+  useEffect(() => {
+    if (!plan.isSuccess || !hydrated || defaultApplied.current) return;
+    defaultApplied.current = true;
+    if (restored) return; // on garde la valeur du brouillon
+    setContacts(String(plan.data?.plan === "pro" ? 50 : 25));
+  }, [plan.isSuccess, hydrated, restored, plan.data?.plan]);
 
   // Plafonne le nombre de contacts au max de la formule (50 Starter / 500 Pro)
   // — ex. après un passage Pro → Starter.
@@ -968,9 +978,11 @@ export default function ProWizard() {
         visible={showPlanSheet}
         capReached={capReached}
         onClose={() => setShowPlanSheet(false)}
-        onChosen={() => {
+        onChosen={(chosen) => {
           setPlanChosen(true);
           setShowPlanSheet(false);
+          // Curseur par défaut selon la formule choisie : Starter → 25, Pro → 50.
+          setContacts(String(chosen === "pro" ? 50 : 25));
           void plan.refetch();
         }}
       />
