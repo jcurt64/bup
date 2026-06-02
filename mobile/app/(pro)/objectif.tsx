@@ -172,8 +172,12 @@ export default function ProWizard() {
         setKeywords(d.keywords);
         setKwFilter(d.kwFilter);
         setBrief(d.brief);
-        setStep(d.step);
-        setMaxStep(Math.max(d.step, 1));
+        // Ne pas reprendre à une étape avancée si les sous-types (étape 1)
+        // sont vides — sinon on peut atteindre « Lancer » avec un payload
+        // invalide (invalid_sub_types). On repart alors de l'étape 1.
+        const safeStep = (d.subTypes?.length ?? 0) >= 1 ? d.step : 1;
+        setStep(safeStep);
+        setMaxStep(Math.max(safeStep, 1));
         setRestored(true);
       }
       setHydrated(true);
@@ -777,11 +781,11 @@ export default function ProWizard() {
           </Pressable>
 
           <Pressable
-            disabled={!cgu || !fundsOk || !infoComplete || create.isPending}
+            disabled={!cgu || !fundsOk || !infoComplete || subTypes.size < 1 || create.isPending}
             onPress={launch}
             accessibilityRole="button"
             className="flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
-            style={{ backgroundColor: c.btnBg, opacity: !cgu || !fundsOk || !infoComplete ? 0.5 : 1 }}
+            style={{ backgroundColor: c.btnBg, opacity: !cgu || !fundsOk || !infoComplete || subTypes.size < 1 ? 0.5 : 1 }}
           >
             {create.isPending ? (
               <ActivityIndicator color={c.btnText} />
