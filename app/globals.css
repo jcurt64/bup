@@ -947,3 +947,69 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
      directement sur un item du défilé. */
   .flash-deal-cta-hide-mobile { display: none; }
 }
+
+/* ── Section « App mobile » : décor animé adaptatif ───────────────────────── */
+@keyframes appBlobA { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(46px,-34px) scale(1.12); } }
+@keyframes appBlobB { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-54px,26px) scale(1.08); } }
+@keyframes appBlobC { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(32px,42px) scale(1.1); } }
+@keyframes appFloatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-13px); } }
+@keyframes appTwinkle { 0%,100% { opacity: .15; transform: scale(.7); } 50% { opacity: .9; transform: scale(1.25); } }
+@keyframes appGridDrift { from { background-position: 0 0; } to { background-position: 30px 30px; } }
+@keyframes appOrbit { from { transform: rotate(0deg) translateX(var(--orb,120px)) rotate(0deg); } to { transform: rotate(360deg) translateX(var(--orb,120px)) rotate(-360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-anim { animation: none !important; }
+}
+
+/* ── Section « App mobile » — design launch répliqué (4 thèmes via data-theme) ── */
+#app-mobile { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: clamp(72px,9vw,120px) 24px; transition: background .6s ease; }
+#app-mobile[data-theme="buupp"]  { --accent:#6d4bff; --accent-deep:#5126d6; --accent-soft:#ece8ff; --accent-shadow:rgba(109,75,255,0.28); --ink:#14102e; --sub:#7a7596; --line:#eceaf6; --card:#ffffff; --screen-bg:#f1eeff; --hero-ink:#16122e; --hero-sub:#6f6a8a; --decor:#b9a8ff; --badge-bg:#fff; --badge-border:#e6e1f7; background: radial-gradient(120% 90% at 50% -10%, #efeaff 0%, #f6f3ea 60%, #f4f1e9 100%); }
+#app-mobile[data-theme="sombre"] { --accent:#8b6dff; --accent-deep:#6d4bff; --accent-soft:#241f3e; --accent-shadow:rgba(139,109,255,0.4); --ink:#f4f1e9; --sub:#9aa0b5; --line:#2a3147; --card:#1b2236; --screen-bg:#121829; --hero-ink:#f6f4ef; --hero-sub:#9aa0b5; --decor:#5b4bce; --badge-bg:rgba(255,255,255,0.06); --badge-border:rgba(255,255,255,0.16); background: radial-gradient(120% 90% at 50% -10%, #161f38 0%, #0d1424 62%, #0a0f1c 100%); }
+#app-mobile[data-theme="forest"] { --accent:#2f8d5b; --accent-deep:#1d6b42; --accent-soft:#e3f2e8; --accent-shadow:rgba(47,141,91,0.26); --ink:#10271b; --sub:#5d7568; --line:#e3ece5; --card:#fff; --screen-bg:#eaf5ee; --hero-ink:#11281c; --hero-sub:#5f7568; --decor:#8fcfa6; --badge-bg:#fff; --badge-border:#dcebe0; background: radial-gradient(120% 90% at 50% -10%, #e8f4ec 0%, #f5f4ea 60%, #f4f1e9 100%); }
+#app-mobile[data-theme="fushia"] { --accent:#d63b80; --accent-deep:#a82a64; --accent-soft:#fbe1ee; --accent-shadow:rgba(214,59,128,0.26); --ink:#2a0f1d; --sub:#9a6c80; --line:#f3dfe8; --card:#fff; --screen-bg:#fbe6f0; --hero-ink:#2a0f1d; --hero-sub:#8a6072; --decor:#f4a3c8; --badge-bg:#fff; --badge-border:#f5d6e4; background: radial-gradient(120% 90% at 50% -10%, #fce9f2 0%, #faf3ea 60%, #f4f1e9 100%); }
+
+#app-mobile .m-inner { position: relative; z-index: 2; width: 100%; max-width: 1040px; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
+#app-mobile .m-badge { display: inline-flex; align-items: center; gap: 9px; padding: 9px 18px; border-radius: 999px; background: var(--badge-bg); border: 1px solid var(--badge-border); font-size: 14px; font-weight: 500; color: var(--hero-ink); transition: background .4s, border-color .4s, color .4s; }
+#app-mobile .m-badge-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+#app-mobile .m-headline { margin: 26px 0 0; font-family: var(--serif); font-weight: 500; font-size: clamp(40px,5.4vw,72px); line-height: 1.06; letter-spacing: -0.02em; color: var(--hero-ink); text-wrap: balance; max-width: 14ch; transition: color .4s; }
+#app-mobile .m-headline em { font-style: italic; color: var(--accent); }
+#app-mobile .m-sub { margin: 18px 0 0; font-size: clamp(16px,2vw,20px); color: var(--hero-sub); transition: color .4s; }
+#app-mobile .m-phones { display: flex; align-items: flex-start; justify-content: center; margin: 44px 0 8px; }
+#app-mobile .m-themes { display: flex; gap: 16px; margin-top: 40px; flex-wrap: wrap; justify-content: center; }
+#app-mobile .m-theme-btn { all: unset; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 10px; border-radius: 18px; border: 2px solid transparent; cursor: pointer; transition: border-color .3s, background .3s; }
+#app-mobile .m-theme-dot { position: relative; width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 8px 18px rgba(10,16,30,0.22), inset 0 1px 0 rgba(255,255,255,0.35); transition: transform .3s, box-shadow .3s; }
+#app-mobile .m-theme-gloss { position: absolute; inset: 0; background: radial-gradient(120% 90% at 28% 18%, rgba(255,255,255,0.55), rgba(255,255,255,0) 55%); }
+#app-mobile .m-theme-glyph { position: relative; opacity: 0.92; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18)); }
+#app-mobile .m-theme-label { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--hero-sub); letter-spacing: 0.4px; transition: color .3s; }
+#app-mobile .m-theme-btn.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+#app-mobile .m-theme-btn.on .m-theme-dot { transform: scale(1.1) rotate(-3deg); box-shadow: 0 10px 24px var(--accent-shadow), inset 0 1px 0 rgba(255,255,255,0.4); }
+#app-mobile .m-theme-btn.on .m-theme-label { color: var(--hero-ink); font-weight: 600; }
+#app-mobile .m-stores { display: flex; gap: 16px; margin-top: 36px; justify-content: center; flex-wrap: wrap; }
+#app-mobile .m-store { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; padding: 12px 22px; border-radius: 16px; background: #0d1322; color: #fff; cursor: default; }
+#app-mobile .m-store-txt { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
+#app-mobile .m-store small { font-size: 11px; opacity: 0.78; }
+#app-mobile .m-store strong { font-size: 17px; font-weight: 700; }
+#app-mobile .m-foot { margin-top: 22px; font-size: 14px; color: var(--hero-sub); transition: color .4s; }
+
+#app-mobile .m-decor { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+#app-mobile .m-blob { position: absolute; border-radius: 50%; filter: blur(60px); }
+#app-mobile .m-blob-a { width: 420px; height: 420px; left: -90px; top: 4%; background: radial-gradient(circle, var(--accent) 0%, transparent 70%); opacity: 0.28; animation: appBlobA 19s ease-in-out infinite; }
+#app-mobile .m-blob-b { width: 360px; height: 360px; right: -70px; top: 24%; background: radial-gradient(circle, var(--decor) 0%, transparent 70%); opacity: 0.35; animation: appBlobB 23s ease-in-out infinite; }
+#app-mobile .m-blob-c { width: 300px; height: 300px; left: 30%; bottom: -100px; background: radial-gradient(circle, var(--accent) 0%, transparent 70%); opacity: 0.18; animation: appBlobC 27s ease-in-out infinite; }
+#app-mobile .m-ring { position: absolute; border-radius: 50%; border: 1.5px solid var(--decor); opacity: 0.3; }
+#app-mobile .m-ring-1 { width: 540px; height: 540px; left: 50%; top: 58%; transform: translate(-50%,-50%); }
+#app-mobile .m-ring-2 { width: 760px; height: 760px; left: 50%; top: 58%; transform: translate(-50%,-50%); opacity: 0.16; }
+#app-mobile .m-coin { position: absolute; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 18px; font-weight: 600; color: #7a4a08; background: radial-gradient(circle at 32% 28%, #ffe7a8, #e0972f 70%, #b9781f); box-shadow: 0 8px 18px rgba(176,124,30,0.4); }
+#app-mobile .m-coin-1 { left: 13%; top: 40%; animation: appFloatY 6s ease-in-out infinite; }
+#app-mobile .m-coin-2 { right: 14%; top: 60%; width: 30px; height: 30px; font-size: 14px; animation: appFloatY 7s ease-in-out .8s infinite; }
+#app-mobile .m-spark { position: absolute; line-height: 0; opacity: 0.85; }
+#app-mobile .m-spark-1 { left: 22%; top: 22%; animation: appTwinkle 5s ease-in-out infinite; }
+#app-mobile .m-spark-2 { right: 24%; top: 32%; animation: appTwinkle 5s ease-in-out 1.6s infinite; }
+#app-mobile .m-spark-3 { right: 30%; bottom: 28%; animation: appTwinkle 6s ease-in-out 2.6s infinite; }
+#app-mobile .m-chip { position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink); box-shadow: 0 10px 22px rgba(10,16,30,0.1); }
+#app-mobile .m-chip-1 { left: 9%; top: 64%; animation: appFloatY 6.5s ease-in-out .4s infinite; }
+#app-mobile .m-chip-2 { right: 8%; top: 46%; animation: appFloatY 7.5s ease-in-out 1.1s infinite; }
+
+@media (max-width: 760px) {
+  #app-mobile .m-decor { display: none; }
+}

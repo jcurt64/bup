@@ -3515,6 +3515,275 @@ function Pricing() {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Section « App mobile » — réplique du design launch (public/prototype/app.html).
+   4 thèmes pilotés par variables CSS via data-theme (cf. #app-mobile dans
+   globals.css). Châssis iPhone réaliste conservé (Dynamic Island, rail titane,
+   boutons, reflet). Écrans, décor (blobs, anneaux, pièces, étincelles, chips),
+   sélecteur de thème et badges stores reproduits à l'identique.
+   ───────────────────────────────────────────────────────────────────────── */
+type AppTheme = { key: string; label: string; g1: string; g2: string };
+
+const APP_THEMES: AppTheme[] = [
+  { key: "buupp", label: "Buupp", g1: "#7d5cff", g2: "#4326c0" },
+  { key: "sombre", label: "Sombre", g1: "#2a3354", g2: "#0d1424" },
+  { key: "forest", label: "Forest", g1: "#3aa86c", g2: "#14532d" },
+  { key: "fushia", label: "Fushia", g1: "#e9559b", g2: "#9c1f57" },
+];
+
+const F_SERIF = "var(--serif)";
+const F_SANS = "var(--sans)";
+
+function PhoneStatusBar() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 20px 2px", fontFamily: F_SANS }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)" }}>9:41</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M2 16h2M6 13h2M10 10h2M14 7h2" /></svg>
+        <svg width="15" height="11" viewBox="0 0 24 18" fill="none"><path d="M12 3C8 3 5 5 3 7l9 10 9-10c-2-2-5-4-9-4z" stroke="var(--ink)" strokeWidth="2" /></svg>
+        <div style={{ width: 18, height: 10, borderRadius: 3, border: "1.5px solid var(--ink)", position: "relative", opacity: 0.85 }}>
+          <div style={{ position: "absolute", inset: "1.5px", width: "72%", borderRadius: 1, background: "var(--ink)" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhoneRow({ label, sub, right, rightArrow }: { label: string; sub: string; right?: string; rightArrow?: "check" | "arrow" }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", borderRadius: 12, border: "1px solid var(--line)", padding: rightArrow ? "10px 12px" : "9px 11px" }}>
+      {!rightArrow && <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--accent-soft)", flexShrink: 0 }} />}
+      <div style={{ flex: "1 1 0%", minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+        <div style={{ fontSize: 9.5, color: "var(--sub)", marginTop: 1 }}>{sub}</div>
+      </div>
+      {right && <span style={{ fontFamily: F_SERIF, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>{right}</span>}
+      {rightArrow === "check" && <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4.5 4.5L19 7" /></svg>}
+      {rightArrow === "arrow" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
+    </div>
+  );
+}
+
+/* Avatar — initiales « CM » sur fond teinté thème. */
+function AvatarGirl({ fontSize }: { fontSize: number }) {
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(150deg,var(--accent),var(--accent-deep))", color: "#fff", fontFamily: F_SERIF, fontWeight: 600, fontSize, letterSpacing: "0.5px" }}>CM</div>
+  );
+}
+
+function ScreenHome() {
+  return (
+    <>
+      <PhoneStatusBar />
+      <div style={{ position: "relative", height: "calc(100% - 28px)", overflow: "hidden" }}>
+        <div style={{ fontFamily: F_SANS, padding: "4px 16px 0" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--sub)" }}>Bonjour 👋</div>
+              <div style={{ fontFamily: F_SERIF, fontSize: 21, fontWeight: 600, color: "var(--ink)", lineHeight: 1.05 }}>Camille</div>
+            </div>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", boxShadow: "0 2px 6px rgba(10,16,30,.18)", flexShrink: 0 }}><AvatarGirl fontSize={14} /></div>
+          </div>
+          <div style={{ position: "relative", overflow: "hidden", marginTop: 14, borderRadius: 18, padding: "15px 16px", background: "linear-gradient(145deg,var(--accent),var(--accent-deep))", boxShadow: "0 12px 24px var(--accent-shadow)" }}>
+            <div style={{ position: "absolute", right: -14, top: -14, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
+            <div style={{ position: "relative", fontSize: 10.5, color: "rgba(255,255,255,0.82)" }}>Mon portefeuille</div>
+            <div style={{ position: "relative", fontFamily: F_SERIF, fontSize: 30, fontWeight: 600, color: "#fff", lineHeight: 1, marginTop: 5 }}>127,50 €</div>
+            <div style={{ position: "relative", fontSize: 10.5, color: "rgba(255,255,255,0.82)", marginTop: 7 }}>+12,40 € ce mois-ci</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 11 }}>
+            <div style={{ background: "var(--card)", borderRadius: 14, padding: "11px 13px", border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 10, color: "var(--sub)" }}>Gains</div>
+              <div style={{ fontFamily: F_SERIF, fontSize: 20, fontWeight: 600, color: "var(--ink)", marginTop: 2 }}>34</div>
+            </div>
+            <div style={{ background: "var(--card)", borderRadius: 14, padding: "11px 13px", border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 10, color: "var(--sub)" }}>Score</div>
+              <div style={{ fontFamily: F_SERIF, fontSize: 20, fontWeight: 600, color: "var(--ink)", marginTop: 2 }}>82</div>
+            </div>
+          </div>
+          <div style={{ fontFamily: F_SERIF, fontSize: 15, fontWeight: 600, color: "var(--ink)", marginTop: 15, marginBottom: 9 }}>Activité récente</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <PhoneRow label="Données local…" sub="Aujourd’hui" right="+2,00 €" />
+            <PhoneRow label="Parrainage · L…" sub="Hier" right="+5,00 €" />
+            <PhoneRow label="Style de vie" sub="2 mai" right="+3,50 €" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ScreenDeals() {
+  return (
+    <>
+      <PhoneStatusBar />
+      <div style={{ position: "relative", height: "calc(100% - 28px)", overflow: "hidden" }}>
+        <div style={{ fontFamily: F_SANS, padding: "4px 16px 0" }}>
+          <div style={{ fontFamily: F_SERIF, fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>Flash deals</div>
+          <div style={{ marginTop: 12, borderRadius: 16, padding: "14px 15px", background: "var(--card)", border: "1.5px solid var(--accent)", boxShadow: "0 10px 22px var(--accent-shadow)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, background: "var(--accent)", color: "#fff", fontSize: 8.5, fontWeight: 700, letterSpacing: 0.4, whiteSpace: "nowrap" }}>OFFRE ÉCLAIR</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
+                19:58
+              </span>
+            </div>
+            <div style={{ fontFamily: F_SERIF, fontSize: 15, fontWeight: 600, color: "var(--ink)", marginTop: 11, lineHeight: 1.15 }}>Test nouveau parfum</div>
+            <div style={{ fontSize: 11, color: "var(--sub)", marginTop: 3 }}>Révélez votre profil et gagnez</div>
+            <div style={{ fontFamily: F_SERIF, fontSize: 25, fontWeight: 600, color: "var(--accent)", marginTop: 8 }}>+ 8,00 €</div>
+          </div>
+          <div style={{ fontFamily: F_SERIF, fontSize: 14, fontWeight: 600, color: "var(--ink)", marginTop: 15, marginBottom: 9 }}>Autres opportunités</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <PhoneRow label="Énergie · Pro vérifié" sub="Palier 4" right="+5,00 €" />
+            <PhoneRow label="Banque · Pro vérifié" sub="Palier 5" right="+9,00 €" />
+            <PhoneRow label="Télécom · Pro vérifié" sub="Palier 2" right="+2,00 €" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ScreenProfile() {
+  return (
+    <>
+      <PhoneStatusBar />
+      <div style={{ position: "relative", height: "calc(100% - 28px)", overflow: "hidden" }}>
+        <div style={{ fontFamily: F_SANS, padding: "8px 16px 0", textAlign: "center" }}>
+          <div style={{ width: 62, height: 62, borderRadius: "50%", margin: "0 auto", overflow: "hidden", boxShadow: "0 8px 18px var(--accent-shadow)" }}><AvatarGirl fontSize={24} /></div>
+          <div style={{ fontFamily: F_SERIF, fontSize: 18, fontWeight: 600, color: "var(--ink)", marginTop: 10 }}>Camille Martin</div>
+          <span style={{ display: "inline-block", marginTop: 6, padding: "3px 10px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>FONDATEUR · PROUD</span>
+          <div style={{ position: "relative", width: 88, height: 88, margin: "14px auto 0" }}>
+            <svg width="88" height="88" style={{ transform: "rotate(-90deg)" }}>
+              <circle cx="44" cy="44" r="30" fill="none" stroke="var(--accent-soft)" strokeWidth="8" />
+              <circle cx="44" cy="44" r="30" fill="none" stroke="var(--accent)" strokeWidth="8" strokeLinecap="round" strokeDasharray="188.5" strokeDashoffset="33.9" />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: F_SERIF, fontSize: 24, fontWeight: 600, color: "var(--ink)", lineHeight: 1 }}>82</span>
+              <span style={{ fontSize: 8, color: "var(--sub)", marginTop: 2 }}>Score de profil</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 16, textAlign: "left" }}>
+            <PhoneRow label="Identification" sub="Palier 1" rightArrow="check" />
+            <PhoneRow label="Localisation" sub="Palier 2" rightArrow="check" />
+            <PhoneRow label="Patrimoine" sub="Palier 5" rightArrow="arrow" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AppPhone({ width, transform, z, delay, margin, children }: { width: string; transform: string; z: number; delay: number; margin: string; children: ReactNode }) {
+  const sideBtn: CSSProperties = { position: "absolute", borderRadius: 3, background: "linear-gradient(90deg,#26262a,#54545a 55%,#1f1f23)", zIndex: 1 };
+  return (
+    <div style={{ width, aspectRatio: "9 / 19.5", position: "relative", flex: "0 0 auto", margin, transform, transformOrigin: "bottom center", zIndex: z }}>
+      {/* couche de flottement : translateY animé, séparé de la rotation parent */}
+      <div className="app-anim" style={{ position: "absolute", inset: 0, animation: `appFloatY ${6.5 + delay}s ease-in-out ${(delay * 0.7).toFixed(2)}s infinite` }}>
+      <div style={{ position: "absolute", inset: 0, borderRadius: "clamp(34px,5.2vw,48px)", background: "linear-gradient(135deg,#46464a 0%,#1d1d20 24%,#5a5a5f 50%,#202024 76%,#43434a 100%)", boxShadow: "0 42px 72px -24px rgba(15,22,41,.58), 0 16px 32px rgba(15,22,41,.22), inset 0 0 0 1px rgba(255,255,255,.14)" }}>
+        <div style={{ position: "absolute", inset: "2%", borderRadius: "clamp(30px,4.6vw,43px)", background: "#000" }}>
+          <div style={{ position: "absolute", inset: "1.7%", borderRadius: "clamp(26px,4vw,38px)", overflow: "hidden", background: "var(--screen-bg)", transition: "background .4s" }}>
+            {children}
+            <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(125deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,0) 74%, rgba(255,255,255,.06) 100%)" }} />
+          </div>
+          <div style={{ position: "absolute", top: "2.4%", left: "50%", transform: "translateX(-50%)", width: "30%", height: "3.3%", minHeight: 13, background: "#000", borderRadius: 999, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "4%" }}>
+            <span style={{ width: "13%", maxWidth: 7, aspectRatio: "1", borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #2b3550, #05060a 70%)" }} />
+          </div>
+        </div>
+        <div style={{ ...sideBtn, left: "-1.4%", top: "17%", width: "1.8%", height: "4.5%" }} />
+        <div style={{ ...sideBtn, left: "-1.6%", top: "27%", width: "2%", height: "8.5%" }} />
+        <div style={{ ...sideBtn, left: "-1.6%", top: "38.5%", width: "2%", height: "8.5%" }} />
+        <div style={{ ...sideBtn, right: "-1.6%", top: "31%", width: "2%", height: "12%", background: "linear-gradient(270deg,#26262a,#54545a 55%,#1f1f23)" }} />
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function AppStore({ kind }: { kind: "apple" | "android" }) {
+  const apple = kind === "apple";
+  return (
+    <div className="m-store">
+      {apple ? (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3c0 1.5-1.2 3-2.7 3 0-1.5 1.3-3 2.7-3zM18 16.5c-.5 1.2-1.7 3.3-3 3.3-.9 0-1.2-.6-2.3-.6s-1.4.6-2.3.6c-1.4 0-2.7-2.3-3.2-3.5C5.4 13.5 6 9 9 9c1 0 1.8.6 2.5.6S13 9 14.2 9c1 0 2 .5 2.6 1.4-2.3 1.3-1.9 4.6 1.2 6.1z" fill="currentColor" stroke="none" /></svg>
+      ) : (
+        <svg width="22" height="24" viewBox="0 0 24 26" aria-hidden="true"><path d="M3 2l13 11L3 24z" fill="#34d399" /><path d="M3 2l13 11-3 3z" fill="#60a5fa" /><path d="M3 24l13-11-3-3z" fill="#fbbf24" /><path d="M16 13l5-3-5-3z" fill="#f87171" /></svg>
+      )}
+      <span className="m-store-txt"><small>Bientôt sur</small><strong>{apple ? "App Store" : "Google Play"}</strong></span>
+    </div>
+  );
+}
+
+function MobileAppSection() {
+  const [theme, setTheme] = useState("buupp");
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const onR = () => setNarrow(window.innerWidth < 760);
+    onR();
+    window.addEventListener("resize", onR);
+    return () => window.removeEventListener("resize", onR);
+  }, []);
+
+  const W = "clamp(190px,21vw,242px)";
+  // Éventail : pivot bas (transform-origin: bottom center sur AppPhone), les
+  // latéraux s'écartent vers le haut, bords inférieurs ~alignés, fort recouvrement.
+  const phones = narrow
+    ? [{ scr: <ScreenDeals />, transform: "none", z: 3, delay: 0, margin: "0" }]
+    : [
+        { scr: <ScreenHome />, transform: "rotate(-15deg)", z: 1, delay: 0.8, margin: "0 -72px 0 0" },
+        { scr: <ScreenDeals />, transform: "translateY(-14px) scale(1.06)", z: 3, delay: 0, margin: "0" },
+        { scr: <ScreenProfile />, transform: "rotate(15deg)", z: 1, delay: 1.4, margin: "0 0 0 -72px" },
+      ];
+
+  return (
+    <section id="app-mobile" className="section" data-theme={theme}>
+      <div className="m-decor" aria-hidden="true">
+        <div className="m-blob m-blob-a app-anim" />
+        <div className="m-blob m-blob-b app-anim" />
+        <div className="m-blob m-blob-c app-anim" />
+        <div className="m-ring m-ring-1" />
+        <div className="m-ring m-ring-2" />
+        <span className="m-coin m-coin-1 app-anim">B</span>
+        <span className="m-coin m-coin-2 app-anim">B</span>
+        <span className="m-spark m-spark-1 app-anim"><svg width="26" height="26" viewBox="0 0 24 24" fill="var(--decor)"><path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.8 6.6 19.4l1.2-6L3.4 9.3l6-.7z" /></svg></span>
+        <span className="m-spark m-spark-2 app-anim"><svg width="18" height="18" viewBox="0 0 24 24" fill="var(--decor)"><path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.8 6.6 19.4l1.2-6L3.4 9.3l6-.7z" /></svg></span>
+        <span className="m-spark m-spark-3 app-anim"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent)"><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z" /></svg></span>
+        <span className="m-chip m-chip-1 app-anim"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L21 6" /><path d="M21 11V6h-5" /></svg> ROI</span>
+        <span className="m-chip m-chip-2 app-anim"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.5" /><path d="M4 13h16M12 9v11M12 9S10.5 4 8 5.5 9.5 9 12 9zM12 9s1.5-5 4-3.5S14.5 9 12 9z" /></svg> +5 €</span>
+      </div>
+
+      <div className="m-inner">
+        <span className="m-badge"><span className="m-badge-dot" /> Au lancement officiel · iOS &amp; Android</span>
+        <h2 className="m-headline">L’app BUUPP arrive <em>sur mobile.</em></h2>
+        <p className="m-sub">Il y en aura pour tous les goûts et toutes les couleurs.</p>
+
+        <div className="m-phones">
+          {phones.map((p, i) => (
+            <AppPhone key={i} width={W} transform={p.transform} z={p.z} delay={p.delay} margin={p.margin}>{p.scr}</AppPhone>
+          ))}
+        </div>
+
+        <div className="m-themes" role="tablist" aria-label="Thèmes">
+          {APP_THEMES.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={t.key === theme} className={`m-theme-btn${t.key === theme ? " on" : ""}`} onClick={() => setTheme(t.key)}>
+              <span className="m-theme-dot" style={{ background: `linear-gradient(150deg, ${t.g1}, ${t.g2})` }}>
+                <span className="m-theme-gloss" />
+                <svg className="m-theme-glyph" width="17" height="17" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.8 6.6 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>
+              </span>
+              <span className="m-theme-label">{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="m-stores">
+          <AppStore kind="apple" />
+          <AppStore kind="android" />
+        </div>
+        <p className="m-foot">Disponible au lancement officiel de BUUPP.</p>
+      </div>
+    </section>
+  );
+}
+
 function FinalCTA() {
   const { guard, modal: roleModal } = useRoleGuard();
   return (
@@ -3784,6 +4053,7 @@ export default function HomeClient() {
       <SecuritySection />
       <Stats />
       <Pricing />
+      <MobileAppSection />
       <FinalCTA />
       <Footer />
       <StickyPreinscription />
