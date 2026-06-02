@@ -124,7 +124,10 @@ export default function ProWizard() {
   // côté backend sans raison sociale + ville → on bloque le lancement et on
   // l'indique dès l'étape 1, avec un raccourci vers « Mes informations ».
   const infoLoaded = info.isSuccess;
-  const infoComplete = !!(info.data?.raisonSociale?.trim() && info.data?.ville?.trim());
+  // Miroir backend : une raison sociale contenant « @ » = placeholder e-mail
+  // résiduel → considérée non renseignée. Ville requise aussi.
+  const rawRaison = info.data?.raisonSociale?.trim() ?? "";
+  const infoComplete = rawRaison.length > 0 && !rawRaison.includes("@") && !!info.data?.ville?.trim();
 
   const planTierCap = plan.data?.plan === "pro" ? 5 : 3;
   const cycleCount = plan.data?.cycleCount ?? 0;
@@ -279,6 +282,23 @@ export default function ProWizard() {
 
   async function launch() {
     if (!obj || !cgu || !fundsOk || !infoComplete) return;
+    // Garde-fou (notamment après restauration d'un brouillon qui aurait sauté
+    // à l'étape 8) : on vérifie chaque étape requise et on y renvoie si vide.
+    const firstInvalid =
+      subTypes.size < 1
+        ? 1
+        : tiers.length < 1
+          ? 3
+          : contactsNum < 1 || cpcCents < range.effMin || cpcCents > range.effMax
+            ? 5
+            : brief.trim().length < 1
+              ? 7
+              : null;
+    if (firstInvalid) {
+      setStep(firstInvalid);
+      Alert.alert("Étape incomplète", "Complétez cette étape avant de lancer votre campagne.");
+      return;
+    }
     const now = Date.now();
     try {
       const res = await create.mutateAsync({
@@ -371,7 +391,7 @@ export default function ProWizard() {
           <View className="flex-row items-center gap-2">
             <Ionicons name="business-outline" size={18} color={c.accAmber} />
             <Text className="flex-1 text-[12.5px] font-semibold" style={{ color: c.accAmber }}>
-              Complétez votre raison sociale et votre ville avant de lancer.
+              Renseignez une raison sociale valide (pas un e-mail) et votre ville avant de lancer.
             </Text>
           </View>
           <Pressable
