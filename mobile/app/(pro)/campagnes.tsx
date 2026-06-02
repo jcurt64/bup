@@ -42,13 +42,25 @@ const matchesFilter = (status: string, f: Filter) =>
 const dateShort = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
-function StatCol({ label, value }: { label: string; value: string }) {
-  const { c } = useTheme();
+function StatCol({
+  icon,
+  color,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  label: string;
+  value: string;
+}) {
   return (
-    <View>
-      <Text className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.6, color: c.textMuted }}>
-        {label}
-      </Text>
+    <View className="flex-1">
+      <View className="flex-row items-center" style={{ gap: 4 }}>
+        <Ionicons name={icon} size={12} color={color} />
+        <Text className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.6, color }}>
+          {label}
+        </Text>
+      </View>
       <Text className="mt-0.5 font-serif text-[17px] text-ink">{value}</Text>
     </View>
   );
@@ -113,18 +125,18 @@ function CampaignCard({ camp }: { camp: Campaign }) {
         </View>
       </View>
 
-      {/* Stats budget / touchés / contacts. */}
-      <View className="mt-3 flex-row" style={{ gap: 24 }}>
-        <StatCol label="Budget" value={eur(camp.budgetEur)} />
-        <StatCol label="Touchés" value={String(camp.reachedCount)} />
-        <StatCol label="Contacts" value={String(camp.contactsCount)} />
+      {/* Stats budget / touchés / contacts (libellés colorés). */}
+      <View className="mt-3 flex-row" style={{ gap: 12 }}>
+        <StatCol icon="wallet-outline" color={c.accVioletDeep} label="Budget" value={eur(camp.budgetEur)} />
+        <StatCol icon="people-outline" color={c.accBlue} label="Touchés" value={String(camp.reachedCount)} />
+        <StatCol icon="checkmark-circle-outline" color={c.accGreen} label="Contacts" value={String(camp.contactsCount)} />
       </View>
 
       {/* Barre budget consommé. */}
       <View className="mt-3">
         <View className="flex-row justify-between">
           <Text className="text-[11px] text-ink-4">Budget consommé · dépensé {eur(camp.spentEur)}</Text>
-          <Text className="font-mono text-[11px] text-ink-3">{pct} %</Text>
+          <Text className="font-mono text-[11px] font-semibold" style={{ color: c.accentInk }}>{pct} %</Text>
         </View>
         <View className="mt-1 h-2 overflow-hidden rounded-full" style={{ backgroundColor: c.track }}>
           <LinearGradient
