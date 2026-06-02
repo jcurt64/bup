@@ -21,8 +21,11 @@ export function FlashSheetProvider({ children }: { children: React.ReactNode }) 
   return <FlashSheetCtx.Provider value={value}>{children}</FlashSheetCtx.Provider>;
 }
 
+// No-op stable hors provider : AppHeader est partagé (prospect + pro + écrans
+// racine comme /account). Le flash deals sheet n'existe que côté prospect ;
+// ailleurs, open/close ne font rien plutôt que de planter le rendu.
+const NOOP_CTX: Ctx = { isOpen: false, open: () => {}, close: () => {} };
+
 export function useFlashSheet(): Ctx {
-  const ctx = useContext(FlashSheetCtx);
-  if (!ctx) throw new Error("useFlashSheet hors FlashSheetProvider");
-  return ctx;
+  return useContext(FlashSheetCtx) ?? NOOP_CTX;
 }
