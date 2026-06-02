@@ -1843,7 +1843,8 @@ export default function Donnees() {
                           </Pressable>
                           <Pressable
                             disabled={patch.isPending}
-                            className="flex-1 items-center rounded-full bg-ink py-2.5"
+                            className="flex-1 items-center rounded-full py-2.5"
+                            style={{ backgroundColor: c.btnBg }}
                             onPress={async () => {
                               // Rien n'a été modifié → on referme sans appeler
                               // l'API. L'endpoint PATCH /api/prospect/donnees
@@ -1872,7 +1873,10 @@ export default function Donnees() {
                               }
                             }}
                           >
-                            <Text className="text-base font-semibold text-white">
+                            <Text
+                              className="text-base font-semibold"
+                              style={{ color: c.btnText }}
+                            >
                               {patch.isPending ? "…" : "Enregistrer"}
                             </Text>
                           </Pressable>
