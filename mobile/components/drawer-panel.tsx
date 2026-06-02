@@ -19,36 +19,34 @@ import {
 } from "../lib/queries";
 
 // Dégradé de fond du drawer par thème (diagonal top-left → bottom-right) :
-//   • buupp → violet → navy ; forest → vert ; fushia → rose. Tous trois
-//     avec contenu BLANC.
-//   • sombre → fond CLAIR (violet clair) + contenu sombre (lisibilité
-//     demandée en dark mode).
+// tous en « contenu clair sur dégradé foncé », seul le dégradé change.
+//   • buupp → violet → navy ; forest → vert ; fushia → rose ;
+//   • sombre → indigo foncé (contenu clair + sous-titres vers le blanc).
 const DRAWER_GRADIENT: Record<ThemeMode, readonly [string, string]> = {
   light: ["#7C5CFC", "#13235B"],
-  dark: ["#D9CFF1", "#C0B2E6"],
+  dark: ["#2A2E4E", "#14192B"],
   forest: ["#2F8D5B", "#103A26"],
   fushia: ["#D63B80", "#7A2350"],
 };
 
-// Couleurs du drawer selon le thème. Le sombre inverse (contenu sombre sur
-// fond clair) ; buupp/forest/fushia partagent le schéma « contenu blanc sur
-// dégradé foncé », seul le dégradé change.
+// Couleurs du drawer selon le thème : tous partagent le schéma « contenu
+// clair sur dégradé foncé », seul le dégradé change.
 function dcolors(mode: ThemeMode) {
   return mode === "dark"
     ? {
         gradient: DRAWER_GRADIENT.dark,
-        text: "#0F1629",
-        // Drawer CLAIR (lavande) en mode sombre → sous-titres gris assombris
-        // pour ressortir sur le fond clair (les éclaircir les masquerait).
-        sub: "#3E4557",
-        muted: "#525A6D",
-        tile: "rgba(15,22,41,0.05)",
-        border: "#E6E3DA",
-        ring: "#5B3FD6",
-        avatarTile: "#EDE9FE",
-        avatarIcon: "#5B3FD6",
-        amber: "#D9921F",
-        flashPill: "rgba(217,146,31,0.12)",
+        // Drawer SOMBRE en mode sombre → contenu clair, sous-titres tendant
+        // vers le blanc pour une bonne lisibilité sur le fond indigo.
+        text: "#ECEEF5",
+        sub: "#C9CFDE",
+        muted: "#B4BCCE",
+        tile: "rgba(255,255,255,0.07)",
+        border: "rgba(255,255,255,0.12)",
+        ring: "rgba(255,255,255,0.22)",
+        avatarTile: "rgba(255,255,255,0.12)",
+        avatarIcon: "#FFFFFF",
+        amber: "#F2B65A",
+        flashPill: "rgba(255,255,255,0.08)",
       }
     : {
         gradient: DRAWER_GRADIENT[mode],
