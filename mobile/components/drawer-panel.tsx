@@ -38,8 +38,10 @@ function dcolors(mode: ThemeMode) {
     ? {
         gradient: DRAWER_GRADIENT.dark,
         text: "#0F1629",
-        sub: "#5B6478",
-        muted: "#8A91A1",
+        // Drawer CLAIR (lavande) en mode sombre → sous-titres gris assombris
+        // pour ressortir sur le fond clair (les éclaircir les masquerait).
+        sub: "#3E4557",
+        muted: "#525A6D",
         tile: "rgba(15,22,41,0.05)",
         border: "#E6E3DA",
         ring: "#5B3FD6",
