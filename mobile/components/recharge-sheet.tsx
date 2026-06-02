@@ -5,7 +5,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
 import { ApiError } from "../lib/api";
@@ -32,7 +32,9 @@ function checkoutErrorMessage(e: unknown): string {
   return e instanceof Error && e.message ? e.message : "Réessayez dans un instant.";
 }
 
-const PRESETS = [50, 100, 200, 500]; // €, min 50 € côté serveur
+const PRESETS = [200, 500, 1000, 2000]; // €, comme le web (min 50 / max 10 000 côté serveur)
+const MIN_EUR = 50;
+const MAX_EUR = 10000;
 
 export function RechargeSheet({
   visible,
@@ -42,8 +44,10 @@ export function RechargeSheet({
   onClose: () => void;
 }) {
   const { c } = useTheme();
-  const [amount, setAmount] = useState(100);
+  const [amount, setAmount] = useState(200);
+  const [customText, setCustomText] = useState("");
   const [busy, setBusy] = useState(false);
+  const amountValid = amount >= MIN_EUR && amount <= MAX_EUR;
   const checkout = useCreateTopupCheckout();
   const reconcile = useReconcileTopup();
 
@@ -97,13 +101,16 @@ export function RechargeSheet({
         sécurisé via Stripe.
       </Text>
 
-      <View className="mb-4 flex-row flex-wrap" style={{ gap: 10 }}>
+      <View className="mb-3 flex-row flex-wrap" style={{ gap: 10 }}>
         {PRESETS.map((p) => {
-          const on = amount === p;
+          const on = customText === "" && amount === p;
           return (
             <Pressable
               key={p}
-              onPress={() => setAmount(p)}
+              onPress={() => {
+                setAmount(p);
+                setCustomText("");
+              }}
               className="items-center rounded-2xl active:opacity-80"
               style={{
                 width: "47%",
@@ -113,10 +120,7 @@ export function RechargeSheet({
                 backgroundColor: on ? c.accentSoft : c.surface,
               }}
             >
-              <Text
-                className="font-serif text-2xl"
-                style={{ color: on ? c.accentInk : c.text }}
-              >
+              <Text className="font-serif text-2xl" style={{ color: on ? c.accentInk : c.text }}>
                 {p} €
               </Text>
             </Pressable>
@@ -124,12 +128,43 @@ export function RechargeSheet({
         })}
       </View>
 
+      {/* Montant libre (50 € – 10 000 €). */}
+      <View className="mb-1">
+        <Text className="mb-1 text-[12px] font-semibold text-ink-3">Montant libre</Text>
+        <View
+          className="flex-row items-center rounded-2xl px-3"
+          style={{
+            borderWidth: 1.5,
+            borderColor: customText !== "" ? c.accent : c.borderSoft,
+            backgroundColor: c.field,
+          }}
+        >
+          <TextInput
+            value={customText}
+            onChangeText={(t) => {
+              const clean = t.replace(/[^0-9]/g, "");
+              setCustomText(clean);
+              const n = parseInt(clean, 10);
+              if (!Number.isNaN(n)) setAmount(n);
+            }}
+            keyboardType="number-pad"
+            placeholder="Autre montant"
+            placeholderTextColor={c.textMuted}
+            style={{ flex: 1, paddingVertical: 12, fontSize: 16, color: c.text }}
+          />
+          <Text className="font-serif text-lg text-ink-3">€</Text>
+        </View>
+      </View>
+      <Text className="mb-4 text-[11px]" style={{ color: amountValid ? c.textMuted : c.bad }}>
+        Entre {MIN_EUR} € et {MAX_EUR.toLocaleString("fr-FR")} €.
+      </Text>
+
       <Pressable
-        disabled={busy}
+        disabled={busy || !amountValid}
         onPress={pay}
         accessibilityRole="button"
         className="flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
-        style={{ backgroundColor: c.btnBg }}
+        style={{ backgroundColor: c.btnBg, opacity: amountValid ? 1 : 0.5 }}
       >
         {busy ? (
           <ActivityIndicator color={c.btnText} />

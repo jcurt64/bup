@@ -1293,6 +1293,50 @@ export const useProAnalytics = (
   );
 };
 
+// — Création de campagne — POST /api/pro/campaigns
+export type CreateCampaignInput = {
+  objectiveId: string;
+  subTypes: string[];
+  requiredTiers: number[];
+  geo: string;
+  ages: string[];
+  verifLevel: string;
+  contacts: number;
+  startDate: string;
+  endDate: string;
+  durationKey: string;
+  brief: string;
+  costPerContactCents: number;
+  budgetCents: number;
+  keywords: string[];
+  kwFilter: boolean;
+  poolMode: string;
+  excludeCertified: boolean;
+  founder_bonus_enabled: boolean;
+};
+export type CreateCampaignResult = {
+  campaignId: string;
+  matchedCount: number;
+  code: string;
+  warning: string | null;
+};
+export function useCreateCampaign() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: CreateCampaignInput) =>
+      api<CreateCampaignResult>("/api/pro/campaigns", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pro", "campaigns"] });
+      qc.invalidateQueries({ queryKey: ["pro", "wallet"] });
+      qc.invalidateQueries({ queryKey: ["pro", "overview"] });
+    },
+  });
+}
+
 // — Recharge crédit (Stripe Checkout) —
 // POST /api/stripe/checkout { amountCents } → { url } (URL Checkout Stripe).
 export function useCreateTopupCheckout() {
