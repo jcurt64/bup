@@ -10,7 +10,7 @@ import { useTheme } from "../../lib/theme";
 type FormKey = Exclude<keyof ProInfo, "capitalSocialEur">;
 
 const FIELDS: { key: FormKey; label: string; placeholder?: string; keyboard?: "default" | "numeric" }[] = [
-  { key: "raisonSociale", label: "Raison sociale *" },
+  { key: "raisonSociale", label: "Raison sociale *", placeholder: "Nom de votre entreprise" },
   { key: "secteur", label: "Secteur d'activité" },
   { key: "formeJuridique", label: "Forme juridique", placeholder: "SAS, SARL…" },
   { key: "adresse", label: "Adresse" },
@@ -74,7 +74,11 @@ export default function ProInformations() {
     if (!q.data) return;
     const next = {} as Record<FormKey, string>;
     FIELDS.forEach((f) => {
-      next[f.key] = (q.data?.[f.key] as string) ?? "";
+      let v = (q.data?.[f.key] as string) ?? "";
+      // La raison sociale par défaut = l'e-mail Clerk (placeholder résiduel) :
+      // on vide le champ pour forcer la saisie d'un vrai nom (sans « @ »).
+      if (f.key === "raisonSociale" && v.includes("@")) v = "";
+      next[f.key] = v;
     });
     setForm(next);
     setCapital(
@@ -85,6 +89,13 @@ export default function ProInformations() {
   async function save() {
     if (!form.raisonSociale?.trim()) {
       Alert.alert("Champ requis", "La raison sociale est obligatoire.");
+      return;
+    }
+    if (form.raisonSociale.includes("@")) {
+      Alert.alert(
+        "Raison sociale invalide",
+        "Indiquez le nom de votre entreprise (pas une adresse e-mail).",
+      );
       return;
     }
     const payload: Partial<ProInfo> = { ...form };
