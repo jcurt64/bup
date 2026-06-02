@@ -34,6 +34,7 @@ import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
 import { clearPlanAck, getPlanAck } from "../../lib/plan-ack";
 import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
+import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
 
 // Dégradé violet de l'en-tête/succès (115deg du design), thémé.
@@ -147,6 +148,7 @@ export default function ProWizard() {
   const infoComplete = rawRaison.length > 0 && !rawRaison.includes("@") && !!info.data?.ville?.trim();
 
   const planTierCap = plan.data?.plan === "pro" ? 5 : 3;
+  const planMaxProspects = plan.data?.maxProspects ?? (plan.data?.plan === "pro" ? 500 : 50);
   const cycleCount = plan.data?.cycleCount ?? 0;
   const capReached = plan.data?.capReached ?? false;
   const planFeeCents = cycleCount === 0 ? plan.data?.monthlyCents ?? 0 : 0;
@@ -270,6 +272,13 @@ export default function ProWizard() {
       alive = false;
     };
   }, [plan.isSuccess, hydrated, restored, capReached, cycleCount]);
+
+  // Plafonne le nombre de contacts au max de la formule (50 Starter / 500 Pro)
+  // — ex. après un passage Pro → Starter.
+  useEffect(() => {
+    const n = Math.floor(Number(contacts) || 0);
+    if (n > planMaxProspects) setContacts(String(planMaxProspects));
+  }, [planMaxProspects, contacts]);
 
   const contactsNum = Math.max(0, Math.floor(Number(contacts) || 0));
   const budgetCents = contactsNum * cpcCents;
@@ -774,17 +783,28 @@ export default function ProWizard() {
               </Pressable>
             </View>
           </Card>
-          <View>
-            <Text className="mb-1 text-[13px] text-ink-3">Nombre de contacts souhaités</Text>
-            <TextInput
-              value={contacts}
-              onChangeText={setContacts}
-              keyboardType="number-pad"
-              placeholder="50"
-              placeholderTextColor={c.textMuted}
-              style={{ backgroundColor: c.field, borderColor: c.borderSoft, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, color: c.text }}
-            />
-          </View>
+          <Card>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-[13px] text-ink-3">Nombre de contacts souhaités</Text>
+              <Text className="font-serif text-2xl text-ink">{contactsNum}</Text>
+            </View>
+            <Text className="text-[11px] text-ink-4">
+              Maximum {planMaxProspects} ({plan.data?.label ?? "Starter"})
+            </Text>
+            <View className="mt-3">
+              <Slider
+                value={contactsNum}
+                min={1}
+                max={planMaxProspects}
+                step={1}
+                onChange={(v) => setContacts(String(v))}
+              />
+            </View>
+            <View className="mt-1 flex-row justify-between">
+              <Text className="font-mono text-[11px] text-ink-4">1</Text>
+              <Text className="font-mono text-[11px] text-ink-4">{planMaxProspects}</Text>
+            </View>
+          </Card>
           <Card>
             <View className="flex-row justify-between">
               <Text className="text-[13px] text-ink-3">Budget campagne</Text>
