@@ -56,7 +56,7 @@ type HeroProps = {
 };
 
 export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, children }: HeroProps) {
-  const { mode } = useTheme();
+  const { c, mode } = useTheme();
   const me = useMeTyped();
   const verif = useProspectVerification();
   const hour = new Date().getHours();
@@ -83,36 +83,19 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
 
   const hasBack = nav === "back" || nav === "drawer";
 
-  return (
+  const card = (
     <LinearGradient
       colors={gradient ?? HERO_GRADIENT[mode]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ borderRadius: 28, paddingHorizontal: 20, paddingBottom: 20, paddingTop: hasBack ? 54 : 22 }}
+      style={{
+        flex: hasBack ? 1 : undefined,
+        borderRadius: 28,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 22,
+      }}
     >
-      {/* Bouton retour en haut-gauche du card, en overlay (n'occupe pas
-          d'espace) → bouton et gradient alignés au top. */}
-      {hasBack ? (
-        <Pressable
-          onPress={goBack}
-          hitSlop={12}
-          accessibilityLabel="Retour"
-          className="active:opacity-70"
-          style={{
-            position: "absolute",
-            top: 16,
-            left: 16,
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(255,255,255,0.18)",
-          }}
-        >
-          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-        </Pressable>
-      ) : null}
       {nav === "menu" ? (
         <View className="mb-3 flex-row items-center justify-between gap-3">
           <Text
@@ -153,6 +136,36 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
         </View>
       ) : null}
     </LinearGradient>
+  );
+
+  if (!hasBack) return card;
+
+  // Bouton retour À L'EXTÉRIEUR du gradient (dans la marge gauche), aligné
+  // au top de la carte (items-start). Le gradient occupe le reste (flex-1).
+  return (
+    <View className="flex-row items-start" style={{ gap: 10 }}>
+      <Pressable
+        onPress={goBack}
+        hitSlop={12}
+        accessibilityLabel="Retour"
+        className="items-center justify-center rounded-full active:opacity-70"
+        style={{
+          width: 40,
+          height: 40,
+          backgroundColor: c.accentSoft,
+          borderWidth: 1,
+          borderColor: c.accent,
+          shadowColor: "#000",
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 1,
+        }}
+      >
+        <Ionicons name="chevron-back" size={20} color={c.accentInk} />
+      </Pressable>
+      {card}
+    </View>
   );
 }
 
