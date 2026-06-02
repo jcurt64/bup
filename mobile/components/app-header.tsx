@@ -252,11 +252,18 @@ function FlashHeaderButton({
 // pour le header compact. Garde l'identité Buupp sans manger la place
 // du titre de page.
 function BrandMark() {
-  // Logo « b » en pastille dégradé bleu buupp (navy → bleu) — même identité
-  // que BrandLogo, lisible sur header clair comme sombre.
+  // Logo « b » en pastille dégradé. Bleu buupp (navy → bleu) par défaut
+  // (light/dark) ; en forest/fushia on suit la couleur du thème — dégradé
+  // diagonal du ton profond (navyDeep) vers l'accent vif. Reste lisible sur
+  // header clair comme sombre (texte blanc sur fond foncé→saturé).
+  const { mode, c } = useTheme();
+  const colors: [string, string] =
+    mode === "forest" || mode === "fushia"
+      ? [c.navyDeep, c.accent]
+      : ["#13235B", "#2F44C0"];
   return (
     <LinearGradient
-      colors={["#13235B", "#2F44C0"]}
+      colors={colors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{

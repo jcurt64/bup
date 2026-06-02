@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BuuppLoader } from "./loader";
+import { useTheme } from "../lib/theme";
 
 export function ScreenBg({
   children,
@@ -30,11 +31,19 @@ export function ScreenBg({
   );
 }
 
-/** Logo "buupp" — pill dégradé navy→bleu, texte serif blanc (cf. maquettes). */
+/** Logo "buupp" — pill dégradé serif blanc (cf. maquettes). Navy→bleu buupp
+ *  par défaut (light/dark) ; en forest/fushia suit la couleur du thème
+ *  (ton profond → accent vif), ombre teintée pour rester cohérente. */
 export function BrandLogo({ small = false }: { small?: boolean }) {
+  const { mode, c } = useTheme();
+  const themed = mode === "forest" || mode === "fushia";
+  const colors: [string, string] = themed
+    ? [c.navyDeep, c.accent]
+    : ["#13235B", "#2F44C0"];
+  const shadow = themed ? c.navyDeep : "#13235B";
   return (
     <LinearGradient
-      colors={["#13235B", "#2F44C0"]}
+      colors={colors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -42,7 +51,7 @@ export function BrandLogo({ small = false }: { small?: boolean }) {
         borderRadius: 999,
         paddingHorizontal: small ? 20 : 32,
         paddingVertical: small ? 8 : 14,
-        shadowColor: "#13235B",
+        shadowColor: shadow,
         shadowOpacity: 0.35,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 8 },
