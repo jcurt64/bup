@@ -32,6 +32,8 @@ import {
 } from "../../lib/queries";
 import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
+import { clearPlanAck, getPlanAck } from "../../lib/plan-ack";
+import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
 import { useTheme, type ThemeMode } from "../../lib/theme";
 
 // Dégradé violet de l'en-tête/succès (115deg du design), thémé.
@@ -146,6 +148,7 @@ export default function ProWizard() {
 
   const planTierCap = plan.data?.plan === "pro" ? 5 : 3;
   const cycleCount = plan.data?.cycleCount ?? 0;
+  const capReached = plan.data?.capReached ?? false;
   const planFeeCents = cycleCount === 0 ? plan.data?.monthlyCents ?? 0 : 0;
   const availableCents = Math.round((wallet.data?.walletAvailableEur ?? 0) * 100);
 
@@ -167,6 +170,10 @@ export default function ProWizard() {
   const [hydrated, setHydrated] = useState(false);
   const [restored, setRestored] = useState(false);
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
+  // Formule : la popup de choix s'ouvre avant lancement à la 1re campagne du
+  // cycle ou si le quota est atteint ; sinon elle ne réapparaît pas.
+  const [planChosen, setPlanChosen] = useState(false);
+  const [showPlanSheet, setShowPlanSheet] = useState(false);
 
   // Restaure le brouillon au montage (si c'est le même objectif). Tant que
   // l'hydratation n'est pas finie, on NE sauvegarde PAS (sinon l'état par
@@ -235,6 +242,34 @@ export default function ProWizard() {
       return cur;
     });
   }, [range]);
+
+  // Décision d'ouverture de la popup formule (miroir web) : quota atteint →
+  // forcée ; 1re campagne du cycle sans brouillon ni acquittement → ouverte ;
+  // sinon → formule déjà active, on ne montre rien.
+  useEffect(() => {
+    if (!plan.isSuccess || !hydrated) return;
+    let alive = true;
+    (async () => {
+      if (capReached) {
+        await clearPlanAck();
+        if (!alive) return;
+        setShowPlanSheet(true);
+        setPlanChosen(false);
+        return;
+      }
+      const ack = await getPlanAck();
+      if (!alive) return;
+      if (cycleCount === 0 && !restored && !ack) {
+        setShowPlanSheet(true);
+        setPlanChosen(false);
+      } else {
+        setPlanChosen(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [plan.isSuccess, hydrated, restored, capReached, cycleCount]);
 
   const contactsNum = Math.max(0, Math.floor(Number(contacts) || 0));
   const budgetCents = contactsNum * cpcCents;
@@ -364,6 +399,12 @@ export default function ProWizard() {
 
   async function launch() {
     if (!obj || !cgu || !fundsOk || !infoComplete) return;
+    // Formule non choisie pour ce cycle (ou quota atteint) → on (ré)ouvre la
+    // popup au lieu de lancer.
+    if (!planChosen) {
+      setShowPlanSheet(true);
+      return;
+    }
     // Garde-fou (notamment après restauration d'un brouillon qui aurait sauté
     // à l'étape 8) : on vérifie chaque étape requise et on y renvoie si vide.
     const firstInvalid =
@@ -902,6 +943,17 @@ export default function ProWizard() {
           </Pressable>
         ) : null}
       </View>
+
+      <PlanSelectorSheet
+        visible={showPlanSheet}
+        capReached={capReached}
+        onClose={() => setShowPlanSheet(false)}
+        onChosen={() => {
+          setPlanChosen(true);
+          setShowPlanSheet(false);
+          void plan.refetch();
+        }}
+      />
     </ScrollScreen>
   );
 }

@@ -1220,7 +1220,10 @@ export type ProPlan = {
   monthlyCents: number;
   maxProspects: number;
   maxCampaigns: number;
-  specs: Record<string, { label?: string; monthlyEur?: number; maxCampaigns?: number }>;
+  specs: Record<
+    string,
+    { label: string; monthlyEur: number; monthlyCents: number; maxProspects: number; maxCampaigns: number }
+  >;
   cycleCount: number;
   cap: number;
   capReached: boolean;
