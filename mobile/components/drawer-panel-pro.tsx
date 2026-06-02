@@ -3,6 +3,7 @@
 // Déconnexion / Supprimer le compte. Réutilise le thème (dcolors), la Row
 // et les constantes du drawer prospect pour un design strictement identique.
 import { useAuth } from "@clerk/clerk-expo";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -32,6 +33,7 @@ export default function ProDrawerPanel() {
   const { mode } = useTheme();
   const d = dcolors(mode);
   const { signOut, getToken } = useAuth();
+  const qc = useQueryClient();
   const del = useDeleteAccount();
   const wallet = useProWallet();
   const raison = wallet.data?.raisonSociale?.trim() || null;
@@ -64,6 +66,7 @@ export default function ProDrawerPanel() {
     try {
       await unregisterPushToken(getToken).catch(() => {});
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(auth)/sign-in");
     } catch {
       setBusy(false);
@@ -76,6 +79,7 @@ export default function ProDrawerPanel() {
       await del.mutateAsync();
       await unregisterPushToken(getToken).catch(() => {});
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(auth)/sign-in");
     } catch {
       setBusy(false);
@@ -90,6 +94,7 @@ export default function ProDrawerPanel() {
     try {
       await resetOnboardingSeen();
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(onboarding)");
     } catch {
       setBusy(false);

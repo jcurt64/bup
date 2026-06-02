@@ -2,6 +2,7 @@
 // Suivez-nous (liens externes) + Déconnexion / Supprimer le compte
 // (modales de confirmation, parité web Prospect.jsx).
 import { useAuth } from "@clerk/clerk-expo";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -177,6 +178,7 @@ export default function DrawerPanel() {
   const { mode } = useTheme();
   const d = dcolors(mode);
   const { signOut, getToken } = useAuth();
+  const qc = useQueryClient();
   const del = useDeleteAccount();
   // Données lecture seule (aucun back modifié) alimentant la carte de
   // statut + les sous-titres dynamiques de la navigation.
@@ -222,6 +224,7 @@ export default function DrawerPanel() {
     try {
       await unregisterPushToken(getToken).catch(() => {});
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(auth)/sign-in");
     } catch {
       setBusy(false);
@@ -234,6 +237,7 @@ export default function DrawerPanel() {
       await del.mutateAsync();
       await unregisterPushToken(getToken).catch(() => {});
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(auth)/sign-in");
     } catch {
       setBusy(false);
@@ -252,6 +256,7 @@ export default function DrawerPanel() {
     try {
       await resetOnboardingSeen();
       await signOut();
+      qc.clear(); // évite qu'un rôle/données en cache fuitent vers le compte suivant
       router.replace("/(onboarding)");
     } catch {
       setBusy(false);
