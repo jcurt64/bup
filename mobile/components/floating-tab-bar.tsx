@@ -107,9 +107,14 @@ function Tab({
   onPress,
   badgeCount = 0,
 }: TabProps) {
-  const { c, isDark } = useTheme();
-  // Icône inactive : navy discret en clair, gris clair lisible en sombre.
-  const inactiveColor = isDark ? c.ink3 : INACTIVE;
+  const { c, mode, isDark } = useTheme();
+  // Icône inactive : gris clair lisible en sombre, navy discret en buupp,
+  // teinte profonde du thème (vert/rose) en forest/fushia.
+  const inactiveColor = isDark
+    ? c.ink3
+    : mode === "forest" || mode === "fushia"
+      ? c.accentInk
+      : INACTIVE;
   const tabStyle = useAnimatedStyle(() => ({
     width: wInactive + (wActive - wInactive) * share(index, ap.value),
   }));
