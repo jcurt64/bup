@@ -21,7 +21,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useProspectRelations } from "../lib/queries";
-import { useTheme } from "../lib/theme";
+import { useTheme, type ThemeMode } from "../lib/theme";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   portefeuille: "home-outline",
@@ -57,6 +57,23 @@ const ACTIVE_EXTRA = 40;
 // Pilule active = dégradé bleu du logo buupp (rendu en LinearGradient).
 // Items inactifs = navy discret sur le fond clair.
 const INACTIVE = "#13235B";
+
+// Dégradé de la pilule active, par thème. buupp/sombre = bleu logo ;
+// forest = vert, fushia = rose (alignés sur l'accent du thème).
+const PILL_GRADIENT: Record<ThemeMode, readonly [string, string]> = {
+  light: ["#13235B", "#2F44C0"],
+  dark: ["#13235B", "#2F44C0"],
+  forest: ["#15583A", "#2F8D5B"],
+  fushia: ["#B02A66", "#E84F98"],
+};
+
+// Teinte de fond (verre dépoli) de la barre, par thème.
+const GLASS_TINT: Record<ThemeMode, string> = {
+  light: "rgba(255, 255, 255, 0.34)",
+  dark: "rgba(32, 39, 58, 0.55)",
+  forest: "rgba(225, 241, 229, 0.50)",
+  fushia: "rgba(252, 227, 238, 0.52)",
+};
 
 // Part d'« activité » d'un onglet en fonction de la position active
 // flottante `ap` : 1 quand ap === index, décroît linéairement jusqu'à 0
@@ -177,7 +194,12 @@ function Tab({
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const glass = isLiquidGlassAvailable();
-  const { isDark } = useTheme();
+  const { c, mode, isDark } = useTheme();
+  const pillColors = PILL_GRADIENT[mode];
+  // Fond non-verre : paper (buupp/sombre, look inchangé) ; teinte douce du
+  // thème (field) pour forest/fushia.
+  const barBg =
+    mode === "forest" || mode === "fushia" ? c.field : c.paper;
   // Badge onglet Relations : nombre de demandes EN ATTENTE (on exclut celles
   // déjà acceptées qui restent dans le carrousel avec leur badge ✓).
   const pendingCount = (useProspectRelations().data?.pending ?? []).filter(
@@ -256,10 +278,10 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
             pillStyle,
           ]}
         >
-          {/* Dégradé bleu du logo buupp (navy → bleu), comme la pastille
-              « b » du header. */}
+          {/* Dégradé de la pilule active, teinté selon le thème (bleu logo
+              en buupp/sombre, vert en forest, rose en fushia). */}
           <LinearGradient
-            colors={["#13235B", "#2F44C0"]}
+            colors={pillColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -297,7 +319,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         <GlassView
           glassEffectStyle={isDark ? "clear" : "regular"}
           isInteractive
-          tintColor={isDark ? "rgba(32, 39, 58, 0.55)" : "rgba(255, 255, 255, 0.34)"}
+          tintColor={GLASS_TINT[mode]}
           style={{
             borderRadius: 999,
             paddingHorizontal: 4,
@@ -309,8 +331,8 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         </GlassView>
       ) : (
         <View
-          className="rounded-full bg-paper"
-          style={{ paddingHorizontal: 4, paddingVertical: 7, ...shadow }}
+          className="rounded-full"
+          style={{ backgroundColor: barBg, paddingHorizontal: 4, paddingVertical: 7, ...shadow }}
         >
           {row}
         </View>
