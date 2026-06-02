@@ -56,7 +56,7 @@ type HeroProps = {
 };
 
 export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, children }: HeroProps) {
-  const { c, mode } = useTheme();
+  const { mode } = useTheme();
   const me = useMeTyped();
   const verif = useProspectVerification();
   const hour = new Date().getHours();
@@ -81,36 +81,38 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
     router.back();
   };
 
-  return (
-    <>
-      {/* Bouton retour AU-DESSUS de la carte (hors gradient), bien visible. */}
-      {nav === "back" || nav === "drawer" ? (
-        <Pressable
-          onPress={goBack}
-          hitSlop={12}
-          accessibilityLabel="Retour"
-          className="mb-1 h-10 w-10 items-center justify-center rounded-full active:opacity-70"
-          style={{
-            backgroundColor: c.surface,
-            borderWidth: 1,
-            borderColor: c.borderSoft,
-            shadowColor: "#0F1629",
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 3,
-          }}
-        >
-          <Ionicons name="chevron-back" size={20} color={c.ink} />
-        </Pressable>
-      ) : null}
+  const hasBack = nav === "back" || nav === "drawer";
 
+  return (
     <LinearGradient
       colors={gradient ?? HERO_GRADIENT[mode]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
+      style={{ borderRadius: 28, paddingHorizontal: 20, paddingBottom: 20, paddingTop: hasBack ? 54 : 22 }}
     >
+      {/* Bouton retour en haut-gauche du card, en overlay (n'occupe pas
+          d'espace) → bouton et gradient alignés au top. */}
+      {hasBack ? (
+        <Pressable
+          onPress={goBack}
+          hitSlop={12}
+          accessibilityLabel="Retour"
+          className="active:opacity-70"
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(255,255,255,0.18)",
+          }}
+        >
+          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
       {nav === "menu" ? (
         <View className="mb-3 flex-row items-center justify-between gap-3">
           <Text
@@ -151,7 +153,6 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
         </View>
       ) : null}
     </LinearGradient>
-    </>
   );
 }
 
