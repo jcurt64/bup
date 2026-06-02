@@ -1206,3 +1206,101 @@ export type Invoice = {
 };
 export const useProInvoices = () =>
   useGet<{ invoices: Invoice[] }>(["pro", "invoices"], "/api/pro/invoices", 60_000);
+
+// — Plan tarifaire — GET/POST /api/pro/plan
+export type ProPlan = {
+  plan: "starter" | "pro";
+  label: string;
+  monthlyEur: number;
+  monthlyCents: number;
+  maxProspects: number;
+  maxCampaigns: number;
+  specs: Record<string, { label?: string; monthlyEur?: number; maxCampaigns?: number }>;
+  cycleCount: number;
+  cap: number;
+  capReached: boolean;
+};
+export const useProPlan = () =>
+  useGet<ProPlan>(["pro", "plan"], "/api/pro/plan", 60_000);
+
+export function useSetProPlan() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { plan: "starter" | "pro" }) =>
+      api<ProPlan>("/api/pro/plan", { method: "POST", body: JSON.stringify(v) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "plan"] }),
+  });
+}
+
+// — Informations société — GET/PATCH /api/pro/info
+export type ProInfo = {
+  raisonSociale: string;
+  adresse: string;
+  ville: string;
+  codePostal: string;
+  siren: string;
+  secteur: string;
+  formeJuridique: string;
+  capitalSocialEur: number | null;
+  siret: string;
+  rcsVille: string;
+  rmNumber: string;
+};
+export const useProInfo = () =>
+  useGet<ProInfo>(["pro", "info"], "/api/pro/info", 60_000);
+
+export function usePatchProInfo() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: Partial<ProInfo>) =>
+      api<{ ok: true; updated: number }>("/api/pro/info", {
+        method: "PATCH",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "info"] }),
+  });
+}
+
+// — Analytics — GET /api/pro/analytics?campaignId&period
+export type ProAnalytics = {
+  acceptanceByTier: { tier: number; label: string; pct: number }[];
+  geoBreakdown: { ville: string; contacts: number; pct: number }[];
+  ageBreakdown: { label: string; pct: number }[];
+  sexBreakdown: { label: string; pct: number }[];
+  creneauHeatmap: {
+    hourLabels: number[];
+    counts: number[][];
+    total: number;
+    max: number;
+  };
+  sampleSize: { rows: number; wins: number };
+  campaigns: { id: string; name: string; status: string }[];
+  filters: { campaignId: string | null; period: string };
+};
+export const useProAnalytics = (
+  campaignId?: string,
+  period: "7d" | "30d" | "90d" | "all" = "30d",
+) => {
+  const qs = new URLSearchParams();
+  if (campaignId) qs.set("campaignId", campaignId);
+  qs.set("period", period);
+  return useGet<ProAnalytics>(
+    ["pro", "analytics", campaignId ?? "all", period],
+    `/api/pro/analytics?${qs.toString()}`,
+    60_000,
+  );
+};
+
+// — Timeseries acceptations — GET /api/pro/timeseries?range
+export type ProTimeseries = {
+  range: "7d" | "30d" | "90d";
+  buckets: { start: string; end: string; label: string; count: number }[];
+};
+export const useProTimeseries = (range: "7d" | "30d" | "90d" = "7d") =>
+  useGet<ProTimeseries>(
+    ["pro", "timeseries", range],
+    `/api/pro/timeseries?range=${range}`,
+    60_000,
+  );

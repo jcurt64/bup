@@ -126,6 +126,7 @@ export function ScrollScreen({
   onRefresh,
   hero,
   compactExtras,
+  headerVariant = "prospect",
 }: {
   children: ReactNode;
   onRefresh?: () => Promise<unknown>;
@@ -134,6 +135,8 @@ export function ScrollScreen({
    *  du header une fois passé en mode compact. Ex. sur Portefeuille :
    *  total cumulé + séquestre. Optionnel par page. */
   compactExtras?: CompactExtra[];
+  /** "pro" → header avec boutons lancer/recharger + drawer pro. */
+  headerVariant?: "prospect" | "pro";
 }) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
@@ -187,7 +190,7 @@ export function ScrollScreen({
           {hero ? <GradientHero {...hero} /> : null}
           {children}
         </Animated.ScrollView>
-        <AppHeader />
+        <AppHeader variant={headerVariant} />
       </SafeAreaView>
     </HeaderScrollContext.Provider>
   );

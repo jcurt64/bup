@@ -7,7 +7,6 @@ import {
   eur,
   QueryGate,
   ScrollScreen,
-  SectionTitle,
   Stat,
 } from "../../components/screen";
 import { useProInvoices, useProWallet } from "../../lib/queries";
@@ -18,12 +17,12 @@ export default function Facturation() {
 
   return (
     <ScrollScreen
+      headerVariant="pro"
+      hero={{ nav: "back", eyebrow: "Facturation", title: "Crédit & factures" }}
       onRefresh={async () => {
         await Promise.all([w.refetch(), inv.refetch()]);
       }}
     >
-      <SectionTitle eyebrow="Facturation" title="Crédit & factures" />
-
       <QueryGate query={w}>
         {(d) => (
           <>

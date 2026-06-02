@@ -279,7 +279,12 @@ function BrandMark() {
   );
 }
 
-export function AppHeader() {
+export function AppHeader({
+  variant = "prospect",
+}: {
+  /** "pro" → boutons header pro (lancer/recharger) + drawer pro. */
+  variant?: "prospect" | "pro";
+} = {}) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const ctx = useHeaderScroll();
@@ -403,7 +408,9 @@ export function AppHeader() {
               bg="bg-paper"
               color={iconColor}
               label="Ouvrir le menu"
-              onPress={() => router.push("/drawer")}
+              onPress={() =>
+                router.push(variant === "pro" ? "/pro-drawer" : "/drawer")
+              }
             />
 
             <View className="flex-row items-center gap-2">
@@ -411,27 +418,61 @@ export function AppHeader() {
               <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
             </View>
 
-            <View className="flex-row items-center gap-3">
-              <FlashHeaderButton
-                onPress={() => flashSheet.open()}
-                active={flashCount > 0}
-              />
-              <IconButton
-                icon="notifications-outline"
-                bg="bg-paper"
-                color={iconColor}
-                label="Messages"
-                onPress={() => setShowMessages(true)}
-                badgeCount={unread}
-              />
-              <IconButton
-                icon="person-outline"
-                bg="bg-paper"
-                color={iconColor}
-                label="Mon compte"
-                onPress={() => router.push("/account")}
-              />
-            </View>
+            {variant === "pro" ? (
+              <View className="flex-row items-center gap-1.5">
+                <IconButton
+                  icon="add"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Lancer une campagne"
+                  onPress={() => router.push("/(pro)/creation")}
+                />
+                <IconButton
+                  icon="add"
+                  gradient={["#1E3A8A", "#13235B"]}
+                  color="#FFFFFF"
+                  label="Recharger mon compte"
+                  onPress={() => router.push("/(pro)/facturation")}
+                />
+                <IconButton
+                  icon="notifications-outline"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Messages"
+                  onPress={() => setShowMessages(true)}
+                  badgeCount={unread}
+                />
+                <IconButton
+                  icon="person-outline"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Mon compte"
+                  onPress={() => router.push("/account")}
+                />
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-3">
+                <FlashHeaderButton
+                  onPress={() => flashSheet.open()}
+                  active={flashCount > 0}
+                />
+                <IconButton
+                  icon="notifications-outline"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Messages"
+                  onPress={() => setShowMessages(true)}
+                  badgeCount={unread}
+                />
+                <IconButton
+                  icon="person-outline"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Mon compte"
+                  onPress={() => router.push("/account")}
+                />
+              </View>
+            )}
           </Animated.View>
 
           {/* Layout compact — apparaît quand on a scrollé : logo « b »

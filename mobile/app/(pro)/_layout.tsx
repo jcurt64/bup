@@ -1,73 +1,34 @@
-// Espace pro — onglets (miroir du dashboard web pro).
+// Espace pro — Tabs sans header natif (chaque écran rend son header pro via
+// ScrollScreen headerVariant="pro") + tab bar pilule flottante (5 onglets).
+// Les écrans secondaires (facturation, analytics, informations, suggestions,
+// messages) sont des routes href:null poussées depuis le drawer / header.
 import { useAuth } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 
-const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
-  overview: "grid-outline",
-  campagnes: "megaphone-outline",
-  contacts: "people-outline",
-  facturation: "card-outline",
-  messages: "chatbubble-ellipses-outline",
-};
+import FloatingTabBarPro from "../../components/floating-tab-bar-pro";
+import { FlashSheetProvider } from "../../components/flash-sheet-context";
 
 export default function ProLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   if (isLoaded && !isSignedIn) return <Redirect href="/(auth)/sign-in" />;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: true,
-        tabBarActiveTintColor: "#7C5CFC",
-        tabBarInactiveTintColor: "#8A91A1",
-      }}
-    >
-      <Tabs.Screen
-        name="overview"
-        options={{
-          title: "Vue d'ensemble",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.overview} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="campagnes"
-        options={{
-          title: "Campagnes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.campagnes} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="contacts"
-        options={{
-          title: "Contacts",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.contacts} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="facturation"
-        options={{
-          title: "Facturation",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.facturation} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICON.messages} color={color} size={size} />
-          ),
-        }}
-      />
-    </Tabs>
+    <FlashSheetProvider>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <FloatingTabBarPro {...props} />}
+      >
+        <Tabs.Screen name="overview" />
+        <Tabs.Screen name="campagnes" />
+        <Tabs.Screen name="creation" />
+        <Tabs.Screen name="contacts" />
+        <Tabs.Screen name="reglages" />
+        <Tabs.Screen name="facturation" options={{ href: null }} />
+        <Tabs.Screen name="analytics" options={{ href: null }} />
+        <Tabs.Screen name="informations" options={{ href: null }} />
+        <Tabs.Screen name="suggestions" options={{ href: null }} />
+        <Tabs.Screen name="messages" options={{ href: null }} />
+      </Tabs>
+    </FlashSheetProvider>
   );
 }

@@ -173,6 +173,14 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="pro-drawer"
+                options={{
+                  presentation: "transparentModal",
+                  headerShown: false,
+                  animation: "none",
+                }}
+              />
+              <Stack.Screen
                 name="account"
                 options={{
                   headerShown: false,

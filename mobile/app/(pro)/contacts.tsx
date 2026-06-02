@@ -10,7 +10,7 @@ import { useProContacts } from "../../lib/queries";
 export default function Contacts() {
   const q = useProContacts();
   return (
-    <ScrollScreen onRefresh={q.refetch}>
+    <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
       <SectionTitle
         eyebrow="Contacts"
         title="Prospects acquis"

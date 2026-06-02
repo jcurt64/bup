@@ -15,7 +15,7 @@ const STATUS_TONE: Record<string, string> = {
 export default function Campagnes() {
   const q = useProCampaigns();
   return (
-    <ScrollScreen onRefresh={q.refetch}>
+    <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
       <SectionTitle
         eyebrow="Campagnes"
         title="Vos campagnes"
@@ -24,7 +24,7 @@ export default function Campagnes() {
       <QueryGate
         query={q}
         isEmpty={(d) => (d.campaigns?.length ?? 0) === 0}
-        emptyLabel="Aucune campagne. Créez-en une depuis le web pour l'instant."
+        emptyLabel="Aucune campagne. Lancez-en une via l'onglet Créer."
       >
         {(d) => (
           <View className="gap-3">

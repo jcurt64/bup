@@ -14,7 +14,7 @@ import { useProOverview } from "../../lib/queries";
 export default function ProOverviewScreen() {
   const q = useProOverview();
   return (
-    <ScrollScreen onRefresh={q.refetch}>
+    <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
       <SectionTitle
         eyebrow="Vue d'ensemble"
         title="Vos 30 derniers jours"

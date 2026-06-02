@@ -31,7 +31,7 @@ const DRAWER_GRADIENT: Record<ThemeMode, readonly [string, string]> = {
 
 // Couleurs du drawer selon le thème : tous partagent le schéma « contenu
 // clair sur dégradé foncé », seul le dégradé change.
-function dcolors(mode: ThemeMode) {
+export function dcolors(mode: ThemeMode) {
   return mode === "dark"
     ? {
         gradient: DRAWER_GRADIENT.dark,
@@ -79,9 +79,9 @@ function verifTierPosition(tier: string | undefined): number {
 }
 // Couleur destructive « Supprimer mon compte » — orange chaud (parité
 // redesign.png, moins alarmant qu'un rouge plein).
-const DANGER = "#F2A24A";
+export const DANGER = "#F2A24A";
 
-const SOCIAL = [
+export const SOCIAL = [
   { icon: "logo-facebook" as const, url: "https://www.facebook.com/buupp", label: "Facebook BUUPP" },
   { icon: "logo-instagram" as const, url: "https://www.instagram.com/buupp", label: "Instagram BUUPP" },
   { icon: "logo-tiktok" as const, url: "https://www.tiktok.com/@buupp", label: "TikTok BUUPP" },
@@ -101,7 +101,7 @@ const NAV: {
   { label: "Vos suggestions", route: "/(prospect)/suggestions", icon: "bulb-outline", sub: "Aidez-nous à progresser" },
 ];
 
-function Row({
+export function Row({
   icon,
   label,
   sub,
