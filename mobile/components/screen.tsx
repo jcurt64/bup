@@ -298,8 +298,8 @@ export function Card({
    *  défini (ex. card Portefeuille éclaircie sur la home). */
   gradient?: [string, string];
 }) {
-  const { c, isDark } = useTheme();
-  // Teinte de tuile par tone (pour le dégradé de carte en sombre).
+  const { c, mode, isDark } = useTheme();
+  // Teinte de tuile par tone (pour le dégradé de carte en sombre / themé).
   const toneTint: Record<Tone, string> = {
     violet: c.tintViolet,
     coral: c.tintCoral,
@@ -350,7 +350,13 @@ export function Card({
   if (!dark && tone) {
     return (
       <LinearGradient
-        colors={gradient ?? (isDark ? [toneTint[tone], c.surface] : TONE_GRADIENT[tone])}
+        colors={
+          gradient ??
+          // buupp (clair) → dégradé pastel → blanc historique. Sombre +
+          // thèmes teintés (forest/fushia) → pastel → surface du thème,
+          // pour un fond renforcé et accordé au thème.
+          (mode === "light" ? TONE_GRADIENT[tone] : [toneTint[tone], c.surface])
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -401,7 +407,7 @@ export function Stat({
   /** Couleur d'icône explicite (sinon dérivée du `tone`). */
   iconColor?: string;
 }) {
-  const { c, isDark } = useTheme();
+  const { c, mode, isDark } = useTheme();
   const toneTint: Record<Tone, string> = {
     violet: c.tintViolet,
     coral: c.tintCoral,
@@ -458,7 +464,9 @@ export function Stat({
   if (tone) {
     return (
       <LinearGradient
-        colors={isDark ? [toneTint[tone], c.surface] : TONE_GRADIENT[tone]}
+        colors={
+          mode === "light" ? TONE_GRADIENT[tone] : [toneTint[tone], c.surface]
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
