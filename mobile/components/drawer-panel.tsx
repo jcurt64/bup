@@ -51,8 +51,10 @@ function dcolors(mode: ThemeMode) {
     : {
         gradient: DRAWER_GRADIENT[mode],
         text: "#FFFFFF",
-        sub: "rgba(255,255,255,0.65)",
-        muted: "rgba(255,255,255,0.45)",
+        // buupp : sous-titres éclaircis (tendant vers le blanc) pour une
+        // meilleure lisibilité ; forest/fushia gardent l'opacité d'origine.
+        sub: mode === "light" ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.65)",
+        muted: mode === "light" ? "rgba(255,255,255,0.68)" : "rgba(255,255,255,0.45)",
         tile: "rgba(255,255,255,0.10)",
         border: "rgba(255,255,255,0.15)",
         ring: "rgba(255,255,255,0.25)",
