@@ -4,6 +4,7 @@
 // 7 Description · 8 Récap (+ lancement réel POST /api/pro/campaigns).
 // L'objectif est passé via ?id= depuis la grille « Créer une campagne ».
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
@@ -22,10 +23,24 @@ import {
   type DurationKey,
   type VerifLevel,
 } from "../../lib/pro-pricing";
-import { useCreateCampaign, useProInfo, useProPlan, useProWallet } from "../../lib/queries";
+import {
+  useCreateCampaign,
+  useProInfo,
+  useProPlan,
+  useProWallet,
+  type CreateCampaignResult,
+} from "../../lib/queries";
 import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
-import { useTheme } from "../../lib/theme";
+import { useTheme, type ThemeMode } from "../../lib/theme";
+
+// Dégradé violet de l'en-tête/succès (115deg du design), thémé.
+const HERO_GRADIENT: Record<ThemeMode, readonly [string, string, string]> = {
+  light: ["#7C5CFF", "#5B3FE0", "#211B52"],
+  dark: ["#3A2F7A", "#241E4A", "#14192B"],
+  forest: ["#34A86A", "#2F8D5B", "#103A26"],
+  fushia: ["#E84F98", "#D63B80", "#7A2350"],
+};
 
 const STEPS = ["Objectif", "Dates", "Données", "Ciblage", "Budget", "Mots-clés", "Description", "Récap"];
 
@@ -111,7 +126,7 @@ function StepHeader({ step, max, go }: { step: number; max: number; go: (s: numb
 }
 
 export default function ProWizard() {
-  const { c } = useTheme();
+  const { c, mode } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const obj = OBJECTIVES.find((o) => o.id === id) ?? null;
 
@@ -151,6 +166,7 @@ export default function ProWizard() {
   const [cgu, setCgu] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [result, setResult] = useState<CreateCampaignResult | null>(null);
 
   // Restaure le brouillon au montage (si c'est le même objectif). Tant que
   // l'hydratation n'est pas finie, on NE sauvegarde PAS (sinon l'état par
@@ -260,6 +276,68 @@ export default function ProWizard() {
     );
   }
 
+  // Écran de succès — affiché après le lancement (au lieu d'une alerte).
+  if (result) {
+    return (
+      <ScrollScreen headerVariant="pro">
+        <View className="items-center" style={{ paddingTop: 8 }}>
+          <LinearGradient
+            colors={HERO_GRADIENT[mode]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ width: "100%", borderRadius: 24, paddingVertical: 28, paddingHorizontal: 20, alignItems: "center", overflow: "hidden" }}
+          >
+            <View
+              className="items-center justify-center"
+              style={{ width: 64, height: 64, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.18)" }}
+            >
+              <Ionicons name="checkmark" size={34} color="#FFFFFF" />
+            </View>
+            <Text className="mt-3.5 font-serif" style={{ fontSize: 23, color: "#FFFFFF" }}>
+              Campagne lancée
+            </Text>
+            <Text className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.85)" }}>
+              {result.matchedCount} prospect{result.matchedCount > 1 ? "s" : ""} ciblé
+              {result.matchedCount > 1 ? "s" : ""}.
+            </Text>
+            <View
+              className="mt-3 flex-row items-center"
+              style={{ gap: 7, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.16)" }}
+            >
+              <Text className="font-mono uppercase" style={{ fontSize: 11, fontWeight: "600", letterSpacing: 0.4, color: "rgba(255,255,255,0.78)" }}>
+                Réf.
+              </Text>
+              <Text className="font-mono" style={{ fontSize: 13, fontWeight: "600", color: "#FFFFFF" }}>
+                {result.code}
+              </Text>
+            </View>
+          </LinearGradient>
+
+          {result.warning ? (
+            <View className="mt-3 w-full flex-row items-center gap-2 rounded-2xl px-4 py-3" style={{ backgroundColor: c.amberSoft }}>
+              <Ionicons name="information-circle-outline" size={18} color={c.accAmber} />
+              <Text className="flex-1 text-[12.5px]" style={{ color: c.accAmber }}>
+                {result.warning}
+              </Text>
+            </View>
+          ) : null}
+
+          <Pressable
+            onPress={() => router.replace("/(pro)/campagnes")}
+            accessibilityRole="button"
+            className="mt-4 w-full flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
+            style={{ backgroundColor: c.btnBg }}
+          >
+            <Ionicons name="megaphone-outline" size={16} color={c.btnText} />
+            <Text className="text-base font-semibold" style={{ color: c.btnText }}>
+              Voir mes campagnes
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollScreen>
+    );
+  }
+
   const canNext = (): boolean => {
     switch (step) {
       case 1:
@@ -329,11 +407,7 @@ export default function ProWizard() {
         founder_bonus_enabled: true,
       });
       void clearDraft(); // campagne lancée → on jette le brouillon
-      Alert.alert(
-        "Campagne lancée 🎉",
-        `${res.matchedCount} prospect${res.matchedCount > 1 ? "s" : ""} ciblé${res.matchedCount > 1 ? "s" : ""}.\nRéférence : ${res.code}`,
-        [{ text: "Voir mes campagnes", onPress: () => router.replace("/(pro)/campagnes") }],
-      );
+      setResult(res); // affiche l'écran de succès dédié
     } catch (e) {
       let msg = "Réessayez dans un instant.";
       if (e instanceof ApiError) {
@@ -355,7 +429,7 @@ export default function ProWizard() {
   return (
     <ScrollScreen
       headerVariant="pro"
-      hero={{ nav: "back", eyebrow: `Étape ${step}/8 · ${STEPS[step - 1]}`, title: obj.name }}
+      hero={{ nav: "back", eyebrow: `Étape ${step}/8 · ${STEPS[step - 1]}`, title: obj.name, gradient: HERO_GRADIENT[mode] }}
     >
       <StepHeader step={step} max={maxStep} go={goTo} />
 
@@ -469,13 +543,19 @@ export default function ProWizard() {
                 onPress={() => setDuration("1h")}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                className="rounded-3xl p-4 active:opacity-80"
+                className="overflow-hidden rounded-3xl p-4 active:opacity-80"
                 style={{
                   borderWidth: 2,
                   borderColor: on ? c.amber : c.amberSoft,
-                  backgroundColor: c.amberSoft,
                 }}
               >
+                {/* Dégradé doux cream → rosé (design flash deal), thémé. */}
+                <LinearGradient
+                  colors={[c.amberSoft, c.coralSoft]}
+                  start={{ x: 0.85, y: 0 }}
+                  end={{ x: 0.15, y: 1 }}
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+                />
                 <View className="flex-row items-center" style={{ gap: 10 }}>
                   <View
                     className="items-center justify-center"

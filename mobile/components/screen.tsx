@@ -47,10 +47,12 @@ type HeroProps = {
   /** Décoration absolument positionnée en haut à droite (signature visuelle
    *  de la page — ex. icône handshake sur Relations). */
   topRight?: ReactNode;
+  /** Dégradé custom (sinon violet → navy par défaut). */
+  gradient?: readonly [string, string, ...string[]];
   children?: ReactNode;
 };
 
-export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: HeroProps) {
+export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, children }: HeroProps) {
   const me = useMeTyped();
   const verif = useProspectVerification();
   const hour = new Date().getHours();
@@ -64,7 +66,7 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, children }: 
 
   return (
     <LinearGradient
-      colors={["#7C5CFC", "#13235B"]}
+      colors={gradient ?? ["#7C5CFC", "#13235B"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: 28, padding: 20, paddingTop: 22 }}
