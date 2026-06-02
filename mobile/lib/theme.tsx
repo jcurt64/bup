@@ -23,7 +23,7 @@ import {
 } from "react";
 import { View } from "react-native";
 
-export type ThemeMode = "light" | "dark";
+export type ThemeMode = "light" | "dark" | "forest" | "fushia";
 
 // Palette sémantique complète. Les clés « token » (ink, paper, ivory, line,
 // accent…) miroir des couleurs Tailwind ; les clés sémantiques (surface,
@@ -223,7 +223,145 @@ const DARK: Palette = {
   badSoft: "#3A2122",
 };
 
-export const PALETTE: Record<ThemeMode, Palette> = { light: LIGHT, dark: DARK };
+// ── Thème « Forest » — clair vert : surfaces ivoire teintées vert tendre,
+// texte vert-charbon, accent/CTA verts. Famille LIGHT (texte sombre sur
+// fond clair, isDark=false) ; seuls les neutres et la famille accent/violet
+// sont reverdis. Les teintes catégorielles (coral/teal/amber/sky) restent
+// celles du clair pour préserver les tuiles multicolores. ───────────────
+const FOREST: Palette = {
+  ink: "#13241B",
+  ink2: "#26392F",
+  ink3: "#566B5F",
+  ink4: "#869389",
+  ink5: "#B5C3B9",
+  paper: "#FFFFFF",
+  ivory: "#EDF4E9",
+  ivory2: "#E0EDD9",
+  line: "#D7E5CE",
+  accent: "#2F8D5B",
+  accentSoft: "#E1F1E5",
+  accentInk: "#1D6B42",
+  violet: "#2F8D5B",
+  violetSoft: "#E1F1E5",
+  violetMuted: "#EAF3E5",
+  violetDeep: "#1D6B42",
+  navy: "#1C5E3D",
+  navyDeep: "#103A26",
+  good: "#16A34A",
+  warn: "#C77A0E",
+  bad: "#DC2626",
+  coral: "#FF7A6B",
+  coralSoft: "#FFE7E3",
+  coralMuted: "#FBEDE7",
+  teal: "#2FB8A6",
+  tealSoft: "#DCF4F0",
+  tealMuted: "#E9F4EE",
+  amber: "#F2B65A",
+  amberSoft: "#FCEFD6",
+  amberMuted: "#F9F1E1",
+  sky: "#5B8DEF",
+  skySoft: "#E4ECFD",
+  skyMuted: "#EDF0F4",
+  gold: "#B45309",
+  bg: "#EDF4E9",
+  surface: "#FFFFFF",
+  surface2: "#E6F1E0",
+  field: "#F3FAEF",
+  text: "#13241B",
+  textSub: "#5A6E62",
+  textMuted: "#92A398",
+  borderSoft: "#D8E6CF",
+  track: "#E3EFDC",
+  btnBg: "#1D6B42",
+  btnText: "#F2FBEE",
+  logoBg: "#1D6B42",
+  tintViolet: "#DCF0E1",
+  tintBlue: "#DDE9F8",
+  tintGreen: "#DCEFDF",
+  tintAmber: "#F8E8C9",
+  tintCoral: "#F9DDD5",
+  accViolet: "#2F8D5B",
+  accVioletDeep: "#1D6B42",
+  accBlue: "#3F7FD6",
+  accGreen: "#3F9056",
+  accAmber: "#B45309",
+  accCoral: "#DD5F48",
+  goodSoft: "#DCFCE7",
+  badSoft: "#FEE2E2",
+};
+
+// ── Thème « Light Fushia » — clair rose : surfaces ivoire teintées rose
+// pâle, texte prune profond, accent/CTA fuchsia. Même principe que Forest
+// (famille LIGHT, neutres + accent recolorés en rose, teintes
+// catégorielles conservées). ─────────────────────────────────────────
+const FUSHIA: Palette = {
+  ink: "#2A1320",
+  ink2: "#412331",
+  ink3: "#6E5560",
+  ink4: "#9D8590",
+  ink5: "#CBB5BF",
+  paper: "#FFFFFF",
+  ivory: "#FBEFF4",
+  ivory2: "#F6E2EC",
+  line: "#F0D8E3",
+  accent: "#D63B80",
+  accentSoft: "#FCE3EE",
+  accentInk: "#B02A66",
+  violet: "#D63B80",
+  violetSoft: "#FCE3EE",
+  violetMuted: "#F8E9F0",
+  violetDeep: "#B02A66",
+  navy: "#7A2350",
+  navyDeep: "#4F1635",
+  good: "#16A34A",
+  warn: "#D97706",
+  bad: "#DC2626",
+  coral: "#FF7A6B",
+  coralSoft: "#FFE7E3",
+  coralMuted: "#FBEDE7",
+  teal: "#2FB8A6",
+  tealSoft: "#DCF4F0",
+  tealMuted: "#E9F4EE",
+  amber: "#F2B65A",
+  amberSoft: "#FCEFD6",
+  amberMuted: "#F9F1E1",
+  sky: "#5B8DEF",
+  skySoft: "#E4ECFD",
+  skyMuted: "#EDF0F4",
+  gold: "#B45309",
+  bg: "#FBEFF4",
+  surface: "#FFFFFF",
+  surface2: "#F8E6EF",
+  field: "#FFF4F9",
+  text: "#2A1320",
+  textSub: "#6E5560",
+  textMuted: "#A88E99",
+  borderSoft: "#F1DBE6",
+  track: "#F5E2EC",
+  btnBg: "#B02A66",
+  btnText: "#FFF2F8",
+  logoBg: "#B02A66",
+  tintViolet: "#FBDEEB",
+  tintBlue: "#DDE9F8",
+  tintGreen: "#DCEFDF",
+  tintAmber: "#F8E8C9",
+  tintCoral: "#F9DDD5",
+  accViolet: "#D63B80",
+  accVioletDeep: "#B02A66",
+  accBlue: "#3F7FD6",
+  accGreen: "#3F9056",
+  accAmber: "#B45309",
+  accCoral: "#DD5F48",
+  goodSoft: "#DCFCE7",
+  badSoft: "#FEE2E2",
+};
+
+export const PALETTE: Record<ThemeMode, Palette> = {
+  light: LIGHT,
+  dark: DARK,
+  forest: FOREST,
+  fushia: FUSHIA,
+};
 
 // hex « #RRGGBB » → triplet « r g b » pour rgb(var(--x) / <alpha-value>).
 function rgbTriplet(hex: string): string {
@@ -274,10 +412,23 @@ function themeVars(p: Palette): Record<string, string> {
   };
 }
 
-const LIGHT_VARS = vars(themeVars(LIGHT));
-const DARK_VARS = vars(themeVars(DARK));
+// Styles « vars » CSS pré-calculés par thème (un seul calcul au module load).
+const THEME_VARS: Record<ThemeMode, ReturnType<typeof vars>> = {
+  light: vars(themeVars(LIGHT)),
+  dark: vars(themeVars(DARK)),
+  forest: vars(themeVars(FOREST)),
+  fushia: vars(themeVars(FUSHIA)),
+};
 
 const STORAGE_KEY = "buupp.theme.mode";
+
+const MODES: ThemeMode[] = ["light", "dark", "forest", "fushia"];
+
+// NativeWind colorScheme ne connaît que clair/sombre (StatusBar, variantes
+// dark:). Seul « dark » est sombre ; forest et fushia sont des thèmes clairs.
+function nativeScheme(mode: ThemeMode): "light" | "dark" {
+  return mode === "dark" ? "dark" : "light";
+}
 
 type ThemeContextValue = {
   mode: ThemeMode;
@@ -301,9 +452,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     let alive = true;
     SecureStore.getItemAsync(STORAGE_KEY)
       .then((v) => {
-        if (alive && (v === "dark" || v === "light")) {
-          setModeState(v);
-          colorScheme.set(v);
+        if (alive && v && MODES.includes(v as ThemeMode)) {
+          const m = v as ThemeMode;
+          setModeState(m);
+          colorScheme.set(nativeScheme(m));
         }
       })
       .catch(() => {});
@@ -314,12 +466,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Synchronise NativeWind colorScheme (StatusBar / variantes dark:).
   useEffect(() => {
-    colorScheme.set(mode);
+    colorScheme.set(nativeScheme(mode));
   }, [mode]);
 
   const setMode = (m: ThemeMode) => {
     setModeState(m);
-    colorScheme.set(m);
+    colorScheme.set(nativeScheme(m));
     SecureStore.setItemAsync(STORAGE_KEY, m).catch(() => {});
   };
 
@@ -330,16 +482,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       toggle: () => setMode(mode === "dark" ? "light" : "dark"),
       c: PALETTE[mode],
       isDark: mode === "dark",
-      varStyle: mode === "dark" ? DARK_VARS : LIGHT_VARS,
+      varStyle: THEME_VARS[mode],
     }),
     [mode],
   );
 
   return (
     <ThemeContext.Provider value={value}>
-      <View style={[{ flex: 1 }, mode === "dark" ? DARK_VARS : LIGHT_VARS]}>
-        {children}
-      </View>
+      <View style={[{ flex: 1 }, THEME_VARS[mode]]}>{children}</View>
     </ThemeContext.Provider>
   );
 }
@@ -354,7 +504,7 @@ export function useTheme(): ThemeContextValue {
       toggle: () => {},
       c: LIGHT,
       isDark: false,
-      varStyle: LIGHT_VARS,
+      varStyle: THEME_VARS.light,
     };
   }
   return ctx;

@@ -1,25 +1,25 @@
 // Réglages — réglages de l'application (aligné pixel sur reg.html).
 // Notifications, mode d'affichage (thèmes), langue et divers.
-// Le mode d'affichage « Clair » / « Sombre » est RÉEL (branché sur le
-// ThemeProvider, persté via expo-secure-store). Les autres thèmes et les
-// toggles notifications/général restent un brouillon local non persté.
+// Le mode d'affichage (BUUPP / Sombre / Forest / Light Fushia) est RÉEL
+// (branché sur le ThemeProvider, persté via expo-secure-store). Les toggles
+// notifications/général restent un brouillon local non persté.
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { ScrollScreen } from "../../components/screen";
-import { useTheme, type Palette } from "../../lib/theme";
-
-const VIOLET = "#7C5CFF";
+import { useTheme, type Palette, type ThemeMode } from "../../lib/theme";
 
 // Thèmes d'affichage — dégradé d'aperçu (≈ diagonal) aligné reg.html.
+// `mode` = mode réel du ThemeProvider appliqué quand on sélectionne la
+// vignette. « BUUPP » est le thème clair par défaut.
 const THEMES = [
-  { key: "buupp", label: "BUUPP", colors: ["#7C5CFF", "#5B3FE0"] as const },
-  { key: "sombre", label: "Sombre", colors: ["#1A2238", "#0A1628"] as const },
-  { key: "forest", label: "Forest", colors: ["#2F8D5B", "#1D6B42"] as const },
-  { key: "fushia", label: "Light Fushia", colors: ["#F25AA0", "#D63B80"] as const },
-] as const;
+  { key: "buupp", label: "BUUPP", mode: "light", colors: ["#7C5CFF", "#5B3FE0"] as const },
+  { key: "sombre", label: "Sombre", mode: "dark", colors: ["#1A2238", "#0A1628"] as const },
+  { key: "forest", label: "Forest", mode: "forest", colors: ["#2F8D5B", "#1D6B42"] as const },
+  { key: "fushia", label: "Light Fushia", mode: "fushia", colors: ["#F25AA0", "#D63B80"] as const },
+] as const satisfies readonly { key: string; label: string; mode: ThemeMode; colors: readonly [string, string] }[];
 
 type ThemeKey = (typeof THEMES)[number]["key"];
 
@@ -105,7 +105,7 @@ function Toggle({
         width: 52,
         height: 30,
         borderRadius: 999,
-        backgroundColor: value ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
+        backgroundColor: value ? c.accent : isDark ? c.ink5 : "#D8D1C0",
         flexShrink: 0,
         justifyContent: "center",
       }}
@@ -230,10 +230,10 @@ function ThemeSwatch({
           borderRadius: 16,
           overflow: "hidden",
           borderWidth: 1.5,
-          borderColor: selected ? VIOLET : c.borderSoft,
+          borderColor: selected ? c.accent : c.borderSoft,
           ...(selected
             ? {
-                shadowColor: VIOLET,
+                shadowColor: c.accent,
                 shadowOpacity: 0.2,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 6 },
@@ -264,9 +264,9 @@ function ThemeSwatch({
           {selected ? (
             <View
               className="items-center justify-center"
-              style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: VIOLET }}
+              style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: c.accent }}
             >
-              <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={13} color={c.btnText} />
             </View>
           ) : (
             <View
@@ -286,29 +286,21 @@ function ThemeSwatch({
 }
 
 export default function Reglages() {
-  const { c, isDark, setMode } = useTheme();
+  const { c, mode, setMode } = useTheme();
   // États locaux (brouillon — non persistés / non appliqués), SAUF le mode
-  // clair/sombre qui est réel (ThemeProvider).
+  // d'affichage (thème) qui est RÉEL (ThemeProvider, persté SecureStore).
   const [pushAll, setPushAll] = useState(true);
   const [notifRelations, setNotifRelations] = useState(true);
   const [notifFlash, setNotifFlash] = useState(true);
   const [notifGains, setNotifGains] = useState(true);
-  // Sélection visuelle : « sombre » si le thème sombre est actif, sinon le
-  // dernier choix local (défaut « BUUPP »).
-  const [lightChoice, setLightChoice] = useState<ThemeKey>("buupp");
-  const selectedTheme: ThemeKey = isDark ? "sombre" : lightChoice;
+  // Vignette sélectionnée = celle dont le `mode` correspond au thème actif.
+  const selectedTheme: ThemeKey =
+    THEMES.find((t) => t.mode === mode)?.key ?? "buupp";
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [haptics, setHaptics] = useState(true);
 
-  const pickTheme = (key: ThemeKey) => {
-    if (key === "sombre") {
-      setMode("dark");
-    } else {
-      setLightChoice(key);
-      setMode("light");
-    }
-  };
+  const pickTheme = (m: ThemeMode) => setMode(m);
 
   return (
     <ScrollScreen>
@@ -415,7 +407,7 @@ export default function Reglages() {
               label={t.label}
               colors={t.colors}
               selected={selectedTheme === t.key}
-              onPress={() => pickTheme(t.key)}
+              onPress={() => pickTheme(t.mode)}
             />
           ))}
         </View>
@@ -513,9 +505,8 @@ export default function Reglages() {
           color: c.textMuted,
         }}
       >
-        Version préliminaire — l&apos;enregistrement des réglages et
-        l&apos;application des thèmes (hors clair / sombre) seront branchés
-        prochainement.
+        Version préliminaire — l&apos;enregistrement des réglages
+        notifications / général sera branché prochainement.
       </Text>
     </ScrollScreen>
   );
