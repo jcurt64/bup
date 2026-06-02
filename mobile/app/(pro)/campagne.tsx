@@ -99,7 +99,13 @@ export default function ProCampaignDetailScreen() {
                   {d.endsAtLabel ?? "—"} · coût unitaire {eur(d.costPerContactEur)}
                 </Text>
                 <Pressable
-                  onPress={() => router.push("/(pro)/creation")}
+                  onPress={() =>
+                    router.push(
+                      (d.objectiveId
+                        ? `/(pro)/objectif?id=${d.objectiveId}`
+                        : "/(pro)/creation") as never,
+                    )
+                  }
                   accessibilityRole="button"
                   className="mt-3 flex-row items-center justify-center gap-2 rounded-full border py-2.5 active:opacity-80"
                   style={{ borderColor: c.borderSoft }}
