@@ -421,24 +421,16 @@ export function AppHeader({
             </View>
 
             {variant === "pro" ? (
+              // Header étendu : pas de « + » création ici (il apparaît dans le
+              // header compact au scroll). Recharge + notifs + compte.
               <View className="flex-row items-center" style={{ gap: 8 }}>
-                {/* Les deux « + » groupés avec un peu plus d'espace entre eux. */}
-                <View className="flex-row items-center" style={{ gap: 12 }}>
-                  <IconButton
-                    icon="add"
-                    gradient={["#2F44C0", "#13235B"]}
-                    color="#FFFFFF"
-                    label="Lancer une campagne"
-                    onPress={() => router.push("/(pro)/creation")}
-                  />
-                  <IconButton
-                    icon="add"
-                    bg="bg-paper"
-                    color={iconColor}
-                    label="Recharger mon compte"
-                    onPress={() => setShowRecharge(true)}
-                  />
-                </View>
+                <IconButton
+                  icon="add"
+                  bg="bg-paper"
+                  color={iconColor}
+                  label="Recharger mon compte"
+                  onPress={() => setShowRecharge(true)}
+                />
                 <IconButton
                   icon="notifications-outline"
                   bg="bg-paper"
@@ -510,9 +502,29 @@ export function AppHeader({
                 {pageName}
               </Text>
             </View>
-            {ctx?.compactExtras?.length ? (
-              <View className="flex-row items-center gap-2">
-                {ctx.compactExtras.map((e, i) => {
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              {/* Au scroll (header compact), on affiche les DEUX « + ». */}
+              {variant === "pro" ? (
+                <>
+                  <IconButton
+                    icon="add"
+                    gradient={["#2F44C0", "#13235B"]}
+                    color="#FFFFFF"
+                    label="Lancer une campagne"
+                    onPress={() => router.push("/(pro)/creation")}
+                  />
+                  <IconButton
+                    icon="add"
+                    bg="bg-paper"
+                    color={iconColor}
+                    label="Recharger mon compte"
+                    onPress={() => setShowRecharge(true)}
+                  />
+                </>
+              ) : null}
+              {ctx?.compactExtras?.length ? (
+                <View className="flex-row items-center gap-2">
+                  {ctx.compactExtras.map((e, i) => {
                   const content = (
                     <>
                       {e.iconLib === "material" ? (
@@ -564,8 +576,9 @@ export function AppHeader({
                     </View>
                   );
                 })}
-              </View>
-            ) : null}
+                </View>
+              ) : null}
+            </View>
           </Animated.View>
         </View>
       </View>
