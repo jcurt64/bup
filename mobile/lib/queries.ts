@@ -1145,7 +1145,12 @@ export type ProOverview = {
   activeCampaignsCount: number;
   acceptanceRate: number;
   avgCostCents: number;
-  roi: { pct: number | null } | null;
+  spent30dCents: number;
+  roi: {
+    pct: number | null;
+    spentCents: number;
+    potentialRevenueCents: number;
+  } | null;
   lastAcceptances: {
     name: string;
     score: number;
