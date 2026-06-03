@@ -4351,6 +4351,8 @@ function Relations() {
   // Modale "détails de l'offre" — affiche toutes les infos campagne (dates,
   // brief texte, motif complet, palier, récompense) au clic sur le bouton +.
   const [detail, setDetail] = useState(null); // l'objet pending sélectionné
+  // « La Vitrine » — interstitiel de sortie depuis la carte ({proName, websiteUrl}).
+  const [vitrineLeave, setVitrineLeave] = useState(null);
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Le délai d'acceptation dépend de chaque campagne — il est affiché en temps réel sur chaque demande. Sans réponse à temps, la sollicitation expire."/>
@@ -4405,6 +4407,23 @@ function Relations() {
                   </button>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 10, marginBottom: 16, lineHeight: 1.55 }}>{p.motif}</p>
+                {/* « La Vitrine » — accès direct au site du pro depuis la carte
+                    (avant d'ouvrir le détail). Ouvre l'interstitiel de sortie. */}
+                {p.websiteUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setVitrineLeave({ proName: p.pro, websiteUrl: p.websiteUrl }); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 14,
+                      padding: '7px 11px', borderRadius: 999, cursor: 'pointer',
+                      background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
+                      border: '1px solid color-mix(in oklab, var(--accent) 28%, var(--line))',
+                      color: 'var(--accent)', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <Icon name="globe" size={13}/> Visiter le site web du professionnel
+                  </button>
+                )}
                 <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
                   <div className="row between center" style={{ marginBottom: 12 }}>
                     <span className="mono caps muted" style={{ fontSize: 10 }}>Récompense</span>
@@ -4612,6 +4631,12 @@ function Relations() {
           onRefuse={() => { refuseRelation(detail.id); setDetail(null); }}
           onClose={() => setDetail(null)}/>
       )}
+      {vitrineLeave && (
+        <VitrineLeaveModal
+          proName={vitrineLeave.proName}
+          websiteUrl={vitrineLeave.websiteUrl}
+          onClose={() => setVitrineLeave(null)}/>
+      )}
     </div>
   );
 }
@@ -4623,6 +4648,46 @@ function formatRelationDate(iso) {
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit', month: 'long', year: 'numeric',
   }).format(d);
+}
+
+/* « La Vitrine » — interstitiel de sortie vers le site externe du pro.
+   Réutilisé depuis la modale détail ET depuis la carte de sollicitation. */
+function VitrineLeaveModal({ proName, websiteUrl, onClose }) {
+  return (
+    <div
+      role="dialog" aria-modal="true" aria-labelledby="vitrine-leave-title"
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,22,41,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--paper)', color: 'var(--ink)', borderRadius: 18, padding: '26px 24px', width: 'min(440px, 100%)', boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)', margin: 'auto' }}
+      >
+        <div style={{ fontSize: 34, lineHeight: 1, marginBottom: 10, textAlign: 'center', color: 'var(--accent)' }} aria-hidden="true"><Icon name="ext" size={30}/></div>
+        <div id="vitrine-leave-title" className="serif" style={{ fontSize: 21, lineHeight: 1.25, marginBottom: 12, textAlign: 'center' }}>
+          Vous allez quitter BUUPP
+        </div>
+        <div className="muted" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20, textAlign: 'center' }}>
+          Ce lien vous redirige vers le site de <strong>{proName}</strong>, un site externe.
+          BUUPP n'est pas responsable de son contenu, et ce site n'est pas soumis à la
+          politique de cookies de BUUPP : la gestion des cookies et de vos données
+          personnelles y relève de la <strong>politique de confidentialité de ce professionnel</strong>.
+        </div>
+        <div className="row gap-2" style={{ justifyContent: 'center' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+          <button
+            type="button" className="btn btn-primary btn-sm"
+            onClick={() => {
+              try { window.open(websiteUrl, '_blank', 'noopener,noreferrer'); } catch (e) {}
+              onClose();
+            }}
+          >
+            Continuer vers le site <Icon name="ext" size={12}/>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefuse, onClose }) {
@@ -4650,6 +4715,9 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
   // Statut local "reported" pour basculer l'UI immédiatement après
   // soumission sans attendre le re-fetch parent.
   const [reportedLocal, setReportedLocal] = useState(!!relation.reported);
+  // « La Vitrine » — interstitiel de confirmation avant de quitter BUUPP
+  // vers le site externe du pro.
+  const [vitrineConfirm, setVitrineConfirm] = useState(false);
   return (
     <ModalShell title="Détails de l'offre" onClose={onClose} width={520}>
       <div className="col gap-4">
@@ -4730,6 +4798,30 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
               « {r.brief} »
             </div>
           </div>
+        )}
+
+        {/* « La Vitrine » — lien tracké vers le site du pro (option côté pro).
+            Un interstitiel de confirmation prévient le prospect qu'il quitte
+            BUUPP avant la redirection ; le clic est enregistré par
+            /api/campaign/[id]/visit au moment de l'ouverture. */}
+        {r.websiteUrl && (
+          <button
+            type="button"
+            onClick={() => setVitrineConfirm(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '12px 14px', borderRadius: 10, textAlign: 'left', cursor: 'pointer',
+              background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--accent) 28%, var(--line))',
+            }}
+          >
+            <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="globe" size={18}/></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Découvrir sa vitrine</div>
+              <div className="muted" style={{ fontSize: 11 }}>Voir ce que ce professionnel propose sur son site</div>
+            </div>
+            <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="ext" size={14}/></span>
+          </button>
         )}
 
         {/* Motif détaillé */}
@@ -4883,6 +4975,10 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           relation={relation}
           onClose={() => setReportOpen(false)}
           onSubmitted={() => setReportedLocal(true)}/>
+      )}
+      {/* « La Vitrine » — interstitiel de sortie vers le site externe du pro */}
+      {vitrineConfirm && (
+        <VitrineLeaveModal proName={r.pro} websiteUrl={r.websiteUrl} onClose={() => setVitrineConfirm(false)}/>
       )}
     </ModalShell>
   );

@@ -85,7 +85,14 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            // PROD : cache long busté par ?v=<PROTOTYPE_VERSION> (cf. ci-dessus).
+            // DEV : surtout PAS de cache immutable — sinon chaque modif d'un
+            // .jsx prototype reste invisible tant qu'on ne vide pas le cache
+            // navigateur (piège récurrent). En dev on force la revalidation.
+            value:
+              process.env.NODE_ENV === "production"
+                ? "public, max-age=31536000, immutable"
+                : "no-store, must-revalidate",
           },
         ],
       },

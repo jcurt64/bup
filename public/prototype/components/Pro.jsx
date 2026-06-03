@@ -1227,6 +1227,14 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
                   <div className="muted" style={{ fontSize: 13 }}>
                     {c.objectiveLabel} · créée le {dateStr} · coût unitaire moyen {fmt2(c.avgCostEur)} €
                   </div>
+                  {c.brief && (
+                    <div
+                      title={c.brief}
+                      style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 520 }}
+                    >
+                      « {c.brief.length > 80 ? c.brief.slice(0, 80) + '…' : c.brief} »
+                    </div>
+                  )}
                   <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
                     {(() => {
                       // Budget consommé = budget effectif (campagne + 10 % de
@@ -2396,6 +2404,63 @@ function WizardResetConfirmModal({ onCancel, onConfirm }) {
   );
 }
 
+/* « La Vitrine » — popup d'offre du service lien-du-site, ouvert à l'arrivée
+   sur le récap. `free` ⇒ offert (1re campagne du pro), sinon 2 €. Le champ
+   est préfixé `https://` en dur ; on ne renvoie que la partie hôte/chemin. */
+function VitrineOfferModal({ free, url, onSkip, onConfirm }) {
+  const [val, setVal] = useState((url || '').replace(/^https?:\/\//i, ''));
+  const clean = val.trim().replace(/^https?:\/\//i, '');
+  // Domaine plausible : au moins `xxx.tld` (tld ≥ 2 caractères).
+  const valid = /^[^\s./]+\.[^\s/]{2,}/.test(clean);
+  return (
+    <div
+      role="dialog" aria-modal="true" aria-labelledby="vitrine-title"
+      onClick={onSkip}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,22,41,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--paper)', color: 'var(--ink)', borderRadius: 18, padding: '28px 26px', width: 'min(480px, 100%)', boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)', borderTop: '4px solid var(--accent)', margin: 'auto' }}
+      >
+        <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10, textAlign: 'center' }} aria-hidden="true">{free ? '🎁' : '✨'}</div>
+        <div id="vitrine-title" className="serif" style={{ fontSize: 23, lineHeight: 1.25, marginBottom: 10, textAlign: 'center' }}>
+          {free ? 'Bonne nouvelle — La Vitrine vous est offerte !' : 'Ouvrez La Vitrine de votre campagne'}
+        </div>
+        <div className="muted" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 18, textAlign: 'center' }}>
+          {free
+            ? <>Pour votre <strong>première campagne</strong>, on vous offre <strong>La Vitrine</strong>. Ajoutez le lien de votre site : les prospects découvrent ce que vous proposez, et vous voyez combien ont cliqué. Normalement à 2 €, aujourd'hui <strong>c'est cadeau</strong>.</>
+            : <>Affichez le lien de votre site sur l'annonce — les prospects découvrent votre univers, et vous suivez le <strong>nombre de visites</strong>. <strong>+2,00 €</strong>, une fois, pour cette campagne.</>}
+        </div>
+        <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, display: 'block' }}>Adresse de votre site</label>
+        <div className="row" style={{ alignItems: 'stretch', border: '1px solid var(--line-2)', borderRadius: 10, overflow: 'hidden', background: 'var(--paper)' }}>
+          <span className="mono" style={{ padding: '10px 10px', background: 'var(--ivory-2)', color: 'var(--ink-3)', fontSize: 13, display: 'flex', alignItems: 'center', borderRight: '1px solid var(--line-2)' }}>https://</span>
+          <input
+            type="text"
+            value={val}
+            onChange={e => setVal(e.target.value.replace(/^https?:\/\//i, ''))}
+            onKeyDown={e => { if (e.key === 'Enter' && valid) onConfirm(clean); }}
+            placeholder="mon-entreprise.fr"
+            autoFocus
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' }}
+          />
+        </div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>https uniquement · ex. mon-entreprise.fr/offre</div>
+        <div className="row" style={{ gap: 10, marginTop: 20 }}>
+          <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onSkip}>Non merci</button>
+          <button
+            type="button" className="btn btn-primary"
+            style={{ flex: 2, opacity: valid ? 1 : 0.55, cursor: valid ? 'pointer' : 'not-allowed' }}
+            disabled={!valid}
+            onClick={() => onConfirm(clean)}
+          >
+            {free ? 'Ajouter ma vitrine (offert)' : 'Ajouter ma vitrine (+2 €)'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
@@ -2405,6 +2470,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // Erreur de lancement (autre que solde insuffisant) — affichée dans
   // un modal stylé plutôt qu'un alert() natif. Forme: {title, message}.
   const [launchError, setLaunchError] = useState(null);
+  // ─── « La Vitrine » — option lien du site web sur l'annonce ────────
+  // `vitrineUrl` = partie saisie APRÈS le préfixe https:// (affiché en dur).
+  // `vitrineAdded` = option retenue. `vitrineModalOpen/Seen` pilotent le
+  // popup d'offre (ouvert une seule fois à l'arrivée sur le récap).
+  // `priorCampaignCount` (null tant que non chargé) décide de la gratuité :
+  // 0 campagne antérieure ⇒ offert ; sinon 2 €. Le serveur reste autoritaire.
+  const [vitrineUrl, setVitrineUrl] = useState('');
+  const [vitrineAdded, setVitrineAdded] = useState(false);
+  const [vitrineModalOpen, setVitrineModalOpen] = useState(false);
+  const [vitrineModalSeen, setVitrineModalSeen] = useState(false);
+  const [priorCampaignCount, setPriorCampaignCount] = useState(null);
   // ─── Plan tarifaire ─────────────────────────────────────────────
   // Au montage du wizard on récupère le plan actuel et on ouvre la
   // popup de sélection. Tant que `planChosen=false`, on bloque le
@@ -2495,6 +2571,34 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     } catch {}
   }, []);
   useEffect(() => { refreshWalletBalance(); }, [refreshWalletBalance]);
+
+  // « La Vitrine » — combien de campagnes le pro a-t-il déjà ? 0 ⇒ option
+  // offerte (1re campagne), sinon 2 €. Lecture au montage (le serveur
+  // recalcule de toute façon le tarif à la création).
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/campaigns', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(j => { if (!cancelled) setPriorCampaignCount((j.campaigns || []).length); })
+      .catch(() => { if (!cancelled) setPriorCampaignCount(0); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Popup d'offre Vitrine : s'ouvre UNE fois, à l'arrivée sur le récap
+  // (dernière étape), tant que l'option n'a pas déjà été retenue. On attend
+  // que le nombre de campagnes soit connu pour afficher le bon message
+  // (offert vs 2 €).
+  useEffect(() => {
+    if (
+      step === WIZ_STEP_RECAP &&
+      !vitrineModalSeen &&
+      !vitrineAdded &&
+      priorCampaignCount !== null
+    ) {
+      setVitrineModalOpen(true);
+      setVitrineModalSeen(true);
+    }
+  }, [step, vitrineModalSeen, vitrineAdded, priorCampaignCount]);
 
   // ─── Persistance brouillon de campagne ─────────────────────────
   // Si l'utilisateur est redirigé vers Stripe pour recharger son crédit
@@ -3078,7 +3182,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     ? Number(planSpecs?.[plan]?.monthlyEur ?? (plan === "pro" ? 59 : 19))
     : 0;
   const planLabel = plan === "pro" ? "Pro" : "Starter";
-  const totalToDebit = Math.round((total + commission + cycleStartFee) * 100) / 100;
+  // « La Vitrine » : offerte à la 1re campagne du pro (priorCampaignCount === 0),
+  // 2 € ensuite. Coût ajouté au total seulement si l'option est retenue.
+  const vitrineFree = priorCampaignCount === 0;
+  const vitrineFeeEur = vitrineAdded ? (vitrineFree ? 0 : 2) : 0;
+  const totalToDebit = Math.round((total + commission + cycleStartFee + vitrineFeeEur) * 100) / 100;
   const costPreview = cpc > 0 && (
     <div className="wizard-cost-preview" style={{
       background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
@@ -3123,6 +3231,19 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
               }}>1ʳᵉ campagne du cycle</span>
             </div>
             <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
+          </div>
+        )}
+        {vitrineAdded && (
+          <div className="row between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Option La Vitrine</span>{' '}
+              <span className="mono" style={{
+                fontSize: 11, padding: '2px 6px', borderRadius: 6,
+                background: vitrineFree ? 'color-mix(in oklab, var(--good) 16%, var(--paper))' : 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
+                color: vitrineFree ? 'var(--good)' : 'var(--ink-2)', fontWeight: 600, marginLeft: 4,
+              }}>{vitrineFree ? 'Offert · 1ʳᵉ campagne' : 'lien du site'}</span>
+            </div>
+            <span className="mono tnum" style={{ fontWeight: 600, color: vitrineFree ? 'var(--good)' : 'var(--ink)' }}>{vitrineFree ? 'Offert' : fmtEur(2)}</span>
           </div>
         )}
         <div className="row between" style={{ alignItems: 'center', gap: 12 }}>
@@ -4171,6 +4292,48 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
 
             {costPreview}
 
+            {/* « La Vitrine » — gestion depuis le récap. Le popup d'offre
+                s'est ouvert à l'arrivée sur cette étape ; ici le pro peut
+                ajouter / modifier / retirer l'option. */}
+            <div style={{
+              borderRadius: 14, padding: 16, marginBottom: 16,
+              background: vitrineAdded ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--ivory-2)',
+              border: '1px solid ' + (vitrineAdded ? 'color-mix(in oklab, var(--accent) 24%, var(--line))' : 'var(--line-2)'),
+            }}>
+              <div className="row between" style={{ alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="globe" size={16}/></span>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>La Vitrine</span>
+                    <span className="mono" style={{
+                      fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                      background: vitrineFree ? 'color-mix(in oklab, var(--good) 16%, var(--paper))' : 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+                      color: vitrineFree ? 'var(--good)' : 'var(--accent)', fontWeight: 600,
+                    }}>{vitrineFree ? 'Offert · 1ʳᵉ campagne' : '+2,00 €'}</span>
+                  </div>
+                  {vitrineAdded ? (
+                    <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, wordBreak: 'break-all' }}>
+                      Lien affiché sur l'annonce : <span style={{ color: 'var(--accent)', fontWeight: 500 }}>https://{vitrineUrl}</span>
+                    </div>
+                  ) : (
+                    <div className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+                      Affichez le lien de votre site sur l'annonce — les prospects découvrent ce que vous proposez, et vous suivez le nombre de visites.
+                    </div>
+                  )}
+                </div>
+                <div className="row" style={{ gap: 8, flexShrink: 0 }}>
+                  {vitrineAdded ? (
+                    <>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setVitrineModalOpen(true)}>Modifier</button>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVitrineAdded(false); setVitrineUrl(''); }}>Retirer</button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => setVitrineModalOpen(true)}>Ajouter mon site</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
               {[
                 ['Objectif', obj?.name || '—'],
@@ -4253,6 +4416,19 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                     }}>1ʳᵉ campagne du cycle · prélevé immédiatement</span>
                   </span>
                   <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
+                </div>
+              )}
+              {vitrineAdded && (
+                <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    Option La Vitrine
+                    <span className="mono" style={{
+                      fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                      background: vitrineFree ? 'color-mix(in oklab, var(--good) 16%, var(--paper))' : 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
+                      color: vitrineFree ? 'var(--good)' : 'var(--ink-2)', fontWeight: 600,
+                    }}>{vitrineFree ? 'Offert · 1ʳᵉ campagne · prélevé immédiatement' : 'lien du site · prélevé immédiatement'}</span>
+                  </span>
+                  <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: vitrineFree ? 'var(--good)' : 'var(--ink)' }}>{vitrineFree ? 'Offert' : fmtEur(2)}</span>
                 </div>
               )}
               <div className="row between" style={{ padding: '12px 0 4px' }}>
@@ -4410,7 +4586,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                   // Commission BUUPP = 10 % du budget (cf. backend).
                   const commission = Math.round(total * 0.10 * 100) / 100;
                   // Frais cycle facturés une seule fois quand cycleCount=0.
-                  const totalNeeded = total + commission + cycleStartFee;
+                  // + option La Vitrine (2 €, offerte à la 1re campagne).
+                  const totalNeeded = total + commission + cycleStartFee + vitrineFeeEur;
                   if (balance < totalNeeded) {
                     setInsufficient({
                       balance,
@@ -4442,6 +4619,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         keywords, kwFilter, poolMode,
                         excludeCertified,
                         founder_bonus_enabled: founderBonusEnabled,
+                        // « La Vitrine » — URL https du site (le serveur
+                        // re-valide et recalcule le tarif : offert à la 1re
+                        // campagne, 2 € sinon).
+                        websiteUrl: vitrineAdded && vitrineUrl.trim()
+                          ? 'https://' + vitrineUrl.trim().replace(/^https?:\/\//i, '')
+                          : undefined,
                       }),
                     });
                     const j = await r.json();
@@ -4638,6 +4821,18 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           title={launchError.title}
           message={launchError.message}
           onClose={() => setLaunchError(null)}
+        />
+      )}
+      {vitrineModalOpen && (
+        <VitrineOfferModal
+          free={vitrineFree}
+          url={vitrineUrl}
+          onSkip={() => setVitrineModalOpen(false)}
+          onConfirm={(host) => {
+            setVitrineUrl(host);
+            setVitrineAdded(true);
+            setVitrineModalOpen(false);
+          }}
         />
       )}
       {planModalOpen && plan && (
@@ -7584,6 +7779,11 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               {data.endsAtLabel ? <> · diffusion jusqu'au <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{data.endsAtLabel}</span></> : null}
               {avgCostEur > 0 ? <> · coût unitaire moyen {fmt2(avgCostEur)} €</> : null}
             </div>
+            {data.brief && (
+              <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 10, fontStyle: 'italic', lineHeight: 1.5, maxWidth: 640 }}>
+                « {data.brief} »
+              </div>
+            )}
           </div>
           <div className="row gap-2">
             <button
@@ -7788,6 +7988,60 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               })}
             </div>
           </div>
+
+          {/* La Vitrine — lien du site + compteur de clics (option payante) */}
+          {data.websiteUrl && (
+            <div className="card" style={{ padding: 28, gridColumn: '1 / -1' }}>
+              <div className="row between" style={{ marginBottom: 18, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                <div>
+                  <div className="serif" style={{ fontSize: 22 }}>La Vitrine</div>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                    Lien de votre site affiché sur l'annonce vue par les prospects
+                  </div>
+                </div>
+                <span className="chip" style={{ fontSize: 11, background: 'var(--ivory-2)', color: 'var(--ink-3)' }}>
+                  {Number(data.websiteAddonPaidCents ?? 0) > 0
+                    ? 'Option : ' + fmt2(Number(data.websiteAddonPaidCents) / 100) + ' €'
+                    : 'Offert · 1ʳᵉ campagne'}
+                </span>
+              </div>
+              <a
+                href={data.websiteUrl} target="_blank" rel="noopener noreferrer"
+                className="row" style={{ gap: 8, alignItems: 'center', color: 'var(--accent)', textDecoration: 'none', fontSize: 14, fontWeight: 500, minWidth: 0, wordBreak: 'break-all' }}
+              >
+                <Icon name="globe" size={16}/> {data.websiteUrl} <Icon name="ext" size={12}/>
+              </a>
+              {/* Deux indicateurs distincts : (1) le nombre de visites du site
+                  — qui n'implique PAS une acceptation — et (2) le rapport
+                  clics / acceptés. Les visites sont des prospects distincts
+                  (1 clic max par prospect). */}
+              {(() => {
+                const clicks = Number(data.websiteClickCount ?? 0);
+                const accepted = Number(winCount ?? 0);
+                const ratioLabel = accepted > 0 ? Math.round((clicks / accepted) * 100) + ' %' : '—';
+                const tile = { background: 'var(--ivory-2)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--line)' };
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16 }}>
+                    <div style={tile}>
+                      <div className="muted mono caps" style={{ fontSize: 10 }}>Visites du site</div>
+                      <div className="serif tnum" style={{ fontSize: 26, color: 'var(--accent)', marginTop: 2 }}>{fmt0(clicks)}</div>
+                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>prospect{clicks === 1 ? '' : 's'} ayant cliqué (≠ accepté)</div>
+                    </div>
+                    <div style={tile}>
+                      <div className="muted mono caps" style={{ fontSize: 10 }}>Prospects acceptés</div>
+                      <div className="serif tnum" style={{ fontSize: 26, marginTop: 2 }}>{fmt0(accepted)}</div>
+                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>ont accepté la sollicitation</div>
+                    </div>
+                    <div style={tile}>
+                      <div className="muted mono caps" style={{ fontSize: 10 }}>Clics / acceptés</div>
+                      <div className="serif tnum" style={{ fontSize: 26, marginTop: 2 }}>{ratioLabel}</div>
+                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{fmt0(clicks)} clic{clicks === 1 ? '' : 's'} pour {fmt0(accepted)} accepté{accepted === 1 ? '' : 's'}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Budget breakdown — full width */}
           <div className="card" style={{ padding: 28, gridColumn: '1 / -1' }}>

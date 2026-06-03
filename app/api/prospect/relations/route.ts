@@ -35,6 +35,7 @@ type RelationRow = {
     starts_at: string;
     ends_at: string | null;
     targeting: Record<string, unknown> | null;
+    website_url: string | null;
   } | null;
   pro_accounts: {
     raison_sociale: string;
@@ -125,7 +126,7 @@ export async function GET() {
     .from("relations")
     .select(
       `id, campaign_id, motif, reward_cents, status, sent_at, expires_at, decided_at,
-       campaigns ( name, status, brief, starts_at, ends_at, targeting ),
+       campaigns ( name, status, brief, starts_at, ends_at, targeting, website_url ),
        pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )`,
     )
     .eq("prospect_id", prospectId)
@@ -168,6 +169,9 @@ export async function GET() {
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
         reported: reportedSet.has(r.id),
+        // « La Vitrine » — lien tracké vers le site du pro (null si l'option
+        // n'a pas été prise). Le clic est enregistré par /api/campaign/[id]/visit.
+        websiteUrl: r.campaigns?.website_url ? `/api/campaign/${r.campaign_id}/visit` : null,
       };
     });
 
@@ -241,6 +245,8 @@ export async function GET() {
         campaignActive,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
         reported: reportedSet.has(r.id),
+        // « La Vitrine » — lien tracké vers le site du pro (cf. pending).
+        websiteUrl: r.campaigns?.website_url ? `/api/campaign/${r.campaign_id}/visit` : null,
       };
     });
 

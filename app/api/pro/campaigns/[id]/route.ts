@@ -128,7 +128,8 @@ export async function GET(req: Request, ctx: RouteContext) {
        budget_cents, spent_cents, cost_per_contact_cents, matched_count,
        starts_at, ends_at, created_at, pro_account_id,
        extension_used, extended_at,
-       pause_used, paused_at, auto_resume_at`,
+       pause_used, paused_at, auto_resume_at,
+       website_url, website_addon_paid_cents`,
     )
     .eq("id", id)
     .single();
@@ -155,6 +156,14 @@ export async function GET(req: Request, ctx: RouteContext) {
     console.error("[/api/pro/campaigns/GET] read relations failed", relErr);
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
+
+  // « La Vitrine » — nombre de prospects distincts ayant cliqué vers le site
+  // (1 clic max par prospect via la contrainte unique). Le dénominateur du
+  // ratio affiché côté pro = winCount (acceptées + créditées), calculé plus bas.
+  const { count: websiteClickCount } = await admin
+    .from("campaign_website_clicks")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", id);
 
   type RelationRow = {
     id: string;
@@ -342,6 +351,12 @@ export async function GET(req: Request, ctx: RouteContext) {
     winCount,
     contacts,
     activity,
+    // « La Vitrine » — lien du site, montant payé pour l'option (0 ou 200),
+    // et nombre de prospects ayant cliqué. Le front affiche
+    // « X clics vers votre site / winCount prospects acceptés ».
+    websiteUrl: camp.website_url ?? null,
+    websiteAddonPaidCents: Number(camp.website_addon_paid_cents ?? 0),
+    websiteClickCount: websiteClickCount ?? 0,
   });
 }
 

@@ -50,6 +50,10 @@ type Body = {
   keywords: string[];
   kwFilter: boolean;
   poolMode: string;
+  /** « La Vitrine » — URL du site web (https uniquement) à afficher sur
+   *  l'annonce côté prospect. Optionnel. Facturé 2 € (offert à la 1re
+   *  campagne du pro ; le prix est décidé côté serveur, jamais par le client). */
+  websiteUrl?: string;
   /** Optionnel : quand true, exclut les prospects `certifie_confiance`
    *  du pool de matching. Coché par le pro dans le wizard, étape Budget. */
   excludeCertified?: boolean;
@@ -91,6 +95,29 @@ function normalizeGeoTarget(raw: unknown): Body["geoTarget"] | null {
   }
   return null;
 }
+
+/** Valide/normalise l'URL « Vitrine ». https UNIQUEMENT : un schéma absent
+ *  est préfixé `https://`, un `http://` explicite est refusé. Retourne l'URL
+ *  normalisée ou null si invalide (hostname sans point, espace, etc.). */
+function normalizeWebsiteUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw.trim();
+  if (!s) return null;
+  if (/^http:\/\//i.test(s)) return null; // http refusé — https only
+  if (!/^https:\/\//i.test(s)) s = `https://${s}`;
+  let u: URL;
+  try {
+    u = new URL(s);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:") return null;
+  if (!u.hostname.includes(".") || /\s/.test(u.hostname)) return null;
+  return u.toString().slice(0, 2048);
+}
+
+/** Tarif de l'option Vitrine, en cents (2 €). Offerte à la 1re campagne. */
+const VITRINE_FEE_CENTS = 200;
 
 const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
 
@@ -225,7 +252,20 @@ export async function POST(req: Request) {
   const isFirstOfCycle = cycleCount === 0;
   const planFeeCents = isFirstOfCycle ? Number(planRow?.monthly_cents ?? 0) : 0;
 
-  const neededCents = body.budgetCents + commissionCents + planFeeCents;
+  // « La Vitrine » — option lien du site web sur l'annonce. OFFERTE à la 1re
+  // campagne du pro (aucune campagne antérieure), 2 € ensuite. Le prix est
+  // décidé ici (jamais par le client) : on compte les campagnes existantes.
+  const websiteUrl = normalizeWebsiteUrl(body.websiteUrl);
+  let websiteAddonCents = 0;
+  if (websiteUrl) {
+    const { count: priorCampaigns } = await admin
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .eq("pro_account_id", proId);
+    websiteAddonCents = (priorCampaigns ?? 0) === 0 ? 0 : VITRINE_FEE_CENTS;
+  }
+
+  const neededCents = body.budgetCents + commissionCents + planFeeCents + websiteAddonCents;
   const walletAvailableCents =
     Number(pro.wallet_balance_cents) - Number(pro.wallet_reserved_cents ?? 0);
   if (walletAvailableCents < neededCents) {
@@ -238,6 +278,7 @@ export async function POST(req: Request) {
         neededCents,
         commissionCents,
         planFeeCents,
+        websiteAddonCents,
         isFirstOfCycle,
         budgetCents: body.budgetCents,
       },
@@ -381,6 +422,10 @@ export async function POST(req: Request) {
       budget_reserved_cents: reservedCents,
       commission_max_cents: commissionCents,
       brief: body.brief.trim(),
+      // « La Vitrine » : lien du site affiché sur l'annonce + tarif réellement
+      // débité (0 si offert à la 1re campagne, 200 sinon).
+      website_url: websiteUrl,
+      website_addon_paid_cents: websiteAddonCents,
       // Campagne ouverte immédiatement et fermée à la fin de la fenêtre
       // de réponse (= durationKey choisi par le pro). C'est exactement
       // la même horloge que `relations.expires_at` ci-dessous, donc le
@@ -403,8 +448,11 @@ export async function POST(req: Request) {
   // réservation, c'est un paiement effectif au moment de l'achat du cycle.
   const newReserved =
     Number(pro.wallet_reserved_cents ?? 0) + reservedCents;
+  // Débit immédiat (non remboursable) : frais de cycle + option Vitrine.
+  // Comme les frais de cycle, l'option Vitrine est un paiement effectif au
+  // moment de l'achat — pas une réservation.
   const newBalance =
-    Number(pro.wallet_balance_cents) - planFeeCents;
+    Number(pro.wallet_balance_cents) - planFeeCents - websiteAddonCents;
   const { error: reserveErr } = await admin
     .from("pro_accounts")
     .update({
@@ -424,6 +472,17 @@ export async function POST(req: Request) {
       amount_cents: -planFeeCents,
       campaign_id: campaign.id,
       description: `Frais cycle ${pro.plan === "pro" ? "Pro" : "Starter"} (${cycleCap} campagnes)`,
+    });
+  }
+  if (websiteAddonCents > 0) {
+    await admin.from("transactions").insert({
+      account_id: proId,
+      account_kind: "pro",
+      type: "buupp_commission",
+      status: "completed",
+      amount_cents: -websiteAddonCents,
+      campaign_id: campaign.id,
+      description: "Option La Vitrine (lien du site web)",
     });
   }
 

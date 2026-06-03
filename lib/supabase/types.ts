@@ -272,6 +272,8 @@ export type Database = {
           targeting: Json
           type: Database["public"]["Enums"]["campaign_type"]
           updated_at: string
+          website_addon_paid_cents: number
+          website_url: string | null
         }
         Insert: {
           auto_resume_at?: string | null
@@ -302,6 +304,8 @@ export type Database = {
           targeting?: Json
           type: Database["public"]["Enums"]["campaign_type"]
           updated_at?: string
+          website_addon_paid_cents?: number
+          website_url?: string | null
         }
         Update: {
           auto_resume_at?: string | null
@@ -332,6 +336,8 @@ export type Database = {
           targeting?: Json
           type?: Database["public"]["Enums"]["campaign_type"]
           updated_at?: string
+          website_addon_paid_cents?: number
+          website_url?: string | null
         }
         Relationships: [
           {
@@ -339,6 +345,42 @@ export type Database = {
             columns: ["pro_account_id"]
             isOneToOne: false
             referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_website_clicks: {
+        Row: {
+          campaign_id: string
+          clicked_at: string
+          id: string
+          prospect_id: string
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string
+          id?: string
+          prospect_id: string
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string
+          id?: string
+          prospect_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_website_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_website_clicks_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
         ]
