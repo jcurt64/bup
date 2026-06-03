@@ -120,18 +120,21 @@ function fmtEur(cents: number): string {
   return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 }
 
-// Teinte du multiplicateur : ×3+ → corail, sinon (×2) → ambre. Utilisée
-// par la barre d'accent de la card et le badge « Gains ×N » (cf. d1.html).
+// Teinte du multiplicateur : le standard flash deal (×3) reste ambre —
+// couleur identité du sheet ; un éventuel bonus au-delà (×4+) passe en
+// corail. Utilisée par la barre d'accent de la card et le badge
+// « Gains ×N » (cf. d1.html).
 function multTint(m: number) {
-  return m >= 3
+  return m >= 4
     ? { fg: B.coral, bg: B.coralL, bd: "#f0c6bb", accent: [B.coral, "#e8836f"] as const }
     : { fg: "#8a5a12", bg: B.amberL, bd: "#efd9a8", accent: [B.amber, "#f0b860"] as const };
 }
 
-// Multiplicateur numérique affiché (« Gains ×N »). Les bonus fondateur et
-// les flash deals fictifs valent ×2 ; on lit la valeur réelle de la campagne.
+// Multiplicateur numérique affiché (« Gains ×N »). Un flash deal
+// (durationKey '1h') vaut ×3 par défaut (cf. web DURATION_MULTIPLIERS :
+// 1h→3, 24h→2, 48h→1.5, 7d→1) ; on lit la valeur réelle de la campagne.
 function dealMultNum(d: FlashDeal): number {
-  return Math.max(1, Math.round(d.multiplier || 2));
+  return Math.max(1, Math.round(d.multiplier || 3));
 }
 
 // Fraction de temps restant [0..1] pour la barre de progression. Sans
@@ -165,7 +168,7 @@ function FlashPill({ small }: { small?: boolean }) {
   );
 }
 
-// Badge « Gains ×N » teinté (ambre pour ×2, corail pour ×3+).
+// Badge « Gains ×N » teinté (ambre pour le standard ×3, corail au-delà).
 function MultBadge({ m }: { m: number }) {
   const t = multTint(m);
   return (
@@ -468,7 +471,7 @@ function FlashDealDetailSheet({
   const hasMissing = missing.length > 0;
   const hms = d ? fmtHms(d.endsAt, nowTs) : "";
   const expired = hms === "Expirée";
-  const m = d ? dealMultNum(d) : 2;
+  const m = d ? dealMultNum(d) : 3;
   const canDecide =
     !!d && d.relationStatus === "pending" && !!d.relationId && !expired;
 
@@ -936,7 +939,7 @@ function FlashDealDetailSheet({
 }
 
 // ── En-tête du sheet (cf. fl.html) — éclair violet dégradé + eyebrow
-// « RÉMUNÉRATION ×2 » + titre + pill ambre « Bonus ×2 » + intro. Partagé
+// « RÉMUNÉRATION ×3 » + titre + pill ambre « Bonus ×3 » + intro. Partagé
 // par l'état vide et la liste de deals.
 function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
   const { c, isDark } = useTheme();
@@ -972,7 +975,7 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
               color: c.violet,
             }}
           >
-            Rémunération ×2
+            Rémunération ×3
           </Text>
           <Text
             className="font-serif"
@@ -996,7 +999,7 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
         >
           <Ionicons name="flash" size={12} color={isDark ? c.gold : B.amber} />
           <Text style={{ fontSize: 11.5, fontWeight: "700", color: isDark ? c.gold : B.amberTxt }}>
-            Bonus ×2
+            Bonus ×3
           </Text>
         </View>
       </View>
@@ -1011,7 +1014,7 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
             </Text>{" "}
             du moment, avec un{" "}
             <Text style={{ color: c.violetDeep, fontWeight: "600" }}>
-              bonus ×2 immédiat
+              bonus ×3 immédiat
             </Text>
             . Elles partent vite — sautez sur l’occasion ! ⚡
           </>
@@ -1023,7 +1026,7 @@ function FlashSheetHeader({ hasDeals }: { hasDeals: boolean }) {
             </Text>{" "}
             de buupp, avec un{" "}
             <Text style={{ color: c.violetDeep, fontWeight: "600" }}>
-              bonus ×2 immédiat
+              bonus ×3 immédiat
             </Text>
             . Elles partent vite — soyez prêt·e à saisir la prochaine.
           </>
