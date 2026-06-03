@@ -3549,10 +3549,10 @@ function PhoneStatusBar() {
   );
 }
 
-function PhoneRow({ label, sub, right, rightArrow }: { label: string; sub: string; right?: string; rightArrow?: "check" | "arrow" }) {
+function PhoneRow({ label, sub, right, rightArrow, icon }: { label: string; sub: string; right?: string; rightArrow?: "check" | "arrow"; icon?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", borderRadius: 12, border: "1px solid var(--line)", padding: rightArrow ? "10px 12px" : "9px 11px" }}>
-      {!rightArrow && <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--accent-soft)", flexShrink: 0 }} />}
+      {!rightArrow && <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--accent-soft)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, lineHeight: 1 }}>{icon}</span>}
       <div style={{ flex: "1 1 0%", minWidth: 0 }}>
         <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
         <div style={{ fontSize: 9.5, color: "var(--sub)", marginTop: 1 }}>{sub}</div>
@@ -3564,10 +3564,31 @@ function PhoneRow({ label, sub, right, rightArrow }: { label: string; sub: strin
   );
 }
 
-/* Avatar — initiales « CM » sur fond teinté thème. */
+/* Avatar — initiales « ML » sur fond teinté thème. */
 function AvatarGirl({ fontSize }: { fontSize: number }) {
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(150deg,var(--accent),var(--accent-deep))", color: "#fff", fontFamily: F_SERIF, fontWeight: 600, fontSize, letterSpacing: "0.5px" }}>CM</div>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(150deg,var(--accent),var(--accent-deep))", color: "#fff", fontFamily: F_SERIF, fontWeight: 600, fontSize, letterSpacing: "0.5px" }}>ML</div>
+  );
+}
+
+/* Couronne or scintillante du fondateur Proud (même esprit que le popup mobile). */
+function FounderCrown({ size = 14 }: { size?: number }) {
+  return (
+    <span className="crown-spark" style={{ display: "inline-flex", position: "relative", lineHeight: 0, verticalAlign: "middle" }} aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs>
+          <linearGradient id="founderCrownGold" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFE9A8" />
+            <stop offset="48%" stopColor="#F5C84B" />
+            <stop offset="100%" stopColor="#D99A2B" />
+          </linearGradient>
+        </defs>
+        <path d="M3 8l4 3 5-6 5 6 4-3-2 11H5L3 8z" fill="url(#founderCrownGold)" stroke="#B8791E" strokeWidth="1" strokeLinejoin="round" />
+        <circle cx="12" cy="6.2" r="1.2" fill="#FFF3CC" stroke="#B8791E" strokeWidth=".6" />
+      </svg>
+      <span className="spk" style={{ position: "absolute", top: -3, right: -4, color: "#FFEEA8", fontSize: size * 0.6 }}>✦</span>
+      <span className="spk2" style={{ position: "absolute", bottom: -3, left: -4, color: "#FFF6D0", fontSize: size * 0.45 }}>✦</span>
+    </span>
   );
 }
 
@@ -3580,7 +3601,7 @@ function ScreenHome() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 11, color: "var(--sub)" }}>Bonjour 👋</div>
-              <div style={{ fontFamily: F_SERIF, fontSize: 21, fontWeight: 600, color: "var(--ink)", lineHeight: 1.05 }}>Camille</div>
+              <div style={{ fontFamily: F_SERIF, fontSize: 21, fontWeight: 600, color: "var(--ink)", lineHeight: 1.05 }}>Marie</div>
             </div>
             <div style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", boxShadow: "0 2px 6px rgba(10,16,30,.18)", flexShrink: 0 }}><AvatarGirl fontSize={14} /></div>
           </div>
@@ -3602,9 +3623,9 @@ function ScreenHome() {
           </div>
           <div style={{ fontFamily: F_SERIF, fontSize: 15, fontWeight: 600, color: "var(--ink)", marginTop: 15, marginBottom: 9 }}>Activité récente</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            <PhoneRow label="Données local…" sub="Aujourd’hui" right="+2,00 €" />
-            <PhoneRow label="Parrainage · L…" sub="Hier" right="+5,00 €" />
-            <PhoneRow label="Style de vie" sub="2 mai" right="+3,50 €" />
+            <PhoneRow icon="📍" label="Données local…" sub="Aujourd’hui" right="+2,00 €" />
+            <PhoneRow icon="🤝" label="Parrainage · L…" sub="Hier" right="+5,00 €" />
+            <PhoneRow icon="🌿" label="Style de vie" sub="2 mai" right="+3,50 €" />
           </div>
         </div>
       </div>
@@ -3633,9 +3654,9 @@ function ScreenDeals() {
           </div>
           <div style={{ fontFamily: F_SERIF, fontSize: 14, fontWeight: 600, color: "var(--ink)", marginTop: 15, marginBottom: 9 }}>Autres opportunités</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            <PhoneRow label="Énergie · Pro vérifié" sub="Palier 4" right="+5,00 €" />
-            <PhoneRow label="Banque · Pro vérifié" sub="Palier 5" right="+9,00 €" />
-            <PhoneRow label="Télécom · Pro vérifié" sub="Palier 2" right="+2,00 €" />
+            <PhoneRow icon="🥖" label="Boulangerie d’Or · Pro vérifié" sub="Palier 4" right="+5,00 €" />
+            <PhoneRow icon="🍽️" label="Restaurant 1st · Pro vérifié" sub="Palier 5" right="+9,00 €" />
+            <PhoneRow icon="🎭" label="Théâtre Duo · Pro vérifié" sub="Palier 2" right="+2,00 €" />
           </div>
         </div>
       </div>
@@ -3650,8 +3671,11 @@ function ScreenProfile() {
       <div style={{ position: "relative", height: "calc(100% - 28px)", overflow: "hidden" }}>
         <div style={{ fontFamily: F_SANS, padding: "8px 16px 0", textAlign: "center" }}>
           <div style={{ width: 62, height: 62, borderRadius: "50%", margin: "0 auto", overflow: "hidden", boxShadow: "0 8px 18px var(--accent-shadow)" }}><AvatarGirl fontSize={24} /></div>
-          <div style={{ fontFamily: F_SERIF, fontSize: 18, fontWeight: 600, color: "var(--ink)", marginTop: 10 }}>Camille Martin</div>
-          <span style={{ display: "inline-block", marginTop: 6, padding: "3px 10px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>FONDATEUR · PROUD</span>
+          <div style={{ fontFamily: F_SERIF, fontSize: 18, fontWeight: 600, color: "var(--ink)", marginTop: 10 }}>Marie L</div>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6, padding: "3px 10px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>
+            FONDATEUR · PROUD
+            <FounderCrown size={13} />
+          </span>
           <div style={{ position: "relative", width: 88, height: 88, margin: "14px auto 0" }}>
             <svg width="88" height="88" style={{ transform: "rotate(-90deg)" }}>
               <circle cx="44" cy="44" r="30" fill="none" stroke="var(--accent-soft)" strokeWidth="8" />

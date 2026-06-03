@@ -129,6 +129,13 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 
 @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
 
+/* Couronne fondateur — halo or + étincelles (même esprit que le popup mobile) */
+@keyframes crown-sheen { 0%, 100% { filter: drop-shadow(0 0 1px rgba(245,200,75,.5)); } 50% { filter: drop-shadow(0 0 4px rgba(255,214,102,.95)); } }
+@keyframes crown-twinkle { 0%, 100% { opacity: .25; transform: scale(.6); } 50% { opacity: 1; transform: scale(1); } }
+.crown-spark { animation: crown-sheen 2.2s ease-in-out infinite; }
+.crown-spark .spk  { animation: crown-twinkle 1.8s ease-in-out infinite; }
+.crown-spark .spk2 { animation: crown-twinkle 1.8s ease-in-out .9s infinite; }
+
 /* Marquee */
 @keyframes scroll-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .marquee { display: flex; gap: 48px; animation: scroll-x 40s linear infinite; white-space: nowrap; }

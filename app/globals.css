@@ -957,8 +957,16 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 @keyframes appGridDrift { from { background-position: 0 0; } to { background-position: 30px 30px; } }
 @keyframes appOrbit { from { transform: rotate(0deg) translateX(var(--orb,120px)) rotate(0deg); } to { transform: rotate(360deg) translateX(var(--orb,120px)) rotate(-360deg); } }
 
+/* Couronne fondateur Proud — halo or + étincelles (même esprit que le popup mobile) */
+@keyframes crownSheen { 0%,100% { filter: drop-shadow(0 0 1px rgba(245,200,75,.5)); } 50% { filter: drop-shadow(0 0 4px rgba(255,214,102,.95)); } }
+@keyframes crownTwinkle { 0%,100% { opacity: .25; transform: scale(.6); } 50% { opacity: 1; transform: scale(1); } }
+.crown-spark { animation: crownSheen 2.2s ease-in-out infinite; }
+.crown-spark .spk  { animation: crownTwinkle 1.8s ease-in-out infinite; }
+.crown-spark .spk2 { animation: crownTwinkle 1.8s ease-in-out .9s infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .app-anim { animation: none !important; }
+  .crown-spark, .crown-spark .spk, .crown-spark .spk2 { animation: none !important; }
 }
 
 /* ── Section « App mobile » — design launch répliqué (4 thèmes via data-theme) ── */

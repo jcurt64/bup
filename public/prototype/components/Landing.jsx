@@ -87,6 +87,7 @@ function Landing({ go }) {
       <SecuritySection />
       <Stats />
       <Pricing go={go} />
+      <MobileAppSection go={go} />
       <FinalCTA go={go} />
       <Footer />
       <StickyPreinscription go={go} />
@@ -1233,6 +1234,346 @@ function Journal() {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Section App mobile : annonce le lancement iOS/Android avec 3 téléphones en
+   éventail dont la couleur change selon le thème choisi (buupp / sombre /
+   forest / fushia — les 4 thèmes de l'app mobile). Chaque téléphone empile
+   une couche d'image par thème ; seule l'active est visible (crossfade).
+   Assets attendus : /prototype/app-screens/{1,2,3}-{buupp,sombre,forest,fushia}.png
+   (captures brutes, ratio ~9:19.5). Tant qu'ils manquent, un placeholder
+   teinté s'affiche pour ne pas casser le rendu.
+   ───────────────────────────────────────────────────────────────────────── */
+const APP_THEMES = [
+  { key: 'buupp',  label: 'buupp',  accent: '#4F46E5', bg: '#EEF1FF', dark: false },
+  { key: 'sombre', label: 'sombre', accent: '#7D74FF', bg: '#171C2E', dark: true  },
+  { key: 'forest', label: 'forest', accent: '#2F8D5B', bg: '#E7F2E5', dark: false },
+  { key: 'fushia', label: 'fushia', accent: '#D63B80', bg: '#FBE6F0', dark: false },
+];
+
+const APP_SLOGANS = [
+  'Vous allez adorer l’application BUUPP',
+  'Il y en a pour tous les goûts et toutes les couleurs',
+  'Adoptez votre style',
+];
+
+/* Tons dérivés d'un thème pour les écrans maquettés (exemples en attendant
+   les vraies captures). */
+function appTones(theme) {
+  const dark = theme.dark;
+  return {
+    dark,
+    accent: theme.accent,
+    page: theme.bg,
+    surface: dark ? '#181D2D' : '#FFFFFF',
+    text: dark ? '#ECEEF5' : '#0F1629',
+    sub: dark ? '#A3ABBC' : '#6B7384',
+    line: dark ? 'rgba(255,255,255,.09)' : 'rgba(15,22,41,.07)',
+    soft: dark ? 'rgba(255,255,255,.05)' : `${theme.accent}12`,
+  };
+}
+
+function AppMockBar({ c }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px 2px', fontSize: 9, fontWeight: 600, color: c.text }}>
+      <span>9:41</span>
+      <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+        <span style={{ width: 14, height: 7, borderRadius: 2, border: `1px solid ${c.text}`, opacity: .7 }}/>
+      </span>
+    </div>
+  );
+}
+
+/* Couronne or scintillante du fondateur Proud (même esprit que le popup mobile). */
+function FounderCrown({ size = 13 }) {
+  return (
+    <span className="crown-spark" style={{ display: 'inline-flex', position: 'relative', lineHeight: 0 }} aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs>
+          <linearGradient id="founderCrownGold" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFE9A8" />
+            <stop offset="48%" stopColor="#F5C84B" />
+            <stop offset="100%" stopColor="#D99A2B" />
+          </linearGradient>
+        </defs>
+        <path d="M3 8l4 3 5-6 5 6 4-3-2 11H5L3 8z" fill="url(#founderCrownGold)" stroke="#B8791E" strokeWidth="1" strokeLinejoin="round" />
+        <circle cx="12" cy="6.2" r="1.2" fill="#FFF3CC" stroke="#B8791E" strokeWidth=".6" />
+      </svg>
+      <span className="spk"  style={{ position: 'absolute', top: -3, right: -4, color: '#FFEEA8', fontSize: size * 0.6 }}>✦</span>
+      <span className="spk2" style={{ position: 'absolute', bottom: -3, left: -4, color: '#FFF6D0', fontSize: size * 0.45 }}>✦</span>
+    </span>
+  );
+}
+
+function AppMockRow({ c, label, sub, amount, pos, icon }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: `1px solid ${c.line}` }}>
+      <span style={{ width: 22, height: 22, borderRadius: 7, background: c.soft, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{icon}</span>
+      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+        <div style={{ fontSize: 9.5, fontWeight: 600, color: c.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        <div style={{ fontSize: 8, color: c.sub }}>{sub}</div>
+      </div>
+      <div style={{ fontSize: 9.5, fontWeight: 700, color: pos ? c.accent : c.text }}>{amount}</div>
+    </div>
+  );
+}
+
+function AppMockScreen({ n, theme }) {
+  const c = appTones(theme);
+  const wrap = { position: 'absolute', inset: 0, background: c.page, fontFamily: 'var(--sans)', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
+  const body = { flex: 1, padding: '4px 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 };
+  const title = (t) => <div style={{ fontSize: 13, fontWeight: 700, color: c.text, textAlign: 'left' }}>{t}</div>;
+
+  if (n === 1) {
+    return (
+      <div style={wrap}>
+        <AppMockBar c={c} />
+        <div style={body}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 8.5, color: c.sub }}>Bonjour 👋</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: c.text }}>Marie</div>
+            </div>
+            <span style={{ width: 26, height: 26, borderRadius: 999, background: c.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>ML</span>
+          </div>
+          {/* carte portefeuille */}
+          <div style={{ borderRadius: 14, padding: 13, color: '#fff', background: `linear-gradient(135deg, ${c.accent} 0%, ${c.accent}cc 100%)`, textAlign: 'left' }}>
+            <div style={{ fontSize: 8.5, opacity: .85 }}>Mon portefeuille</div>
+            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 2 }}>127,50 €</div>
+            <div style={{ fontSize: 8.5, opacity: .9, marginTop: 2 }}>+ 12,40 € ce mois-ci</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[['Gains', '34'], ['Score', '82']].map(([k, v]) => (
+              <div key={k} style={{ flex: 1, borderRadius: 11, padding: '9px 10px', background: c.surface, border: `1px solid ${c.line}`, textAlign: 'left' }}>
+                <div style={{ fontSize: 8, color: c.sub }}>{k}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: c.text }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          {title('Activité récente')}
+          <div style={{ borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}` }}>
+            <AppMockRow c={c} icon="📍" label="Données localisation" sub="Aujourd’hui" amount="+2,00 €" pos />
+            <AppMockRow c={c} icon="🤝" label="Parrainage · Léa" sub="Hier" amount="+5,00 €" pos />
+            <AppMockRow c={c} icon="🌿" label="Style de vie" sub="2 mai" amount="+3,50 €" pos />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (n === 2) {
+    return (
+      <div style={wrap}>
+        <AppMockBar c={c} />
+        <div style={body}>
+          {title('Flash deals')}
+          {/* offre éclair en vedette */}
+          <div style={{ borderRadius: 14, padding: 13, background: c.surface, border: `1.5px solid ${c.accent}`, textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', background: c.accent, padding: '3px 8px', borderRadius: 999 }}>OFFRE ÉCLAIR</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: c.accent }}>⏱ 19:58</span>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: c.text, marginTop: 8 }}>Assurance auto · Pro vérifié</div>
+            <div style={{ fontSize: 8.5, color: c.sub, marginTop: 2 }}>Révélez votre profil et gagnez</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: c.accent, marginTop: 4 }}>+ 8,00 €</div>
+          </div>
+          {title('Autres opportunités')}
+          <div style={{ borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}` }}>
+            <AppMockRow c={c} icon="🥖" label="Boulangerie d’Or · Pro vérifié" sub="Palier 4" amount="+5,00 €" pos />
+            <AppMockRow c={c} icon="🍽️" label="Restaurant 1st · Pro vérifié" sub="Palier 5" amount="+9,00 €" pos />
+            <AppMockRow c={c} icon="🎭" label="Théâtre Duo · Pro vérifié" sub="Palier 2" amount="+2,00 €" pos />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={wrap}>
+      <AppMockBar c={c} />
+      <div style={{ ...body, alignItems: 'center' }}>
+        <span style={{ width: 48, height: 48, borderRadius: 999, background: c.accent, marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 17, fontWeight: 700 }}>ML</span>
+        <div style={{ fontSize: 13, fontWeight: 700, color: c.text }}>Marie L</div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 8, fontWeight: 700, color: c.accent, background: c.soft, padding: '3px 9px', borderRadius: 999 }}>FONDATEUR · PROUD</span>
+          <FounderCrown size={13} />
+        </span>
+        {/* anneau de score */}
+        <div style={{ position: 'relative', width: 92, height: 92, borderRadius: 999, marginTop: 4, background: `conic-gradient(${c.accent} 82%, ${c.line} 0)` }}>
+          <div style={{ position: 'absolute', inset: 9, borderRadius: 999, background: c.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: 21, fontWeight: 700, color: c.text }}>82</div>
+            <div style={{ fontSize: 7.5, color: c.sub }}>Score de profil</div>
+          </div>
+        </div>
+        <div style={{ width: '100%', borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}`, marginTop: 4 }}>
+          <AppMockRow c={c} label="Identification" sub="Palier 1" amount="✓" />
+          <AppMockRow c={c} label="Localisation" sub="Palier 2" amount="✓" />
+          <AppMockRow c={c} label="Patrimoine" sub="Palier 5" amount="→" pos />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppThemeLayer({ n, theme, active }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div style={{ position: 'absolute', inset: 0, opacity: active ? 1 : 0, transition: 'opacity .55s ease' }}>
+      {/* écran maquetté (exemple) tant que la vraie capture n'est pas disponible */}
+      <div style={{ position: 'absolute', inset: 0, display: loaded ? 'none' : 'block' }}>
+        <AppMockScreen n={n} theme={theme} />
+      </div>
+      <img
+        src={`/prototype/app-screens/${n}-${theme.key}.png`}
+        alt={`Application BUUPP — écran ${n} — thème ${theme.label}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(false)}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity .3s' }}
+      />
+    </div>
+  );
+}
+
+function AppPhone({ n, theme, width, rotate, lift, z, margin }) {
+  return (
+    <div style={{
+      width, aspectRatio: '9 / 19.5', position: 'relative', flex: '0 0 auto', margin,
+      transform: `rotate(${rotate}deg) translateY(${lift}px)`, zIndex: z,
+      transition: 'transform .4s cubic-bezier(.22,1,.36,1)',
+    }}>
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 'clamp(26px,3.6vw,38px)',
+        background: '#0E1016', padding: '2.4%',
+        boxShadow: '0 34px 64px -22px rgba(15,22,41,.5), 0 10px 22px rgba(15,22,41,.18), inset 0 0 0 1.5px rgba(255,255,255,.07)',
+      }}>
+        <div style={{ position: 'absolute', inset: '2.4%', borderRadius: 'clamp(20px,3vw,30px)', overflow: 'hidden', background: '#000' }}>
+          {APP_THEMES.map(t => <AppThemeLayer key={t.key} n={n} theme={t} active={t.key === theme} />)}
+        </div>
+        {/* encoche */}
+        <div style={{ position: 'absolute', top: '3%', left: '50%', transform: 'translateX(-50%)', width: '32%', height: '1.4%', minHeight: 5, borderRadius: 999, background: '#0E1016', zIndex: 5 }}/>
+      </div>
+    </div>
+  );
+}
+
+function AppStoreBadge({ kind }) {
+  const apple = kind === 'apple';
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 11, padding: '11px 18px', borderRadius: 13,
+      background: 'var(--ink)', color: '#FFFFFF', cursor: 'default', userSelect: 'none',
+      boxShadow: '0 10px 22px -10px rgba(15,22,41,.45)',
+    }}>
+      {apple ? (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden>
+          <path d="M17.05 12.04c-.03-3.16 2.58-4.67 2.7-4.75-1.47-2.15-3.76-2.45-4.57-2.48-1.94-.2-3.79 1.14-4.78 1.14-.98 0-2.5-1.11-4.11-1.08-2.11.03-4.06 1.23-5.15 3.12-2.2 3.81-.56 9.45 1.58 12.54 1.05 1.51 2.3 3.21 3.93 3.15 1.58-.06 2.18-1.02 4.09-1.02 1.91 0 2.45 1.02 4.12.99 1.7-.03 2.78-1.54 3.82-3.06 1.2-1.75 1.7-3.45 1.72-3.54-.04-.02-3.3-1.27-3.33-5.03zM14.13 4.36c.87-1.05 1.46-2.51 1.3-3.96-1.25.05-2.77.84-3.67 1.89-.81.93-1.51 2.42-1.32 3.84 1.39.11 2.81-.71 3.69-1.77z"/>
+        </svg>
+      ) : (
+        <svg width="20" height="22" viewBox="0 0 512 512" aria-hidden>
+          <path d="M48 32 L300 256 L48 480 Z" fill="#4FE0B0"/>
+          <path d="M300 256 L48 32 L360 188 Z" fill="#FF6B6B"/>
+          <path d="M300 256 L360 324 L48 480 Z" fill="#FFD166"/>
+          <path d="M360 188 L460 244 a14 14 0 0 1 0 24 L360 324 L300 256 Z" fill="#5B8DEF"/>
+        </svg>
+      )}
+      <div style={{ textAlign: 'left', lineHeight: 1.15 }}>
+        <div style={{ fontSize: 10, opacity: .82, fontFamily: 'var(--sans)' }}>Bientôt sur</div>
+        <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--sans)' }}>{apple ? 'App Store' : 'Google Play'}</div>
+      </div>
+    </div>
+  );
+}
+
+function MobileAppSection({ go }) {
+  const [theme, setTheme] = useState('buupp');
+  const [slogan, setSlogan] = useState(0);
+  const [narrow, setNarrow] = useState(false);
+  const active = APP_THEMES.find(t => t.key === theme) || APP_THEMES[0];
+
+  useEffect(() => {
+    const id = setInterval(() => setSlogan(s => (s + 1) % APP_SLOGANS.length), 3500);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const onR = () => setNarrow(window.innerWidth < 720);
+    onR();
+    window.addEventListener('resize', onR);
+    return () => window.removeEventListener('resize', onR);
+  }, []);
+
+  const phones = narrow
+    ? [{ n: 2, width: 'min(72vw,260px)', rotate: 0, lift: 0, z: 3, margin: 0 }]
+    : [
+        { n: 1, width: 'clamp(150px,17vw,205px)', rotate: -9, lift: 30, z: 1, margin: '0 -14px 0 0' },
+        { n: 2, width: 'clamp(180px,21vw,250px)', rotate: 0,  lift: 0,  z: 3, margin: 0 },
+        { n: 3, width: 'clamp(150px,17vw,205px)', rotate: 9,  lift: 30, z: 1, margin: '0 0 0 -14px' },
+      ];
+
+  return (
+    <section id="app-mobile" style={{ position: 'relative', padding: '120px 32px', background: 'var(--ivory)', borderTop: '1px solid var(--line)', overflow: 'hidden' }}>
+      {/* halo teinté selon le thème actif */}
+      <div aria-hidden style={{
+        position: 'absolute', top: '40%', left: '50%', width: 760, height: 760,
+        transform: 'translate(-50%,-50%)', borderRadius: '50%',
+        background: `radial-gradient(circle, ${active.accent}33 0%, transparent 62%)`,
+        transition: 'background .55s ease', pointerEvents: 'none',
+      }}/>
+      <div style={{ position: 'relative', maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+        <div className="badge" style={{ marginBottom: 22 }}>
+          <span className="dot" style={{ background: active.accent, transition: 'background .4s' }}/> Au lancement officiel · iOS &amp; Android
+        </div>
+        <h2 className="serif" style={{ fontSize: 'clamp(34px,4.6vw,58px)', lineHeight: 1.05 }}>
+          L’app BUUPP arrive <em style={{ color: active.accent, transition: 'color .4s' }}>sur mobile.</em>
+        </h2>
+
+        {/* slogans en rotation */}
+        <div style={{ height: 28, marginTop: 18, position: 'relative' }}>
+          {APP_SLOGANS.map((s, i) => (
+            <p key={i} className="muted" style={{
+              position: 'absolute', inset: 0, fontSize: 18, margin: 0,
+              opacity: i === slogan ? 1 : 0, transform: i === slogan ? 'translateY(0)' : 'translateY(8px)',
+              transition: 'opacity .5s ease, transform .5s ease',
+            }}>{s}</p>
+          ))}
+        </div>
+
+        {/* éventail de téléphones */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '56px 0 8px', minHeight: 470 }}>
+          {phones.map(p => <AppPhone key={p.n} {...p} theme={theme} />)}
+        </div>
+
+        {/* sélecteur de thème — 4 pastilles + nom */}
+        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 26, marginTop: 36 }}>
+          {APP_THEMES.map(t => {
+            const on = t.key === theme;
+            return (
+              <button key={t.key} onClick={() => setTheme(t.key)} aria-pressed={on} title={`Thème ${t.label}`}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                <span style={{
+                  width: 30, height: 30, borderRadius: 999,
+                  background: t.dark ? '#171C2E' : t.accent,
+                  boxShadow: on ? `0 0 0 2px var(--ivory), 0 0 0 4px ${t.accent}` : 'inset 0 0 0 1px rgba(15,22,41,.14)',
+                  transition: 'box-shadow .2s, transform .2s', transform: on ? 'scale(1.05)' : 'scale(1)',
+                  position: 'relative',
+                }}>
+                  {t.dark && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7D74FF', fontSize: 14 }}>◗</span>}
+                </span>
+                <span className="mono" style={{ fontSize: 12, color: on ? 'var(--ink)' : 'var(--ink-4)', fontWeight: on ? 600 : 400, textTransform: 'capitalize' }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* badges store (décoratifs) */}
+        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 14, marginTop: 44 }}>
+          <AppStoreBadge kind="apple" />
+          <AppStoreBadge kind="android" />
+        </div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 14 }}>Disponible au lancement officiel de BUUPP.</div>
       </div>
     </section>
   );
