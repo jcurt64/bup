@@ -20,6 +20,8 @@ import { Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
+  interpolate,
+  interpolateColor,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -175,47 +177,44 @@ function FlashHeaderButton({
 }) {
   // Anneau pulsant quand un flash deal est lancé (active). Reproduit le
   // pulse de la bannière flash de l'app web (page d'accueil) : anneau qui
-  // s'étend puis s'estompe, couleur --accent (#4F46E5), cycle 2,4 s. Le
-  // disque coloré est masqué en son centre par le bouton blanc → seule la
-  // couronne en expansion reste visible (effet radar, comme le box-shadow
-  // animé du web).
-  const PULSE_COLOR = "#4F46E5";
+  // s'étend puis s'estompe, cycle 2,4 s. Le disque coloré est masqué en son
+  // centre par le bouton blanc → seule la couronne en expansion reste
+  // visible (effet radar, comme le box-shadow animé du web). Une SEULE
+  // progression 0→1 pilote l'échelle, l'opacité ET la couleur, qui passe
+  // du violet (départ) à l'orange puis au jaune doré (fin de cycle).
   const { c, mode, isDark } = useTheme();
   // Éclair teinté à l'accent du thème en forest/fushia, violet buupp sinon.
   const flashColor =
     mode === "forest" || mode === "fushia" ? c.accent : "#7C5CFC";
-  const scale = useSharedValue(0.9);
-  const opacity = useSharedValue(0);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
-      cancelAnimation(scale);
-      cancelAnimation(opacity);
-      scale.value = 0.9;
-      opacity.value = 0;
+      cancelAnimation(progress);
+      progress.value = 0;
       return;
     }
-    scale.value = 0.9;
-    opacity.value = 0.5;
-    scale.value = withRepeat(
-      withTiming(2.1, { duration: 2400, easing: Easing.out(Easing.ease) }),
+    progress.value = 0;
+    progress.value = withRepeat(
+      withTiming(1, { duration: 2400, easing: Easing.out(Easing.ease) }),
       -1,
       false,
     );
-    opacity.value = withRepeat(
-      withTiming(0, { duration: 2400, easing: Easing.out(Easing.ease) }),
-      -1,
-      false,
-    );
-    return () => {
-      cancelAnimation(scale);
-      cancelAnimation(opacity);
-    };
-  }, [active, scale, opacity]);
+    return () => cancelAnimation(progress);
+  }, [active, progress]);
 
   const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.9, 2.1]) }],
+    opacity: interpolate(progress.value, [0, 1], [0.5, 0]),
+    // Violet → orange → jaune doré au fil de l'expansion de l'anneau. La
+    // transition est avancée (doré dès ~65 %) car l'opacité tombe à 0 au
+    // bord : sinon le doré arriverait quand l'anneau est déjà invisible.
+    // Au-delà du dernier point, interpolateColor reste sur le doré.
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 0.35, 0.65],
+      ["#7C3AED", "#FB923C", "#FFC53D"],
+    ),
   }));
 
   return (
@@ -233,7 +232,6 @@ function FlashHeaderButton({
             width: 40,
             height: 40,
             borderRadius: 999,
-            backgroundColor: PULSE_COLOR,
           },
           ringStyle,
         ]}

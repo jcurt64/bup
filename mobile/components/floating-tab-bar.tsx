@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { NeonBorder } from "./neon-border";
 import { useProspectRelations } from "../lib/queries";
 import { useTheme, type ThemeMode } from "../lib/theme";
 
@@ -122,6 +123,23 @@ function Tab({
     opacity: share(index, ap.value),
   }));
 
+  // Icône (couleur selon focus). L'anneau néon est porté par la pilule active
+  // elle-même (cf. NeonBorder dans FloatingTabBar), pas par l'icône.
+  const iconEl =
+    routeName === "donnees" ? (
+      <MaterialCommunityIcons
+        name="database-outline"
+        size={22}
+        color={focused ? "#FFFFFF" : inactiveColor}
+      />
+    ) : (
+      <Ionicons
+        name={ICON[routeName]}
+        size={21}
+        color={focused ? "#FFFFFF" : inactiveColor}
+      />
+    );
+
   return (
     <Animated.View style={[{ height: ITEM_H, overflow: "hidden" }, tabStyle]}>
       <Pressable
@@ -136,19 +154,7 @@ function Tab({
         }}
       >
         <View>
-          {routeName === "donnees" ? (
-            <MaterialCommunityIcons
-              name="database-outline"
-              size={22}
-              color={focused ? "#FFFFFF" : inactiveColor}
-            />
-          ) : (
-            <Ionicons
-              name={ICON[routeName]}
-              size={21}
-              color={focused ? "#FFFFFF" : inactiveColor}
-            />
-          )}
+          {iconEl}
           {badgeCount > 0 ? (
             // Badge : rouge si l'onglet est inactif, blanc s'il est actif.
             <View
@@ -206,9 +212,16 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
   const barBg =
     mode === "forest" || mode === "fushia" ? c.field : c.paper;
   // Badge onglet Relations : nombre de demandes EN ATTENTE (on exclut celles
-  // déjà acceptées qui restent dans le carrousel avec leur badge ✓).
+  // déjà décidées — acceptées ou refusées — qui restent dans le carrousel
+  // avec leur pastille).
   const pendingCount = (useProspectRelations().data?.pending ?? []).filter(
-    (p) => !(p.relationStatus === "accepted" || p.decision === "Acceptée"),
+    (p) =>
+      !(
+        p.relationStatus === "accepted" ||
+        p.decision === "Acceptée" ||
+        p.relationStatus === "refused" ||
+        p.decision === "Refusée"
+      ),
   ).length;
   const shadow = {
     shadowColor: "#0F1629",
@@ -272,25 +285,32 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         <Animated.View
           pointerEvents="none"
           style={[
-            {
-              position: "absolute",
-              left: 0,
-              top: 0,
-              height: ITEM_H,
-              borderRadius: 999,
-              overflow: "hidden",
-            },
+            { position: "absolute", left: 0, top: 0, height: ITEM_H },
             pillStyle,
           ]}
         >
-          {/* Dégradé de la pilule active, teinté selon le thème (bleu logo
-              en buupp/sombre, vert en forest, rose en fushia). */}
-          <LinearGradient
-            colors={pillColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+          {/* Pilule active : anneau néon rotatif (NeonBorder) autour du
+              dégradé teinté du thème (bleu logo en buupp/sombre, vert en
+              forest, rose en fushia). Le dégradé opaque masque le centre →
+              seul le liseré néon tourne autour de la pilule. */}
+          <NeonBorder
+            radius={999}
+            borderWidth={2}
+            padding={0}
+            duration={4200}
+            glow={c.accViolet}
+            surface="transparent"
+            style={{ flex: 1 }}
+          >
+            <View style={{ width: pillW - 4, height: ITEM_H - 4 }}>
+              <LinearGradient
+                colors={pillColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          </NeonBorder>
         </Animated.View>
       ) : null}
 

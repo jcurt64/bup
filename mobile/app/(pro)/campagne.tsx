@@ -6,9 +6,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { NeonBorder } from "../../components/neon-border";
 import { Card, dateFr, eur, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProCampaign, type ProCampaignDetail } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
@@ -97,6 +99,106 @@ function FunnelRow({ label, count, base }: { label: string; count: number; base:
         />
       </View>
     </View>
+  );
+}
+
+// « La Vitrine » — une tuile d'indicateur (réplique des 3 tiles web).
+function VitrineTile({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent?: boolean;
+}) {
+  const { c } = useTheme();
+  return (
+    <View
+      className="flex-1 rounded-xl border p-3"
+      style={{ borderColor: c.borderSoft, backgroundColor: c.surface2 }}
+    >
+      <Text
+        className="font-mono uppercase text-ink-4"
+        style={{ fontSize: 9.5, letterSpacing: 0.3 }}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+      <Text className="mt-1 font-serif" style={{ fontSize: 22, color: accent ? c.accVioletDeep : c.text }}>
+        {value}
+      </Text>
+      <Text className="mt-0.5 text-[10px] leading-[13px] text-ink-4" numberOfLines={2}>
+        {sub}
+      </Text>
+    </View>
+  );
+}
+
+// « La Vitrine » — carte du détail campagne (réplique web) : lien du site
+// affiché sur l'annonce + 3 indicateurs distincts (visites du site,
+// prospects acceptés, ratio clics/acceptés). Le lien ouvre directement le
+// site du pro (pas d'interstitiel : c'est son propre site).
+function VitrineCard({ d }: { d: ProCampaignDetail }) {
+  const { c } = useTheme();
+  const clicks = d.websiteClickCount ?? 0;
+  const accepted = d.winCount ?? 0;
+  const ratio = accepted > 0 ? `${Math.round((clicks / accepted) * 100)} %` : "—";
+  const url = d.websiteUrl ?? "";
+  return (
+    // Bordure néon rotative — la Vitrine est un service à forte valeur ajoutée.
+    <NeonBorder>
+      <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text className="font-serif text-lg text-ink">La Vitrine</Text>
+          <Text className="text-[12px] text-ink-4">
+            Lien de votre site affiché sur l&apos;annonce vue par les prospects
+          </Text>
+        </View>
+        <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: c.surface2 }}>
+          <Text className="text-[11px] font-medium text-ink-3">
+            {d.websiteAddonPaidCents > 0
+              ? `Option : ${eur(d.websiteAddonPaidCents / 100)}`
+              : "Offert · 1ʳᵉ campagne"}
+          </Text>
+        </View>
+      </View>
+      <Pressable
+        onPress={() => void WebBrowser.openBrowserAsync(url).catch(() => {})}
+        accessibilityRole="link"
+        className="mt-3 flex-row items-center gap-2 active:opacity-70"
+      >
+        <Ionicons name="globe-outline" size={16} color={c.accVioletDeep} />
+        <Text
+          className="flex-1 text-[13.5px] font-medium"
+          style={{ color: c.accVioletDeep }}
+          numberOfLines={1}
+        >
+          {url}
+        </Text>
+        <Ionicons name="open-outline" size={13} color={c.accVioletDeep} />
+      </Pressable>
+      <View className="mt-4 flex-row" style={{ gap: 10 }}>
+        <VitrineTile
+          accent
+          label="Visites du site"
+          value={String(clicks)}
+          sub={`prospect${clicks === 1 ? "" : "s"} ayant cliqué (≠ accepté)`}
+        />
+        <VitrineTile
+          label="Prospects acceptés"
+          value={String(accepted)}
+          sub="ont accepté la sollicitation"
+        />
+        <VitrineTile
+          label="Clics / acceptés"
+          value={ratio}
+          sub={`${clicks} clic${clicks === 1 ? "" : "s"} pour ${accepted} accepté${accepted === 1 ? "" : "s"}`}
+        />
+      </View>
+    </NeonBorder>
   );
 }
 
@@ -214,6 +316,11 @@ export default function ProCampaignDetailScreen() {
                     ))}
                   </View>
                 </Card>
+              ) : null}
+
+              {/* « La Vitrine » — lien du site + 3 indicateurs (option payante). */}
+              {tab === "overview" && d.websiteUrl ? (
+                <VitrineCard d={d} />
               ) : null}
 
               {tab === "contacts" ? (

@@ -25,6 +25,7 @@ import {
 } from "../../lib/pro-pricing";
 import {
   useCreateCampaign,
+  useProCampaigns,
   useProInfo,
   useProPlan,
   useProWallet,
@@ -33,6 +34,7 @@ import {
 import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
 import { clearPlanAck, getPlanAck } from "../../lib/plan-ack";
+import { BottomSheet } from "../../components/bottom-sheet";
 import { Confetti } from "../../components/confetti";
 import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
 import { Slider } from "../../components/slider";
@@ -129,6 +131,87 @@ function StepHeader({ step, max, go }: { step: number; max: number; go: (s: numb
   );
 }
 
+// « La Vitrine » — popup d'offre du service lien-du-site (réplique de
+// VitrineOfferModal côté web). `free` ⇒ offert (1re campagne), sinon 2 €.
+// Le champ est préfixé `https://` en dur ; on ne renvoie que l'hôte/chemin.
+function VitrineOfferSheet({
+  visible,
+  free,
+  initialUrl,
+  onSkip,
+  onConfirm,
+}: {
+  visible: boolean;
+  free: boolean;
+  initialUrl: string;
+  onSkip: () => void;
+  onConfirm: (host: string) => void;
+}) {
+  const { c } = useTheme();
+  const [val, setVal] = useState("");
+  useEffect(() => {
+    if (visible) setVal((initialUrl || "").replace(/^https?:\/\//i, ""));
+  }, [visible, initialUrl]);
+  const clean = val.trim().replace(/^https?:\/\//i, "");
+  // Domaine plausible : au moins `xxx.tld` (tld ≥ 2 caractères).
+  const valid = /^[^\s./]+\.[^\s/]{2,}/.test(clean);
+  return (
+    <BottomSheet visible={visible} onClose={onSkip}>
+      <Text style={{ fontSize: 38, lineHeight: 42, textAlign: "center" }}>{free ? "🎁" : "✨"}</Text>
+      <Text className="mt-2 font-serif" style={{ fontSize: 22, lineHeight: 28, textAlign: "center", color: c.text }}>
+        {free ? "Bonne nouvelle — La Vitrine vous est offerte !" : "Ouvrez La Vitrine de votre campagne"}
+      </Text>
+      <Text style={{ fontSize: 13.5, lineHeight: 21, textAlign: "center", color: c.textSub, marginTop: 10 }}>
+        {free
+          ? "Pour votre première campagne, on vous offre La Vitrine. Ajoutez le lien de votre site : les prospects découvrent ce que vous proposez, et vous voyez combien ont cliqué. Normalement à 2 €, aujourd'hui c'est cadeau."
+          : "Affichez le lien de votre site sur l'annonce — les prospects découvrent votre univers, et vous suivez le nombre de visites. +2,00 €, une fois, pour cette campagne."}
+      </Text>
+      <Text className="mt-4 font-mono uppercase text-ink-4" style={{ fontSize: 10, letterSpacing: 0.6 }}>
+        Adresse de votre site
+      </Text>
+      <View
+        className="mt-1.5 flex-row items-stretch overflow-hidden rounded-xl border"
+        style={{ borderColor: c.borderSoft, backgroundColor: c.surface }}
+      >
+        <View className="justify-center px-2.5" style={{ backgroundColor: c.surface2, borderRightWidth: 1, borderRightColor: c.borderSoft }}>
+          <Text className="font-mono text-[13px] text-ink-4">https://</Text>
+        </View>
+        <TextInput
+          value={val}
+          onChangeText={(t) => setVal(t.replace(/^https?:\/\//i, ""))}
+          placeholder="mon-entreprise.fr"
+          placeholderTextColor={c.ink5}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          style={{ flex: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: c.text }}
+        />
+      </View>
+      <Text className="mt-1.5 text-[11px] text-ink-4">https uniquement · ex. mon-entreprise.fr/offre</Text>
+      <View className="mt-5 flex-row" style={{ gap: 10 }}>
+        <Pressable
+          onPress={onSkip}
+          accessibilityRole="button"
+          className="flex-1 items-center rounded-full border border-navy bg-paper py-3.5 active:opacity-70"
+        >
+          <Text className="text-sm font-semibold text-navy">Non merci</Text>
+        </Pressable>
+        <Pressable
+          disabled={!valid}
+          onPress={() => onConfirm(clean)}
+          accessibilityRole="button"
+          className="items-center rounded-full bg-ink py-3.5 active:opacity-80"
+          style={{ flex: 2, opacity: valid ? 1 : 0.5 }}
+        >
+          <Text className="text-sm font-semibold text-paper">
+            {free ? "Ajouter ma vitrine (offert)" : "Ajouter ma vitrine (+2 €)"}
+          </Text>
+        </Pressable>
+      </View>
+    </BottomSheet>
+  );
+}
+
 export default function ProWizard() {
   const { c, mode } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -138,6 +221,10 @@ export default function ProWizard() {
   const wallet = useProWallet();
   const info = useProInfo();
   const create = useCreateCampaign();
+  // « La Vitrine » — nb de campagnes déjà créées par le pro : 0 ⇒ option
+  // offerte (1re campagne), sinon 2 €. Le serveur recalcule le tarif de
+  // toute façon ; ceci ne sert qu'au message/total affichés.
+  const campaigns = useProCampaigns();
 
   // Gate « informations société » : la création de campagne est refusée
   // côté backend sans raison sociale + ville → on bloque le lancement et on
@@ -172,6 +259,14 @@ export default function ProWizard() {
   const [cgu, setCgu] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [restored, setRestored] = useState(false);
+  // ─── « La Vitrine » — option lien du site web sur l'annonce ────────
+  // `vitrineUrl` = partie saisie APRÈS le préfixe https:// (affiché en dur).
+  // `vitrineAdded` = option retenue. Le popup d'offre s'ouvre une seule fois
+  // à l'arrivée sur le récap (étape 8).
+  const [vitrineUrl, setVitrineUrl] = useState("");
+  const [vitrineAdded, setVitrineAdded] = useState(false);
+  const [vitrineModalOpen, setVitrineModalOpen] = useState(false);
+  const [vitrineModalSeen, setVitrineModalSeen] = useState(false);
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
   // Formule : la popup de choix s'ouvre avant lancement à la 1re campagne du
   // cycle ou si le quota est atteint ; sinon elle ne réapparaît pas.
@@ -291,10 +386,24 @@ export default function ProWizard() {
     if (n > planMaxProspects) setContacts(String(planMaxProspects));
   }, [planMaxProspects, contacts]);
 
+  // « La Vitrine » — popup d'offre : s'ouvre UNE fois à l'arrivée sur le récap
+  // (étape 8), tant que l'option n'a pas déjà été retenue et que le nombre de
+  // campagnes est connu (message offert vs 2 €).
+  useEffect(() => {
+    if (step === 8 && !vitrineModalSeen && !vitrineAdded && campaigns.isSuccess) {
+      setVitrineModalOpen(true);
+      setVitrineModalSeen(true);
+    }
+  }, [step, vitrineModalSeen, vitrineAdded, campaigns.isSuccess]);
+
   const contactsNum = Math.max(0, Math.floor(Number(contacts) || 0));
   const budgetCents = contactsNum * cpcCents;
   const commissionCents = Math.round(budgetCents * 0.1);
-  const neededCents = budgetCents + commissionCents + planFeeCents;
+  // « La Vitrine » : offerte à la 1re campagne du pro (0 campagne antérieure),
+  // 2 € ensuite. Le coût s'ajoute au total seulement si l'option est retenue.
+  const vitrineFree = (campaigns.data?.campaigns.length ?? 0) === 0;
+  const vitrineFeeCents = vitrineAdded ? (vitrineFree ? 0 : 200) : 0;
+  const neededCents = budgetCents + commissionCents + planFeeCents + vitrineFeeCents;
   const fundsOk = availableCents >= neededCents;
 
   const toggleSet = (set: Set<string>, k: string) => {
@@ -467,6 +576,12 @@ export default function ProWizard() {
         poolMode: "all",
         excludeCertified,
         founder_bonus_enabled: true,
+        // « La Vitrine » — URL https du site (le serveur re-valide et recalcule
+        // le tarif : offert à la 1re campagne, 2 € sinon).
+        websiteUrl:
+          vitrineAdded && vitrineUrl.trim()
+            ? "https://" + vitrineUrl.trim().replace(/^https?:\/\//i, "")
+            : undefined,
       });
       void clearDraft(); // campagne lancée → on jette le brouillon
       setResult(res); // affiche l'écran de succès dédié
@@ -892,7 +1007,7 @@ export default function ProWizard() {
       {step === 8 ? (
         <View className="gap-3">
           <Card>
-            {[
+            {([
               ["Objectif", obj.name],
               ["Opérations", `${subTypes.size} sélectionnée(s)`],
               ["Durée", DURATIONS.find((d) => d.key === duration)?.label ?? duration],
@@ -902,14 +1017,79 @@ export default function ProWizard() {
               ["Coût / contact", `${(cpcCents / 100).toFixed(2)} €`],
               ["Contacts", String(contactsNum)],
               ["Budget", eur(budgetCents / 100)],
+              ...(vitrineAdded
+                ? [["Option La Vitrine", vitrineFree ? "Offert" : eur(2)] as [string, string]]
+                : []),
               ["Total requis", eur(neededCents / 100)],
-            ].map(([k, v], i) => (
+            ] as [string, string][]).map(([k, v], i) => (
               <View key={i} className={`flex-row justify-between ${i > 0 ? "mt-1.5" : ""}`}>
                 <Text className="text-[13px] text-ink-4">{k}</Text>
                 <Text className="text-[13px] font-medium text-ink">{v}</Text>
               </View>
             ))}
           </Card>
+
+          {/* « La Vitrine » — gestion depuis le récap (ajouter / modifier /
+              retirer). Le popup d'offre s'est ouvert à l'arrivée sur l'étape. */}
+          <View
+            className="rounded-2xl border p-4"
+            style={{
+              borderColor: vitrineAdded ? c.violetSoft : c.borderSoft,
+              backgroundColor: vitrineAdded ? c.tintViolet : c.surface,
+            }}
+          >
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <Ionicons name="globe-outline" size={16} color={c.accVioletDeep} />
+              <Text className="text-[14px] font-semibold text-ink">La Vitrine</Text>
+              <View
+                className="rounded-md px-1.5 py-0.5"
+                style={{ backgroundColor: vitrineFree ? c.tintGreen : c.surface2 }}
+              >
+                <Text className="text-[10px] font-bold" style={{ color: vitrineFree ? c.accGreen : c.accVioletDeep }}>
+                  {vitrineFree ? "Offert · 1ʳᵉ campagne" : "+2,00 €"}
+                </Text>
+              </View>
+            </View>
+            {vitrineAdded ? (
+              <Text className="mt-2 text-[12.5px] text-ink-2">
+                Lien affiché sur l&apos;annonce :{" "}
+                <Text style={{ color: c.accVioletDeep, fontWeight: "600" }}>https://{vitrineUrl}</Text>
+              </Text>
+            ) : (
+              <Text className="mt-2 text-[12px] leading-4 text-ink-4">
+                Affichez le lien de votre site sur l&apos;annonce — les prospects découvrent ce que
+                vous proposez, et vous suivez le nombre de visites.
+              </Text>
+            )}
+            <View className="mt-3 flex-row" style={{ gap: 8 }}>
+              {vitrineAdded ? (
+                <>
+                  <Pressable
+                    onPress={() => setVitrineModalOpen(true)}
+                    className="rounded-full border border-navy bg-paper px-4 py-2 active:opacity-70"
+                  >
+                    <Text className="text-[13px] font-semibold text-navy">Modifier</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setVitrineAdded(false);
+                      setVitrineUrl("");
+                    }}
+                    className="rounded-full border border-navy bg-paper px-4 py-2 active:opacity-70"
+                  >
+                    <Text className="text-[13px] font-semibold text-navy">Retirer</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  onPress={() => setVitrineModalOpen(true)}
+                  className="rounded-full bg-ink px-4 py-2 active:opacity-80"
+                >
+                  <Text className="text-[13px] font-semibold text-paper">Ajouter mon site</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
 
           {!fundsOk ? (
             <View className="flex-row items-center gap-2 rounded-2xl px-4 py-3" style={{ backgroundColor: c.badSoft }}>
@@ -986,6 +1166,18 @@ export default function ProWizard() {
           // Curseur par défaut selon la formule choisie : Starter → 25, Pro → 50.
           setContacts(String(chosen === "pro" ? 50 : 25));
           void plan.refetch();
+        }}
+      />
+
+      <VitrineOfferSheet
+        visible={vitrineModalOpen}
+        free={vitrineFree}
+        initialUrl={vitrineUrl}
+        onSkip={() => setVitrineModalOpen(false)}
+        onConfirm={(host) => {
+          setVitrineUrl(host);
+          setVitrineAdded(true);
+          setVitrineModalOpen(false);
         }}
       />
     </ScrollScreen>

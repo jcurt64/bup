@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { NeonBorder } from "./neon-border";
 import { useTheme, type ThemeMode } from "../lib/theme";
 
 const ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -196,23 +197,31 @@ export default function FloatingTabBarPro({ state, navigation }: BottomTabBarPro
         <Animated.View
           pointerEvents="none"
           style={[
-            {
-              position: "absolute",
-              left: 0,
-              top: 0,
-              height: ITEM_H,
-              borderRadius: 999,
-              overflow: "hidden",
-            },
+            { position: "absolute", left: 0, top: 0, height: ITEM_H },
             pillStyle,
           ]}
         >
-          <LinearGradient
-            colors={pillColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+          {/* Pilule active : anneau néon rotatif (NeonBorder) autour du
+              dégradé teinté du thème. Le dégradé opaque masque le centre →
+              seul le liseré néon tourne autour de la pilule. */}
+          <NeonBorder
+            radius={999}
+            borderWidth={2}
+            padding={0}
+            duration={4200}
+            glow={c.accViolet}
+            surface="transparent"
+            style={{ flex: 1 }}
+          >
+            <View style={{ width: pillW - 4, height: ITEM_H - 4 }}>
+              <LinearGradient
+                colors={pillColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          </NeonBorder>
         </Animated.View>
       ) : null}
 

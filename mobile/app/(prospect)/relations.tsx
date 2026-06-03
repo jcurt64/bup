@@ -17,6 +17,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import { dateFr, eur, QueryGate, ScrollScreen } from "../../components/screen";
+import { VitrineLeaveSheet } from "../../components/vitrine-leave-sheet";
 import { useProspectRelations } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
@@ -106,8 +107,22 @@ function toMovementRelation(r: Relation): MovementRelation {
     campaignOpen: !!r.campaignOpen,
     campaignActive: !!r.campaignActive,
     reported: r.reported,
+    websiteUrl: r.websiteUrl ?? null,
   };
 }
+
+// Une sollicitation « en attente de décision » = encore ni acceptée ni
+// refusée. Les sollicitations décidées restent dans `pending` (carrousel
+// avec pastille ✓ « Acceptée » ou « Refusée »), mais ne doivent PAS être
+// comptées dans « X demandes en attente ». Même condition que le badge de
+// la tab bar (floating-tab-bar).
+const isAwaitingDecision = (r: Relation) =>
+  !(
+    r.relationStatus === "accepted" ||
+    r.decision === "Acceptée" ||
+    r.relationStatus === "refused" ||
+    r.decision === "Refusée"
+  );
 
 // ── Card historique (cf. det.html) ─────────────────────────────────
 // Barre d'accent (vert accepté / corail refusé), avatar dégradé violet,
@@ -272,9 +287,11 @@ const REL_CARD_W = Math.min(300, Dimensions.get("window").width - 72);
 function SollicitationCard({
   r,
   onOpen,
+  onVitrine,
 }: {
   r: Relation;
   onOpen: (r: Relation) => void;
+  onVitrine: (r: Relation) => void;
 }) {
   const R = useRel();
   const start = r.startDate ? new Date(r.startDate).getTime() : 0;
@@ -286,8 +303,10 @@ function SollicitationCard({
   const now = Date.now();
   const left = end > start ? Math.max(0, Math.min(1, (end - now) / (end - start))) : 1;
   const expired = end > 0 && end <= now;
-  // Sollicitation déjà acceptée → badge ✓ (cf. mécanisme flash deals).
+  // Sollicitation déjà décidée → pastille « Acceptée » (✓) ou « Refusée »
+  // (cf. mécanisme flash deals), à la place du badge palier.
   const accepted = r.relationStatus === "accepted" || r.decision === "Acceptée";
+  const refused = r.relationStatus === "refused" || r.decision === "Refusée";
   return (
     <View
       style={{
@@ -350,6 +369,23 @@ function SollicitationCard({
               <Ionicons name="checkmark-circle" size={14} color={R.DGREEN_TXT} />
               <Text style={{ fontSize: 12, fontWeight: "700", color: R.DGREEN_TXT }}>
                 Acceptée
+              </Text>
+            </View>
+          ) : refused ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                paddingVertical: 5,
+                paddingHorizontal: 10,
+                borderRadius: 999,
+                backgroundColor: R.DCORALL,
+              }}
+            >
+              <Ionicons name="close-circle" size={14} color={R.DCORAL} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DCORAL }}>
+                Refusée
               </Text>
             </View>
           ) : (
@@ -473,6 +509,35 @@ function SollicitationCard({
           </View>
         </View>
 
+        {/* « La Vitrine » — accès direct au site du pro depuis la carte
+            (ouvre l'interstitiel de sortie). Affiché seulement si l'option
+            a été prise par le pro (r.websiteUrl non nul). */}
+        {r.websiteUrl ? (
+          <Pressable
+            onPress={() => onVitrine(r)}
+            accessibilityRole="button"
+            className="active:opacity-70"
+            style={{
+              marginTop: 14,
+              alignSelf: "flex-start",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 7,
+              paddingVertical: 7,
+              paddingHorizontal: 11,
+              borderRadius: 999,
+              backgroundColor: R.DVXL,
+              borderWidth: 1,
+              borderColor: R.DVL,
+            }}
+          >
+            <Ionicons name="globe-outline" size={13} color={R.DV} />
+            <Text style={{ fontSize: 12, fontWeight: "600", color: R.DV }}>
+              Visiter le site web du professionnel
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Pressable
           onPress={() => onOpen(r)}
           style={{
@@ -507,6 +572,13 @@ export default function Relations() {
   // de fermeture (sinon flash blanc).
   const [detail, setDetail] = useState<Relation | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  // `true` quand le détail ouvert vient de l'HISTORIQUE (accept rétroactif /
+  // refus-annulation), `false` quand il vient du carrousel des demandes EN
+  // ATTENTE (Accepter + Refuser proposés). Cf. logique web RelationDetailModal.
+  const [detailIsHistory, setDetailIsHistory] = useState(false);
+  // « La Vitrine » — interstitiel de sortie ouvert depuis la carte de
+  // sollicitation ({proName, websiteUrl} ou null).
+  const [vitrineLeave, setVitrineLeave] = useState<{ proName: string; websiteUrl: string } | null>(null);
   // Index actif du carrousel de sollicitations (pastilles de pagination).
   const [solIdx, setSolIdx] = useState(0);
   const SOL_GAP = 12;
@@ -539,7 +611,7 @@ export default function Relations() {
   // coral signature de la page + nombre en attente (ambre) + nombre
   // d'acceptées depuis l'ouverture du compte (vert). Les compteurs sont
   // dérivés des deux listes renvoyées par /api/prospect/relations.
-  const pendingCount = q.data?.pending?.length ?? 0;
+  const pendingCount = (q.data?.pending ?? []).filter(isAwaitingDecision).length;
   const acceptedCount = useMemo(
     () => history.filter((h) => h.decision === "Acceptée").length,
     [history],
@@ -742,8 +814,8 @@ export default function Relations() {
                 className="font-mono"
                 style={{ fontSize: 13, color: R.DMUTED, marginBottom: 4 }}
               >
-                {d.pending.length}{" "}
-                {d.pending.length === 1
+                {d.pending.filter(isAwaitingDecision).length}{" "}
+                {d.pending.filter(isAwaitingDecision).length === 1
                   ? "demande en attente"
                   : "demandes en attente"}
               </Text>
@@ -764,8 +836,12 @@ export default function Relations() {
                     r={r}
                     onOpen={(rel) => {
                       setDetail(rel);
+                      setDetailIsHistory(false);
                       setDetailVisible(true);
                     }}
+                    onVitrine={(rel) =>
+                      setVitrineLeave({ proName: rel.pro, websiteUrl: rel.websiteUrl ?? "" })
+                    }
                   />
                 ))}
               </ScrollView>
@@ -899,6 +975,7 @@ export default function Relations() {
                 focused={focusRelationId === r.id}
                 onPress={() => {
                   setDetail(r);
+                  setDetailIsHistory(true);
                   setDetailVisible(true);
                 }}
               />
@@ -911,6 +988,13 @@ export default function Relations() {
         visible={detailVisible}
         onClose={() => setDetailVisible(false)}
         relation={detail ? toMovementRelation(detail) : null}
+        isHistory={detailIsHistory}
+      />
+      <VitrineLeaveSheet
+        visible={!!vitrineLeave}
+        proName={vitrineLeave?.proName ?? ""}
+        websiteUrl={vitrineLeave?.websiteUrl ?? null}
+        onClose={() => setVitrineLeave(null)}
       />
     </ScrollScreen>
   );

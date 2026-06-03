@@ -197,6 +197,9 @@ export type Relation = {
   relationStatus?: string;
   gain?: number | null;
   campaignStatus?: string | null;
+  /** « La Vitrine » — lien tracké vers le site du pro (`/api/campaign/{id}/visit`)
+   *  ou null si l'option n'a pas été prise. Le clic est enregistré par l'endpoint. */
+  websiteUrl?: string | null;
   // Champs renvoyés par l'API conservés pour parité de shape — non affichés sur mobile :
   proName?: string;
   campaignOpen?: boolean;
@@ -287,8 +290,8 @@ const MOCK_SOLLICITATIONS: Relation[] = SHOW_MOCK_SOLLICITATIONS
   : [];
 
 // État simulé des sollicitations fictives (accept/refuse) — appliqué au
-// queryFn. Une sollicitation acceptée RESTE dans le carrousel mais passe en
-// statut « accepted » (badge ✓) ; une refusée disparaît.
+// queryFn. Une sollicitation décidée RESTE dans le carrousel et passe en
+// statut « accepted » (pastille ✓) ou « refused » (pastille « Refusée »).
 const acceptedMockSoll = new Set<string>();
 const refusedMockSoll = new Set<string>();
 export function isMockSollicitation(id: string): boolean {
@@ -314,12 +317,12 @@ export const useProspectRelations = () => {
         "/api/prospect/relations",
       );
       if (!SHOW_MOCK_SOLLICITATIONS) return d;
-      const mockPending = MOCK_SOLLICITATIONS.filter(
-        (s) => !refusedMockSoll.has(s.id),
-      ).map((s) =>
+      const mockPending = MOCK_SOLLICITATIONS.map((s) =>
         acceptedMockSoll.has(s.id)
           ? { ...s, relationStatus: "accepted", decision: "Acceptée" }
-          : s,
+          : refusedMockSoll.has(s.id)
+            ? { ...s, relationStatus: "refused", decision: "Refusée" }
+            : s,
       );
       return { ...d, pending: [...mockPending, ...d.pending] };
     },
@@ -453,6 +456,9 @@ export type MovementRelation = {
    *  bouton « Signaler » de la modale détail au lieu d'envoyer un POST
    *  qui ferait 409 silencieux. */
   reported?: boolean;
+  /** « La Vitrine » — lien tracké vers le site du pro (`/api/campaign/{id}/visit`)
+   *  ou null. Affiché en option « Découvrir sa vitrine » dans le détail. */
+  websiteUrl?: string | null;
   /** Référence lisible "BPP-XXXX-XXXX" dérivée de l'id relation (API
    *  movements). Affichée dans le tableau de la modale détail. */
   reference?: string;
@@ -1247,6 +1253,12 @@ export type ProCampaignDetail = {
   winCount: number;
   contacts: CampaignContact[];
   activity: { ts: string; kind: string; label: string }[];
+  /** « La Vitrine » — lien du site affiché sur l'annonce (null si option non
+   *  prise), montant payé pour l'option (0 = offert 1re campagne, sinon 200),
+   *  et nombre de prospects distincts ayant cliqué vers le site. */
+  websiteUrl: string | null;
+  websiteAddonPaidCents: number;
+  websiteClickCount: number;
 };
 export function useProCampaign(id?: string) {
   const api = useApi();
@@ -1401,6 +1413,9 @@ export type CreateCampaignInput = {
   poolMode: string;
   excludeCertified: boolean;
   founder_bonus_enabled: boolean;
+  /** « La Vitrine » — URL https du site (le serveur re-valide et recalcule le
+   *  tarif : offert à la 1re campagne, 2 € sinon). Absent si option non prise. */
+  websiteUrl?: string;
 };
 export type CreateCampaignResult = {
   campaignId: string;

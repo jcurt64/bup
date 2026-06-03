@@ -22,7 +22,9 @@ import Animated, {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
+import { NeonBorder } from "./neon-border";
 import { ReportProSheet } from "./report-pro-sheet";
+import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import {
@@ -542,10 +544,17 @@ export function MovementDetailSheet({
   visible,
   onClose,
   relation,
+  isHistory = true,
 }: {
   visible: boolean;
   onClose: () => void;
   relation: MovementRelation | null;
+  /** `false` = carte « demande en attente » (carrousel Relations) :
+   *  Accepter ET Refuser proposés tant que la décision n'est pas prise.
+   *  `true` (défaut) = mouvement/historique : accept rétroactif si campagne
+   *  ouverte, refus si déjà accepté & campagne active. Logique identique au
+   *  front web (RelationDetailModal). */
+  isHistory?: boolean;
 }) {
   const { c } = useTheme();
   const decide = useDecideRelation();
@@ -558,6 +567,8 @@ export function MovementDetailSheet({
   // affiche d'emblée le chip « déjà transmis ».
   const [reportOpen, setReportOpen] = useState(false);
   const [reportedLocal, setReportedLocal] = useState(false);
+  // « La Vitrine » — interstitiel de sortie vers le site externe du pro.
+  const [vitrineConfirm, setVitrineConfirm] = useState(false);
 
   useEffect(() => {
     setReportedLocal(!!relation?.reported);
@@ -571,11 +582,16 @@ export function MovementDetailSheet({
   const alreadyAccepted =
     r.relationStatus === "accepted" || r.relationStatus === "settled";
   const alreadyRefused = r.relationStatus === "refused";
-  // Cohérent avec la logique web (RelationDetailModal) : on autorise
-  // l'acceptation rétroactive tant que la campagne est ouverte.
-  const canAccept = !!r.campaignOpen;
-  // Refus possible si déjà acceptée + campagne encore active (refund).
-  const canRefuse = alreadyAccepted && !!r.campaignActive;
+  // Logique IDENTIQUE au front web (RelationDetailModal) :
+  //  - pending (carte) : accepter/refuser tant que ni accepté ni refusé ;
+  //  - historique : accept rétroactif tant que la campagne est ouverte,
+  //    refus possible si déjà accepté & campagne encore active (refund).
+  const canAccept = isHistory
+    ? !!r.campaignOpen
+    : !alreadyAccepted && !alreadyRefused;
+  const canRefuse =
+    (!isHistory && !alreadyAccepted && !alreadyRefused) ||
+    (isHistory && alreadyAccepted && !!r.campaignActive);
 
   async function act(action: "accept" | "refuse") {
     // Sollicitation fictive (id mock-soll-*) : décision simulée → la card du
@@ -864,6 +880,29 @@ export function MovementDetailSheet({
           </View>
         ) : null}
 
+        {/* « La Vitrine » — lien tracké vers le site du pro (option côté pro).
+            Un interstitiel prévient le prospect qu'il quitte BUUPP avant la
+            redirection ; le clic est enregistré par /api/campaign/[id]/visit. */}
+        {r.websiteUrl ? (
+          // Bordure néon rotative — met en avant le service Vitrine proposé.
+          <NeonBorder radius={14} borderWidth={2} padding={0} surface={c.tintViolet}>
+            <Pressable
+              onPress={() => setVitrineConfirm(true)}
+              accessibilityRole="button"
+              className="flex-row items-center gap-2.5 px-3.5 py-3 active:opacity-70"
+            >
+              <Ionicons name="globe-outline" size={18} color={c.accVioletDeep} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text className="text-[13px] font-semibold text-ink">Découvrir sa vitrine</Text>
+                <Text className="text-[11px] text-ink-4">
+                  Voir ce que ce professionnel propose sur son site
+                </Text>
+              </View>
+              <Ionicons name="open-outline" size={15} color={c.accVioletDeep} />
+            </Pressable>
+          </NeonBorder>
+        ) : null}
+
         {/* Objet de la demande — titre de la campagne (campaigns.name),
             distinct du brief. Fallback sur motif tant que l'API prod
             n'expose pas campaignName. */}
@@ -920,30 +959,27 @@ export function MovementDetailSheet({
           </DetailRow>
         </View>
 
-        {/* Actions — un seul bouton selon l'état :
-            · acceptée → « Refuser » (fond clair, bordure navy fine). Passe
-              en mode INACTIF/grisé si la campagne a expiré (plus de refund
-              possible).
-            · pas encore acceptée + ouverte → « Accepter ».
-            · sinon → « Fermer ». */}
+        {/* Actions — répliquées à l'identique du front web (RelationDetailModal) :
+            · pending            : [Refuser]  [Accepter]
+            · pending décidé     : [Fermer]
+            · histo + accepté    : [Refuser?] [Fermer]
+            · histo + ouvert     : [Fermer]   [Accepter la campagne]
+            · histo + clôturé    : [Fermer]
+            CTA principal (fond plein) en dernier ; secondaires en bordure. */}
         <View className="mt-1 flex-row gap-3">
-          {alreadyAccepted ? (
+          {/* === Pending (carte demande en attente) === */}
+          {!isHistory && canRefuse ? (
             <Pressable
-              disabled={busy !== null || !canRefuse}
-              onPress={canRefuse ? () => act("refuse") : undefined}
-              className={`flex-1 items-center rounded-full border bg-paper py-3.5 ${
-                canRefuse ? "border-navy active:opacity-70" : "border-ink-5"
-              }`}
-              style={canRefuse ? undefined : { opacity: 0.55 }}
-              accessibilityState={{ disabled: !canRefuse }}
+              disabled={busy !== null}
+              onPress={() => act("refuse")}
+              className="flex-1 items-center rounded-full border border-navy bg-paper py-3.5 active:opacity-70"
             >
-              <Text
-                className={`text-sm font-semibold ${canRefuse ? "text-navy" : "text-ink-4"}`}
-              >
+              <Text className="text-sm font-semibold text-navy">
                 {busy === "refuse" ? "…" : "Refuser"}
               </Text>
             </Pressable>
-          ) : canAccept ? (
+          ) : null}
+          {!isHistory && canAccept ? (
             <Pressable
               disabled={busy !== null}
               onPress={() => act("accept")}
@@ -953,14 +989,67 @@ export function MovementDetailSheet({
                 {busy === "accept" ? "…" : "Accepter"}
               </Text>
             </Pressable>
-          ) : (
+          ) : null}
+          {!isHistory && !canAccept && !canRefuse ? (
             <Pressable
               onPress={onClose}
               className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
             >
               <Text className="text-sm font-semibold text-paper">Fermer</Text>
             </Pressable>
-          )}
+          ) : null}
+
+          {/* === Historique : déjà acceptée === */}
+          {isHistory && alreadyAccepted && canRefuse ? (
+            <Pressable
+              disabled={busy !== null}
+              onPress={() => act("refuse")}
+              className="flex-1 items-center rounded-full border border-bad bg-paper py-3.5 active:opacity-70"
+            >
+              <Text className="text-sm font-semibold text-bad">
+                {busy === "refuse" ? "…" : "Refuser"}
+              </Text>
+            </Pressable>
+          ) : null}
+          {isHistory && alreadyAccepted ? (
+            <Pressable
+              onPress={onClose}
+              className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-paper">Fermer</Text>
+            </Pressable>
+          ) : null}
+
+          {/* === Historique : pas encore acceptée, campagne ouverte === */}
+          {isHistory && !alreadyAccepted && canAccept ? (
+            <Pressable
+              onPress={onClose}
+              className="flex-1 items-center rounded-full border border-navy bg-paper py-3.5 active:opacity-70"
+            >
+              <Text className="text-sm font-semibold text-navy">Fermer</Text>
+            </Pressable>
+          ) : null}
+          {isHistory && !alreadyAccepted && canAccept ? (
+            <Pressable
+              disabled={busy !== null}
+              onPress={() => act("accept")}
+              className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-paper">
+                {busy === "accept" ? "…" : "Accepter la campagne"}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* === Historique : campagne clôturée, aucune action === */}
+          {isHistory && !alreadyAccepted && !canAccept ? (
+            <Pressable
+              onPress={onClose}
+              className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-paper">Fermer</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Signaler ce professionnel — centré sous le bouton (cf. det.pdf). */}
@@ -998,6 +1087,12 @@ export function MovementDetailSheet({
         onClose={() => setReportOpen(false)}
         relation={relation}
         onSubmitted={() => setReportedLocal(true)}
+      />
+      <VitrineLeaveSheet
+        visible={vitrineConfirm}
+        proName={r.pro}
+        websiteUrl={r.websiteUrl ?? null}
+        onClose={() => setVitrineConfirm(false)}
       />
     </BottomSheet>
   );
