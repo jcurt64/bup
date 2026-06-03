@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://bup-rouge.vercel.app",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_c2V0dGxlZC1ncm91cGVyLTc2LmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51NM4gHKtNlZCK5nr5qq5FrfJMYCvvLdJhVNQpIGKnLrPkbGRWZ5vwPezNSkpIDCeZosBiJOOw5MsKW2KqSL0JZPE002jxKUPFu",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://yalgztstdmytviiyvixz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_wIp3AzyXpB6Wy_fXT5deJg_1_1ZwAG4"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

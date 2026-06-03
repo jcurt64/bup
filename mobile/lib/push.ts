@@ -24,6 +24,11 @@ export type PushStatus = "granted" | "denied" | "undetermined";
 export async function registerForPushNotifications(
   getClerkToken: () => Promise<string | null>,
 ): Promise<{ status: PushStatus; token?: string }> {
+  // Web : expo-notifications n'est pas supporté et la demande de permission
+  // navigateur peut rester en attente indéfiniment (await jamais résolu),
+  // ce qui bloquerait la suite de l'onboarding. On n'essaie donc pas.
+  if (Platform.OS === "web") return { status: "denied" };
+
   const current = await Notifications.getPermissionsAsync();
   let status: PushStatus = current.granted
     ? "granted"

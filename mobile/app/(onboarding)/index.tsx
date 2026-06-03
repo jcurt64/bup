@@ -386,8 +386,15 @@ export default function Onboarding() {
   }
 
   async function activateThenFinish() {
+    // L'inscription push ne doit JAMAIS bloquer la navigation : on l'attend
+    // au plus 6 s (sur web elle retourne déjà tout de suite, mais un
+    // navigateur peut laisser la demande de permission en suspens). Quoi
+    // qu'il arrive, on enchaîne sur finish() → écran de connexion.
     try {
-      await registerForPushNotifications(getToken);
+      await Promise.race([
+        registerForPushNotifications(getToken),
+        new Promise<void>((resolve) => setTimeout(resolve, 6000)),
+      ]);
     } catch (e) {
       console.warn("[onboarding] register push failed (silent)", e);
     }
@@ -435,6 +442,11 @@ export default function Onboarding() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
+        // Web : onMomentumScrollEnd ne se déclenche pas toujours → on suit
+        // aussi le scroll pour que `index` (donc le libellé du CTA et la
+        // détection de la dernière slide dans `next`) reste à jour.
+        onScroll={onScrollEnd}
+        scrollEventThrottle={16}
         getItemLayout={(_, i) => ({
           length: width,
           offset: width * i,
@@ -459,25 +471,41 @@ export default function Onboarding() {
       />
 
       <Animated.View style={appearStyle}>
-        <View className="flex-row items-center justify-between px-6 pb-2">
-          <View className="flex-row gap-1.5">
-            {SLIDES.map((s, i) => (
-              <View
-                key={s.key}
-                className={`h-2 rounded-full ${
-                  i === index ? "w-2 bg-ink" : "w-2 bg-ink-5"
-                }`}
-              />
-            ))}
+        {index >= last ? (
+          // Dernière slide : le libellé « Activer les notifications » est trop
+          // long pour le gabarit w-40 partagé avec les pastilles (il débordait
+          // du fond arrondi). On affiche le CTA en pleine largeur sur sa propre
+          // ligne, pastilles centrées au-dessus.
+          <View className="px-6 pb-2">
+            <View className="flex-row justify-center gap-1.5 pb-4">
+              {SLIDES.map((s, i) => (
+                <View
+                  key={s.key}
+                  className={`h-2 w-2 rounded-full ${
+                    i === index ? "bg-ink" : "bg-ink-5"
+                  }`}
+                />
+              ))}
+            </View>
+            <PrimaryButton label="Activer les notifications" arrow onPress={next} />
           </View>
-          <View className="w-40">
-            <PrimaryButton
-              label={index >= last ? "Activer les notifications" : "Suivant"}
-              arrow
-              onPress={next}
-            />
+        ) : (
+          <View className="flex-row items-center justify-between px-6 pb-2">
+            <View className="flex-row gap-1.5">
+              {SLIDES.map((s, i) => (
+                <View
+                  key={s.key}
+                  className={`h-2 w-2 rounded-full ${
+                    i === index ? "bg-ink" : "bg-ink-5"
+                  }`}
+                />
+              ))}
+            </View>
+            <View className="w-40">
+              <PrimaryButton label="Suivant" arrow onPress={next} />
+            </View>
           </View>
-        </View>
+        )}
       </Animated.View>
     </SafeAreaView>
   );
