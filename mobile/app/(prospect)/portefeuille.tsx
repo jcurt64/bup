@@ -249,23 +249,21 @@ export default function Portefeuille() {
   // Extras du header compact (visibles quand la page est scrollée vers
   // le bas) : disponible + séquestre, chacun précédé d'une petite
   // icône colorée (mêmes teintes que les cards : violet pour le
-  // portefeuille, ambre pour le séquestre). Format compact sans
-  // centimes pour rester lisible dans la barre.
-  const eurCompact = (n: number) =>
-    `${Math.round(n).toLocaleString("fr-FR")} €`;
+  // portefeuille, ambre pour le séquestre). Montant complet (avec
+  // centimes), strictement identique à celui affiché sur les cards.
   const compactExtras = useMemo(
     () =>
       w.data
         ? [
             {
               icon: "card-outline" as const,
-              value: eurCompact(w.data.availableEur),
+              value: eur(w.data.availableEur),
               color: "#7C5CFC",
               bg: "#F2EDFF",
             },
             {
               icon: "lock-closed-outline" as const,
-              value: eurCompact(w.data.escrowEur),
+              value: eur(w.data.escrowEur),
               color: "#F2B65A",
               bg: "#F6ECD8",
             },
