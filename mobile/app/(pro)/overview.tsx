@@ -7,8 +7,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { BottomSheet } from "../../components/bottom-sheet";
 import { eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { useProOverview, type ProOverview } from "../../lib/queries";
 import { useTheme, type ThemeMode } from "../../lib/theme";
@@ -81,7 +83,8 @@ function IndicatorCell({
 }
 
 // Carte héros « ROI estimé » (état données) — dégradé thémé, texte blanc.
-function RoiHero({ d, colors }: { d: ProOverview; colors: readonly [string, string] }) {
+// Icône info à droite (centrée verticalement) → ouvre le popup explicatif.
+function RoiHero({ d, colors, onInfo }: { d: ProOverview; colors: readonly [string, string]; onInfo: () => void }) {
   const invested = (d.roi?.spentCents ?? d.spent30dCents ?? 0) / 100;
   const estValue = (d.roi?.potentialRevenueCents ?? 0) / 100;
   return (
@@ -130,7 +133,159 @@ function RoiHero({ d, colors }: { d: ProOverview; colors: readonly [string, stri
           </Text>
         </View>
       </View>
+      {/* Icône info — rendue en DERNIER (donc au-dessus pour le tactile) ;
+          wrapper plein-hauteur à droite qui centre verticalement le bouton
+          par rapport à l'ensemble des éléments de la carte. */}
+      <View
+        pointerEvents="box-none"
+        style={{ position: "absolute", top: 0, bottom: 0, right: 22, justifyContent: "center", zIndex: 2 }}
+      >
+        <Pressable
+          onPress={onInfo}
+          accessibilityRole="button"
+          accessibilityLabel="Comment ce ROI est-il calculé ?"
+          hitSlop={12}
+          className="items-center justify-center active:opacity-70"
+          style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.16)" }}
+        >
+          <Ionicons name="information-circle-outline" size={20} color="#FFFFFF" />
+        </Pressable>
+      </View>
     </LinearGradient>
+  );
+}
+
+// Popup d'explication du calcul du ROI — port fidèle de la modale web
+// (Pro.jsx → RoiInfoModal) : formule en clair, hypothèses, application aux
+// chiffres réels du pro, avertissement honnête.
+function RoiInfoModal({ d, visible, onClose }: { d: ProOverview; visible: boolean; onClose: () => void }) {
+  const { c } = useTheme();
+  const pct = d.roi?.pct ?? null;
+  const convPct = d.roi?.assumedConversionPct ?? 10;
+  const valueEur = (d.roi?.assumedValuePerClientCents ?? 10_000) / 100;
+  const spentEur = (d.roi?.spentCents ?? 0) / 100;
+  const potentialEur = (d.roi?.potentialRevenueCents ?? 0) / 100;
+  const acceptedCount = d.contactsAccepted30d;
+
+  const Label = ({ children, accent }: { children: string; accent?: boolean }) => (
+    <Text
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: 1.4, color: accent ? c.accVioletDeep : c.textSub, marginBottom: 8 }}
+    >
+      {children}
+    </Text>
+  );
+  const Row = ({ left, right }: { left: string; right: React.ReactNode }) => (
+    <View className="flex-row items-center justify-between" style={{ paddingVertical: 2 }}>
+      <Text style={{ fontSize: 13.5, color: c.ink4, flexShrink: 1, paddingRight: 10 }}>{left}</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: "500", color: c.text, textAlign: "right" }}>{right}</Text>
+    </View>
+  );
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* En-tête : titre + fermer */}
+        <View className="flex-row items-start justify-between" style={{ marginBottom: 4 }}>
+          <Text className="font-serif" style={{ flex: 1, fontSize: 22, lineHeight: 28, color: c.text, paddingRight: 12 }}>
+            Comment on calcule votre ROI ?
+          </Text>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" hitSlop={10} className="active:opacity-60" style={{ padding: 4 }}>
+            <Ionicons name="close" size={22} color={c.ink4} />
+          </Pressable>
+        </View>
+        <Text style={{ fontSize: 13, lineHeight: 20, color: c.textSub, marginBottom: 18 }}>
+          Une estimation honnête de la rentabilité de vos campagnes BUUPP sur les 30 derniers jours.
+        </Text>
+
+        {/* Étape 1 — la formule en mots simples */}
+        <View
+          style={{ padding: 16, borderRadius: 12, marginBottom: 14, backgroundColor: c.tintViolet, borderWidth: 1, borderColor: c.violetSoft }}
+        >
+          <Label accent>La formule en clair</Label>
+          <Text style={{ fontSize: 14, lineHeight: 22, color: c.text }}>
+            <Text style={{ fontWeight: "700" }}>ROI</Text> = (ce que les contacts pourraient vous rapporter{" "}
+            <Text style={{ fontWeight: "700" }}>−</Text> ce que vous avez dépensé){" "}
+            <Text style={{ fontWeight: "700" }}>÷</Text> ce que vous avez dépensé.
+          </Text>
+          <Text style={{ fontSize: 13, lineHeight: 20, color: c.textSub, marginTop: 8 }}>
+            Le résultat est exprimé en pourcentage. <Text style={{ fontWeight: "700", color: c.text }}>+100 %</Text> veut
+            dire que vous gagnez le double de ce que vous avez investi.
+          </Text>
+        </View>
+
+        {/* Étape 2 — les hypothèses */}
+        <View style={{ marginBottom: 14 }}>
+          <Label>Nos deux hypothèses</Label>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 13.5, lineHeight: 21, color: c.text }}>
+              {"•  "}
+              <Text style={{ fontWeight: "700" }}>{convPct} %</Text> des contacts acceptés deviennent vraiment clients
+              <Text style={{ color: c.textSub }}> — moyenne tous secteurs confondus.</Text>
+            </Text>
+            <Text style={{ fontSize: 13.5, lineHeight: 21, color: c.text }}>
+              {"•  "}Un client vous rapporte en moyenne <Text style={{ fontWeight: "700" }}>{eur(valueEur)}</Text>
+              <Text style={{ color: c.textSub }}> — panier moyen générique.</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* Étape 3 — application aux chiffres du pro */}
+        <View
+          style={{ padding: 16, borderRadius: 12, marginBottom: 14, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderSoft }}
+        >
+          <Label>Appliqué à vos chiffres (30 derniers jours)</Label>
+          {acceptedCount === 0 ? (
+            <Text style={{ fontSize: 13, lineHeight: 20, color: c.textSub }}>
+              Vous n&apos;avez pas encore d&apos;acceptation sur les 30 derniers jours — le ROI sera affiché dès la première.
+            </Text>
+          ) : (
+            <View>
+              <Row left="Contacts acceptés" right={String(acceptedCount)} />
+              <Row
+                left="Gains potentiels estimés"
+                right={
+                  <Text style={{ fontSize: 13.5, color: c.text }}>
+                    {acceptedCount} × {convPct} % × {eur(valueEur)} ={" "}
+                    <Text style={{ fontWeight: "700" }}>{eur(potentialEur)}</Text>
+                  </Text>
+                }
+              />
+              <Row left="Dépense réelle" right={eur(spentEur)} />
+              <View
+                className="flex-row items-center justify-between"
+                style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.borderSoft }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "600", color: c.text }}>ROI</Text>
+                <Text
+                  className="font-serif"
+                  style={{ fontSize: 22, color: pct === null ? c.ink4 : pct >= 0 ? c.accGreen : c.bad }}
+                >
+                  {pct === null ? "—" : `${pct > 0 ? "+" : ""}${pct} %`}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Étape 4 — honnêteté */}
+        <Text style={{ fontSize: 12, lineHeight: 19, color: c.ink4, marginBottom: 18 }}>
+          <Text style={{ fontWeight: "700", color: c.textSub }}>À garder en tête : </Text>
+          c&apos;est une estimation. Si votre secteur convertit plus que la moyenne (services premium, immobilier…),
+          votre ROI réel sera meilleur. À l&apos;inverse en e-commerce, il sera plus faible. Bientôt vous pourrez
+          personnaliser ces deux hypothèses dans vos paramètres.
+        </Text>
+
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          className="items-center justify-center rounded-full active:opacity-80"
+          style={{ backgroundColor: c.btnBg, paddingVertical: 14 }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "600", color: c.btnText }}>J&apos;ai compris</Text>
+        </Pressable>
+      </ScrollView>
+    </BottomSheet>
   );
 }
 
@@ -174,10 +329,230 @@ function EmptyHero({ colors }: { colors: readonly [string, string] }) {
   );
 }
 
+// ── Section « Dernières acceptations » — port fidèle de la maquette
+// public/prototype/ok.html (buupp-acceptances.jsx) : bandeau de stats,
+// carte liste (avatar dégradé, campagne + icône, badge palier, date,
+// coût, jauge de score), légende BUUPP SCORE. ─────────────────────────
+
+// Couleur de la jauge / pastille selon le score (sur 1000). Couleurs
+// sémantiques fixes (identiques à la maquette) quel que soit le thème :
+// vert ≥ 800, violet 600–799, ambre < 600.
+const scoreColor = (s: number) => (s >= 800 ? "#3F9056" : s >= 600 ? "#7C5CFF" : "#E0972F");
+
+// Initiales d'après le nom (« Prospect anonyme » → « PA », « Jqy C. » → « JC »).
+const initialsOf = (name: string) => {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return (first + last).toUpperCase();
+};
+
+// Icône de la campagne d'après son intitulé (campaigns.name est libre →
+// heuristique par mots-clés alignée sur les 7 objectifs du catalogue).
+const iconForCampaign = (camp: string): keyof typeof Ionicons.glyphMap => {
+  const s = (camp || "").toLowerCase();
+  if (/(promo|fidél|fidel|coupon|réduc|reduc|remise|flash|concours|solde|offre|cadeau)/.test(s)) return "pricetags-outline";
+  if (/(télécharg|telecharg|livre|guide|ebook|contenu|pdf|catalogue|checklist|template|étude|etude|rapport|infographie|replay)/.test(s)) return "download-outline";
+  if (/(rendez|rdv|devis|consult|essai|démo|demo)/.test(s)) return "calendar-outline";
+  if (/(événement|evenement|event|webinar|atelier|conf|porte|lancement|soirée|soiree|inscription|tournoi|salon)/.test(s)) return "flag-outline";
+  if (/(sondage|avis|enquête|enquete|nps|csat|satisfaction|interview|vote|panel|focus)/.test(s)) return "clipboard-outline";
+  if (/(pub|ads|meta|facebook|instagram|google|tiktok|linkedin|audience|digital|publicit)/.test(s)) return "megaphone-outline";
+  if (/(contact|email|e-mail|sms|mms|appel|phoning|whatsapp|push|mailing|courrier|newsletter)/.test(s)) return "mail-outline";
+  return "megaphone-outline";
+};
+
+// Jauge de score 38 px SANS react-native-svg (exclu du projet) : deux
+// demi-disques pivotants clippés + trou central, technique reprise de
+// l'écran « données » prospect. Chiffre du score au centre.
+function ScoreRing({ score }: { score: number }) {
+  const { c } = useTheme();
+  const size = 38;
+  const stroke = 4;
+  const color = scoreColor(score);
+  const p = Math.max(0, Math.min(100, (score / 1000) * 100));
+  const half = size / 2;
+  const rightDeg = p <= 50 ? (p / 50) * 180 : 180;
+  const leftDeg = p > 50 ? ((p - 50) / 50) * 180 : 0;
+  const Sweep = ({ clip, rotate }: { clip: "right" | "left"; rotate: number }) => (
+    <View
+      style={{ position: "absolute", top: 0, left: clip === "right" ? half : 0, width: half, height: size, overflow: "hidden" }}
+    >
+      <View
+        style={{ position: "absolute", top: 0, left: clip === "right" ? -half : 0, width: size, height: size, transform: [{ rotate: `${rotate}deg` }] }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: clip === "right" ? 0 : half,
+            width: half,
+            height: size,
+            backgroundColor: color,
+            borderTopLeftRadius: clip === "right" ? half : 0,
+            borderBottomLeftRadius: clip === "right" ? half : 0,
+            borderTopRightRadius: clip === "left" ? half : 0,
+            borderBottomRightRadius: clip === "left" ? half : 0,
+          }}
+        />
+      </View>
+    </View>
+  );
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ position: "absolute", width: size, height: size, borderRadius: half, backgroundColor: c.track }} />
+      <Sweep clip="right" rotate={rightDeg} />
+      {p > 50 ? <Sweep clip="left" rotate={leftDeg} /> : null}
+      <View
+        style={{ position: "absolute", width: size - 2 * stroke, height: size - 2 * stroke, borderRadius: (size - 2 * stroke) / 2, backgroundColor: c.surface }}
+      />
+      <Text className="font-serif" style={{ fontSize: 12, fontWeight: "600", color: c.text }}>
+        {score}
+      </Text>
+    </View>
+  );
+}
+
+type Acceptance = ProOverview["lastAcceptances"][number];
+
+// Une ligne d'acceptation : avatar initiales (dégradé thémé), nom,
+// campagne + icône, badge palier + date de réception, coût, jauge.
+function AccRow({ a, last, colors }: { a: Acceptance; last: boolean; colors: readonly [string, string] }) {
+  const { c } = useTheme();
+  return (
+    <View
+      className="flex-row items-center"
+      style={{
+        gap: 13,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: c.borderSoft,
+      }}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text className="font-serif" style={{ fontSize: 14, fontWeight: "600", color: "#FFFFFF", letterSpacing: 0.3 }}>
+          {initialsOf(a.name)}
+        </Text>
+      </LinearGradient>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text className="font-serif" numberOfLines={1} style={{ fontSize: 16, fontWeight: "600", color: c.text, lineHeight: 18 }}>
+          {a.name}
+        </Text>
+        <View className="flex-row items-center" style={{ gap: 6, marginTop: 4 }}>
+          <Ionicons name={iconForCampaign(a.campaign)} size={13} color={c.accViolet} />
+          <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12, color: c.textSub }}>
+            {a.campaign}
+          </Text>
+        </View>
+        <View className="flex-row items-center" style={{ gap: 8, marginTop: 8 }}>
+          <Text
+            style={{
+              fontSize: 10.5,
+              fontWeight: "600",
+              color: c.accVioletDeep,
+              backgroundColor: c.tintViolet,
+              borderWidth: 1,
+              borderColor: c.violetSoft,
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              overflow: "hidden",
+            }}
+          >
+            Palier {a.tier}
+          </Text>
+          <View className="flex-row items-center" style={{ gap: 4 }}>
+            <Ionicons name="time-outline" size={12} color={c.ink4} />
+            <Text style={{ fontSize: 11, color: c.ink4 }}>{dateShort(a.receivedAt)}</Text>
+          </View>
+        </View>
+      </View>
+      <View className="items-end" style={{ gap: 8 }}>
+        <Text className="font-serif" style={{ fontSize: 16, fontWeight: "600", color: c.text, lineHeight: 16 }}>
+          −{eur(a.costCents / 100)}
+        </Text>
+        <ScoreRing score={a.score} />
+      </View>
+    </View>
+  );
+}
+
+// Bandeau récapitulatif (dégradé thémé) : Acceptés · Score moyen · Dépensé.
+function AccSummary({ items, colors }: { items: Acceptance[]; colors: readonly [string, string] }) {
+  const total = items.length;
+  const avgScore = total ? Math.round(items.reduce((s, a) => s + a.score, 0) / total) : 0;
+  const spent = items.reduce((s, a) => s + a.costCents, 0) / 100;
+  const stats: [string, string | number][] = [
+    ["Acceptés", total],
+    ["Score moyen", avgScore],
+    ["Dépensé", eur(spent)],
+  ];
+  return (
+    <LinearGradient
+      colors={colors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ borderRadius: 22, padding: 17, overflow: "hidden" }}
+    >
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", right: -16, top: -20, width: 110, height: 110, borderRadius: 55, backgroundColor: "rgba(255,255,255,0.08)" }}
+      />
+      <View className="flex-row" style={{ gap: 10 }}>
+        {stats.map(([label, value], i) => (
+          <View
+            key={i}
+            style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.12)" }}
+          >
+            <Text
+              className="font-mono uppercase"
+              numberOfLines={1}
+              style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.6, color: "rgba(255,255,255,0.72)" }}
+            >
+              {label}
+            </Text>
+            <Text className="font-serif" style={{ fontSize: 21, fontWeight: "600", color: "#FFFFFF", marginTop: 4 }}>
+              {value}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </LinearGradient>
+  );
+}
+
+// Légende des paliers de score (BUUPP SCORE) — pastilles colorées.
+function ScoreLegend() {
+  const { c } = useTheme();
+  const items: readonly [string, string][] = [
+    ["#3F9056", "≥ 800"],
+    ["#7C5CFF", "600–799"],
+    ["#E0972F", "< 600"],
+  ];
+  return (
+    <View className="flex-row flex-wrap items-center" style={{ gap: 16, paddingHorizontal: 4 }}>
+      <Text style={{ fontSize: 11, fontWeight: "600", color: c.ink4 }}>BUUPP SCORE</Text>
+      {items.map(([col, label], i) => (
+        <View key={i} className="flex-row items-center" style={{ gap: 6 }}>
+          <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: col }} />
+          <Text style={{ fontSize: 11.5, color: c.textSub }}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function ProOverviewScreen() {
   const q = useProOverview();
   const { c, mode } = useTheme();
   const heroColors = HERO_GRADIENT[mode];
+  const [roiInfoOpen, setRoiInfoOpen] = useState(false);
 
   return (
     <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
@@ -196,7 +571,10 @@ export default function ProOverviewScreen() {
           return (
             <>
               {hasData ? (
-                <RoiHero d={d} colors={heroColors} />
+                <>
+                  <RoiHero d={d} colors={heroColors} onInfo={() => setRoiInfoOpen(true)} />
+                  <RoiInfoModal d={d} visible={roiInfoOpen} onClose={() => setRoiInfoOpen(false)} />
+                </>
               ) : (
                 <EmptyHero colors={heroColors} />
               )}
@@ -254,12 +632,11 @@ export default function ProOverviewScreen() {
               </View>
 
               {/* DERNIÈRES ACCEPTATIONS */}
-              <Text
-                className="mt-2 font-mono uppercase"
-                style={{ fontSize: 12, fontWeight: "700", letterSpacing: 1.2, color: c.textSub }}
-              >
-                Dernières acceptations
-              </Text>
+              <SectionTitle
+                eyebrow="Activité pro"
+                title="Dernières acceptations"
+                desc="Les prospects qui ont accepté vos campagnes — vous n'êtes débité qu'à l'acceptation."
+              />
               {d.lastAcceptances.length === 0 ? (
                 <View
                   className="items-center rounded-2xl border p-6"
@@ -274,46 +651,51 @@ export default function ProOverviewScreen() {
                   </Text>
                 </View>
               ) : (
-                <View
-                  className="rounded-2xl border"
-                  style={{ borderColor: c.borderSoft, backgroundColor: c.surface }}
-                >
-                  {d.lastAcceptances.map((a, i) => (
-                    <View
-                      key={i}
-                      className="flex-row items-center justify-between px-4 py-3"
-                      style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.borderSoft } : undefined}
-                    >
-                      <View className="flex-1 pr-3">
-                        <Text className="text-[14px] text-ink" numberOfLines={1}>
-                          {a.name}
-                        </Text>
-                        <Text className="text-[11.5px] text-ink-4" numberOfLines={1}>
-                          {a.campaign} · Palier {a.tier}
-                        </Text>
-                      </View>
-                      <View className="items-end">
-                        <Text className="font-mono text-[12px] text-ink-3">
-                          −{eur(a.costCents / 100)}
-                        </Text>
-                        <Text className="font-mono text-[10px] text-ink-4">
-                          {dateShort(a.receivedAt)}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                  <Pressable
-                    onPress={() => router.push("/(pro)/contacts")}
-                    accessibilityRole="button"
-                    className="flex-row items-center justify-center gap-1.5 px-4 py-3 active:opacity-70"
-                    style={{ borderTopWidth: 1, borderTopColor: c.borderSoft }}
+                <>
+                  <AccSummary items={d.lastAcceptances} colors={heroColors} />
+                  <View
+                    style={{
+                      backgroundColor: c.surface,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: c.borderSoft,
+                      overflow: "hidden",
+                    }}
                   >
-                    <Text className="text-[13px] font-semibold" style={{ color: c.accent }}>
-                      Voir toutes les acceptations
-                    </Text>
-                    <Ionicons name="arrow-forward" size={14} color={c.accent} />
-                  </Pressable>
-                </View>
+                    {/* En-tête de la carte : nombre + « Voir tout » */}
+                    <View
+                      className="flex-row items-center justify-between"
+                      style={{ paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.borderSoft }}
+                    >
+                      <Text
+                        className="uppercase"
+                        style={{ fontSize: 11.5, fontWeight: "700", letterSpacing: 1, color: c.textSub }}
+                      >
+                        Prospects · {d.lastAcceptances.length}
+                      </Text>
+                      <Pressable
+                        onPress={() => router.push("/(pro)/contacts")}
+                        accessibilityRole="button"
+                        className="flex-row items-center active:opacity-70"
+                        style={{ gap: 4 }}
+                      >
+                        <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.accVioletDeep }}>
+                          Voir tout
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color={c.accVioletDeep} />
+                      </Pressable>
+                    </View>
+                    {d.lastAcceptances.map((a, i) => (
+                      <AccRow
+                        key={i}
+                        a={a}
+                        last={i === d.lastAcceptances.length - 1}
+                        colors={heroColors}
+                      />
+                    ))}
+                  </View>
+                  <ScoreLegend />
+                </>
               )}
             </>
           );

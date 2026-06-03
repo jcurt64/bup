@@ -850,7 +850,9 @@ function buildMockFlashDeals(): FlashDeal[] {
   const startedAt = (i: number) =>
     new Date(now - (i * 3 + 1) * 60 * 60_000).toISOString();
   const base = {
-    multiplier: 2,
+    // Flash deal = durationKey '1h' → multiplicateur ×3 (cf. web
+    // DURATION_MULTIPLIERS : 1h→3, 24h→2, 48h→1.5, 7d→1).
+    multiplier: 3,
     founderBonusApplied: false,
     founderVipBonusApplied: false,
     isAuthenticated: true,
@@ -1150,6 +1152,10 @@ export type ProOverview = {
     pct: number | null;
     spentCents: number;
     potentialRevenueCents: number;
+    /** Hypothèses appliquées (cf. lib/pro/roi.ts) — renvoyées pour la
+     *  transparence du popup explicatif. Défauts : 10 % et 100 €. */
+    assumedConversionPct: number;
+    assumedValuePerClientCents: number;
   } | null;
   lastAcceptances: {
     name: string;
