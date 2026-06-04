@@ -32,6 +32,7 @@ import {
   buildAliasAddress,
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
+import { maybeSendProspectRevealAlert } from "@/lib/pro/reveal-alert";
 
 export const runtime = "nodejs";
 
@@ -252,6 +253,17 @@ export async function GET(_req: Request, ctx: RouteContext) {
   if (auditErr) {
     console.error("[/api/pro/contacts/details] audit insert failed", auditErr);
   }
+
+  // Anti-accès-répétés (fire-and-forget) : si ce pro a ouvert le détail de
+  // ce prospect ≥ 3 fois en 24 h, on rappelle gentiment au pro le cadre
+  // d'usage des données. `email` = adresse du pro (Clerk). Jamais bloquant.
+  void maybeSendProspectRevealAlert(admin, {
+    proId,
+    prospectId: prospect.id,
+    proEmail: email,
+  }).catch((e) =>
+    console.error("[/api/pro/contacts/details] reveal alert failed", e),
+  );
 
   return NextResponse.json({ tiers });
 }
