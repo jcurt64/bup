@@ -1,12 +1,12 @@
 -- ════════════════════════════════════════════════════════════════════
 -- BUUPP — Clics sur les icônes de contact (audit + déclencheur anti-abus)
 -- ════════════════════════════════════════════════════════════════════
--- Trace chaque clic du pro sur l'une des 5 icônes de contact d'un prospect
--- acquis : téléphone, e-mail, SMS, WhatsApp, Facebook.
+-- Trace chaque clic du pro sur l'une des icônes de contact d'un prospect
+-- acquis : téléphone, e-mail, SMS, WhatsApp.
 --
 -- Différent de pro_contact_actions (call_clicked/email_sent, qui sert au
 -- quota e-mail + à l'audit du corps des mails) : ici on capture le CLIC de
--- n'importe quel canal, y compris SMS/WhatsApp/Facebook qui n'étaient pas
+-- n'importe quel canal, y compris SMS/WhatsApp qui n'étaient pas
 -- tracés. Sert :
 --   1. À l'admin « Contacts (clics) ».
 --   2. De déclencheur au mail de rappel au pro : ≥ 3 clics sur un même
@@ -22,7 +22,7 @@ create table if not exists public.pro_contact_clicks (
   relation_id uuid not null references public.relations(id) on delete cascade,
   prospect_id uuid not null references public.prospects(id) on delete cascade,
   campaign_id uuid references public.campaigns(id) on delete set null,
-  channel text not null check (channel in ('call','email','sms','whatsapp','facebook')),
+  channel text not null check (channel in ('call','email','sms','whatsapp')),
   created_at timestamptz not null default now()
 );
 

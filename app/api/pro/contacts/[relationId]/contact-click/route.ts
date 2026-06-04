@@ -1,6 +1,6 @@
 /**
  * POST /api/pro/contacts/[relationId]/contact-click
- * Body : { channel: "call" | "email" | "sms" | "whatsapp" | "facebook" }
+ * Body : { channel: "call" | "email" | "sms" | "whatsapp" }
  *
  * Enregistre un clic du pro sur l'une des 5 icônes de contact d'un prospect
  * acquis, dans `pro_contact_clicks`. Sert :
@@ -22,7 +22,7 @@ import { maybeSendProContactAlert } from "@/lib/pro/contact-click-alert";
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ relationId: string }> };
-const CHANNELS = ["call", "email", "sms", "whatsapp", "facebook"] as const;
+const CHANNELS = ["call", "email", "sms", "whatsapp"] as const;
 type Channel = (typeof CHANNELS)[number];
 
 export async function POST(req: Request, ctx: RouteContext) {

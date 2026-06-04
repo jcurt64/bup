@@ -92,7 +92,7 @@ export async function GET() {
     } | null;
   };
 
-  const ALL_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"];
+  const ALL_CHANNELS = ["email", "phone", "sms", "whatsapp", "linkedin"];
 
   // Pré-calcul des compteurs d'emails déjà envoyés via BUUPP par couple
   // (prospect_id × campaign_id) pour ce pro. Un email_sent par couple

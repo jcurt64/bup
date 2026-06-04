@@ -5553,7 +5553,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               </button>
                               <ContactActionButtons row={r} onIntent={(intent) => {
                               // Tout clic sur une icône de contact (téléphone,
-                              // mail, SMS, WhatsApp, Facebook) est logué en base :
+                              // mail, SMS, WhatsApp) est logué en base :
                               // audit admin « Contacts (clics) » + déclencheur du
                               // rappel anti-abus au pro (≥3 clics/24h sur un même
                               // prospect). Fire-and-forget, non bloquant.
@@ -5645,13 +5645,12 @@ function Contacts({ pendingContact, onPendingConsumed }) {
 }
 
 // Métadonnées par "intent" — chaque bouton d'action déclenche un reveal
-// puis ouvre une URL externe (tel, mailto, sms, wa.me, recherche FB/LI).
+// puis ouvre une URL externe (tel, mailto, sms, wa.me).
 const REVEAL_INTENTS = {
   call:     { field: 'telephone', icon: 'phone',    title: 'Contacter',                  cta: 'Appeler maintenant',           build: v => `tel:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
   email:    { field: 'email',     icon: 'email',    title: 'Écrire à',                   cta: 'Ouvrir mon mail',              build: v => `mailto:${encodeURIComponent(v)}`,                                                          valuePresentation: 'mono' },
   sms:      { field: 'telephone', icon: 'sms',      title: 'Envoyer un SMS à',           cta: 'Ouvrir mes SMS',               build: v => `sms:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
   whatsapp: { field: 'telephone', icon: 'whatsapp', title: 'WhatsApp avec',              cta: 'Ouvrir WhatsApp',              build: v => `https://wa.me/${v.replace(/\D/g, '')}`,                                                    valuePresentation: 'mono' },
-  facebook: { field: 'name',      icon: 'facebook', title: 'Trouver sur Facebook —',     cta: 'Rechercher sur Facebook',      build: v => `https://www.facebook.com/search/top/?q=${encodeURIComponent(v).replace(/%20/g, '+')}`,        valuePresentation: 'serif' },
 };
 
 function ContactActionButtons({ row, onIntent }) {
@@ -5670,8 +5669,6 @@ function ContactActionButtons({ row, onIntent }) {
   const emailOk = !!row.emailAvailable;
   // Quota email atteint (1 envoi max par campagne) → popup explicative.
   const emailQuotaReached = (row.emailsSent ?? 0) >= 1;
-  // Pour FB/LI : on a toujours au moins le prénom (on travaille sur des
-  // relations acceptées), donc la donnée "name" est toujours dispo.
   const buttons = [
     // `disabledReason` permet de distinguer la raison réelle du désactivement
     // pour afficher un tooltip cohérent : 'data' (donnée pas partagée),
@@ -5709,14 +5706,6 @@ function ContactActionButtons({ row, onIntent }) {
       icon: 'whatsapp', color: '#25D366',
       title: 'Écrire sur WhatsApp',
       missingDataMsg: "Le prospect n'a pas partagé son téléphone",
-    },
-    {
-      key: 'facebook', channel: 'facebook',
-      enabled: channelAllowed('facebook'),
-      disabledReason: null,
-      icon: 'facebook', color: '#1877F2',
-      title: 'Rechercher sur Facebook',
-      missingDataMsg: '',
     },
   ];
   // Compose le contenu de la popup d'info selon la raison pour laquelle

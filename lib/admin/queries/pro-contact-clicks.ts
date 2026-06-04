@@ -2,8 +2,8 @@
  * Queries pour /buupp-admin/contact-clicks — clics du pro sur les icônes de
  * contact d'un prospect (table `pro_contact_clicks`).
  *
- * Chaque ligne = un clic sur l'une des 5 icônes : téléphone, e-mail, SMS,
- * WhatsApp, Facebook.
+ * Chaque ligne = un clic sur l'une des icônes : téléphone, e-mail, SMS,
+ * WhatsApp.
  *
  * Détection « accès répétés » : couples (pro × prospect) ayant cliqué
  * ≥ REPEAT_THRESHOLD fois en 24 h, tous canaux confondus — aligné sur le
@@ -15,7 +15,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { REPEAT_THRESHOLD } from "@/lib/pro/contact-click-alert";
 
-export type ContactChannel = "call" | "email" | "sms" | "whatsapp" | "facebook";
+export type ContactChannel = "call" | "email" | "sms" | "whatsapp";
 
 export type ContactClickItem = {
   id: string;

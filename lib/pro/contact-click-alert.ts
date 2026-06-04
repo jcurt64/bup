@@ -1,7 +1,7 @@
 /**
  * Anti-abus contact : rappelle gentiment au PRO le cadre BUUPP sur l'usage
  * des données quand il a cliqué ≥ REPEAT_THRESHOLD fois sur les icônes de
- * contact (téléphone / e-mail / SMS / WhatsApp / Facebook) d'un même
+ * contact (téléphone / e-mail / SMS / WhatsApp) d'un même
  * prospect en 24 h, tous canaux confondus.
  *
  * Déclenché via `after()` depuis `POST /api/pro/contacts/[relationId]/contact-click`

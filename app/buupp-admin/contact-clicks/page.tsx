@@ -1,6 +1,6 @@
 /**
  * /buupp-admin/contact-clicks — Clics du pro sur les icônes de contact
- * (table pro_contact_clicks : téléphone, e-mail, SMS, WhatsApp, Facebook).
+ * (table pro_contact_clicks : téléphone, e-mail, SMS, WhatsApp).
  *
  * Liste filtrable (canal, période, pagination) + KPIs, dont la détection
  * des « accès répétés » : un même pro qui clique pour contacter un même
@@ -22,7 +22,6 @@ const CHANNEL_OPTIONS: Array<{ value: ContactClicksFilters["channel"]; label: st
   { value: "email", label: "E-mail" },
   { value: "sms", label: "SMS" },
   { value: "whatsapp", label: "WhatsApp" },
-  { value: "facebook", label: "Facebook" },
 ];
 
 const PERIOD_OPTIONS: Array<{ value: ContactClicksFilters["period"]; label: string }> = [
@@ -38,12 +37,10 @@ const CHANNEL_LABEL: Record<string, string> = {
   email: "✉️ E-mail",
   sms: "💬 SMS",
   whatsapp: "🟢 WhatsApp",
-  facebook: "🔵 Facebook",
 };
 
 function asChannel(v: string | undefined): ContactClicksFilters["channel"] {
-  if (v === "call" || v === "email" || v === "sms" || v === "whatsapp" || v === "facebook")
-    return v;
+  if (v === "call" || v === "email" || v === "sms" || v === "whatsapp") return v;
   return "all";
 }
 function asPeriod(v: string | undefined): ContactClicksFilters["period"] {
@@ -95,7 +92,7 @@ export default async function ContactClicksAdminPage({
         </h1>
         <p className="text-sm" style={{ color: "var(--ink-3)", maxWidth: 720 }}>
           Chaque clic d&apos;un pro sur une icône de contact d&apos;un prospect
-          (téléphone, e-mail, SMS, WhatsApp, Facebook) est journalisé ici. La
+          (téléphone, e-mail, SMS, WhatsApp) est journalisé ici. La
           carte «&nbsp;Accès répétés&nbsp;» signale les pros qui cliquent pour
           contacter un même prospect au moins {kpis.repeatThreshold} fois en
           24&nbsp;h — cas où le pro reçoit automatiquement un e-mail de rappel du
