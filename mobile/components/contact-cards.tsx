@@ -65,6 +65,7 @@ export function FiltersCard({
         shadowOpacity: 0.05,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 5 },
+        elevation: 3,
       }}
     >
       <View className="flex-row" style={{ alignItems: "flex-start", gap: 12 }}>
@@ -264,6 +265,7 @@ export function ContactCard({
         shadowOpacity: 0.05,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
       }}
     >
       <View style={{ paddingVertical: 15, paddingHorizontal: 16 }}>
@@ -283,6 +285,7 @@ export function ContactCard({
               shadowOpacity: 0.25,
               shadowRadius: 14,
               shadowOffset: { width: 0, height: 6 },
+              elevation: 4,
             }}
           >
             <Text

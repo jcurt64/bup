@@ -31,6 +31,7 @@ export default function RoleSelect() {
           shadowOpacity: 0.05,
           shadowRadius: 14,
           shadowOffset: { width: 0, height: 6 },
+          elevation: 3,
         }}
         onPress={() => choose("prospect", "/(prospect)/portefeuille")}
       >
@@ -47,6 +48,7 @@ export default function RoleSelect() {
           shadowOpacity: 0.05,
           shadowRadius: 14,
           shadowOffset: { width: 0, height: 6 },
+          elevation: 3,
         }}
         onPress={() => choose("pro", "/(pro)/overview")}
       >

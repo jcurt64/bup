@@ -53,6 +53,7 @@ function MiniCard({
         shadowOpacity: 0.12,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
+        elevation: 4,
       }}
     >
       {children}
@@ -107,6 +108,7 @@ function PhonePushPreview() {
           shadowOpacity: 0.18,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 6 },
+          elevation: 5,
           flexDirection: "row",
           gap: 12,
           alignItems: "center",
@@ -283,6 +285,7 @@ const SLIDES: Slide[] = [
             shadowOpacity: 0.12,
             shadowRadius: 16,
             shadowOffset: { width: 0, height: 6 },
+            elevation: 4,
           }}
         >
           <Text className="font-serif text-3xl text-ink">

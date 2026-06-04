@@ -45,3 +45,9 @@ app-example
 # Env local (les EXPO_PUBLIC_* sont publics mais on garde .env hors VCS ;
 # voir .env.example. .env*.local déjà couvert ligne 34)
 .env
+
+# Push / Firebase (ne jamais committer)
+google-services.json
+GoogleService-Info.plist
+*-service-account*.json
+google-service-account*.json

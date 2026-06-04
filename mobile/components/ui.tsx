@@ -55,6 +55,7 @@ export function BrandLogo({ small = false }: { small?: boolean }) {
         shadowOpacity: 0.35,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 8 },
+        elevation: 6,
       }}
     >
       <Text
@@ -143,6 +144,7 @@ export function PrimaryButton({
               shadowOpacity: 0.18,
               shadowRadius: 12,
               shadowOffset: { width: 0, height: 6 },
+              elevation: 5,
             }
       }
     >
