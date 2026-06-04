@@ -33,9 +33,16 @@ export async function maybeSendProContactAlert(
 ): Promise<void> {
   const { proId, prospectId, proEmail } = params;
   const tag = `[contact-alert] pro=${proId.slice(0, 8)} prospect=${prospectId.slice(0, 8)}`;
-  if (!proEmail) {
-    console.warn(`${tag} — pas d'email pro, abandon`);
+  // Override de TEST : si défini, le mail part vers cette adresse au lieu de
+  // celle (potentiellement fictive) du compte pro. À retirer en prod.
+  const overrideEmail = process.env.CONTACT_ALERT_OVERRIDE_EMAIL?.trim() || null;
+  const recipient = overrideEmail || proEmail;
+  if (!recipient) {
+    console.warn(`${tag} — pas d'email pro (et pas d'override), abandon`);
     return;
+  }
+  if (overrideEmail) {
+    console.log(`${tag} — override TEST actif → envoi vers ${overrideEmail}`);
   }
   try {
     // 1. Nombre de clics de contact (tous canaux) sur ce prospect / 24 h
@@ -75,7 +82,7 @@ export async function maybeSendProContactAlert(
     ]);
 
     const sent = await sendProAccessReminder({
-      email: proEmail,
+      email: recipient,
       raisonSociale: proRes.data?.raison_sociale ?? null,
       contactPrenom: identRes.data?.prenom ?? null,
       accessCount: clicks,
