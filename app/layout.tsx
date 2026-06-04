@@ -14,6 +14,7 @@ const buppFrFR = {
   },
 };
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 import CookieConsent from "./_components/CookieConsent";
@@ -169,6 +170,8 @@ export default function RootLayout({
           {/* Vercel Web Analytics — sans cookie, conforme RGPD. Collecte
               les pages vues / Web Vitals côté client. */}
           <Analytics />
+          {/* Vercel Speed Insights — Core Web Vitals réels (LCP, CLS, INP). */}
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>
