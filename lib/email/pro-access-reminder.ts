@@ -34,11 +34,15 @@ export type ProAccessReminderParams = {
   accessCount: number;
 };
 
+/** @returns true si le mail a bien été remis au transport (sinon false). */
 export async function sendProAccessReminder(
   params: ProAccessReminderParams,
-): Promise<void> {
+): Promise<boolean> {
   const transport = getTransport();
-  if (!transport) return;
+  if (!transport) {
+    console.warn("[email/pro-access-reminder] transport indisponible (ni Brevo ni SMTP)");
+    return false;
+  }
 
   const { email, raisonSociale, contactPrenom } = params;
   const raison = (raisonSociale ?? "").trim();
@@ -157,9 +161,11 @@ export async function sendProAccessReminder(
     console.log(
       `[email/pro-access-reminder] mail envoyé à ${email} — messageId=${info.messageId}`,
     );
+    return true;
   } catch (err) {
     const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error(`[email/pro-access-reminder] échec d'envoi à ${email} → ${msg}`);
+    return false;
   }
 }
 
