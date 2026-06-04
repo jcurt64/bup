@@ -55,7 +55,7 @@ export async function sendProAccessReminder(
   const text = [
     `${proGreet},`,
     "",
-    `Nous avons remarqué que vous avez consulté à plusieurs reprises, ces dernières 24 heures, les informations de ${contactLabel}.`,
+    `Nous avons remarqué que vous avez cherché à contacter à plusieurs reprises, ces dernières 24 heures, ${contactLabel}.`,
     "",
     "C'est tout à fait normal d'avoir besoin de revenir sur les coordonnées d'un contact — nous profitons simplement de l'occasion pour vous rappeler, en toute confiance, le cadre BUUPP sur l'usage des données personnelles des prospects :",
     "",
@@ -97,8 +97,8 @@ export async function sendProAccessReminder(
     ${escapeHtml(proGreet)},
   </h1>
   <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#3A4150;">
-    Nous avons remarqué que vous avez consulté à plusieurs reprises, ces
-    dernières 24&nbsp;heures, les informations de ${escapeHtml(contactLabel)}.
+    Nous avons remarqué que vous avez cherché à contacter à plusieurs reprises,
+    ces dernières 24&nbsp;heures, ${escapeHtml(contactLabel)}.
   </p>
   <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#3A4150;">
     C'est tout à fait normal d'avoir besoin de revenir sur les coordonnées d'un

@@ -23,7 +23,7 @@
  * 403 → relation introuvable / wrong pro / status non accepted|settled
  */
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
@@ -32,7 +32,6 @@ import {
   buildAliasAddress,
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
-import { maybeSendProspectRevealAlert } from "@/lib/pro/reveal-alert";
 
 export const runtime = "nodejs";
 
@@ -253,23 +252,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
   if (auditErr) {
     console.error("[/api/pro/contacts/details] audit insert failed", auditErr);
   }
-
-  // Anti-accès-répétés : si ce pro a ouvert le détail de ce prospect ≥ 3
-  // fois en 24 h, on rappelle gentiment au pro le cadre d'usage des données.
-  // `email` = adresse du pro (Clerk). Exécuté via `after()` : non bloquant
-  // pour la réponse MAIS garanti de s'exécuter sur Vercel (un simple
-  // fire-and-forget en `void` serait gelé une fois la réponse renvoyée).
-  after(async () => {
-    try {
-      await maybeSendProspectRevealAlert(admin, {
-        proId,
-        prospectId: prospect.id,
-        proEmail: email,
-      });
-    } catch (e) {
-      console.error("[/api/pro/contacts/details] reveal alert failed", e);
-    }
-  });
 
   return NextResponse.json({ tiers });
 }

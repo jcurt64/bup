@@ -5552,6 +5552,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                                 <Icon name="copy" size={12}/> Voir détails
                               </button>
                               <ContactActionButtons row={r} onIntent={(intent) => {
+                              // Tout clic sur une icône de contact (téléphone,
+                              // mail, SMS, WhatsApp, Facebook) est logué en base :
+                              // audit admin « Contacts (clics) » + déclencheur du
+                              // rappel anti-abus au pro (≥3 clics/24h sur un même
+                              // prospect). Fire-and-forget, non bloquant.
+                              fetch(`/api/pro/contacts/${r.relationId}/contact-click`, {
+                                method: 'POST',
+                                headers: { 'content-type': 'application/json' },
+                                body: JSON.stringify({ channel: intent }),
+                              }).catch(() => {});
                               // L'email passe par la modale de composition
                               // intégrée à BUUPP (envoi serveur, quota 1/campagne).
                               // Les autres canaux ouvrent toujours le client externe

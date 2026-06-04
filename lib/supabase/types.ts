@@ -582,6 +582,65 @@ export type Database = {
           },
         ]
       }
+      pro_contact_clicks: {
+        Row: {
+          campaign_id: string | null
+          channel: string
+          created_at: string
+          id: string
+          pro_account_id: string
+          prospect_id: string
+          relation_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          channel: string
+          created_at?: string
+          id?: string
+          pro_account_id: string
+          prospect_id: string
+          relation_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          pro_account_id?: string
+          prospect_id?: string
+          relation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_contact_clicks_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_clicks_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "relations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_clicks_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pro_contact_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_contact_reveals: {
         Row: {
           field: string

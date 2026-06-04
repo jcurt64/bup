@@ -14,7 +14,7 @@ const NAV = [
   { href: "/buupp-admin/signalements", label: "Signalements" },
   { href: "/buupp-admin/suggestions", label: "Suggestions" },
   { href: "/buupp-admin/contact-actions", label: "Activité pros" },
-  { href: "/buupp-admin/pro-reveals", label: "Consultations" },
+  { href: "/buupp-admin/contact-clicks", label: "Contacts (clics)" },
   { href: "/buupp-admin/pros", label: "Professionnels" },
   { href: "/buupp-admin/campagnes", label: "Campagnes" },
   { href: "/buupp-admin/transactions", label: "Transactions" },

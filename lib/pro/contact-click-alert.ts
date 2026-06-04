@@ -1,19 +1,19 @@
 /**
- * Anti-accès-répétés : rappelle gentiment au PRO le cadre BUUPP sur l'usage
- * des données quand il a ouvert le détail d'un même contact ≥ REPEAT_THRESHOLD
- * fois en 24 h.
+ * Anti-abus contact : rappelle gentiment au PRO le cadre BUUPP sur l'usage
+ * des données quand il a cliqué ≥ REPEAT_THRESHOLD fois sur les icônes de
+ * contact (téléphone / e-mail / SMS / WhatsApp / Facebook) d'un même
+ * prospect en 24 h, tous canaux confondus.
  *
- * Déclenché via `after()` depuis `GET /api/pro/contacts/[relationId]/details`
- * (exécution post-réponse garantie sur Vercel), juste après l'insertion de
- * la ligne d'audit `pro_contact_reveals` (field='details') — la ligne
- * courante est donc déjà comptée. L'e-mail du pro est fourni par la route
- * (issu de Clerk via currentUser), car `pro_accounts` ne stocke pas l'email.
+ * Déclenché via `after()` depuis `POST /api/pro/contacts/[relationId]/contact-click`
+ * (exécution post-réponse garantie sur Vercel), juste après l'insertion du
+ * clic dans `pro_contact_clicks` — le clic courant est donc déjà compté.
+ * L'e-mail du pro est fourni par la route (issu de Clerk via currentUser),
+ * car `pro_accounts` ne stocke pas l'email.
  *
  * Anti-spam : 1 seul mail par couple (pro × prospect) par 24 h. La
  * déduplication est vérifiée en LECTURE SEULE puis enregistrée UNIQUEMENT
  * après un envoi réussi (sinon un envoi échoué consommerait le jeton et
- * bloquerait toute relance pendant 24 h). Clé versionnée pour pouvoir
- * repartir d'un état propre.
+ * bloquerait toute relance pendant 24 h). Clé versionnée.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -21,51 +21,39 @@ import type { Database } from "@/lib/supabase/types";
 import { checkRateLimit } from "@/lib/rate-limit/check";
 import { sendProAccessReminder } from "@/lib/email/pro-access-reminder";
 
-/** Seuil d'ouvertures du détail sur 24 h qui déclenche le mail. */
+/** Seuil de clics de contact sur 24 h (tous canaux) qui déclenche le mail. */
 export const REPEAT_THRESHOLD = 3;
 const WINDOW_MS = 24 * 3_600_000;
 const DEDUP_WINDOW_SEC = 24 * 3600;
 const DEDUP_WINDOW_MS = DEDUP_WINDOW_SEC * 1000;
 
-export async function maybeSendProspectRevealAlert(
+export async function maybeSendProContactAlert(
   admin: SupabaseClient<Database>,
   params: { proId: string; prospectId: string; proEmail: string | null },
 ): Promise<void> {
   const { proId, prospectId, proEmail } = params;
-  const tag = `[reveal-alert] pro=${proId.slice(0, 8)} prospect=${prospectId.slice(0, 8)}`;
+  const tag = `[contact-alert] pro=${proId.slice(0, 8)} prospect=${prospectId.slice(0, 8)}`;
   if (!proEmail) {
     console.warn(`${tag} — pas d'email pro, abandon`);
     return;
   }
   try {
-    // 1. Toutes les relations de ce couple (pro, prospect).
-    const { data: rels } = await admin
-      .from("relations")
-      .select("id")
-      .eq("pro_account_id", proId)
-      .eq("prospect_id", prospectId);
-    const relIds = (rels ?? []).map((r) => r.id);
-    if (relIds.length === 0) {
-      console.warn(`${tag} — aucune relation, abandon`);
-      return;
-    }
-
-    // 2. Nombre d'ouvertures du DÉTAIL sur 24 h (ligne courante incluse).
+    // 1. Nombre de clics de contact (tous canaux) sur ce prospect / 24 h
+    //    (le clic courant est déjà inséré, donc inclus).
     const cutoff = new Date(Date.now() - WINDOW_MS).toISOString();
     const { count } = await admin
-      .from("pro_contact_reveals")
+      .from("pro_contact_clicks")
       .select("id", { count: "exact", head: true })
       .eq("pro_account_id", proId)
-      .eq("field", "details")
-      .in("relation_id", relIds)
-      .gte("revealed_at", cutoff);
-    const opens = count ?? 0;
-    console.log(`${tag} — ${opens} ouverture(s) détail / 24h (seuil ${REPEAT_THRESHOLD})`);
-    if (opens < REPEAT_THRESHOLD) return;
+      .eq("prospect_id", prospectId)
+      .gte("created_at", cutoff);
+    const clicks = count ?? 0;
+    console.log(`${tag} — ${clicks} clic(s) contact / 24h (seuil ${REPEAT_THRESHOLD})`);
+    if (clicks < REPEAT_THRESHOLD) return;
 
-    // 3. Déduplication — LECTURE SEULE : un mail a-t-il déjà été envoyé
-    //    pour ce couple dans les 24 h ? (clé versionnée v2)
-    const dedupKey = `reveal-alert:v2:${proId}:${prospectId}`;
+    // 2. Déduplication — LECTURE SEULE : un mail a-t-il déjà été envoyé
+    //    pour ce couple dans les 24 h ?
+    const dedupKey = `contact-alert:v1:${proId}:${prospectId}`;
     const { data: ded } = await admin
       .from("rate_limits")
       .select("window_start_at")
@@ -76,7 +64,7 @@ export async function maybeSendProspectRevealAlert(
       return;
     }
 
-    // 4. Personnalisation : raison sociale du pro + prénom du contact.
+    // 3. Personnalisation : raison sociale du pro + prénom du contact.
     const [proRes, identRes] = await Promise.all([
       admin.from("pro_accounts").select("raison_sociale").eq("id", proId).maybeSingle(),
       admin
@@ -90,10 +78,10 @@ export async function maybeSendProspectRevealAlert(
       email: proEmail,
       raisonSociale: proRes.data?.raison_sociale ?? null,
       contactPrenom: identRes.data?.prenom ?? null,
-      accessCount: opens,
+      accessCount: clicks,
     });
 
-    // 5. On n'enregistre la dédup qu'APRÈS un envoi réussi — checkRateLimit
+    // 4. On n'enregistre la dédup qu'APRÈS un envoi réussi — checkRateLimit
     //    crée/réinitialise la ligne `rate_limits` (window_start_at = now).
     if (sent) {
       await checkRateLimit({ key: dedupKey, limit: 1, windowSec: DEDUP_WINDOW_SEC });
