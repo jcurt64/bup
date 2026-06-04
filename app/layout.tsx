@@ -13,6 +13,7 @@ const buppFrFR = {
       "Cette adresse e-mail est déjà utilisée sur BUUPP. Une adresse mail = un seul compte, prospect ou professionnel. Connectez-vous avec ce compte ou utilisez une autre adresse pour créer le second.",
   },
 };
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 import CookieConsent from "./_components/CookieConsent";
@@ -165,6 +166,9 @@ export default function RootLayout({
           {children}
           <RouteNav />
           <CookieConsent />
+          {/* Vercel Web Analytics — sans cookie, conforme RGPD. Collecte
+              les pages vues / Web Vitals côté client. */}
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>
