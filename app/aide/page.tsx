@@ -207,8 +207,9 @@ const CATEGORIES: Category[] = [
                 acceptée (financé par le pro sauf opt-out de sa part)&nbsp;;
               </li>
               <li>
-                <strong>priorité de 10&nbsp;min</strong> sur les flash deals
-                (vous les voyez avant le grand public)&nbsp;;
+                <strong>priorité de 20&nbsp;min</strong> sur les flash deals
+                (dès <strong>3&nbsp;filleul·es</strong>, vous les voyez avant le
+                grand public)&nbsp;;
               </li>
               <li>
                 au <strong>plafond de 10 filleul·es</strong>, vous passez{" "}
@@ -277,11 +278,14 @@ const CATEGORIES: Category[] = [
           <p>
             Depuis le dashboard professionnel, cliquez sur{" "}
             <strong>« Créer une campagne »</strong>.
-            Le wizard vous guide en 4 étapes : <strong>objectif</strong> (prise de
-            contact, RDV, devis, sondage), <strong>ciblage</strong> (paliers requis,
-            zone géo, âge, niveau de vérif), <strong>budget</strong> (durée, nombre de
-            contacts, prix par contact) et <strong>récap</strong>. Une fois lancée, la
-            campagne est immédiatement notifiée par email aux prospects matchés.
+            Le wizard vous guide en 8 étapes : <strong>objectif</strong> (prise de
+            contact, RDV, devis, sondage), <strong>dates</strong> (période de
+            diffusion), <strong>données</strong> (paliers requis),{" "}
+            <strong>ciblage</strong> (zone géo, âge, niveau de vérif),{" "}
+            <strong>budget</strong> (durée, nombre de contacts, prix par contact),{" "}
+            <strong>mots-clés</strong>, <strong>description</strong> et{" "}
+            <strong>récap</strong>. Une fois lancée, la campagne est immédiatement
+            notifiée par email aux prospects matchés.
           </p>
         ),
       },
