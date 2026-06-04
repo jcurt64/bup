@@ -294,6 +294,16 @@ function ProspectProvider({ children }) {
   // États optimistes locaux pour répondre instantanément.
   const [optimistic, setOptimistic] = useState({}); // id → 'accepted' | 'refused' | 'pending'
 
+  // Garde « données complètes » à l'acceptation d'une sollicitation.
+  //  - acceptGate    : modale d'invitation à compléter (clic « Accepter »
+  //                    sur une sollicitation dont un palier requis est vide).
+  //  - pendingAccept  : sollicitation que le prospect est parti compléter ;
+  //                     surveillée pour rouvrir une modale quand c'est prêt.
+  //  - acceptReady    : modale « vous pouvez retourner accepter ».
+  const [acceptGate, setAcceptGate] = useState(null);     // { relationId, requiredTierNums, missingTierNums }
+  const [pendingAccept, setPendingAccept] = useState(null); // { relationId, requiredTierNums }
+  const [acceptReady, setAcceptReady] = useState(null);    // { relationId }
+
   // Toute mutation de décision (accept/refuse/undo) modifie le ratio
   // accepté/total → impacte BUUPP Score, taux d'acceptation, wallet
   // (séquestre, lifetime). Pour synchroniser les autres consommateurs
@@ -304,6 +314,19 @@ function ProspectProvider({ children }) {
   };
 
   const acceptRelation = async (id) => {
+    // Garde « données complètes » : pour accepter, tous les paliers exigés
+    // par la campagne doivent être intégralement renseignés. Sinon on ouvre
+    // la modale d'invitation à compléter (le serveur refuse aussi en 422).
+    const rel =
+      pendingRelations.find(r => r.id === id) ||
+      historyRelations.find(r => r.id === id) ||
+      null;
+    const requiredTierNums = relationRequiredTiers(rel);
+    const missingTierNums = missingRequiredTiers(profile, requiredTierNums);
+    if (missingTierNums.length > 0) {
+      setAcceptGate({ relationId: id, requiredTierNums, missingTierNums });
+      return;
+    }
     setOptimistic(o => ({ ...o, [id]: 'accepted' }));
     const ok = await postDecision(id, 'accept');
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
@@ -450,6 +473,7 @@ function ProspectProvider({ children }) {
       acceptedRelations: accepted, refusedRelations: refused,
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
       pendingRelationsCount, relationsHydrated,
+      acceptGate, setAcceptGate, pendingAccept, setPendingAccept, acceptReady, setAcceptReady,
       isFounder,
     }}>
       {children}
@@ -481,7 +505,25 @@ function ProspectDashboard({ go, initialTab }) {
 
 function ProspectDashboardInner({ go, initialTab }) {
   const [sec, setSec] = useState(initialTab || 'portefeuille');
-  const { pendingRelationsCount, profile } = useProspect();
+  const {
+    pendingRelationsCount, profile,
+    acceptGate, setAcceptGate,
+    pendingAccept, setPendingAccept,
+    acceptReady, setAcceptReady,
+  } = useProspect();
+
+  // Surveille le palier que le prospect est parti compléter après un clic
+  // « Accepter » bloqué : dès que tous les paliers requis de cette
+  // sollicitation sont intégralement renseignés, on ouvre la modale
+  // « vous pouvez retourner à la sollicitation pour accepter ».
+  useEffect(() => {
+    if (!pendingAccept) return;
+    const missing = missingRequiredTiers(profile, pendingAccept.requiredTierNums);
+    if (missing.length === 0) {
+      setAcceptReady({ relationId: pendingAccept.relationId });
+      setPendingAccept(null);
+    }
+  }, [profile, pendingAccept, setAcceptReady, setPendingAccept]);
   // Relation à ouvrir dans RelationDetailModal après navigation depuis
   // le champ de recherche du header. Stockée ici (parent) pour survivre
   // à la bascule de section : Portefeuille la consomme à son montage si
@@ -537,6 +579,7 @@ function ProspectDashboardInner({ go, initialTab }) {
   // modifications de l'onglet "Mes données" (palier identification).
   const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
   return (
+    <>
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
       header={<ProspectHeader onNav={setSec} />} overrideName={overrideName}>
       {sec === 'portefeuille' && <Portefeuille pendingDetail={pendingDetail} onPendingConsumed={() => setPendingDetail(null)}/>}
@@ -550,6 +593,24 @@ function ProspectDashboardInner({ go, initialTab }) {
       {sec === 'messages' && <MessagesPanel role="prospect" highlightId={highlightMessageId} onHighlightConsumed={() => setHighlightMessageId(null)}/>}
       {sec === 'suggestions' && <SuggestionsPanel role="prospect"/>}
     </DashShell>
+    {acceptGate && (
+      <AcceptIncompleteModal
+        missingTierNums={acceptGate.missingTierNums}
+        onGoToData={() => {
+          setPendingAccept({ relationId: acceptGate.relationId, requiredTierNums: acceptGate.requiredTierNums });
+          setAcceptGate(null);
+          setSec('donnees');
+        }}
+        onClose={() => setAcceptGate(null)}
+      />
+    )}
+    {acceptReady && (
+      <AcceptReadyModal
+        onBack={() => { setAcceptReady(null); setSec('relations'); }}
+        onClose={() => setAcceptReady(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -2851,6 +2912,42 @@ const DATA_CATEGORIES = [
   },
 ];
 
+// ─── Complétude « intégrale » d'un palier ───────────────────────────────
+// Un palier est COMPLET quand TOUS ses champs sont renseignés (distinct du
+// palier « atteint » = ≥ 1 champ, utilisé pour le BUUPP Score). C'est la
+// condition pour ACCEPTER une sollicitation : le prospect doit avoir
+// intégralement renseigné tous les paliers exigés par la campagne. Le
+// serveur applique le même garde-fou (cf. /api/prospect/relations/[id]/decision
+// + lib/prospect/completeness.ts — garder les deux synchronisés).
+function tierNumToCategory(num) {
+  return DATA_CATEGORIES.find(c => c.tier === num) || null;
+}
+function isFieldFilled(v) {
+  return typeof v === 'string' ? v.trim() !== '' : Boolean(v);
+}
+function isCategoryComplete(profile, catKey) {
+  const cat = DATA_CATEGORIES.find(c => c.key === catKey);
+  if (!cat) return false;
+  return cat.fields.every(([f]) => isFieldFilled(profile?.[catKey]?.[f]));
+}
+// Numéros de paliers requis par une sollicitation. Préfère la liste
+// complète `tiers` (1..5) ; retombe sur le palier le plus haut, puis [1].
+function relationRequiredTiers(rel) {
+  if (rel && Array.isArray(rel.tiers) && rel.tiers.length) return rel.tiers;
+  if (rel && rel.tier) return [rel.tier];
+  return [1];
+}
+// Renvoie les numéros de paliers requis NON intégralement renseignés.
+function missingRequiredTiers(profile, requiredTierNums) {
+  const nums = Array.isArray(requiredTierNums) && requiredTierNums.length
+    ? requiredTierNums
+    : [1];
+  return nums.filter(num => {
+    const cat = tierNumToCategory(num);
+    return !cat || !isCategoryComplete(profile, cat.key);
+  });
+}
+
 /* Configuration par champ : type de saisie + options (pour les tags) +
    éventuel sous-champ "détail" libre. La clé est `category.field`.
    - `tag`           : sélection unique parmi `options`
@@ -2885,9 +2982,12 @@ const FIELD_CONFIG = {
   },
   'vie.vehicule': {
     type: 'tag+text',
-    options: ['SUV', '4x4', 'Berline', 'Citadine', 'Break', 'Monospace', 'Coupé', 'Cabriolet', 'Utilitaire'],
+    options: ['SUV', '4x4', 'Berline', 'Citadine', 'Break', 'Monospace', 'Coupé', 'Cabriolet', 'Utilitaire', 'Aucun'],
     detailField: 'vehiculeMarque',
     detailPlaceholder: 'Marque du véhicule',
+    // La marque ne s'affiche que pour un vrai véhicule — masquée si « Aucun »
+    // (permet de compléter le palier sans posséder de véhicule).
+    detailHiddenWhenTag: 'Aucun',
   },
   'pro.statut': {
     type: 'tag',
@@ -2921,7 +3021,7 @@ const FIELD_CONFIG = {
   },
   'patrimoine.projets': {
     type: 'tag',
-    options: ['Achat', 'Construction', 'Location'],
+    options: ['Achat', 'Construction', 'Location', 'Aucun'],
   },
 };
 
@@ -3143,7 +3243,8 @@ function MesDonnees({ onGoPrefs }) {
                         : '';
                     const showDetail =
                       detailVal &&
-                      (!cfg.detailVisibleWhenTag || rawVal === cfg.detailVisibleWhenTag);
+                      (!cfg.detailVisibleWhenTag || rawVal === cfg.detailVisibleWhenTag) &&
+                      (!cfg.detailHiddenWhenTag || rawVal !== cfg.detailHiddenWhenTag);
                     const val = rawVal && showDetail ? `${rawVal} · ${detailVal}` : rawVal;
                     const isPhone = cat.key === 'identity' && field === 'telephone';
                     const phoneVerified = isPhone && Boolean(phoneVerifiedAt);
@@ -3642,7 +3743,8 @@ function FieldInput({ category, field, value, detail, onChange, autoFocus = fals
   }
   if (cfg.type === 'tag+text') {
     const showDetail =
-      !cfg.detailVisibleWhenTag || value === cfg.detailVisibleWhenTag;
+      (!cfg.detailVisibleWhenTag || value === cfg.detailVisibleWhenTag) &&
+      (!cfg.detailHiddenWhenTag || value !== cfg.detailHiddenWhenTag);
     return (
       <>
         <TagPicker value={value || ''} options={cfg.options} onPick={setValue} />
@@ -4266,6 +4368,107 @@ function ConfirmHideModal({ category, onConfirm, onClose }) {
         <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
         <button onClick={onConfirm} className="btn btn-primary btn-sm">
           <Icon name="eyeSlash" size={12}/> Masquer temporairement
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Modale affichée au clic « Accepter » quand un palier exigé par la
+// campagne n'est pas intégralement renseigné. Invite à compléter ses
+// informations avec un lien direct vers l'onglet « Mes données ».
+function AcceptIncompleteModal({ missingTierNums, onGoToData, onClose }) {
+  const cats = (missingTierNums || [])
+    .map(n => DATA_CATEGORIES.find(c => c.tier === n))
+    .filter(Boolean);
+  return (
+    <ModalShell title="Informations incomplètes" onClose={onClose}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 16,
+        background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
+        border: '1.5px solid color-mix(in oklab, var(--warn) 40%, var(--line))',
+        color: 'var(--ink-2)',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: 'var(--warn)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="info" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
+            Pour accepter cette sollicitation
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Merci de renseigner <strong>l'intégralité des informations demandées</strong> par
+            le professionnel. Tant qu'un palier requis est incomplet, vous ne pouvez pas
+            accepter cette mise en relation.
+          </div>
+        </div>
+      </div>
+      {cats.length > 0 && (
+        <div style={{
+          padding: 12, borderRadius: 8, marginBottom: 18,
+          background: 'var(--ivory-2)', fontSize: 12.5, color: 'var(--ink-3)',
+        }}>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>
+            Paliers à compléter
+          </div>
+          <div className="col gap-1">
+            {cats.map(c => (
+              <div key={c.key} className="row center gap-2">
+                <Icon name={c.icon} size={13}/>
+                <span style={{ color: 'var(--ink-2)' }}>Palier {c.tier} · {c.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Plus tard</button>
+        <button onClick={onGoToData} className="btn btn-primary btn-sm">
+          Renseigner mes informations <Icon name="arrow" size={12}/>
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Modale affichée quand le prospect a complété, depuis « Mes données », tous
+// les paliers requis de la sollicitation qu'il voulait accepter.
+function AcceptReadyModal({ onBack, onClose }) {
+  return (
+    <ModalShell title="Informations complétées" onClose={onClose}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 18,
+        background: 'color-mix(in oklab, var(--good, #16a34a) 8%, var(--paper))',
+        border: '1.5px solid color-mix(in oklab, var(--good, #16a34a) 40%, var(--line))',
+        color: 'var(--ink-2)',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: 'var(--good, #16a34a)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="check" size={18} stroke={2.25}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
+            Tout est renseigné
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Vos paliers requis sont désormais intégralement remplis.
+            Vous pouvez <strong>retourner à la sollicitation pour l'accepter</strong>.
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
+        <button onClick={onBack} className="btn btn-primary btn-sm">
+          <Icon name="handshake" size={12}/> Retourner à la sollicitation
         </button>
       </div>
     </ModalShell>

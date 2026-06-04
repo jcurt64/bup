@@ -77,6 +77,7 @@ const TIER_FIELDS: Record<TierKey, Array<[string, string]>> = {
     ["adresse", "Adresse"],
     ["ville", "Ville"],
     ["code_postal", "Code postal"],
+    ["region", "Région"],
   ],
   vie: [
     ["foyer", "Foyer"],
