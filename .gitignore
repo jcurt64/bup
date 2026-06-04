@@ -40,6 +40,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# expo (cache local — l'app mobile est dans mobile/)
+.expo/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
