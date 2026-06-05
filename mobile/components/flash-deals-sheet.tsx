@@ -499,8 +499,10 @@ function FlashDealDetailSheet({
           if (typeof j.message === "string") serverMsg = j.message;
         } catch {}
       }
+      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
+      // acceptées sans réponse) — le serveur fournit un message courtois.
       const msg =
-        status === 429 && serverMsg
+        (status === 429 || status === 403) && serverMsg
           ? serverMsg
           : status === 402
             ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
@@ -509,7 +511,14 @@ function FlashDealDetailSheet({
               : status === 409
                 ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
                 : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(status === 429 ? "Patientez un instant" : "Action impossible", msg);
+      Alert.alert(
+        status === 429
+          ? "Patientez un instant"
+          : status === 403 && serverMsg
+            ? "Acceptation en pause"
+            : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
@@ -561,8 +570,10 @@ function FlashDealDetailSheet({
           if (typeof j.message === "string") serverMsg = j.message;
         } catch {}
       }
+      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
+      // acceptées sans réponse) — le serveur fournit un message courtois.
       const msg =
-        status === 429 && serverMsg
+        (status === 429 || status === 403) && serverMsg
           ? serverMsg
           : status === 402
             ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
@@ -571,7 +582,14 @@ function FlashDealDetailSheet({
               : status === 409
                 ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
                 : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(status === 429 ? "Patientez un instant" : "Action impossible", msg);
+      Alert.alert(
+        status === 429
+          ? "Patientez un instant"
+          : status === 403 && serverMsg
+            ? "Acceptation en pause"
+            : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }
@@ -597,8 +615,10 @@ function FlashDealDetailSheet({
           if (typeof j.message === "string") serverMsg = j.message;
         } catch {}
       }
+      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
+      // acceptées sans réponse) — le serveur fournit un message courtois.
       const msg =
-        status === 429 && serverMsg
+        (status === 429 || status === 403) && serverMsg
           ? serverMsg
           : status === 402
             ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
@@ -607,7 +627,14 @@ function FlashDealDetailSheet({
               : status === 409
                 ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
                 : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(status === 429 ? "Patientez un instant" : "Action impossible", msg);
+      Alert.alert(
+        status === 429
+          ? "Patientez un instant"
+          : status === 403 && serverMsg
+            ? "Acceptation en pause"
+            : "Action impossible",
+        msg,
+      );
     } finally {
       setBusy(null);
     }

@@ -22,10 +22,12 @@ import Animated, {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
+import { useAcceptGate } from "./accept-gate";
 import { NeonBorder } from "./neon-border";
 import { ReportProSheet } from "./report-pro-sheet";
 import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
 import { ApiError } from "../lib/api";
+import { relationRequiredTierNums } from "../lib/completeness";
 import { useTheme } from "../lib/theme";
 import {
   isMockDeal,
@@ -558,6 +560,7 @@ export function MovementDetailSheet({
 }) {
   const { c } = useTheme();
   const decide = useDecideRelation();
+  const gate = useAcceptGate();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
   // Sous-modale de signalement + état local « déjà signalé » pour
@@ -615,6 +618,16 @@ export function MovementDetailSheet({
       onClose();
       return;
     }
+    // Garde « données complètes » : pour ACCEPTER une sollicitation réelle,
+    // tous les paliers exigés par la campagne (r.tiers) doivent être
+    // intégralement renseignés. Sinon on ouvre la modale d'invitation à
+    // compléter SANS appeler l'API (le serveur refuse aussi en 422). Pré-check
+    // client uniquement — le backstop 422 ci-dessous couvre le cas profil non
+    // chargé.
+    if (action === "accept" && gate.guardAccept({ id: r.id, tiers: r.tiers, tier: r.tier })) {
+      onClose();
+      return;
+    }
     setBusy(action);
     try {
       // refused → accepted : l'API n'autorise pas la transition directe
@@ -663,6 +676,28 @@ export function MovementDetailSheet({
       // 429 contient { message } rédigé côté serveur (« Pas trop vite 😊
       // … Réessayez dans X min Y s »).
       const status = e instanceof ApiError ? e.status : 0;
+      // Backstop garde « données complètes » : si l'API renvoie 422
+      // tiers_incomplete (typiquement quand le profil n'était pas encore
+      // chargé côté client), on ouvre la même modale que le pré-check, avec
+      // les paliers manquants renvoyés par le serveur.
+      if (status === 422 && action === "accept") {
+        let missingTiers: number[] = [];
+        if (e instanceof ApiError) {
+          try {
+            const j = JSON.parse(e.body) as { missingTiers?: number[] };
+            if (Array.isArray(j.missingTiers)) {
+              missingTiers = j.missingTiers.filter((n) => Number.isFinite(n));
+            }
+          } catch {}
+        }
+        gate.openIncomplete(
+          r.id,
+          relationRequiredTierNums({ tiers: r.tiers, tier: r.tier }),
+          missingTiers,
+        );
+        onClose();
+        return;
+      }
       let serverMsg: string | null = null;
       if (e instanceof ApiError) {
         try {
@@ -670,8 +705,10 @@ export function MovementDetailSheet({
           if (typeof j.message === "string") serverMsg = j.message;
         } catch {}
       }
+      // 403 accept_restricted : compte mis en pause 2 mois (4 sollicitations
+      // acceptées sans réponse). Le serveur fournit un message courtois.
       const msg =
-        status === 429 && serverMsg
+        (status === 429 || status === 403) && serverMsg
           ? serverMsg
           : status === 402
             ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
@@ -681,7 +718,11 @@ export function MovementDetailSheet({
                 ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
                 : "Action impossible. Réessayez dans un instant.";
       Alert.alert(
-        status === 429 ? "Patientez un instant" : "Action impossible",
+        status === 429
+          ? "Patientez un instant"
+          : status === 403 && serverMsg
+            ? "Acceptation en pause"
+            : "Action impossible",
         msg,
       );
     } finally {
