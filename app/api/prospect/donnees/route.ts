@@ -26,6 +26,7 @@ import {
   type TierKey,
 } from "@/lib/prospect/donnees";
 import { computeAndPersistProspectScore } from "@/lib/prospect/score";
+import { rowToPreferences } from "@/lib/prospect/preferences";
 
 export const runtime = "nodejs";
 
@@ -78,7 +79,9 @@ export async function GET() {
     admin.from("prospect_patrimoine").select("*").eq("prospect_id", prospectId).maybeSingle(),
     admin
       .from("prospects")
-      .select("hidden_tiers, removed_tiers, is_founder")
+      .select(
+        "hidden_tiers, removed_tiers, is_founder, all_campaign_types, campaign_objectives, all_categories, categories",
+      )
       .eq("id", prospectId)
       .single(),
   ]);
@@ -99,6 +102,9 @@ export async function GET() {
     hiddenTiers: (prospect.data?.hidden_tiers ?? []) as TierKey[],
     removedTiers: (prospect.data?.removed_tiers ?? []) as TierKey[],
     isFounder: prospect.data?.is_founder === true,
+    // Préférences de monétisation (types de campagne + catégories acceptés).
+    // Lues ici depuis la row maître ; écrites via /api/prospect/preferences.
+    preferences: rowToPreferences(prospect.data ?? null),
   });
 }
 

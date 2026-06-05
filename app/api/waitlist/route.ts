@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendWaitlistConfirmation } from "@/lib/email/waitlist";
 import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
+import { isReferralOpen } from "@/lib/waitlist/referral";
 import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
 import crypto from "node:crypto";
 
@@ -178,23 +179,21 @@ export async function POST(req: Request) {
   }
 
   if (referrerRefCode) {
-    // Fenêtre de validité du lien de parrainage : la pré-inscription se
-    // ferme au lancement officiel. Passé `app_config.launch_at`, on
-    // refuse l'attribution d'un parrain (le compte à rebours du
-    // dashboard prospect est en cohérence avec cette règle). Lecture
-    // tolérante : si la config est absente, on laisse passer.
+    // Ouverture du parrainage — découplée de la date de lancement fictive
+    // (`launch_at` ne pilote plus que le compte à rebours d'affichage).
+    // Seul le flag explicite `app_config.referrals_enabled = false` ferme
+    // les liens. Lecture tolérante : config absente ⇒ ouvert (fail-open).
     const { data: cfg } = await supabase
       .from("app_config")
-      .select("launch_at")
+      .select("referrals_enabled")
       .eq("id", true)
       .maybeSingle();
-    const launchMs = cfg?.launch_at ? new Date(cfg.launch_at).getTime() : null;
-    if (launchMs != null && !Number.isNaN(launchMs) && Date.now() >= launchMs) {
+    if (!isReferralOpen(cfg)) {
       return NextResponse.json(
         {
           error: "referral_closed",
           message:
-            "La phase de pré-inscription est terminée : les liens de parrainage ne sont plus actifs.",
+            "Les liens de parrainage sont actuellement désactivés.",
         },
         { status: 409 },
       );

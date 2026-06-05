@@ -228,16 +228,19 @@ export type Database = {
         Row: {
           id: boolean
           launch_at: string
+          referrals_enabled: boolean
           updated_at: string | null
         }
         Insert: {
           id?: boolean
           launch_at: string
+          referrals_enabled?: boolean
           updated_at?: string | null
         }
         Update: {
           id?: boolean
           launch_at?: string
+          referrals_enabled?: boolean
           updated_at?: string | null
         }
         Relationships: []
@@ -1002,7 +1005,9 @@ export type Database = {
       prospects: {
         Row: {
           all_campaign_types: boolean
+          all_categories: boolean
           bupp_score: number
+          campaign_objectives: string[]
           campaign_types: Database["public"]["Enums"]["campaign_type"][]
           categories: string[]
           clerk_user_id: string
@@ -1019,7 +1024,9 @@ export type Database = {
         }
         Insert: {
           all_campaign_types?: boolean
+          all_categories?: boolean
           bupp_score?: number
+          campaign_objectives?: string[]
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]
           clerk_user_id: string
@@ -1036,7 +1043,9 @@ export type Database = {
         }
         Update: {
           all_campaign_types?: boolean
+          all_categories?: boolean
           bupp_score?: number
+          campaign_objectives?: string[]
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]
           clerk_user_id?: string

@@ -20,6 +20,19 @@ export async function isGoldFounder(
   return referralBadgeTier(count ?? 0) === "or";
 }
 
+/**
+ * Le parrainage est-il ouvert ? Découplé de la date de lancement fictive
+ * (`launch_at`, qui ne pilote plus que le compte à rebours d'affichage) :
+ * seul le flag explicite `app_config.referrals_enabled = false` ferme les
+ * liens de parrainage. Lecture tolérante : config absente / colonne null
+ * ⇒ ouvert (fail-open, on ne bloque pas une pré-inscription par défaut).
+ */
+export function isReferralOpen(
+  cfg: { referrals_enabled?: boolean | null } | null | undefined,
+): boolean {
+  return cfg?.referrals_enabled !== false;
+}
+
 export type ReferralBadgeTier = "cuivre" | "argent" | "or";
 
 /**

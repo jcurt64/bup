@@ -86,6 +86,26 @@ async function persistTierAction(tier, action) {
     notifyProfileChanged();
   } catch (e) { console.warn('[prospect/tier] POST error', e); }
 }
+// Préférences de monétisation (types de campagne + catégories acceptés) —
+// persistées sur la row maître `prospects` via une route dédiée. `fields`
+// est un sous-ensemble de { allCampaignTypes, campaignTypes (libellés[]),
+// allCategories, categories (libellés[]) }. Fire-and-forget optimiste,
+// même contrat que persistFieldsUpdate.
+async function persistPreferences(fields) {
+  try {
+    const r = await fetch('/api/prospect/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      console.warn('[prospect/preferences] PATCH failed', r.status, j);
+      return;
+    }
+    notifyProfileChanged();
+  } catch (e) { console.warn('[prospect/preferences] PATCH error', e); }
+}
 
 const ProspectCtx = React.createContext(null);
 
@@ -106,6 +126,10 @@ function ProspectProvider({ children }) {
       if (!r.ok) return;
       const data = await r.json();
       setIsFounder(data.isFounder === true);
+      // Préférences (types de campagne + catégories) — l'API renvoie des
+      // libellés ; on reconstruit les Set côté state. Absence du bloc
+      // (vieux build API) ⇒ on conserve les défauts INITIAL_PROFILE.
+      const prefs = data.preferences;
       setProfile(p => ({
         ...p,
         identity:    { ...p.identity,    ...data.identity },
@@ -114,6 +138,12 @@ function ProspectProvider({ children }) {
         pro:         { ...p.pro,         ...data.pro },
         patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
         identityMeta: { ...(p.identityMeta || {}), ...(data.identityMeta || {}) },
+        ...(prefs ? {
+          allCampaignTypes: prefs.allCampaignTypes !== false,
+          campaignTypes: new Set(Array.isArray(prefs.campaignTypes) ? prefs.campaignTypes : []),
+          allCategories: prefs.allCategories !== false,
+          categories: new Set(Array.isArray(prefs.categories) ? prefs.categories : []),
+        } : {}),
       }));
       const nextDeleted = {};
       (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
@@ -421,39 +451,53 @@ function ProspectProvider({ children }) {
     persistTierAction(category, 'delete');
   };
   const addField = (category, field, value) => updateField(category, field, value);
-  const setAllCampaignTypes = (on) => setProfile(p => ({ ...p, allCampaignTypes: on }));
-  const toggleCampaignType = (t) => setProfile(p => {
+  // Les 4 handlers ci-dessous calculent l'état suivant de façon
+  // déterministe (à partir du `profile` du render courant) puis le
+  // répliquent à la fois dans le state local (setProfile) et côté API
+  // (persistPreferences) — même contrat optimiste que updateField.
+  const setAllCampaignTypes = (on) => {
+    setProfile(p => ({ ...p, allCampaignTypes: on }));
+    persistPreferences({ allCampaignTypes: on, campaignTypes: [...(profile.campaignTypes || [])] });
+  };
+  const toggleCampaignType = (t) => {
     // Si on était en mode "Tous" (= allCampaignTypes true), un clic sur
     // un chip signifie "désélectionner celui-ci" (et conserver les autres).
     // On bascule donc en mode partiel en remplissant le Set avec toute la
     // liste SAUF le chip cliqué. Sans cette branche, on tomberait sur un
     // mode partiel ne contenant QUE ce chip, ce qui inverse l'intention.
-    if (p.allCampaignTypes) {
-      const n = new Set(CAMPAIGN_TYPE_LIST.filter(x => x !== t));
-      return { ...p, campaignTypes: n, allCampaignTypes: false };
+    let next;
+    if (profile.allCampaignTypes) {
+      next = new Set(CAMPAIGN_TYPE_LIST.filter(x => x !== t));
+    } else {
+      next = new Set(profile.campaignTypes);
+      next.has(t) ? next.delete(t) : next.add(t);
     }
-    const n = new Set(p.campaignTypes);
-    n.has(t) ? n.delete(t) : n.add(t);
-    return { ...p, campaignTypes: n, allCampaignTypes: false };
-  });
+    setProfile(p => ({ ...p, campaignTypes: next, allCampaignTypes: false }));
+    persistPreferences({ allCampaignTypes: false, campaignTypes: [...next] });
+  };
   // Symétrique de setAllCampaignTypes : permet d'activer/désactiver
   // d'un coup le mode "Toutes catégories" depuis le bouton dédié dans
   // Préférences. Quand on toggle une catégorie individuelle (ci-dessous),
   // on quitte automatiquement le mode "Toutes" pour refléter la sélection
   // partielle qui en résulte.
-  const setAllCategories = (on) => setProfile(p => ({ ...p, allCategories: on }));
-  const toggleCategory = (c) => setProfile(p => {
+  const setAllCategories = (on) => {
+    setProfile(p => ({ ...p, allCategories: on }));
+    persistPreferences({ allCategories: on, categories: [...(profile.categories || [])] });
+  };
+  const toggleCategory = (c) => {
     // Idem toggleCampaignType : un clic sur un chip depuis le mode "Toutes"
     // signifie "désélectionner uniquement ce chip" — on bascule en mode
     // partiel avec toute la liste sauf celui-ci.
-    if (p.allCategories) {
-      const n = new Set(CATEGORY_LIST.filter(x => x !== c));
-      return { ...p, categories: n, allCategories: false };
+    let next;
+    if (profile.allCategories) {
+      next = new Set(CATEGORY_LIST.filter(x => x !== c));
+    } else {
+      next = new Set(profile.categories);
+      next.has(c) ? next.delete(c) : next.add(c);
     }
-    const n = new Set(p.categories);
-    n.has(c) ? n.delete(c) : n.add(c);
-    return { ...p, categories: n, allCategories: false };
-  });
+    setProfile(p => ({ ...p, categories: next, allCategories: false }));
+    persistPreferences({ allCategories: false, categories: [...next] });
+  };
   // Fusion API + mocks, triés par date de décision desc — l'ordre
   // d'affichage de l'historique reste cohérent.
   const mergedHistory = React.useMemo(() => {
