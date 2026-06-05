@@ -96,6 +96,8 @@ function brevoTransport(apiKey: string): MailTransport {
             : null;
         }
       }
+      // Reply-To par défaut (support@) quand l'appelant n'en fournit pas.
+      if (!replyTo) replyTo = parseAddress(getReplyToAddress());
 
       const body: Record<string, unknown> = {
         sender,
@@ -159,7 +161,11 @@ function smtpTransport(
       tx.close();
     },
     async sendMail(opts: SendMailOptions): Promise<MailResult> {
-      const info = await tx.sendMail(opts);
+      // Reply-To par défaut (support@) si l'appelant n'en fournit pas.
+      const info = await tx.sendMail({
+        ...opts,
+        replyTo: opts.replyTo ?? getReplyToAddress(),
+      });
       return {
         messageId: info.messageId ?? null,
         accepted: (info.accepted ?? []).map((a) => String(a)),
@@ -207,6 +213,14 @@ export function getTransport(): MailTransport | null {
 export function getFromAddress(): string {
   // Domaine buupp.com authentifié (DKIM/DMARC) → expéditeur de marque.
   return process.env.MAIL_FROM ?? "BUUPP <no-reply@buupp.com>";
+}
+
+export function getReplyToAddress(): string {
+  // Reply-To par défaut : comme l'expéditeur est `no-reply@`, on dirige les
+  // réponses vers une vraie boîte (support@buupp.com, IONOS). Override via
+  // MAIL_REPLY_TO. N'est appliqué QUE si l'appelant n'a pas fixé son propre
+  // Reply-To (ex. pro→prospect = email du pro, DPO = dp.buupp@).
+  return process.env.MAIL_REPLY_TO ?? "support@buupp.com";
 }
 
 /**
