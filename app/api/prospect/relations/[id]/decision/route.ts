@@ -27,6 +27,10 @@ import {
   tierTable,
 } from "@/lib/prospect/completeness";
 import type { TierKey } from "@/lib/prospect/donnees";
+import {
+  acceptRestrictedMessage,
+  liftExpiredNonResponseRestriction,
+} from "@/lib/prospect/non-response";
 
 // Anti-spam / anti-DDoS : un utilisateur ne peut prendre qu'une seule
 // décision (accept/refuse/undo) toutes les 5 minutes — fenêtre glissante
@@ -91,18 +95,45 @@ export async function POST(req: Request, ctx: RouteContext) {
   const { data: rel, error: relErr } = await admin
     .from("relations")
     .select(
-      "id, status, prospect_id, prospects:prospect_id(clerk_user_id), campaigns(targeting)",
+      "id, status, prospect_id, prospects:prospect_id(clerk_user_id, accept_restricted_until), campaigns(targeting)",
     )
     .eq("id", id)
     .single();
   if (relErr || !rel) {
     return NextResponse.json({ error: "relation_not_found" }, { status: 404 });
   }
-  const ownerClerkId = Array.isArray(rel.prospects)
-    ? rel.prospects[0]?.clerk_user_id
-    : (rel.prospects as { clerk_user_id?: string } | null)?.clerk_user_id;
+  const prospectRow = (
+    Array.isArray(rel.prospects) ? rel.prospects[0] : rel.prospects
+  ) as { clerk_user_id?: string; accept_restricted_until?: string | null } | null;
+  const ownerClerkId = prospectRow?.clerk_user_id;
   if (ownerClerkId !== userId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // Restriction « non-réponse » (cf. lib/prospect/non-response.ts) : un prospect
+  // ayant accumulé 4 strikes ne peut plus accepter pendant 2 mois. On lève
+  // d'abord paresseusement une restriction échue (ardoise propre), sinon on
+  // bloque l'acceptation avec un message courtois. Placé AVANT le garde
+  // « données complètes » et le rate-limit (un refus pour restriction ne doit
+  // consommer aucun quota).
+  if (action === "accept") {
+    const restrictedUntil = prospectRow?.accept_restricted_until ?? null;
+    if (restrictedUntil) {
+      const wasReset = await liftExpiredNonResponseRestriction(admin, rel.prospect_id, {
+        accept_restricted_until: restrictedUntil,
+        clerk_user_id: ownerClerkId ?? null,
+      });
+      if (!wasReset) {
+        return NextResponse.json(
+          {
+            error: "accept_restricted",
+            restrictedUntil,
+            message: acceptRestrictedMessage(restrictedUntil),
+          },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   // Garde-fou « données complètes » — backstop du contrôle client (cf.

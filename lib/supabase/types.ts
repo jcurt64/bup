@@ -1004,6 +1004,7 @@ export type Database = {
       }
       prospects: {
         Row: {
+          accept_restricted_until: string | null
           all_campaign_types: boolean
           all_categories: boolean
           bupp_score: number
@@ -1015,7 +1016,10 @@ export type Database = {
           hidden_tiers: Database["public"]["Enums"]["tier_key"][]
           id: string
           is_founder: boolean
+          non_response_level: number
+          non_response_strikes: number
           removed_tiers: Database["public"]["Enums"]["tier_key"][]
+          score_malus: number
           stripe_connect_account_id: string | null
           stripe_details_submitted: boolean
           stripe_payouts_enabled: boolean
@@ -1023,6 +1027,7 @@ export type Database = {
           verification: Database["public"]["Enums"]["verification_level"]
         }
         Insert: {
+          accept_restricted_until?: string | null
           all_campaign_types?: boolean
           all_categories?: boolean
           bupp_score?: number
@@ -1034,7 +1039,10 @@ export type Database = {
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
+          non_response_level?: number
+          non_response_strikes?: number
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
+          score_malus?: number
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
           stripe_payouts_enabled?: boolean
@@ -1042,6 +1050,7 @@ export type Database = {
           verification?: Database["public"]["Enums"]["verification_level"]
         }
         Update: {
+          accept_restricted_until?: string | null
           all_campaign_types?: boolean
           all_categories?: boolean
           bupp_score?: number
@@ -1053,7 +1062,10 @@ export type Database = {
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
+          non_response_level?: number
+          non_response_strikes?: number
           removed_tiers?: Database["public"]["Enums"]["tier_key"][]
+          score_malus?: number
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
           stripe_payouts_enabled?: boolean
@@ -1251,6 +1263,7 @@ export type Database = {
           founder_vip_bonus_applied: boolean
           id: string
           motif: string
+          non_atteint_counted: boolean
           pro_account_id: string
           prospect_id: string
           reward_cents: number
@@ -1270,6 +1283,7 @@ export type Database = {
           founder_vip_bonus_applied?: boolean
           id?: string
           motif: string
+          non_atteint_counted?: boolean
           pro_account_id: string
           prospect_id: string
           reward_cents: number
@@ -1289,6 +1303,7 @@ export type Database = {
           founder_vip_bonus_applied?: boolean
           id?: string
           motif?: string
+          non_atteint_counted?: boolean
           pro_account_id?: string
           prospect_id?: string
           reward_cents?: number

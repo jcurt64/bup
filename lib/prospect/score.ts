@@ -27,6 +27,13 @@ function freshnessPctFromAge(ageMs: number | null): number {
   return 25;
 }
 
+/** Applique le malus de non-réponse (`prospects.score_malus`) au score brut,
+ *  borné à 0. Un malus négatif est ignoré (ne doit jamais bonifier). Cf.
+ *  lib/prospect/non-response.ts. */
+export function applyScoreMalus(rawScore: number, malus: number): number {
+  return Math.max(0, rawScore - Math.max(0, malus));
+}
+
 export type ProspectScoreBreakdown = {
   score: number;
   completenessPct: number;
@@ -73,7 +80,7 @@ export async function computeAndPersistProspectScore(
         .maybeSingle(),
       admin
         .from("prospects")
-        .select("removed_tiers")
+        .select("removed_tiers, score_malus")
         .eq("id", prospectId)
         .single(),
       admin
@@ -143,7 +150,10 @@ export async function computeAndPersistProspectScore(
       : Math.round((acceptedRelations / totalRelations) * 100);
 
   const avgPct = (completenessPct + freshnessPct + acceptancePct) / 3;
-  const score = Math.round(avgPct * 10);
+  // Malus de non-réponse persistant (cf. lib/prospect/non-response.ts) soustrait
+  // du score brut. Stocké à part pour survivre aux recomputes (sinon écrasé).
+  const malus = (prospect.data?.score_malus ?? 0) as number;
+  const score = applyScoreMalus(Math.round(avgPct * 10), malus);
 
   await admin.from("prospects").update({ bupp_score: score }).eq("id", prospectId);
   const today = new Date().toISOString().slice(0, 10);

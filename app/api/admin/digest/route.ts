@@ -21,6 +21,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendAdminDigest } from "@/lib/email/admin-digest";
 import { recordEvent } from "@/lib/admin/events/record";
 import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
+import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,11 +93,19 @@ export async function POST(req: Request) {
   // (event admin), donc elle ne fait rien tant qu'on n'est pas le 15/07/2026,
   // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
   let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
+  let restrictionsLifted = 0;
   if (mode === "daily") {
     try {
       bascule = await applyCnilBasculeIfDue(admin);
     } catch (err) {
       console.error("[/api/admin/digest] CNIL bascule failed", err);
+    }
+    // Piggyback : remise à zéro des restrictions « non-réponse » échues
+    // (même contrainte 1 cron/jour). Idempotent. Cf. lib/prospect/non-response.ts.
+    try {
+      restrictionsLifted = await sweepExpiredNonResponseRestrictions(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] non-response sweep failed", err);
     }
   }
 
@@ -104,5 +113,6 @@ export async function POST(req: Request) {
     mode,
     count: data?.length ?? 0,
     cnilBascule: bascule ?? null,
+    restrictionsLifted,
   });
 }
