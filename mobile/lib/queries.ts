@@ -180,6 +180,11 @@ export type Relation = {
   brief: string | null;
   reward: number;
   tier: number;
+  /** Liste triée/unique des paliers (1..5) exigés par la campagne
+   *  (`targeting.requiredTiers`), exposée par /api/prospect/relations. Sert
+   *  au garde-fou « données complètes » à l'acceptation (cf. lib/completeness).
+   *  Peut être absente/null pour d'anciennes campagnes → repli sur `tier`. */
+  tiers?: number[] | null;
   timer: string;
   startDate: string;
   endDate: string;
@@ -516,6 +521,16 @@ export type DonneesResp = {
   hiddenTiers: TierKey[];
   removedTiers: TierKey[];
   isFounder: boolean;
+  // Préférences de monétisation (types de campagne + catégories acceptés).
+  // Bloc renvoyé par le GET /api/prospect/donnees ; écrit via usePatchPreferences.
+  // Optionnel pour tolérer un backend pas encore déployé (repli sur défauts).
+  preferences?: ProspectPreferences;
+};
+export type ProspectPreferences = {
+  allCampaignTypes: boolean;
+  campaignTypes: string[];
+  allCategories: boolean;
+  categories: string[];
 };
 export const useProspectDonnees = () =>
   useGet<DonneesResp>(["prospect", "donnees"], "/api/prospect/donnees", 15_000);
@@ -630,6 +645,29 @@ export function usePatchDonnees() {
       qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
       qc.invalidateQueries({ queryKey: ["prospect", "score"] });
       qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
+    },
+  });
+}
+
+// Préférences de monétisation (types de campagne + catégories) — PATCH partiel
+// sur /api/prospect/preferences. Le body accepte un sous-ensemble ; les
+// libellés sont validés/projetés côté serveur (lib/prospect/preferences.ts).
+export function usePatchPreferences() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      allCampaignTypes?: boolean;
+      campaignTypes?: string[];
+      allCategories?: boolean;
+      categories?: string[];
+    }) =>
+      api("/api/prospect/preferences", {
+        method: "PATCH",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
     },
   });
 }

@@ -3,12 +3,12 @@
 // /api/prospect/payout/status, /api/me/email-tracking. Actions :
 // phone/rib/payout/email-tracking, zone géographique (rayon + nationalOptIn
 // via patchDonnees), paliers partageables (tierAction hide/restore).
-// Types de campagne et catégories = pas d'endpoint dédié côté API → blocs
-// rendus en lecture seule (badge « Verrouillé »).
+// Types de campagne et catégories = hydratés depuis /api/prospect/donnees
+// (bloc preferences) et persistés via /api/prospect/preferences (patchPrefs).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { eur, QueryGate, ScrollScreen } from "../../components/screen";
@@ -24,6 +24,7 @@ import {
   usePhoneStart,
   usePhoneVerify,
   usePatchDonnees,
+  usePatchPreferences,
   useProspectDonnees,
   useProspectVerification,
   useProspectWallet,
@@ -373,6 +374,7 @@ export default function Preferences() {
   const withdraw    = usePayoutWithdraw();
   const setMail     = useSetEmailTracking();
   const patchDon    = usePatchDonnees();
+  const patchPrefs  = usePatchPreferences();
   const tierAction  = useTierAction();
 
   const [phone,   setPhone]   = useState("");
@@ -382,42 +384,67 @@ export default function Preferences() {
   const [holder,  setHolder]  = useState("");
   const [amount,  setAmount]  = useState("");
 
-  // Types de campagne & catégories acceptés — state LOCAL (parité web
-  // Prospect.jsx : pas d'endpoint API dédié, sélection non persistée).
-  // `allX` = mode « tout sélectionné » ; sinon le Set `selX` fait foi.
+  // Types de campagne & catégories acceptés — hydratés depuis
+  // /api/prospect/donnees (bloc `preferences`) puis persistés à chaque
+  // changement via /api/prospect/preferences. `allX` = mode « tout
+  // sélectionné » ; sinon le Set `selX` fait foi. Parité web Prospect.jsx.
   const [allTypes, setAllTypes] = useState(true);
   const [selTypes, setSelTypes] = useState<Set<string>>(new Set());
   const [allCats, setAllCats] = useState(true);
   const [selCats, setSelCats] = useState<Set<string>>(new Set());
 
+  // Hydratation UNE FOIS quand le bloc preferences arrive : ensuite le state
+  // local fait foi (les invalidations post-PATCH ne re-clobberent pas une
+  // sélection en cours — évite la course refetch/optimiste).
+  const prefsHydrated = useRef(false);
+  useEffect(() => {
+    const p = don.data?.preferences;
+    if (!p || prefsHydrated.current) return;
+    prefsHydrated.current = true;
+    setAllTypes(p.allCampaignTypes !== false);
+    setSelTypes(new Set(Array.isArray(p.campaignTypes) ? p.campaignTypes : []));
+    setAllCats(p.allCategories !== false);
+    setSelCats(new Set(Array.isArray(p.categories) ? p.categories : []));
+  }, [don.data?.preferences]);
+
   // Toggle d'un chip : depuis le mode « Tous », un clic désélectionne ce
   // chip (et conserve les autres) en basculant en mode partiel = liste
   // entière sauf celui-ci (parité toggleCampaignType/toggleCategory web).
+  // On calcule l'état suivant de façon déterministe pour le répliquer à la
+  // fois dans le state local et côté API (optimiste).
   const toggleType = (t: string) => {
-    if (allTypes) {
-      setSelTypes(new Set(CAMPAIGN_TYPE_LIST.filter((x) => x !== t)));
-      setAllTypes(false);
-      return;
-    }
-    setSelTypes((prev) => {
-      const n = new Set(prev);
-      if (n.has(t)) n.delete(t);
-      else n.add(t);
-      return n;
-    });
+    const next = allTypes
+      ? new Set(CAMPAIGN_TYPE_LIST.filter((x) => x !== t))
+      : (() => {
+          const n = new Set(selTypes);
+          if (n.has(t)) n.delete(t);
+          else n.add(t);
+          return n;
+        })();
+    setSelTypes(next);
+    setAllTypes(false);
+    patchPrefs.mutate({ allCampaignTypes: false, campaignTypes: [...next] });
   };
-  const toggleCat = (c: string) => {
-    if (allCats) {
-      setSelCats(new Set(CATEGORY_LIST.filter((x) => x !== c)));
-      setAllCats(false);
-      return;
-    }
-    setSelCats((prev) => {
-      const n = new Set(prev);
-      if (n.has(c)) n.delete(c);
-      else n.add(c);
-      return n;
-    });
+  const setAllTypesPersist = (on: boolean) => {
+    setAllTypes(on);
+    patchPrefs.mutate({ allCampaignTypes: on, campaignTypes: [...selTypes] });
+  };
+  const toggleCat = (cat: string) => {
+    const next = allCats
+      ? new Set(CATEGORY_LIST.filter((x) => x !== cat))
+      : (() => {
+          const n = new Set(selCats);
+          if (n.has(cat)) n.delete(cat);
+          else n.add(cat);
+          return n;
+        })();
+    setSelCats(next);
+    setAllCats(false);
+    patchPrefs.mutate({ allCategories: false, categories: [...next] });
+  };
+  const setAllCatsPersist = (on: boolean) => {
+    setAllCats(on);
+    patchPrefs.mutate({ allCategories: on, categories: [...selCats] });
   };
 
   // NaN-guard sur le montant de retrait
@@ -524,7 +551,7 @@ export default function Preferences() {
           <AllButton
             active={allTypes}
             label="Tous"
-            onPress={() => setAllTypes((v) => !v)}
+            onPress={() => setAllTypesPersist(!allTypes)}
           />
         }
       >
@@ -557,7 +584,7 @@ export default function Preferences() {
           <AllButton
             active={allCats}
             label="Toutes"
-            onPress={() => setAllCats((v) => !v)}
+            onPress={() => setAllCatsPersist(!allCats)}
           />
         }
       >
