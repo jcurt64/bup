@@ -247,10 +247,18 @@ export default function CguPage() {
             <li>
               <strong>répondre dans un délai raisonnable</strong> aux
               sollicitations qu&apos;il a acceptées (par e-mail, SMS,
-              appel, ou via le canal indiqué par le Pro) ; un Prospect
-              signalé «&nbsp;non atteint&nbsp;» à deux reprises reçoit un
-              message de rappel et peut, en cas de récidive, voir son
-              compte suspendu (cf. article&nbsp;12) ;
+              appel, ou via le canal indiqué par le Pro). À défaut, un
+              Prospect signalé «&nbsp;non atteint&nbsp;» par des
+              professionnels fait l&apos;objet d&apos;une <strong>escalade
+              graduée</strong>&nbsp;: rappel amical dès le 2<sup>e</sup>{" "}
+              signalement, ajustement de son BUUPP Score
+              (<strong>−100&nbsp;points</strong>) au 3<sup>e</sup>, puis{" "}
+              <strong>mise en pause de l&apos;acceptation de nouvelles
+              sollicitations pendant 2&nbsp;mois</strong> au 4<sup>e</sup>.
+              Ces mesures sont automatiquement <strong>remises à zéro</strong>{" "}
+              à l&apos;issue de la période de pause (cf. article&nbsp;13). Le
+              fait de <em>refuser</em> une sollicitation n&apos;entraîne, lui,
+              aucune conséquence ;
             </li>
             <li>
               respecter le <strong>droit à la prise de contact</strong>
@@ -555,8 +563,13 @@ export default function CguPage() {
             </li>
             <li>
               signalements répétés «&nbsp;non atteint&nbsp;» (Prospect qui
-              accepte des sollicitations sans jamais répondre — cf.
-              article&nbsp;5) ;
+              accepte des sollicitations sans jamais répondre). Ces
+              signalements déclenchent d&apos;abord une escalade graduée et
+              réversible (rappel, ajustement du BUUPP Score, puis mise en
+              pause temporaire de l&apos;acceptation pendant 2&nbsp;mois —
+              cf. article&nbsp;5)&nbsp;; la suspension ou la résiliation du
+              compte n&apos;est envisagée qu&apos;en cas de persistance
+              avérée au-delà de ce dispositif ;
             </li>
             <li>
               côté Pro&nbsp;: exfiltration, revente, capture en masse ou

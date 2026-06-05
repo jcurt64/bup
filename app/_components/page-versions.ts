@@ -73,6 +73,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Watermark cryptographique des emails révélés : chaque relation reçoit un alias unique `prospect+rXXX@buupp.com` routé via Cloudflare Email Worker. Toute fuite remonte instantanément au pro émetteur.",
       },
+      {
+        version: "1.3",
+        date: "2026-06-05",
+        summary:
+          "Nouvelle FAQ « Que se passe-t-il si je ne réponds pas aux sollicitations » : escalade graduée des signalements « non atteint » (rappel à 2, ajustement du BUUPP Score à 3, mise en pause de l'acceptation 2 mois à 4, remise à zéro à l'échéance).",
+      },
     ],
   },
   {
@@ -128,6 +134,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         date: "2026-05-18",
         summary:
           "Prestataires : « Resend / opérateur SMS » remplacé par Brevo (e-mail et SMS), reflétant le prestataire réellement utilisé.",
+      },
+      {
+        version: "1.4",
+        date: "2026-06-05",
+        summary:
+          "Conséquences de la non-réponse aux sollicitations acceptées précisées (articles 5 et 13) : escalade graduée et réversible — rappel, ajustement du BUUPP Score (−100 pts), puis mise en pause de l'acceptation pendant 2 mois, remise à zéro à l'échéance ; la suspension reste réservée à la persistance avérée.",
       },
     ],
   },

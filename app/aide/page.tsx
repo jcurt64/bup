@@ -73,7 +73,10 @@ const CATEGORIES: Category[] = [
             des paliers</strong>, <strong>fraîcheur des données</strong> et <strong>taux
             d&apos;acceptation</strong> de vos sollicitations. Quatre tranches : Découverte
             (0–399), Solide (400–699), Recherché (700–899), Prestige (900–1000). Un score
-            élevé attire des demandes plus exigeantes, donc mieux rémunérées.
+            élevé attire des demandes plus exigeantes, donc mieux rémunérées. À l&apos;inverse,
+            accepter des sollicitations puis rester injoignable de façon répétée peut entraîner
+            un léger ajustement temporaire (voir «&nbsp;Que se passe-t-il si je ne réponds pas
+            aux sollicitations…&nbsp;»).
           </p>
         ),
       },
@@ -113,6 +116,60 @@ const CATEGORIES: Category[] = [
             </p>
           </>
         ),
+      },
+      {
+        q: "Que se passe-t-il si je ne réponds pas aux sollicitations que j'accepte ?",
+        a: (
+          <>
+            <p>
+              Accepter une sollicitation est un engagement&nbsp;: le professionnel
+              paie pour pouvoir vous joindre et s&apos;attend à une réponse de votre
+              part (par email, SMS ou téléphone) — même un simple «&nbsp;non
+              merci&nbsp;» suffit. Si vous restez injoignable après avoir accepté, le
+              professionnel peut indiquer qu&apos;il n&apos;a pas réussi à vous
+              contacter.
+            </p>
+            <p>
+              Pour que le service reste agréable pour tout le monde, ces signalements
+              suivent une échelle <strong>progressive et bienveillante</strong>&nbsp;:
+            </p>
+            <ul>
+              <li>
+                <strong>2 signalements</strong> — vous recevez un simple rappel
+                amical dans «&nbsp;Mes messages&nbsp;».
+              </li>
+              <li>
+                <strong>3 signalements</strong> — un léger ajustement
+                (<strong>−100&nbsp;points</strong>) est appliqué à votre BUUPP Score.
+                Rien de définitif&nbsp;: en répondant à nouveau aux sollicitations que
+                vous acceptez, il remonte naturellement.
+              </li>
+              <li>
+                <strong>4 signalements</strong> — l&apos;acceptation de nouvelles
+                sollicitations est mise en pause pendant <strong>2&nbsp;mois</strong>.
+                Pendant cette pause, vous restez libre de compléter votre profil et
+                de consulter votre espace.
+              </li>
+            </ul>
+            <p>
+              <strong>Tout se remet à zéro</strong> à la fin de la pause&nbsp;: le
+              compteur, l&apos;ajustement de score et la restriction sont effacés, et
+              vous repartez sur une ardoise propre. <strong>Refuser</strong> une
+              sollicitation, en revanche, n&apos;a <em>jamais</em> aucune
+              conséquence — seul le silence après une acceptation est concerné.
+            </p>
+          </>
+        ),
+        tags: [
+          "non-réponse",
+          "injoignable",
+          "signalement",
+          "restriction",
+          "pause",
+          "malus",
+          "non atteint",
+          "ghosting",
+        ],
       },
       {
         q: "Pourquoi mes gains sont en « séquestre » ?",
