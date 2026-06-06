@@ -11,6 +11,15 @@ import {
 
 export type FounderBonusParams = { prenom: string | null };
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function renderFounderBonusEmail(params: FounderBonusParams): {
   subject: string;
   text: string;
@@ -18,6 +27,7 @@ export function renderFounderBonusEmail(params: FounderBonusParams): {
 } {
   const prenom = (params.prenom ?? "").trim();
   const hello = prenom ? `Bonjour ${prenom},` : "Bonjour,";
+  const helloHtml = prenom ? `Bonjour ${escapeHtml(prenom)},` : "Bonjour,";
   const subject = "Votre bonus fondateur est arrivé 🎁";
 
   const text = [
@@ -31,8 +41,8 @@ export function renderFounderBonusEmail(params: FounderBonusParams): {
     "L'équipe BUUPP",
   ].join("\n");
 
-  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5;">
-    <p>${hello}</p>
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Votre bonus fondateur</title></head><body style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${helloHtml}</p>
     <p>Merci d'avoir rejoint BUUPP dès la liste d'attente !</p>
     <p>Pour vous remercier, nous venons de créditer
        <strong>5,00 € de bonus fondateur</strong> sur votre portefeuille.

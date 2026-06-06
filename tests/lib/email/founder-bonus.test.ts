@@ -15,4 +15,10 @@ describe("renderFounderBonusEmail", () => {
     expect(text).toContain("Bonjour");
     expect(text).not.toContain("null");
   });
+
+  it("échappe le prénom dans le HTML (anti-XSS)", () => {
+    const { html } = renderFounderBonusEmail({ prenom: "<script>alert(1)</script>" });
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
 });
