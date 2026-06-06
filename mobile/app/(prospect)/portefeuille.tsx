@@ -165,7 +165,7 @@ function PulseRing({ delay }: { delay: number }) {
 }
 
 export default function Portefeuille() {
-  const { isDark } = useTheme();
+  const { isDark, c } = useTheme();
   // Tuile icône blanche : givrée (translucide) en sombre pour ressortir sur
   // la carte teintée foncée.
   const tileBg = isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF";
@@ -399,6 +399,18 @@ export default function Portefeuille() {
                 {eur(d.availableEur)}
               </Text>
               <CoinsLine coins={coins(d.availableCents)} />
+
+              {/* Part « bonus fondateur » (signup_bonus) incluse dans le
+                  disponible — mise en valeur verte avec icône cadeau (parité
+                  web : carte Disponible « dont X € de bonus fondateur »). */}
+              {(d.signupBonusEur ?? 0) > 0 && (
+                <View className="mt-1.5 flex-row items-center gap-1.5">
+                  <Ionicons name="gift" size={13} color={c.good} />
+                  <Text className="font-mono text-[12px]" style={{ color: c.good }}>
+                    dont {eur(d.signupBonusEur ?? 0)} de bonus fondateur
+                  </Text>
+                </View>
+              )}
 
               {/* Progression vers le seuil de retrait — barre + « X / Y € »
                   (parité redesign.png). Données dérivées (aucun back). */}
@@ -634,6 +646,9 @@ export default function Portefeuille() {
                 // Crédit (entrée, +) → violet, flèche entrante ; sinon
                 // (séquestre/retrait) → ambre, flèche sortante.
                 const positive = mv.amountCents > 0;
+                // Bonus fondateur (signup_bonus) : ligne mise en valeur en vert
+                // (parité web : fond accentué + pastille « Bonus fondateur »).
+                const isSignupBonus = mv.kind === "signup_bonus";
                 return (
                 <Pressable
                   key={mv.id}
@@ -648,6 +663,9 @@ export default function Portefeuille() {
                   }`}
                   style={{
                     borderWidth: 0.7,
+                    ...(isSignupBonus
+                      ? { backgroundColor: c.goodSoft, borderColor: c.good }
+                      : null),
                     shadowColor: "#0F1629",
                     shadowOpacity: 0.04,
                     shadowRadius: 10,
@@ -658,15 +676,25 @@ export default function Portefeuille() {
                   <View
                     className="h-11 w-11 items-center justify-center rounded-full"
                     style={{
-                      backgroundColor: positive
-                        ? "rgba(124,92,252,0.12)"
-                        : "rgba(224,145,90,0.14)",
+                      backgroundColor: isSignupBonus
+                        ? c.goodSoft
+                        : positive
+                          ? "rgba(124,92,252,0.12)"
+                          : "rgba(224,145,90,0.14)",
                     }}
                   >
                     <Ionicons
-                      name={positive ? "arrow-down" : "arrow-up"}
+                      name={
+                        isSignupBonus
+                          ? "gift"
+                          : positive
+                            ? "arrow-down"
+                            : "arrow-up"
+                      }
                       size={20}
-                      color={positive ? "#7C5CFC" : "#E0915A"}
+                      color={
+                        isSignupBonus ? c.good : positive ? "#7C5CFC" : "#E0915A"
+                      }
                     />
                   </View>
 
@@ -693,7 +721,19 @@ export default function Portefeuille() {
                       {mv.sign}
                       {eur(Math.abs(mv.amountEur))}
                     </Text>
-                    {tStr ? (
+                    {isSignupBonus ? (
+                      <View
+                        className="rounded-full px-2 py-0.5"
+                        style={{ backgroundColor: c.goodSoft }}
+                      >
+                        <Text
+                          className="font-mono text-[10.5px]"
+                          style={{ color: c.good }}
+                        >
+                          Bonus fondateur
+                        </Text>
+                      </View>
+                    ) : tStr ? (
                       <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
                         <Text className="font-mono text-[10.5px] text-ink-3">
                           {tLabel} {tStr}

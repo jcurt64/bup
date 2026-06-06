@@ -154,6 +154,11 @@ export type ProspectWallet = {
   lifetimeGainsCents: number;
   availableCents: number;
   escrowCents: number;
+  // Part "bonus fondateur" (signup_bonus) incluse dans available/lifetime.
+  // Optionnel : présent seulement quand le backend déployé l'expose (sinon
+  // la carte masque la mention « dont … »).
+  signupBonusEur?: number;
+  signupBonusCents?: number;
 };
 export const useProspectWallet = () => {
   const api = useApi();
@@ -489,6 +494,10 @@ export type Movement = {
   amountCents: number;
   amountEur: number;
   sign: string;
+  /** Type brut de la transaction (ex. 'signup_bonus' pour le bonus fondateur),
+   *  utilisé pour la mise en valeur de la ligne. Optionnel : présent seulement
+   *  quand le backend déployé l'expose. */
+  kind?: string;
   relation: MovementRelation | null;
 };
 type MovementsResponse = { movements: Movement[] };
