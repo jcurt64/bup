@@ -381,7 +381,7 @@ export default function BuppMatrix() {
             { icon: "◎", label: "Données standard", desc: "Large diffusion, faible différenciation", color: "#94A3B8" },
             { icon: "⬟", label: "Données professionnelles", desc: "Haute valeur B2B et segmentation CSP", color: "#F59E0B" },
             { icon: "★", label: "Données patrimoniales", desc: "Maximum de valeur — profils premium", color: "#C084FC" },
-            { icon: "✦", label: "Multiplicateur ×2", desc: "Prospect vérifié Palier 3 — identité certifiée KYC", color: "#6366F1" },
+            { icon: "✦", label: "Multiplicateur ×2", desc: "Prospect vérifié Palier 3 — identité certifiée", color: "#6366F1" },
           ].map((item, i) => (
             <div key={i} style={{
               background: "#0F1420", border: "1px solid #1E2435",
