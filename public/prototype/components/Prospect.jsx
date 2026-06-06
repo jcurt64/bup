@@ -2554,7 +2554,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                     title={clickable ? 'Voir le détail de la campagne' : undefined}
                     style={{
                       ...(clickable ? { cursor: 'pointer' } : null),
-                      ...(isSignupBonus ? { background: 'color-mix(in srgb, var(--good) 8%, transparent)' } : null),
+                      ...(isSignupBonus ? { background: 'color-mix(in oklab, var(--good) 8%, var(--paper))' } : null),
                     }}
                   >
                     <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
