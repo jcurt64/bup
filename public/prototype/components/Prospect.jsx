@@ -2539,6 +2539,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                 // Les retraits IBAN, parrainages sans campagne, etc. restent
                 // non interactifs.
                 const clickable = !!m.relation;
+                const isSignupBonus = m.kind === 'signup_bonus';
                 return (
                   <tr
                     key={m.id}
@@ -2551,10 +2552,21 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                     role={clickable ? 'button' : undefined}
                     tabIndex={clickable ? 0 : undefined}
                     title={clickable ? 'Voir le détail de la campagne' : undefined}
-                    style={clickable ? { cursor: 'pointer' } : undefined}
+                    style={{
+                      ...(clickable ? { cursor: 'pointer' } : null),
+                      ...(isSignupBonus ? { background: 'color-mix(in srgb, var(--good) 8%, transparent)' } : null),
+                    }}
                   >
                     <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
-                    <td>{m.origin}</td>
+                    <td>
+                      {isSignupBonus ? (
+                        <span className="chip chip-good" style={{ fontWeight: 600 }}>
+                          <Icon name="gift" size={12}/> Bonus fondateur
+                        </span>
+                      ) : (
+                        m.origin
+                      )}
+                    </td>
                     <td>{(() => {
                       const t = movementTierLabel(m);
                       return t
