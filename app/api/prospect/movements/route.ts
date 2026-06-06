@@ -22,6 +22,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { reportedRelationIds } from "@/lib/prospect/reports";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import {
+  statusLabel,
+  statusChip,
+  SIGNUP_BONUS_ORIGIN,
+} from "@/lib/prospect/transactions";
 
 export const runtime = "nodejs";
 
@@ -94,28 +99,8 @@ function relationTimerString(iso: string | null | undefined): string {
   return `${h} h ${String(m).padStart(2, "0")} min`;
 }
 
-function statusLabel(type: string, status: string): string {
-  if (type === "withdrawal") return status === "completed" ? "Exécuté" : "En cours";
-  if (type === "escrow")
-    return status === "pending" ? "En séquestre"
-      : status === "completed" ? "Crédité"
-      : status === "canceled" ? "Annulé" : status;
-  if (type === "credit") return status === "completed" ? "Crédité" : status;
-  if (type === "referral_bonus") return status === "completed" ? "Crédité" : status;
-  if (type === "refund") return "Remboursé";
-  return status;
-}
-
-// `chip-good` (vert), `chip-warn` (orange), ou "" (neutre) — aligné avec les
-// classes CSS utilisées par la table de l'onglet Portefeuille.
-function statusChip(type: string, status: string): "good" | "warn" | "" {
-  if (type === "escrow" && status === "pending") return "warn";
-  if ((type === "credit" || type === "referral_bonus") && status === "completed") return "good";
-  if (type === "escrow" && status === "completed") return "good";
-  return "";
-}
-
 function originLabel(row: TransactionRow): string {
+  if (row.type === "signup_bonus") return SIGNUP_BONUS_ORIGIN;
   const raison = (row.relations?.pro_accounts?.raison_sociale ?? "").trim();
   // Si la raison_sociale contient '@', c'est qu'elle n'a pas été remplie
   // (cas observé : la row pro_accounts garde l'email Clerk comme valeur
@@ -303,6 +288,7 @@ export async function GET() {
       amountCents: cents,
       amountEur: eur,
       sign: cents >= 0 ? "+" : "−",
+      kind: r.type,
       relation,
     };
   });
