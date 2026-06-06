@@ -18,7 +18,7 @@
  *
  * Définition d'une transaction "gain" :
  *   - account_kind = 'prospect' & account_id = prospect.id
- *   - type ∈ {'credit', 'referral_bonus'}
+ *   - type ∈ {'credit', 'referral_bonus', 'signup_bonus'}
  *   - status = 'completed'
  *
  * Auth Clerk obligatoire. Lecture en service_role pour bypasser les RLS
@@ -30,6 +30,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { GAIN_TRANSACTION_TYPES } from "@/lib/prospect/transactions";
 
 export const runtime = "nodejs";
 
@@ -71,23 +72,23 @@ export async function GET() {
 
   const monthStart = startOfMonthIso();
 
-  // Lectures parallèles : 5 requêtes ciblées, toutes indexées sur
+  // Lectures parallèles : 7 requêtes ciblées, toutes indexées sur
   // (account_id, account_kind, status) ou (prospect_id) pour relations.
-  const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow] =
+  const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow, signupBonus] =
     await Promise.all([
       admin
         .from("transactions")
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        .in("type", ["credit", "referral_bonus"])
+        .in("type", [...GAIN_TRANSACTION_TYPES])
         .eq("status", "completed"),
       admin
         .from("transactions")
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        .in("type", ["credit", "referral_bonus"])
+        .in("type", [...GAIN_TRANSACTION_TYPES])
         .eq("status", "completed")
         .gte("created_at", monthStart),
       admin
@@ -111,6 +112,13 @@ export async function GET() {
         .select("created_at")
         .eq("id", prospectId)
         .single(),
+      admin
+        .from("transactions")
+        .select("amount_cents")
+        .eq("account_kind", "prospect")
+        .eq("account_id", prospectId)
+        .eq("type", "signup_bonus")
+        .eq("status", "completed"),
     ]);
 
   const lifetimeCents = sumAmounts(gainsLifetime.data);
@@ -121,6 +129,7 @@ export async function GET() {
     (acc, r) => acc + Number(r.reward_cents ?? 0),
     0,
   );
+  const signupBonusCents = sumAmounts(signupBonus.data);
 
   return NextResponse.json({
     monthStart,
@@ -130,6 +139,8 @@ export async function GET() {
     lifetimeGainsEur: Math.round(lifetimeCents) / 100,
     availableCents,
     availableEur: Math.round(availableCents) / 100,
+    signupBonusCents,
+    signupBonusEur: Math.round(signupBonusCents) / 100,
     escrowCents,
     escrowEur: Math.round(escrowCents) / 100,
     canWithdraw: availableCents >= WITHDRAW_THRESHOLD_EUR * 100,
