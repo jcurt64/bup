@@ -15,7 +15,7 @@ import { eur } from "./screen";
 import { resetOnboardingSeen } from "../lib/onboarding";
 import { unregisterPushToken } from "../lib/push";
 import { useTheme } from "../lib/theme";
-import { useDeleteAccount, useProWallet } from "../lib/queries";
+import { useDeleteAccount, useMeTyped, useProWallet } from "../lib/queries";
 
 const NAV: {
   label: string;
@@ -35,6 +35,7 @@ export default function ProDrawerPanel() {
   const { signOut, getToken } = useAuth();
   const qc = useQueryClient();
   const del = useDeleteAccount();
+  const me = useMeTyped();
   const wallet = useProWallet();
   const raison = wallet.data?.raisonSociale?.trim() || null;
   const available = wallet.data?.walletAvailableEur ?? null;
@@ -193,6 +194,17 @@ export default function ProDrawerPanel() {
           </View>
 
           <View className="my-4 h-px" style={{ backgroundColor: d.border }} />
+          {/* Email du compte au-dessus de Déconnexion (parité web + drawer
+              prospect). Source = /api/me (email Clerk côté pro). */}
+          {me.data?.email ? (
+            <Text
+              className="px-3 pb-2 text-[12px]"
+              style={{ color: d.muted }}
+              numberOfLines={1}
+            >
+              {me.data.email}
+            </Text>
+          ) : null}
           <Row icon="power" label="Déconnexion" onPress={() => setConfirm("signout")} />
           <Row
             icon="trash-outline"

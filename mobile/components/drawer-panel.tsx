@@ -412,6 +412,18 @@ export default function DrawerPanel() {
           </View>
 
           <View className="my-4 h-px" style={{ backgroundColor: d.border }} />
+          {/* Email du souscripteur au-dessus de Déconnexion (parité web :
+              Prospect.jsx bloc `dash-logout` > `dash-user-email`). Source =
+              /api/me (prospect_identity.email). Tronqué sur une ligne. */}
+          {me.data?.email ? (
+            <Text
+              className="px-3 pb-2 text-[12px]"
+              style={{ color: d.muted }}
+              numberOfLines={1}
+            >
+              {me.data.email}
+            </Text>
+          ) : null}
           <Row icon="power" label="Déconnexion" onPress={() => setConfirm("signout")} />
           <Row
             icon="trash-outline"
