@@ -72,7 +72,7 @@ export async function GET() {
 
   const monthStart = startOfMonthIso();
 
-  // Lectures parallèles : 6 requêtes ciblées, toutes indexées sur
+  // Lectures parallèles : 7 requêtes ciblées, toutes indexées sur
   // (account_id, account_kind, status) ou (prospect_id) pour relations.
   const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow, signupBonus] =
     await Promise.all([
