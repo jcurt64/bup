@@ -81,16 +81,14 @@ export async function GET() {
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .in("type", [...GAIN_TRANSACTION_TYPES] as any[])
+        .in("type", [...GAIN_TRANSACTION_TYPES])
         .eq("status", "completed"),
       admin
         .from("transactions")
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .in("type", [...GAIN_TRANSACTION_TYPES] as any[])
+        .in("type", [...GAIN_TRANSACTION_TYPES])
         .eq("status", "completed")
         .gte("created_at", monthStart),
       admin

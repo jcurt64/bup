@@ -1613,6 +1613,7 @@ export type Database = {
         | "referral_bonus"
         | "refund"
         | "buupp_commission"
+        | "signup_bonus"
       verification_level:
         | "basique"
         | "verifie"
@@ -1777,6 +1778,7 @@ export const Constants = {
         "referral_bonus",
         "refund",
         "buupp_commission",
+        "signup_bonus",
       ],
       verification_level: [
         "basique",
