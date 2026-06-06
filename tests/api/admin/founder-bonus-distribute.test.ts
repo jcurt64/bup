@@ -43,4 +43,14 @@ describe("POST /api/admin/founder-bonus/distribute", () => {
     expect(json.credited).toBe(7);
     expect(distributeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirm: true }));
   });
+
+  it("erreur de la lib → 500 JSON actionnable", async () => {
+    requireAdminMock.mockResolvedValueOnce(null);
+    distributeMock.mockRejectedValueOnce(new Error("boom"));
+    const { POST } = await import("@/app/api/admin/founder-bonus/distribute/route");
+    const res = await POST(new Request("http://x/api/admin/founder-bonus/distribute?confirm=1", { method: "POST" }));
+    const json = await res.json();
+    expect(res.status).toBe(500);
+    expect(json.error).toBe("distribute_failed");
+  });
 });
