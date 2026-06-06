@@ -18,7 +18,7 @@
  *
  * Définition d'une transaction "gain" :
  *   - account_kind = 'prospect' & account_id = prospect.id
- *   - type ∈ {'credit', 'referral_bonus'}
+ *   - type ∈ {'credit', 'referral_bonus', 'signup_bonus'}
  *   - status = 'completed'
  *
  * Auth Clerk obligatoire. Lecture en service_role pour bypasser les RLS
@@ -30,6 +30,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { GAIN_TRANSACTION_TYPES } from "@/lib/prospect/transactions";
 
 export const runtime = "nodejs";
 
@@ -80,14 +81,16 @@ export async function GET() {
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        .in("type", ["credit", "referral_bonus"])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .in("type", [...GAIN_TRANSACTION_TYPES] as any[])
         .eq("status", "completed"),
       admin
         .from("transactions")
         .select("amount_cents")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
-        .in("type", ["credit", "referral_bonus"])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .in("type", [...GAIN_TRANSACTION_TYPES] as any[])
         .eq("status", "completed")
         .gte("created_at", monthStart),
       admin
