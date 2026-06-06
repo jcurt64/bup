@@ -4,6 +4,10 @@
 -- Crédite 5,00 € (500 cents) sur le portefeuille des prospects fondateurs
 -- (is_founder = true, càd email présent en waitlist). Versement fictif :
 -- pas de mouvement Stripe réel. Idempotent via prospects.founder_signup_bonus_applied.
+--
+-- NB : le timestamp du fichier (2026-07-15) ne sert qu'au TRI des migrations
+-- (placé après la migration CNIL différée du 2026-07-14). Cette migration est
+-- à appliquer IMMÉDIATEMENT, ce n'est PAS une migration différée.
 -- ════════════════════════════════════════════════════════════════════
 
 -- 1. Nouvelle valeur d'enum. `add value` ne peut pas être utilisée dans la
@@ -53,3 +57,6 @@ end;
 $$;
 
 revoke all on function public.apply_founder_signup_bonus(uuid) from public, anon, authenticated;
+-- Appelée exclusivement depuis le backend (service_role). Grant explicite par
+-- cohérence avec les autres RPC backend du projet (service_role bypass RLS).
+grant execute on function public.apply_founder_signup_bonus(uuid) to service_role;
