@@ -15,6 +15,14 @@
  * et par la même pattern utilisée dans collectRecipients() :
  *   `(r.prospects as { clerk_user_id: string } | null)?.clerk_user_id`
  * On accède donc à `row.prospect_identity?.email` directement (pas [0]).
+ *
+ * Sémantique en cas d'échec après crédit : la RPC crédite et pose le flag
+ * AVANT l'insertion du broadcast et l'envoi de l'email. Si le broadcast ou
+ * l'email échoue ensuite, un re-run NE les rejoue PAS (la RPC renvoie false
+ * car déjà crédité). L'opérateur doit donc inspecter les compteurs du
+ * résultat ({ credited, broadcasted, emailed, errors }) : un écart
+ * credited > broadcasted/emailed signale des notifications à reprendre
+ * manuellement.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
@@ -114,11 +122,15 @@ export async function distributeFounderBonus(
         } else {
           result.broadcasted += 1;
         }
+      } else {
+        console.warn("[founder-bonus] crédité sans clerk_user_id, broadcast ignoré", row.id);
       }
 
       if (email) {
         await sendEmail(email, { prenom: row.prospect_identity?.prenom ?? null });
         result.emailed += 1;
+      } else {
+        console.warn("[founder-bonus] crédité sans email, email ignoré", row.id);
       }
     } catch (err) {
       console.error("[founder-bonus] unexpected error", row.id, err);

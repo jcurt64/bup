@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { distributeFounderBonus } from "@/lib/founder-bonus/distribute";
 
 // Faux client admin Supabase : éligibles fixés, rpc + insert espionnés.
-function makeAdmin(rows: { id: string; clerk_user_id: string; prenom: string; email: string }[]) {
+function makeAdmin(rows: { id: string; clerk_user_id: string | null; prenom: string | null; email: string | null }[]) {
   const insertSpy = vi.fn().mockResolvedValue({ error: null });
   const rpcSpy = vi.fn().mockResolvedValue({ data: true, error: null });
   const eligibleRows = rows.map((r) => ({
@@ -72,5 +72,46 @@ describe("distributeFounderBonus", () => {
     expect(res.credited).toBe(0);
     expect(insertSpy).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("confirm : broadcast en échec n'empêche pas l'email + compte une erreur", async () => {
+    const { admin, insertSpy, rpcSpy } = makeAdmin([sample[0]]);
+    rpcSpy.mockResolvedValue({ data: true, error: null });
+    insertSpy.mockResolvedValueOnce({ error: { message: "db down" } });
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await distributeFounderBonus(admin as any, { confirm: true, sendEmail });
+    expect(res.credited).toBe(1);
+    expect(res.broadcasted).toBe(0);
+    expect(res.emailed).toBe(1);
+    expect(res.errors).toBe(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirm : clerk_user_id null → broadcast ignoré, email envoyé", async () => {
+    const { admin, insertSpy } = makeAdmin([
+      { id: "p1", clerk_user_id: null, prenom: "Léa", email: "lea@ex.com" },
+    ]);
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await distributeFounderBonus(admin as any, { confirm: true, sendEmail });
+    expect(res.credited).toBe(1);
+    expect(res.broadcasted).toBe(0);
+    expect(res.emailed).toBe(1);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("confirm : email null → email ignoré, broadcast envoyé", async () => {
+    const { admin, insertSpy } = makeAdmin([
+      { id: "p1", clerk_user_id: "c1", prenom: "Léa", email: null },
+    ]);
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await distributeFounderBonus(admin as any, { confirm: true, sendEmail });
+    expect(res.credited).toBe(1);
+    expect(res.broadcasted).toBe(1);
+    expect(res.emailed).toBe(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(insertSpy).toHaveBeenCalledTimes(1);
   });
 });
