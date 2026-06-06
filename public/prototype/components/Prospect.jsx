@@ -2395,6 +2395,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const fmt = (eur) => Number(eur || 0).toFixed(2).replace('.', ',');
   const availableEur = wallet?.availableEur ?? 0;
   const availableCoins = Math.round((wallet?.availableCents ?? 0));
+  const signupBonusEur = wallet?.signupBonusEur ?? 0;
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2430,6 +2431,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
             ? 'Retirable immédiatement · minimum de 5 €'
             : `Retirable à partir de ${threshold} € de gains`}
           primary
+          bonusEur={signupBonusEur}
           action={
             <button
               className="btn btn-accent"
@@ -2615,7 +2617,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   );
 }
 
-function BalanceCard({ label, value, coins, sub, primary, lock, big, action }) {
+function BalanceCard({ label, value, coins, sub, primary, lock, big, action, bonusEur }) {
   return (
     <div className="card" style={{
       padding: 28,
@@ -2634,6 +2636,19 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action }) {
         <span className="serif tnum" style={{ fontSize: big ? 64 : 44, lineHeight: 1, color: primary ? 'var(--paper)' : 'var(--ink)' }}>{value}</span>
         <span style={{ fontSize: 14, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€</span>
       </div>
+      {bonusEur > 0 && (
+        <div style={{
+          marginTop: 6,
+          fontSize: 12,
+          color: 'var(--good)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        }}>
+          <Icon name="gift" size={12}/>
+          dont {Number(bonusEur).toFixed(2).replace('.', ',')} € de bonus fondateur
+        </div>
+      )}
       <div className="row center gap-2" style={{ marginTop: 10, fontSize: 13, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>
         <span className="coin">B</span>
         <span className="mono tnum">{coins} BUUPP Coins</span>
