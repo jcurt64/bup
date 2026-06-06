@@ -70,11 +70,7 @@ export async function distributeFounderBonus(
   };
 
   // Éligibles : fondateurs pas encore crédités, avec email + clerk id.
-  // `founder_signup_bonus_applied` n'est pas encore dans les types générés
-  // (migration manuelle) — cast `as any` volontaire, même esprit que
-  // admin_broadcast_dismissals dans /api/me/notifications/route.ts.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from("prospects")
     .select("id, clerk_user_id, prospect_identity(email, prenom)")
     .eq("is_founder", true)
@@ -92,8 +88,7 @@ export async function distributeFounderBonus(
     const email = row.prospect_identity?.email ?? null;
     const clerkId = row.clerk_user_id;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: applied, error: rpcErr } = await (admin as any).rpc(
+      const { data: applied, error: rpcErr } = await admin.rpc(
         "apply_founder_signup_bonus",
         { p_prospect_id: row.id },
       );

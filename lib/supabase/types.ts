@@ -1014,6 +1014,7 @@ export type Database = {
           clerk_user_id: string
           created_at: string
           hidden_tiers: Database["public"]["Enums"]["tier_key"][]
+          founder_signup_bonus_applied: boolean
           id: string
           is_founder: boolean
           non_response_level: number
@@ -1036,6 +1037,7 @@ export type Database = {
           categories?: string[]
           clerk_user_id: string
           created_at?: string
+          founder_signup_bonus_applied?: boolean
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
@@ -1059,6 +1061,7 @@ export type Database = {
           categories?: string[]
           clerk_user_id?: string
           created_at?: string
+          founder_signup_bonus_applied?: boolean
           hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
@@ -1534,6 +1537,10 @@ export type Database = {
       admin_prospects_kpis: {
         Args: { p_end: string; p_start: string }
         Returns: Json
+      }
+      apply_founder_signup_bonus: {
+        Args: { p_prospect_id: string }
+        Returns: boolean
       }
       clerk_user_id: { Args: never; Returns: string }
       close_campaign_settle: {
