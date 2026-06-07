@@ -49,6 +49,10 @@ type FieldConfig =
       /** Si défini, le champ détail n'apparaît que quand le tag actif vaut
        *  cette valeur (ex. animaux=Oui → afficher "type d'animal"). */
       detailVisibleWhenTag?: string;
+      /** Si défini, le champ détail est MASQUÉ quand le tag actif vaut cette
+       *  valeur (ex. vehicule=Aucun → pas de marque). Permet de compléter le
+       *  palier sans posséder de véhicule. Parité web FIELD_CONFIG. */
+      detailHiddenWhenTag?: string;
     };
 
 type FieldDef = {
@@ -81,10 +85,20 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
   ],
   localisation: [
     { key: "adresse", label: "Adresse postale", icon: "location-outline" },
-    // ville + codePostal : en mode édition, ces 2 champs sont remplacés
-    // par un widget combiné CityPostalAutocomplete (parité web).
+    // ville + codePostal + region : en mode édition, ces 3 champs sont
+    // remplacés par un widget combiné CityPostalAutocomplete (parité web).
+    // La région est renseignée automatiquement avec la ville/le code postal
+    // (geo.api.gouv.fr `fields=...,region`) — non éditable directement, mais
+    // REQUISE pour compléter le palier 2 (cf. lib/completeness).
     { key: "ville", label: "Ville", icon: "business-outline" },
     { key: "codePostal", label: "Code postal", icon: "pin-outline" },
+    {
+      key: "region",
+      label: "Région",
+      icon: "map-outline",
+      readOnly: true,
+      hint: "Renseignée automatiquement avec la ville et le code postal",
+    },
   ],
   vie: [
     {
@@ -119,9 +133,12 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
       icon: "car-outline",
       cfg: {
         type: "tag+text",
-        options: ["SUV", "4x4", "Berline", "Citadine", "Break", "Monospace", "Coupé", "Cabriolet", "Utilitaire"],
+        // « Aucun » permet à un non-motorisé de compléter le palier 3.
+        options: ["SUV", "4x4", "Berline", "Citadine", "Break", "Monospace", "Coupé", "Cabriolet", "Utilitaire", "Aucun"],
         detailField: "vehiculeMarque",
         detailPlaceholder: "Marque du véhicule",
+        // La marque ne s'affiche que pour un vrai véhicule — masquée si « Aucun ».
+        detailHiddenWhenTag: "Aucun",
       },
     },
     { key: "sports", label: "Sports / loisirs", icon: "barbell-outline" },
@@ -188,7 +205,8 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
       key: "projets",
       label: "Projets à 3–5 ans",
       icon: "flag-outline",
-      cfg: { type: "tag", options: ["Achat", "Construction", "Location"] },
+      // « Aucun » permet à qqn sans projet de compléter le palier 5.
+      cfg: { type: "tag", options: ["Achat", "Construction", "Location", "Aucun"] },
     },
   ],
 };
@@ -398,12 +416,21 @@ function TagPicker({
 //     (recherche générale) pour les préfixes partiels.
 // Une commune à plusieurs CP (Paris/Lyon/Marseille…) est éclatée en
 // suggestions distinctes. Parité fonctionnelle avec Prospect.jsx (web).
-type CityPostalItem = { ville: string; codePostal: string };
+type CityPostalItem = { ville: string; codePostal: string; region: string };
 
 type BanFeature = {
-  properties?: { city?: string; name?: string; postcode?: string };
+  // `context` BAN = "75, Paris, Île-de-France" → le dernier segment est la
+  // région administrative (utilisé en fallback quand geo est indisponible).
+  properties?: { city?: string; name?: string; postcode?: string; context?: string };
 };
-type GeoCommune = { nom: string; codesPostaux?: string[] };
+type GeoCommune = { nom: string; codesPostaux?: string[]; region?: { nom?: string } };
+
+// Région administrative à partir du `context` BAN ("dép, ville, région").
+function regionFromBanContext(context?: string): string {
+  if (!context) return "";
+  const parts = context.split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : "";
+}
 
 // GET + parse JSON tolérant : renvoie null sur échec réseau (la source est
 // alors considérée « indisponible »), relance uniquement l'AbortError.
@@ -433,26 +460,30 @@ async function fetchCityPostal(
   const isPostal = /^\d+$/.test(q);
   const seen = new Set<string>();
   const out: CityPostalItem[] = [];
-  const push = (ville?: string | null, cp?: string | null) => {
+  const push = (
+    ville?: string | null,
+    cp?: string | null,
+    region?: string | null,
+  ) => {
     if (!ville || !cp) return;
     const key = `${cp}-${ville}`;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ ville, codePostal: cp });
+    out.push({ ville, codePostal: cp, region: region ?? "" });
   };
   let anyOk = false;
 
   if (isPostal) {
     // 1) geo.api.gouv.fr — codes postaux.
     const geo = await safeJson<GeoCommune[]>(
-      `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux&limit=20`,
+      `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&limit=20`,
       signal,
     );
     if (geo) {
       anyOk = true;
       for (const c of geo)
         for (const cp of c.codesPostaux ?? [])
-          if (cp.startsWith(q)) push(c.nom, cp);
+          if (cp.startsWith(q)) push(c.nom, cp, c.region?.nom);
     }
     // 2) Fallback BAN pour les préfixes partiels (ex. « 750 »).
     if (out.length === 0) {
@@ -464,7 +495,8 @@ async function fetchCityPostal(
         anyOk = true;
         for (const f of ban.features ?? []) {
           const p = f.properties;
-          if (p?.postcode?.startsWith(q)) push(p.city ?? p.name, p.postcode);
+          if (p?.postcode?.startsWith(q))
+            push(p.city ?? p.name, p.postcode, regionFromBanContext(p.context));
         }
       }
     }
@@ -478,7 +510,7 @@ async function fetchCityPostal(
         signal,
       ),
       safeJson<GeoCommune[]>(
-        `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=10`,
+        `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&boost=population&limit=10`,
         signal,
       ),
     ]);
@@ -486,13 +518,13 @@ async function fetchCityPostal(
       anyOk = true;
       for (const f of ban.features ?? []) {
         const p = f.properties;
-        push(p?.city ?? p?.name, p?.postcode);
+        push(p?.city ?? p?.name, p?.postcode, regionFromBanContext(p?.context));
       }
     }
     if (geo) {
       anyOk = true;
       for (const c of geo)
-        for (const cp of c.codesPostaux ?? []) push(c.nom, cp);
+        for (const cp of c.codesPostaux ?? []) push(c.nom, cp, c.region?.nom);
     }
   }
   return { items: out.slice(0, 30), anyOk };
@@ -1662,10 +1694,20 @@ export default function Donnees() {
                           // widget combiné (CityPostalAutocomplete). Le champ
                           // "ville" sert d'ancre de rendu ; "codePostal" est
                           // sauté pour ne pas dupliquer.
-                          if (k === "localisation" && f.key === "codePostal") {
+                          // codePostal + region : pris en charge par le widget
+                          // combiné rendu sur l'ancre "ville" → on les saute
+                          // pour ne pas les dupliquer.
+                          if (
+                            k === "localisation" &&
+                            (f.key === "codePostal" || f.key === "region")
+                          ) {
                             return null;
                           }
                           if (k === "localisation" && f.key === "ville") {
+                            const regionVal =
+                              draft.region !== undefined
+                                ? draft.region
+                                : String(row.region ?? "");
                             return (
                               <View key="ville+cp" className="gap-1.5">
                                 <View className="flex-row items-center gap-2">
@@ -1690,9 +1732,34 @@ export default function Donnees() {
                                       ...s,
                                       ville: item.ville,
                                       codePostal: item.codePostal,
+                                      // La région suit la ville (requise pour
+                                      // compléter le palier 2).
+                                      region: item.region,
                                     }))
                                   }
                                 />
+                                {/* Région renseignée automatiquement avec la
+                                    ville/le code postal. */}
+                                {regionVal ? (
+                                  <View className="flex-row items-center gap-2">
+                                    <Ionicons
+                                      name="map-outline"
+                                      size={13}
+                                      color={c.accent}
+                                    />
+                                    <Text className="text-[12.5px] text-ink-3">
+                                      Région :{" "}
+                                      <Text className="font-semibold text-ink">
+                                        {regionVal}
+                                      </Text>
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <Text className="text-[12px] text-ink-4">
+                                    La région sera renseignée automatiquement
+                                    avec la ville.
+                                  </Text>
+                                )}
                               </View>
                             );
                           }
@@ -1755,8 +1822,10 @@ export default function Donnees() {
                                 ? draft[detailKey]
                                 : String(row[detailKey] ?? "");
                             const showDetail =
-                              !f.cfg.detailVisibleWhenTag ||
-                              currentValue === f.cfg.detailVisibleWhenTag;
+                              (!f.cfg.detailVisibleWhenTag ||
+                                currentValue === f.cfg.detailVisibleWhenTag) &&
+                              (!f.cfg.detailHiddenWhenTag ||
+                                currentValue !== f.cfg.detailHiddenWhenTag);
                             widget = (
                               <View className="gap-2.5">
                                 <TagPicker

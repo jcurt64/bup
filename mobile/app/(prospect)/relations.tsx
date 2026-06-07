@@ -94,7 +94,9 @@ function toMovementRelation(r: Relation): MovementRelation {
     brief: r.brief,
     reward: r.reward,
     tier: r.tier,
-    tiers: [r.tier],
+    // Propage les vrais paliers exigés par la campagne (pour le garde-fou
+    // « données complètes » à l'acceptation) ; repli sur [r.tier] si absent.
+    tiers: r.tiers && r.tiers.length > 0 ? r.tiers : [r.tier],
     timer: r.timer,
     startDate: r.startDate ?? null,
     endDate: r.endDate ?? null,
