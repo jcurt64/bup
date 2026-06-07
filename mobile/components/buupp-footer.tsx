@@ -239,25 +239,26 @@ function Grid({ color, ellipse }: { color: string; ellipse?: boolean }) {
 
 export function BuuppFooter({ variant }: { variant: Variant }) {
   const insets = useSafeAreaInsets();
-  const { c, isDark } = useTheme();
-  // La variante "ivory" est censée FONDRE dans le fond ivoire de la
-  // BottomSheet. En sombre, ce fond devient foncé → on bascule le footer
-  // ivory sur la teinte sombre (bg = ivory du thème) et on éclaircit
-  // lettres/slogan/grille pour rester lisibles. La variante "navy" reste
-  // identique (déjà sombre par nature).
+  const { c } = useTheme();
+  // La variante "ivory" est censée FONDRE dans le fond de la BottomSheet,
+  // quel que soit le thème (clair, sombre, forest, fushia). On la pilote
+  // donc entièrement par les tokens du thème plutôt que par des couleurs en
+  // dur : bg = ivoire du thème, lettres/slogan/grille dérivés de
+  // text/textMuted/borderSoft. L'orange reste l'accent de marque (constant).
+  // La variante "navy" garde sa bande sombre fixe (indépendante du thème).
   const conf =
-    variant === "ivory" && isDark
+    variant === "ivory"
       ? {
           ...CONF.ivory,
           bg: c.ivory,
           letter: c.text,
           slogan: {
-            blue: "#C7D2FE",
-            orange: "#F2994A",
-            gray: "rgba(255,255,255,0.72)",
-            dot: "rgba(255,255,255,0.35)",
+            blue: c.text,
+            orange: "#E0915A",
+            gray: c.textMuted,
+            dot: c.borderSoft,
           },
-          grid: "rgba(255,255,255,0.06)",
+          grid: c.borderSoft,
         }
       : CONF[variant];
   const letters = "buupp".split("");
