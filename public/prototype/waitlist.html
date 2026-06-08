@@ -1908,6 +1908,33 @@
         </div>
       </div>
     </div>
+    <!-- Popup rappel e-mail : s'affiche quand l'utilisateur a saisi son
+         adresse, pour insister sur l'importance de réutiliser la MÊME adresse
+         au lancement. Même message que la note sous le champ e-mail. -->
+    <div class="tier-popup-overlay" id="email-notice-overlay">
+      <div
+        class="tier-popup"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="email-notice-title"
+      >
+        <div class="tier-popup-icon">⚠️</div>
+        <div class="tier-popup-title" id="email-notice-title">
+          Important : retenez bien cette adresse
+        </div>
+        <div class="tier-popup-body">
+          Cette adresse devra être <strong>la même</strong> que celle que vous
+          utiliserez pour la <strong>création de votre compte</strong> lors du
+          lancement officiel, afin de conserver vos
+          <strong>avantages de prospect prioritaire</strong>.
+        </div>
+        <div class="tier-popup-actions">
+          <button class="tier-popup-ok" onclick="closeEmailNotice()">
+            J'ai compris
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="glow-orb glow-1" aria-hidden="true"></div>
     <div class="glow-orb glow-2" aria-hidden="true"></div>
 
@@ -2182,6 +2209,7 @@
                   placeholder="marie.dupont@email.fr"
                   required
                   autocomplete="email"
+                  onblur="maybeShowEmailNotice()"
                 />
                 <div class="email-notice" role="note">
                   <span class="email-notice-icon" aria-hidden="true">!</span>
@@ -3301,6 +3329,27 @@
       function closeSignupWarning() {
         document
           .getElementById("signup-warning-overlay")
+          .classList.remove("show");
+      }
+
+      /* ── Rappel e-mail ──────────────────────────────────────────────────
+         Quand l'utilisateur a saisi une adresse e-mail valide et quitte le
+         champ, on affiche UNE SEULE FOIS un popup reprenant le message
+         « Important » (réutiliser la même adresse au lancement). Objectif :
+         s'assurer que les utilisateurs le comprennent vraiment. */
+      let emailNoticeShown = false;
+      function maybeShowEmailNotice() {
+        if (emailNoticeShown) return;
+        const v = (document.getElementById("inp-email").value || "").trim();
+        // Validation pragmatique, alignée sur le back (/api/waitlist).
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return;
+        emailNoticeShown = true;
+        document.getElementById("email-notice-overlay").classList.add("show");
+      }
+
+      function closeEmailNotice() {
+        document
+          .getElementById("email-notice-overlay")
           .classList.remove("show");
       }
 
