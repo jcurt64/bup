@@ -32,6 +32,7 @@ import {
   buildAliasAddress,
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
@@ -135,7 +136,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id, prospect_id,
-       campaigns ( targeting ),
+       campaigns ( status, targeting ),
        prospects:prospect_id ( id, removed_tiers, hidden_tiers )`,
     )
     .eq("id", relationId)
@@ -155,8 +156,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
     pro_account_id: string;
     prospect_id: string;
     campaigns:
-      | { targeting: { requiredTiers?: number[] } | null }
-      | { targeting: { requiredTiers?: number[] } | null }[]
+      | { status: string; targeting: { requiredTiers?: number[] } | null }
+      | { status: string; targeting: { requiredTiers?: number[] } | null }[]
       | null;
     prospects:
       | { id: string; removed_tiers: string[] | null; hidden_tiers: string[] | null }
@@ -172,6 +173,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
   }
 
   const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
+  if (!proCanSeeContacts(camp?.status)) {
+    return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
+  }
   const prospect = Array.isArray(row.prospects)
     ? row.prospects[0]
     : row.prospects;

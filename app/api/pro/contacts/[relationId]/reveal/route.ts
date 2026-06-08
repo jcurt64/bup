@@ -22,6 +22,7 @@ import {
   buildAliasAddress,
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id,
+       campaigns:campaign_id ( status ),
        prospects:prospect_id (
          prospect_identity ( email, telephone, prenom, nom )
        )`,
@@ -81,6 +83,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     id: string;
     status: string;
     pro_account_id: string;
+    campaigns: { status: string } | null;
     prospects: {
       prospect_identity: Ident | Ident[] | null;
     } | null;
@@ -91,6 +94,9 @@ export async function POST(req: Request, ctx: RouteContext) {
   }
   if (row.status !== "accepted" && row.status !== "settled") {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  if (!proCanSeeContacts(row.campaigns?.status)) {
+    return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
   }
 
   const prospects = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
