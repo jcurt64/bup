@@ -30,6 +30,8 @@ import {
   type ContactStatusFilter,
   type ContactPeriodFilter,
 } from "@/lib/pro/filterCampaignContacts";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -120,6 +122,14 @@ export async function GET(req: Request, ctx: RouteContext) {
   const proId = await ensureProAccount({ clerkUserId: userId, email });
 
   const admin = createSupabaseAdminClient();
+
+  // À l'accès pro : clôture les campagnes échues (ends_at dépassé) pour que
+  // les données apparaissent dès la fin. Best-effort, idempotent.
+  try {
+    await settleRipeRelationsAndNotify(admin);
+  } catch (err) {
+    console.error("[/api/pro/campaigns/GET] lifecycle trigger failed", err);
+  }
 
   const { data: camp, error: campErr } = await admin
     .from("campaigns")
@@ -237,11 +247,17 @@ export async function GET(req: Request, ctx: RouteContext) {
   // Filtres optionnels appliqués À LA LISTE CONTACTS UNIQUEMENT.
   // `funnel` et `activity` restent calculés sur l'ensemble non filtré
   // (stats globales de la campagne, pas la vue filtrée).
-  const contacts = filterCampaignContacts(allContacts, {
-    status: contactStatus,
-    scoreMin: contactScoreMin,
-    period: contactPeriod,
-  }).slice(0, 50);
+
+  // Données par prospect masquées tant que la campagne n'est pas clôturée :
+  // le pro ne voit que les compteurs (funnel) avant la clôture.
+  const contactsUnlocked = proCanSeeContacts(camp.status);
+  const contacts = contactsUnlocked
+    ? filterCampaignContacts(allContacts, {
+        status: contactStatus,
+        scoreMin: contactScoreMin,
+        period: contactPeriod,
+      }).slice(0, 50)
+    : [];
 
   // Activity feed : derniers événements ordonnés par "date la plus récente"
   // (settled_at > decided_at > sent_at). Limité à 20 lignes.
@@ -276,7 +292,9 @@ export async function GET(req: Request, ctx: RouteContext) {
       return { ts, kind, label };
     })
     .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
-    .slice(0, 20);
+    .slice(0, 20)
+    // Masquer les identités prospect tant que la campagne n'est pas clôturée.
+    .filter(() => contactsUnlocked);
 
   const targeting = (camp.targeting as Targeting | null) ?? null;
   const tierLabels = (targeting?.requiredTiers ?? [])
@@ -351,6 +369,8 @@ export async function GET(req: Request, ctx: RouteContext) {
     winCount,
     contacts,
     activity,
+    contactsLocked: !contactsUnlocked,
+    lockedUntil: contactsUnlocked ? null : (camp.ends_at ?? null),
     // « La Vitrine » — lien du site, montant payé pour l'option (0 ou 200),
     // et nombre de prospects ayant cliqué. Le front affiche
     // « X clics vers votre site / winCount prospects acceptés ».
