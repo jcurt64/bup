@@ -261,7 +261,7 @@ export async function GET(req: Request, ctx: RouteContext) {
 
   // Activity feed : derniers événements ordonnés par "date la plus récente"
   // (settled_at > decided_at > sent_at). Limité à 20 lignes.
-  const activity = rows
+  const activityAll = rows
     .map((r) => {
       const ident = r.prospects?.prospect_identity ?? null;
       const fullName = [ident?.prenom, ident?.nom].filter(Boolean).join(" ").trim() || "Un prospect";
@@ -292,9 +292,10 @@ export async function GET(req: Request, ctx: RouteContext) {
       return { ts, kind, label };
     })
     .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
-    .slice(0, 20)
-    // Masquer les identités prospect tant que la campagne n'est pas clôturée.
-    .filter(() => contactsUnlocked);
+    .slice(0, 20);
+  // Activity contient des identités prospect → masquée tant que la campagne
+  // n'est pas clôturée (parité avec la liste contacts).
+  const activity = contactsUnlocked ? activityAll : [];
 
   const targeting = (camp.targeting as Targeting | null) ?? null;
   const tierLabels = (targeting?.requiredTiers ?? [])
@@ -370,7 +371,13 @@ export async function GET(req: Request, ctx: RouteContext) {
     contacts,
     activity,
     contactsLocked: !contactsUnlocked,
-    lockedUntil: contactsUnlocked ? null : (camp.ends_at ?? null),
+    // Date de déblocage indiquée seulement pour une campagne `active` : pour
+    // une campagne `paused`, `ends_at` est périmé (il sera décalé de la durée
+    // de pause à la reprise) → on ne montre pas de date trompeuse.
+    lockedUntil:
+      !contactsUnlocked && camp.status === "active"
+        ? (camp.ends_at ?? null)
+        : null,
     // « La Vitrine » — lien du site, montant payé pour l'option (0 ou 200),
     // et nombre de prospects ayant cliqué. Le front affiche
     // « X clics vers votre site / winCount prospects acceptés ».
