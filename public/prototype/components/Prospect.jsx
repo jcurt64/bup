@@ -2777,7 +2777,7 @@ function RetraitModal({ onClose, availableEur = 0, threshold = 5 }) {
               {status?.hasAccount ? 'Finalisez votre onboarding Stripe' : 'Activez vos retraits'}
             </div>
             <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-              Pour recevoir vos gains sur votre IBAN, vous devez d'abord créer un compte Stripe Connect (procédure hébergée par Stripe, ~3 minutes : justificatif d'identité + IBAN). Vos données ne transitent jamais par BUUPP.
+              Pour recevoir vos gains sur votre IBAN, vous devez d'abord créer un compte Stripe Connect (procédure hébergée par Stripe, ~2 minutes : votre IBAN). Vos données ne transitent jamais par BUUPP.
             </div>
           </div>
           {error && (
