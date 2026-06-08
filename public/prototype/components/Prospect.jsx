@@ -2625,7 +2625,30 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action, bon
       color: primary ? 'var(--paper)' : 'var(--ink)',
       borderColor: primary ? 'var(--ink)' : 'var(--line)',
       position: 'relative',
+      overflow: primary ? 'hidden' : undefined,
     }}>
+      {primary && (
+        <>
+          {/* Quadrillage en fond, éclairé en haut à droite (fondu en dégradé). */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),' +
+              'linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px)',
+            backgroundSize: '26px 26px',
+            WebkitMaskImage: 'radial-gradient(130% 110% at 100% 0%, #000 30%, transparent 78%)',
+            maskImage: 'radial-gradient(130% 110% at 100% 0%, #000 30%, transparent 78%)',
+          }}/>
+          {/* Halo lumineux « descendant du ciel » en haut à droite. */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            background:
+              'radial-gradient(75% 70% at 100% -12%, rgba(199,210,254,.45) 0%,' +
+              ' rgba(165,180,252,.18) 30%, transparent 62%)',
+          }}/>
+        </>
+      )}
+      <div style={{ position: 'relative', zIndex: 1 }}>
       <div className="row between center" style={{ marginBottom: 16 }}>
         <div className="mono caps" style={{ fontSize: 10, color: primary ? 'rgba(255,255,255,.5)' : 'var(--ink-4)', letterSpacing: '.14em' }}>
           {label}
@@ -2655,6 +2678,7 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action, bon
       </div>
       <div style={{ fontSize: 12, color: primary ? 'rgba(255,255,255,.5)' : 'var(--ink-5)', marginTop: 14 }}>{sub}</div>
       {action && <div style={{ marginTop: 20 }}>{action}</div>}
+      </div>
     </div>
   );
 }
