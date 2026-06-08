@@ -137,16 +137,18 @@ export async function processCampaignLifecycle(
   }
 
   // Étape 2 — closure. Pour chaque campagne dont `ends_at <= now()` et
-  // status='active', on appelle `close_campaign_settle` qui :
-  //   1. flushe les relations encore mûres (settle_ripe_relations).
-  //   2. libère le résidu de réservation (refus / expirations / écart
-  //      entre budget prévu et acceptations effectives).
-  //   3. passe la campagne en `completed` avec `settled_at`.
-  // Les débits pro et la maturation des escrow prospect se font désormais
-  // PER-RELATION dans `settle_ripe_relations`, basé sur
-  // `relations.escrow_release_at` (snapshot du ends_at à l'acceptation).
-  // Une prolongation de campagne ne décale donc plus l'échéance des
-  // séquestres déjà ouverts.
+  // status='active', on appelle `close_campaign_settle` qui libère le résidu
+  // de réservation et passe la campagne en `completed` (+ settled_at).
+  // La maturation des escrow prospect (accepted → settled, escrow → credit
+  // disponible) est faite par `settle_ripe_relations`, qui ne settle QUE les
+  // relations de campagnes `completed` (cf. migration 20260716120000). Comme
+  // ce settle tourne juste APRÈS ce lifecycle (dans settleRipeRelationsAndNotify),
+  // les relations de la campagne tout juste clôturée sont settled dans la
+  // foulée. La clôture suivant la `ends_at` COURANTE, une prolongation
+  // (extend) repousse naturellement le déblocage — aucun snapshot de date.
+  // (NB : close_campaign_settle exécute aussi un settle_ripe_relations interne,
+  // désormais no-op à ce stade car le status n'est pas encore 'completed' ;
+  // le settle externe qui suit fait le travail.)
   const { data: expiredCamps, error: expErr } = await admin
     .from("campaigns")
     .select("id")

@@ -1,17 +1,18 @@
 /**
- * Settlement lazy des relations matures, basé sur
- * `relations.escrow_release_at` (snapshot du `campaign.ends_at` au
- * moment de l'acceptation). Délègue à la RPC SQL `settle_ripe_relations`
- * qui, pour chaque relation mûre, débite simultanément le pro
- * (reward + 10 % commission), libère la réserve correspondante et
- * crédite le prospect. Les prolongations de campagne ne décalent pas
- * l'échéance des séquestres déjà ouverts.
+ * Settlement lazy des séquestres : une relation `accepted` devient
+ * `settled` (escrow prospect → credit disponible) UNIQUEMENT quand sa
+ * campagne est clôturée (`campaigns.status = 'completed'`). Délègue à la
+ * RPC SQL `settle_ripe_relations` (cf. migration
+ * 20260716120000_settle_on_campaign_closure). Le débit du pro a lieu plus
+ * tôt, à l'acceptation (`accept_relation_tx`), pas ici. Comme la clôture
+ * suit la `ends_at` COURANTE, une prolongation (extend) repousse
+ * naturellement le settlement — aucun snapshot de date n'est utilisé.
  *
- * Appelé en début de chaque endpoint prospect qui consomme du wallet ou
- * des relations (wallet, movements, relations, fiscal). La RPC est
- * idempotente : elle verrouille les lignes et ne renvoie que les rows
- * effectivement transitionnées → un seul mail par relation, même si
- * plusieurs requêtes parallèles déclenchent le settle au même moment.
+ * Appelé en début des endpoints prospect (wallet, movements, relations,
+ * fiscal), des endpoints pro dépendants de la clôture, et du cron
+ * quotidien (backstop). La RPC est idempotente : elle verrouille les
+ * lignes et ne renvoie que les rows effectivement transitionnées → un
+ * seul mail par relation, même sous requêtes parallèles.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -23,9 +24,9 @@ export async function settleRipeRelationsAndNotify(
   admin: SupabaseClient<Database>,
 ): Promise<void> {
   // Lifecycle d'abord : envoie l'avertissement "expire dans 15 min" aux
-  // prospects pending et bascule les campagnes échues en 'completed'.
-  // Doit tourner AVANT le settle pour que les acceptations retardataires
-  // dans la fenêtre [created+3min … ends_at] soient settled correctement.
+  // prospects pending et bascule les campagnes échues (ends_at dépassé) en
+  // 'completed'. Doit tourner AVANT le settle : c'est le passage en
+  // 'completed' qui rend les relations acceptées éligibles au settlement.
   await processCampaignLifecycle(admin);
 
   const { data, error } = await admin.rpc("settle_ripe_relations");

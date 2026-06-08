@@ -164,6 +164,13 @@ Localisation exacte des écrans mobiles à confirmer au plan.
   aux acceptés en cours jusqu'à clôture (changement voulu).
 - `paused` : non `completed` → séquestre maintenu, données verrouillées.
 - `refused` : comptés en « refusés », jamais settled (aucun argent). 
+- `canceled` : ⚠️ AUCUN code ne passe aujourd'hui une campagne en `canceled`
+  (valeur d'enum non câblée). Comme le settlement est gaté sur `completed`,
+  une campagne `canceled` ne libérerait JAMAIS les escrow prospect ni ne
+  rembourserait le pro. **Avant de câbler une fonctionnalité d'annulation, il
+  faudra déclencher un settle-or-refund** (créditer les prospects acceptés OU
+  rembourser le pro + annuler les escrow). À documenter/implémenter à ce
+  moment-là.
 - Implication finance/produit : inchangée (l'argent ne bouge qu'à la clôture, ce
   qui est l'intention).
 
