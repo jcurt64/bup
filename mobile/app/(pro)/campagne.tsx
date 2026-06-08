@@ -324,7 +324,29 @@ export default function ProCampaignDetailScreen() {
               ) : null}
 
               {tab === "contacts" ? (
-                d.contacts.length > 0 ? (
+                d.contactsLocked ? (
+                  <Card>
+                    <View className="items-center" style={{ paddingVertical: 8 }}>
+                      <Ionicons name="lock-closed" size={28} color={c.gold} />
+                      <Text className="mt-2 text-center text-[15px] font-semibold text-ink">
+                        Données des prospects disponibles à la clôture
+                      </Text>
+                      <Text className="mt-1 text-center text-[12.5px] text-ink-4">
+                        {d.lockedUntil
+                          ? "Déblocage le " + dateFr(d.lockedUntil)
+                          : "Déblocage à la clôture de la campagne"}
+                      </Text>
+                      <View className="mt-3 flex-row" style={{ gap: 20 }}>
+                        <Text className="text-[13px] text-ink-4">
+                          <Text className="font-semibold text-ink">{d.funnel.accepted}</Text> acceptés
+                        </Text>
+                        <Text className="text-[13px] text-ink-4">
+                          <Text className="font-semibold text-ink">{d.funnel.refused}</Text> refusés
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ) : d.contacts.length > 0 ? (
                   <View className="rounded-2xl border" style={{ borderColor: c.borderSoft, backgroundColor: c.surface }}>
                     {d.contacts.map((ct, i) => (
                       <View key={ct.id} className="flex-row items-center justify-between px-4 py-3" style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.borderSoft } : undefined}>

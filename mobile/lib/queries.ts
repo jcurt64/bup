@@ -1306,6 +1306,12 @@ export type ProCampaignDetail = {
   websiteUrl: string | null;
   websiteAddonPaidCents: number;
   websiteClickCount: number;
+  /** Données par prospect masquées tant que la campagne n'est pas clôturée :
+   *  `contactsLocked=true` → `contacts`/`activity` sont vides, seuls les
+   *  compteurs (funnel) sont exposés. `lockedUntil` = date de fin (campagne
+   *  active uniquement, sinon null). Optionnels : backend déployé requis. */
+  contactsLocked?: boolean;
+  lockedUntil?: string | null;
 };
 export function useProCampaign(id?: string) {
   const api = useApi();
