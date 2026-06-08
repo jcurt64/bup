@@ -27,6 +27,7 @@ import {
   buildAliasAddress,
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
     .from("relations")
     .select(
       `id, status, pro_account_id,
+       campaigns:campaign_id ( status ),
        prospects:prospect_id (
          prospect_identity ( email )
        )`,
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
     id: string;
     status: string;
     pro_account_id: string;
+    campaigns: { status: string } | null;
     prospects: {
       prospect_identity:
         | { email: string | null }
@@ -99,7 +102,8 @@ export async function POST(req: Request) {
     if (
       !row ||
       row.pro_account_id !== proId ||
-      (row.status !== "accepted" && row.status !== "settled")
+      (row.status !== "accepted" && row.status !== "settled") ||
+      !proCanSeeContacts(row.campaigns?.status)
     ) {
       items.push({ relationId: id, email: null });
       continue;
