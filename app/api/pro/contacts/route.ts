@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,11 @@ export async function GET() {
   const proId = await ensureProAccount({ clerkUserId: userId, email });
 
   const admin = createSupabaseAdminClient();
+  try {
+    await settleRipeRelationsAndNotify(admin);
+  } catch (err) {
+    console.error("[/api/pro/contacts] lifecycle trigger failed", err);
+  }
   // Raison sociale du pro courant — partagée par toutes les lignes,
   // utilisée par les templates email côté UI ({{pro}}).
   const { data: proRow } = await admin
@@ -62,13 +68,14 @@ export async function GET() {
     .from("relations")
     .select(
       `id, decided_at, status, campaign_id, evaluation, evaluated_at,
-       campaigns ( id, name, targeting ),
+       campaigns!inner ( id, name, status, targeting ),
        prospects:prospect_id ( id, bupp_score,
          prospect_identity ( prenom, nom, email, telephone )
        )`,
     )
     .eq("pro_account_id", proId)
     .in("status", ["accepted", "settled"])
+    .eq("campaigns.status", "completed")
     .order("decided_at", { ascending: false })
     .limit(200);
 
@@ -84,7 +91,7 @@ export async function GET() {
     campaign_id: string;
     evaluation: "atteint" | "non_atteint" | null;
     evaluated_at: string | null;
-    campaigns: { id: string; name: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null } | null;
+    campaigns: { id: string; name: string; status: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
