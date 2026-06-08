@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,11 +46,16 @@ export async function GET(req: Request) {
   );
 
   const admin = createSupabaseAdminClient();
+  try {
+    await settleRipeRelationsAndNotify(admin);
+  } catch (err) {
+    console.error("[/api/pro/acceptances] lifecycle trigger failed", err);
+  }
   const { data, error, count } = await admin
     .from("relations")
     .select(
       `id, status, reward_cents, decided_at,
-       campaigns ( name, targeting ),
+       campaigns!inner ( name, status, targeting ),
        prospects:prospect_id ( bupp_score,
          prospect_identity ( prenom, nom )
        )`,
@@ -57,6 +63,7 @@ export async function GET(req: Request) {
     )
     .eq("pro_account_id", proId)
     .in("status", ["accepted", "settled"])
+    .eq("campaigns.status", "completed")
     .order("decided_at", { ascending: false })
     .range((page - 1) * size, page * size - 1);
 
@@ -69,7 +76,7 @@ export async function GET(req: Request) {
     id: string;
     reward_cents: number;
     decided_at: string | null;
-    campaigns: { name: string; targeting: { requiredTiers?: number[] } | null } | null;
+    campaigns: { name: string; status: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       bupp_score: number;
       prospect_identity: { prenom: string | null; nom: string | null } | null;
