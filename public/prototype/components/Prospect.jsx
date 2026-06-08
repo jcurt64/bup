@@ -4736,7 +4736,7 @@ function Relations() {
                           </span>
                         </div>
                         <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55 }}>
-                          Crédité sur votre portefeuille après 72 h ou dès que {p.pro.split(' ')[0]} a confirmé le contact.
+                          Crédité sur votre portefeuille à la clôture de la campagne.
                         </div>
                       </div>
                       <div className="row center gap-2" style={{
