@@ -23,6 +23,7 @@ import { recordEvent } from "@/lib/admin/events/record";
 import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
 import { distributeFounderBonusIfLaunched } from "@/lib/founder-bonus/distribute";
+import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,6 +120,14 @@ export async function POST(req: Request) {
       founderBonus = await distributeFounderBonusIfLaunched(admin);
     } catch (err) {
       console.error("[/api/admin/digest] founder bonus distribution failed", err);
+    }
+    // Piggyback : clôture des campagnes échues + libération des séquestres
+    // (backstop fiable, indépendant des visites prospect). Idempotent.
+    // Cf. lib/settle/ripe.ts + lib/lifecycle/campaign.ts.
+    try {
+      await settleRipeRelationsAndNotify(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] settle/lifecycle failed", err);
     }
   }
 
