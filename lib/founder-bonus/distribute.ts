@@ -140,3 +140,35 @@ export async function distributeFounderBonus(
 
   return result;
 }
+
+export type LaunchDistributeResult =
+  | { ran: false; reason: string }
+  | ({ ran: true } & DistributeResult);
+
+/**
+ * Versement « au lancement officiel » — appelé chaque jour par le cron
+ * /api/admin/digest (même piggyback que la bascule CNIL). Tant que
+ * `app_config.launch_at` n'est pas atteint, ne fait RIEN. À partir du
+ * lancement (décompte à zéro), distribue le bonus à tous les fondateurs
+ * éligibles non encore crédités. Idempotent : le flag
+ * `founder_signup_bonus_applied` empêche tout doublon, donc les runs
+ * quotidiens suivants ne rattrapent que les nouveaux fondateurs.
+ */
+export async function distributeFounderBonusIfLaunched(
+  admin: Admin,
+): Promise<LaunchDistributeResult> {
+  const { data: cfg, error } = await admin
+    .from("app_config")
+    .select("launch_at")
+    .single();
+  if (error || !cfg?.launch_at) {
+    console.error("[founder-bonus] launch_at lookup failed", error?.message);
+    return { ran: false, reason: "launch_at_unavailable" };
+  }
+  // Gate temporelle — pas avant la fin du décompte (launch_at).
+  if (new Date(cfg.launch_at) > new Date()) {
+    return { ran: false, reason: "before_launch" };
+  }
+  const result = await distributeFounderBonus(admin, { confirm: true });
+  return { ran: true, ...result };
+}

@@ -22,6 +22,7 @@ import { sendAdminDigest } from "@/lib/email/admin-digest";
 import { recordEvent } from "@/lib/admin/events/record";
 import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
+import { distributeFounderBonusIfLaunched } from "@/lib/founder-bonus/distribute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,9 @@ export async function POST(req: Request) {
   // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
   let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
   let restrictionsLifted = 0;
+  let founderBonus: Awaited<
+    ReturnType<typeof distributeFounderBonusIfLaunched>
+  > | null = null;
   if (mode === "daily") {
     try {
       bascule = await applyCnilBasculeIfDue(admin);
@@ -107,6 +111,15 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error("[/api/admin/digest] non-response sweep failed", err);
     }
+    // Piggyback : versement du bonus fondateur AU LANCEMENT. Ne fait rien
+    // tant que launch_at n'est pas atteint ; ensuite crédite (+ cloche +
+    // email) les fondateurs éligibles non crédités. Idempotent (flag par
+    // compte). Cf. lib/founder-bonus/distribute.ts.
+    try {
+      founderBonus = await distributeFounderBonusIfLaunched(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] founder bonus distribution failed", err);
+    }
   }
 
   return NextResponse.json({
@@ -114,5 +127,6 @@ export async function POST(req: Request) {
     count: data?.length ?? 0,
     cnilBascule: bascule ?? null,
     restrictionsLifted,
+    founderBonus: founderBonus ?? null,
   });
 }
