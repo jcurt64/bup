@@ -40,6 +40,7 @@ export async function GET() {
   const [
     { data, error },
     { count: activeCampaignsCount, error: campaignsErr },
+    { data: lastAccData, error: lastAccErr },
   ] = await Promise.all([
     admin
       .from("relations")
@@ -57,6 +58,21 @@ export async function GET() {
       .select("id", { count: "exact", head: true })
       .eq("pro_account_id", proId)
       .eq("status", "active"),
+    // Dernières acceptances : noms visibles UNIQUEMENT pour les campagnes clôturées
+    admin
+      .from("relations")
+      .select(
+        `id, status, reward_cents, decided_at,
+       campaigns!inner ( name, status, targeting ),
+       prospects:prospect_id ( bupp_score,
+         prospect_identity ( prenom, nom )
+       )`,
+      )
+      .eq("pro_account_id", proId)
+      .in("status", ["accepted", "settled"])
+      .eq("campaigns.status", "completed")
+      .order("decided_at", { ascending: false })
+      .limit(4),
   ]);
 
   if (error) {
@@ -67,6 +83,10 @@ export async function GET() {
     console.error("[/api/pro/overview] campaigns count failed", campaignsErr);
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
+  if (lastAccErr) {
+    console.error("[/api/pro/overview] lastAcceptances query failed", lastAccErr);
+    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  }
 
   type Row = {
     id: string;
@@ -74,6 +94,18 @@ export async function GET() {
     reward_cents: number;
     decided_at: string | null;
     campaigns: { name: string; targeting: { requiredTiers?: number[] } | null } | null;
+    prospects: {
+      bupp_score: number;
+      prospect_identity: { prenom: string | null; nom: string | null } | null;
+    } | null;
+  };
+
+  type LastAccRow = {
+    id: string;
+    status: string;
+    reward_cents: number;
+    decided_at: string | null;
+    campaigns: { name: string; status: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       bupp_score: number;
       prospect_identity: { prenom: string | null; nom: string | null } | null;
@@ -123,10 +155,22 @@ export async function GET() {
   // les hypothèses dans un tooltip de transparence.
   const roi = computeRoi(spent30dCents, wins30d.length);
 
-  const lastAcceptances = wins.slice(0, 4).map((r) => ({
-    name: r.name, score: r.score, campaign: r.campaign, tier: r.tier,
-    receivedAt: r.decided_at, costCents: r.reward_cents,
-  }));
+  const lastAcceptances = ((lastAccData ?? []) as unknown as LastAccRow[]).map((r) => {
+    const c = Array.isArray(r.campaigns) ? r.campaigns[0] : r.campaigns;
+    const id = Array.isArray(r.prospects) ? r.prospects[0] : r.prospects;
+    const pi = id?.prospect_identity
+      ? (Array.isArray(id.prospect_identity) ? id.prospect_identity[0] : id.prospect_identity)
+      : null;
+    const tiers = (c?.targeting?.requiredTiers ?? [1]) as number[];
+    return {
+      name: maskName(pi?.prenom, pi?.nom),
+      score: id?.bupp_score ?? 0,
+      campaign: c?.name ?? "—",
+      tier: Math.max(1, ...tiers.map((n) => Number(n) || 0)),
+      receivedAt: r.decided_at,
+      costCents: Number(r.reward_cents ?? 0),
+    };
+  });
 
   const tierBreakdown = [1, 2, 3, 4, 5].map((tier) => {
     const ws = wins.filter((r) => r.tier === tier);
