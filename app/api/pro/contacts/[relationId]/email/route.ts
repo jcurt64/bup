@@ -18,6 +18,7 @@ import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { sendProToProspectEmail } from "@/lib/email/pro-to-prospect";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
@@ -81,7 +82,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     .select(
       `id, pro_account_id, prospect_id, campaign_id, status,
        pro_accounts!relations_pro_account_id_fkey ( raison_sociale ),
-       campaigns ( name ),
+       campaigns ( name, status ),
        prospects:prospect_id (
          prospect_identity ( prenom, email, email_tracking_consent, email_tracking_consent_given_at )
        )`,
@@ -105,6 +106,9 @@ export async function POST(req: Request, ctx: RouteContext) {
   const proRow = Array.isArray(rel.pro_accounts) ? rel.pro_accounts[0] : rel.pro_accounts;
   const proName = (proRow?.raison_sociale ?? "").trim() || "Un professionnel BUUPP";
   const camp = Array.isArray(rel.campaigns) ? rel.campaigns[0] : rel.campaigns;
+  if (!proCanSeeContacts(camp?.status)) {
+    return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
+  }
   const campaignName = camp?.name ?? "—";
   const prospect = Array.isArray(rel.prospects) ? rel.prospects[0] : rel.prospects;
   const ident = prospect?.prospect_identity
