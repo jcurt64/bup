@@ -5292,6 +5292,10 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         </div>
       </div>
 
+      <div className="muted" style={{ fontSize: 12, textAlign: 'center' }}>
+        Les campagnes en cours apparaîtront ici à leur clôture.
+      </div>
+
       {allRows === null && (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
@@ -8096,46 +8100,62 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
       )}
 
       {tab === 'contacts' && (
-        <div className="card" style={{ padding: 0 }}>
-          <div className="row between" style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
-            <div>
-              <div className="serif" style={{ fontSize: 20 }}>Contacts obtenus</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                {(data.contacts?.length || 0)} prospect{(data.contacts?.length || 0) > 1 ? 's' : ''} ayant accepté votre mise en relation
-              </div>
+        data.contactsLocked ? (
+          <div className="card" style={{ padding: 20, textAlign: 'center' }}>
+            <div className="serif" style={{ fontSize: 16 }}>
+              <Icon name="lock" size={15}/> Données des prospects disponibles à la clôture
             </div>
-            <div className="row gap-2">
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setCFilterOpen(o => !o)}
-                style={cFilterActive ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
-              >
-                <Icon name="filter" size={12}/> Filtrer{cFilterActive ? ' •' : ''}
-              </button>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              {data.lockedUntil
+                ? 'Déblocage le ' + new Date(data.lockedUntil).toLocaleDateString('fr-FR')
+                : 'Déblocage à la clôture de la campagne'}
+            </div>
+            <div className="row center gap-4" style={{ marginTop: 12 }}>
+              <span><strong>{data.funnel?.accepted ?? 0}</strong> acceptés</span>
+              <span><strong>{data.funnel?.refused ?? 0}</strong> refusés</span>
             </div>
           </div>
-          {cFilterOpen && (
-            <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', background: 'var(--ivory)' }}>
-              <label className="col" style={{ gap: 4 }}>
-                <span className="mono caps muted" style={{ fontSize: 10 }}>Statut</span>
-                <select className="input" value={cDraft.status}
-                  onChange={e => setCDraft(d => ({ ...d, status: e.target.value }))}>
-                  <option value="all">Tous</option>
-                  <option value="accepted">En séquestre</option>
-                  <option value="settled">Crédité</option>
-                </select>
-              </label>
-              <label className="col" style={{ gap: 4 }}>
-                <span className="mono caps muted" style={{ fontSize: 10 }}>Score min.</span>
-                <input className="input mono" type="number" min="0" inputMode="numeric"
-                  value={cDraft.scoreMin} placeholder="—"
-                  onChange={e => setCDraft(d => ({ ...d, scoreMin: e.target.value }))}
-                  style={{ width: 110 }}/>
-              </label>
-              <label className="col" style={{ gap: 4 }}>
-                <span className="mono caps muted" style={{ fontSize: 10 }}>Période</span>
-                <select className="input" value={cDraft.period}
-                  onChange={e => setCDraft(d => ({ ...d, period: e.target.value }))}>
+        ) : (
+          <div className="card" style={{ padding: 0 }}>
+            <div className="row between" style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
+              <div>
+                <div className="serif" style={{ fontSize: 20 }}>Contacts obtenus</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  {(data.contacts?.length || 0)} prospect{(data.contacts?.length || 0) > 1 ? 's' : ''} ayant accepté votre mise en relation
+                </div>
+              </div>
+              <div className="row gap-2">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setCFilterOpen(o => !o)}
+                  style={cFilterActive ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+                >
+                  <Icon name="filter" size={12}/> Filtrer{cFilterActive ? ' •' : ''}
+                </button>
+              </div>
+            </div>
+            {cFilterOpen && (
+              <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', background: 'var(--ivory)' }}>
+                <label className="col" style={{ gap: 4 }}>
+                  <span className="mono caps muted" style={{ fontSize: 10 }}>Statut</span>
+                  <select className="input" value={cDraft.status}
+                    onChange={e => setCDraft(d => ({ ...d, status: e.target.value }))}>
+                    <option value="all">Tous</option>
+                    <option value="accepted">En séquestre</option>
+                    <option value="settled">Crédité</option>
+                  </select>
+                </label>
+                <label className="col" style={{ gap: 4 }}>
+                  <span className="mono caps muted" style={{ fontSize: 10 }}>Score min.</span>
+                  <input className="input mono" type="number" min="0" inputMode="numeric"
+                    value={cDraft.scoreMin} placeholder="—"
+                    onChange={e => setCDraft(d => ({ ...d, scoreMin: e.target.value }))}
+                    style={{ width: 110 }}/>
+                </label>
+                <label className="col" style={{ gap: 4 }}>
+                  <span className="mono caps muted" style={{ fontSize: 10 }}>Période</span>
+                  <select className="input" value={cDraft.period}
+                    onChange={e => setCDraft(d => ({ ...d, period: e.target.value }))}>
                   <option value="all">Tout</option>
                   <option value="7d">7 jours</option>
                   <option value="30d">30 jours</option>
@@ -8180,6 +8200,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
             </table>
           )}
         </div>
+        )
       )}
 
       {tab === 'config' && (
