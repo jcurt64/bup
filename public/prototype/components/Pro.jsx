@@ -1,5 +1,7 @@
 // Pro dashboard
 var { useState, useEffect } = React;
+// Signature visuelle FREEBUUPP : dégradé rouge → orange (onglet + boutons).
+const FB_GRADIENT = 'linear-gradient(135deg, #FF3D2E 0%, #FF8A00 100%)';
 const PRO_SECTIONS = [
   { id: 'create',       icon: 'plus',      label: 'Créer une campagne', featured: true },
   { id: 'overview',     icon: 'chart',     label: "Vue d'ensemble" },
@@ -176,13 +178,17 @@ function ProDashboard({ go }) {
     return () => window.removeEventListener('bupp:open-message', onOpenMsg);
   }, []);
 
-  // FREEBUUPP injecté après "Campagnes" quand le flag est activé.
+  // FREEBUUPP injecté JUSTE AU-DESSUS de "Vue d'ensemble" quand le flag est
+  // activé, en onglet "featured" avec un fond dégradé rouge → orange (signature
+  // visuelle distincte du reste du menu).
   const proSections = (() => {
     if (!freebuuppEnabled) return PRO_SECTIONS;
     const list = [...PRO_SECTIONS];
-    const idx = list.findIndex(s => s.id === 'campagnes');
-    list.splice(idx >= 0 ? idx + 1 : list.length, 0,
-      { id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP' });
+    const idx = list.findIndex(s => s.id === 'overview');
+    list.splice(idx >= 0 ? idx : 0, 0, {
+      id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP',
+      featured: true, bg: FB_GRADIENT,
+    });
     return list;
   })();
 
@@ -9605,7 +9611,14 @@ function FreeBUUPPPro({ onRecharge }) {
       <div className="row between center">
         <SectionTitle eyebrow="FREEBUUPP" title="Mes tirages au sort"
           sub="Faites découvrir un produit ou service via un tirage. 10 € par FREEBUUPP." />
-        <button className="btn primary" onClick={() => setCreating(true)}>
+        <button onClick={() => setCreating(true)}
+          className="row center gap-2"
+          style={{
+            padding: '11px 18px', borderRadius: 10, border: 'none',
+            background: FB_GRADIENT, color: 'white', fontWeight: 600, fontSize: 14,
+            cursor: 'pointer',
+            boxShadow: '0 6px 18px -6px rgba(255,90,20,.55)',
+          }}>
           <Icon name="plus" size={14}/> Lancer un FREEBUUPP
         </button>
       </div>

@@ -935,12 +935,18 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
                   margin: '2px 0 10px',
                   padding: collapsed ? 10 : '12px 14px',
                   borderRadius: 10,
-                  background: active ? 'var(--accent)' : 'var(--accent)',
+                  // `s.bg` = fond custom optionnel (ex. dégradé FREEBUUPP) ;
+                  // sinon couleur d'accent par défaut.
+                  background: s.bg || 'var(--accent)',
                   color: 'white',
                   fontSize: 14, fontWeight: 600,
-                  boxShadow: active
-                    ? '0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent), 0 6px 18px -6px color-mix(in oklab, var(--accent) 60%, transparent)'
-                    : '0 6px 18px -6px color-mix(in oklab, var(--accent) 55%, transparent)',
+                  boxShadow: s.bg
+                    ? (active
+                        ? '0 0 0 3px rgba(255,120,40,.30), 0 6px 18px -6px rgba(255,90,20,.6)'
+                        : '0 6px 18px -6px rgba(255,90,20,.5)')
+                    : (active
+                        ? '0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent), 0 6px 18px -6px color-mix(in oklab, var(--accent) 60%, transparent)'
+                        : '0 6px 18px -6px color-mix(in oklab, var(--accent) 55%, transparent)'),
                   cursor: 'pointer',
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   transition: 'all .15s',
