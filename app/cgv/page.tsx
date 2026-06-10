@@ -655,7 +655,66 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="15. Litiges, médiation et juridiction">
+        <Section title="15. FREEBUUPP — service de tirage au sort">
+          <p>
+            <strong>FREEBUUPP</strong> est un service optionnel permettant à un
+            Professionnel de lancer une opération de découverte sous forme de{" "}
+            <strong>tirage au sort</strong>&nbsp;: il met en jeu un produit ou un
+            service, les utilisateurs particuliers («&nbsp;prospects&nbsp;»)
+            s&apos;inscrivent gratuitement, et des gagnants sont désignés par tirage
+            aléatoire à l&apos;issue de la période d&apos;inscription.
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+            <li>
+              <strong>Nature.</strong> Le FREEBUUPP est un jeu avec tirage au sort{" "}
+              <strong>sans obligation d&apos;achat</strong> pour le participant.
+              La participation est entièrement gratuite.
+            </li>
+            <li>
+              <strong>Tarif.</strong> Le lancement d&apos;un FREEBUUPP est facturé{" "}
+              <strong>10&nbsp;€</strong> au Professionnel (panel de 30, 50 ou 80
+              participants ; 2, 5 ou 10 gagnants), débités de son portefeuille.
+              Cette somme est <strong>non remboursable</strong>, sauf si{" "}
+              <strong>aucun participant</strong> ne s&apos;est inscrit avant la
+              clôture, auquel cas elle est intégralement recréditée.
+            </li>
+            <li>
+              <strong>Durée.</strong> La période d&apos;inscription est de{" "}
+              <strong>24&nbsp;heures</strong>. Passé ce délai, ou une fois le panel
+              complet, l&apos;inscription est close.
+            </li>
+            <li>
+              <strong>Tirage aléatoire vérifiable.</strong> Chaque participant
+              reçoit un numéro à l&apos;inscription. Les gagnants sont déterminés
+              par un procédé aléatoire <strong>vérifiable</strong> («&nbsp;provably
+              fair&nbsp;»)&nbsp;: une empreinte est publiée à l&apos;ouverture et la
+              graine du tirage est révélée publiquement, permettant à quiconque de
+              recalculer et de contrôler le résultat. Le nombre de gagnants est
+              plafonné au nombre de participants effectifs.
+            </li>
+            <li>
+              <strong>Données révélées.</strong> Seul le{" "}
+              <strong>numéro de téléphone des gagnants</strong> est communiqué au
+              Professionnel, aux seules fins de remise du lot. Aucune autre donnée
+              personnelle n&apos;est transmise. Les numéros de participants affichés
+              publiquement sont anonymes.
+            </li>
+            <li>
+              <strong>Remise du lot.</strong> Le lot est{" "}
+              <strong>fourni par le Professionnel</strong>, qui en assume seul la
+              disponibilité, la conformité et la remise. BUUPP intervient
+              exclusivement comme intermédiaire technique de mise en relation et ne
+              saurait être tenue responsable de la remise effective du lot.
+            </li>
+          </ul>
+          <p>
+            La conservation et la suppression des données des participants
+            s&apos;effectuent conformément à la Politique de confidentialité et au
+            RGPD applicables à l&apos;ensemble du Service.
+          </p>
+        </Section>
+
+        <Section title="16. Litiges, médiation et juridiction">
           <p>
             Tout différend entre Majelink et un Professionnel relatif à
             la formation, à l&apos;exécution ou à l&apos;interprétation
