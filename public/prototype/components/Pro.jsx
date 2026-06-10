@@ -9742,7 +9742,13 @@ function FreeBUUPPCreate({ onCancel, onDone, onRecharge }) {
 
         <div className="row between center" style={{ marginTop: 4 }}>
           <div className="muted" style={{ fontSize: 13 }}>Coût : <strong>10 €</strong> · durée 24 h</div>
-          <button className="btn primary" disabled={busy} onClick={submit}>{busy ? 'Lancement…' : 'Lancer (10 €)'}</button>
+          <button disabled={busy} onClick={submit}
+            style={{
+              padding: '11px 20px', borderRadius: 10, border: 'none',
+              background: FB_GRADIENT, color: 'white', fontWeight: 600, fontSize: 14,
+              cursor: 'pointer', opacity: busy ? 0.6 : 1,
+              boxShadow: '0 6px 18px -6px rgba(255,90,20,.55)',
+            }}>{busy ? 'Lancement…' : 'Lancer'}</button>
         </div>
       </div>
     </div>
