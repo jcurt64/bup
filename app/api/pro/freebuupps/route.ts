@@ -21,11 +21,14 @@ export const runtime = "nodejs";
 const ALLOWED_GEO = ["ville", "dept", "region", "national"] as const;
 const TWENTY_FOUR_H_MS = 24 * 3600 * 1000;
 
-function fbCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FB_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function code4(): string {
   let s = "";
-  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return `FB-${s}`;
+  for (let i = 0; i < 4; i++) s += FB_CODE_CHARS[Math.floor(Math.random() * FB_CODE_CHARS.length)];
+  return s;
+}
+function fbCode(): string {
+  return `FB-${code4()}`;
 }
 
 type Body = {
@@ -113,6 +116,7 @@ export async function POST(req: Request) {
     .insert({
       pro_account_id: proId,
       code: fbCode(),
+      auth_code: code4(),
       title,
       prize_description: prize,
       brand_name: rawRaison,

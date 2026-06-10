@@ -33,16 +33,17 @@ export async function GET() {
   const ids = (parts ?? []).map((p) => p.freebuupp_id);
   const fbById = new Map<
     string,
-    { code: string; title: string; brand_name: string; status: string; closes_at: string; drawn_at: string | null }
+    { code: string; auth_code: string | null; title: string; brand_name: string; status: string; closes_at: string; drawn_at: string | null }
   >();
   if (ids.length > 0) {
     const { data: fbs } = await admin
       .from("freebuupps")
-      .select("id, code, title, brand_name, status, closes_at, drawn_at")
+      .select("id, code, auth_code, title, brand_name, status, closes_at, drawn_at")
       .in("id", ids);
     for (const f of fbs ?? []) {
       fbById.set(f.id, {
         code: f.code,
+        auth_code: f.auth_code,
         title: f.title,
         brand_name: f.brand_name,
         status: f.status,
@@ -66,6 +67,9 @@ export async function GET() {
       drawnAt: fb?.drawn_at ?? null,
       result: !drawn ? "pending" : p.is_winner ? "won" : "lost",
       prizeReported: !!p.prize_reported_at,
+      // Code d'authentification : révélé UNIQUEMENT au gagnant, pour vérifier
+      // l'identité du pro qui le contacte. Jamais pour les perdants/public.
+      authCode: p.is_winner && drawn ? (fb?.auth_code ?? null) : null,
     };
   });
 

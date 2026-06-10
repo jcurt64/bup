@@ -654,6 +654,13 @@ function FreeBUUPP() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{p.title || 'FREEBUUPP'}</div>
                   <div className="muted" style={{ fontSize: 12 }}>{p.brandName} · n°{p.participantNumber}</div>
+                  {p.result === 'won' && p.authCode && (
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      Le pro doit vous donner le code{' '}
+                      <span className="mono" style={{ fontWeight: 800, letterSpacing: '.12em', color: 'var(--accent)' }}>{p.authCode}</span>
+                      {' '}pour s&apos;authentifier
+                    </div>
+                  )}
                 </div>
                 <div className="row center gap-3">
                   {p.result === 'pending' && <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>En attente</span>}

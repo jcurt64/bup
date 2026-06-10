@@ -1401,6 +1401,7 @@ export type Database = {
       }
       freebuupps: {
         Row: {
+          auth_code: string | null
           brand_name: string
           closes_at: string
           code: string
@@ -1424,6 +1425,7 @@ export type Database = {
           winners_count: number
         }
         Insert: {
+          auth_code?: string | null
           brand_name: string
           closes_at: string
           code: string
@@ -1447,6 +1449,7 @@ export type Database = {
           winners_count: number
         }
         Update: {
+          auth_code?: string | null
           brand_name?: string
           closes_at?: string
           code?: string

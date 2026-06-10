@@ -27,7 +27,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const { data: fb } = await admin
     .from("freebuupps")
     .select(
-      "id, code, title, prize_description, panel_size, winners_count, status, opens_at, closes_at, drawn_at, seed, seed_hash, geo, consolation_sent_at",
+      "id, code, auth_code, title, prize_description, panel_size, winners_count, status, opens_at, closes_at, drawn_at, seed, seed_hash, geo, consolation_sent_at",
     )
     .eq("id", id)
     .eq("pro_account_id", proId)
@@ -73,6 +73,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     freebuupp: {
       id: fb.id,
       code: fb.code,
+      authCode: fb.auth_code,
       title: fb.title,
       prizeDescription: fb.prize_description,
       panelSize: fb.panel_size,

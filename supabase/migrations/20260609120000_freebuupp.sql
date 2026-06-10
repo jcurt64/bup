@@ -12,6 +12,9 @@ create table if not exists public.freebuupps (
   id                 uuid primary key default gen_random_uuid(),
   pro_account_id     uuid not null references public.pro_accounts(id) on delete cascade,
   code               text not null unique,
+  -- Code d'authentification à 4 caractères (lettres+chiffres) que le pro
+  -- communique au gagnant pour prouver son identité (jamais exposé en public).
+  auth_code          text,
   title              text not null,
   prize_description  text not null,
   brand_name         text not null,

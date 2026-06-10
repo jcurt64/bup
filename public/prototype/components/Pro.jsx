@@ -9807,6 +9807,9 @@ function FreeBUUPPDetail({ id, onBack }) {
         } />
         <Stat label="Statut" value={FB_STATUS_LABEL[fb.effectiveStatus] || fb.status} />
         {fb.effectiveStatus === 'open' && <Stat label="Clôture" value={fbProCountdown(fb.closesAt)} />}
+        <Stat label="Code d'authentification" value={
+          <span className="mono" style={{ letterSpacing: '.12em', fontWeight: 700 }}>{fb.authCode || '—'}</span>
+        } />
       </div>
 
       {fb.effectiveStatus === 'open' && (
@@ -9839,6 +9842,11 @@ function FreeBUUPPDetail({ id, onBack }) {
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
             🔒 Tirage vérifiable. Seul le téléphone des gagnants vous est communiqué — contactez-les pour la remise du lot.
+          </div>
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'color-mix(in oklab, #FF8A00 12%, var(--paper))', border: '1px solid color-mix(in oklab, #FF8A00 35%, transparent)' }}>
+            <span style={{ fontSize: 13 }}>Au téléphone, donnez votre code d&apos;authentification </span>
+            <span className="mono" style={{ fontWeight: 800, letterSpacing: '.14em' }}>{fb.authCode || '—'}</span>
+            <span style={{ fontSize: 13 }}> pour prouver au gagnant que c&apos;est bien vous.</span>
           </div>
         </div>
       )}
