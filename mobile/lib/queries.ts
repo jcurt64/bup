@@ -1534,3 +1534,204 @@ export const useProTimeseries = (range: "7d" | "30d" | "90d" = "7d") =>
     `/api/pro/timeseries?range=${range}`,
     60_000,
   );
+
+// ═══════════════════════════════════════════════════════════════════
+// FREEBUUPP — tirages au sort (cf. backend web feat/freebuupp).
+// Service gated par app_config.freebuupp_enabled (exposé dans /api/me).
+// ═══════════════════════════════════════════════════════════════════
+
+export type FreebuuppFeedItem = {
+  id: string;
+  code: string;
+  title: string;
+  prizeDescription: string;
+  brandName: string;
+  panelSize: number;
+  winnersCount: number;
+  geo: string;
+  opensAt: string;
+  closesAt: string;
+  participantCount: number;
+  placesLeft: number;
+  alreadyJoined: boolean;
+  myNumber: number | null;
+};
+
+export type FreebuuppParticipation = {
+  freebuuppId: string;
+  code: string | null;
+  title: string | null;
+  brandName: string | null;
+  participantNumber: number;
+  status: string;
+  closesAt: string | null;
+  drawnAt: string | null;
+  result: "pending" | "won" | "lost";
+  prizeReported: boolean;
+};
+
+// — Prospect —
+export const useFreebuuppFeed = () =>
+  useGet<{ freebuupps: FreebuuppFeedItem[] }>(
+    ["prospect", "freebuupps"],
+    "/api/prospect/freebuupps",
+    30_000,
+  );
+
+export const useFreebuuppMine = () =>
+  useGet<{ participations: FreebuuppParticipation[] }>(
+    ["prospect", "freebuupps", "mine"],
+    "/api/prospect/freebuupps/mine",
+    30_000,
+  );
+
+/** Participer à un FREEBUUPP. Retourne { participantNumber }. */
+export function useJoinFreebuupp() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string }) =>
+      api<{ participantNumber: number }>(`/api/prospect/freebuupps/${v.id}/join`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "freebuupps"] });
+    },
+  });
+}
+
+/** Signaler la non-réception de son lot (gagnant). 409 = déjà signalé → succès. */
+export function useReportFreebuupp() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; reason?: string }) => {
+      try {
+        await api(`/api/prospect/freebuupps/${v.id}/report`, {
+          method: "POST",
+          body: JSON.stringify({ reason: v.reason?.trim() || undefined }),
+        });
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) return;
+        throw e;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "freebuupps", "mine"] });
+    },
+  });
+}
+
+// — Pro —
+export type ProFreebuuppItem = {
+  id: string;
+  code: string;
+  title: string;
+  prize_description: string;
+  panel_size: number;
+  winners_count: number;
+  status: string;
+  effectiveStatus: string;
+  opens_at: string;
+  closes_at: string;
+  drawn_at: string | null;
+  geo: string;
+};
+
+export type ProFreebuuppDetail = {
+  id: string;
+  code: string;
+  title: string;
+  prizeDescription: string;
+  panelSize: number;
+  winnersCount: number;
+  status: string;
+  effectiveStatus: string;
+  opensAt: string;
+  closesAt: string;
+  drawnAt: string | null;
+  seedHash: string;
+  seed: string | null;
+  geo: string;
+  consolationSent: boolean;
+  participantCount: number;
+  winners: {
+    participantNumber: number;
+    telephone: string | null;
+    prizeReported: boolean;
+    prizeReportReason: string | null;
+  }[];
+};
+
+export const useProFreebuupps = () =>
+  useGet<{ freebuupps: ProFreebuuppItem[] }>(
+    ["pro", "freebuupps"],
+    "/api/pro/freebuupps",
+    30_000,
+  );
+
+export const useProFreebuuppDetail = (id: string) =>
+  useGet<{ freebuupp: ProFreebuuppDetail }>(
+    ["pro", "freebuupps", id],
+    `/api/pro/freebuupps/${id}`,
+    15_000,
+  );
+
+/** Créer un FREEBUUPP (10 € wallet). */
+export function useCreateFreebuupp() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      title: string;
+      prizeDescription: string;
+      panelSize: number;
+      winnersCount: number;
+      geo: string;
+    }) =>
+      api<{ id: string; code: string }>("/api/pro/freebuupps", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pro", "freebuupps"] });
+      qc.invalidateQueries({ queryKey: ["pro", "wallet"] });
+    },
+  });
+}
+
+/** Lancer le tirage. */
+export function useDrawFreebuupp() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string }) => {
+      try {
+        return await api(`/api/pro/freebuupps/${v.id}/draw`, { method: "POST" });
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) return undefined;
+        throw e;
+      }
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pro", "freebuupps"] });
+      qc.invalidateQueries({ queryKey: ["pro", "freebuupps", v.id] });
+    },
+  });
+}
+
+/** Mail groupé unique de consolation aux non-gagnants. */
+export function useConsolationFreebuupp() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; message: string }) =>
+      api<{ sent: number }>(`/api/pro/freebuupps/${v.id}/consolation`, {
+        method: "POST",
+        body: JSON.stringify({ message: v.message }),
+      }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pro", "freebuupps", v.id] });
+    },
+  });
+}

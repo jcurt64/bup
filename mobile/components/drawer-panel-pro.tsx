@@ -40,6 +40,16 @@ export default function ProDrawerPanel() {
   const raison = wallet.data?.raisonSociale?.trim() || null;
   const available = wallet.data?.walletAvailableEur ?? null;
 
+  // FREEBUUPP : entrée affichée seulement si le service est activé (flag /api/me).
+  const freebuuppOn =
+    (me.data as { freebuuppEnabled?: boolean } | undefined)?.freebuuppEnabled === true;
+  const navItems = freebuuppOn
+    ? [
+        { label: "FREEBUUPP", route: "/(pro)/freebuupp", icon: "gift-outline" as const, sub: "Tirage au sort" },
+        ...NAV,
+      ]
+    : NAV;
+
   const [confirm, setConfirm] = useState<null | "signout" | "delete">(null);
   const [busy, setBusy] = useState(false);
   const W = Math.min(360, Dimensions.get("window").width * 0.82);
@@ -162,7 +172,7 @@ export default function ProDrawerPanel() {
             </View>
           </View>
 
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <Row
               key={n.route}
               icon={n.icon}

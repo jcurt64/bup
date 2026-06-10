@@ -34,6 +34,7 @@ export default function ProspectLayout() {
           <Tabs.Screen name="parrainage" options={{ href: null }} />
           <Tabs.Screen name="fiscal" options={{ href: null }} />
           <Tabs.Screen name="suggestions" options={{ href: null }} />
+          <Tabs.Screen name="freebuupp" options={{ href: null }} />
         </Tabs>
       </AcceptGateProvider>
     </FlashSheetProvider>

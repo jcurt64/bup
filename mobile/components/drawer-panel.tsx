@@ -189,6 +189,16 @@ export default function DrawerPanel() {
   const tierLabel = VERIF_LABELS[verif.data?.tier ?? ""] ?? "Basique";
   const tierPos = verifTierPosition(verif.data?.tier);
   const scoreNum = score.data?.score ?? null;
+  // FREEBUUPP : entrée de menu affichée seulement si le service est activé
+  // (flag exposé par /api/me). Service livré désactivé → masqué par défaut.
+  const freebuuppOn =
+    (me.data as { freebuuppEnabled?: boolean } | undefined)?.freebuuppEnabled === true;
+  const navItems = freebuuppOn
+    ? [
+        { label: "FREEBUUPP", route: "/(prospect)/freebuupp", icon: "gift-outline" as const, sub: "Tirage au sort" },
+        ...NAV,
+      ]
+    : NAV;
   const navSub = (route: string, fallback?: string) =>
     route.endsWith("verification")
       ? `Niveau ${tierPos} sur 3`
@@ -380,7 +390,7 @@ export default function DrawerPanel() {
             </View>
           </View>
 
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <Row
               key={n.route}
               icon={n.icon}
