@@ -150,6 +150,15 @@ export default function FreebuuppProspect() {
                     <Text className="text-sm text-ink-4">
                       {p.brandName} · n°{p.participantNumber}
                     </Text>
+                    {p.result === "won" && p.authCode && (
+                      <Text className="mt-1 text-xs text-ink-4">
+                        Le pro doit vous donner le code{" "}
+                        <Text className="font-mono font-bold" style={{ color: c.accent, letterSpacing: 1.5 }}>
+                          {p.authCode}
+                        </Text>{" "}
+                        pour s&apos;authentifier
+                      </Text>
+                    )}
                   </View>
                   <View className="items-end">
                     {p.result === "pending" && (

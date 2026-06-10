@@ -127,6 +127,7 @@ export default function FreebuuppDetailPro() {
                   {fb.effectiveStatus === "open" && (
                     <Stat label="Clôture" value={countdown(fb.closesAt)} c={c} />
                   )}
+                  <Stat label="Code d'authentification" value={fb.authCode ?? "—"} c={c} />
                 </View>
               </Card>
 
@@ -191,6 +192,18 @@ export default function FreebuuppDetailPro() {
                     🔒 Tirage vérifiable. Seul le téléphone des gagnants vous est communiqué — contactez-les
                     pour la remise du lot.
                   </Text>
+                  <View
+                    className="mt-3 rounded-xl p-3"
+                    style={{ backgroundColor: "rgba(255,138,0,0.12)", borderWidth: 1, borderColor: "rgba(255,138,0,0.35)" }}
+                  >
+                    <Text className="text-[13px] text-ink-3">
+                      Au téléphone, donnez votre code d&apos;authentification{" "}
+                      <Text className="font-mono font-bold" style={{ color: c.ink, letterSpacing: 2 }}>
+                        {fb.authCode ?? "—"}
+                      </Text>{" "}
+                      pour prouver au gagnant que c&apos;est bien vous.
+                    </Text>
+                  </View>
                 </Card>
               )}
 

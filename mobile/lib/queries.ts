@@ -1568,6 +1568,8 @@ export type FreebuuppParticipation = {
   drawnAt: string | null;
   result: "pending" | "won" | "lost";
   prizeReported: boolean;
+  /** Code d'authentification du pro — révélé uniquement au gagnant. */
+  authCode: string | null;
 };
 
 // — Prospect —
@@ -1641,6 +1643,7 @@ export type ProFreebuuppItem = {
 export type ProFreebuuppDetail = {
   id: string;
   code: string;
+  authCode: string | null;
   title: string;
   prizeDescription: string;
   panelSize: number;
