@@ -226,18 +226,21 @@ export type Database = {
       }
       app_config: {
         Row: {
+          freebuupp_enabled: boolean
           id: boolean
           launch_at: string
           referrals_enabled: boolean
           updated_at: string | null
         }
         Insert: {
+          freebuupp_enabled?: boolean
           id?: boolean
           launch_at: string
           referrals_enabled?: boolean
           updated_at?: string | null
         }
         Update: {
+          freebuupp_enabled?: boolean
           id?: boolean
           launch_at?: string
           referrals_enabled?: boolean
@@ -1396,6 +1399,125 @@ export type Database = {
         }
         Relationships: []
       }
+      freebuupps: {
+        Row: {
+          brand_name: string
+          closes_at: string
+          code: string
+          created_at: string
+          drawn_at: string | null
+          fee_cents: number
+          geo: string
+          geo_target: Json | null
+          id: string
+          opens_at: string
+          panel_size: number
+          prize_description: string
+          pro_account_id: string
+          refunded: boolean
+          seed: string | null
+          seed_hash: string
+          status: string
+          title: string
+          updated_at: string
+          winners_count: number
+        }
+        Insert: {
+          brand_name: string
+          closes_at: string
+          code: string
+          created_at?: string
+          drawn_at?: string | null
+          fee_cents?: number
+          geo?: string
+          geo_target?: Json | null
+          id?: string
+          opens_at?: string
+          panel_size: number
+          prize_description: string
+          pro_account_id: string
+          refunded?: boolean
+          seed?: string | null
+          seed_hash: string
+          status?: string
+          title: string
+          updated_at?: string
+          winners_count: number
+        }
+        Update: {
+          brand_name?: string
+          closes_at?: string
+          code?: string
+          created_at?: string
+          drawn_at?: string | null
+          fee_cents?: number
+          geo?: string
+          geo_target?: Json | null
+          id?: string
+          opens_at?: string
+          panel_size?: number
+          prize_description?: string
+          pro_account_id?: string
+          refunded?: boolean
+          seed?: string | null
+          seed_hash?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          winners_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freebuupps_pro_account_id_fkey"
+            columns: ["pro_account_id"]
+            isOneToOne: false
+            referencedRelation: "pro_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freebuupp_participants: {
+        Row: {
+          created_at: string
+          freebuupp_id: string
+          id: string
+          is_winner: boolean
+          participant_number: number
+          prospect_id: string
+        }
+        Insert: {
+          created_at?: string
+          freebuupp_id: string
+          id?: string
+          is_winner?: boolean
+          participant_number: number
+          prospect_id: string
+        }
+        Update: {
+          created_at?: string
+          freebuupp_id?: string
+          id?: string
+          is_winner?: boolean
+          participant_number?: number
+          prospect_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freebuupp_participants_freebuupp_id_fkey"
+            columns: ["freebuupp_id"]
+            isOneToOne: false
+            referencedRelation: "freebuupps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freebuupp_participants_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string
@@ -1404,6 +1526,7 @@ export type Database = {
           campaign_id: string | null
           created_at: string
           description: string
+          freebuupp_id: string | null
           id: string
           relation_id: string | null
           status: Database["public"]["Enums"]["transaction_status"]
@@ -1417,6 +1540,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           description: string
+          freebuupp_id?: string | null
           id?: string
           relation_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -1430,6 +1554,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           description?: string
+          freebuupp_id?: string | null
           id?: string
           relation_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -1442,6 +1567,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_freebuupp_id_fkey"
+            columns: ["freebuupp_id"]
+            isOneToOne: false
+            referencedRelation: "freebuupps"
             referencedColumns: ["id"]
           },
           {
