@@ -269,6 +269,24 @@ Nouvelle section « FREEBUUPP » dans `app/cgv` :
 
 ---
 
+## 15bis. Ajouts (09/06) — demandés en cours d'implémentation
+
+**A. Mail groupé de consolation (pro → non-gagnants).** À l'issue du tirage, le
+pro peut envoyer **un unique** mail groupé aux participants **non tirés** pour
+présenter ses services. Verrou single-send côté serveur
+(`freebuupps.consolation_sent_at`, posé avant l'envoi). Les adresses ne sont
+jamais exposées au pro (envoi individuel). Endpoint
+`POST /api/pro/freebuupps/[id]/consolation` ; UI dans le détail pro (drawn) ;
+module `lib/email/freebuupp-consolation.ts`.
+
+**B. Signalement non-réception (gagnant → pro).** Un **gagnant** qui n'a pas reçu
+son lot peut le signaler. Colonnes
+`freebuupp_participants.prize_reported_at` / `prize_report_reason`. Endpoint
+`POST /api/prospect/freebuupps/[id]/report` (garde : être gagnant, non déjà
+signalé) ; event admin `freebuupp.prize_not_received` ; UI bouton « Lot non
+reçu ? » sur les participations gagnées ; le détail pro affiche ⚠️ sur un
+gagnant ayant signalé. CGV mises à jour pour les deux points.
+
 ## 16. Garde-fous « non-déployé »
 
 - Branche `feat/freebuupp`, **jamais mergée sur `main`**.

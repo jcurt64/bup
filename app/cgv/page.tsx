@@ -704,7 +704,18 @@ export default function CgvPage() {
               <strong>fourni par le Professionnel</strong>, qui en assume seul la
               disponibilité, la conformité et la remise. BUUPP intervient
               exclusivement comme intermédiaire technique de mise en relation et ne
-              saurait être tenue responsable de la remise effective du lot.
+              saurait être tenue responsable de la remise effective du lot. Un
+              gagnant qui n&apos;aurait pas reçu son lot peut le{" "}
+              <strong>signaler à BUUPP</strong> depuis son espace ; ce signalement
+              est transmis à des fins de suivi et de modération.
+            </li>
+            <li>
+              <strong>Message aux non-gagnants.</strong> À l&apos;issue du tirage,
+              le Professionnel peut adresser <strong>un unique message groupé</strong>{" "}
+              aux participants non tirés au sort, afin de présenter ses services.
+              Cet envoi est limité à <strong>un seul mail par FREEBUUPP</strong> ;
+              les adresses des participants ne sont jamais communiquées au
+              Professionnel.
             </li>
           </ul>
           <p>
