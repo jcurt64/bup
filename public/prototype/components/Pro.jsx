@@ -9638,7 +9638,7 @@ function FreeBUUPPPro({ onRecharge }) {
               onClick={() => setDetailId(fb.id)}>
               <div>
                 <div style={{ fontWeight: 600 }}>{fb.title}</div>
-                <div className="muted" style={{ fontSize: 12 }}>🎁 {fb.prize_description} · {fb.panel_size} places · {fb.winners_count} gagnants</div>
+                <div className="muted" style={{ fontSize: 12 }}>🎁 {fb.prize_description} · {fb.panel_size} places · {fb.winners_count} gagnants à tirer</div>
               </div>
               <div className="row center gap-3">
                 <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>

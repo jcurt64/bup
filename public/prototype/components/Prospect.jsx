@@ -628,7 +628,7 @@ function FreeBUUPP() {
               <div style={{ color: 'var(--ink-3)', fontSize: 14, marginBottom: 10 }}>🎁 {fb.prizeDescription}</div>
               <div className="row between" style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>
                 <span><Icon name="clock" size={12}/> {fbCountdown(fb.closesAt)}</span>
-                <span>{fb.placesLeft} places · {fb.winnersCount} gagnants</span>
+                <span>{fb.placesLeft} places · {fb.winnersCount} à gagner</span>
               </div>
               {fb.alreadyJoined ? (
                 <div className="row center gap-2" style={{ justifyContent: 'center', padding: '9px 0', borderRadius: 10, background: 'var(--ink)', color: 'var(--paper)', fontWeight: 600 }}>

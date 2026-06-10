@@ -83,7 +83,7 @@ export default function FreebuuppWallClient() {
                 <div style={{ color: "var(--ink-3)", fontSize: 14, marginBottom: 12 }}>🎁 {f.prizeDescription}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--ink-4)" }}>
                   <span>⏳ {countdown(f.closesAt)}</span>
-                  <span>{f.placesLeft} places · {f.winnersCount} gagnants</span>
+                  <span>{f.placesLeft} places · {f.winnersCount} à gagner</span>
                 </div>
               </Link>
             ))}
