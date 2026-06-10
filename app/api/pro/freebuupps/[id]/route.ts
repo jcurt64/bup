@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { sweepDueFreebuupps } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null;
   const proId = await ensureProAccount({ clerkUserId: userId, email });
   const admin = createSupabaseAdminClient();
+  // Tirage automatique paresseux avant lecture (clôture échue / panel plein).
+  await sweepDueFreebuupps(admin);
 
   const { data: fb } = await admin
     .from("freebuupps")

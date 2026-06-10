@@ -14,6 +14,7 @@ import { FREEBUUPP_FEE_CENTS } from "@/lib/freebuupp/pricing";
 import { generateSeed, hashSeed } from "@/lib/freebuupp/draw";
 import { PANEL_SIZES, WINNERS_COUNTS } from "@/lib/freebuupp/types";
 import { isFreebuuppEnabled } from "@/lib/freebuupp/config";
+import { sweepDueFreebuupps } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -169,6 +170,8 @@ export async function GET() {
     user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null;
   const proId = await ensureProAccount({ clerkUserId: userId, email });
   const admin = createSupabaseAdminClient();
+  // Tirage automatique paresseux avant lecture (clôture échue / panel plein).
+  await sweepDueFreebuupps(admin);
 
   const { data: rows } = await admin
     .from("freebuupps")

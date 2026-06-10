@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { sweepDueFreebuupps } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,8 @@ export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const admin = createSupabaseAdminClient();
+  // Tirage automatique paresseux avant lecture (clôture échue / panel plein).
+  await sweepDueFreebuupps(admin);
 
   const { data: prospect } = await admin
     .from("prospects")

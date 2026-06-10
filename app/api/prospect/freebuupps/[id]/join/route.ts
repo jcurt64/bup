@@ -9,6 +9,7 @@ import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { canJoin } from "@/lib/freebuupp/eligibility";
 import { isFreebuuppEnabled } from "@/lib/freebuupp/config";
+import { autoDrawOne } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -89,5 +90,17 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     // 23505 = course (numéro/prospect déjà pris) → demander un retry au client.
     return NextResponse.json({ error: "conflict_retry" }, { status: 409 });
   }
-  return NextResponse.json({ participantNumber: number });
+
+  // Tirage automatique si cette inscription complète le panel (dernière place).
+  // autoDrawOne ne tire que si le panel est atteint ; sinon noop. Les notifs
+  // partent via after() à l'intérieur — non bloquant pour la réponse.
+  let drawn = false;
+  try {
+    const res = await autoDrawOne(admin, id);
+    drawn = res.status === "drawn" || res.status === "canceled";
+  } catch (e) {
+    console.error("[freebuupp/join] auto-draw failed", e);
+  }
+
+  return NextResponse.json({ participantNumber: number, drawn });
 }

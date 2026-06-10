@@ -9583,7 +9583,7 @@ function fbProCountdown(iso) {
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h > 0 ? (h + 'h ' + m + 'min') : (m + 'min');
 }
-const FB_STATUS_LABEL = { open: 'En cours', closed: 'À tirer', drawn: 'Tiré', canceled: 'Annulé' };
+const FB_STATUS_LABEL = { open: 'En cours', closed: 'Tirage…', drawn: 'Tiré', canceled: 'Annulé' };
 
 function FreeBUUPPPro({ onRecharge }) {
   const [list, setList] = useState(null);     // null = chargement
@@ -9638,14 +9638,14 @@ function FreeBUUPPPro({ onRecharge }) {
               onClick={() => setDetailId(fb.id)}>
               <div>
                 <div style={{ fontWeight: 600 }}>{fb.title}</div>
-                <div className="muted" style={{ fontSize: 12 }}>🎁 {fb.prize_description} · {fb.panel_size} places · {fb.winners_count} gagnants à tirer</div>
+                <div className="muted" style={{ fontSize: 12 }}>🎁 {fb.prize_description} · {fb.panel_size} places · nombre de gagnant pour le tirage : {fb.winners_count}</div>
               </div>
               <div className="row center gap-3">
                 <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
                   {FB_STATUS_LABEL[fb.effectiveStatus] || fb.status}
                 </span>
                 {fb.effectiveStatus === 'open' && <span className="muted" style={{ fontSize: 12 }}>{fbProCountdown(fb.closes_at)}</span>}
-                {fb.effectiveStatus === 'closed' && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Lancer le tirage →</span>}
+                {fb.effectiveStatus === 'closed' && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Tirage en cours…</span>}
                 <Icon name="arrow" size={14}/>
               </div>
             </div>
@@ -9757,7 +9757,6 @@ function FreeBUUPPCreate({ onCancel, onDone, onRecharge }) {
 
 function FreeBUUPPDetail({ id, onBack }) {
   const [fb, setFb] = useState(null);    // null = chargement
-  const [drawing, setDrawing] = useState(false);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -9767,15 +9766,13 @@ function FreeBUUPPDetail({ id, onBack }) {
       .then(j => setFb(j ? j.freebuupp : false))
       .catch(() => setFb(false));
   }, [id]);
-  useEffect(() => { load(); }, [load]);
-
-  const draw = async () => {
-    setDrawing(true);
-    try {
-      const r = await fetch('/api/pro/freebuupps/' + id + '/draw', { method: 'POST' });
-      if (r.ok || r.status === 409) load();
-    } finally { setDrawing(false); }
-  };
+  // Le tirage est automatique : un simple polling rafraîchit l'écran tant que
+  // la campagne n'est pas tirée (la lecture côté serveur déclenche le tirage).
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 8000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const sendConsolation = async () => {
     if (!message.trim()) return;
@@ -9803,24 +9800,26 @@ function FreeBUUPPDetail({ id, onBack }) {
 
       <div className="card row between center" style={{ padding: 20, flexWrap: 'wrap', gap: 16 }}>
         <Stat label="Participants" value={(fb.participantCount || 0) + ' / ' + fb.panelSize} />
-        <Stat label="Gagnants" value={String(fb.winnersCount)} />
+        <Stat label="Gagnants" value={
+          fb.status === 'drawn'
+            ? String(fb.winners ? fb.winners.length : fb.winnersCount)
+            : <FbLoadingDots/>
+        } />
         <Stat label="Statut" value={FB_STATUS_LABEL[fb.effectiveStatus] || fb.status} />
         {fb.effectiveStatus === 'open' && <Stat label="Clôture" value={fbProCountdown(fb.closesAt)} />}
       </div>
 
       {fb.effectiveStatus === 'open' && (
         <div className="card" style={{ padding: 20 }}>
-          <div className="muted">Les inscriptions sont ouvertes. Le tirage sera disponible à la clôture (24 h) ou dès que le panel sera complet.</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Nombre de gagnant pour le tirage : {fb.winnersCount}</div>
+          <div className="muted">Les inscriptions sont ouvertes. Le tirage se déclenchera <strong>automatiquement</strong> à la clôture (24 h) ou dès que le panel sera complet — aucune action de votre part.</div>
         </div>
       )}
 
       {fb.effectiveStatus === 'closed' && (
-        <div className="card row between center" style={{ padding: 20 }}>
-          <div>
-            <div style={{ fontWeight: 600 }}>Les inscriptions sont closes 🎲</div>
-            <div className="muted" style={{ fontSize: 13 }}>{fb.participantCount} participant(s). Lancez le tirage au sort vérifiable.</div>
-          </div>
-          <button className="btn primary" disabled={drawing} onClick={draw}>{drawing ? 'Tirage…' : 'Lancer le tirage'}</button>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontWeight: 600 }}>Inscriptions closes — tirage en cours… 🎲</div>
+          <div className="muted" style={{ fontSize: 13 }}>{fb.participantCount} participant(s). Le tirage au sort vérifiable se fait automatiquement ; les gagnants apparaîtront ici dans un instant.</div>
         </div>
       )}
 
@@ -9870,6 +9869,12 @@ function FreeBUUPPDetail({ id, onBack }) {
 
 function inpStyle() {
   return { width: '100%', borderRadius: 10, border: '1px solid var(--line)', padding: '10px 12px', font: 'inherit' };
+}
+
+// Loader « tirage en cours » : 3 points qui grossissent à tour de rôle
+// (rouge → orange → ambre). Animation définie dans /prototype/styles.css.
+function FbLoadingDots() {
+  return <span className="fb-dots" aria-label="Tirage en cours"><span/><span/><span/></span>;
 }
 
 function Stat({ label, value }) {

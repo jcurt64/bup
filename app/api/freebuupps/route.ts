@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { sweepDueFreebuupps } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,8 @@ const RECENT_DRAWN_CAP = 50;
 
 export async function GET() {
   const admin = createSupabaseAdminClient();
+  // Tirage automatique paresseux : tire les FREEBUUPP échus avant lecture.
+  await sweepDueFreebuupps(admin);
   const nowIso = new Date().toISOString();
 
   const [openRes, drawnRes] = await Promise.all([

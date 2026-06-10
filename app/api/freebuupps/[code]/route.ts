@@ -7,12 +7,15 @@
 
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { sweepDueFreebuupps } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
   const admin = createSupabaseAdminClient();
+  // Tirage automatique paresseux avant lecture (clôture échue / panel plein).
+  await sweepDueFreebuupps(admin);
 
   const { data: fb } = await admin
     .from("freebuupps")
