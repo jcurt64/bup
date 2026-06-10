@@ -41,6 +41,12 @@ const isPublicRoute = createRouteMatcher([
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
+  // FREEBUUPP — mur public des tirages + détail vérifiable (SEO / partage,
+  // sans connexion). Cf. app/freebuupp/*. Le service reste gated par le flag
+  // app_config.freebuupp_enabled : ces pages sont simplement vides tant que
+  // le flag est off.
+  "/freebuupp",
+  "/freebuupp/(.*)",
   // ─── SEO : robots.txt et sitemap.xml DOIVENT être publics (sinon les
   // moteurs de recherche reçoivent une 307 vers /connexion et ne peuvent
   // pas crawler le site). Générés dynamiquement par app/robots.ts et
@@ -63,6 +69,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/contact-dpo",
   "/api/plan-pricing",
   "/api/landing/(.*)",
+  // FREEBUUPP — API publique du mur + détail vérifiable (sans session).
+  // ⚠️ Ne PAS confondre avec /api/prospect/freebuupps et /api/pro/freebuupps
+  // qui restent protégées (auth requise). Ici seul le préfixe public s'ouvre.
+  "/api/freebuupps",
+  "/api/freebuupps/(.*)",
   // Pixel de tracking des broadcasts admin : fetch depuis le client mail
   // du destinataire, qui ne porte évidemment aucune session Clerk. Le
   // recipient_id (UUID v4) sert d'identifiant opaque non énumérable.
