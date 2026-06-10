@@ -676,11 +676,11 @@ function FreeBUUPP() {
       {ticket && (
         <Modal title="Vous participez 🎫" subtitle={ticket.title} onClose={() => setTicket(null)}>
           <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-            <div className="muted" style={{ fontSize: 12 }}>Votre numéro de tirage</div>
+            <div className="muted" style={{ fontSize: 12 }}>Votre numéro de participant</div>
             <div className="serif" style={{ fontSize: 64, lineHeight: 1.1, margin: '6px 0' }}>#{ticket.number}</div>
             <div className="muted" style={{ fontSize: 13, maxWidth: 360, margin: '8px auto 0' }}>
-              C&apos;est ce numéro qui sera tiré au sort. Si vous gagnez, le professionnel
-              vous contactera par téléphone et vous recevrez une notification.
+              Gardez-le précieusement&nbsp;: si votre numéro est tiré au sort, vous gagnez&nbsp;! Le
+              professionnel vous contactera alors par téléphone et vous recevrez une notification.
             </div>
           </div>
         </Modal>
@@ -739,6 +739,20 @@ function ProspectDashboardInner({ go, initialTab }) {
     fetchMe().then(j => { if (!cancelled && j) setFreebuuppEnabled(j.freebuuppEnabled === true); });
     return () => { cancelled = true; };
   }, []);
+  // Nombre de FREEBUUPP ouverts AUXQUELS le prospect n'est pas encore inscrit
+  // → alimente la pastille + l'effet pulse sur l'onglet FREEBUUPP.
+  const [freebuuppToJoin, setFreebuuppToJoin] = useState(0);
+  useEffect(() => {
+    if (!freebuuppEnabled) return;
+    let cancelled = false;
+    const load = () => fetch('/api/prospect/freebuupps', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { freebuupps: [] })
+      .then(j => { if (!cancelled) setFreebuuppToJoin((j.freebuupps || []).filter(f => !f.alreadyJoined).length); })
+      .catch(() => {});
+    load();
+    const t = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [freebuuppEnabled]);
   const {
     pendingRelationsCount, profile,
     acceptGate, setAcceptGate,
@@ -810,9 +824,14 @@ function ProspectDashboardInner({ go, initialTab }) {
     s.id === 'relations' ? { ...s, badge: pendingRelationsCount } : s
   );
   // FREEBUUPP : injecté juste après "Mises en relation" quand le flag est on.
+  // Pastille = nombre de tirages à rejoindre ; pulse quand > 0.
   if (freebuuppEnabled && !sections.some(s => s.id === 'freebuupp')) {
     const relIdx = sections.findIndex(s => s.id === 'relations');
-    const item = { id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP', featured: true };
+    const item = {
+      id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP', featured: true,
+      bg: 'linear-gradient(135deg, #FF3D2E 0%, #FF8A00 100%)',
+      badge: freebuuppToJoin, pulse: freebuuppToJoin > 0,
+    };
     sections.splice(relIdx >= 0 ? relIdx + 1 : sections.length, 0, item);
   }
   // Override live du nom dans le header : reflète instantanément les
@@ -930,8 +949,9 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             return (
               <button key={s.id} onClick={() => handleNav(s.id)}
                 data-label={s.label}
-                className="row center gap-2"
+                className={'row center gap-2' + (s.pulse ? ' fb-tab-pulse' : '')}
                 style={{
+                  position: 'relative',
                   margin: '2px 0 10px',
                   padding: collapsed ? 10 : '12px 14px',
                   borderRadius: 10,
@@ -953,6 +973,19 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
                 }}>
                 <Icon name={s.icon} size={16} stroke={2.25}/>
                 {!collapsed && <span style={{ letterSpacing: '-0.01em' }}>{s.label}</span>}
+                {!collapsed && typeof s.badge === 'number' && s.badge > 0 && (
+                  <span style={{
+                    marginLeft: 'auto', background: 'rgba(255,255,255,.92)', color: '#C2410C',
+                    fontSize: 11, fontWeight: 800, minWidth: 19, height: 19, borderRadius: 10,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+                  }}>{s.badge > 99 ? '99+' : s.badge}</span>
+                )}
+                {collapsed && typeof s.badge === 'number' && s.badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 5, right: 5, width: 9, height: 9, borderRadius: 5,
+                    background: '#fff', border: '1.5px solid #FF6A1A',
+                  }} aria-hidden/>
+                )}
               </button>
             );
           }

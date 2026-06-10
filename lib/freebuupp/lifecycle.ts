@@ -136,18 +136,32 @@ export async function autoDrawOne(admin: Admin, freebuuppId: string): Promise<Dr
 }
 
 /**
- * Tire tous les FREEBUUPP échus (closes_at <= now, status open|closed), borné.
- * Appelé en tête des routes de lecture (tirage paresseux) ET par le cron.
+ * Tire tous les FREEBUUPP échus — clôture (closes_at <= now) OU panel complet —
+ * parmi les non-finalisés. Appelé en tête des routes de lecture (tirage
+ * paresseux) ET par le cron. 2 requêtes au total puis autoDrawOne par item dû.
  */
-export async function sweepDueFreebuupps(admin: Admin, limit = 50): Promise<{ drawn: number }> {
-  const { data: due } = await admin
+export async function sweepDueFreebuupps(admin: Admin, limit = 200): Promise<{ drawn: number }> {
+  const { data: rows } = await admin
     .from("freebuupps")
-    .select("id")
+    .select("id, panel_size, closes_at")
     .in("status", ["open", "closed"])
-    .lte("closes_at", new Date().toISOString())
     .limit(limit);
+  if (!rows || rows.length === 0) return { drawn: 0 };
+
+  const ids = rows.map((r) => r.id);
+  const { data: parts } = await admin
+    .from("freebuupp_participants")
+    .select("freebuupp_id")
+    .in("freebuupp_id", ids);
+  const counts = new Map<string, number>();
+  for (const p of parts ?? []) counts.set(p.freebuupp_id, (counts.get(p.freebuupp_id) ?? 0) + 1);
+
+  const now = Date.now();
   let drawn = 0;
-  for (const r of due ?? []) {
+  for (const r of rows) {
+    const due =
+      new Date(r.closes_at).getTime() <= now || (counts.get(r.id) ?? 0) >= r.panel_size;
+    if (!due) continue;
     const res = await autoDrawOne(admin, r.id);
     if (res.status === "drawn" || res.status === "canceled") drawn++;
   }
