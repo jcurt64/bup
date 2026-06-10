@@ -9856,8 +9856,19 @@ function FreeBUUPPDetail({ id, onBack }) {
               <textarea value={message} onChange={e => setMessage(e.target.value)} maxLength={1500} rows={4}
                 placeholder="Ex. : Merci d'avoir participé ! Profitez de -10 % sur votre première visite…"
                 style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)', padding: 12, font: 'inherit', resize: 'vertical' }} />
-              <button className="btn primary" disabled={sending || !message.trim()} onClick={sendConsolation}>
-                {sending ? 'Envoi…' : 'Envoyer (une seule fois)'}
+              <button disabled={sending || !message.trim()} onClick={sendConsolation}
+                className="row center gap-2"
+                style={{
+                  alignSelf: 'flex-start',
+                  padding: '12px 22px', borderRadius: 12, border: 'none',
+                  background: FB_GRADIENT, color: 'white', fontWeight: 700, fontSize: 15,
+                  cursor: (sending || !message.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (sending || !message.trim()) ? 0.5 : 1,
+                  boxShadow: '0 8px 20px -6px rgba(255,90,20,.55)',
+                  transition: 'all .15s',
+                }}>
+                <Icon name="email" size={16} stroke={2.25}/>
+                {sending ? 'Envoi…' : 'Envoyer le mail (une seule fois)'}
               </button>
             </div>
           )}
