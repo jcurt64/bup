@@ -24,6 +24,7 @@ import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
 import { distributeFounderBonusIfLaunched } from "@/lib/founder-bonus/distribute";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { freebuuppLifecycleTick } from "@/lib/freebuupp/lifecycle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -128,6 +129,15 @@ export async function POST(req: Request) {
       await settleRipeRelationsAndNotify(admin);
     } catch (err) {
       console.error("[/api/admin/digest] settle/lifecycle failed", err);
+    }
+    // Piggyback FREEBUUPP : ferme les tirages échus (24 h) et exécute en
+    // backstop les tirages qu'un pro n'a pas lancés depuis > 48 h. Idempotent.
+    // Cf. lib/freebuupp/lifecycle.ts.
+    try {
+      const fbTick = await freebuuppLifecycleTick(admin);
+      console.log("[/api/admin/digest] freebuupp tick", fbTick);
+    } catch (err) {
+      console.error("[/api/admin/digest] freebuupp lifecycle failed", err);
     }
   }
 
