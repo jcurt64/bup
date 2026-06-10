@@ -14,6 +14,15 @@ const PRO_SECTIONS = [
 function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
+  // Flag FREEBUUPP (cf. /api/me) : section visible seulement si activé.
+  const [freebuuppEnabled, setFreebuuppEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (typeof fetchMe === 'function') {
+      fetchMe().then(j => { if (!cancelled && j) setFreebuuppEnabled(j.freebuuppEnabled === true); });
+    }
+    return () => { cancelled = true; };
+  }, []);
   const [campDetail, setCampDetail] = useState(null);
   // Source de duplication pour le wizard "Nouvelle campagne". Null pour
   // une création vierge ; sinon contient l'`id` de la campagne à dupliquer.
@@ -167,9 +176,19 @@ function ProDashboard({ go }) {
     return () => window.removeEventListener('bupp:open-message', onOpenMsg);
   }, []);
 
+  // FREEBUUPP injecté après "Campagnes" quand le flag est activé.
+  const proSections = (() => {
+    if (!freebuuppEnabled) return PRO_SECTIONS;
+    const list = [...PRO_SECTIONS];
+    const idx = list.findIndex(s => s.id === 'campagnes');
+    list.splice(idx >= 0 ? idx + 1 : list.length, 0,
+      { id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP' });
+    return list;
+  })();
+
   return (
     <>
-    <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
+    <DashShell role="pro" go={go} sections={proSections} current={sec} onNav={navTo}
       overrideName={companyInfo?.raisonSociale || ''}
       header={<ProHeader companyInfo={companyInfo} onCreate={() => { setDuplicateSourceId(null); setSec('create'); }} onRecharge={() => setRecharge(true)}/>}>
       {sec === 'overview' && <Overview onCreate={() => { setDuplicateSourceId(null); setSec('create'); }}/>}
@@ -211,6 +230,7 @@ function ProDashboard({ go }) {
         />
       )}
       {sec === 'facturation' && <Facturation onRecharge={() => setRecharge(true)}/>}
+      {sec === 'freebuupp' && <FreeBUUPPPro onRecharge={() => setRecharge(true)}/>}
       {sec === 'messages' && <MessagesPanel role="pro" highlightId={highlightMessageId} onHighlightConsumed={() => setHighlightMessageId(null)}/>}
       {sec === 'suggestions' && <SuggestionsPanel role="pro"/>}
     </DashShell>
@@ -9543,6 +9563,302 @@ function ProInfoAllDeleteModal({ onConfirm, onClose }) {
         </button>
       </div>
     </ProInfoModalShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FREEBUUPP — espace pro : liste, création (10 € wallet), détail avec
+   tirage vérifiable, gagnants (n° + téléphone), et mail groupé unique
+   de consolation aux non-gagnants. Section gated par `freebuuppEnabled`.
+   ───────────────────────────────────────────────────────────────── */
+function fbProCountdown(iso) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'Clôturé';
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? (h + 'h ' + m + 'min') : (m + 'min');
+}
+const FB_STATUS_LABEL = { open: 'En cours', closed: 'À tirer', drawn: 'Tiré', canceled: 'Annulé' };
+
+function FreeBUUPPPro({ onRecharge }) {
+  const [list, setList] = useState(null);     // null = chargement
+  const [detailId, setDetailId] = useState(null);
+  const [creating, setCreating] = useState(false);
+
+  const loadList = React.useCallback(() => {
+    setList(null);
+    fetch('/api/pro/freebuupps', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { freebuupps: [] })
+      .then(j => setList(j.freebuupps || []))
+      .catch(() => setList([]));
+  }, []);
+  useEffect(() => { if (!detailId && !creating) loadList(); }, [detailId, creating, loadList]);
+
+  if (creating) {
+    return <FreeBUUPPCreate onRecharge={onRecharge}
+      onCancel={() => setCreating(false)}
+      onDone={() => setCreating(false)} />;
+  }
+  if (detailId) return <FreeBUUPPDetail id={detailId} onBack={() => setDetailId(null)} />;
+
+  return (
+    <div className="col gap-6">
+      <div className="row between center">
+        <SectionTitle eyebrow="FREEBUUPP" title="Mes tirages au sort"
+          sub="Faites découvrir un produit ou service via un tirage. 10 € par FREEBUUPP." />
+        <button className="btn primary" onClick={() => setCreating(true)}>
+          <Icon name="plus" size={14}/> Lancer un FREEBUUPP
+        </button>
+      </div>
+
+      {list === null && <div className="card" style={{ padding: 24 }}>Chargement…</div>}
+      {list !== null && list.length === 0 && (
+        <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 30, marginBottom: 6 }}>🎁</div>
+          <strong>Aucun FREEBUUPP pour l&apos;instant.</strong>
+          <div className="muted" style={{ marginTop: 6 }}>Lancez votre premier tirage pour attirer de nouveaux prospects.</div>
+        </div>
+      )}
+      {list !== null && list.length > 0 && (
+        <div className="col gap-2">
+          {list.map(fb => (
+            <div key={fb.id} className="card row between center" style={{ padding: '16px 18px', cursor: 'pointer' }}
+              onClick={() => setDetailId(fb.id)}>
+              <div>
+                <div style={{ fontWeight: 600 }}>{fb.title}</div>
+                <div className="muted" style={{ fontSize: 12 }}>🎁 {fb.prize_description} · {fb.panel_size} places · {fb.winners_count} gagnants</div>
+              </div>
+              <div className="row center gap-3">
+                <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  {FB_STATUS_LABEL[fb.effectiveStatus] || fb.status}
+                </span>
+                {fb.effectiveStatus === 'open' && <span className="muted" style={{ fontSize: 12 }}>{fbProCountdown(fb.closes_at)}</span>}
+                {fb.effectiveStatus === 'closed' && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Lancer le tirage →</span>}
+                <Icon name="arrow" size={14}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FB_PANELS = [30, 50, 80];
+const FB_WINNERS = [2, 5, 10];
+const FB_GEOS = [
+  { id: 'national', label: 'National' },
+  { id: 'region', label: 'Région' },
+  { id: 'dept', label: 'Département' },
+  { id: 'ville', label: 'Ville' },
+];
+
+function FreeBUUPPCreate({ onCancel, onDone, onRecharge }) {
+  const [title, setTitle] = useState('');
+  const [prize, setPrize] = useState('');
+  const [panel, setPanel] = useState(30);
+  const [winners, setWinners] = useState(2);
+  const [geo, setGeo] = useState('national');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const submit = async () => {
+    setErr(null);
+    if (!title.trim() || !prize.trim()) { setErr({ msg: 'Renseignez un titre et le lot à gagner.' }); return; }
+    if (winners >= panel) { setErr({ msg: 'Le nombre de gagnants doit être inférieur au panel.' }); return; }
+    setBusy(true);
+    try {
+      const r = await fetch('/api/pro/freebuupps', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), prizeDescription: prize.trim(), panelSize: panel, winnersCount: winners, geo }),
+      });
+      if (r.ok) { onDone(); return; }
+      const j = await r.json().catch(() => ({}));
+      if (j.error === 'insufficient_funds') setErr({ msg: 'Solde insuffisant (10 € requis).', recharge: true });
+      else if (j.error === 'missing_company_info') setErr({ msg: 'Renseignez votre raison sociale et votre ville dans « Mes informations ».' });
+      else if (j.error === 'freebuupp_disabled') setErr({ msg: 'Le service FREEBUUPP n’est pas encore activé.' });
+      else setErr({ msg: 'Création impossible pour le moment.' });
+    } finally { setBusy(false); }
+  };
+
+  const Chip = ({ active, onClick, children }) => (
+    <button onClick={onClick} className="btn" style={{
+      padding: '8px 16px', borderRadius: 999,
+      background: active ? 'var(--ink)' : 'var(--paper)', color: active ? 'var(--paper)' : 'var(--ink)',
+      border: '1px solid var(--line)', fontWeight: active ? 600 : 400,
+    }}>{children}</button>
+  );
+
+  return (
+    <div className="col gap-6" style={{ maxWidth: 560 }}>
+      <div className="row center gap-3">
+        <button className="btn ghost" onClick={onCancel}><Icon name="arrowLeft" size={14}/> Retour</button>
+        <SectionTitle eyebrow="FREEBUUPP" title="Nouveau tirage au sort" />
+      </div>
+
+      <div className="card col gap-4" style={{ padding: 24 }}>
+        <label className="col gap-1">
+          <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Titre</span>
+          <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
+            placeholder="Ex. : 1 soin offert au salon" style={inpStyle()} />
+        </label>
+        <label className="col gap-1">
+          <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Lot à gagner</span>
+          <input value={prize} onChange={e => setPrize(e.target.value)} maxLength={200}
+            placeholder="Ex. : un soin du visage d'une valeur de 60 €" style={inpStyle()} />
+        </label>
+
+        <div className="col gap-1">
+          <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Nombre de participants (panel)</span>
+          <div className="row gap-2">{FB_PANELS.map(p => <Chip key={p} active={panel === p} onClick={() => setPanel(p)}>{p}</Chip>)}</div>
+        </div>
+        <div className="col gap-1">
+          <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Nombre de gagnants</span>
+          <div className="row gap-2">{FB_WINNERS.map(w => <Chip key={w} active={winners === w} onClick={() => setWinners(w)}>{w}</Chip>)}</div>
+        </div>
+        <div className="col gap-1">
+          <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Zone géographique</span>
+          <div className="row gap-2" style={{ flexWrap: 'wrap' }}>{FB_GEOS.map(g => <Chip key={g.id} active={geo === g.id} onClick={() => setGeo(g.id)}>{g.label}</Chip>)}</div>
+        </div>
+
+        {err && (
+          <div className="card" style={{ padding: 12, background: 'var(--paper-2, #faf3f0)', border: '1px solid var(--line)' }}>
+            <div style={{ color: 'var(--danger, #b3261e)' }}>{err.msg}</div>
+            {err.recharge && <button className="btn primary" style={{ marginTop: 8 }} onClick={onRecharge}>Recharger mon compte</button>}
+          </div>
+        )}
+
+        <div className="row between center" style={{ marginTop: 4 }}>
+          <div className="muted" style={{ fontSize: 13 }}>Coût : <strong>10 €</strong> · durée 24 h</div>
+          <button className="btn primary" disabled={busy} onClick={submit}>{busy ? 'Lancement…' : 'Lancer (10 €)'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FreeBUUPPDetail({ id, onBack }) {
+  const [fb, setFb] = useState(null);    // null = chargement
+  const [drawing, setDrawing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const load = React.useCallback(() => {
+    fetch('/api/pro/freebuupps/' + id, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => setFb(j ? j.freebuupp : false))
+      .catch(() => setFb(false));
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
+
+  const draw = async () => {
+    setDrawing(true);
+    try {
+      const r = await fetch('/api/pro/freebuupps/' + id + '/draw', { method: 'POST' });
+      if (r.ok || r.status === 409) load();
+    } finally { setDrawing(false); }
+  };
+
+  const sendConsolation = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    try {
+      const r = await fetch('/api/pro/freebuupps/' + id + '/consolation', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      if (r.ok || r.status === 409) { setMessage(''); load(); }
+    } finally { setSending(false); }
+  };
+
+  if (fb === null) return <div className="card" style={{ padding: 24 }}>Chargement…</div>;
+  if (fb === false) return <div className="card" style={{ padding: 24 }}>FREEBUUPP introuvable. <button className="btn ghost" onClick={onBack}>Retour</button></div>;
+
+  const losersCount = Math.max(0, (fb.participantCount || 0) - (fb.winners ? fb.winners.length : 0));
+
+  return (
+    <div className="col gap-6">
+      <div className="row center gap-3">
+        <button className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={14}/> Retour</button>
+        <SectionTitle eyebrow="FREEBUUPP" title={fb.title} />
+      </div>
+
+      <div className="card row between center" style={{ padding: 20, flexWrap: 'wrap', gap: 16 }}>
+        <Stat label="Participants" value={(fb.participantCount || 0) + ' / ' + fb.panelSize} />
+        <Stat label="Gagnants" value={String(fb.winnersCount)} />
+        <Stat label="Statut" value={FB_STATUS_LABEL[fb.effectiveStatus] || fb.status} />
+        {fb.effectiveStatus === 'open' && <Stat label="Clôture" value={fbProCountdown(fb.closesAt)} />}
+      </div>
+
+      {fb.effectiveStatus === 'open' && (
+        <div className="card" style={{ padding: 20 }}>
+          <div className="muted">Les inscriptions sont ouvertes. Le tirage sera disponible à la clôture (24 h) ou dès que le panel sera complet.</div>
+        </div>
+      )}
+
+      {fb.effectiveStatus === 'closed' && (
+        <div className="card row between center" style={{ padding: 20 }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Les inscriptions sont closes 🎲</div>
+            <div className="muted" style={{ fontSize: 13 }}>{fb.participantCount} participant(s). Lancez le tirage au sort vérifiable.</div>
+          </div>
+          <button className="btn primary" disabled={drawing} onClick={draw}>{drawing ? 'Tirage…' : 'Lancer le tirage'}</button>
+        </div>
+      )}
+
+      {fb.status === 'drawn' && fb.winners && (
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="serif" style={{ fontSize: 20, margin: '0 0 12px' }}>🎉 Gagnants</h3>
+          <div className="col gap-2">
+            {fb.winners.map(w => (
+              <div key={w.participantNumber} className="row between center" style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                <span style={{ fontWeight: 600 }}>n°{w.participantNumber}</span>
+                <span className="row center gap-3">
+                  <a href={'tel:' + (w.telephone || '')} className="mono">{w.telephone || '—'}</a>
+                  {w.prizeReported && <span title={w.prizeReportReason || ''} style={{ fontSize: 12, color: 'var(--danger, #b3261e)' }}>⚠️ Lot signalé non reçu</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+            🔒 Tirage vérifiable. Seul le téléphone des gagnants vous est communiqué — contactez-les pour la remise du lot.
+          </div>
+        </div>
+      )}
+
+      {fb.status === 'drawn' && losersCount > 0 && (
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="serif" style={{ fontSize: 18, margin: '0 0 8px' }}>Mail aux non-gagnants</h3>
+          {fb.consolationSent ? (
+            <div className="muted">✅ Mail de consolation déjà envoyé aux {losersCount} non-gagnant(s). Un seul envoi est autorisé.</div>
+          ) : (
+            <div className="col gap-3">
+              <div className="muted" style={{ fontSize: 13 }}>
+                Envoyez <strong>un unique</strong> message aux {losersCount} prospect(s) non tiré(s) pour présenter vos services.
+              </div>
+              <textarea value={message} onChange={e => setMessage(e.target.value)} maxLength={1500} rows={4}
+                placeholder="Ex. : Merci d'avoir participé ! Profitez de -10 % sur votre première visite…"
+                style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)', padding: 12, font: 'inherit', resize: 'vertical' }} />
+              <button className="btn primary" disabled={sending || !message.trim()} onClick={sendConsolation}>
+                {sending ? 'Envoi…' : 'Envoyer (une seule fois)'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function inpStyle() {
+  return { width: '100%', borderRadius: 10, border: '1px solid var(--line)', padding: '10px 12px', font: 'inherit' };
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <div className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{label}</div>
+      <div className="serif" style={{ fontSize: 22 }}>{value}</div>
+    </div>
   );
 }
 
