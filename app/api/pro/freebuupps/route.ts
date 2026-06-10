@@ -13,6 +13,7 @@ import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { FREEBUUPP_FEE_CENTS } from "@/lib/freebuupp/pricing";
 import { generateSeed, hashSeed } from "@/lib/freebuupp/draw";
 import { PANEL_SIZES, WINNERS_COUNTS } from "@/lib/freebuupp/types";
+import { isFreebuuppEnabled } from "@/lib/freebuupp/config";
 
 export const runtime = "nodejs";
 
@@ -68,6 +69,11 @@ export async function POST(req: Request) {
     user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null;
   const proId = await ensureProAccount({ clerkUserId: userId, email });
   const admin = createSupabaseAdminClient();
+
+  // Service livré désactivé : on refuse toute création tant que le flag est off.
+  if (!(await isFreebuuppEnabled(admin))) {
+    return NextResponse.json({ error: "freebuupp_disabled" }, { status: 403 });
+  }
 
   const { data: pro } = await admin
     .from("pro_accounts")

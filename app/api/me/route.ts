@@ -141,6 +141,12 @@ export async function GET() {
     }
   }
 
+  // Flag FREEBUUPP : exposé au front pour conditionner l'entrée de menu
+  // (service livré désactivé par défaut). Lecture DB → activable sans
+  // redéploiement. Cf. lib/freebuupp/config.ts.
+  const { isFreebuuppEnabled } = await import("@/lib/freebuupp/config");
+  const freebuuppEnabled = await isFreebuuppEnabled(admin);
+
   return NextResponse.json({
     prenom,
     nom,
@@ -148,6 +154,7 @@ export async function GET() {
     initials,
     role,
     displayName,
+    freebuuppEnabled,
     // hasProspectProfile / hasProProfile retirés — mutuellement exclusifs
     // désormais. Les consommateurs lisent `role` directement.
   });

@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { canJoin } from "@/lib/freebuupp/eligibility";
+import { isFreebuuppEnabled } from "@/lib/freebuupp/config";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,11 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const admin = createSupabaseAdminClient();
+
+  // Service livré désactivé : on refuse toute participation tant que le flag est off.
+  if (!(await isFreebuuppEnabled(admin))) {
+    return NextResponse.json({ error: "freebuupp_disabled" }, { status: 403 });
+  }
 
   const { data: prospect } = await admin
     .from("prospects")
