@@ -23,7 +23,7 @@ export async function GET() {
 
   const { data: parts } = await admin
     .from("freebuupp_participants")
-    .select("freebuupp_id, participant_number, is_winner, created_at")
+    .select("freebuupp_id, participant_number, is_winner, prize_reported_at, created_at")
     .eq("prospect_id", prospect.id)
     .order("created_at", { ascending: false });
 
@@ -62,6 +62,7 @@ export async function GET() {
       closesAt: fb?.closes_at ?? null,
       drawnAt: fb?.drawn_at ?? null,
       result: !drawn ? "pending" : p.is_winner ? "won" : "lost",
+      prizeReported: !!p.prize_reported_at,
     };
   });
 

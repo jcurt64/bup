@@ -24,7 +24,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const { data: fb } = await admin
     .from("freebuupps")
     .select(
-      "id, code, title, prize_description, panel_size, winners_count, status, opens_at, closes_at, drawn_at, seed, seed_hash, geo",
+      "id, code, title, prize_description, panel_size, winners_count, status, opens_at, closes_at, drawn_at, seed, seed_hash, geo, consolation_sent_at",
     )
     .eq("id", id)
     .eq("pro_account_id", proId)
@@ -33,11 +33,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const { data: parts } = await admin
     .from("freebuupp_participants")
-    .select("participant_number, is_winner, prospect_id")
+    .select("participant_number, is_winner, prospect_id, prize_reported_at, prize_report_reason")
     .eq("freebuupp_id", id)
     .order("participant_number");
 
-  let winners: { participantNumber: number; telephone: string | null }[] = [];
+  let winners: {
+    participantNumber: number;
+    telephone: string | null;
+    prizeReported: boolean;
+    prizeReportReason: string | null;
+  }[] = [];
   if (fb.status === "drawn") {
     const winnerRows = (parts ?? []).filter((p) => p.is_winner);
     const pids = winnerRows.map((w) => w.prospect_id);
@@ -52,6 +57,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     winners = winnerRows.map((w) => ({
       participantNumber: w.participant_number,
       telephone: phoneByProspect.get(w.prospect_id) ?? null,
+      prizeReported: !!w.prize_reported_at,
+      prizeReportReason: w.prize_report_reason ?? null,
     }));
   }
 
@@ -75,6 +82,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       seedHash: fb.seed_hash,
       seed: fb.status === "drawn" ? fb.seed : null,
       geo: fb.geo,
+      consolationSent: !!fb.consolation_sent_at,
       participantCount: parts?.length ?? 0,
       winners,
     },

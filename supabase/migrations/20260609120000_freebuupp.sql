@@ -28,6 +28,9 @@ create table if not exists public.freebuupps (
   seed               text,
   fee_cents          bigint not null default 1000,
   refunded           boolean not null default false,
+  -- Mail groupé de consolation aux non-gagnants : envoyé UNE SEULE FOIS.
+  -- NULL = pas encore envoyé ; horodaté au premier (et unique) envoi.
+  consolation_sent_at timestamptz,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
   constraint freebuupps_winners_lt_panel check (winners_count < panel_size)
@@ -62,6 +65,10 @@ create table if not exists public.freebuupp_participants (
   prospect_id         uuid not null references public.prospects(id) on delete cascade,
   participant_number  int  not null,
   is_winner           boolean not null default false,
+  -- Signalement par un GAGNANT de la non-réception de son lot.
+  -- NULL = pas de signalement ; horodaté + motif optionnel sinon.
+  prize_reported_at   timestamptz,
+  prize_report_reason text,
   created_at          timestamptz not null default now(),
   constraint freebuupp_participants_unique_prospect unique (freebuupp_id, prospect_id),
   constraint freebuupp_participants_unique_number   unique (freebuupp_id, participant_number)

@@ -543,6 +543,184 @@ const PROSPECT_SECTIONS = [
   { id: 'messages',     icon: 'inbox',  label: 'Mes messages' },
 ];
 
+/* ─────────────────────────────────────────────────────────────────
+   FREEBUUPP — feed des tirages au sort ouverts + participation + ticket
+   + mes participations. Section conditionnée au flag `freebuuppEnabled`
+   (cf. /api/me) : invisible tant que le service n'est pas activé.
+   ───────────────────────────────────────────────────────────────── */
+function fbCountdown(iso) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'Clôturé';
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? (h + 'h ' + m + 'min') : (m + 'min');
+}
+
+function FreeBUUPP() {
+  const [feed, setFeed] = useState(null);   // null = chargement
+  const [mine, setMine] = useState(null);
+  const [busy, setBusy] = useState(null);   // id en cours de participation
+  const [ticket, setTicket] = useState(null); // { title, number }
+  const [phoneNeeded, setPhoneNeeded] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null); // { freebuuppId, title }
+  const [reportReason, setReportReason] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+
+  const load = React.useCallback(() => {
+    fetch('/api/prospect/freebuupps', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { freebuupps: [] })
+      .then(j => setFeed(j.freebuupps || []))
+      .catch(() => setFeed([]));
+    fetch('/api/prospect/freebuupps/mine', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { participations: [] })
+      .then(j => setMine(j.participations || []))
+      .catch(() => setMine([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const join = async (fb) => {
+    setBusy(fb.id);
+    try {
+      const r = await fetch('/api/prospect/freebuupps/' + fb.id + '/join', { method: 'POST' });
+      if (r.status === 403) {
+        const j = await r.json().catch(() => ({}));
+        if (j.error === 'phone_unverified') { setPhoneNeeded(true); return; }
+      }
+      if (r.ok) {
+        const j = await r.json();
+        setTicket({ title: fb.title, number: j.participantNumber });
+      }
+      load();
+    } finally { setBusy(null); }
+  };
+
+  const submitReport = async () => {
+    if (!reportTarget) return;
+    setReportBusy(true);
+    try {
+      const r = await fetch('/api/prospect/freebuupps/' + reportTarget.freebuuppId + '/report', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason.trim() || undefined }),
+      });
+      if (r.ok || r.status === 409) { setReportTarget(null); setReportReason(''); load(); }
+    } finally { setReportBusy(false); }
+  };
+
+  return (
+    <div className="col gap-6">
+      <SectionTitle eyebrow="FREEBUUPP" title="Tirages au sort gratuits"
+        sub="Inscrivez-vous gratuitement : un tirage aléatoire vérifiable désigne les gagnants. Chaque participant reçoit un numéro." />
+
+      {feed === null && <div className="card" style={{ padding: 24 }}>Chargement…</div>}
+      {feed !== null && feed.length === 0 && (
+        <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 30, marginBottom: 6 }}>🎁</div>
+          <strong>Aucun FREEBUUPP ouvert près de chez vous.</strong>
+          <div className="muted" style={{ marginTop: 6 }}>Revenez bientôt — de nouveaux tirages arrivent régulièrement.</div>
+        </div>
+      )}
+      {feed !== null && feed.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+          {feed.map(fb => (
+            <div key={fb.id} className="card" style={{ padding: 20 }}>
+              <div className="mono caps" style={{ color: 'var(--ink-3)', fontSize: 11 }}>{fb.brandName}</div>
+              <div className="serif" style={{ fontSize: 19, margin: '4px 0 8px' }}>{fb.title}</div>
+              <div style={{ color: 'var(--ink-3)', fontSize: 14, marginBottom: 10 }}>🎁 {fb.prizeDescription}</div>
+              <div className="row between" style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>
+                <span><Icon name="clock" size={12}/> {fbCountdown(fb.closesAt)}</span>
+                <span>{fb.placesLeft} places · {fb.winnersCount} gagnants</span>
+              </div>
+              {fb.alreadyJoined ? (
+                <div className="row center gap-2" style={{ justifyContent: 'center', padding: '9px 0', borderRadius: 10, background: 'var(--ink)', color: 'var(--paper)', fontWeight: 600 }}>
+                  <Icon name="check" size={14}/> Inscrit · n°{fb.myNumber}
+                </div>
+              ) : (
+                <button className="btn primary" style={{ width: '100%' }} disabled={busy === fb.id}
+                  onClick={() => join(fb)}>
+                  {busy === fb.id ? 'Inscription…' : 'Je participe'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mine !== null && mine.length > 0 && (
+        <div>
+          <SectionTitle eyebrow="Historique" title="Mes participations" />
+          <div className="col gap-2">
+            {mine.map(p => (
+              <div key={p.freebuuppId} className="card row between center" style={{ padding: '14px 18px' }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{p.title || 'FREEBUUPP'}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>{p.brandName} · n°{p.participantNumber}</div>
+                </div>
+                <div className="row center gap-3">
+                  {p.result === 'pending' && <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>En attente</span>}
+                  {p.result === 'lost' && <span className="muted" style={{ fontSize: 12 }}>Pas cette fois</span>}
+                  {p.result === 'won' && <span style={{ fontWeight: 700, color: 'var(--accent)' }}>🎉 Gagné</span>}
+                  {p.result === 'won' && (p.prizeReported
+                    ? <span className="mono caps" style={{ fontSize: 11, color: 'var(--ink-3)' }}>Signalé</span>
+                    : <button className="btn ghost" style={{ fontSize: 12, padding: '6px 10px' }}
+                        onClick={() => { setReportTarget({ freebuuppId: p.freebuuppId, title: p.title }); setReportReason(''); }}>
+                        Lot non reçu&nbsp;?
+                      </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {ticket && (
+        <Modal title="Vous participez 🎫" subtitle={ticket.title} onClose={() => setTicket(null)}>
+          <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+            <div className="muted" style={{ fontSize: 12 }}>Votre numéro de tirage</div>
+            <div className="serif" style={{ fontSize: 64, lineHeight: 1.1, margin: '6px 0' }}>#{ticket.number}</div>
+            <div className="muted" style={{ fontSize: 13, maxWidth: 360, margin: '8px auto 0' }}>
+              C&apos;est ce numéro qui sera tiré au sort. Si vous gagnez, le professionnel
+              vous contactera par téléphone et vous recevrez une notification.
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {phoneNeeded && (
+        <Modal title="Vérifiez votre téléphone" subtitle="Étape requise pour participer" onClose={() => setPhoneNeeded(false)}>
+          <div className="col gap-4">
+            <div className="muted">
+              Pour participer à un FREEBUUPP et permettre au professionnel de vous joindre
+              en cas de gain, vous devez d&apos;abord vérifier votre numéro de téléphone.
+            </div>
+            <button className="btn primary" onClick={() => {
+              setPhoneNeeded(false);
+              try { window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'verif' } })); } catch (e) {}
+            }}>Aller à la vérification</button>
+          </div>
+        </Modal>
+      )}
+
+      {reportTarget && (
+        <Modal title="Signaler la non-réception" subtitle={reportTarget.title} onClose={() => setReportTarget(null)}>
+          <div className="col gap-4">
+            <div className="muted">
+              Vous avez gagné ce FREEBUUPP mais n&apos;avez pas reçu votre lot&nbsp;? Signalez-le
+              à BUUPP. Vous pouvez préciser le contexte (facultatif).
+            </div>
+            <textarea value={reportReason} onChange={e => setReportReason(e.target.value)}
+              maxLength={500} rows={4} placeholder="Ex. : le professionnel ne m'a jamais contacté…"
+              style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)', padding: 12, font: 'inherit', resize: 'vertical' }} />
+            <button className="btn primary" disabled={reportBusy} onClick={submitReport}>
+              {reportBusy ? 'Envoi…' : 'Envoyer le signalement'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function ProspectDashboard({ go, initialTab }) {
   return (
     <ProspectProvider>
@@ -553,6 +731,14 @@ function ProspectDashboard({ go, initialTab }) {
 
 function ProspectDashboardInner({ go, initialTab }) {
   const [sec, setSec] = useState(initialTab || 'portefeuille');
+  // Flag FREEBUUPP (cf. /api/me) : la section n'apparaît que si le service
+  // est activé. Service livré désactivé → invisible par défaut.
+  const [freebuuppEnabled, setFreebuuppEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe().then(j => { if (!cancelled && j) setFreebuuppEnabled(j.freebuuppEnabled === true); });
+    return () => { cancelled = true; };
+  }, []);
   const {
     pendingRelationsCount, profile,
     acceptGate, setAcceptGate,
@@ -623,6 +809,12 @@ function ProspectDashboardInner({ go, initialTab }) {
   const sections = PROSPECT_SECTIONS.map(s =>
     s.id === 'relations' ? { ...s, badge: pendingRelationsCount } : s
   );
+  // FREEBUUPP : injecté juste après "Mises en relation" quand le flag est on.
+  if (freebuuppEnabled && !sections.some(s => s.id === 'freebuupp')) {
+    const relIdx = sections.findIndex(s => s.id === 'relations');
+    const item = { id: 'freebuupp', icon: 'sparkle', label: 'FREEBUUPP', featured: true };
+    sections.splice(relIdx >= 0 ? relIdx + 1 : sections.length, 0, item);
+  }
   // Override live du nom dans le header : reflète instantanément les
   // modifications de l'onglet "Mes données" (palier identification).
   const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
@@ -638,6 +830,7 @@ function ProspectDashboardInner({ go, initialTab }) {
       {sec === 'prefs' && <Prefs />}
       {sec === 'parrainage' && <Parrainage />}
       {sec === 'fiscal' && <Fiscal />}
+      {sec === 'freebuupp' && <FreeBUUPP />}
       {sec === 'messages' && <MessagesPanel role="prospect" highlightId={highlightMessageId} onHighlightConsumed={() => setHighlightMessageId(null)}/>}
       {sec === 'suggestions' && <SuggestionsPanel role="prospect"/>}
     </DashShell>

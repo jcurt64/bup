@@ -1404,6 +1404,7 @@ export type Database = {
           brand_name: string
           closes_at: string
           code: string
+          consolation_sent_at: string | null
           created_at: string
           drawn_at: string | null
           fee_cents: number
@@ -1426,6 +1427,7 @@ export type Database = {
           brand_name: string
           closes_at: string
           code: string
+          consolation_sent_at?: string | null
           created_at?: string
           drawn_at?: string | null
           fee_cents?: number
@@ -1448,6 +1450,7 @@ export type Database = {
           brand_name?: string
           closes_at?: string
           code?: string
+          consolation_sent_at?: string | null
           created_at?: string
           drawn_at?: string | null
           fee_cents?: number
@@ -1483,6 +1486,8 @@ export type Database = {
           id: string
           is_winner: boolean
           participant_number: number
+          prize_report_reason: string | null
+          prize_reported_at: string | null
           prospect_id: string
         }
         Insert: {
@@ -1491,6 +1496,8 @@ export type Database = {
           id?: string
           is_winner?: boolean
           participant_number: number
+          prize_report_reason?: string | null
+          prize_reported_at?: string | null
           prospect_id: string
         }
         Update: {
@@ -1499,6 +1506,8 @@ export type Database = {
           id?: string
           is_winner?: boolean
           participant_number?: number
+          prize_report_reason?: string | null
+          prize_reported_at?: string | null
           prospect_id?: string
         }
         Relationships: [
