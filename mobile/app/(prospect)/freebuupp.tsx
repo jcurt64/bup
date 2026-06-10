@@ -38,7 +38,7 @@ export default function FreebuuppProspect() {
   async function doJoin(fb: FreebuuppFeedItem) {
     try {
       const res = await join.mutateAsync({ id: fb.id });
-      Alert.alert("Vous participez 🎫", `Votre numéro de tirage : #${res.participantNumber}\n\nSi vous gagnez, le professionnel vous contactera par téléphone.`);
+      Alert.alert("Vous participez 🎫", `Votre numéro de participant : #${res.participantNumber}\n\nGardez-le : s'il est tiré au sort, vous gagnez ! Le professionnel vous contactera alors par téléphone.`);
     } catch (e) {
       let msg = "Réessayez.";
       if (e instanceof ApiError) {
