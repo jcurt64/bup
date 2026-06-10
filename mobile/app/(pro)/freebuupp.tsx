@@ -23,7 +23,7 @@ const GEOS: { id: string; label: string }[] = [
 ];
 const STATUS_LABEL: Record<string, string> = {
   open: "En cours",
-  closed: "À tirer",
+  closed: "Tirage…",
   drawn: "Tiré",
   canceled: "Annulé",
 };
@@ -219,7 +219,7 @@ export default function FreebuuppPro() {
                     <View className="flex-1 pr-3">
                       <Text className="font-semibold text-ink">{fb.title}</Text>
                       <Text className="text-sm text-ink-4">
-                        🎁 {fb.prize_description} · {fb.panel_size} places · {fb.winners_count} gagnants
+                        🎁 {fb.prize_description} · {fb.panel_size} places · nombre de gagnant pour le tirage : {fb.winners_count}
                       </Text>
                     </View>
                     <View className="items-end">
@@ -231,7 +231,7 @@ export default function FreebuuppPro() {
                       )}
                       {fb.effectiveStatus === "closed" && (
                         <Text className="text-sm font-bold" style={{ color: c.accent }}>
-                          Lancer le tirage →
+                          Tirage en cours…
                         </Text>
                       )}
                     </View>

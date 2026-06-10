@@ -1700,25 +1700,8 @@ export function useCreateFreebuupp() {
   });
 }
 
-/** Lancer le tirage. */
-export function useDrawFreebuupp() {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (v: { id: string }) => {
-      try {
-        return await api(`/api/pro/freebuupps/${v.id}/draw`, { method: "POST" });
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 409) return undefined;
-        throw e;
-      }
-    },
-    onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ["pro", "freebuupps"] });
-      qc.invalidateQueries({ queryKey: ["pro", "freebuupps", v.id] });
-    },
-  });
-}
+// Le tirage est 100 % automatique (clôture 24 h OU panel plein) — déclenché
+// côté serveur à la lecture / par le cron. Pas de hook de tirage manuel.
 
 /** Mail groupé unique de consolation aux non-gagnants. */
 export function useConsolationFreebuupp() {

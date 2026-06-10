@@ -104,7 +104,7 @@ export default function FreebuuppProspect() {
                 <View className="mt-2 flex-row justify-between">
                   <Text className="text-sm text-ink-4">⏳ {countdown(fb.closesAt)}</Text>
                   <Text className="text-sm text-ink-4">
-                    {fb.placesLeft} places · {fb.winnersCount} gagnants
+                    {fb.placesLeft} places · nombre de gagnant pour le tirage : {fb.winnersCount}
                   </Text>
                 </View>
                 {fb.alreadyJoined ? (
