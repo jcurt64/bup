@@ -1570,5 +1570,5 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
 /* Marqueur Coupe du Monde — ballon qui tourne à côté du logo BUUPP (temporaire). */
 @keyframes wcBallSpin { to { transform: rotate(360deg); } }
-.wc-ball-spin { animation: wcBallSpin 2.4s linear infinite; transform-origin: 50% 50%; }
+.wc-ball-spin { animation: wcBallSpin 5s linear infinite; transform-origin: 50% 50%; }
 @media (prefers-reduced-motion: reduce) { .wc-ball-spin { animation: none; } }

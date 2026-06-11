@@ -1021,3 +1021,8 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 @media (max-width: 760px) {
   #app-mobile .m-decor { display: none; }
 }
+
+/* Marqueur Coupe du Monde — ballon qui tourne à côté du logo BUUPP (temporaire). */
+@keyframes wcBallSpin { to { transform: rotate(360deg); } }
+.wc-ball-spin { animation: wcBallSpin 5s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) { .wc-ball-spin { animation: none; } }
