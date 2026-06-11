@@ -1568,7 +1568,21 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 }
 
-/* Marqueur Coupe du Monde — ballon qui tourne à côté du logo BUUPP (temporaire). */
+/* Marqueur Coupe du Monde — ballon qui tombe, rebondit, puis tourne en continu.
+   Deux éléments imbriqués : le parent .wc-ball-drop gère la chute + rebonds (une
+   fois), l'enfant .wc-ball-spin tourne en boucle APRÈS l'atterrissage (delay). */
 @keyframes wcBallSpin { to { transform: rotate(360deg); } }
-.wc-ball-spin { animation: wcBallSpin 5s linear infinite; transform-origin: 50% 50%; }
-@media (prefers-reduced-motion: reduce) { .wc-ball-spin { animation: none; } }
+@keyframes wcBallDrop {
+  0%   { transform: translateY(-320%); animation-timing-function: ease-in; }
+  50%  { transform: translateY(0);     animation-timing-function: ease-out; }
+  66%  { transform: translateY(-48%);  animation-timing-function: ease-in; }
+  80%  { transform: translateY(0);     animation-timing-function: ease-out; }
+  90%  { transform: translateY(-16%);  animation-timing-function: ease-in; }
+  100% { transform: translateY(0); }
+}
+.wc-ball-drop { display: inline-flex; animation: wcBallDrop 1.3s 1 both; transform-origin: 50% 100%; }
+.wc-ball-spin { animation: wcBallSpin 5s linear infinite; animation-delay: 1.3s; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) {
+  .wc-ball-drop { animation: none; }
+  .wc-ball-spin { animation: none; }
+}

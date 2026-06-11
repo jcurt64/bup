@@ -146,6 +146,7 @@ function Icon({
 // Décoratif → aria-hidden. Temporaire.
 function WorldCupBall({ size = 18 }: { size?: number }) {
   return (
+    <span className="wc-ball-drop" style={{ flex: "0 0 auto" }}>
     <svg
       className="wc-ball-spin"
       width={size}
@@ -173,6 +174,7 @@ function WorldCupBall({ size = 18 }: { size?: number }) {
         <line x1="22.96" y1="29.06" x2="18.35" y2="27.57" />
       </g>
     </svg>
+    </span>
   );
 }
 

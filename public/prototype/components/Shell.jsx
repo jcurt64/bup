@@ -5,6 +5,7 @@
 // (cercle « ombré » + cercle clair décalé en haut-gauche). Tourne en continu
 // via `wc-ball-spin` (cf. styles.css). Décoratif → aria-hidden. Temporaire.
 const WorldCupBall = ({ size = 16 }) => (
+  <span className="wc-ball-drop" style={{ flex: '0 0 auto' }}>
   <svg
     className="wc-ball-spin"
     width={size}
@@ -31,6 +32,7 @@ const WorldCupBall = ({ size = 16 }) => (
       <line x1="22.96" y1="29.06" x2="18.35" y2="27.57" />
     </g>
   </svg>
+  </span>
 );
 
 const Logo = ({ size = 18, color, onClick }) => {
