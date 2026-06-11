@@ -1,10 +1,34 @@
 /* Shared small components */
 
+// Ballon de foot SVG (marqueur Coupe du Monde). Tourne en continu via la classe
+// `wc-ball-spin` (cf. styles.css). Décoratif → aria-hidden. Temporaire.
+const WorldCupBall = ({ size = 20 }) => (
+  <svg
+    className="wc-ball-spin"
+    width={size}
+    height={size}
+    viewBox="0 0 32 32"
+    aria-hidden="true"
+    focusable="false"
+    style={{ display: 'block', flex: '0 0 auto' }}>
+    <circle cx="16" cy="16" r="13.5" fill="#fff" stroke="#111" strokeWidth="1.6" />
+    <polygon points="16,10.5 21.2,14.3 19.2,20.4 12.8,20.4 10.8,14.3" fill="#111" />
+    <g stroke="#111" strokeWidth="1.4" strokeLinecap="round">
+      <line x1="16" y1="10.5" x2="16" y2="2.6" />
+      <line x1="21.2" y1="14.3" x2="28.8" y2="11.8" />
+      <line x1="19.2" y1="20.4" x2="23.9" y2="26.9" />
+      <line x1="12.8" y1="20.4" x2="8.1" y2="26.9" />
+      <line x1="10.8" y1="14.3" x2="3.2" y2="11.8" />
+    </g>
+  </svg>
+);
+
 const Logo = ({ size = 18, color, onClick }) => {
   // BUUPP brand image (replaces former SVG mark). `size` controls rendered height.
   const renderHeight = Math.max(size * 2.2, 36);
   const content = (
-    <div className="row center" style={{ color: color || 'inherit' }}>
+    <div className="row center" style={{ color: color || 'inherit', gap: 7 }}>
+      <WorldCupBall size={Math.round(renderHeight * 0.6)} />
       <img
         src="/logo.png"
         alt="BUUPP"
