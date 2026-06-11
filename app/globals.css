@@ -1027,15 +1027,18 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
    rotation en boucle APRÈS l'atterrissage (animation-delay). */
 @keyframes wcBallSpin { to { transform: rotate(360deg); } }
 @keyframes wcBallDrop {
-  0%   { transform: translateY(-320%); animation-timing-function: ease-in; }
+  0%   { opacity: 0; transform: translateY(-320%); animation-timing-function: ease-in; }
+  6%   { opacity: 1; }
   50%  { transform: translateY(0);     animation-timing-function: ease-out; }
   66%  { transform: translateY(-48%);  animation-timing-function: ease-in; }
   80%  { transform: translateY(0);     animation-timing-function: ease-out; }
   90%  { transform: translateY(-16%);  animation-timing-function: ease-in; }
-  100% { transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-.wc-ball-drop { display: inline-flex; animation: wcBallDrop 1.3s 1 both; transform-origin: 50% 100%; }
-.wc-ball-spin { animation: wcBallSpin 5s linear infinite; animation-delay: 1.3s; transform-origin: 50% 50%; }
+/* Délai 1.5s : le logo s'affiche d'abord, le ballon (invisible via `both` +
+   opacity 0) chute ensuite. Spin = après le délai + la durée de chute. */
+.wc-ball-drop { display: inline-flex; animation: wcBallDrop 1.3s 1.5s 1 both; transform-origin: 50% 100%; }
+.wc-ball-spin { animation: wcBallSpin 5s linear infinite; animation-delay: 2.8s; transform-origin: 50% 50%; }
 @media (prefers-reduced-motion: reduce) {
   .wc-ball-drop { animation: none; }
   .wc-ball-spin { animation: none; }
