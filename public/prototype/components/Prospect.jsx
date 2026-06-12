@@ -776,7 +776,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
         <div style={{ flex: 1 }}/>
         {/* Groupe secondaire — placé entre les onglets principaux et le
             bloc déconnexion. Contient :
-              1. "Suivez-nous" : 3 boutons icônes (Facebook, Instagram,
+              1. "Suivez-nous" : 3 boutons icônes (Facebook, LinkedIn,
                  TikTok) pointant vers les pages sociales BUUPP.
               2. "Vos suggestions" : item de navigation qui bascule sur
                  l'onglet correspondant pour afficher le formulaire.
@@ -799,13 +799,13 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             </a>
             <a
               className="dash-social-btn"
-              href="https://www.instagram.com/buupp"
+              href="https://www.linkedin.com/company/buupp"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram BUUPP"
-              data-label="Instagram"
+              aria-label="LinkedIn BUUPP"
+              data-label="LinkedIn"
             >
-              <Icon name="instagram" size={16}/>
+              <Icon name="linkedin" size={16}/>
             </a>
             <a
               className="dash-social-btn"
