@@ -5077,6 +5077,27 @@ function formatRelativeFr(iso) {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(d);
 }
 
+// Histogramme compact d'une facette : libellé + barre proportionnelle + compte.
+function FacetBlock({ title, items }) {
+  const max = Math.max(1, ...items.map(i => i.count));
+  return (
+    <div>
+      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{title}</div>
+      <div className="col gap-1">
+        {items.map(i => (
+          <div key={i.value} className="row center" style={{ gap: 8 }}>
+            <div style={{ flex: 1, fontSize: 12 }}>{i.value}</div>
+            <div style={{ width: 60, height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{ width: `${(i.count / max) * 100}%`, height: '100%', background: 'var(--accent)' }} />
+            </div>
+            <div className="mono" style={{ fontSize: 11, width: 28, textAlign: 'right' }}>{i.count}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Contacts({ pendingContact, onPendingConsumed }) {
   const [allRows, setAllRows] = React.useState(null); // null = loading
   const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
@@ -5092,6 +5113,15 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   // Mise en avant temporaire d'une ligne sélectionnée depuis le champ
   // de recherche du header — surlignage doux qui s'efface tout seul.
   const [highlightId, setHighlightId] = React.useState(null);
+  // --- Atelier de segmentation (par campagne) ---
+  // Quand une campagne est sélectionnée, on bascule en mode "atelier" :
+  // panneau audience (distributions par facette), barre de filtres/recherche
+  // serveur, et segments enregistrés. Sinon, comportement historique (toutes
+  // les lignes, groupées par campagne avec les 3 filtres locaux).
+  const [activeCampaign, setActiveCampaign] = React.useState(null); // { id, name } | null
+  const [audience, setAudience] = React.useState(null); // { total, availableTiers, facets, savedSegments }
+  const [segFilters, setSegFilters] = React.useState({}); // SegmentFilters
+  const [filteredRows, setFilteredRows] = React.useState(null); // null = atelier inactif
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/pro/contacts', { cache: 'no-store' })
@@ -5121,6 +5151,30 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     const t = setTimeout(() => setHighlightId(null), 2200);
     return () => clearTimeout(t);
   }, [pendingContact, onPendingConsumed]);
+
+  // Charge l'audience (distributions par facette) à la sélection d'une campagne.
+  React.useEffect(() => {
+    if (!activeCampaign) { setAudience(null); return; }
+    let cancelled = false;
+    fetch(`/api/pro/campaigns/${activeCampaign.id}/audience`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setAudience(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeCampaign]);
+
+  // Refetch la liste filtrée (côté serveur) quand la campagne ou les filtres changent.
+  React.useEffect(() => {
+    if (!activeCampaign) { setFilteredRows(null); return; }
+    let cancelled = false;
+    const params = new URLSearchParams({ campaignId: activeCampaign.id });
+    if (Object.keys(segFilters).length > 0) params.set('filters', JSON.stringify(segFilters));
+    fetch(`/api/pro/contacts?${params.toString()}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setFilteredRows(j.rows || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeCampaign, segFilters]);
 
   const FILTERS = {
     f1: { label: 'Score ≥ 720',          test: r => Number(r.score) >= 720 },
@@ -5170,6 +5224,58 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     }
     return Array.from(map.values());
   }, [rows]);
+
+  // Liste des campagnes distinctes (à partir de TOUTES les lignes chargées),
+  // pour le sélecteur de l'atelier de segmentation. Indépendante des filtres
+  // locaux pour rester stable.
+  const campaignList = React.useMemo(() => {
+    const map = new Map();
+    for (const r of ALL) {
+      const key = r.campaignId || r.campaign;
+      if (!key || map.has(key)) continue;
+      map.set(key, { id: key, name: r.campaign || '—' });
+    }
+    return Array.from(map.values());
+  }, [ALL]);
+
+  // En mode atelier, la liste rendue provient de `filteredRows` (filtrage
+  // serveur) regroupée en une seule campagne — réutilise tout le rendu de
+  // groupe existant (tableau, actions par ligne, message groupé) inchangé.
+  const displayGroups = React.useMemo(() => {
+    if (!activeCampaign) return groups;
+    const items = filteredRows || [];
+    return [{ campaignId: activeCampaign.id, campaign: activeCampaign.name, items }];
+  }, [activeCampaign, filteredRows, groups]);
+
+  // Helpers de manipulation des filtres de segment (immutables).
+  const setQ = (val) => setSegFilters(f => {
+    const n = { ...f };
+    if (val) n.q = val; else delete n.q;
+    return n;
+  });
+  const setScoreMin = (val) => setSegFilters(f => {
+    const n = { ...f };
+    if (val) n.scoreMin = val; else delete n.scoreMin;
+    return n;
+  });
+  const addFacetValue = (key, val) => setSegFilters(f => {
+    if (!val) return f;
+    const arr = Array.isArray(f[key]) ? f[key] : [];
+    if (arr.includes(val)) return f;
+    return { ...f, [key]: [...arr, val] };
+  });
+  const removeFacetValue = (key, val) => setSegFilters(f => {
+    const arr = (Array.isArray(f[key]) ? f[key] : []).filter(v => v !== val);
+    const n = { ...f };
+    if (arr.length > 0) n[key] = arr; else delete n[key];
+    return n;
+  });
+  // Couples [clé facette → libellé] pour générer les selects catégoriels DRY.
+  const FACET_DEFS = [
+    ['region', 'Région'], ['revenus', 'Revenus'], ['epargne', 'Épargne'],
+    ['logement', 'Logement'], ['statutPro', 'Statut pro'], ['foyer', 'Foyer'],
+    ['vehicule', 'Véhicule'], ['animaux', 'Animaux'],
+  ];
 
   const toggleCollapsed = (cid) => setCollapsed(s => {
     const n = new Set(s); n.has(cid) ? n.delete(cid) : n.add(cid); return n;
@@ -5246,7 +5352,164 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         <button className="btn btn-ghost btn-sm" style={{ opacity: 0.5, cursor: 'not-allowed' }} disabled><Icon name="lock" size={12}/> Export CSV indisponible</button>
       }/>
 
-      {/* Filters bar */}
+      {/* Sélecteur de campagne — entrée de l'atelier de segmentation. */}
+      {campaignList.length > 0 && (
+        <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+          <button
+            className="chip"
+            onClick={() => { setActiveCampaign(null); setSegFilters({}); }}
+            style={activeCampaign === null ? { background: 'var(--accent)', color: 'white', cursor: 'pointer' } : { cursor: 'pointer' }}
+          >
+            Toutes
+          </button>
+          {campaignList.map(c => {
+            const on = activeCampaign?.id === c.id;
+            return (
+              <button
+                key={c.id}
+                className="chip"
+                onClick={() => { setActiveCampaign({ id: c.id, name: c.name }); setSegFilters({}); }}
+                style={on ? { background: 'var(--accent)', color: 'white', cursor: 'pointer' } : { cursor: 'pointer' }}
+              >
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Panneau Audience — distributions par facette de la campagne active. */}
+      {audience && (
+        <div className="card" style={{ padding: 16, margin: '12px 0' }}>
+          <div className="mono caps muted" style={{ marginBottom: 10 }}>
+            Audience · {audience.total} contact{audience.total === 1 ? '' : 's'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+            <FacetBlock title="BUPP Score" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />
+            {audience.facets.region && <FacetBlock title="Région" items={audience.facets.region} />}
+            {audience.facets.revenus && <FacetBlock title="Revenus" items={audience.facets.revenus} />}
+            {audience.facets.epargne && <FacetBlock title="Épargne" items={audience.facets.epargne} />}
+            {audience.facets.statutPro && <FacetBlock title="Statut pro" items={audience.facets.statutPro} />}
+            {audience.facets.logement && <FacetBlock title="Logement" items={audience.facets.logement} />}
+            {audience.facets.foyer && <FacetBlock title="Foyer" items={audience.facets.foyer} />}
+            {audience.facets.vehicule && <FacetBlock title="Véhicule" items={audience.facets.vehicule} />}
+            {audience.facets.animaux && <FacetBlock title="Animaux" items={audience.facets.animaux} />}
+            <FacetBlock title="Contact" items={audience.facets.reached} />
+          </div>
+        </div>
+      )}
+
+      {/* Barre de filtres + recherche (atelier actif). */}
+      {audience && (
+        <div className="card" style={{ padding: 16 }}>
+          <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={segFilters.q || ''}
+              onChange={(e) => setQ(e.target.value || undefined)}
+              placeholder="Rechercher (métier, ville, projet…)"
+              style={{
+                flex: '1 1 220px', minWidth: 180, padding: '8px 12px', borderRadius: 8,
+                border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13,
+              }}
+            />
+            <select
+              value={segFilters.scoreMin || ''}
+              onChange={(e) => setScoreMin(e.target.value ? Number(e.target.value) : undefined)}
+              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13 }}
+            >
+              <option value="">Tout score</option>
+              <option value="600">≥ 600</option>
+              <option value="720">≥ 720</option>
+            </select>
+            {FACET_DEFS.map(([key, label]) => {
+              const facet = audience.facets[key];
+              if (!facet) return null;
+              return (
+                <select
+                  key={key}
+                  value=""
+                  onChange={(e) => { addFacetValue(key, e.target.value); e.target.value = ''; }}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13 }}
+                >
+                  <option value="">{label}</option>
+                  {facet.map(o => (
+                    <option key={o.value} value={o.value}>{o.value} ({o.count})</option>
+                  ))}
+                </select>
+              );
+            })}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={async () => {
+                const name = window.prompt('Nom du segment ?');
+                if (!name) return;
+                const r = await fetch('/api/pro/segments', {
+                  method: 'POST', headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ campaignId: activeCampaign.id, name, filters: segFilters }),
+                });
+                if (r.ok) { const j = await r.json(); setAudience(a => a ? { ...a, savedSegments: [j.segment, ...(a.savedSegments || [])] } : a); }
+              }}
+            >
+              <Icon name="download" size={11}/> Enregistrer ce filtre
+            </button>
+            {Object.keys(segFilters).length > 0 && (
+              <button className="chip" onClick={() => setSegFilters({})} style={{ cursor: 'pointer' }}>
+                <Icon name="rotate" size={11}/> Réinitialiser
+              </button>
+            )}
+          </div>
+
+          {/* Valeurs catégorielles sélectionnées — chips retirables. */}
+          {FACET_DEFS.some(([key]) => Array.isArray(segFilters[key]) && segFilters[key].length > 0) && (
+            <div className="row gap-1" style={{ flexWrap: 'wrap', marginTop: 10 }}>
+              {FACET_DEFS.flatMap(([key, label]) =>
+                (Array.isArray(segFilters[key]) ? segFilters[key] : []).map(val => (
+                  <button
+                    key={`${key}:${val}`}
+                    className="chip"
+                    onClick={() => removeFacetValue(key, val)}
+                    style={{ cursor: 'pointer' }}
+                    title={`Retirer ${label} : ${val}`}
+                  >
+                    {label} : {val} ×
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Segments enregistrés. */}
+          {Array.isArray(audience.savedSegments) && audience.savedSegments.length > 0 && (
+            <div className="row center gap-1" style={{ flexWrap: 'wrap', marginTop: 12 }}>
+              <span className="mono caps muted" style={{ fontSize: 10, marginRight: 4 }}>Segments</span>
+              {audience.savedSegments.map(s => (
+                <span key={s.id} className="chip row center" style={{ gap: 4 }}>
+                  <button
+                    onClick={() => setSegFilters(s.filters || {})}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+                  >
+                    {s.name}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const r = await fetch(`/api/pro/segments/${s.id}`, { method: 'DELETE' });
+                      if (r.ok) setAudience(a => a ? { ...a, savedSegments: (a.savedSegments || []).filter(x => x.id !== s.id) } : a);
+                    }}
+                    aria-label={`Supprimer le segment ${s.name}`}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit', opacity: 0.6 }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters bar (mode historique — masquée en atelier). */}
+      {!activeCampaign && (
       <div className="card" style={{ padding: 18 }}>
         <div className="row between" style={{ marginBottom: 12, alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div className="row center gap-3">
@@ -5291,18 +5554,36 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           </button>
         </div>
       </div>
+      )}
 
+      {!activeCampaign && (
       <div className="muted" style={{ fontSize: 12, textAlign: 'center' }}>
         Les campagnes en cours apparaîtront ici à leur clôture.
       </div>
+      )}
 
-      {allRows === null && (
+      {!activeCampaign && allRows === null && (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
         </div>
       )}
 
-      {allRows !== null && rows.length === 0 && allRows.length === 0 && (
+      {/* Compteur + état vide de l'atelier (mode campagne active). */}
+      {activeCampaign && filteredRows !== null && (
+        <div className="mono" style={{ fontSize: 12, color: 'var(--ink-4)' }}>
+          {filteredRows.length} contact{filteredRows.length === 1 ? '' : 's'}
+        </div>
+      )}
+      {activeCampaign && filteredRows !== null && filteredRows.length === 0 && Object.keys(segFilters).length > 0 && (
+        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Aucun contact pour ce filtre.</div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSegFilters({})}>
+            <Icon name="rotate" size={11}/> Réinitialiser
+          </button>
+        </div>
+      )}
+
+      {!activeCampaign && allRows !== null && rows.length === 0 && allRows.length === 0 && (
         // Empty state aligné sur le pattern boîte aux lettres /
         // campagnes (cf. Prospect.jsx + Campagnes ci-dessus) : cercle
         // pastel + illustration 3D thiings.co + titre serif + sous-texte.
@@ -5356,7 +5637,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           </div>
         </div>
       )}
-      {allRows !== null && rows.length === 0 && allRows.length > 0 && (
+      {!activeCampaign && allRows !== null && rows.length === 0 && allRows.length > 0 && (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>
             Aucun prospect ne correspond aux filtres activés.
@@ -5364,7 +5645,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         </div>
       )}
 
-      {groups.map((group) => {
+      {displayGroups.map((group) => {
         const isCollapsed = collapsed.has(group.campaignId);
         const emailableIds = group.items.filter(it => it.emailAvailable).map(it => it.relationId);
         const selectedInGroup = emailableIds.filter(id => selected.has(id));
