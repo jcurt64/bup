@@ -11,6 +11,8 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { loadCampaignAudience } from "@/lib/pro/segmentation/load";
+import { matchesFilters, sanitizeFilters } from "@/lib/pro/segmentation/filter";
 
 export const runtime = "nodejs";
 
@@ -38,7 +40,7 @@ function maskName(prenom: string | null | undefined, nom: string | null | undefi
   return out || "Prospect anonyme";
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -64,7 +66,26 @@ export async function GET() {
     .maybeSingle();
   const proName = (proRow?.raison_sociale ?? "").trim() || "Notre équipe";
 
-  const { data, error } = await admin
+  const url = new URL(req.url);
+  const campaignId = url.searchParams.get("campaignId");
+  let matchingIds: Set<string> | null = null;
+  if (campaignId) {
+    let filters = {};
+    const raw = url.searchParams.get("filters");
+    if (raw) {
+      try { filters = JSON.parse(raw); } catch { filters = {}; }
+    }
+    const f = sanitizeFilters(filters);
+    const audience = await loadCampaignAudience(admin, campaignId);
+    // Ownership/clôture vérifiés implicitement par la requête principale ci-dessous
+    // (pro_account_id + campaigns.status='completed') : si la campagne n'est pas au
+    // pro ou pas clôturée, aucune ligne ne remontera de toute façon.
+    matchingIds = new Set(
+      (audience?.contacts ?? []).filter((c) => matchesFilters(c, f)).map((c) => c.relationId),
+    );
+  }
+
+  let query = admin
     .from("relations")
     .select(
       `id, decided_at, status, campaign_id, evaluation, evaluated_at,
@@ -76,8 +97,10 @@ export async function GET() {
     .eq("pro_account_id", proId)
     .in("status", ["accepted", "settled"])
     .eq("campaigns.status", "completed")
-    .order("decided_at", { ascending: false })
-    .limit(200);
+    .order("decided_at", { ascending: false });
+  if (campaignId) query = query.eq("campaign_id", campaignId);
+  else query = query.limit(200);
+  const { data, error } = await query;
 
   if (error) {
     console.error("[/api/pro/contacts] read failed", error);
@@ -172,5 +195,6 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ rows });
+  const filteredRows = matchingIds ? rows.filter((r) => matchingIds!.has(r.relationId)) : rows;
+  return NextResponse.json({ rows: filteredRows, count: filteredRows.length });
 }
