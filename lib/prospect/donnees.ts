@@ -91,17 +91,14 @@ export const TIERS: Record<TierKey, TierMap> = {
   pro: {
     table: "prospect_pro",
     fields: {
-      poste: "poste",
       statut: "statut",
       secteur: "secteur",
-      revenus: "revenus",
     },
   },
   patrimoine: {
     table: "prospect_patrimoine",
     fields: {
       residence: "residence",
-      epargne: "epargne",
       projets: "projets",
     },
   },
