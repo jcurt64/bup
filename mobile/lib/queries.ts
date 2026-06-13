@@ -1329,6 +1329,8 @@ export type ProContact = {
   name: string;
   score: number;
   campaign: string;
+  /** Id de la campagne d'origine (renvoyé par l'API ; sert au sélecteur). */
+  campaignId: string;
   tier: number;
   email: string | null;
   telephone: string | null;
@@ -1336,6 +1338,109 @@ export type ProContact = {
 };
 export const useProContacts = () =>
   useGet<{ rows: ProContact[] }>(["pro", "contacts"], "/api/pro/contacts", 30_000);
+
+// ── Atelier de segmentation (parité web) ──────────────────────────────────
+// Clés catégorielles présentes uniquement si le palier de données a été acheté.
+type FacetKey =
+  | "region"
+  | "revenus"
+  | "epargne"
+  | "logement"
+  | "statutPro"
+  | "foyer"
+  | "vehicule"
+  | "animaux";
+
+export type AudienceFacets = {
+  total: number;
+  score: { label: string; count: number }[];
+  reached: { value: string; count: number }[];
+} & Partial<Record<FacetKey, { value: string; count: number }[]>>;
+
+export type SegmentFilters = {
+  scoreMin?: number;
+  scoreMax?: number;
+  reached?: "atteint" | "non_atteint";
+  q?: string;
+  region?: string[];
+  revenus?: string[];
+  epargne?: string[];
+  logement?: string[];
+  statutPro?: string[];
+  foyer?: string[];
+  vehicule?: string[];
+  animaux?: string[];
+};
+
+export type ProSegment = {
+  id: string;
+  name: string;
+  filters: SegmentFilters;
+  created_at: string;
+};
+
+export type ProAudience = {
+  total: number;
+  availableTiers: string[];
+  facets: AudienceFacets;
+  savedSegments: ProSegment[];
+};
+
+// Distribution de l'audience d'une campagne (clôturée). enabled → pas de fetch
+// tant qu'aucune campagne n'est sélectionnée.
+export function useProAudience(campaignId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["pro", "audience", campaignId],
+    queryFn: () => api<ProAudience>(`/api/pro/campaigns/${campaignId}/audience`),
+    enabled: !!campaignId,
+    staleTime: 30_000,
+  });
+}
+
+// Contacts filtrés côté serveur pour une campagne donnée.
+export function useProContactsFiltered(
+  campaignId: string | null,
+  filters: SegmentFilters,
+) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["pro", "contacts", "filtered", campaignId, filters],
+    queryFn: () => {
+      let path = `/api/pro/contacts?campaignId=${campaignId}`;
+      if (Object.keys(filters).length) {
+        path += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+      }
+      return api<{ rows: ProContact[]; count: number }>(path);
+    },
+    enabled: !!campaignId,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useProSegmentCreate() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { campaignId: string; name: string; filters: SegmentFilters }) =>
+      api<{ segment: ProSegment }>("/api/pro/segments", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "audience"] }),
+  });
+}
+
+export function useProSegmentDelete() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: boolean }>(`/api/pro/segments/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "audience"] }),
+  });
+}
 
 export type ProWallet = {
   walletBalanceEur: number;
