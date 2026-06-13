@@ -5122,6 +5122,10 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const [audience, setAudience] = React.useState(null); // { total, availableTiers, facets, savedSegments }
   const [segFilters, setSegFilters] = React.useState({}); // SegmentFilters
   const [filteredRows, setFilteredRows] = React.useState(null); // null = atelier inactif
+  // Auto-sélection (une seule fois) : si le pro n'a qu'une campagne, on ouvre
+  // l'atelier directement — sinon le panneau Audience restait caché derrière un
+  // clic non évident. Un clic ultérieur sur « Toutes » est respecté (ref posé).
+  const autoSelectedRef = React.useRef(false);
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/pro/contacts', { cache: 'no-store' })
@@ -5237,6 +5241,14 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     }
     return Array.from(map.values());
   }, [ALL]);
+
+  // Auto-sélection unique de l'unique campagne (cf. autoSelectedRef ci-dessus).
+  React.useEffect(() => {
+    if (!autoSelectedRef.current && activeCampaign === null && campaignList.length === 1) {
+      autoSelectedRef.current = true;
+      setActiveCampaign({ id: campaignList[0].id, name: campaignList[0].name });
+    }
+  }, [campaignList, activeCampaign]);
 
   // En mode atelier, la liste rendue provient de `filteredRows` (filtrage
   // serveur) regroupée en une seule campagne — réutilise tout le rendu de
@@ -5354,7 +5366,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
 
       {/* Sélecteur de campagne — entrée de l'atelier de segmentation. */}
       {campaignList.length > 0 && (
-        <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+        <div className="col gap-2">
+          {!activeCampaign && (
+            <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.08em' }}>
+              ▸ Cliquez une campagne pour analyser et segmenter votre audience
+            </div>
+          )}
+          <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
           <button
             className="chip"
             onClick={() => { setActiveCampaign(null); setSegFilters({}); }}
@@ -5375,6 +5393,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               </button>
             );
           })}
+          </div>
         </div>
       )}
 
