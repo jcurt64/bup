@@ -25,8 +25,8 @@ export const REQUIRED_TIER_FIELDS: Record<TierKey, string[]> = {
   identity: ["prenom", "nom", "email", "telephone", "naissance"],
   localisation: ["adresse", "ville", "codePostal", "region"],
   vie: ["foyer", "logement", "mobilite", "vehicule", "sports", "animaux"],
-  pro: ["poste", "statut", "secteur", "revenus"],
-  patrimoine: ["residence", "epargne", "projets"],
+  pro: ["statut", "secteur"],
+  patrimoine: ["residence", "projets"],
 };
 
 /** Mapping numéro de palier (1..5) → clé de catégorie. */

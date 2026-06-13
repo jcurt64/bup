@@ -40,7 +40,15 @@ type FieldConfig =
   | { type: "text"; placeholder?: string }
   | { type: "numeric"; placeholder?: string }
   | { type: "date" }
-  | { type: "tag"; options: readonly string[]; multi?: boolean }
+  | { type: "select"; options: readonly string[]; placeholder?: string }
+  | {
+      type: "tag";
+      options: readonly string[];
+      multi?: boolean;
+      /** Option exclusive (ex. « Aucun ») : la sélectionner vide les autres
+       *  et sélectionner une autre option la retire. Parité web Prospect.jsx. */
+      exclusive?: string;
+    }
   | {
       type: "tag+text";
       options: readonly string[];
@@ -156,7 +164,6 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
     },
   ],
   pro: [
-    { key: "poste", label: "Poste", icon: "briefcase-outline" },
     {
       key: "statut",
       label: "Statut",
@@ -180,12 +187,40 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
         ],
       },
     },
-    { key: "secteur", label: "Secteur", icon: "business-outline" },
     {
-      key: "revenus",
-      label: "Revenus déclarés",
-      icon: "cash-outline",
-      cfg: { type: "numeric", placeholder: "Montant en euros (chiffres uniquement)" },
+      key: "secteur",
+      label: "Secteur",
+      icon: "business-outline",
+      // Liste déroulante des 21 sections de la nomenclature NAF rév. 2
+      // (INSEE). Intitulés officiels des sections A à U (T/U abrégés).
+      // Parité web Prospect.jsx FIELD_CONFIG['pro.secteur'].
+      cfg: {
+        type: "select",
+        placeholder: "Sélectionnez un secteur…",
+        options: [
+          "Agriculture, sylviculture et pêche",
+          "Industries extractives",
+          "Industrie manufacturière",
+          "Production et distribution d'électricité, de gaz, de vapeur et d'air conditionné",
+          "Production et distribution d'eau ; assainissement, gestion des déchets et dépollution",
+          "Construction",
+          "Commerce ; réparation d'automobiles et de motocycles",
+          "Transports et entreposage",
+          "Hébergement et restauration",
+          "Information et communication",
+          "Activités financières et d'assurance",
+          "Activités immobilières",
+          "Activités spécialisées, scientifiques et techniques",
+          "Activités de services administratifs et de soutien",
+          "Administration publique",
+          "Enseignement",
+          "Santé humaine et action sociale",
+          "Arts, spectacles et activités récréatives",
+          "Autres activités de services",
+          "Activités des ménages en tant qu'employeurs",
+          "Activités extra-territoriales",
+        ],
+      },
     },
   ],
   patrimoine: [
@@ -196,17 +231,18 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
       cfg: { type: "tag", options: ["Oui", "Non"] },
     },
     {
-      key: "epargne",
-      label: "Épargne disponible",
-      icon: "wallet-outline",
-      cfg: { type: "text", placeholder: "Actions, livret A, immobilier locatif…" },
-    },
-    {
       key: "projets",
       label: "Projets à 3–5 ans",
       icon: "flag-outline",
-      // « Aucun » permet à qqn sans projet de compléter le palier 5.
-      cfg: { type: "tag", options: ["Achat", "Construction", "Location", "Aucun"] },
+      // « Déménagement » est cumulable avec Achat/Construction/Location
+      // (multi). « Aucun » reste exclusif et permet à qqn sans projet de
+      // compléter le palier 5. Parité web Prospect.jsx.
+      cfg: {
+        type: "tag",
+        multi: true,
+        options: ["Achat", "Construction", "Location", "Déménagement", "Aucun"],
+        exclusive: "Aucun",
+      },
     },
   ],
 };
@@ -352,11 +388,13 @@ function TagPicker({
   value,
   options,
   multi,
+  exclusive,
   onChange,
 }: {
   value: string;
   options: readonly string[];
   multi?: boolean;
+  exclusive?: string;
   onChange: (v: string) => void;
 }) {
   const { c } = useTheme();
@@ -371,8 +409,21 @@ function TagPicker({
             onPress={() => {
               if (multi) {
                 const next = new Set(selected);
-                if (next.has(opt)) next.delete(opt);
-                else next.add(opt);
+                if (next.has(opt)) {
+                  next.delete(opt);
+                } else {
+                  next.add(opt);
+                  // Option exclusive (ex. « Aucun ») : la sélectionner vide
+                  // les autres ; sélectionner une autre option la retire.
+                  if (exclusive) {
+                    if (opt === exclusive) {
+                      next.clear();
+                      next.add(opt);
+                    } else {
+                      next.delete(exclusive);
+                    }
+                  }
+                }
                 // Préserve l'ordre des options pour un rendu stable
                 // (parité web Prospect.jsx fn TagPicker).
                 onChange(options.filter((o) => next.has(o)).join(", "));
@@ -404,6 +455,72 @@ function TagPicker({
         );
       })}
     </View>
+  );
+}
+
+// SelectField — liste déroulante (parité web FieldInput type "select").
+// RN n'a pas de <select> natif : on affiche un déclencheur (valeur courante
+// ou placeholder) qui ouvre une BottomSheet listant les options. Tap = pick.
+function SelectField({
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  options: readonly string[];
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  const { c } = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        className="flex-row items-center justify-between rounded-xl border border-line bg-paper px-3 py-2.5"
+      >
+        <Text
+          className={`flex-1 text-base ${value ? "text-ink" : "text-ink-4"}`}
+          numberOfLines={1}
+        >
+          {value || placeholder || "Sélectionnez…"}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={c.ink4} />
+      </Pressable>
+      <BottomSheet visible={open} onClose={() => setOpen(false)} heightPct={70}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {options.map((opt) => {
+            const active = value === opt;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => {
+                  onChange(active ? "" : opt);
+                  setOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                className="flex-row items-center gap-3 border-b border-line py-3"
+              >
+                <Ionicons
+                  name={active ? "radio-button-on" : "radio-button-off"}
+                  size={20}
+                  color={active ? TAG_VIOLET : c.ink4}
+                />
+                <Text
+                  className="flex-1 text-base"
+                  style={{ color: active ? TAG_VIOLET : c.text, fontWeight: active ? "600" : "400" }}
+                >
+                  {opt}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
+    </>
   );
 }
 
@@ -1810,6 +1927,18 @@ export default function Donnees() {
                                 value={currentValue}
                                 options={f.cfg.options}
                                 multi={f.cfg.multi}
+                                exclusive={f.cfg.exclusive}
+                                onChange={(v) =>
+                                  setDraft((s) => ({ ...s, [f.key]: v }))
+                                }
+                              />
+                            );
+                          } else if (f.cfg?.type === "select") {
+                            widget = (
+                              <SelectField
+                                value={currentValue}
+                                options={f.cfg.options}
+                                placeholder={f.cfg.placeholder}
                                 onChange={(v) =>
                                   setDraft((s) => ({ ...s, [f.key]: v }))
                                 }
