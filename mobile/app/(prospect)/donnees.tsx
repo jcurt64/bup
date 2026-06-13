@@ -6,9 +6,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -521,6 +522,57 @@ function SelectField({
         </ScrollView>
       </BottomSheet>
     </>
+  );
+}
+
+// ThreeDotsLoader — indicateur d'enregistrement : 3 points de couleurs
+// distinctes qui grossissent à tour de rôle, en boucle. Remplace l'ancien
+// « … » statique du bouton Enregistrer. Animated natif RN (useNativeDriver),
+// sans dépendance. Couleurs vives, lisibles sur le fond foncé du bouton.
+const LOADER_DOT_COLORS = ["#A78BFA", "#F472B6", "#FBBF24"] as const; // violet, rose, ambre
+
+function ThreeDotsLoader() {
+  const a0 = useRef(new Animated.Value(0)).current;
+  const a1 = useRef(new Animated.Value(0)).current;
+  const a2 = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const pulse = (v: Animated.Value) =>
+      Animated.sequence([
+        Animated.timing(v, { toValue: 1, duration: 320, useNativeDriver: true }),
+        Animated.timing(v, { toValue: 0, duration: 320, useNativeDriver: true }),
+      ]);
+    // stagger = chaque point démarre 160 ms après le précédent → effet
+    // « à tour de rôle » ; loop = recommence indéfiniment.
+    const loop = Animated.loop(Animated.stagger(160, [pulse(a0), pulse(a1), pulse(a2)]));
+    loop.start();
+    return () => loop.stop();
+  }, [a0, a1, a2]);
+
+  const dot = (v: Animated.Value, color: string) => (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: color,
+        opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
+        transform: [
+          { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) },
+        ],
+      }}
+    />
+  );
+
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel="Enregistrement en cours"
+      style={{ flexDirection: "row", alignItems: "center", gap: 7, height: 24 }}
+    >
+      {dot(a0, LOADER_DOT_COLORS[0])}
+      {dot(a1, LOADER_DOT_COLORS[1])}
+      {dot(a2, LOADER_DOT_COLORS[2])}
+    </View>
   );
 }
 
@@ -2072,12 +2124,16 @@ export default function Donnees() {
                               }
                             }}
                           >
-                            <Text
-                              className="text-base font-semibold"
-                              style={{ color: c.btnText }}
-                            >
-                              {patch.isPending ? "…" : "Enregistrer"}
-                            </Text>
+                            {patch.isPending ? (
+                              <ThreeDotsLoader />
+                            ) : (
+                              <Text
+                                className="text-base font-semibold"
+                                style={{ color: c.btnText }}
+                              >
+                                Enregistrer
+                              </Text>
+                            )}
                           </Pressable>
                         </View>
                       </View>
