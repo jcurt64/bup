@@ -34,6 +34,7 @@ import { FlashDealsSheet } from "./flash-deals-sheet";
 import { useFlashSheet } from "./flash-sheet-context";
 import { MessagesSheet } from "./messages-sheet";
 import { RechargeSheet } from "./recharge-sheet";
+import { WorldCupBall } from "./worldcup-ball";
 import { setDrawerOrigin } from "../lib/drawer-origin";
 import {
   HEADER_BASE_HEIGHT,
@@ -420,6 +421,7 @@ export function AppHeader({
             />
 
             <View className="flex-row items-center gap-2">
+              <WorldCupBall size={22} />
               <BrandMark />
               <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
             </View>
