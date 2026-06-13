@@ -5135,6 +5135,23 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Par défaut, toutes les campagnes s'affichent REPLIÉES dans « Mes contacts »
+  // (le pro déplie celle qu'il veut consulter). On initialise `collapsed` avec
+  // toutes les clés de campagne dès le premier chargement des lignes — une
+  // seule fois (ref), pour ne pas réannuler les dépliages manuels ultérieurs.
+  // Si on arrive depuis la recherche du header sur une campagne précise, on la
+  // laisse dépliée (cohérent avec l'effet pendingContact ci-dessous).
+  const didInitCollapseRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitCollapseRef.current) return;
+    if (!Array.isArray(allRows) || allRows.length === 0) return;
+    didInitCollapseRef.current = true;
+    const keys = new Set(allRows.map(r => r.campaignId || r.campaign || '—'));
+    const camp = pendingContact?.payload?.campaignId || pendingContact?.payload?.campaign;
+    if (camp) keys.delete(camp);
+    setCollapsed(keys);
+  }, [allRows, pendingContact]);
+
   // Réception d'un pick depuis le champ de recherche du header.
   // Le parent injecte `pendingContact` au moment du dispatch (et change
   // le token à chaque clic, même sur la même cible), ce qui survit à un
@@ -5665,7 +5682,10 @@ function Contacts({ pendingContact, onPendingConsumed }) {
       )}
 
       {displayGroups.map((group) => {
-        const isCollapsed = collapsed.has(group.campaignId);
+        // Vue d'ensemble (« Toutes ») : campagnes repliées par défaut (cf. effet
+        // d'init). En mode atelier (une campagne explicitement ouverte), on force
+        // l'affichage déplié — sinon ses contacts seraient masqués à l'ouverture.
+        const isCollapsed = !activeCampaign && collapsed.has(group.campaignId);
         const emailableIds = group.items.filter(it => it.emailAvailable).map(it => it.relationId);
         const selectedInGroup = emailableIds.filter(id => selected.has(id));
         const allSelected = emailableIds.length > 0 && selectedInGroup.length === emailableIds.length;
