@@ -18,8 +18,8 @@ const EMPTY_TIER = {
   // fait le parseInt à la lecture.
   localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'true' },
   vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
-  pro:         { poste: '', statut: '', secteur: '', revenus: '' },
-  patrimoine:  { residence: '', epargne: '', projets: '' },
+  pro:         { statut: '', secteur: '' },
+  patrimoine:  { residence: '', projets: '' },
 };
 
 // Sources de vérité pour les listes complètes — utilisées par les toggle
@@ -2992,20 +2992,17 @@ const DATA_CATEGORIES = [
   },
   {
     key: 'pro', tier: 4, label: 'Données professionnelles', icon: 'briefcase',
-    desc: "Poste, revenus, statut, secteur.",
+    desc: "Statut, secteur.",
     fields: [
-      ['poste', 'Poste'],
       ['statut', 'Statut'],
       ['secteur', 'Secteur'],
-      ['revenus', 'Revenus déclarés'],
     ],
   },
   {
     key: 'patrimoine', tier: 5, label: 'Patrimoine & projets', icon: 'gauge',
-    desc: "Immobilier, épargne, projets.",
+    desc: "Immobilier, projets.",
     fields: [
       ['residence', 'Résidence principale'],
-      ['epargne', 'Épargne disponible'],
       ['projets', 'Projets à 3–5 ans'],
     ],
   },
@@ -3106,21 +3103,47 @@ const FIELD_CONFIG = {
       'Retraité',
     ],
   },
-  'pro.revenus': {
-    type: 'numeric',
-    placeholder: 'Montant en euros (chiffres uniquement)',
+  // Secteur d'activité — liste déroulante des 21 sections de la
+  // nomenclature d'activités française (NAF rév. 2, INSEE). Intitulés
+  // officiels des sections A à U (T et U abrégés pour la lisibilité).
+  'pro.secteur': {
+    type: 'select',
+    placeholder: 'Sélectionnez un secteur…',
+    options: [
+      'Agriculture, sylviculture et pêche',
+      'Industries extractives',
+      'Industrie manufacturière',
+      "Production et distribution d'électricité, de gaz, de vapeur et d'air conditionné",
+      "Production et distribution d'eau ; assainissement, gestion des déchets et dépollution",
+      'Construction',
+      "Commerce ; réparation d'automobiles et de motocycles",
+      'Transports et entreposage',
+      'Hébergement et restauration',
+      'Information et communication',
+      "Activités financières et d'assurance",
+      'Activités immobilières',
+      'Activités spécialisées, scientifiques et techniques',
+      'Activités de services administratifs et de soutien',
+      'Administration publique',
+      'Enseignement',
+      'Santé humaine et action sociale',
+      'Arts, spectacles et activités récréatives',
+      'Autres activités de services',
+      "Activités des ménages en tant qu'employeurs",
+      'Activités extra-territoriales',
+    ],
   },
   'patrimoine.residence': {
     type: 'tag',
     options: ['Oui', 'Non'],
   },
-  'patrimoine.epargne': {
-    type: 'text',
-    placeholder: 'Actions, livret A, immobilier locatif...',
-  },
   'patrimoine.projets': {
     type: 'tag',
-    options: ['Achat', 'Construction', 'Location', 'Aucun'],
+    multi: true,
+    // « Déménagement » est cumulable avec Achat / Construction / Location.
+    // « Aucun » reste exclusif : le sélectionner vide les autres (et vice versa).
+    options: ['Achat', 'Construction', 'Location', 'Déménagement', 'Aucun'],
+    exclusive: 'Aucun',
   },
 };
 
@@ -3770,7 +3793,7 @@ function listToTags(list) {
   return list.join(', ');
 }
 
-function TagPicker({ value, options, onPick, multi = false }) {
+function TagPicker({ value, options, onPick, multi = false, exclusive = null }) {
   const selected = multi ? new Set(tagsToList(value)) : null;
   return (
     <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 4 }}>
@@ -3779,7 +3802,21 @@ function TagPicker({ value, options, onPick, multi = false }) {
         const onClick = () => {
           if (multi) {
             const next = new Set(selected);
-            if (next.has(opt)) next.delete(opt); else next.add(opt);
+            if (next.has(opt)) {
+              next.delete(opt);
+            } else {
+              next.add(opt);
+              // Option exclusive (ex. « Aucun ») : sa sélection vide les
+              // autres ; sélectionner une autre option retire l'exclusive.
+              if (exclusive) {
+                if (opt === exclusive) {
+                  next.clear();
+                  next.add(opt);
+                } else {
+                  next.delete(exclusive);
+                }
+              }
+            }
             // Préserve l'ordre des options pour un rendu stable.
             const ordered = options.filter(o => next.has(o));
             onPick(listToTags(ordered));
@@ -3831,7 +3868,7 @@ function FieldInput({ category, field, value, detail, onChange, autoFocus = fals
   if (cfg.type === 'tag') {
     return (
       <>
-        <TagPicker value={value || ''} options={cfg.options} multi={!!cfg.multi} onPick={setValue} />
+        <TagPicker value={value || ''} options={cfg.options} multi={!!cfg.multi} exclusive={cfg.exclusive || null} onPick={setValue} />
         {cfg.multi && (
           <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
             Plusieurs choix possibles — cliquez pour ajouter ou retirer.
@@ -3882,6 +3919,22 @@ function FieldInput({ category, field, value, detail, onChange, autoFocus = fals
           </div>
         )}
       </>
+    );
+  }
+  if (cfg.type === 'select') {
+    return (
+      <select
+        className="input"
+        value={value || ''}
+        onChange={e => setValue(e.target.value)}
+        autoFocus={autoFocus}
+        style={{ width: '100%', fontSize: 14 }}
+      >
+        <option value="">{cfg.placeholder || 'Sélectionnez…'}</option>
+        {cfg.options.map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
     );
   }
   // type 'text' (défaut)

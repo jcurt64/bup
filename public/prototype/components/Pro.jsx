@@ -5904,7 +5904,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         <div className="row center gap-3">
           <span style={{ color: '#B91C1C', display: 'inline-flex' }}><Icon name="shield" size={16}/></span>
           <div style={{ fontSize: 13 }}>
-            <strong style={{ color: '#B91C1C' }}>Politique d'usage.</strong> <span style={{ color: 'rgba(185,28,28,.75)' }}>Les données des prospects sont watermarquées individuellement. Toute diffusion hors périmètre de la campagne déclenchera une enquête automatique et peut entraîner la résiliation du compte.</span>
+            <strong style={{ color: '#B91C1C' }}>Politique d'usage.</strong> <span style={{ color: 'rgba(185,28,28,.75)' }}>Les données des prospects sont watermarquées individuellement. Toute utilisation hors périmètre de la campagne déclenchera une enquête automatique et peut entraîner la résiliation du compte.</span>
           </div>
         </div>
       </div>
