@@ -6,7 +6,7 @@ import { type ReactNode } from "react";
  * réellement au professionnel.
  *
  * Extrait de AnonymizationModal pour pouvoir être affiché EN LIGNE (page
- * « À propos ») autant que dans la modale. Markup d'après public/prototype/des.html.
+ * « À propos ») autant que dans la modale.
  *
  * ⚠️ Les valeurs (colonnes transformation / sortie) sont des EXEMPLES
  * PROVISOIRES. Les règles définitives par donnée seront fournies ensuite :

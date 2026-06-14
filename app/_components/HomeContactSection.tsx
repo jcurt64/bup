@@ -55,7 +55,7 @@ function Assurance({
 /**
  * Section « Contact » (page /contact).
  *
- * Mise en page d'après public/prototype/cont.pdf : un en-tête pleine largeur
+ * Mise en page : un en-tête pleine largeur
  * (titre + pastille « Réponse sous 24h »), puis deux colonnes — à gauche une
  * carte sombre dégradée « À votre écoute » (réassurance + e-mail direct), à
  * droite le formulaire. Le formulaire poste vers /api/contact (relai e-mail +

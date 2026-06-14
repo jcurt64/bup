@@ -1098,8 +1098,8 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 
 /* ─────────────────────────────────────────────────────────────────────────
    Modal « Comment vos données sont pseudonymisées » (section À propos).
-   Design d'après public/prototype/des.html : carte ivoire, légende des types
-   de transformation, lignes « entrée → transformation → sortie ». Responsive :
+   Carte ivoire, légende des types de transformation, lignes
+   « entrée → transformation → sortie ». Responsive :
    3 colonnes (desktop) → empilé vertical (mobile).
    ───────────────────────────────────────────────────────────────────────── */
 .anon-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-start;justify-content:center;

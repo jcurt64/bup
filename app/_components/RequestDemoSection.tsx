@@ -97,7 +97,7 @@ export default function RequestDemoSection() {
             </ul>
           </div>
 
-          {/* Colonne droite : carte d'appel à l'action (d'après cont.pdf) :
+          {/* Colonne droite : carte d'appel à l'action —
               dégradé bleu nuit→violet, anneaux décoratifs, icône horloge. */}
           <div
             style={{
