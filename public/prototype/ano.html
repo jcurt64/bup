@@ -20,7 +20,7 @@
   html,body{background:var(--ivory);font-family:'Inter',sans-serif;}
   #fit{position:relative;}
   .art{
-    position:relative; width:1320px; height:1250px; overflow:hidden;
+    position:relative; width:1320px; height:1300px; overflow:hidden;
     background:
       radial-gradient(60% 40% at 50% 14%, rgba(124,92,255,.10) 0%, rgba(124,92,255,0) 60%),
       radial-gradient(46% 38% at 17% 70%, rgba(16,185,129,.10) 0%, rgba(16,185,129,0) 60%),
@@ -254,14 +254,14 @@
 </div>
 </div>
 <script>
-  // Ajuste l'échelle de l'illustration (1320×1250) à la largeur du conteneur.
+  // Ajuste l'échelle de l'illustration (1320×1300) à la largeur du conteneur.
   function fit(){
     var f=document.getElementById('fit');
     var sc=window.innerWidth/1320;
     f.style.transform='scale('+sc+')';
     f.style.transformOrigin='top left';
     f.style.width='1320px';
-    document.body.style.height=(1250*sc)+'px';
+    document.body.style.height=(1300*sc)+'px';
     document.body.style.overflow='hidden';
   }
   fit();

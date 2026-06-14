@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Icon } from "./SiteChrome";
 
 type Profile = "pro" | "particulier" | "autre";
 type Status = "idle" | "sending" | "ok" | "error";
@@ -12,13 +13,53 @@ const PROFILES: { value: Profile; label: string }[] = [
   { value: "autre", label: "Autre" },
 ];
 
+// Une ligne de réassurance de la carte sombre (icône + titre + sous-titre).
+function Assurance({
+  icon,
+  title,
+  sub,
+}: {
+  icon: "user" | "shield";
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+      <span
+        className="row center"
+        style={{
+          width: 38,
+          height: 38,
+          flex: "0 0 auto",
+          justifyContent: "center",
+          borderRadius: 11,
+          background: "rgba(255,255,255,.08)",
+          border: "1px solid rgba(255,255,255,.12)",
+          color: "#C4B5FD",
+        }}
+      >
+        <Icon name={icon} size={18} />
+      </span>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--paper)" }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,.55)", marginTop: 2 }}>
+          {sub}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * Section « Contact » de la page d'accueil.
+ * Section « Contact » (page /contact).
  *
- * Permet aux professionnels comme aux particuliers de nous écrire pour en
- * savoir plus sur l'activité, sans créer de compte. Le formulaire poste vers
- * /api/contact (relai e-mail + accusé de réception, rate-limité côté serveur),
- * sur le même modèle anti-spam que le formulaire DPO (honeypot + consentement).
+ * Mise en page d'après public/prototype/cont.pdf : un en-tête pleine largeur
+ * (titre + pastille « Réponse sous 24h »), puis deux colonnes — à gauche une
+ * carte sombre dégradée « À votre écoute » (réassurance + e-mail direct), à
+ * droite le formulaire. Le formulaire poste vers /api/contact (relai e-mail +
+ * accusé de réception, rate-limité côté serveur), avec honeypot + consentement.
  */
 export default function HomeContactSection() {
   const [profile, setProfile] = useState<Profile>("pro");
@@ -102,11 +143,15 @@ export default function HomeContactSection() {
       style={{ background: "var(--ivory-2)", borderTop: "1px solid var(--line)" }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        {/* En-tête pleine largeur : titre à gauche, pastille délai à droite */}
         <div
-          className="grid grid-2"
-          style={{ gap: "clamp(32px, 5vw, 64px)", alignItems: "start" }}
+          className="row between wrap"
+          style={{
+            gap: 20,
+            alignItems: "flex-end",
+            marginBottom: "clamp(28px, 4vw, 48px)",
+          }}
         >
-          {/* Colonne gauche : pitch + canaux directs */}
           <div>
             <div
               className="mono caps"
@@ -124,52 +169,181 @@ export default function HomeContactSection() {
               <br />
               <em>Parlons-en.</em>
             </h2>
-            <p
-              className="muted"
+          </div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 9,
+              padding: "9px 16px",
+              borderRadius: 999,
+              background: "var(--paper)",
+              border: "1px solid var(--line)",
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--ink-3)",
+              boxShadow: "0 6px 18px -10px rgba(15,23,42,.25)",
+            }}
+          >
+            <span
               style={{
-                fontSize: "clamp(15px, 1.6vw, 18px)",
-                lineHeight: 1.6,
-                marginTop: 20,
-                maxWidth: 480,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#16a34a",
+                flex: "0 0 auto",
               }}
-            >
-              Professionnel curieux de notre approche ou particulier qui veut en
-              savoir plus avant de se lancer&nbsp;? Écrivez-nous&nbsp;: une vraie
-              personne vous répondra. On vous explique comment BUUPP peut vous
-              faire gagner du temps — et de l&apos;argent.
-            </p>
+            />
+            Réponse sous 24&nbsp;h ouvrées
+          </span>
+        </div>
 
+        <div
+          className="grid grid-2"
+          style={{ gap: "clamp(24px, 4vw, 48px)", alignItems: "stretch" }}
+        >
+          {/* Colonne gauche : carte sombre « À votre écoute » */}
+          <div
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: "var(--r-lg, 16px)",
+              padding: "clamp(28px, 3.5vw, 44px)",
+              color: "var(--paper)",
+              background:
+                "linear-gradient(158deg, #0E1430 0%, #181a44 56%, #241f5e 100%)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Halo violet + anneau décoratif en haut à droite */}
             <div
+              aria-hidden
               style={{
-                marginTop: 28,
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
+                position: "absolute",
+                top: "-40px",
+                right: "-30px",
+                width: 320,
+                height: 320,
+                borderRadius: "50%",
+                background:
+                  "radial-gradient(closest-side, rgba(139,108,255,.42), transparent 70%)",
+                pointerEvents: "none",
               }}
-            >
+            />
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: "-110px",
+                right: "-110px",
+                width: 340,
+                height: 340,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,.10)",
+                pointerEvents: "none",
+              }}
+            />
+
+            <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100%" }}>
+              <div
+                className="mono caps"
+                style={{ fontSize: 11, letterSpacing: ".2em", color: "#A78DFF", marginBottom: 18 }}
+              >
+                À votre écoute
+              </div>
+              <h3
+                className="serif"
+                style={{ fontSize: "clamp(26px, 3vw, 34px)", lineHeight: 1.15, color: "var(--paper)" }}
+              >
+                Une vraie personne,
+                <br />
+                une <em style={{ color: "#C4B5FD" }}>vraie réponse</em>.
+              </h3>
+              <p
+                style={{
+                  fontSize: 15,
+                  lineHeight: 1.65,
+                  color: "rgba(255,255,255,.66)",
+                  marginTop: 16,
+                  maxWidth: 440,
+                }}
+              >
+                Professionnel curieux de notre approche ou particulier qui veut
+                en savoir plus avant de se lancer&nbsp;? Écrivez-nous — on vous
+                explique comment buupp vous fait gagner du temps{" "}
+                <em>et de l&apos;argent</em>.
+              </p>
+
+              <div
+                style={{
+                  marginTop: 28,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 18,
+                }}
+              >
+                <Assurance
+                  icon="user"
+                  title="Pas de bot, pas de file d'attente"
+                  sub="Notre équipe lit et répond elle-même."
+                />
+                <Assurance
+                  icon="shield"
+                  title="Confidentiel & conforme RGPD"
+                  sub="Vos infos servent uniquement à vous répondre."
+                />
+              </div>
+
+              {/* Bloc e-mail direct, poussé en bas de la carte */}
               <a
                 href="mailto:contact@buupp.com"
                 style={{
-                  display: "inline-flex",
+                  marginTop: "auto",
+                  paddingTop: 28,
+                  display: "flex",
                   alignItems: "center",
-                  gap: 10,
-                  color: "var(--ink)",
+                  gap: 14,
                   textDecoration: "none",
-                  fontSize: 15,
-                  fontWeight: 500,
+                  color: "inherit",
                 }}
               >
-                <span style={{ color: "var(--accent)" }}>✉</span>
-                contact@buupp.com
+                <span
+                  className="row center"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    flex: "0 0 auto",
+                    justifyContent: "center",
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,.07)",
+                    border: "1px solid rgba(255,255,255,.14)",
+                    color: "#C4B5FD",
+                  }}
+                >
+                  <Icon name="mail" size={20} />
+                </span>
+                <span>
+                  <span
+                    className="mono caps"
+                    style={{ display: "block", fontSize: 10, letterSpacing: ".18em", color: "rgba(255,255,255,.45)" }}
+                  >
+                    Écrivez-nous
+                  </span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: "var(--paper)" }}>
+                    contact@buupp.com
+                  </span>
+                </span>
               </a>
-              <div style={{ fontSize: 14, color: "var(--ink-4)", lineHeight: 1.6 }}>
-                Pour une demande relative à vos données personnelles (accès,
-                effacement, RGPD), contactez directement notre{" "}
+
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,.5)", lineHeight: 1.6, marginTop: 18 }}>
+                Une demande relative à vos données personnelles (accès,
+                effacement, RGPD)&nbsp;? Contactez directement notre{" "}
                 <Link
                   href="/contact-dpo"
-                  style={{ color: "var(--accent)", textDecoration: "underline" }}
+                  style={{ color: "#C4B5FD", textDecoration: "underline" }}
                 >
-                  Chargé à la protection des données
+                  spécialiste RGPD
                 </Link>
                 .
               </div>
@@ -350,6 +524,7 @@ export default function HomeContactSection() {
                   disabled={disabled}
                 >
                   {disabled ? "Envoi en cours…" : "Envoyer le message"}
+                  {!disabled && <Icon name="arrow" size={16} />}
                 </button>
               </form>
             )}

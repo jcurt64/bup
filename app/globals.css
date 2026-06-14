@@ -252,6 +252,24 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
 
+/* Pulse à tour de rôle des mots-clés du hero « À propos » (protection /
+   sécurité / consentement). Cycle de 3 s : chaque mot, décalé d'1 s via
+   animation-delay inline, gonfle et s'illumine de SA couleur (currentColor),
+   puis revient au repos — l'un après l'autre, en boucle. */
+@keyframes aboutWordPulse {
+  0%, 100% { transform: scale(1);   text-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+  8%       { transform: scale(1.3); text-shadow: 0 0 24px currentColor, 0 0 10px currentColor; }
+  26%      { transform: scale(1);   text-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+}
+.about-pulse-word {
+  display: inline-block;
+  animation: aboutWordPulse 3s ease-in-out infinite both;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-pulse-word { animation: none; }
+}
+
 @keyframes scroll-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .marquee { display: flex; gap: 48px; animation: scroll-x 40s linear infinite; white-space: nowrap; }
 

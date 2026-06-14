@@ -36,6 +36,11 @@ const isPublicRoute = createRouteMatcher([
   "/cgv",
   "/rgpd",
   "/cookies",
+  // Pages institutionnelles autonomes (anciennement sections de la home) :
+  // présentation de l'éditeur et formulaire de contact / demande de démo,
+  // accessibles aux visiteurs anonymes (pro comme particulier).
+  "/about",
+  "/contact",
   "/contact-dpo",
   "/contact-dpo/formulaire",
   // /feedback : atterrissage des liens dans les e-mails de relation
@@ -61,6 +66,9 @@ const isPublicRoute = createRouteMatcher([
   // d'un ancien utilisateur dont le compte a été supprimé et qui veut
   // exercer un droit RGPD résiduel). Honeypot + validation côté handler.
   "/api/contact-dpo",
+  // Formulaire de contact public (page /contact + ancienne section home) :
+  // POST anonyme, protégé par honeypot + rate-limit côté handler.
+  "/api/contact",
   "/api/plan-pricing",
   "/api/landing/(.*)",
   // Pixel de tracking des broadcasts admin : fetch depuis le client mail
