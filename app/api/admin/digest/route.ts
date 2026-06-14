@@ -24,6 +24,7 @@ import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
 import { distributeFounderBonusIfLaunched } from "@/lib/founder-bonus/distribute";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { purgeOldContactReveals } from "@/lib/pro/reveals-retention";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
   // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
   let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
   let restrictionsLifted = 0;
+  let revealsPurged = 0;
   let founderBonus: Awaited<
     ReturnType<typeof distributeFounderBonusIfLaunched>
   > | null = null;
@@ -129,6 +131,14 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error("[/api/admin/digest] settle/lifecycle failed", err);
     }
+    // Piggyback : purge du journal d'audit des révélations au-delà de la durée
+    // de conservation (RGPD, limitation de la conservation). Idempotent.
+    // Cf. lib/pro/reveals-retention.ts.
+    try {
+      revealsPurged = await purgeOldContactReveals(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] reveals retention purge failed", err);
+    }
   }
 
   return NextResponse.json({
@@ -137,5 +147,6 @@ export async function POST(req: Request) {
     cnilBascule: bascule ?? null,
     restrictionsLifted,
     founderBonus: founderBonus ?? null,
+    revealsPurged,
   });
 }

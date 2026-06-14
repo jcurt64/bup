@@ -129,9 +129,13 @@ export async function POST(req: Request) {
   }
 
   if (auditPayload.length > 0) {
+    // Audit FAIL-CLOSED — on ne livre les alias QUE si l'accès groupé a pu être
+    // journalisé (« chaque révélation est journalisée », cf. page À propos). Si
+    // l'insert échoue, on renvoie 500 SANS exposer les alias.
     const { error: auditErr } = await admin.from("pro_contact_reveals").insert(auditPayload);
     if (auditErr) {
       console.error("[/api/pro/contacts/group-reveal] audit insert failed", auditErr);
+      return NextResponse.json({ error: "audit_failed" }, { status: 500 });
     }
   }
 

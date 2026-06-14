@@ -131,7 +131,10 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "not_shared" }, { status: 404 });
   }
 
-  // Audit best-effort : on ne casse pas l'usage si l'insert échoue.
+  // Audit FAIL-CLOSED : la valeur en clair n'est livrée QUE si la révélation a
+  // pu être journalisée. Tient la promesse « chaque révélation est journalisée
+  // conformément au RGPD » (cf. page À propos) : pas de journal → pas de
+  // révélation. Si l'insert échoue, on renvoie 500 SANS exposer la donnée.
   const { error: auditErr } = await admin.from("pro_contact_reveals").insert({
     pro_account_id: proId,
     relation_id: relationId,
@@ -139,6 +142,7 @@ export async function POST(req: Request, ctx: RouteContext) {
   });
   if (auditErr) {
     console.error("[/api/pro/contacts/reveal] audit insert failed", auditErr);
+    return NextResponse.json({ error: "audit_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ value });

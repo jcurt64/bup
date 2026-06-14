@@ -188,7 +188,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
     tiers.push({ key, label: TIER_LABEL[key], items });
   }
 
-  // Audit best-effort — ne casse pas l'usage si l'insert échoue.
+  // Audit FAIL-CLOSED — la fiche détaillée n'est livrée QUE si son ouverture a
+  // pu être journalisée (« chaque révélation est journalisée », cf. page À
+  // propos). Si l'insert échoue, on renvoie 500 SANS exposer les données.
   const { error: auditErr } = await admin.from("pro_contact_reveals").insert({
     pro_account_id: proId,
     relation_id: relationId,
@@ -196,6 +198,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
   });
   if (auditErr) {
     console.error("[/api/pro/contacts/details] audit insert failed", auditErr);
+    return NextResponse.json({ error: "audit_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ tiers });
