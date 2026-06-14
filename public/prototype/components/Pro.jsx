@@ -5078,19 +5078,20 @@ function formatRelativeFr(iso) {
 }
 
 // Histogramme compact d'une facette : libellé + barre proportionnelle + compte.
-function FacetBlock({ title, items }) {
+// `color` colore la barre (une teinte distincte par groupe de facette, cf. maquette).
+function FacetBlock({ title, items, color = 'var(--accent)' }) {
   const max = Math.max(1, ...items.map(i => i.count));
   return (
     <div>
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{title}</div>
-      <div className="col gap-1">
+      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10, letterSpacing: '.12em' }}>{title}</div>
+      <div className="col" style={{ gap: 9 }}>
         {items.map(i => (
-          <div key={i.value} className="row center" style={{ gap: 8 }}>
-            <div style={{ flex: 1, fontSize: 12 }}>{i.value}</div>
-            <div style={{ width: 60, height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
-              <div style={{ width: `${(i.count / max) * 100}%`, height: '100%', background: 'var(--accent)' }} />
+          <div key={i.value} className="row center" style={{ gap: 10 }}>
+            <div style={{ flex: 1, fontSize: 12.5, color: 'var(--ink-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.value}</div>
+            <div style={{ width: 84, height: 7, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden', flexShrink: 0 }}>
+              <div style={{ width: `${(i.count / max) * 100}%`, height: '100%', background: color, borderRadius: 999 }} />
             </div>
-            <div className="mono" style={{ fontSize: 11, width: 28, textAlign: 'right' }}>{i.count}</div>
+            <div className="mono" style={{ fontSize: 11.5, width: 22, textAlign: 'right', color: 'var(--ink-2)', fontWeight: 600 }}>{i.count}</div>
           </div>
         ))}
       </div>
@@ -5307,6 +5308,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     ['vehicule', 'Véhicule'], ['animaux', 'Animaux'],
   ];
 
+  // Style des onglets de campagne (pills) : actif = violet clair (cf. maquette).
+  const segTabStyle = (on) => ({
+    padding: '7px 16px', borderRadius: 10, fontSize: 13, cursor: 'pointer',
+    fontWeight: on ? 600 : 500,
+    border: on ? '1px solid color-mix(in oklab, var(--accent) 35%, white)' : '1px solid var(--line-2)',
+    background: on ? 'var(--accent-soft)' : 'var(--paper)',
+    color: on ? 'var(--accent-ink)' : 'var(--ink-4)',
+    transition: 'background .15s, color .15s',
+  });
+
   const toggleCollapsed = (cid) => setCollapsed(s => {
     const n = new Set(s); n.has(cid) ? n.delete(cid) : n.add(cid); return n;
   });
@@ -5392,9 +5403,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           )}
           <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
           <button
-            className="chip"
             onClick={() => { setActiveCampaign(null); setSegFilters({}); }}
-            style={activeCampaign === null ? { background: 'var(--accent)', color: 'white', cursor: 'pointer' } : { cursor: 'pointer' }}
+            style={segTabStyle(activeCampaign === null)}
           >
             Toutes
           </button>
@@ -5403,9 +5413,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
             return (
               <button
                 key={c.id}
-                className="chip"
                 onClick={() => { setActiveCampaign({ id: c.id, name: c.name }); setSegFilters({}); }}
-                style={on ? { background: 'var(--accent)', color: 'white', cursor: 'pointer' } : { cursor: 'pointer' }}
+                style={segTabStyle(on)}
               >
                 {c.name}
               </button>
@@ -5417,20 +5426,26 @@ function Contacts({ pendingContact, onPendingConsumed }) {
 
       {/* Panneau Audience — distributions par facette de la campagne active. */}
       {audience && (
-        <div className="card" style={{ padding: 16, margin: '12px 0' }}>
-          <div className="mono caps muted" style={{ marginBottom: 10 }}>
-            Audience · {audience.total} contact{audience.total === 1 ? '' : 's'}
+        <div className="card" style={{ padding: 'clamp(18px, 2.4vw, 26px)', margin: '12px 0' }}>
+          <div className="row center" style={{ gap: 10, marginBottom: 20 }}>
+            <span className="mono caps" style={{ fontSize: 11, letterSpacing: '.14em', color: 'var(--ink-4)' }}>Audience</span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999,
+              background: 'var(--accent-soft)', color: 'var(--accent-ink)', fontSize: 12, fontWeight: 600,
+            }}>
+              {audience.total} contact{audience.total === 1 ? '' : 's'}
+            </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-            <FacetBlock title="BUPP Score" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />
-            {audience.facets.region && <FacetBlock title="Région" items={audience.facets.region} />}
-            {audience.facets.distance && <FacetBlock title="Distance du centre" items={audience.facets.distance} />}
-            {audience.facets.statutPro && <FacetBlock title="Statut pro" items={audience.facets.statutPro} />}
-            {audience.facets.logement && <FacetBlock title="Logement" items={audience.facets.logement} />}
-            {audience.facets.foyer && <FacetBlock title="Foyer" items={audience.facets.foyer} />}
-            {audience.facets.vehicule && <FacetBlock title="Véhicule" items={audience.facets.vehicule} />}
-            {audience.facets.animaux && <FacetBlock title="Animaux" items={audience.facets.animaux} />}
-            <FacetBlock title="Contact" items={audience.facets.reached} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '26px 32px' }}>
+            <FacetBlock title="BUPP Score" color="#10b981" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />
+            {audience.facets.region && <FacetBlock title="Région" color="#7c5cff" items={audience.facets.region} />}
+            {audience.facets.distance && <FacetBlock title="Distance du centre" color="#3b82f6" items={audience.facets.distance} />}
+            {audience.facets.statutPro && <FacetBlock title="Statut pro" color="#f0b429" items={audience.facets.statutPro} />}
+            {audience.facets.logement && <FacetBlock title="Logement" color="#7c5cff" items={audience.facets.logement} />}
+            {audience.facets.foyer && <FacetBlock title="Foyer" color="#10b981" items={audience.facets.foyer} />}
+            {audience.facets.vehicule && <FacetBlock title="Véhicule" color="#3b82f6" items={audience.facets.vehicule} />}
+            {audience.facets.animaux && <FacetBlock title="Animaux" color="#f0b429" items={audience.facets.animaux} />}
+            <FacetBlock title="Contact" color="#64748b" items={audience.facets.reached} />
           </div>
         </div>
       )}
