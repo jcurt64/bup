@@ -134,6 +134,7 @@ const organizationJsonLd = {
   sameAs: [
     "https://www.facebook.com/profile.php?id=61590629948220",
     "https://www.tiktok.com/@buupp5",
+    "https://www.linkedin.com/company/129694029",
   ],
   address: {
     "@type": "PostalAddress",

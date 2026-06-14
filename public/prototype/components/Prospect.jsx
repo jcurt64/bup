@@ -799,7 +799,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             </a>
             <a
               className="dash-social-btn"
-              href="https://www.linkedin.com/company/buupp"
+              href="https://www.linkedin.com/company/129694029"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn BUUPP"

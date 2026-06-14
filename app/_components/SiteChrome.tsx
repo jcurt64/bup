@@ -643,6 +643,25 @@ export function Footer() {
             >
               TikTok
             </a>
+            <a
+              href="https://www.linkedin.com/company/129694029"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Page LinkedIn BUUPP"
+              style={{
+                display: "block",
+                padding: "4px 0",
+                color: "inherit",
+                textDecoration: "none",
+                transition: "color .15s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "var(--paper)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+            >
+              LinkedIn
+            </a>
           </div>
         </div>
         <div
