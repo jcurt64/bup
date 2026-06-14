@@ -402,11 +402,33 @@ export function Navbar() {
           <button className="drawer-link" onClick={() => go("/#tarifs")}>
             Tarifs
           </button>
-          <button className="drawer-link" onClick={() => go("/about")}>
-            À propos
+          <button
+            className="drawer-link"
+            style={{
+              fontFamily: "var(--font-caveat), cursive",
+              fontSize: 26,
+              fontWeight: 700,
+              color: "var(--accent)",
+            }}
+            onClick={() => go("/about")}
+          >
+            <span style={{ display: "inline-block", transform: "rotate(-3deg)" }}>
+              À propos
+            </span>
           </button>
-          <button className="drawer-link" onClick={() => go("/contact")}>
-            Contact
+          <button
+            className="drawer-link"
+            style={{
+              fontFamily: "var(--font-caveat), cursive",
+              fontSize: 26,
+              fontWeight: 700,
+              color: "#C2410B",
+            }}
+            onClick={() => go("/contact")}
+          >
+            <span style={{ display: "inline-block", transform: "rotate(-3deg)" }}>
+              Contact
+            </span>
           </button>
           <div className="drawer-ctas">
             {showLogout ? (
