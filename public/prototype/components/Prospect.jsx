@@ -809,7 +809,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             </a>
             <a
               className="dash-social-btn"
-              href="https://www.tiktok.com/@buupp"
+              href="https://www.tiktok.com/@buupp5"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TikTok BUUPP"

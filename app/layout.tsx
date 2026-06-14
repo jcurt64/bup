@@ -131,7 +131,10 @@ const organizationJsonLd = {
   foundingDate: "2026",
   founders: [{ "@type": "Organization", name: "Majelink" }],
   // Profils sociaux officiels (rich snippets / Knowledge Graph Google).
-  sameAs: ["https://www.facebook.com/profile.php?id=61590629948220"],
+  sameAs: [
+    "https://www.facebook.com/profile.php?id=61590629948220",
+    "https://www.tiktok.com/@buupp5",
+  ],
   address: {
     "@type": "PostalAddress",
     streetAddress: "12 Impasse des Étriers",
