@@ -388,6 +388,7 @@ export default function AboutPage() {
                   style={{
                     width: 40,
                     height: 40,
+                    justifyContent: "center",
                     borderRadius: 10,
                     background: "var(--accent-soft)",
                     color: "var(--accent)",
