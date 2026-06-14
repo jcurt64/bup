@@ -3,7 +3,7 @@
  *
  * Reçoit les messages envoyés depuis la section « Contact » de la page
  * d'accueil et les relaie par e-mail vers la boîte de contact générale
- * (`CONTACT_INBOX`, fallback `contact@buupp.com`).
+ * (`CONTACT_INBOX`, fallback `support@buupp.com`).
  *
  * Accessible à TOUS les visiteurs (pas d'auth Clerk requise) : un prospect ou
  * un professionnel doit pouvoir nous écrire avant même de créer un compte.
@@ -11,13 +11,13 @@
  * champs, rate limit par IP — même approche que /api/contact-dpo.
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { safeSendMail, getFromAddress } from "@/lib/email/transport";
 import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
 
 export const runtime = "nodejs";
 
-const CONTACT_INBOX = process.env.CONTACT_INBOX ?? "contact@buupp.com";
+const CONTACT_INBOX = process.env.CONTACT_INBOX ?? "support@buupp.com";
 
 const MAX_EMAIL = 320;
 const MAX_NAME = 120;
@@ -134,22 +134,27 @@ export async function POST(req: Request) {
   });
 
   // Accusé de réception à l'expéditeur (best-effort, ne bloque pas la réponse).
-  void safeSendMail({
-    from: getFromAddress(),
-    to: email,
-    subject: "Nous avons bien reçu votre message — BUUPP",
-    text: [
-      "Bonjour,",
-      "",
-      "Merci de nous avoir contactés. Nous avons bien reçu votre message et reviendrons vers vous très rapidement.",
-      "",
-      "Pour rappel, voici le message que vous nous avez envoyé :",
-      "",
-      message,
-      "",
-      "À très vite,",
-      "L'équipe BUUPP",
-    ].join("\n"),
+  // `after()` : non bloquant mais GARANTI de s'exécuter post-réponse sur
+  // Vercel — un simple `void` n'est pas garanti (l'instance serverless peut
+  // être gelée après le `return`, l'envoi est alors perdu).
+  after(async () => {
+    await safeSendMail({
+      from: getFromAddress(),
+      to: email,
+      subject: "Nous avons bien reçu votre message — BUUPP",
+      text: [
+        "Bonjour,",
+        "",
+        "Merci de nous avoir contactés. Nous avons bien reçu votre message et reviendrons vers vous très rapidement.",
+        "",
+        "Pour rappel, voici le message que vous nous avez envoyé :",
+        "",
+        message,
+        "",
+        "À très vite,",
+        "L'équipe BUUPP",
+      ].join("\n"),
+    });
   });
 
   return NextResponse.json({ ok: true });
