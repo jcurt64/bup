@@ -1343,8 +1343,7 @@ export const useProContacts = () =>
 // Clés catégorielles présentes uniquement si le palier de données a été acheté.
 type FacetKey =
   | "region"
-  | "revenus"
-  | "epargne"
+  | "distance"
   | "logement"
   | "statutPro"
   | "foyer"
@@ -1363,8 +1362,7 @@ export type SegmentFilters = {
   reached?: "atteint" | "non_atteint";
   q?: string;
   region?: string[];
-  revenus?: string[];
-  epargne?: string[];
+  distance?: string[];
   logement?: string[];
   statutPro?: string[];
   foyer?: string[];
@@ -1439,6 +1437,34 @@ export function useProSegmentDelete() {
     mutationFn: (id: string) =>
       api<{ ok: boolean }>(`/api/pro/segments/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "audience"] }),
+  });
+}
+
+export type BroadcastResult = {
+  ok: boolean;
+  total: number;
+  sent: number;
+  skippedNoEmail: number;
+  skippedQuota: number;
+  skippedCap: number;
+};
+
+// Diffusion médiée d'un message au segment (SP2). BUUPP envoie les emails ;
+// le pro ne voit jamais les adresses. Quota 1/prospect/campagne appliqué côté
+// serveur (les déjà-sollicités sont ignorés).
+export function useProSegmentBroadcast() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (v: {
+      campaignId: string;
+      filters: SegmentFilters;
+      subject: string;
+      body: string;
+    }) =>
+      api<BroadcastResult>("/api/pro/segments/broadcast", {
+        method: "POST",
+        body: JSON.stringify(v),
+      }),
   });
 }
 

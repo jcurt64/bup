@@ -36,6 +36,8 @@ import {
   useProContactsFiltered,
   useProSegmentCreate,
   useProSegmentDelete,
+  useProSegmentBroadcast,
+  type BroadcastResult,
   type AudienceFacets,
   type ProAudience,
   type ProContact,
@@ -48,8 +50,7 @@ type Palette = ReturnType<typeof useContactPalette>;
 // Clés catégorielles + libellé affiché (ordre de la maquette web).
 const CATEGORICAL: { key: keyof SegmentFilters & keyof AudienceFacets; title: string }[] = [
   { key: "region", title: "Région" },
-  { key: "revenus", title: "Revenus" },
-  { key: "epargne", title: "Épargne" },
+  { key: "distance", title: "Distance du centre" },
   { key: "statutPro", title: "Statut pro" },
   { key: "logement", title: "Logement" },
   { key: "foyer", title: "Foyer" },
@@ -348,10 +349,41 @@ function SavedSegments({
 }) {
   const create = useProSegmentCreate();
   const del = useProSegmentDelete();
+  const broadcast = useProSegmentBroadcast();
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
+  // Diffusion SP2 (modal compose).
+  const [diffusing, setDiffusing] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [bcResult, setBcResult] = useState<BroadcastResult | null>(null);
+  const [bcError, setBcError] = useState<string | null>(null);
 
   const canSave = Object.keys(filters).length > 0;
+
+  const openDiffuse = () => {
+    setSubject("");
+    setBody("");
+    setBcResult(null);
+    setBcError(null);
+    setDiffusing(true);
+  };
+  const sendBroadcast = () => {
+    const subj = subject.trim();
+    const bod = body.trim();
+    if (!subj || !bod) {
+      setBcError("Objet et message requis.");
+      return;
+    }
+    setBcError(null);
+    broadcast.mutate(
+      { campaignId, filters, subject: subj, body: bod },
+      {
+        onSuccess: (r) => setBcResult(r),
+        onError: () => setBcError("Échec de la diffusion — réessayez."),
+      },
+    );
+  };
 
   const save = () => {
     const trimmed = name.trim();
@@ -382,22 +414,39 @@ function SavedSegments({
         <Text className="font-serif-bold" style={{ fontSize: 15.5, color: p.text }}>
           Segments enregistrés
         </Text>
-        <Pressable
-          onPress={() => setNaming(true)}
-          disabled={!canSave}
-          className="active:opacity-80"
-          style={{
-            paddingVertical: 8,
-            paddingHorizontal: 13,
-            borderRadius: 999,
-            backgroundColor: canSave ? p.ctaBg : p.field,
-            opacity: canSave ? 1 : 0.5,
-          }}
-        >
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: canSave ? p.ctaText : p.muted }}>
-            Enregistrer
-          </Text>
-        </Pressable>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          <Pressable
+            onPress={openDiffuse}
+            className="active:opacity-80"
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 13,
+              borderRadius: 999,
+              backgroundColor: p.ctaBg,
+            }}
+          >
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: p.ctaText }}>
+              Diffuser
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setNaming(true)}
+            disabled={!canSave}
+            className="active:opacity-80"
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 13,
+              borderRadius: 999,
+              borderWidth: 1.5,
+              borderColor: p.border,
+              opacity: canSave ? 1 : 0.5,
+            }}
+          >
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: canSave ? p.text : p.muted }}>
+              Enregistrer
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {segments.length === 0 ? (
@@ -527,6 +576,158 @@ function SavedSegments({
                 </Text>
               </Pressable>
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Modal de diffusion (SP2) */}
+      <Modal
+        visible={diffusing}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDiffusing(false)}
+      >
+        <Pressable
+          onPress={() => setDiffusing(false)}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(10,22,40,0.44)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              backgroundColor: p.card,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: p.border,
+              padding: 20,
+              gap: 12,
+            }}
+          >
+            <Text className="font-serif-bold" style={{ fontSize: 17, color: p.text }}>
+              Diffuser un message au segment
+            </Text>
+
+            {bcResult ? (
+              <>
+                <Text style={{ fontSize: 13, color: p.text, lineHeight: 19 }}>
+                  Diffusion lancée : {bcResult.sent} message
+                  {bcResult.sent === 1 ? "" : "s"} en cours d&apos;envoi sur{" "}
+                  {bcResult.total} contact{bcResult.total === 1 ? "" : "s"} du segment.
+                  {bcResult.skippedQuota > 0
+                    ? ` ${bcResult.skippedQuota} déjà sollicité(s) (quota).`
+                    : ""}
+                  {bcResult.skippedNoEmail > 0
+                    ? ` ${bcResult.skippedNoEmail} sans email.`
+                    : ""}
+                  {bcResult.skippedCap > 0
+                    ? ` ${bcResult.skippedCap} au-delà du plafond (500).`
+                    : ""}
+                </Text>
+                <Pressable
+                  onPress={() => setDiffusing(false)}
+                  className="active:opacity-80"
+                  style={{
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: p.ctaBg,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: p.ctaText }}>
+                    Fermer
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 12, color: p.muted, lineHeight: 17 }}>
+                  BUUPP envoie votre message aux contacts du segment courant (Reply-To
+                  = votre email). Les adresses des prospects restent cachées. Quota : 1
+                  email par campagne — les déjà-sollicités sont ignorés.
+                </Text>
+                <TextInput
+                  value={subject}
+                  onChangeText={(t) => setSubject(t.slice(0, 200))}
+                  placeholder="Objet"
+                  placeholderTextColor={p.muted}
+                  style={{
+                    fontSize: 14,
+                    color: p.text,
+                    backgroundColor: p.field,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: p.border,
+                    paddingVertical: 11,
+                    paddingHorizontal: 13,
+                  }}
+                />
+                <TextInput
+                  value={body}
+                  onChangeText={(t) => setBody(t.slice(0, 10000))}
+                  placeholder="Votre message…"
+                  placeholderTextColor={p.muted}
+                  multiline
+                  style={{
+                    fontSize: 14,
+                    color: p.text,
+                    backgroundColor: p.field,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: p.border,
+                    paddingVertical: 11,
+                    paddingHorizontal: 13,
+                    minHeight: 120,
+                    textAlignVertical: "top",
+                  }}
+                />
+                {bcError ? (
+                  <Text style={{ fontSize: 12.5, color: "#c0432d" }}>{bcError}</Text>
+                ) : null}
+                <View className="flex-row" style={{ gap: 10 }}>
+                  <Pressable
+                    onPress={() => setDiffusing(false)}
+                    className="active:opacity-80"
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: p.border,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13.5, fontWeight: "600", color: p.text }}>
+                      Annuler
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={sendBroadcast}
+                    disabled={!subject.trim() || !body.trim() || broadcast.isPending}
+                    className="active:opacity-80"
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      backgroundColor: p.ctaBg,
+                      alignItems: "center",
+                      opacity:
+                        !subject.trim() || !body.trim() || broadcast.isPending ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13.5, fontWeight: "600", color: p.ctaText }}>
+                      {broadcast.isPending ? "Diffusion…" : "Diffuser"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
