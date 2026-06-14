@@ -595,6 +595,36 @@ export function Footer() {
               })}
             </div>
           ))}
+          <div
+            className="footer-col"
+            style={{ flex: "1 1 140px", minWidth: 120 }}
+          >
+            <div
+              className="mono caps"
+              style={{ color: "rgba(255,255,255,.4)", marginBottom: 12 }}
+            >
+              Suivez-nous
+            </div>
+            <a
+              href="https://www.facebook.com/profile.php?id=61590629948220"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Page Facebook BUUPP"
+              style={{
+                display: "block",
+                padding: "4px 0",
+                color: "inherit",
+                textDecoration: "none",
+                transition: "color .15s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "var(--paper)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+            >
+              Facebook
+            </a>
+          </div>
         </div>
         <div
           className="row between wrap gap-2 footer-bottom"
