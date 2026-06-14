@@ -92,11 +92,12 @@ export default function ScrollReveal() {
       }
     });
 
-    // Filet de sécurité (sans compromis UX) : un balayage au défilement révèle
-    // tout élément en attente RÉELLEMENT entré dans le viewport, même si
-    // l'IntersectionObserver ne s'est pas déclenché. On ne pré-révèle jamais le
-    // contenu hors écran → l'animation au scroll reste intacte pour tous.
-    const sweep = () => {
+    // PAS de listener `scroll` : c'est l'IntersectionObserver qui révèle au
+    // défilement, sans aucun calcul de layout pendant le scroll → scroll fluide.
+    // Unique balayage différé (après stabilisation du layout : polices, images)
+    // pour capter les éléments déjà visibles que le contrôle initial aurait
+    // manqués. Le garde-fou inline (6 s) reste l'ultime filet de sécurité.
+    const t1 = window.setTimeout(() => {
       const h = window.innerHeight;
       pending.forEach((el) => {
         const r = el.getBoundingClientRect();
@@ -105,15 +106,10 @@ export default function ScrollReveal() {
           pending.delete(el);
         }
       });
-      if (pending.size === 0) window.removeEventListener("scroll", sweep);
-    };
-    window.addEventListener("scroll", sweep, { passive: true });
-    // Capte les éléments déjà visibles après stabilisation du layout (polices, etc.).
-    const t1 = window.setTimeout(sweep, 1500);
+    }, 1500);
 
     return () => {
       io.disconnect();
-      window.removeEventListener("scroll", sweep);
       window.clearTimeout(t1);
     };
   }, [pathname]);

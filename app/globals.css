@@ -297,7 +297,6 @@ html.reveal-ready [data-reveal-group] > * {
   transform: translateY(18px);
   transition: opacity .65s cubic-bezier(.22, .61, .36, 1),
               transform .65s cubic-bezier(.22, .61, .36, 1);
-  will-change: opacity, transform;
 }
 html.reveal-ready [data-reveal="fade"] { transform: none; }            /* fondu seul */
 html.reveal-ready [data-reveal="scale"] { transform: translateY(12px) scale(.97); }
