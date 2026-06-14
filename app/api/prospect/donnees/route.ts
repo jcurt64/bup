@@ -13,8 +13,13 @@
  * retard sur la première visite du dashboard).
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
+import {
+  geocodeAddress,
+  geocodeCityCenter,
+  haversineMeters,
+} from "@/lib/geo/geocode";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import {
@@ -263,6 +268,56 @@ export async function PATCH(req: Request) {
     await computeAndPersistProspectScore(admin, prospectId);
   } catch (e) {
     console.warn("[/api/prospect/donnees PATCH] score recompute failed", e);
+  }
+
+  // Géocodage de l'adresse (best-effort, post-réponse via `after()` pour ne
+  // pas ralentir l'enregistrement). On stocke les coordonnées précises +
+  // la distance au centre de la commune (API Adresse BAN) ; ces valeurs
+  // alimentent la pseudonymisation « distance au centre » servie au pro.
+  if (
+    tier === "localisation" &&
+    (Object.prototype.hasOwnProperty.call(patch, "adresse") ||
+      Object.prototype.hasOwnProperty.call(patch, "ville") ||
+      Object.prototype.hasOwnProperty.call(patch, "code_postal"))
+  ) {
+    after(async () => {
+      try {
+        // Relit la row fusionnée (le PATCH peut n'avoir touché qu'un champ).
+        const { data: loc } = await admin
+          .from("prospect_localisation")
+          .select("adresse, ville, code_postal")
+          .eq("prospect_id", prospectId)
+          .maybeSingle();
+        const adresse = loc?.adresse ?? null;
+        const ville = loc?.ville ?? null;
+        const cp = loc?.code_postal ?? null;
+        if (!adresse && !ville) return;
+        const [point, center] = await Promise.all([
+          geocodeAddress(adresse, cp, ville),
+          geocodeCityCenter(cp, ville),
+        ]);
+        const upd: {
+          latitude?: number | null;
+          longitude?: number | null;
+          center_distance_m?: number | null;
+        } = {};
+        if (point) {
+          upd.latitude = point.lat;
+          upd.longitude = point.lng;
+          upd.center_distance_m = center
+            ? haversineMeters(point, center)
+            : null;
+        }
+        if (Object.keys(upd).length > 0) {
+          await admin
+            .from("prospect_localisation")
+            .update(upd)
+            .eq("prospect_id", prospectId);
+        }
+      } catch (e) {
+        console.warn("[/api/prospect/donnees PATCH] geocode failed", e);
+      }
+    });
   }
 
   return NextResponse.json({ ok: true, tier, fields: patch });

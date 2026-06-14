@@ -736,7 +736,10 @@ export type Database = {
       prospect_localisation: {
         Row: {
           adresse: string | null
+          center_distance_m: number | null
           code_postal: string | null
+          latitude: number | null
+          longitude: number | null
           national_opt_in: boolean
           prospect_id: string
           region: string | null
@@ -746,7 +749,10 @@ export type Database = {
         }
         Insert: {
           adresse?: string | null
+          center_distance_m?: number | null
           code_postal?: string | null
+          latitude?: number | null
+          longitude?: number | null
           national_opt_in?: boolean
           prospect_id: string
           region?: string | null
@@ -756,7 +762,10 @@ export type Database = {
         }
         Update: {
           adresse?: string | null
+          center_distance_m?: number | null
           code_postal?: string | null
+          latitude?: number | null
+          longitude?: number | null
           national_opt_in?: boolean
           prospect_id?: string
           region?: string | null

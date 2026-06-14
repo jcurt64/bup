@@ -33,6 +33,7 @@ import {
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
 import { proCanSeeContacts } from "@/lib/pro/campaign-access";
+import { pseudonymizeTierItems } from "@/lib/pro/pseudonymize";
 
 export const runtime = "nodejs";
 
@@ -61,58 +62,6 @@ const TIER_LABEL: Record<TierKey, string> = {
   pro: "Données professionnelles",
   patrimoine: "Patrimoine & projets",
 };
-
-// Pour chaque palier : la liste ordonnée des champs à afficher
-// (colonne DB → libellé FR). Les champs de préférence de ciblage
-// (targeting_radius_km, national_opt_in) sont volontairement exclus :
-// ce ne sont pas des données personnelles vendues au pro.
-const TIER_FIELDS: Record<TierKey, Array<[string, string]>> = {
-  identity: [
-    ["prenom", "Prénom"],
-    ["nom", "Nom"],
-    ["email", "E-mail (alias sécurisé)"],
-    ["telephone", "Téléphone"],
-    ["naissance", "Date de naissance"],
-  ],
-  localisation: [
-    ["adresse", "Adresse"],
-    ["ville", "Ville"],
-    ["code_postal", "Code postal"],
-    ["region", "Région"],
-  ],
-  vie: [
-    ["foyer", "Foyer"],
-    ["sports", "Sports / loisirs"],
-    ["animaux", "Animaux"],
-    ["vehicule", "Véhicule"],
-    ["logement", "Logement"],
-    ["mobilite", "Mobilité"],
-  ],
-  pro: [
-    ["poste", "Poste"],
-    ["statut", "Statut"],
-    ["secteur", "Secteur"],
-    ["revenus", "Revenus déclarés"],
-  ],
-  patrimoine: [
-    ["residence", "Résidence principale"],
-    ["epargne", "Épargne disponible"],
-    ["projets", "Projets à 3–5 ans"],
-  ],
-};
-
-// Champs "détail" fusionnés dans le champ parent pour l'affichage
-// (ex. "Berline · Renault", "Oui · Chat").
-const DETAIL_MERGE: Record<string, string> = {
-  vehicule: "vehicule_marque",
-  animaux: "animaux_detail",
-};
-
-function strOrNull(v: unknown): string | null {
-  if (v == null) return null;
-  const s = String(v).trim();
-  return s === "" ? null : s;
-}
 
 export async function GET(_req: Request, ctx: RouteContext) {
   const { userId } = await auth();
@@ -229,20 +178,12 @@ export async function GET(_req: Request, ctx: RouteContext) {
       .maybeSingle();
     const r = (tierRow ?? {}) as Record<string, unknown>;
 
-    const items = TIER_FIELDS[key].map(([col, label]) => {
-      // E-mail : toujours l'alias watermarqué, jamais le vrai.
-      if (key === "identity" && col === "email") {
-        return { label, value: aliasEmail };
-      }
-      let value = strOrNull(r[col]);
-      // Fusion du champ détail dans le parent (Berline · Renault).
-      const detailCol = DETAIL_MERGE[col];
-      if (detailCol) {
-        const detail = strOrNull(r[detailCol]);
-        if (value && detail) value = `${value} · ${detail}`;
-      }
-      return { label, value };
-    });
+    // Pseudonymisation des valeurs selon les règles fixées (cf.
+    // lib/pro/pseudonymize). L'e-mail reçoit l'alias watermarqué ; les
+    // champs en suppression (adresse précise, poste, revenus, épargne) sont
+    // omis ; date de naissance → tranche d'âge ; code postal → département ;
+    // prénom/nom masqués ; téléphone conservé.
+    const items = pseudonymizeTierItems(key, r, { aliasEmail });
 
     tiers.push({ key, label: TIER_LABEL[key], items });
   }
