@@ -5284,11 +5284,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     if (val) n.q = val; else delete n.q;
     return n;
   });
-  const setScoreMin = (val) => setSegFilters(f => {
-    const n = { ...f };
-    if (val) n.scoreMin = val; else delete n.scoreMin;
-    return n;
-  });
   const addFacetValue = (key, val) => setSegFilters(f => {
     if (!val) return f;
     const arr = Array.isArray(f[key]) ? f[key] : [];
@@ -5301,6 +5296,27 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     if (arr.length > 0) n[key] = arr; else delete n[key];
     return n;
   });
+  // Réinitialise une facette catégorielle (option « Tout afficher »).
+  const clearFacet = (key) => setSegFilters(f => {
+    const n = { ...f }; delete n[key]; return n;
+  });
+  // Filtre de score en deux tranches complémentaires : ≥ 720 (scoreMin) ou
+  // < 720 (scoreMax = 719, car le backend exclut score > scoreMax).
+  const setScoreBand = (band) => setSegFilters(f => {
+    const n = { ...f }; delete n.scoreMin; delete n.scoreMax;
+    if (band === 'gte720') n.scoreMin = 720;
+    else if (band === 'lt720') n.scoreMax = 719;
+    return n;
+  });
+  // Style commun des selects de filtre : flèche custom, bien espacée de la
+  // bordure droite (paddingRight + chevron SVG positionné à 12px du bord).
+  const selectStyle = {
+    padding: '8px 34px 8px 12px', borderRadius: 8, border: '1px solid var(--line)',
+    background: 'var(--paper)', fontSize: 13, cursor: 'pointer',
+    appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
+  };
   // Couples [clé facette → libellé] pour générer les selects catégoriels DRY.
   const FACET_DEFS = [
     ['region', 'Région'], ['distance', 'Distance du centre'],
@@ -5465,13 +5481,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               }}
             />
             <select
-              value={segFilters.scoreMin || ''}
-              onChange={(e) => setScoreMin(e.target.value ? Number(e.target.value) : undefined)}
-              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13 }}
+              value={segFilters.scoreMin === 720 ? 'gte720' : segFilters.scoreMax === 719 ? 'lt720' : ''}
+              onChange={(e) => setScoreBand(e.target.value)}
+              style={selectStyle}
             >
               <option value="">Tout score</option>
-              <option value="600">≥ 600</option>
-              <option value="720">≥ 720</option>
+              <option value="gte720">≥ 720</option>
+              <option value="lt720">&lt; 720</option>
             </select>
             {FACET_DEFS.map(([key, label]) => {
               const facet = audience.facets[key];
@@ -5480,10 +5496,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                 <select
                   key={key}
                   value=""
-                  onChange={(e) => { addFacetValue(key, e.target.value); e.target.value = ''; }}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13 }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '__all__') clearFacet(key);
+                    else addFacetValue(key, v);
+                    e.target.value = '';
+                  }}
+                  style={selectStyle}
                 >
                   <option value="">{label}</option>
+                  <option value="__all__">Tout afficher</option>
                   {facet.map(o => (
                     <option key={o.value} value={o.value}>{o.value} ({o.count})</option>
                   ))}
@@ -5527,9 +5549,20 @@ function Contacts({ pendingContact, onPendingConsumed }) {
             />
           )}
 
-          {/* Valeurs catégorielles sélectionnées — chips retirables. */}
-          {FACET_DEFS.some(([key]) => Array.isArray(segFilters[key]) && segFilters[key].length > 0) && (
+          {/* Valeurs sélectionnées — chips retirables (score + facettes). */}
+          {(segFilters.scoreMin != null || segFilters.scoreMax != null ||
+            FACET_DEFS.some(([key]) => Array.isArray(segFilters[key]) && segFilters[key].length > 0)) && (
             <div className="row gap-1" style={{ flexWrap: 'wrap', marginTop: 10 }}>
+              {(segFilters.scoreMin != null || segFilters.scoreMax != null) && (
+                <button
+                  className="chip"
+                  onClick={() => setScoreBand('')}
+                  style={{ cursor: 'pointer' }}
+                  title="Retirer le filtre de score"
+                >
+                  Score : {segFilters.scoreMin != null ? `≥ ${segFilters.scoreMin}` : `< ${segFilters.scoreMax + 1}`} ×
+                </button>
+              )}
               {FACET_DEFS.flatMap(([key, label]) =>
                 (Array.isArray(segFilters[key]) ? segFilters[key] : []).map(val => (
                   <button
