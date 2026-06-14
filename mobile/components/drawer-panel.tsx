@@ -85,7 +85,7 @@ export const DANGER = "#F2A24A";
 export const SOCIAL = [
   { icon: "logo-facebook" as const, url: "https://www.facebook.com/profile.php?id=61590629948220", label: "Facebook BUUPP" },
   { icon: "logo-linkedin" as const, url: "https://www.linkedin.com/company/buupp", label: "LinkedIn BUUPP" },
-  { icon: "logo-tiktok" as const, url: "https://www.tiktok.com/@buupp", label: "TikTok BUUPP" },
+  { icon: "logo-tiktok" as const, url: "https://www.tiktok.com/@buupp5", label: "TikTok BUUPP" },
 ];
 
 const NAV: {
