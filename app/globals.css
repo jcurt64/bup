@@ -1228,5 +1228,11 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   .anon-out{min-height:0;flex-wrap:wrap;}
   .anon-mtag{display:block;width:100%;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;
     text-transform:uppercase;color:var(--ink-5);margin-bottom:5px;}
+  /* Séparateurs lisibles quand le tableau passe en colonne (mobiles + iPad Air 5
+     portrait, ≤860px) : petit trait entre chaque donnée d'un même palier, gros
+     trait entre les paliers. */
+  .anon-row + .anon-row{border-top:1px solid var(--line);margin-top:16px;padding-top:17px;}
+  .anon-tier + .anon-tier{border-top:2px solid var(--line-2);margin-top:26px;padding-top:22px;}
+  .anon-tier + .anon-tier > .anon-palier{margin-top:0;}
 }
 @media (prefers-reduced-motion:reduce){ .anon-dash{animation:none;} }

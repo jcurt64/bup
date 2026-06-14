@@ -146,7 +146,7 @@ export default function PrivacyByDesignTable({
       </div>
 
       {TIERS.map((tier) => (
-        <div key={tier.n}>
+        <div key={tier.n} className="anon-tier">
           <div className="anon-palier">
             <div className="lft">
               <span className="anon-pbadge">PALIER {tier.n}</span>
