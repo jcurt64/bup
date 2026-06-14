@@ -349,6 +349,7 @@ export default function BaremePage() {
 
         {/* Tier Cards */}
         <div
+          data-reveal-group
           style={{
             display: "flex",
             flexDirection: "column",
