@@ -285,6 +285,33 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .about-pulse-word { animation: none; }
 }
 
+/* ─── Apparition au défilement (scroll-reveal) ──────────────────────────
+   Géré par app/_components/ScrollReveal.tsx. Les éléments [data-reveal] ne
+   sont masqués QUE lorsque le JS a posé `reveal-ready` sur <html> (script
+   inline du layout, avant peinture) → pas de flash, et contenu visible si JS
+   absent. Révélation = fondu + léger glissement vers le haut ; `data-reveal-group`
+   décale ses enfants (stagger) via transition-delay (posé en JS). */
+html.reveal-ready [data-reveal],
+html.reveal-ready [data-reveal-group] > * {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .65s cubic-bezier(.22, .61, .36, 1),
+              transform .65s cubic-bezier(.22, .61, .36, 1);
+  will-change: opacity, transform;
+}
+html.reveal-ready [data-reveal="fade"] { transform: none; }            /* fondu seul */
+html.reveal-ready [data-reveal="scale"] { transform: translateY(12px) scale(.97); }
+html.reveal-ready [data-reveal="left"] { transform: translateX(-22px); }
+html.reveal-ready [data-reveal="right"] { transform: translateX(22px); }
+html.reveal-ready [data-reveal].reveal-in,
+html.reveal-ready [data-reveal-group] > .reveal-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  html.reveal-ready [data-reveal],
+  html.reveal-ready [data-reveal-group] > * {
+    opacity: 1 !important; transform: none !important; transition: none !important;
+  }
+}
+
 @keyframes scroll-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .marquee { display: flex; gap: 48px; animation: scroll-x 40s linear infinite; white-space: nowrap; }
 

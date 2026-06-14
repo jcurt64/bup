@@ -18,6 +18,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
 import CookieConsent from "./_components/CookieConsent";
+import ScrollReveal from "./_components/ScrollReveal";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -165,6 +166,19 @@ export default function RootLayout({
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${caveat.variable}`}
       >
         <body data-palette="indigo" suppressHydrationWarning>
+          {/* Anti-flash du scroll-reveal : on masque les [data-reveal] AVANT
+              peinture en posant `reveal-ready` sur <html> de façon synchrone.
+              Sans JS, la classe n'est jamais posée → contenu visible. */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                "document.documentElement.classList.add('reveal-ready');" +
+                // Garde-fou ultime : si le JS de reveal n'a pas pris la main au
+                // bout de 6 s (erreur JS, composant non monté…), on retire la
+                // classe → le contenu masqué redevient visible (sans animation).
+                "setTimeout(function(){if(!window.__revealActive){document.documentElement.classList.remove('reveal-ready')}},6000);",
+            }}
+          />
           {/* JSON-LD Organization (rich snippets pour Google).
               Injecté avec dangerouslySetInnerHTML car c'est la pratique
               recommandée Next.js — l'objet est entièrement contrôlé côté
@@ -174,6 +188,7 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
           />
           {children}
+          <ScrollReveal />
           <RouteNav />
           <CookieConsent />
           {/* Vercel Web Analytics — sans cookie, conforme RGPD. Collecte

@@ -28,6 +28,7 @@ export default function RequestDemoSection() {
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <div
           className="grid grid-2"
+          data-reveal-group
           style={{ gap: "clamp(32px, 5vw, 64px)", alignItems: "center" }}
         >
           {/* Colonne gauche : pitch + bénéfices */}

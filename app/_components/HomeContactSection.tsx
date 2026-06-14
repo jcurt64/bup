@@ -200,6 +200,7 @@ export default function HomeContactSection() {
 
         <div
           className="grid grid-2"
+          data-reveal-group
           style={{ gap: "clamp(24px, 4vw, 48px)", alignItems: "stretch" }}
         >
           {/* Colonne gauche : carte sombre « À votre écoute » */}

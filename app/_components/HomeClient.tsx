@@ -2329,6 +2329,7 @@ function ScoreSection() {
     <section className="section">
       <div
         className="grid grid-2"
+        data-reveal-group
         style={{
           maxWidth: 1280,
           margin: "0 auto",
@@ -2574,6 +2575,7 @@ function ProsSection() {
 
         <div
           className="grid grid-3"
+          data-reveal-group
           style={{
             gap: 1,
             background: "rgba(255,255,255,.08)",
@@ -2661,7 +2663,7 @@ function ProsSection() {
           ))}
         </div>
 
-        <div className="grid grid-2" style={{ gap: 20, marginBottom: 64 }}>
+        <div className="grid grid-2" data-reveal-group style={{ gap: 20, marginBottom: 64 }}>
           <div
             style={{
               padding: "clamp(24px, 3vw, 36px)",
@@ -2776,7 +2778,7 @@ function ProsSection() {
             — Ils pourraient prospecter mieux{" "}
             <p className="inline text-[#4596EC] font-extrabold">avec BUUPP</p>
           </div>
-          <div className="grid grid-4" style={{ gap: 12 }}>
+          <div className="grid grid-4" data-reveal-group style={{ gap: 12 }}>
             {useCases.map((u, i) => (
               <div
                 key={i}
@@ -3087,6 +3089,7 @@ function Pricing() {
         </div>
         <div
           className="grid grid-2"
+          data-reveal-group
           style={{ gap: 20, letterSpacing: "0.04em" }}
         >
           <PricingCard

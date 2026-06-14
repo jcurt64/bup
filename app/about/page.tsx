@@ -404,10 +404,11 @@ export default function AboutPage() {
               Trois exigences, <em>non négociables</em>.
             </h2>
           </div>
-          <div className="grid grid-3">
+          <div className="grid grid-3" data-reveal-group>
             {PRINCIPLES.map((p) => (
               <div
                 key={p.t}
+                data-reveal
                 className="card"
                 style={{
                   background: "var(--paper)",
@@ -500,9 +501,9 @@ export default function AboutPage() {
               </h2>
             </div>
           </div>
-          <div className="grid grid-4" style={{ gap: 1, background: "rgba(255,255,255,.08)" }}>
+          <div className="grid grid-4" data-reveal-group style={{ gap: 1, background: "rgba(255,255,255,.08)" }}>
             {SECURITY.map((p, i) => (
-              <div key={i} style={{ background: "var(--ink)", padding: "24px 20px" }}>
+              <div key={i} data-reveal style={{ background: "var(--ink)", padding: "24px 20px" }}>
                 <div className="mono" style={{ fontSize: 20, color: "#A5B4FC", marginBottom: 14 }}>
                   0{i + 1}
                 </div>
