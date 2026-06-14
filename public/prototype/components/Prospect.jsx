@@ -789,7 +789,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           <div className="dash-social-row">
             <a
               className="dash-social-btn"
-              href="https://www.facebook.com/buupp"
+              href="https://www.facebook.com/profile.php?id=61590629948220"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook BUUPP"
