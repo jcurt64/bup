@@ -10,7 +10,7 @@
  *    - nom                 → MASQUAGE   (initiale + points)
  *    - e-mail              → alias watermarqué (géré en amont par la route)
  *    - téléphone           → CONSERVÉ
- *    - date de naissance   → GÉNÉRALISATION → tranche d'âge décennale
+ *    - date de naissance   → GÉNÉRALISATION → tranche d'âge de 5 ans
  *  Palier 2 — Localisation
  *    - adresse postale     → GÉNÉRALISATION → distance au centre de la
  *                            commune, bornée en tranche (« < 2 km du centre »).
@@ -37,7 +37,7 @@ export type PseudoKind =
   | "keep" // conservé tel quel
   | "suppress" // jamais transmis (champ omis)
   | "mask" // initiale + points (ex. « Marie » → « M•••• »)
-  | "age" // date de naissance → tranche d'âge (« 30–39 ans »)
+  | "age" // date de naissance → tranche d'âge (« 32–37 ans »)
   | "postal" // code postal → département (« 69 · Rhône »)
   | "distance" // adresse → distance au centre (lit center_distance_m)
   | "alias" // e-mail → alias watermarqué (valeur injectée par la route)
@@ -102,7 +102,7 @@ export function maskToken(value: unknown): string | null {
 
 /**
  * Date de naissance (« JJ/MM/AAAA » ou « AAAA-MM-JJ ») → tranche d'âge
- * décennale (« 30–39 ans »). `ref` permet de figer la date pour les tests.
+ * par tranche de 5 ans (« 32–37 ans »). `ref` permet de figer la date pour les tests.
  */
 export function ageRange(value: unknown, ref?: Date): string | null {
   const s = strOrNull(value);
@@ -127,8 +127,12 @@ export function ageRange(value: unknown, ref?: Date): string | null {
   const mo = now.getMonth() + 1;
   if (mo < m || (mo === m && now.getDate() < d)) age -= 1;
   if (age < 0 || age > 120) return null;
-  const lo = Math.floor(age / 10) * 10;
-  return `${lo}–${lo + 9} ans`;
+  // Tranche de 5 ans (au lieu d'une décennie) : on conserve la précision du
+  // profil tout en généralisant. Les paliers sont ancrés sur +2 (…, 27–32,
+  // 32–37, 37–42, …) de sorte que l'âge se situe au cœur de sa tranche
+  // (ex. 34 ans → « 32–37 ans »).
+  const lo = Math.max(0, Math.floor((age - 2) / 5) * 5 + 2);
+  return `${lo}–${lo + 5} ans`;
 }
 
 // Départements français (code → nom). Le code postal est généralisé à son

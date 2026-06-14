@@ -49,7 +49,7 @@ const TIERS: Tier[] = [
       { label: "Nom", value: "Dubois", kind: "mask", out: "D•••••" },
       { label: "Email", value: "marie@email.fr", kind: "mask", out: "ma••@••••" },
       { label: "Téléphone", value: "06 12 34 56 78", kind: "keep", out: "06 12 34 56 78" },
-      { label: "Date de naissance", value: "12/04/1990", kind: "gen", out: "30–39 ans" },
+      { label: "Date de naissance", value: "12/04/1990", kind: "gen", out: "32–37 ans" },
     ],
   },
   {

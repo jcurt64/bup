@@ -33,15 +33,16 @@ describe("maskToken", () => {
 
 describe("ageRange", () => {
   const ref = new Date("2026-06-14T00:00:00Z");
-  it("généralise une date JJ/MM/AAAA en tranche décennale", () => {
-    expect(ageRange("12/04/1990", ref)).toBe("30–39 ans");
+  it("généralise une date JJ/MM/AAAA en tranche de 5 ans", () => {
+    // né le 12/04/1990 → au 14/06/2026 il a 36 ans → palier 32–37
+    expect(ageRange("12/04/1990", ref)).toBe("32–37 ans");
   });
   it("gère le format AAAA-MM-JJ", () => {
-    expect(ageRange("1990-04-12", ref)).toBe("30–39 ans");
+    expect(ageRange("1990-04-12", ref)).toBe("32–37 ans");
   });
   it("retranche un an si l'anniversaire n'est pas encore passé", () => {
-    // né le 31/12/1996 → au 14/06/2026 il a 29 ans → 20–29
-    expect(ageRange("31/12/1996", ref)).toBe("20–29 ans");
+    // né le 31/12/1996 → au 14/06/2026 il a 29 ans → palier 27–32
+    expect(ageRange("31/12/1996", ref)).toBe("27–32 ans");
   });
   it("renvoie null pour une date invalide", () => {
     expect(ageRange("pas une date", ref)).toBeNull();
@@ -125,7 +126,7 @@ describe("pseudonymizeTierItems", () => {
       // la tranche d'âge dépend de la date du jour → on vérifie juste le format
       { label: "Tranche d'âge", value: items[4].value },
     ]);
-    expect(items[4].value).toMatch(/^\d0–\d9 ans$/);
+    expect(items[4].value).toMatch(/^\d{1,3}–\d{1,3} ans$/);
   });
 
   it("généralise l'adresse en distance au centre + le code postal en département", () => {

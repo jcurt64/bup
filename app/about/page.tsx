@@ -263,7 +263,7 @@ export default function AboutPage() {
           </p>
           <div style={{ marginTop: "clamp(36px, 5vw, 56px)" }}>
             <iframe
-              src="/prototype/ano.html?v=ano9"
+              src="/prototype/ano.html?v=ano10"
               title="Flux de pseudonymisation des données chez BUUPP"
               loading="lazy"
               style={{
@@ -303,7 +303,48 @@ export default function AboutPage() {
             }}
           >
             <div className="anon-hd" style={{ paddingRight: 40 }}>
-              <div className="eb">CONFIDENTIALITÉ PAR CONCEPTION</div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="eb">CONFIDENTIALITÉ PAR CONCEPTION</div>
+                {/* Badge « Exemples illustratifs » (remplace l'ancien encart
+                    disclaimer affiché sous l'en-tête). */}
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "5px 12px",
+                    borderRadius: 999,
+                    background: "#efeaff",
+                    border: "1px solid #d9cfff",
+                    color: "#5b3fe0",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#7c5cff"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8h.01M11 11h1v5h1" />
+                  </svg>
+                  Exemples illustratifs
+                </span>
+              </div>
               <h3>Comment vos données sont pseudonymisées</h3>
               <div className="sub">
                 Palier par palier&nbsp;: ce que vous renseignez, la transformation
@@ -312,7 +353,7 @@ export default function AboutPage() {
               </div>
             </div>
             <div className="anon-body" style={{ overflow: "visible" }}>
-              <PrivacyByDesignTable />
+              <PrivacyByDesignTable disclaimer={false} />
             </div>
           </div>
         </div>
