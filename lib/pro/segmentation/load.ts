@@ -13,7 +13,7 @@ const TIER_TABLE: Record<TierKey, string> = {
 
 const TIER_COLS: Record<TierKey, string> = {
   identity: "prospect_id, prenom, nom",
-  localisation: "prospect_id, region, ville, code_postal, adresse",
+  localisation: "prospect_id, region, ville, code_postal, adresse, center_distance_m",
   vie: "prospect_id, foyer, sports, animaux, vehicule, logement, mobilite",
   pro: "prospect_id, poste, statut, secteur, revenus",
   patrimoine: "prospect_id, residence, epargne, projets",

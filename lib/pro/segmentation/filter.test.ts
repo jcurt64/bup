@@ -19,14 +19,24 @@ describe("matchesFilters", () => {
   });
 
   it("filters by categorical multiselect; null value never matches", () => {
-    const withRegion = c({ localisation: { region: "Rhône", ville: null, codePostal: null, adresse: null } });
+    const withRegion = c({ localisation: { region: "Rhône", ville: null, codePostal: null, adresse: null, centerDistanceM: null } });
     expect(matchesFilters(withRegion, { region: ["Rhône", "Paris"] })).toBe(true);
     expect(matchesFilters(withRegion, { region: ["Paris"] })).toBe(false);
     expect(matchesFilters(c({}), { region: ["Rhône"] })).toBe(false);
   });
 
+  it("filters by distance band (dérivée de center_distance_m)", () => {
+    const near = c({ localisation: { region: null, ville: null, codePostal: null, adresse: null, centerDistanceM: 800 } });
+    const far = c({ localisation: { region: null, ville: null, codePostal: null, adresse: null, centerDistanceM: 7000 } });
+    expect(matchesFilters(near, { distance: ["< 2 km du centre"] })).toBe(true);
+    expect(matchesFilters(near, { distance: ["5–10 km du centre"] })).toBe(false);
+    expect(matchesFilters(far, { distance: ["5–10 km du centre"] })).toBe(true);
+    // distance absente → ne matche jamais un filtre distance actif
+    expect(matchesFilters(c({}), { distance: ["< 2 km du centre"] })).toBe(false);
+  });
+
   it("ANDs all criteria", () => {
-    const ct = c({ score: 730, localisation: { region: "Rhône", ville: null, codePostal: null, adresse: null } });
+    const ct = c({ score: 730, localisation: { region: "Rhône", ville: null, codePostal: null, adresse: null, centerDistanceM: null } });
     expect(matchesFilters(ct, { scoreMin: 720, region: ["Rhône"] })).toBe(true);
     expect(matchesFilters(ct, { scoreMin: 740, region: ["Rhône"] })).toBe(false);
   });

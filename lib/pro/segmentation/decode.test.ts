@@ -8,7 +8,7 @@ function input(over: Partial<DecodeInput> = {}): DecodeInput {
     blockedByProspect: new Map(),
     tierData: {
       identity: new Map([["p1", { prenom: "Léa", nom: "Martin" }]]),
-      localisation: new Map([["p1", { region: "Rhône", ville: "Lyon", code_postal: "69003", adresse: "1 rue X" }]]),
+      localisation: new Map([["p1", { region: "Rhône", ville: "Lyon", code_postal: "69003", adresse: "1 rue X", center_distance_m: 1200 }]]),
       pro: new Map([["p1", { poste: "Dev", statut: "Salarié", secteur: "Tech", revenus: "30-40k" }]]),
     },
     campaignTiers: ["identity", "localisation", "pro"] as TierKey[],
@@ -25,6 +25,7 @@ describe("decodeContacts", () => {
     expect(c.identity).toEqual({ prenom: "Léa", nom: "Martin" });
     expect(c.localisation?.region).toBe("Rhône");
     expect(c.localisation?.codePostal).toBe("69003");
+    expect(c.localisation?.centerDistanceM).toBe(1200);
     expect(c.pro?.revenus).toBe("30-40k");
   });
 

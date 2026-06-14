@@ -11,14 +11,15 @@ export type SegmentContact = {
   score: number;
   reached: "atteint" | "non_atteint" | null;
   identity?: { prenom: string | null; nom: string | null };
-  localisation?: { region: string | null; ville: string | null; codePostal: string | null; adresse: string | null };
+  localisation?: { region: string | null; ville: string | null; codePostal: string | null; adresse: string | null; centerDistanceM: number | null };
   vie?: { foyer: string | null; sports: string | null; animaux: string | null; vehicule: string | null; logement: string | null; mobilite: string | null };
   pro?: { poste: string | null; statut: string | null; secteur: string | null; revenus: string | null };
   patrimoine?: { residence: string | null; epargne: string | null; projets: string | null };
 };
 
-/** Champs catégoriels facettables + leur palier source. */
-export type CategoricalKey = "region" | "revenus" | "epargne" | "logement" | "statutPro" | "foyer" | "vehicule" | "animaux";
+/** Champs catégoriels facettables + leur palier source. `distance` = tranche
+ *  de distance au centre de la commune (dérivée de center_distance_m). */
+export type CategoricalKey = "region" | "distance" | "logement" | "statutPro" | "foyer" | "vehicule" | "animaux";
 
 export type SegmentFilters = {
   scoreMin?: number;
@@ -26,8 +27,7 @@ export type SegmentFilters = {
   reached?: "atteint" | "non_atteint";
   q?: string;
   region?: string[];
-  revenus?: string[];
-  epargne?: string[];
+  distance?: string[];
   logement?: string[];
   statutPro?: string[];
   foyer?: string[];

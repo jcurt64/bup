@@ -5121,6 +5121,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const [activeCampaign, setActiveCampaign] = React.useState(null); // { id, name } | null
   const [audience, setAudience] = React.useState(null); // { total, availableTiers, facets, savedSegments }
   const [segFilters, setSegFilters] = React.useState({}); // SegmentFilters
+  const [broadcastOpen, setBroadcastOpen] = React.useState(false); // modal diffusion segment (SP2)
   const [filteredRows, setFilteredRows] = React.useState(null); // null = atelier inactif
   // Auto-sélection (une seule fois) : si le pro n'a qu'une campagne, on ouvre
   // l'atelier directement — sinon le panneau Audience restait caché derrière un
@@ -5301,7 +5302,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   });
   // Couples [clé facette → libellé] pour générer les selects catégoriels DRY.
   const FACET_DEFS = [
-    ['region', 'Région'], ['revenus', 'Revenus'], ['epargne', 'Épargne'],
+    ['region', 'Région'], ['distance', 'Distance du centre'],
     ['logement', 'Logement'], ['statutPro', 'Statut pro'], ['foyer', 'Foyer'],
     ['vehicule', 'Véhicule'], ['animaux', 'Animaux'],
   ];
@@ -5423,8 +5424,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
             <FacetBlock title="BUPP Score" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />
             {audience.facets.region && <FacetBlock title="Région" items={audience.facets.region} />}
-            {audience.facets.revenus && <FacetBlock title="Revenus" items={audience.facets.revenus} />}
-            {audience.facets.epargne && <FacetBlock title="Épargne" items={audience.facets.epargne} />}
+            {audience.facets.distance && <FacetBlock title="Distance du centre" items={audience.facets.distance} />}
             {audience.facets.statutPro && <FacetBlock title="Statut pro" items={audience.facets.statutPro} />}
             {audience.facets.logement && <FacetBlock title="Logement" items={audience.facets.logement} />}
             {audience.facets.foyer && <FacetBlock title="Foyer" items={audience.facets.foyer} />}
@@ -5489,12 +5489,28 @@ function Contacts({ pendingContact, onPendingConsumed }) {
             >
               <Icon name="download" size={11}/> Enregistrer ce filtre
             </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setBroadcastOpen(true)}
+              title="Envoyer un message à tous les contacts du segment courant"
+            >
+              <Icon name="email" size={11}/> Diffuser un message
+            </button>
             {Object.keys(segFilters).length > 0 && (
               <button className="chip" onClick={() => setSegFilters({})} style={{ cursor: 'pointer' }}>
                 <Icon name="rotate" size={11}/> Réinitialiser
               </button>
             )}
           </div>
+          {broadcastOpen && activeCampaign && (
+            <BroadcastComposerModal
+              campaignId={activeCampaign.id}
+              campaignName={activeCampaign.name}
+              filters={segFilters}
+              onClose={() => setBroadcastOpen(false)}
+              onSent={() => {}}
+            />
+          )}
 
           {/* Valeurs catégorielles sélectionnées — chips retirables. */}
           {FACET_DEFS.some(([key]) => Array.isArray(segFilters[key]) && segFilters[key].length > 0) && (
@@ -6800,6 +6816,159 @@ function EmailComposerModal({ row, onClose, onSent }) {
             {sending ? 'Envoi…' : 'Envoyer via BUUPP'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── BroadcastComposerModal — diffusion médiée à un segment (SP2) ──────
+   Le pro compose un message ; BUUPP l'envoie par email à tous les prospects
+   du segment (filtres courants). Le pro ne voit jamais les adresses. Quota
+   1/campagne : les prospects déjà sollicités sont ignorés. */
+function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, onSent }) {
+  const [subject, setSubject] = React.useState('');
+  const [body, setBody] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [result, setResult] = React.useState(null);
+
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !sending) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, sending]);
+
+  const submit = async () => {
+    const subj = subject.trim();
+    const bod = body.trim();
+    if (!subj) { setError("L'objet est requis."); return; }
+    if (!bod) { setError("Le message ne peut pas être vide."); return; }
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/pro/segments/broadcast', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ campaignId, filters, subject: subj, body: bod }),
+      });
+      const j = await r.json().catch(() => null);
+      if (r.ok && j) { setResult(j); if (onSent) onSent(); return; }
+      const codeMap = {
+        campaign_not_closed: "La campagne n'est pas encore clôturée.",
+        forbidden: 'Action non autorisée sur cette campagne.',
+        subject_too_long: "L'objet est trop long (200 caractères max).",
+        body_too_long: 'Le message est trop long (10 000 caractères max).',
+        pro_email_missing: 'Votre email est introuvable.',
+      };
+      setError(codeMap[String(j?.error ?? '')] ?? 'Échec — réessayez.');
+    } catch {
+      setError('Erreur réseau — réessayez.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(20,20,20,0.45)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        zIndex: 1000, padding: '40px 20px 60px', overflowY: 'auto',
+      }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 560, padding: 26 }}>
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 14 }}>
+          <div className="serif" style={{ fontSize: 20 }}>Diffuser un message au segment</div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" disabled={sending}>
+            <Icon name="close" size={12}/>
+          </button>
+        </div>
+
+        {result ? (
+          <div>
+            <div style={{
+              padding: '12px 14px', borderRadius: 8, marginBottom: 14,
+              background: 'color-mix(in oklab, var(--good, #15803d) 8%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--good, #15803d) 30%, var(--line))',
+              fontSize: 13, lineHeight: 1.5, color: 'var(--ink-3)',
+            }}>
+              <strong style={{ color: 'var(--ink)' }}>Diffusion lancée.</strong>{' '}
+              {result.sent} message{result.sent === 1 ? '' : 's'} en cours d'envoi
+              sur {result.total} contact{result.total === 1 ? '' : 's'} du segment.
+              {result.skippedQuota > 0 && <> {result.skippedQuota} déjà sollicité{result.skippedQuota === 1 ? '' : 's'} (quota).</>}
+              {result.skippedNoEmail > 0 && <> {result.skippedNoEmail} sans email partagé.</>}
+              {result.skippedCap > 0 && <> {result.skippedCap} au-delà du plafond ({/* */}500) — affinez le segment pour les inclure.</>}
+            </div>
+            <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button onClick={onClose} className="btn btn-primary btn-sm">Fermer</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{
+              padding: '10px 12px', borderRadius: 8, marginBottom: 14,
+              background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--accent) 24%, var(--line))',
+              fontSize: 12, lineHeight: 1.5, color: 'var(--ink-3)',
+            }}>
+              <strong style={{ color: 'var(--ink)' }}>Diffusion médiée par BUUPP.</strong>{' '}
+              Votre message part depuis nos serveurs vers tous les contacts du segment
+              actuel, avec votre adresse en <em>Reply-To</em>. Les adresses des prospects
+              restent cachées. Quota&nbsp;: 1 email par campagne — les prospects déjà
+              sollicités sont automatiquement ignorés.
+            </div>
+
+            <label className="label" style={{ marginBottom: 4, display: 'block' }}>Objet</label>
+            <input
+              type="text" className="input" value={subject}
+              onChange={(e) => setSubject(e.target.value.slice(0, 200))}
+              maxLength={200}
+              placeholder="Ex. : Une offre pensée pour vous"
+              style={{ width: '100%', fontSize: 14, padding: '10px 12px', marginBottom: 14 }}
+              disabled={sending} autoFocus/>
+
+            <label className="label" style={{ marginBottom: 4, display: 'block' }}>
+              Message
+              <span className="mono muted" style={{ float: 'right', fontSize: 11 }}>{body.length} / 10000</span>
+            </label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value.slice(0, 10000))}
+              rows={9} maxLength={10000}
+              placeholder={`Bonjour,\n\nMerci d'avoir accepté ma sollicitation. Je reviens vers vous pour…`}
+              style={{
+                width: '100%', padding: 10, borderRadius: 8,
+                border: '1px solid var(--line)', background: 'var(--paper)',
+                fontFamily: 'inherit', fontSize: 13, resize: 'vertical', marginBottom: 6,
+              }}
+              disabled={sending}/>
+
+            <div className="muted" style={{ fontSize: 11, marginBottom: 14, lineHeight: 1.45 }}>
+              Votre message sera intégré dans un email aux couleurs BUUPP, en mentionnant
+              la campagne {campaignName ? <><em>«&nbsp;{campaignName}&nbsp;»</em></> : 'concernée'}.
+            </div>
+
+            {error && (
+              <div style={{
+                padding: '10px 12px', borderRadius: 8, marginBottom: 12,
+                background: 'color-mix(in oklab, var(--danger) 8%, var(--paper))',
+                border: '1px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
+                color: 'var(--danger)', fontSize: 13,
+              }}>{error}</div>
+            )}
+
+            <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button onClick={onClose} className="btn btn-ghost btn-sm" disabled={sending}>Annuler</button>
+              <button onClick={submit} className="btn btn-primary btn-sm"
+                disabled={sending || !subject.trim() || !body.trim()}>
+                {sending ? 'Diffusion…' : 'Diffuser via BUUPP'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

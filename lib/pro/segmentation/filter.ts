@@ -1,4 +1,5 @@
 import type { SegmentContact, SegmentFilters, CategoricalKey } from "./types";
+import { distanceBand } from "@/lib/pro/pseudonymize";
 
 function norm(s: string | null | undefined): string {
   return (s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -6,8 +7,7 @@ function norm(s: string | null | undefined): string {
 
 const CATEGORICAL_GET: Record<CategoricalKey, (c: SegmentContact) => string | null | undefined> = {
   region: (c) => c.localisation?.region,
-  revenus: (c) => c.pro?.revenus,
-  epargne: (c) => c.patrimoine?.epargne,
+  distance: (c) => distanceBand(c.localisation?.centerDistanceM),
   logement: (c) => c.vie?.logement,
   statutPro: (c) => c.pro?.statut,
   foyer: (c) => c.vie?.foyer,

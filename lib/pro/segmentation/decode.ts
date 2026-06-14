@@ -23,6 +23,12 @@ function s(v: unknown): string | null {
   return t === "" ? null : t;
 }
 
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function decodeContacts(input: DecodeInput): SegmentContact[] {
   const { relations, blockedByProspect, tierData, campaignTiers } = input;
   const camp = new Set(campaignTiers);
@@ -37,7 +43,7 @@ export function decodeContacts(input: DecodeInput): SegmentContact[] {
     }
     if (has("localisation")) {
       const t = row("localisation");
-      c.localisation = { region: s(t.region), ville: s(t.ville), codePostal: s(t.code_postal), adresse: s(t.adresse) };
+      c.localisation = { region: s(t.region), ville: s(t.ville), codePostal: s(t.code_postal), adresse: s(t.adresse), centerDistanceM: numOrNull(t.center_distance_m) };
     }
     if (has("vie")) {
       const t = row("vie");

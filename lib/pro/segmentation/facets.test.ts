@@ -38,7 +38,7 @@ describe("buildFacets", () => {
   });
 
   it("sorts categories by count desc and ignores null/empty values", () => {
-    const mk = (region: string | null) => c({ localisation: { region, ville: null, codePostal: null, adresse: null } });
+    const mk = (region: string | null) => c({ localisation: { region, ville: null, codePostal: null, adresse: null, centerDistanceM: null } });
     const f = buildFacets([mk("Rhône"), mk("Rhône"), mk("Paris"), mk(null), mk("  ")], ["localisation"] as TierKey[]);
     expect(f["region"]).toEqual([
       { value: "Rhône", count: 2 },
@@ -46,9 +46,23 @@ describe("buildFacets", () => {
     ]);
   });
 
+  it("construit la facette distance (tranches ordonnées proche → lointain)", () => {
+    const mk = (m: number | null) =>
+      c({ localisation: { region: null, ville: null, codePostal: null, adresse: null, centerDistanceM: m } });
+    const f = buildFacets(
+      [mk(7000), mk(800), mk(800), mk(40000), mk(null)],
+      ["localisation"] as TierKey[],
+    );
+    expect(f["distance"]).toEqual([
+      { value: "< 2 km du centre", count: 2 },
+      { value: "5–10 km du centre", count: 1 },
+      { value: "> 20 km du centre", count: 1 },
+    ]);
+  });
+
   it("collapses categories beyond the top 12 into 'Autres'", () => {
     const contacts: SegmentContact[] = [];
-    for (let i = 0; i < 15; i++) contacts.push(c({ localisation: { region: `R${i}`, ville: null, codePostal: null, adresse: null } }));
+    for (let i = 0; i < 15; i++) contacts.push(c({ localisation: { region: `R${i}`, ville: null, codePostal: null, adresse: null, centerDistanceM: null } }));
     const region = buildFacets(contacts, ["localisation"] as TierKey[])["region"]!;
     expect(region).toHaveLength(13); // 12 + "Autres"
     expect(region[12]).toEqual({ value: "Autres", count: 3 });

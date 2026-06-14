@@ -1,11 +1,20 @@
 import type { SegmentContact, TierKey, CategoricalKey, AudienceFacets, FacetCount } from "./types";
+import { distanceBand } from "@/lib/pro/pseudonymize";
 
 const TOP_N = 12;
 
+// Ordre logique des tranches de distance (sinon countCategory trie par effectif).
+const DISTANCE_ORDER = [
+  "< 2 km du centre",
+  "2–5 km du centre",
+  "5–10 km du centre",
+  "10–20 km du centre",
+  "> 20 km du centre",
+];
+
 const CATEGORICAL: { key: CategoricalKey; tier: TierKey; get: (c: SegmentContact) => string | null | undefined }[] = [
   { key: "region", tier: "localisation", get: (c) => c.localisation?.region },
-  { key: "revenus", tier: "pro", get: (c) => c.pro?.revenus },
-  { key: "epargne", tier: "patrimoine", get: (c) => c.patrimoine?.epargne },
+  { key: "distance", tier: "localisation", get: (c) => distanceBand(c.localisation?.centerDistanceM) },
   { key: "logement", tier: "vie", get: (c) => c.vie?.logement },
   { key: "statutPro", tier: "pro", get: (c) => c.pro?.statut },
   { key: "foyer", tier: "vie", get: (c) => c.vie?.foyer },
@@ -54,6 +63,12 @@ export function buildFacets(contacts: SegmentContact[], allowedTiers: TierKey[])
   for (const f of CATEGORICAL) {
     if (!allowed.has(f.tier)) continue;
     out[f.key] = countCategory(contacts, f.get);
+  }
+  // La distance se trie logiquement (proche → lointain), pas par effectif.
+  if (out.distance) {
+    out.distance = [...out.distance].sort(
+      (a, b) => DISTANCE_ORDER.indexOf(a.value) - DISTANCE_ORDER.indexOf(b.value),
+    );
   }
   return out;
 }
