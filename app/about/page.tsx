@@ -10,6 +10,26 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
 };
 
+// Icône « œil » (consulter le détail) — pas dans le set Icon partagé.
+function EyeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 // Eyebrow réutilisé en tête de chaque section, pour un enchaînement cohérent.
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -27,7 +47,14 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-const PRINCIPLES: { icon: IconName; t: string; d: string }[] = [
+type Principle = {
+  icon: IconName;
+  t: string;
+  d: string;
+  cta?: { label: string; href: string };
+};
+
+const PRINCIPLES: Principle[] = [
   {
     icon: "shield",
     t: "Privacy by Design",
@@ -37,11 +64,13 @@ const PRINCIPLES: { icon: IconName; t: string; d: string }[] = [
     icon: "target",
     t: "Minimisation",
     d: "BUUPP ne collecte et ne transmet que les données strictement nécessaires à la finalité choisie par le professionnel. Chaque palier est cloisonné et monétisé séparément : rien de superflu ne circule.",
+    cta: { label: "Voir la minimisation", href: "/minimisation" },
   },
   {
     icon: "lock",
     t: "Pseudonymisation",
     d: "Les données ne parviennent au professionnel que pseudonymisées — masquées, généralisées ou catégorisées. L'identité réelle reste réversible par buupp seul, et chaque révélation est journalisée conformément au RGPD.",
+    cta: { label: "Voir la pseudonymisation", href: "#confidentialite" },
   },
 ];
 
@@ -239,7 +268,11 @@ export default function AboutPage() {
           Fond en var(--ivory) IDENTIQUE au fond de l'iframe (ano.html utilise
           html,body{background:var(--ivory)}) pour que l'image se fonde sans
           rectangle visible. */}
-      <section className="section" style={{ background: "var(--ivory)" }}>
+      <section
+        id="confidentialite"
+        className="section"
+        style={{ background: "var(--ivory)", scrollMarginTop: 90 }}
+      >
         <div style={{ maxWidth: 1080, margin: "0 auto", textAlign: "center" }}>
           <Eyebrow>— Confidentialité par conception</Eyebrow>
           <h2
@@ -381,6 +414,8 @@ export default function AboutPage() {
                   border: "1px solid var(--line)",
                   borderRadius: "var(--r-md)",
                   padding: "28px 24px",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
                 <div
@@ -403,9 +438,35 @@ export default function AboutPage() {
                 >
                   {p.t}
                 </div>
-                <div style={{ fontSize: 14, lineHeight: 1.65, color: "var(--ink-3)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-caveat), cursive",
+                    fontSize: 22,
+                    lineHeight: 1.4,
+                    letterSpacing: "0.4px",
+                    color: "var(--ink-2)",
+                  }}
+                >
                   {p.d}
                 </div>
+                {p.cta &&
+                  (p.cta.href.startsWith("#") ? (
+                    <a
+                      href={p.cta.href}
+                      className="btn btn-eye btn-sm"
+                      style={{ marginTop: 22, alignSelf: "flex-start" }}
+                    >
+                      <EyeIcon /> {p.cta.label}
+                    </a>
+                  ) : (
+                    <Link
+                      href={p.cta.href}
+                      className="btn btn-eye btn-sm"
+                      style={{ marginTop: 22, alignSelf: "flex-start" }}
+                    >
+                      <EyeIcon /> {p.cta.label}
+                    </Link>
+                  ))}
               </div>
             ))}
           </div>
