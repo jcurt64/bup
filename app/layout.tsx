@@ -164,6 +164,7 @@ export default function RootLayout({
       <html
         lang="fr"
         className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${caveat.variable}`}
+        suppressHydrationWarning
       >
         <body data-palette="indigo" suppressHydrationWarning>
           {/* Anti-flash du scroll-reveal : on masque les [data-reveal] AVANT
