@@ -1043,3 +1043,122 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   .wc-ball-drop { animation: none; }
   .wc-ball-spin { animation: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Illustration « Trust Orbit » — section À propos de la page d'accueil.
+   Trois nœuds (Protection · Sécurité · Consentement) reliés par un triangle
+   sur lequel circule une impulsion néon ; des boules orbitent autour de
+   chaque nœud, l'ensemble flotte doucement. Animations en boucle continue.
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes buppFloatWhole { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes buppOrbitSpin { to { transform: rotate(360deg); } }
+@keyframes buppOrbitSpinRev { to { transform: rotate(-360deg); } }
+@keyframes buppNeonTravel { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -100; } }
+@keyframes buppGlowPulse { 0%, 100% { opacity: .35; transform: scale(1); } 50% { opacity: .9; transform: scale(1.08); } }
+@keyframes buppIconBreathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+.bupp-orbit-float { animation: buppFloatWhole 7s ease-in-out infinite; }
+.bupp-orbit-neon { animation: buppNeonTravel 4.5s linear infinite; }
+.bupp-orbit-grp { transform-box: view-box; }
+.bupp-orbit-spin { animation: buppOrbitSpin 14s linear infinite; }
+.bupp-orbit-spin-rev { animation: buppOrbitSpinRev 18s linear infinite; }
+.bupp-orbit-spin-fast { animation: buppOrbitSpin 9s linear infinite; }
+.bupp-gear-spin { transform-box: view-box; animation: buppOrbitSpin 7s linear infinite; }
+.bupp-orbit-glow { transform-box: fill-box; transform-origin: center; animation: buppGlowPulse 3.4s ease-in-out infinite; }
+.bupp-orbit-icon { transform-box: fill-box; transform-origin: center; animation: buppIconBreathe 3.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bupp-orbit-float,
+  .bupp-orbit-neon,
+  .bupp-orbit-spin,
+  .bupp-orbit-spin-rev,
+  .bupp-orbit-spin-fast,
+  .bupp-gear-spin,
+  .bupp-orbit-glow,
+  .bupp-orbit-icon { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Modal « Comment vos données sont pseudonymisées » (section À propos).
+   Design d'après public/prototype/des.html : carte ivoire, légende des types
+   de transformation, lignes « entrée → transformation → sortie ». Responsive :
+   3 colonnes (desktop) → empilé vertical (mobile).
+   ───────────────────────────────────────────────────────────────────────── */
+.anon-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-start;justify-content:center;
+  padding:24px;background:rgba(10,22,40,.55);backdrop-filter:blur(6px);overflow-y:auto;}
+.anon-card{background:var(--ivory);border:1px solid #fff;border-radius:26px;width:100%;max-width:1080px;margin:auto;
+  box-shadow:0 40px 100px rgba(10,22,40,.34), 0 0 0 1px rgba(10,22,40,.04);overflow:hidden;display:flex;flex-direction:column;max-height:92vh;}
+/* header */
+.anon-hd{position:relative;padding:34px 40px 26px;background:linear-gradient(180deg,#fffdf8,var(--ivory));
+  border-bottom:1px solid var(--line);flex:0 0 auto;}
+.anon-hd .eb{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.2em;color:var(--violet);}
+.anon-hd h3{font-family:var(--serif);font-weight:500;font-size:clamp(26px,4vw,40px);letter-spacing:-.02em;color:#0a1628;margin:10px 0 0;line-height:1.05;}
+.anon-hd .sub{font-size:16px;line-height:1.5;color:#6b7280;margin-top:12px;max-width:720px;}
+.anon-close{position:absolute;top:28px;right:30px;width:46px;height:46px;border-radius:50%;
+  background:#faf8f2;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 2px 8px rgba(10,22,40,.06);transition:background .15s;}
+.anon-close:hover{background:var(--ivory-2);}
+.anon-body{padding:24px 40px 40px;overflow-y:auto;flex:1 1 auto;}
+/* disclaimer */
+.anon-disc{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:16px;background:#efeaff;border:1px solid #d9cfff;}
+.anon-disc .i{width:34px;height:34px;border-radius:10px;flex-shrink:0;background:#fff;border:1px solid #d9cfff;display:flex;align-items:center;justify-content:center;}
+.anon-disc p{font-size:14.5px;color:#4b3fa0;line-height:1.45;}
+/* legend */
+.anon-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+.anon-lg{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);
+  font-size:13px;font-weight:600;color:#0a1628;white-space:nowrap;}
+.anon-lg .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+/* column headers + rows share the grid */
+.anon-cols,.anon-row{display:grid;grid-template-columns:minmax(0,1.15fr) 60px minmax(0,1fr) 60px minmax(0,1.15fr);align-items:center;}
+.anon-cols{margin-top:28px;padding-bottom:14px;border-bottom:1.5px solid var(--line);}
+.anon-cols .ch{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--ink-5);text-align:center;}
+.anon-cols .ch.l{text-align:left;padding-left:4px;}
+.anon-cols .ch.r{text-align:right;padding-right:4px;}
+/* palier header */
+.anon-palier{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:30px;margin-bottom:6px;}
+.anon-palier .lft{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.anon-pbadge{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.08em;color:var(--violet-d,#5b3fe0);
+  background:#efeaff;border:1px solid #d9cfff;border-radius:999px;padding:6px 14px;white-space:nowrap;}
+.anon-palier h4{font-family:var(--serif);font-size:clamp(20px,3vw,28px);font-weight:500;color:#0a1628;letter-spacing:-.01em;margin:0;}
+.anon-price{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:600;color:#0a1628;
+  background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 13px;white-space:nowrap;}
+.anon-price .c{color:#10b981;}
+/* row cells */
+.anon-row{margin-top:11px;}
+.anon-in{background:#fffdf8;border:1px solid var(--line);border-radius:15px;padding:12px 16px;box-shadow:0 2px 6px rgba(10,22,40,.03);}
+.anon-in .lab{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--ink-5);text-transform:uppercase;}
+.anon-in .val{font-size:17px;font-weight:500;color:#0a1628;margin-top:4px;line-height:1.25;}
+.anon-conn{display:flex;align-items:center;justify-content:center;}
+.anon-conn svg{display:block;}
+.anon-dash{animation:anonDashMove 3s linear infinite;}
+@keyframes anonDashMove{to{stroke-dashoffset:-19;}}
+.anon-tf{display:flex;align-items:center;gap:10px;border-radius:14px;padding:12px 16px;border:1px solid;justify-content:center;}
+.anon-tf .ic{width:26px;height:26px;border-radius:8px;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center;}
+.anon-tf .nm{font-size:15px;font-weight:600;white-space:nowrap;}
+.anon-out{background:#0a1628;border-radius:15px;padding:13px 18px;min-height:52px;display:flex;align-items:center;
+  box-shadow:0 6px 16px rgba(10,22,40,.22), inset 0 1px 0 rgba(255,255,255,.06);}
+.anon-out .m{font-family:var(--mono);font-size:16px;font-weight:600;color:#eef0f6;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.anon-out.empty .m{color:#5b6680;font-size:20px;letter-spacing:0;}
+/* footer note */
+.anon-foot{display:flex;align-items:center;gap:12px;margin-top:30px;padding:16px 18px;border-radius:16px;background:#e4f6ef;border:1px solid #cdeede;}
+.anon-foot .i{width:30px;height:30px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.anon-foot p{font-size:14px;color:#127355;line-height:1.45;}
+.anon-foot b{font-weight:600;}
+/* mobile labels (cachés en desktop) */
+.anon-mtag{display:none;}
+
+/* ── Responsive : empilement vertical sous 860px ── */
+@media (max-width:860px){
+  .anon-hd{padding:26px 22px 20px;}
+  .anon-close{top:20px;right:18px;width:40px;height:40px;}
+  .anon-body{padding:20px 22px 30px;}
+  .anon-cols{display:none;}
+  .anon-row{grid-template-columns:1fr;gap:0;margin-top:18px;}
+  .anon-conn{padding:6px 0;}
+  .anon-conn svg{transform:rotate(90deg);}
+  .anon-tf{justify-content:flex-start;flex-wrap:wrap;}
+  .anon-out{min-height:0;flex-wrap:wrap;}
+  .anon-mtag{display:block;width:100%;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-5);margin-bottom:5px;}
+}
+@media (prefers-reduced-motion:reduce){ .anon-dash{animation:none;} }

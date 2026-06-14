@@ -15,6 +15,8 @@ import { useAuth, useUser, useClerk } from "@clerk/nextjs";
 import { useRoleGuard, useCurrentRole } from "./RoleGuard";
 import LogoutConfirmModal from "./LogoutConfirmModal";
 import DemoModal from "./DemoModal";
+import HomeContactSection from "./HomeContactSection";
+import AnonymizationModal from "./AnonymizationModal";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -78,7 +80,13 @@ type IconName =
   | "trend"
   | "gauge"
   | "close"
-  | "clock";
+  | "clock"
+  | "shield"
+  | "lock"
+  | "mail"
+  | "user"
+  | "briefcase"
+  | "gear";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -110,6 +118,37 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </>
+  ),
+  shield: <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />,
+  lock: (
+    <>
+      <rect x="4" y="11" width="16" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M4 7l8 6 8-6" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <rect x="3" y="7.5" width="18" height="12.5" rx="2" />
+      <path d="M8.5 7.5V5.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2M3 12.5h18" />
+    </>
+  ),
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.2l1.6 2.5 2.9-.7.4 3 2.8 1.1-1.3 2.7 1.3 2.7-2.8 1.1-.4 3-2.9-.7L12 21.8l-1.6-2.5-2.9.7-.4-3-2.8-1.1 1.3-2.7-1.3-2.7 2.8-1.1.4-3 2.9.7z" />
     </>
   ),
 };
@@ -453,7 +492,7 @@ function Navbar() {
         }}
       >
         <div
-          style={{ maxWidth: 1280, margin: "0 auto", padding: "14px 20px" }}
+          style={{ maxWidth: 1280, margin: "0 auto", padding: "14px 20px", position: "relative" }}
           className="row between center"
         >
           <div className="row center" style={{ gap: 32 }}>
@@ -473,6 +512,53 @@ function Navbar() {
               </a>
             </nav>
           </div>
+
+          {/* Liens accentués centrés dans le header (police manuscrite) */}
+          <nav
+            className="nav-desktop"
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 28,
+            }}
+          >
+            <a
+              className="nav-link"
+              href="#about"
+              style={{
+                fontFamily: "var(--font-caveat), cursive",
+                fontSize: 26,
+                fontWeight: 700,
+                letterSpacing: 0,
+                color: "var(--accent)",
+                lineHeight: 1,
+                transform: "rotate(-3deg)",
+                display: "inline-block",
+              }}
+            >
+              À propos
+            </a>
+            <a
+              className="nav-link"
+              href="#contact"
+              style={{
+                fontFamily: "var(--font-caveat), cursive",
+                fontSize: 26,
+                fontWeight: 700,
+                letterSpacing: 0,
+                color: "#C2410B",
+                lineHeight: 1,
+                transform: "rotate(-3deg)",
+                display: "inline-block",
+              }}
+            >
+              Contact
+            </a>
+          </nav>
 
           <div className="row center gap-3 nav-desktop">
             {showLogout ? (
@@ -535,6 +621,12 @@ function Navbar() {
           </button>
           <button className="drawer-link" onClick={() => goAnchor("tarifs")}>
             Tarifs
+          </button>
+          <button className="drawer-link" onClick={() => goAnchor("about")}>
+            À propos
+          </button>
+          <button className="drawer-link" onClick={() => goAnchor("contact")}>
+            Contact
           </button>
           <div className="drawer-ctas">
             {showLogout ? (
@@ -3189,6 +3281,160 @@ function ProsSection() {
   );
 }
 
+// Illustration animée de la section À propos : trois nœuds (Protection des
+// données · Sécurité · Consentement) reliés par un triangle où circule une
+// impulsion néon, chacun entouré de boules en orbite. 100 % SVG/CSS, en
+// boucle continue, respecte prefers-reduced-motion (cf. globals.css).
+function AboutSection() {
+  const pillars: { icon: IconName; t: string; d: string }[] = [
+    {
+      icon: "shield",
+      t: "Conformité RGPD native",
+      d: "BUUPP est construite sur le principe du double consentement et de la minimisation des données. DPO désigné, registre des traitements tenu à jour, bases légales documentées : la conformité n'est pas une option ajoutée après coup, c'est le cœur du produit.",
+    },
+    {
+      icon: "lock",
+      t: "Sécurité des données",
+      d: "Hébergement dans l'Union européenne, données pseudonymisées et cloisonnées, accès tracé. Aucune donnée n'est jamais revendue ni transmise à un professionnel sans votre accord explicite, sollicitation par sollicitation.",
+    },
+    {
+      icon: "check",
+      t: "Souveraineté & transparence",
+      d: "Vous gardez la main : droit d'accès, de rectification et d'effacement exerçables à tout moment, en autonomie ou via notre DPO. Vos données restent les vôtres — vous décidez qui peut vous contacter, et à quel prix.",
+    },
+  ];
+  return (
+    <section
+      id="about"
+      className="section"
+      style={{ borderTop: "1px solid var(--line)" }}
+    >
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div
+          className="grid grid-2"
+          style={{
+            gap: "clamp(32px, 5vw, 64px)",
+            alignItems: "start",
+            marginBottom: 56,
+          }}
+        >
+          <div style={{ maxWidth: 640 }}>
+            <div
+              className="mono caps"
+              style={{
+                fontSize: 11,
+                letterSpacing: ".18em",
+                color: "var(--accent)",
+                marginBottom: 16,
+              }}
+            >
+              — À propos de BUUPP
+            </div>
+            <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
+              Une équipe obsédée par
+              <br />
+              la protection de <em>vos données</em>.
+            </h2>
+            <p
+              className="muted"
+              style={{
+                fontSize: "clamp(15px, 1.6vw, 18px)",
+                lineHeight: 1.6,
+                marginTop: 20,
+                maxWidth: 600,
+              }}
+            >
+              BUUPP a été imaginée et créée par un juriste spécialisé dans la
+              protection des données personnelles, fort de plus de dix ans
+              d&apos;expérience au sein des grandes compagnies financières
+              françaises. Toute l&apos;architecture de l&apos;application repose
+              sur trois exigences&nbsp;: la protection de vos données, leur
+              sécurité, et le consentement systématique des prospects. Chez
+              nous, l&apos;expertise RGPD n&apos;est pas un argument marketing —
+              c&apos;est la fondation sur laquelle tout BUUPP est construit.
+            </p>
+          </div>
+
+          <div style={{ width: "100%" }}>
+            <iframe
+              src="/prototype/ano.html?v=ano8"
+              title="Flux de pseudonymisation des données chez BUUPP"
+              loading="lazy"
+              style={{
+                display: "block",
+                width: "100%",
+                aspectRatio: "1320 / 1250",
+                border: "none",
+                borderRadius: "var(--r-lg)",
+                background: "var(--ivory)",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+              <AnonymizationModal />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-3">
+          {pillars.map((p) => (
+            <div
+              key={p.t}
+              className="card"
+              style={{
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--r-md)",
+                padding: "28px 24px",
+              }}
+            >
+              <div
+                className="row center"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  marginBottom: 18,
+                }}
+              >
+                <Icon name={p.icon} size={20} />
+              </div>
+              <div
+                className="serif"
+                style={{ fontSize: 22, marginBottom: 10, letterSpacing: "0.01em" }}
+              >
+                {p.t}
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.65,
+                  color: "var(--ink-3)",
+                }}
+              >
+                {p.d}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="row gap-3 wrap"
+          style={{ marginTop: 36, alignItems: "center" }}
+        >
+          <Link href="/rgpd" className="btn btn-ghost">
+            Notre politique RGPD <Icon name="arrow" size={14} />
+          </Link>
+          <Link href="/contact-dpo" className="btn btn-ghost">
+            Contacter notre DPO
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SecuritySection() {
   const pillars = [
     {
@@ -3904,6 +4150,8 @@ function Footer() {
         { label: "Prospects", href: "/#prospects" },
         { label: "Professionnels", href: "/#pros" },
         { label: "Tarifs", href: "/#tarifs" },
+        { label: "À propos", href: "/#about" },
+        { label: "Contact", href: "/#contact" },
       ],
     ],
     [
@@ -4113,10 +4361,12 @@ export default function HomeClient() {
       <TiersTable />
       <ScoreSection />
       <ProsSection />
+      <AboutSection />
       <SecuritySection />
       <Stats />
       <Pricing />
       <MobileAppSection />
+      <HomeContactSection />
       <FinalCTA />
       <Footer />
       <StickyPreinscription />

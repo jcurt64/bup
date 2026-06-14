@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Fraunces, DM_Sans, JetBrains_Mono, Caveat } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
 
@@ -38,6 +38,15 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+// Police manuscrite « friendly » utilisée pour quelques liens accentués
+// de la navbar (À propos, Contact) — exposée via --font-caveat.
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -153,7 +162,7 @@ export default function RootLayout({
     <ClerkProvider localization={buppFrFR}>
       <html
         lang="fr"
-        className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+        className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${caveat.variable}`}
       >
         <body data-palette="indigo" suppressHydrationWarning>
           {/* JSON-LD Organization (rich snippets pour Google).
