@@ -353,9 +353,9 @@ export default function RgpdPage() {
               (Clauses Contractuelles Types) en place.
             </li>
             <li>
-              <strong>Supabase Inc.</strong> (hébergement EU, Francfort) —
-              base de données PostgreSQL + Storage. Les données sont
-              hébergées dans l&apos;Union européenne.
+              <strong>Supabase Inc.</strong> (hébergement UE, Irlande —
+              région eu-west-1) — base de données PostgreSQL + Storage. Les
+              données sont hébergées dans l&apos;Union européenne.
             </li>
             <li>
               <strong>Stripe Payments Europe Limited</strong>
@@ -574,7 +574,7 @@ export default function RgpdPage() {
             entrée en vigueur.
           </p>
           <p>
-            <strong>Dernière mise à jour&nbsp;:</strong> 01/06/2026.
+            <strong>Dernière mise à jour&nbsp;:</strong> 14/06/2026.
           </p>
         </Section>
 
