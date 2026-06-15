@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BottomSheet } from "./bottom-sheet";
 import { useAcceptGate } from "./accept-gate";
 import { NeonBorder } from "./neon-border";
+import { PhoneConsentSheet } from "./phone-consent-sheet";
 import { ReportProSheet } from "./report-pro-sheet";
 import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
 import { ApiError } from "../lib/api";
@@ -572,6 +573,8 @@ export function MovementDetailSheet({
   const [reportedLocal, setReportedLocal] = useState(false);
   // « La Vitrine » — interstitiel de sortie vers le site externe du pro.
   const [vitrineConfirm, setVitrineConfirm] = useState(false);
+  // Consentement au canal téléphonique (opt-in) affiché à l'acceptation.
+  const [phoneConsentVisible, setPhoneConsentVisible] = useState(false);
 
   useEffect(() => {
     setReportedLocal(!!relation?.reported);
@@ -628,6 +631,18 @@ export function MovementDetailSheet({
       onClose();
       return;
     }
+    // Consentement préalable et spécifique au canal téléphonique (réforme
+    // démarchage téléphonique = opt-in) : avant de finaliser l'acceptation on
+    // ouvre la popup de consentement. La finalisation a lieu dans
+    // performDecision('accept') UNIQUEMENT si le prospect confirme.
+    if (action === "accept") {
+      setPhoneConsentVisible(true);
+      return;
+    }
+    await performDecision(action);
+  }
+
+  async function performDecision(action: "accept" | "refuse") {
     setBusy(action);
     try {
       // refused → accepted : l'API n'autorise pas la transition directe
@@ -640,7 +655,7 @@ export function MovementDetailSheet({
       if (action === "accept" && alreadyRefused) {
         await decide.mutateAsync({ id: r.id, action: "undo" });
         try {
-          await decide.mutateAsync({ id: r.id, action: "accept" });
+          await decide.mutateAsync({ id: r.id, action: "accept", phoneConsent: true });
         } catch (acceptErr) {
           if (acceptErr instanceof ApiError && acceptErr.status === 429) {
             // Parse retryAfterSec pour humaniser le délai ("4 min" plutôt
@@ -668,7 +683,11 @@ export function MovementDetailSheet({
           throw acceptErr;
         }
       } else {
-        await decide.mutateAsync({ id: r.id, action });
+        await decide.mutateAsync({
+          id: r.id,
+          action,
+          phoneConsent: action === "accept" ? true : undefined,
+        });
       }
       onClose();
     } catch (e) {
@@ -1134,6 +1153,14 @@ export function MovementDetailSheet({
         proName={r.pro}
         websiteUrl={r.websiteUrl ?? null}
         onClose={() => setVitrineConfirm(false)}
+      />
+      <PhoneConsentSheet
+        visible={phoneConsentVisible}
+        onClose={() => setPhoneConsentVisible(false)}
+        onAccept={() => {
+          setPhoneConsentVisible(false);
+          void performDecision("accept");
+        }}
       />
     </BottomSheet>
   );

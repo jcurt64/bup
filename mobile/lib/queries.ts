@@ -376,10 +376,19 @@ export function useDecideRelation() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; action: "accept" | "refuse" | "undo" }) =>
+    mutationFn: (v: {
+      id: string;
+      action: "accept" | "refuse" | "undo";
+      // Consentement préalable au canal téléphonique (opt-in), recueilli par
+      // la popup à l'acceptation. Tracé côté serveur dans admin_events.
+      phoneConsent?: boolean;
+    }) =>
       api(`/api/prospect/relations/${v.id}/decision`, {
         method: "POST",
-        body: JSON.stringify({ action: v.action }),
+        body: JSON.stringify({
+          action: v.action,
+          ...(v.phoneConsent ? { phoneConsent: true } : {}),
+        }),
       }),
     onSuccess: () => {
       // Équivalent mobile de l'event web : resync des vues impactées.
