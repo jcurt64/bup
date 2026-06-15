@@ -1237,17 +1237,17 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 }
 @media (prefers-reduced-motion:reduce){ .anon-dash{animation:none;} }
 
-/* Fusée « taux d'acceptation qui décolle » (comparatif page d'accueil) :
-   décollage en boucle — la fusée monte, s'estompe, puis repart du bas. */
+/* Fusée « taux d'acceptation qui décolle » (page d'accueil). Mouvement en
+   `em` → proportionnel à la taille de la fusée (petite dans le comparatif,
+   géante dans les gros stats). Boucle continue, toujours visible.
+   Volontairement NON gardée par prefers-reduced-motion : c'est un élément
+   décoratif de marque que l'on veut toujours animé. */
 @keyframes rocketLiftoff {
-  0%   { transform: translateY(6px)  rotate(-8deg); opacity: .25; }
-  25%  { opacity: 1; }
-  70%  { transform: translateY(-9px) rotate(-2deg); opacity: 1; }
-  100% { transform: translateY(-16px) rotate(0deg); opacity: 0; }
+  0%,100% { transform: translateY(0.10em) rotate(0deg); }
+  50%     { transform: translateY(-0.18em) rotate(-7deg); }
 }
 .rocket-rise {
   display: inline-block;
-  animation: rocketLiftoff 1.8s ease-in-out infinite;
-  will-change: transform, opacity;
+  animation: rocketLiftoff 1.5s ease-in-out infinite;
+  will-change: transform;
 }
-@media (prefers-reduced-motion:reduce){ .rocket-rise{ animation:none; } }

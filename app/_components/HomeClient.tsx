@@ -2915,7 +2915,17 @@ function Stats() {
                   letterSpacing: "-0.04em",
                 }}
               >
-                {n}
+                {l === "Taux d'acceptation" ? (
+                  <span
+                    className="rocket-rise"
+                    role="img"
+                    aria-label="Taux d'acceptation en forte hausse"
+                  >
+                    🚀
+                  </span>
+                ) : (
+                  n
+                )}
               </div>
               <div
                 className="serif italic muted"
