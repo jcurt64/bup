@@ -97,6 +97,13 @@ function PlanSection() {
                   {`  / ${spec?.maxCampaigns ?? (isPro ? 10 : 2)} campagnes`}
                 </Text>
               </View>
+              {/* Transparence : la commission BUUPP s'ajoute à la formule. */}
+              <Text
+                className="text-right text-[12px] font-semibold"
+                style={{ color: "#22C55E", marginTop: -4 }}
+              >
+                (+10% commission buupp)
+              </Text>
               <View className="gap-2">
                 {p.features.map((f, i) => (
                   <View key={i} className="flex-row" style={{ gap: 8 }}>
