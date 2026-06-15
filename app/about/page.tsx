@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar, Footer, Icon, type IconName } from "../_components/SiteChrome";
 import PrivacyByDesignTable from "../_components/PrivacyByDesignTable";
+import InfraSouverainete from "../_components/InfraSouverainete";
 
 export const metadata: Metadata = {
   title: "À propos",
@@ -533,6 +534,9 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      {/* 6 · Infrastructure & souveraineté (reproduction maquette sec.html) */}
+      <InfraSouverainete />
 
       <Footer />
     </div>
