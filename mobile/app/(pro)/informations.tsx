@@ -97,12 +97,20 @@ function PlanSection() {
                   {`  / ${spec?.maxCampaigns ?? (isPro ? 10 : 2)} campagnes`}
                 </Text>
               </View>
-              {/* Transparence : la commission BUUPP s'ajoute à la formule. */}
+              {/* Transparence prix (parité page d'accueil) : coût d'acquisition
+                  prospect à part (bleu accent), puis commission BUUPP sur le
+                  budget de campagne (vert). */}
               <Text
                 className="text-right text-[12px] font-semibold"
-                style={{ color: "#22C55E", marginTop: -4 }}
+                style={{ color: c.accent, marginTop: -4 }}
               >
-                (+10% commission buupp)
+                hors coût d&apos;acquisition prospect
+              </Text>
+              <Text
+                className="text-right text-[12px] font-semibold"
+                style={{ color: "#22C55E", marginTop: 1 }}
+              >
+                +10% commission buupp / budget de campagne
               </Text>
               <View className="gap-2">
                 {p.features.map((f, i) => (
