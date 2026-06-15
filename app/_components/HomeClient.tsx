@@ -3217,7 +3217,7 @@ function ScreenHome() {
           </div>
           <div style={{ position: "relative", overflow: "hidden", marginTop: 14, borderRadius: 18, padding: "15px 16px", background: "linear-gradient(145deg,var(--accent),var(--accent-deep))", boxShadow: "0 12px 24px var(--accent-shadow)" }}>
             <div style={{ position: "absolute", right: -14, top: -14, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.13)" }} />
-            <div style={{ position: "relative", fontSize: 10.5, color: "rgba(255,255,255,0.82)" }}>Mon portefeuille</div>
+            <div style={{ position: "relative", fontSize: 10.5, color: "rgba(255,255,255,0.82)" }}>Mon portefeuille (illustratif)</div>
             <div style={{ position: "relative", fontFamily: F_SERIF, fontSize: 30, fontWeight: 600, color: "#fff", lineHeight: 1, marginTop: 5 }}>127,50 €</div>
             <div style={{ position: "relative", fontSize: 10.5, color: "rgba(255,255,255,0.82)", marginTop: 7 }}>+12,40 € ce mois-ci</div>
           </div>
