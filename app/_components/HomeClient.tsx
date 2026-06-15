@@ -2500,7 +2500,7 @@ function ProsSection() {
     ["📉", "Taux d'acceptation"],
     ["🤨", "Conformité RGPD mesurée"],
     ["💸", "Coût moyen d'un lead qualifié"],
-    ["⊘", "Aucune traçabilité du consentement"],
+    ["🚫", "Aucune traçabilité du consentement"],
   ];
 
   const bupp: [string, string][] = [
@@ -2854,19 +2854,39 @@ function ProsSection() {
               </div>
             ))}
           </div>
-          <p
+          <div
             style={{
               marginTop: 20,
-              fontSize: 12,
-              lineHeight: 1.6,
-              color: "rgba(255,255,255,.45)",
-              fontStyle: "italic",
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-start",
               maxWidth: 760,
             }}
           >
-            Coûts donnés à titre indicatif : ils varient selon les paliers de
-            données sollicités et la rémunération reversée aux prospects.
-          </p>
+            <span
+              style={{
+                color: "rgba(255,255,255,.45)",
+                flexShrink: 0,
+                marginTop: 1,
+                display: "inline-flex",
+              }}
+              aria-hidden
+            >
+              <Icon name="info" size={14} />
+            </span>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 12,
+                lineHeight: 1.6,
+                color: "rgba(255,255,255,.45)",
+                fontStyle: "italic",
+              }}
+            >
+              Coûts donnés à titre indicatif : ils varient selon les paliers de
+              données sollicités et la rémunération reversée aux prospects.
+            </p>
+          </div>
         </div>
       </div>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />

@@ -36,6 +36,7 @@ export type IconName =
   | "mail"
   | "user"
   | "briefcase"
+  | "info"
   | "gear";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
@@ -57,6 +58,12 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   trend: <path d="M3 17l6-6 4 4 8-9M14 6h7v7" />,
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M11 11h1v5h1" />
+    </>
+  ),
   gauge: (
     <>
       <path d="M12 15a4 4 0 1 0-4-4" />
