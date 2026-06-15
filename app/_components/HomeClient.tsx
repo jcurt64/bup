@@ -2506,7 +2506,7 @@ function ProsSection() {
   const bupp: [string, string][] = [
     ["90%", "Taux d'acceptation moyen"],
     ["100%", "Double consentement horodaté"],
-    ["5,40 €", "Coût moyen d'un contact qualifié"],
+    ["à partir de 5 €", "Coût moyen d'un contact qualifié"],
     ["✓", "Watermarking + piste d'audit complète"],
   ];
 

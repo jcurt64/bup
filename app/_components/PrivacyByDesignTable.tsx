@@ -192,9 +192,10 @@ export default function PrivacyByDesignTable({
           </svg>
         </span>
         <p>
-          <b>Aucune donnée directement identifiante n&apos;est transmise.</b> Le
-          professionnel ne reçoit qu&apos;un profil pseudonymisé — réversible
-          uniquement par buupp, et journalisé conformément au RGPD.
+          <b>Seul le prénom du prospect est affiché en clair</b> — juste de quoi
+          échanger convenablement au téléphone, sans démarrer par un «&nbsp;euh…
+          bonjour, c&apos;est bien vous&nbsp;?&nbsp;». Toutes les autres données
+          directement identifiantes, elles, restent pseudonymisées.
         </p>
       </div>
     </>
