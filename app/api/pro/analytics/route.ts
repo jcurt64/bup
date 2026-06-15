@@ -22,6 +22,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { ageFromBirthString } from "@/lib/campaigns/mapping";
+import { computeMessageOpenStats } from "@/lib/pro/message-opens";
 
 export const runtime = "nodejs";
 
@@ -244,8 +245,35 @@ export async function GET(req: Request) {
     0,
   );
 
+  // 6. Taux de lecture des messages pro→prospect. Source : les lignes
+  //    pro_contact_actions (kind='email_sent') du pro — qui concernent par
+  //    construction des prospects ayant accepté (envoi gaté campagne close +
+  //    relation accepted/settled). Même filtres campagne/période que le
+  //    reste : campaign_id + created_at (date d'envoi du message).
+  let msgQuery = admin
+    .from("pro_contact_actions")
+    .select("email_opened_at, tracking_pixel_embedded")
+    .eq("pro_account_id", proId)
+    .eq("kind", "email_sent");
+  if (campaignFilter) {
+    msgQuery = msgQuery.eq("campaign_id", campaignFilter);
+  }
+  if (sinceIso) {
+    msgQuery = msgQuery.gte("created_at", sinceIso);
+  }
+  const { data: msgRows, error: msgErr } = await msgQuery;
+  if (msgErr) {
+    console.error("[/api/pro/analytics] message opens read failed", msgErr);
+  }
+  const messageOpens = computeMessageOpenStats(
+    ((msgRows ?? []) as Array<{ email_opened_at: string | null; tracking_pixel_embedded: boolean | null }>).map(
+      (m) => ({ emailOpenedAt: m.email_opened_at, trackingPixelEmbedded: m.tracking_pixel_embedded }),
+    ),
+  );
+
   return NextResponse.json({
     acceptanceByTier, geoBreakdown, ageBreakdown, sexBreakdown,
+    messageOpens,
     creneauHeatmap: {
       hourLabels: HOUR_BUCKETS.map(String),
       // Matrice 7 jours × N heures avec le nombre brut d'acceptations.

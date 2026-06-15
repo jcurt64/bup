@@ -181,6 +181,9 @@ export async function POST(req: Request) {
         kind: "email_sent" as const,
         email_subject: subject,
         email_body: bodyText,
+        // Traçabilité réelle : pixel posé uniquement si consentement CNIL
+        // du prospect (cf. sendProToProspectEmail). Sert au taux de lecture.
+        tracking_pixel_embedded: r.trackingConsent,
       })),
     )
     .select("prospect_id, tracking_token");

@@ -7071,6 +7071,9 @@ function Analytics() {
   const sex = data?.sexBreakdown || [
     {label:'Femmes',pct:0},{label:'Hommes',pct:0},{label:'Autre / non précisé',pct:0},
   ];
+  // Taux de lecture des messages pro→prospect (pixel d'ouverture, gaté par
+  // le consentement CNIL du prospect). rate=null ⇒ aucun envoi traçable.
+  const msgOpens = data?.messageOpens || { sent: 0, trackable: 0, opened: 0, rate: null };
 
   // Nombre d'acceptations sur lequel reposent les agrégats — utile pour
   // contextualiser les pourcentages (3 wins ⇒ chaque ligne ≈ 33 %).
@@ -7163,6 +7166,51 @@ function Analytics() {
           </select>
         </label>
       </div>
+
+      {/* Lecture des messages — combien des prospects acceptés ont ouvert
+          les messages envoyés via BUUPP. Suivi par pixel d'ouverture,
+          posé uniquement avec le consentement CNIL du prospect : le taux
+          se calcule donc sur les seuls envois traçables (pas sur le total),
+          pour ne pas afficher un chiffre trompeur. */}
+      <div className="card" style={{ padding: 28 }}>
+        <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Lecture des messages</div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>
+          Part des prospects acceptés qui ont ouvert les messages que vous leur avez envoyés via BUUPP
+        </div>
+        {msgOpens.rate === null ? (
+          <CardEmptyState
+            image="/empty-geo.png"
+            alt="Aucun message suivi"
+            tint="#6D5BFF"
+            title={msgOpens.sent === 0 ? "Aucun message envoyé" : "Aucun message suivi pour l'instant"}
+            sub={msgOpens.sent === 0
+              ? "Dès que vous écrirez à vos prospects acceptés (onglet Contacts ou diffusion de segment), leur taux de lecture s'affichera ici."
+              : `${msgOpens.sent} message${msgOpens.sent > 1 ? 's' : ''} envoyé${msgOpens.sent > 1 ? 's' : ''}, mais aucun n'est traçable : le suivi d'ouverture n'est activé que pour les prospects ayant explicitement consenti.`}
+          />
+        ) : (
+          <div className="row" style={{ alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
+            <div className="serif tnum" style={{ fontSize: 56, lineHeight: 1, color: 'var(--accent)' }}>
+              {msgOpens.rate}%
+            </div>
+            <div style={{ flex: '1 1 220px', minWidth: 200 }}>
+              <div style={{ height: 8, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ height: '100%', width: Math.min(100, msgOpens.rate) + '%', background: 'var(--accent)', borderRadius: 999 }}/>
+              </div>
+              <div style={{ fontSize: 14 }}>
+                <strong className="tnum">{msgOpens.opened}</strong> ouverture{msgOpens.opened > 1 ? 's' : ''} sur{' '}
+                <strong className="tnum">{msgOpens.trackable}</strong> message{msgOpens.trackable > 1 ? 's' : ''} suivi{msgOpens.trackable > 1 ? 's' : ''}
+              </div>
+              <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>
+                {msgOpens.sent} envoyé{msgOpens.sent > 1 ? 's' : ''} au total
+                {msgOpens.sent > msgOpens.trackable
+                  ? ` · ${msgOpens.sent - msgOpens.trackable} sans suivi (consentement non donné)`
+                  : ''}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div style={{
         display: 'grid',
         // Auto-fit : 2 colonnes côte à côte si ≥720px de large, sinon

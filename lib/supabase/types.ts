@@ -526,6 +526,7 @@ export type Database = {
           pro_account_id: string
           prospect_id: string
           relation_id: string
+          tracking_pixel_embedded: boolean | null
           tracking_token: string | null
         }
         Insert: {
@@ -539,6 +540,7 @@ export type Database = {
           pro_account_id: string
           prospect_id: string
           relation_id: string
+          tracking_pixel_embedded?: boolean | null
           tracking_token?: string | null
         }
         Update: {
@@ -552,6 +554,7 @@ export type Database = {
           pro_account_id?: string
           prospect_id?: string
           relation_id?: string
+          tracking_pixel_embedded?: boolean | null
           tracking_token?: string | null
         }
         Relationships: [

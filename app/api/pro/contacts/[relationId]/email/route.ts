@@ -168,6 +168,9 @@ export async function POST(req: Request, ctx: RouteContext) {
       kind: "email_sent",
       email_subject: subject,
       email_body: bodyText,
+      // Traçabilité réelle : un pixel n'est posé que si le prospect a
+      // consenti (cf. sendProToProspectEmail). Sert au taux de lecture pro.
+      tracking_pixel_embedded: trackingConsent,
     })
     .select("id, tracking_token")
     .single();
