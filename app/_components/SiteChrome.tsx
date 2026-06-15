@@ -277,7 +277,7 @@ export function Navbar() {
           // Au repos (haut de page), fond ivoire plein : un fond transparent
           // par-dessus le hero sombre rendrait les liens (sombres) illisibles.
           background:
-            scrolled || open ? "rgba(247,244,236,.62)" : "var(--ivory)",
+            scrolled || open ? "rgba(247,244,236,.48)" : "var(--ivory)",
           backdropFilter:
             scrolled || open ? "blur(18px) saturate(180%)" : "none",
           WebkitBackdropFilter:

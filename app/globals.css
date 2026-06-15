@@ -69,12 +69,14 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--ivory); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
-html, body { overflow-x: hidden; max-width: 100vw; }
+/* `overflow-x: clip` (et non `hidden`) : empêche le scroll horizontal SANS
+   créer de conteneur de défilement. `hidden` faisait basculer le scroll
+   vers `body`, ce qui CASSE `position: sticky` et `backdrop-filter` sur les
+   descendants (header sticky + effet liquid glass). `clip` garde le scroll
+   sur le viewport → sticky et flou fonctionnent. */
+html, body { overflow-x: clip; max-width: 100vw; }
 /* Défilement fluide pour toutes les ancres internes (footer, navbar).
-   Appliqué à html ET body : avec `overflow-x: hidden` ci-dessus, le
-   conteneur de scroll bascule vers `body` selon les navigateurs, donc
-   il faut couvrir les deux pour que `scroll-behavior` prenne effet.
-   Désactivé pour les utilisateurs qui ont demandé "reduced motion". */
+   Appliqué à html ET body, désactivé en "reduced motion". */
 html, body { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   html, body { scroll-behavior: auto; }
