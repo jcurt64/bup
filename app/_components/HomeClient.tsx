@@ -3002,28 +3002,31 @@ function PricingCard({
           {priceSuffix}
         </span>
       </div>
-      {/* Mention de transparence : la commission BUUPP s'ajoute à la formule. */}
+      {/* Transparence prix — affichée AVANT la commission : le coût
+          d'acquisition des prospects (rémunération versée à chaque mise en
+          relation acceptée) est facturé à part. Bleu = couleur accent
+          (var(--accent), comme « Sans engagement ») ; variante claire lisible
+          sur la carte mise en avant (fond foncé). */}
       <div
         style={{
           marginTop: 8,
           fontSize: 13.5,
           fontWeight: 600,
-          color: featured ? "#4ADE80" : "#16A34A",
+          color: featured ? "#A5B4FC" : "var(--accent)",
         }}
       >
-        (+10% commission buupp)
+        hors coût d&apos;acquisition prospect
       </div>
-      {/* Transparence prix : le coût d'acquisition des prospects (rémunération
-          versée à chaque mise en relation acceptée) est facturé à part. */}
+      {/* La commission BUUPP s'ajoute au budget de campagne. */}
       <div
         style={{
           marginTop: 4,
           fontSize: 13.5,
           fontWeight: 600,
-          color: featured ? "#A78BFA" : "#7C3AED",
+          color: featured ? "#4ADE80" : "#16A34A",
         }}
       >
-        hors coût d&apos;acquisition prospect
+        +10% commission buupp / budget de campagne
       </div>
       <div
         style={{
