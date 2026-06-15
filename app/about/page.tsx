@@ -58,7 +58,7 @@ const PRINCIPLES: Principle[] = [
   {
     icon: "shield",
     t: "Privacy by Design",
-    d: "La protection des données est intégrée dès la conception de chaque fonctionnalité — jamais ajoutée après coup. Minimisation et pseudonymisation des données, facilité d'exercice du droit des personnes forment le socle du produit.",
+    d: "La protection des données est intégrée dès la conception de chaque fonctionnalité — jamais ajoutée après coup. Minimisation et pseudonymisation des données, facilité d'exercice des droits des personnes forment le socle du produit.",
   },
   {
     icon: "target",
