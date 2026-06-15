@@ -9484,8 +9484,11 @@ function PlanSwitcherSection() {
                     <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
                     <span className="muted"> / {p.maxCampaigns} campagnes</span>
                   </div>
-                  {/* Transparence : la commission BUUPP s'ajoute à la formule. */}
-                  <div style={{ color: '#16A34A', fontWeight: 600, fontSize: 12, marginTop: 2 }}>(+10% commission buupp)</div>
+                  {/* Transparence prix (parité page d'accueil) : coût
+                      d'acquisition prospect à part (bleu accent), puis
+                      commission BUUPP sur le budget de campagne (vert). */}
+                  <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 12, marginTop: 2 }}>hors coût d'acquisition prospect</div>
+                  <div style={{ color: '#16A34A', fontWeight: 600, fontSize: 12, marginTop: 1 }}>+10% commission buupp / budget de campagne</div>
                 </div>
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
