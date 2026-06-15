@@ -271,14 +271,26 @@ export function Navbar() {
           position: "sticky",
           top: 0,
           zIndex: 100,
+          // Effet « liquid glass » au scroll : fond ivoire translucide +
+          // flou et saturation marqués (verre dépoli), liseré sombre discret,
+          // ombre douce et reflet clair en haut pour la brillance du verre.
+          // Au repos (haut de page), fond ivoire plein : un fond transparent
+          // par-dessus le hero sombre rendrait les liens (sombres) illisibles.
           background:
-            scrolled || open ? "rgba(247,244,236,.92)" : "var(--ivory)",
-          backdropFilter: scrolled || open ? "blur(10px)" : "none",
+            scrolled || open ? "rgba(247,244,236,.62)" : "var(--ivory)",
+          backdropFilter:
+            scrolled || open ? "blur(18px) saturate(180%)" : "none",
+          WebkitBackdropFilter:
+            scrolled || open ? "blur(18px) saturate(180%)" : "none",
           borderBottom:
             scrolled || open
-              ? "1px solid var(--line)"
+              ? "1px solid rgba(15,23,42,.07)"
               : "1px solid transparent",
-          transition: "background .2s, border-color .2s",
+          boxShadow:
+            scrolled || open
+              ? "0 6px 24px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.6)"
+              : "none",
+          transition: "background .25s, border-color .25s, box-shadow .25s",
         }}
       >
         <div
@@ -322,12 +334,13 @@ export function Navbar() {
                 fontWeight: 700,
                 letterSpacing: 0,
                 color: "var(--accent)",
-                lineHeight: 1,
+                lineHeight: 0.95,
                 transform: "rotate(-3deg)",
                 display: "inline-block",
+                textAlign: "center",
               }}
             >
-              À propos
+              Buupp &amp;<br />vos données
             </Link>
             <Link
               className="nav-link"
@@ -419,8 +432,8 @@ export function Navbar() {
             }}
             onClick={() => go("/about")}
           >
-            <span style={{ display: "inline-block", transform: "rotate(-3deg)" }}>
-              À propos
+            <span style={{ display: "inline-block", transform: "rotate(-3deg)", textAlign: "center", lineHeight: 0.95 }}>
+              Buupp &amp;<br />vos données
             </span>
           </button>
           <button
@@ -488,7 +501,7 @@ export function Footer() {
         { label: "Prospects", href: "/#prospects" },
         { label: "Professionnels", href: "/#pros" },
         { label: "Tarifs", href: "/#tarifs" },
-        { label: "À propos", href: "/about" },
+        { label: "Buupp & vos données", href: "/about" },
         { label: "Contact", href: "/contact" },
       ],
     ],

@@ -5,7 +5,7 @@ import PrivacyByDesignTable from "../_components/PrivacyByDesignTable";
 import InfraSouverainete from "../_components/InfraSouverainete";
 
 export const metadata: Metadata = {
-  title: "À propos",
+  title: "Buupp & vos données",
   description:
     "BUUPP est imaginée par un juriste spécialisé en protection des données : confidentialité par conception, minimisation et pseudonymisation au cœur du produit.",
   alternates: { canonical: "/about" },
