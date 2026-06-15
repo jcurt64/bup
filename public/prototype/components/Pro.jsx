@@ -6032,6 +6032,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   );
 }
 
+// Masquage VISUEL du téléphone affiché au pro. L'appel / SMS / WhatsApp
+// continue d'utiliser le numéro complet (réel) : seul l'AFFICHAGE est masqué.
+// Format aligné sur la liste « Mes contacts » : « 06 •• •• •• 78 ».
+function maskPhoneDisplay(p) {
+  if (!p) return p;
+  const digits = String(p).replace(/\D/g, '');
+  if (digits.length < 4) return p;
+  return `${digits.slice(0, 2)} •• •• •• ${digits.slice(-2)}`;
+}
+
 // Métadonnées par "intent" — chaque bouton d'action déclenche un reveal
 // puis ouvre une URL externe (tel, mailto, sms, wa.me).
 const REVEAL_INTENTS = {
@@ -6390,7 +6400,9 @@ function ProspectDetailsModal({ row, onClose }) {
                         fontStyle: it.value ? 'normal' : 'italic',
                         wordBreak: 'break-word', minWidth: 0,
                       }}>
-                        {it.value || '— non renseigné —'}
+                        {it.value
+                          ? (it.label === 'Téléphone' ? maskPhoneDisplay(it.value) : it.value)
+                          : '— non renseigné —'}
                       </span>
                     </div>
                   ))}
@@ -6501,7 +6513,7 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
               className={meta.valuePresentation === 'serif' ? 'serif' : 'mono'}
               style={{ fontSize: meta.valuePresentation === 'serif' ? 24 : 22, padding: '20px 0', textAlign: 'center', userSelect: 'text', wordBreak: 'break-all' }}
             >
-              {value}
+              {field === 'telephone' ? maskPhoneDisplay(value) : value}
             </div>
             <a
               href={ctaHref}
