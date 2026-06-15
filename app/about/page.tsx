@@ -296,7 +296,7 @@ export default function AboutPage() {
           </p>
           <div style={{ marginTop: "clamp(36px, 5vw, 56px)" }}>
             <iframe
-              src="/prototype/ano.html?v=ano10"
+              src="/prototype/ano.html?v=ano11"
               title="Flux de pseudonymisation des données chez BUUPP"
               loading="lazy"
               style={{
@@ -311,7 +311,7 @@ export default function AboutPage() {
                 // couleur de l'illustration) pour dissoudre le rectangle dans
                 // l'ivoire. Haut et bas restent nets : le bord est invisible
                 // (même ivoire que la section) ET les labels du bas (« données
-                // réelles et consenties », « 1 · Transmission », etc.) restent
+                // réelles et consenties », « 1 · Enregistrement », etc.) restent
                 // pleinement visibles.
                 WebkitMaskImage:
                   "linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%)",
