@@ -285,7 +285,7 @@ function ProspectProvider({ children }) {
     return `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${label}.`;
   };
 
-  const postDecision = async (id, action) => {
+  const postDecision = async (id, action, extra) => {
     // Pré-check local (per-relation) — évite un aller-retour réseau et
     // déclenche l'alerte avec un countdown précis.
     const left = decisionCooldownLeftMs(id);
@@ -297,7 +297,7 @@ function ProspectProvider({ children }) {
       const r = await fetch(`/api/prospect/relations/${id}/decision`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(extra || {}) }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -356,7 +356,9 @@ function ProspectProvider({ children }) {
   // Appelée APRÈS confirmation du consentement au canal téléphonique.
   const finalizeAccept = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'accepted' }));
-    const ok = await postDecision(id, 'accept');
+    // phoneConsent: true — le prospect a confirmé la popup de consentement
+    // au canal téléphonique avant d'arriver ici (tracé côté serveur).
+    const ok = await postDecision(id, 'accept', { phoneConsent: true });
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
     await refetchRelations();
     // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas

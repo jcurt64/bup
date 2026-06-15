@@ -31,6 +31,7 @@ import {
   acceptRestrictedMessage,
   liftExpiredNonResponseRestriction,
 } from "@/lib/prospect/non-response";
+import { recordEvent } from "@/lib/admin/events/record";
 
 // Anti-spam / anti-DDoS : un utilisateur ne peut prendre qu'une seule
 // décision (accept/refuse/undo) toutes les 5 minutes — fenêtre glissante
@@ -76,13 +77,17 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  let body: { action?: Action };
+  let body: { action?: Action; phoneConsent?: boolean };
   try {
-    body = (await req.json()) as { action?: Action };
+    body = (await req.json()) as { action?: Action; phoneConsent?: boolean };
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
   const action = body.action;
+  // Consentement préalable et spécifique au canal téléphonique (réforme
+  // démarchage téléphonique = opt-in), recueilli par la popup côté client
+  // lors de l'acceptation. Tracé dans le journal d'audit (admin_events).
+  const phoneConsent = body.phoneConsent === true;
   if (!action || !["accept", "refuse", "undo"].includes(action)) {
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
   }
@@ -271,6 +276,24 @@ export async function POST(req: Request, ctx: RouteContext) {
   if (action === "accept" || action === "refuse") {
     void sendDecisionEmail(admin, id, action).catch((e) => {
       console.error("[decision] email dispatch failed", e);
+    });
+  }
+
+  // Traçabilité du consentement au canal téléphonique : à chaque acceptation,
+  // on journalise dans admin_events si le prospect a donné (ou non) son
+  // consentement préalable et spécifique au démarchage téléphonique via la
+  // popup. Sert de preuve opposable (horodatée, liée prospect + relation).
+  if (action === "accept") {
+    void recordEvent({
+      type: "prospect.phone_consent",
+      severity: "info",
+      prospectId: rel.prospect_id,
+      relationId: id,
+      payload: {
+        channel: "phone",
+        consent: phoneConsent,
+        source: "accept_solicitation",
+      },
     });
   }
 
