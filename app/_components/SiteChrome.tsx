@@ -528,7 +528,7 @@ export function Footer() {
           <div className="footer-brand" style={{ flex: "1 1 240px", maxWidth: 320 }}>
             <Logo size={50} color="var(--paper)" onClick={onLogo} />
             <div className="footer-brand-info" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
-              BUUPPP est développée et exploitée par la société Majelink · 12
+              BUUPP est développée et exploitée par la société Majelink · 12
               Impasse des Étriers, 64140 Lons · RCS Pau 892 514 167.
             </div>
           </div>
