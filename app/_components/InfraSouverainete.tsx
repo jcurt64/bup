@@ -97,7 +97,7 @@ export default function InfraSouverainete() {
             </div>
             <div className="role">Hébergement · Réseau · Bouclier</div>
             <div className="pname">Cloudflare</div>
-            <div className="pdesc">L&apos;hébergeur et le <b>bouclier du site</b> : diffusion mondiale, filtrage des attaques et chiffrement de bout en bout, avec traitement des données dans l&apos;UE.</div>
+            <div className="pdesc">L&apos;hébergeur et le <b>bouclier du site</b> : filtrage des attaques et chiffrement de bout en bout, avec traitement des données dans l&apos;UE.</div>
             <div className="feats">
               <div className="feat"><span className="fi"><CheckIcon /></span>Chiffrement TLS de toutes les connexions</div>
               <div className="feat"><span className="fi"><CheckIcon /></span>Protection anti-DDoS &amp; pare-feu applicatif (WAF)</div>
