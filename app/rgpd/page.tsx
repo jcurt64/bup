@@ -139,7 +139,7 @@ export default function RgpdPage() {
             <li>
               <strong>Données de profil prospect — Palier 1 (Identification)</strong>{" "}
               : prénom, nom, e-mail, téléphone (vérifié par SMS), date de
-              naissance, genre, nationalité.
+              naissance, genre.
             </li>
             <li>
               <strong>Palier 2 (Localisation)</strong>&nbsp;: adresse,
@@ -152,12 +152,11 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Palier 4 (Données professionnelles)</strong>&nbsp;:
-              poste, revenus, statut, secteur — facultatif.
+              statut, secteur — facultatif.
             </li>
             <li>
               <strong>Palier 5 (Patrimoine &amp; projets)</strong>&nbsp;:
-              propriétaire / locataire, épargne, projet immobilier,
-              succession, création d&apos;entreprise — facultatif.
+              propriétaire / locataire, projet immobilier — facultatif.
             </li>
             <li>
               <strong>Données de profil pro</strong>&nbsp;: raison sociale,

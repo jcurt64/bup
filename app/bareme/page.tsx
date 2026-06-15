@@ -40,7 +40,6 @@ const TIERS: Tier[] = [
         desc: "Segmentation démographique",
       },
       { name: "Genre", value: 1.0, desc: "Ciblage basique" },
-      { name: "Nationalité", value: 1.0, desc: "Segmentation géographique" },
     ],
     usage: "Email marketing, SMS, relances commerciales basiques",
     rarity: "Très courant",
@@ -135,11 +134,6 @@ const TIERS: Tier[] = [
         desc: "Industrie, services, technologies...",
       },
       {
-        name: "Intitulé du poste",
-        value: 3.8,
-        desc: "Manager, directeur, technicien...",
-      },
-      {
         name: "Ancienneté dans l'emploi",
         value: 3.5,
         desc: "Stabilité professionnelle",
@@ -148,11 +142,6 @@ const TIERS: Tier[] = [
         name: "Statut (salarié / indépendant)",
         value: 4.0,
         desc: "Nature du contrat",
-      },
-      {
-        name: "Revenus annuels (tranche)",
-        value: 4.7,
-        desc: "Capacité d'achat estimée",
       },
       { name: "Niveau d'études", value: 3.8, desc: "Segmentation CSP" },
       {
@@ -180,11 +169,6 @@ const TIERS: Tier[] = [
         desc: "Bien principal / investissement",
       },
       {
-        name: "Épargne & placements",
-        value: 8.0,
-        desc: "Type de produits détenus",
-      },
-      {
         name: "Projet d'achat immobilier",
         value: 10.0,
         desc: "Budget & délai",
@@ -194,16 +178,6 @@ const TIERS: Tier[] = [
         name: "Patrimoine estimé (tranche)",
         value: 9.0,
         desc: "Segmentation premium",
-      },
-      {
-        name: "Projet de création d'entreprise",
-        value: 7.5,
-        desc: "Entrepreneur potentiel",
-      },
-      {
-        name: "Succession / héritage prévu",
-        value: 8.5,
-        desc: "Gestion de patrimoine",
       },
       {
         name: "Retraite proche (< 5 ans)",

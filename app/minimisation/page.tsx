@@ -148,7 +148,7 @@ const TIERS: Tier[] = [
     id: 1,
     name: "Identification",
     desc: "Contact direct, identité minimale",
-    examples: "Email, prénom/nom, téléphone, date de naissance, genre, nationalité",
+    examples: "Email, prénom/nom, téléphone, date de naissance, genre",
     color: "#64748B",
   },
   {
@@ -168,15 +168,15 @@ const TIERS: Tier[] = [
   {
     id: 4,
     name: "Données professionnelles",
-    desc: "Poste, revenus, statut, secteur",
-    examples: "Poste actuel, revenu annuel, statut (CDI/indépendant), secteur d'activité",
+    desc: "Statut, secteur",
+    examples: "Statut (CDI/indépendant), secteur d'activité",
     color: "#F59E0B",
   },
   {
     id: 5,
     name: "Patrimoine & projets",
-    desc: "Immobilier, épargne, projets de vie",
-    examples: "Propriétaire/locataire, épargne, projet d'achat, succession, création d'entreprise",
+    desc: "Immobilier, projets de vie",
+    examples: "Propriétaire/locataire, projet d'achat",
     color: "#EF4444",
   },
 ];

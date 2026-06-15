@@ -51,7 +51,7 @@ const TIERS = [
   {
     n: 4,
     name: "Données professionnelles",
-    ex: "poste, revenus, statut",
+    ex: "statut, secteur",
     range: "3,50 € – 5,00 €",
     low: 3.5,
     high: 5.0,
@@ -59,7 +59,7 @@ const TIERS = [
   {
     n: 5,
     name: "Patrimoine & projets",
-    ex: "immobilier, épargne",
+    ex: "immobilier, projets",
     range: "5,00 € – 10,00 €",
     low: 5.0,
     high: 10.0,

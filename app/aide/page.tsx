@@ -52,8 +52,8 @@ const CATEGORIES: Category[] = [
               <li><strong>Palier 1 — Identification</strong> (email, nom, téléphone) : minimum 1,00 €</li>
               <li><strong>Palier 2 — Localisation</strong> (adresse, logement) : 1,00 € – 2,00 €</li>
               <li><strong>Palier 3 — Style de vie</strong> (habitudes, famille, véhicule) : 2,00 € – 3,50 €</li>
-              <li><strong>Palier 4 — Données professionnelles</strong> (poste, revenus) : 3,50 € – 5,00 €</li>
-              <li><strong>Palier 5 — Patrimoine &amp; projets</strong> (immobilier, épargne) : 5,00 € – 10,00 €</li>
+              <li><strong>Palier 4 — Données professionnelles</strong> (statut, secteur) : 3,50 € – 5,00 €</li>
+              <li><strong>Palier 5 — Patrimoine &amp; projets</strong> (immobilier, projets) : 5,00 € – 10,00 €</li>
             </ul>
             <p>
               Plus vous remplissez de paliers, plus vous accédez à des sollicitations
