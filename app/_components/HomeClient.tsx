@@ -2854,6 +2854,19 @@ function ProsSection() {
               </div>
             ))}
           </div>
+          <p
+            style={{
+              marginTop: 20,
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: "rgba(255,255,255,.45)",
+              fontStyle: "italic",
+              maxWidth: 760,
+            }}
+          >
+            Coûts donnés à titre indicatif : ils varient selon les paliers de
+            données sollicités et la rémunération reversée aux prospects.
+          </p>
         </div>
       </div>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
