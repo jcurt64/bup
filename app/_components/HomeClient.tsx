@@ -2446,9 +2446,9 @@ function ProsSection() {
       d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté d'être sollicités. Les refus et expirations sont gratuits.",
     },
     {
-      ic: "trend",
-      t: "ROI ×3 à ×5 en moyenne",
-      d: "Taux d'acceptation moyen > 80% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des échanges qui convertissent.",
+      ic: "clock",
+      t: "Du temps commercial qui compte",
+      d: "Vos équipes ne relancent plus dans le vide : chaque contact a explicitement accepté l'échange. Le temps passé va aux conversations voulues, pas aux numéros qui raccrochent.",
     },
     {
       ic: "gauge",
