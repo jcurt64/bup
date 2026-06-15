@@ -14,7 +14,7 @@
 // Icône check (puces de features) — identique à la maquette.
 function CheckIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#cabfff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6D5BFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 12l4 4L19 7" />
     </svg>
   );
@@ -23,7 +23,7 @@ function CheckIcon() {
 // Icône cadenas (pills « star » = certif phare) — identique à la maquette.
 function LockIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#cabfff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6D5BFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="9" rx="2" />
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
@@ -62,7 +62,7 @@ function EuStars() {
 
 export default function InfraSouverainete() {
   return (
-    <section className="infra" data-nav-theme="dark">
+    <section className="infra">
       <div className="infra-grid" aria-hidden />
       <div className="infra-wrap">
 
@@ -134,7 +134,7 @@ export default function InfraSouverainete() {
             <div className="feats">
               <div className="feat"><span className="fi"><CheckIcon /></span>Résidence des données dans l&apos;UE</div>
               <div className="feat"><span className="fi"><CheckIcon /></span>Chiffrement AES-256 au repos, TLS en transit</div>
-              <div className="feat"><span className="fi"><CheckIcon /></span><span>Isolation par <b style={{ color: "#dde3ee", fontWeight: 600, whiteSpace: "nowrap" }}>Row Level Security</b> — chacun ne voit que ses données</span></div>
+              <div className="feat"><span className="fi"><CheckIcon /></span><span>Isolation par <b style={{ color: "#0F172A", fontWeight: 600, whiteSpace: "nowrap" }}>Row Level Security</b> — chacun ne voit que ses données</span></div>
             </div>
             <div className="certs">
               <div className="lab">Certifications</div>
