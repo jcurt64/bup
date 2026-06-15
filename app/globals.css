@@ -1236,3 +1236,18 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   .anon-tier + .anon-tier > .anon-palier{margin-top:0;}
 }
 @media (prefers-reduced-motion:reduce){ .anon-dash{animation:none;} }
+
+/* Fusée « taux d'acceptation qui décolle » (comparatif page d'accueil) :
+   décollage en boucle — la fusée monte, s'estompe, puis repart du bas. */
+@keyframes rocketLiftoff {
+  0%   { transform: translateY(6px)  rotate(-8deg); opacity: .25; }
+  25%  { opacity: 1; }
+  70%  { transform: translateY(-9px) rotate(-2deg); opacity: 1; }
+  100% { transform: translateY(-16px) rotate(0deg); opacity: 0; }
+}
+.rocket-rise {
+  display: inline-block;
+  animation: rocketLiftoff 1.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion:reduce){ .rocket-rise{ animation:none; } }

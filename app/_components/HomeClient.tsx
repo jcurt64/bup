@@ -2758,7 +2758,18 @@ function ProsSection() {
                   className="serif tnum"
                   style={{ fontSize: 20, color: "#A5B4FC" }}
                 >
-                  {r[0]}
+                  {r[1] === "Taux d'acceptation moyen" ? (
+                    <span
+                      className="rocket-rise"
+                      role="img"
+                      aria-label="Taux d'acceptation en forte hausse"
+                      style={{ fontSize: 22 }}
+                    >
+                      🚀
+                    </span>
+                  ) : (
+                    r[0]
+                  )}
                 </span>
               </div>
             ))}
