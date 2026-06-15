@@ -3002,6 +3002,17 @@ function PricingCard({
           {priceSuffix}
         </span>
       </div>
+      {/* Mention de transparence : la commission BUUPP s'ajoute à la formule. */}
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: featured ? "#4ADE80" : "#16A34A",
+        }}
+      >
+        (+10% commission buupp)
+      </div>
       <div
         style={{
           marginTop: 32,

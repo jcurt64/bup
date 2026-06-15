@@ -9467,9 +9467,13 @@ function PlanSwitcherSection() {
               )}
               <div className="row between" style={{ alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                 <div className="serif" style={{ fontSize: 22, color: p.color }}>{p.label}</div>
-                <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-                  <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
-                  <span className="muted"> / {p.maxCampaigns} campagnes</span>
+                <div style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'right' }}>
+                  <div>
+                    <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
+                    <span className="muted"> / {p.maxCampaigns} campagnes</span>
+                  </div>
+                  {/* Transparence : la commission BUUPP s'ajoute à la formule. */}
+                  <div style={{ color: '#16A34A', fontWeight: 600, fontSize: 12, marginTop: 2 }}>(+10% commission buupp)</div>
                 </div>
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
