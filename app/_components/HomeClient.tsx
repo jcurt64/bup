@@ -2494,10 +2494,12 @@ function ProsSection() {
     ],
   ];
 
+  // Valeurs exprimées en emojis « ressenti » plutôt qu'en chiffres :
+  // 📉 très faible (acceptation), 🤨 douteux (conformité), 💸 cher (coût).
   const classic: [string, string][] = [
-    ["1–3%", "Taux d'acceptation"],
-    ["< 10%", "Conformité RGPD mesurée"],
-    ["120 €", "Coût moyen d'un lead qualifié"],
+    ["📉", "Taux d'acceptation"],
+    ["🤨", "Conformité RGPD mesurée"],
+    ["💸", "Coût moyen d'un lead qualifié"],
     ["⊘", "Aucune traçabilité du consentement"],
   ];
 
