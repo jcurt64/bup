@@ -1241,8 +1241,9 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   .anon-tier + .anon-tier{border-top:2px solid var(--line-2);margin-top:26px;padding-top:22px;}
   .anon-tier + .anon-tier > .anon-palier{margin-top:0;}
   /* Note finale : icône check AU-DESSUS du texte sur mobile (lecture plus
-     confortable que côte à côte sur écran étroit). */
+     confortable que côte à côte sur écran étroit) + texte justifié. */
   .anon-foot{flex-direction:column;align-items:flex-start;gap:10px;}
+  .anon-foot p{text-align:justify;}
 }
 @media (prefers-reduced-motion:reduce){ .anon-dash{animation:none;} }
 
