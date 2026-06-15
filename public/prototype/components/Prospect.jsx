@@ -337,6 +337,11 @@ function ProspectProvider({ children }) {
   const [acceptGate, setAcceptGate] = useState(null);     // { relationId, requiredTierNums, missingTierNums }
   const [pendingAccept, setPendingAccept] = useState(null); // { relationId, requiredTierNums }
   const [acceptReady, setAcceptReady] = useState(null);    // { relationId }
+  // Consentement préalable spécifique au canal TÉLÉPHONE (réforme française
+  // du démarchage téléphonique = opt-in). Popup affichée à l'acceptation :
+  // le prospect confirme accepter d'être éventuellement contacté par
+  // téléphone avant que l'acceptation ne soit finalisée.
+  const [phoneConsent, setPhoneConsent] = useState(null);  // { relationId }
 
   // Toute mutation de décision (accept/refuse/undo) modifie le ratio
   // accepté/total → impacte BUUPP Score, taux d'acceptation, wallet
@@ -345,6 +350,19 @@ function ProspectProvider({ children }) {
   // `prospect:profile-changed` qui invalide les caches /api/prospect/*.
   const dispatchProfileChanged = () => {
     try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch {}
+  };
+
+  // Finalise réellement l'acceptation (optimistic UI + POST décision).
+  // Appelée APRÈS confirmation du consentement au canal téléphonique.
+  const finalizeAccept = async (id) => {
+    setOptimistic(o => ({ ...o, [id]: 'accepted' }));
+    const ok = await postDecision(id, 'accept');
+    if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    await refetchRelations();
+    // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
+    // écraser un optimistic en cours sur une autre card (clic rapide).
+    setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
+    if (ok) dispatchProfileChanged();
   };
 
   const acceptRelation = async (id) => {
@@ -361,14 +379,9 @@ function ProspectProvider({ children }) {
       setAcceptGate({ relationId: id, requiredTierNums, missingTierNums });
       return;
     }
-    setOptimistic(o => ({ ...o, [id]: 'accepted' }));
-    const ok = await postDecision(id, 'accept');
-    if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
-    await refetchRelations();
-    // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
-    // écraser un optimistic en cours sur une autre card (clic rapide).
-    setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
-    if (ok) dispatchProfileChanged();
+    // Étape consentement canal téléphonique (opt-in) AVANT de finaliser :
+    // la finalisation a lieu uniquement si le prospect confirme dans la popup.
+    setPhoneConsent({ relationId: id });
   };
   const refuseRelation = async (id) => {
     setOptimistic(o => ({ ...o, [id]: 'refused' }));
@@ -522,6 +535,7 @@ function ProspectProvider({ children }) {
       acceptRelation, refuseRelation, undoAcceptRelation, undoRefuseRelation,
       pendingRelationsCount, relationsHydrated,
       acceptGate, setAcceptGate, pendingAccept, setPendingAccept, acceptReady, setAcceptReady,
+      phoneConsent, setPhoneConsent, finalizeAccept,
       isFounder,
     }}>
       {children}
@@ -558,6 +572,7 @@ function ProspectDashboardInner({ go, initialTab }) {
     acceptGate, setAcceptGate,
     pendingAccept, setPendingAccept,
     acceptReady, setAcceptReady,
+    phoneConsent, setPhoneConsent, finalizeAccept,
   } = useProspect();
 
   // Surveille le palier que le prospect est parti compléter après un clic
@@ -656,6 +671,16 @@ function ProspectDashboardInner({ go, initialTab }) {
       <AcceptReadyModal
         onBack={() => { setAcceptReady(null); setSec('relations'); }}
         onClose={() => setAcceptReady(null)}
+      />
+    )}
+    {phoneConsent && (
+      <PhoneConsentModal
+        onAccept={() => {
+          const id = phoneConsent.relationId;
+          setPhoneConsent(null);
+          finalizeAccept(id);
+        }}
+        onRefuse={() => setPhoneConsent(null)}
       />
     )}
     </>
@@ -4621,6 +4646,51 @@ function AcceptReadyModal({ onBack, onClose }) {
         <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         <button onClick={onBack} className="btn btn-primary btn-sm">
           <Icon name="handshake" size={12}/> Retourner à la sollicitation
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Popup de consentement préalable au canal TÉLÉPHONE (réforme française du
+// démarchage téléphonique = opt-in, en vigueur en 2026). Affichée à
+// l'acceptation d'une sollicitation : le prospect confirme explicitement
+// accepter d'être éventuellement contacté par téléphone par le professionnel.
+// « OK, j'accepte » finalise l'acceptation ; « Non, je refuse » l'annule.
+function PhoneConsentModal({ onAccept, onRefuse }) {
+  return (
+    <ModalShell title="Contact par téléphone" onClose={onRefuse}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 18,
+        background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
+        border: '1.5px solid color-mix(in oklab, var(--accent) 40%, var(--line))',
+        color: 'var(--ink-2)',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: 'var(--accent)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="phone" size={16} stroke={2}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
+            En acceptant cette sollicitation
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            vous êtes susceptible d'être <strong>contacté(e) par téléphone</strong> par
+            ce professionnel, en plus des autres canaux. En cliquant sur
+            « OK, j'accepte », vous donnez votre <strong>consentement préalable et
+            spécifique au démarchage téléphonique</strong> pour cette mise en relation,
+            conformément à la réglementation. Vous pourrez le retirer à tout moment.
+          </div>
+        </div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onRefuse} className="btn btn-ghost btn-sm">Non, je refuse</button>
+        <button onClick={onAccept} className="btn btn-primary btn-sm">
+          <Icon name="check" size={12}/> OK, j'accepte
         </button>
       </div>
     </ModalShell>

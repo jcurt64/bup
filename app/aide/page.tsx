@@ -503,6 +503,35 @@ const CATEGORIES: Category[] = [
         ),
       },
       {
+        q: "Démarchage téléphonique : comment BUUPP applique la nouvelle réglementation ?",
+        a: (
+          <>
+            <p>
+              La réforme française du démarchage téléphonique est passée à un
+              régime d&apos;<strong>opt-in</strong> : un professionnel ne peut
+              vous contacter par téléphone à des fins commerciales que si vous y
+              avez <strong>consenti au préalable</strong>, de manière spécifique
+              au canal téléphonique.
+            </p>
+            <p>
+              Sur BUUPP, ce consentement est intégré au second consentement :
+              au moment où vous <strong>acceptez une sollicitation</strong>, une
+              fenêtre vous informe explicitement que vous êtes susceptible
+              d&apos;être contacté(e) par téléphone et vous demande de le
+              confirmer (« OK, j&apos;accepte ») ou de le refuser. Sans cette
+              confirmation, l&apos;acceptation n&apos;est pas finalisée — aucune
+              coordonnée n&apos;est alors transmise.
+            </p>
+            <p>
+              Ce consentement est <strong>tracé</strong> dans le journal
+              d&apos;audit et reste <strong>révocable à tout moment</strong> :
+              en retirant une mise en relation, vous mettez fin au droit du
+              professionnel de vous démarcher.
+            </p>
+          </>
+        ),
+      },
+      {
         q: "Données pseudonymisées",
         a: (
           <p>

@@ -154,6 +154,17 @@ export default function CgvPage() {
               dans le journal d&apos;audit BUUPP&nbsp;;
             </li>
             <li>
+              s&apos;agissant du <strong>canal téléphonique</strong>, de ne
+              démarcher le prospect par téléphone qu&apos;après recueil de son{" "}
+              <strong>consentement préalable et spécifique à ce canal</strong>
+              &nbsp;: au moment où il accepte une sollicitation, le prospect est
+              explicitement informé qu&apos;il est susceptible d&apos;être
+              contacté par téléphone et doit le confirmer. Ce dispositif est
+              conforme à la <strong>réforme française du démarchage téléphonique
+              (bascule vers l&apos;opt-in)</strong> et le consentement reste
+              révocable à tout moment&nbsp;;
+            </li>
+            <li>
               de gérer la facturation, l&apos;historique des campagnes,
               les statistiques d&apos;acceptation et le portefeuille
               depuis son tableau de bord pro.
