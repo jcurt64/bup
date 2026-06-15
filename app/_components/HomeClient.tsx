@@ -3013,6 +3013,18 @@ function PricingCard({
       >
         (+10% commission buupp)
       </div>
+      {/* Transparence prix : le coût d'acquisition des prospects (rémunération
+          versée à chaque mise en relation acceptée) est facturé à part. */}
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: featured ? "#A78BFA" : "#7C3AED",
+        }}
+      >
+        hors coût d&apos;acquisition prospect
+      </div>
       <div
         style={{
           marginTop: 32,
