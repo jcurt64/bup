@@ -329,13 +329,12 @@ export function Navbar() {
               className="nav-link"
               href="/about"
               style={{
-                fontFamily: "var(--font-caveat), cursive",
-                fontSize: 26,
+                fontFamily: "var(--font-josefin), sans-serif",
+                fontSize: 18,
                 fontWeight: 700,
                 letterSpacing: 0,
                 color: "var(--accent)",
                 lineHeight: 0.95,
-                transform: "rotate(-3deg)",
                 display: "inline-block",
                 textAlign: "center",
               }}
@@ -346,13 +345,12 @@ export function Navbar() {
               className="nav-link"
               href="/contact"
               style={{
-                fontFamily: "var(--font-caveat), cursive",
-                fontSize: 26,
+                fontFamily: "var(--font-josefin), sans-serif",
+                fontSize: 18,
                 fontWeight: 700,
                 letterSpacing: 0,
                 color: "#C2410B",
                 lineHeight: 1,
-                transform: "rotate(-3deg)",
                 display: "inline-block",
               }}
             >
@@ -425,28 +423,28 @@ export function Navbar() {
           <button
             className="drawer-link"
             style={{
-              fontFamily: "var(--font-caveat), cursive",
-              fontSize: 26,
+              fontFamily: "var(--font-josefin), sans-serif",
+              fontSize: 18,
               fontWeight: 700,
               color: "var(--accent)",
             }}
             onClick={() => go("/about")}
           >
-            <span style={{ display: "inline-block", transform: "rotate(-3deg)", textAlign: "center", lineHeight: 0.95 }}>
+            <span style={{ display: "inline-block", textAlign: "center", lineHeight: 0.95 }}>
               Buupp &amp;<br />vos données
             </span>
           </button>
           <button
             className="drawer-link"
             style={{
-              fontFamily: "var(--font-caveat), cursive",
-              fontSize: 26,
+              fontFamily: "var(--font-josefin), sans-serif",
+              fontSize: 18,
               fontWeight: 700,
               color: "#C2410B",
             }}
             onClick={() => go("/contact")}
           >
-            <span style={{ display: "inline-block", transform: "rotate(-3deg)" }}>
+            <span style={{ display: "inline-block" }}>
               Contact
             </span>
           </button>

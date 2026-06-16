@@ -442,8 +442,9 @@ export default function AboutPage() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "var(--font-caveat), cursive",
-                    fontSize: 22,
+                    fontFamily: "var(--font-josefin), sans-serif",
+                    fontSize: 16,
+                    fontWeight: 300,
                     lineHeight: 1.4,
                     letterSpacing: "0.4px",
                     color: "var(--ink-2)",
