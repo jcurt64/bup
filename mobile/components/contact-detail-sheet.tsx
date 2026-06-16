@@ -9,11 +9,30 @@
 // par le serveur (alias watermarqué) — invariant RGPD, cf. contacts.tsx.
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
 import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "../lib/theme";
-import type { ProContact } from "../lib/queries";
+import { useApi } from "../lib/api";
+import type { ProContact, ProContactDetails, ProDetailTier } from "../lib/queries";
+import { avatarGradient, categoryStyle } from "./contact-cards";
+
+// Métadonnées d'affichage par palier (icône Ionicons + couleur + n°).
+const TIER_META: Record<string, { n: number; color: string; ion: keyof typeof Ionicons.glyphMap }> = {
+  identity: { n: 1, color: "#4F46E5", ion: "person-outline" },
+  localisation: { n: 2, color: "#0D9488", ion: "location-outline" },
+  vie: { n: 3, color: "#D97706", ion: "heart-outline" },
+  pro: { n: 4, color: "#1F2937", ion: "briefcase-outline" },
+  patrimoine: { n: 5, color: "#DB2777", ion: "home-outline" },
+};
+const PRIORITY_OPTS: { v: number; label: string; color: string }[] = [
+  { v: 1, label: "Haute", color: "#DC2626" },
+  { v: 2, label: "Moyenne", color: "#D97706" },
+  { v: 3, label: "Basse", color: "#16A34A" },
+];
+const priorityLabel = (v: number | null) =>
+  PRIORITY_OPTS.find((o) => o.v === v)?.label ?? null;
 
 // ── Palette dérivée du thème ──────────────────────────────────────────────
 // Mappe les couleurs « forest » de la maquette vers les tokens du thème actif.
@@ -154,11 +173,16 @@ function InfoRow({
         >
           {value}
         </Text>
-      ) : (
+      ) : empty ? (
         <Text
           className="font-serif-italic"
-          style={{ fontSize: 13.5, color: p.muted }}
-          numberOfLines={1}
+          style={{ fontSize: 13.5, color: p.muted, textAlign: "right", flexShrink: 1 }}
+        >
+          {value}
+        </Text>
+      ) : (
+        <Text
+          style={{ fontSize: 13.5, fontWeight: "700", color: p.text, textAlign: "right", flexShrink: 1 }}
         >
           {value}
         </Text>
@@ -169,22 +193,91 @@ function InfoRow({
 
 export function ContactDetailSheet({
   contact,
-  campaign,
   visible,
   onClose,
+  siblings,
+  onNavigate,
+  onPriorityChange,
 }: {
   contact: ProContact | null;
   /** Nom de la campagne d'où provient le contact (sous-titre de l'en-tête). */
   campaign: string | null;
   visible: boolean;
   onClose: () => void;
+  /** Fiches de la même campagne (navigation Précédent / Suivant). */
+  siblings?: ProContact[];
+  onNavigate?: (c: ProContact) => void;
+  onPriorityChange?: (relationId: string, priority: number | null) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { varStyle } = useTheme();
   const p = useContactPalette();
+  const api = useApi();
+
+  const [tiers, setTiers] = useState<ProDetailTier[]>([]);
+  const [refCode, setRefCode] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  const [picked, setPicked] = useState<number | null>(null);
+  const [saved, setSaved] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const relId = contact?.relationId ?? null;
+  useEffect(() => {
+    if (!relId || !visible) return;
+    let cancelled = false;
+    setStatus("loading");
+    setTiers([]);
+    setRefCode(null);
+    setPicked(contact?.priority ?? null);
+    setSaved(contact?.priority ?? null);
+    api<ProContactDetails>(`/api/pro/contacts/${relId}/details`)
+      .then((j) => {
+        if (cancelled) return;
+        setTiers(j.tiers || []);
+        setRefCode(j.ref ?? null);
+        setPicked(j.priority ?? null);
+        setSaved(j.priority ?? null);
+        setStatus("ok");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relId, visible]);
+
   if (!contact) return null;
 
   const NR = "— non renseigné —";
+  const cat = categoryStyle(contact.campaignObjective);
+  const list = Array.isArray(siblings) && siblings.length ? siblings : [contact];
+  const idx = Math.max(0, list.findIndex((s) => s.relationId === contact.relationId));
+  const total = list.length;
+  const num = String(idx + 1).padStart(2, "0");
+  const goPrev = () => {
+    if (idx > 0) onNavigate?.(list[idx - 1]);
+  };
+  const goNext = () => {
+    if (idx < total - 1) onNavigate?.(list[idx + 1]);
+  };
+
+  const savePriority = async () => {
+    setSaving(true);
+    try {
+      await api(`/api/pro/contacts/${contact.relationId}/priority`, {
+        method: "POST",
+        body: JSON.stringify({ priority: picked }),
+      });
+      setSaved(picked);
+      onPriorityChange?.(contact.relationId, picked);
+    } catch {
+      Alert.alert("Priorité", "Impossible d'enregistrer la priorité. Réessayez.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Modal
@@ -237,10 +330,10 @@ export function ContactDetailSheet({
           }}
           showsVerticalScrollIndicator={false}
         >
-          {/* En-tête : avatar + « Fiche prospect » + campagne */}
-          <View className="flex-row items-center" style={{ gap: 13 }}>
+          {/* En-tête : avatar + nom + objectif + fermer */}
+          <View className="flex-row items-start" style={{ gap: 13 }}>
             <LinearGradient
-              colors={p.avatar}
+              colors={avatarGradient(contact.name)}
               start={{ x: 0.1, y: 0 }}
               end={{ x: 0.9, y: 1 }}
               style={{
@@ -265,66 +358,157 @@ export function ContactDetailSheet({
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
                 className="font-serif-bold"
-                style={{ fontSize: 20, color: p.text, lineHeight: 22 }}
+                style={{ fontSize: 19, color: p.text, lineHeight: 23 }}
+                numberOfLines={1}
               >
-                Fiche prospect
+                Fiche de {contact.name}
               </Text>
-              {campaign ? (
-                <Text style={{ fontSize: 12.5, color: p.sub, marginTop: 2 }}>
-                  Reçue dans « {campaign} »
-                </Text>
-              ) : null}
+              <Text style={{ fontSize: 12, marginTop: 2, lineHeight: 16 }}>
+                <Text style={{ color: p.sub }}>Catégories payées dans </Text>
+                <Text style={{ color: cat.accent, fontWeight: "700" }}>« {cat.label} »</Text>
+              </Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Fermer"
+              hitSlop={8}
+              style={{
+                width: 30, height: 30, borderRadius: 999, backgroundColor: p.card,
+                borderWidth: 1, borderColor: p.border, alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Ionicons name="close" size={16} color={p.sub} />
+            </Pressable>
+          </View>
+
+          {/* Badge fiche + pagination */}
+          <View className="flex-row items-center justify-between" style={{ marginTop: 12, gap: 10 }}>
+            <View className="flex-row items-center" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+              <View className="flex-row items-center" style={{ gap: 5, paddingVertical: 4, paddingHorizontal: 9, borderRadius: 6, backgroundColor: p.text }}>
+                <Ionicons name="document-text-outline" size={11} color={p.card} />
+                <Text style={{ fontSize: 9.5, fontWeight: "700", letterSpacing: 0.6, color: p.card }}>FICHE</Text>
+              </View>
+              <Text className="font-mono" style={{ fontSize: 10.5, color: p.muted, flexShrink: 1 }} numberOfLines={1}>
+                N° {num}{refCode ? ` · ${refCode}` : ""}
+              </Text>
+            </View>
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <Pressable onPress={goPrev} disabled={idx <= 0} hitSlop={6} style={{ width: 30, height: 30, borderRadius: 999, borderWidth: 1, borderColor: p.border, backgroundColor: p.card, alignItems: "center", justifyContent: "center", opacity: idx <= 0 ? 0.4 : 1 }}>
+                <Ionicons name="chevron-back" size={16} color={p.text} />
+              </Pressable>
+              <Text className="font-mono" style={{ fontSize: 13, color: p.text }}>
+                <Text style={{ fontWeight: "700" }}>{num}</Text>
+                <Text style={{ color: p.muted }}> / {total}</Text>
+              </Text>
+              <Pressable onPress={goNext} disabled={idx >= total - 1} hitSlop={6} style={{ width: 30, height: 30, borderRadius: 999, borderWidth: 1, borderColor: p.border, backgroundColor: p.card, alignItems: "center", justifyContent: "center", opacity: idx >= total - 1 ? 0.4 : 1 }}>
+                <Ionicons name="chevron-forward" size={16} color={p.text} />
+              </Pressable>
             </View>
           </View>
 
-          {/* Carte d'identification */}
-          <View
-            style={{
-              marginTop: 18,
-              backgroundColor: p.card,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: p.border,
-              overflow: "hidden",
-              shadowColor: "#0A1628",
-              shadowOpacity: 0.05,
-              shadowRadius: 16,
-              shadowOffset: { width: 0, height: 5 },
-            }}
-          >
-            <View
-              className="flex-row items-center"
+          {/* Priorité de traitement */}
+          <View style={{ marginTop: 16, backgroundColor: "#7C3AED14", borderWidth: 1, borderColor: "#7C3AED33", borderRadius: 16, padding: 14 }}>
+            <View className="flex-row items-center" style={{ gap: 10, marginBottom: 12 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: p.card, borderWidth: 1, borderColor: p.border, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="flag-outline" size={16} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.text }}>Priorité de traitement</Text>
+                <Text style={{ fontSize: 12, color: p.sub, marginTop: 1 }}>Classez la fiche pour filtrer vos prospects.</Text>
+              </View>
+            </View>
+            <View className="flex-row" style={{ gap: 8 }}>
+              {PRIORITY_OPTS.map((o) => {
+                const on = picked === o.v;
+                return (
+                  <Pressable
+                    key={o.v}
+                    onPress={() => setPicked(on ? null : o.v)}
+                    className="active:opacity-80"
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: "center",
+                      backgroundColor: on ? o.color + "1F" : p.card,
+                      borderWidth: 1.5, borderColor: on ? o.color : p.border,
+                    }}
+                  >
+                    <View className="flex-row items-center" style={{ gap: 4 }}>
+                      <Ionicons name="star" size={13} color={o.color} />
+                      <Text style={{ fontSize: 14, fontWeight: "800", color: o.color }}>{o.v}</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: p.muted, marginTop: 2 }}>{o.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              onPress={savePriority}
+              disabled={saving || picked === saved}
+              className="active:opacity-80"
               style={{
-                gap: 9,
-                paddingVertical: 13,
-                paddingHorizontal: 16,
-                backgroundColor: p.accentSoft,
-                borderBottomWidth: 1,
-                borderBottomColor: p.accentBorder,
+                marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center",
+                gap: 7, paddingVertical: 12, borderRadius: 12, backgroundColor: p.ctaBg,
+                opacity: saving || picked === saved ? 0.55 : 1,
               }}
             >
-              <Ionicons name="shield-outline" size={18} color={p.accentInk} />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "700",
-                  letterSpacing: 1,
-                  color: p.accentInk,
-                }}
-              >
-                IDENTIFICATION · PALIER {contact.tier}
+              <Ionicons name="save-outline" size={15} color={p.ctaText} />
+              <Text style={{ fontSize: 13.5, fontWeight: "700", color: p.ctaText }}>
+                {saving ? "Enregistrement…" : "Enregistrer la priorité"}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Paliers de données payées (chargés via l'API détails) */}
+          {status === "loading" ? (
+            <Text style={{ textAlign: "center", color: p.muted, fontSize: 13, paddingVertical: 24 }}>
+              Chargement des informations…
+            </Text>
+          ) : status === "error" ? (
+            <View style={{ marginTop: 16, padding: 13, borderRadius: 12, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FCA5A5" }}>
+              <Text style={{ fontSize: 12.5, color: "#991B1B", lineHeight: 18 }}>
+                Impossible de charger les détails pour le moment. Réessayez dans un instant.
               </Text>
             </View>
-            <InfoRow label="Prénom" value={NR} />
-            <InfoRow label="Nom" value={NR} />
-            <InfoRow
-              label="E-mail (alias sécurisé)"
-              value={contact.email ?? NR}
-              mono
-            />
-            <InfoRow label="Téléphone" value={contact.telephone ?? NR} mono={!!contact.telephone} />
-            <InfoRow label="Date de naissance" value={NR} last />
-          </View>
+          ) : tiers.length === 0 ? (
+            <Text style={{ textAlign: "center", color: p.muted, fontSize: 13, paddingVertical: 20 }}>
+              Aucune catégorie de données disponible pour cette campagne.
+            </Text>
+          ) : (
+            tiers.map((t) => {
+              const m = TIER_META[t.key] ?? { n: 0, color: p.accent, ion: "document-outline" as const };
+              return (
+                <View
+                  key={t.key}
+                  style={{ marginTop: 14, backgroundColor: p.card, borderRadius: 18, borderWidth: 1, borderColor: p.border, overflow: "hidden" }}
+                >
+                  <View
+                    className="flex-row items-center justify-between"
+                    style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: p.field, borderBottomWidth: 1, borderBottomColor: p.line }}
+                  >
+                    <View className="flex-row items-center" style={{ gap: 9, flex: 1, minWidth: 0 }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: m.color, alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name={m.ion} size={15} color="#FFFFFF" />
+                      </View>
+                      <Text className="font-serif-bold" style={{ fontSize: 14, color: p.text }} numberOfLines={1}>
+                        {t.label}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 9, fontWeight: "700", letterSpacing: 0.8, color: p.muted, textAlign: "right" }}>
+                      PALIER {m.n}
+                    </Text>
+                  </View>
+                  {t.items.map((it, i) => (
+                    <InfoRow
+                      key={i}
+                      label={it.label}
+                      value={it.value ?? NR}
+                      mono={!!it.value && (it.label.startsWith("E-mail") || it.label === "Téléphone")}
+                      last={i === t.items.length - 1}
+                    />
+                  ))}
+                </View>
+              );
+            })
+          )}
 
           {/* Encart RGPD */}
           <View
@@ -366,29 +550,43 @@ export function ContactDetailSheet({
             </Text>
           </View>
 
-          {/* Actions + Fermer */}
-          <View className="flex-row items-center" style={{ gap: 8, marginTop: 17 }}>
-            <ContactActions email={contact.email} />
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Fermer"
-              className="active:opacity-80"
-              style={{
-                flex: 1,
-                paddingVertical: 13,
-                borderRadius: 12,
-                backgroundColor: p.ctaBg,
-                alignItems: "center",
-                shadowColor: "#0A1628",
-                shadowOpacity: 0.22,
-                shadowRadius: 20,
-                shadowOffset: { width: 0, height: 8 },
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: p.ctaText }}>
-                Fermer
-              </Text>
-            </Pressable>
+          {/* Statut priorité + actions + Fermer */}
+          <View style={{ marginTop: 17, gap: 12 }}>
+            <Text style={{ fontSize: 12, color: p.muted }}>
+              {saved ? (
+                <Text>
+                  Priorité{" "}
+                  <Text style={{ fontWeight: "700", color: PRIORITY_OPTS.find((o) => o.v === saved)?.color }}>
+                    {priorityLabel(saved)}
+                  </Text>
+                </Text>
+              ) : (
+                "Priorité non définie — enregistrez pour filtrer."
+              )}
+            </Text>
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <ContactActions email={contact.email} />
+              <Pressable
+                onPress={onClose}
+                accessibilityLabel="Fermer"
+                className="active:opacity-80"
+                style={{
+                  flex: 1,
+                  paddingVertical: 13,
+                  borderRadius: 12,
+                  backgroundColor: p.ctaBg,
+                  alignItems: "center",
+                  shadowColor: "#0A1628",
+                  shadowOpacity: 0.22,
+                  shadowRadius: 20,
+                  shadowOffset: { width: 0, height: 8 },
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "600", color: p.ctaText }}>
+                  Fermer
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </View>

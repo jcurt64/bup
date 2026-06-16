@@ -1340,13 +1340,52 @@ export type ProContact = {
   campaign: string;
   /** Id de la campagne d'origine (renvoyé par l'API ; sert au sélecteur). */
   campaignId: string;
+  /** Objectif de la campagne (`contact`, `rdv`, …) → couleur de catégorie. */
+  campaignObjective?: string | null;
+  /** Date de clôture de la campagne (ISO) — affichée dans l'en-tête de groupe. */
+  campaignClosesAt?: string | null;
   tier: number;
   email: string | null;
   telephone: string | null;
   receivedAt: string | null;
+  /** Priorité de traitement fixée par le pro : 1=haute, 2=moyenne, 3=basse. */
+  priority?: number | null;
+};
+
+/** Réponse de GET /api/pro/contacts/[relationId]/details. */
+export type ProDetailTier = {
+  key: string;
+  label: string;
+  items: { label: string; value: string | null }[];
+};
+export type ProContactDetails = {
+  tiers: ProDetailTier[];
+  ref: string | null;
+  priority: number | null;
 };
 export const useProContacts = () =>
   useGet<{ rows: ProContact[] }>(["pro", "contacts"], "/api/pro/contacts", 30_000);
+
+/**
+ * Révèle en clair les emails d'un lot de prospects sélectionnés
+ * (parité web `handleGroupMessage` → `/api/pro/contacts/group-reveal`).
+ * Réponse : `{ items: [{ relationId, email|null }], proEmail }` (≤ 50 ids).
+ * Le client filtre les emails non nuls puis ouvre un `mailto:` en Cci.
+ */
+export type GroupRevealResult = {
+  items: { relationId: string; email: string | null }[];
+  proEmail: string | null;
+};
+export function useProGroupReveal() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (relationIds: string[]) =>
+      api<GroupRevealResult>("/api/pro/contacts/group-reveal", {
+        method: "POST",
+        body: JSON.stringify({ relationIds }),
+      }),
+  });
+}
 
 // ── Atelier de segmentation (parité web) ──────────────────────────────────
 // Clés catégorielles présentes uniquement si le palier de données a été acheté.

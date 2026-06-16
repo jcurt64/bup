@@ -16,7 +16,7 @@
 // enregistrés. La liste est alors filtrée CÔTÉ SERVEUR. Sans campagne active,
 // le comportement existant (toutes les lignes + filtres locaux) est conservé.
 import { useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import {
@@ -26,6 +26,7 @@ import {
   GroupHeader,
   type FilterKey,
 } from "../../components/contact-cards";
+import { Ionicons } from "@expo/vector-icons";
 import {
   ContactDetailSheet,
   useContactPalette,
@@ -37,6 +38,7 @@ import {
   useProSegmentCreate,
   useProSegmentDelete,
   useProSegmentBroadcast,
+  useProGroupReveal,
   type BroadcastResult,
   type AudienceFacets,
   type ProAudience,
@@ -782,12 +784,111 @@ export default function Contacts() {
   const [active, setActive] = useState<Set<FilterKey>>(new Set());
   const [selected, setSelected] = useState<ProContact | null>(null);
 
-  // Atelier de segmentation.
+  // Atelier de segmentation (page Statistiques, ouverte via le bouton dédié).
   const [activeCampaign, setActiveCampaign] = useState<{ id: string; name: string } | null>(null);
   const [segFilters, setSegFilters] = useState<SegmentFilters>({});
+  // Filtre liste : les chips de campagne se comportent comme un filtre
+  // (n'affiche que la campagne choisie) — sans basculer vers l'atelier.
+  const [campaignFilter, setCampaignFilter] = useState<{ id: string; name: string } | null>(null);
 
   const audienceQ = useProAudience(activeCampaign?.id ?? null);
   const filteredQ = useProContactsFiltered(activeCampaign?.id ?? null, segFilters);
+
+  // Sélection groupée (parité web) : ids des relations cochées, par
+  // relationId. « Message groupé » révèle les emails (group-reveal) puis
+  // ouvre un mailto: avec tous les prospects en Cci.
+  const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
+  const groupReveal = useProGroupReveal();
+  const [sendingKey, setSendingKey] = useState<string | null>(null);
+
+  // Repli/dépli des sections campagne (parité web) : repliées par défaut
+  // dans la vue « Toutes » ; en mode atelier la campagne reste dépliée.
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  // Mode atelier : la campagne ouverte est dépliée par défaut.
+  const [workshopCollapsed, setWorkshopCollapsed] = useState(false);
+  const toggleCollapse = (key: string) =>
+    setCollapsedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const togglePick = (id: string) =>
+    setPickedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Emailables d'un groupe (email partagé) et ceux déjà cochés.
+  const emailableOf = (contacts: ProContact[]) => contacts.filter((c) => !!c.email);
+  const pickedOf = (contacts: ProContact[]) =>
+    emailableOf(contacts).filter((c) => pickedIds.has(c.relationId));
+
+  const setGroupPicked = (contacts: ProContact[], on: boolean) => {
+    const ids = emailableOf(contacts).map((c) => c.relationId);
+    setPickedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const sendGroupMessage = async (key: string, contacts: ProContact[]) => {
+    const ids = pickedOf(contacts).map((c) => c.relationId);
+    if (ids.length === 0) return;
+    setSendingKey(key);
+    try {
+      const res = await groupReveal.mutateAsync(ids.slice(0, 50));
+      const emails = (res.items || []).map((x) => x.email).filter((e): e is string => !!e);
+      const skipped = ids.length - emails.length;
+      if (emails.length === 0) {
+        Alert.alert("Message groupé", "Aucun email disponible parmi les prospects sélectionnés.");
+        return;
+      }
+      // Anti-fuite (parité web) : prospects en Cci, le pro en destinataire,
+      // rappel RGPD pré-rempli pour dissuader le déplacement Cci → À/Cc.
+      const bcc = emails.map(encodeURIComponent).join(",");
+      const to = encodeURIComponent(res.proEmail || "");
+      const subject = encodeURIComponent("Message — BUUPP");
+      const body = encodeURIComponent(
+        "\n\n— — — — — — — — — — — — — — — — — — — — — — — — — —\n" +
+          "Envoi groupé via BUUPP — chaque destinataire est en Cci :\n" +
+          "il ne verra pas les emails des autres prospects.\n" +
+          "Ne déplacez pas les adresses dans « À » ou « Cc » avant\n" +
+          "d'envoyer : cela exposerait les emails de tous à tous, ce qui\n" +
+          "constitue une fuite de données personnelles (RGPD).\n" +
+          "Rédigez votre message au-dessus de cette ligne.\n",
+      );
+      const url = `mailto:${to}?bcc=${bcc}&subject=${subject}&body=${body}`;
+      const ok = await Linking.canOpenURL(url).catch(() => false);
+      if (!ok) {
+        Alert.alert("Message groupé", "Aucune application e-mail disponible sur cet appareil.");
+        return;
+      }
+      await Linking.openURL(url);
+      if (skipped > 0) {
+        Alert.alert(
+          "Message groupé",
+          `${skipped} prospect${skipped > 1 ? "s" : ""} ignoré${skipped > 1 ? "s" : ""} (email non partagé).`,
+        );
+      }
+    } catch {
+      Alert.alert("Message groupé", "Impossible de récupérer les emails. Réessayez.");
+    } finally {
+      setSendingKey(null);
+    }
+  };
+
+  const openCampaignDetails = (c: { id: string; name: string }) => {
+    setActiveCampaign(c);
+    setSegFilters({});
+  };
 
   const toggle = (k: FilterKey) =>
     setActive((prev) => {
@@ -830,7 +931,20 @@ export default function Contacts() {
   }, [q.data, active]);
 
   const total = q.data?.rows?.length ?? 0;
-  const shown = groups.reduce((n, g) => n + g.contacts.length, 0);
+  // Groupes affichés : filtrés sur la campagne choisie dans les chips (le cas
+  // échéant). Sans filtre → toutes les campagnes.
+  const visibleGroups = campaignFilter
+    ? groups.filter((g) => (g.contacts[0]?.campaignId || g.campaign) === campaignFilter.id)
+    : groups;
+  const shown = visibleGroups.reduce((n, g) => n + g.contacts.length, 0);
+
+  // Replie toutes les campagnes au premier chargement (vue « Toutes ») — une
+  // seule fois, pour ne pas réannuler les dépliages manuels (parité web).
+  const didInitCollapse = useRef(false);
+  if (!didInitCollapse.current && groups.length > 0) {
+    didInitCollapse.current = true;
+    setCollapsedKeys(new Set(groups.map((g) => g.contacts[0]?.campaignId || g.campaign)));
+  }
 
   const hasSegFilters = Object.keys(segFilters).length > 0;
   const filteredRows = filteredQ.data?.rows ?? [];
@@ -866,21 +980,47 @@ export default function Contacts() {
       >
         {() => (
           <View style={{ gap: 18 }}>
-            {/* Sélecteur de campagne (atelier) */}
-            {campaigns.length > 0 ? (
+            {/* Sélecteur de campagne — agit comme un FILTRE de la liste
+                (n'affiche que la campagne choisie). Masqué en mode atelier. */}
+            {campaigns.length > 0 && !activeCampaign ? (
               <CampaignSelector
                 campaigns={campaigns}
-                active={activeCampaign}
-                onSelectAll={() => {
+                active={campaignFilter}
+                onSelectAll={() => setCampaignFilter(null)}
+                onSelect={(c) => setCampaignFilter(c)}
+                p={p}
+              />
+            ) : null}
+
+            {/* Bouton retour bien visible (violet clair) — sous le groupe de boutons. */}
+            {activeCampaign ? (
+              <Pressable
+                onPress={() => {
                   setActiveCampaign(null);
                   setSegFilters({});
                 }}
-                onSelect={(c) => {
-                  setActiveCampaign(c);
-                  setSegFilters({});
+                accessibilityRole="button"
+                accessibilityLabel="Retour aux campagnes"
+                className="flex-row items-center active:opacity-80"
+                style={{
+                  alignSelf: "flex-start",
+                  gap: 8,
+                  paddingVertical: 11,
+                  paddingHorizontal: 18,
+                  borderRadius: 999,
+                  backgroundColor: "#A78BFA",
+                  shadowColor: "#A78BFA",
+                  shadowOpacity: 0.4,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 4,
                 }}
-                p={p}
-              />
+              >
+                <Ionicons name="arrow-back" size={18} color="#3B0764" />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#3B0764" }}>
+                  Retour aux campagnes
+                </Text>
+              </Pressable>
             ) : null}
 
             {activeCampaign ? (
@@ -939,20 +1079,53 @@ export default function Contacts() {
                     </Text>
                   </View>
                 ) : (
-                  <View>
+                  <View
+                    style={{
+                      backgroundColor: p.accentSoft,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: p.accentBorder,
+                      padding: 14,
+                    }}
+                  >
                     <GroupHeader
                       campaign={activeCampaign.name}
                       count={filteredRows.length}
+                      contacts={filteredRows}
+                      objective={filteredRows[0]?.campaignObjective}
+                      closesAt={filteredRows[0]?.campaignClosesAt}
+                      emailableCount={emailableOf(filteredRows).length}
+                      selectedCount={pickedOf(filteredRows).length}
+                      allSelected={
+                        emailableOf(filteredRows).length > 0 &&
+                        pickedOf(filteredRows).length === emailableOf(filteredRows).length
+                      }
+                      sending={sendingKey === activeCampaign.id}
+                      collapsed={workshopCollapsed}
+                      onToggleCollapse={() => setWorkshopCollapsed((v) => !v)}
+                      onViewDetails={() => openCampaignDetails(activeCampaign)}
+                      onToggleSelectAll={() =>
+                        setGroupPicked(
+                          filteredRows,
+                          pickedOf(filteredRows).length !== emailableOf(filteredRows).length,
+                        )
+                      }
+                      onGroupMessage={() => sendGroupMessage(activeCampaign.id, filteredRows)}
                     />
-                    <View style={{ gap: 12 }}>
-                      {filteredRows.map((c) => (
-                        <ContactCard
-                          key={c.relationId}
-                          contact={c}
-                          onDetails={() => setSelected(c)}
-                        />
-                      ))}
-                    </View>
+                    {!workshopCollapsed && (
+                      <View style={{ gap: 12 }}>
+                        {filteredRows.map((c) => (
+                          <ContactCard
+                            key={c.relationId}
+                            contact={c}
+                            onDetails={() => setSelected(c)}
+                            selectable
+                            checked={pickedIds.has(c.relationId)}
+                            onToggleSelect={() => togglePick(c.relationId)}
+                          />
+                        ))}
+                      </View>
+                    )}
                   </View>
                 )}
               </>
@@ -966,7 +1139,7 @@ export default function Contacts() {
                   shown={shown}
                   total={total}
                 />
-                {groups.length === 0 ? (
+                {visibleGroups.length === 0 ? (
                   <View
                     style={{
                       alignItems: "center",
@@ -982,20 +1155,58 @@ export default function Contacts() {
                     </Text>
                   </View>
                 ) : (
-                  groups.map((g) => (
-                    <View key={g.campaign}>
-                      <GroupHeader campaign={g.campaign} count={g.contacts.length} />
-                      <View style={{ gap: 12 }}>
-                        {g.contacts.map((c) => (
-                          <ContactCard
-                            key={c.relationId}
-                            contact={c}
-                            onDetails={() => setSelected(c)}
-                          />
-                        ))}
+                  visibleGroups.map((g) => {
+                    const emailable = emailableOf(g.contacts).length;
+                    const picked = pickedOf(g.contacts).length;
+                    const key = g.contacts[0]?.campaignId || g.campaign;
+                    const isCollapsed = collapsedKeys.has(key);
+                    return (
+                      <View
+                        key={g.campaign}
+                        style={{
+                          backgroundColor: p.accentSoft,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: p.accentBorder,
+                          padding: 14,
+                        }}
+                      >
+                        <GroupHeader
+                          campaign={g.campaign}
+                          count={g.contacts.length}
+                          contacts={g.contacts}
+                          objective={g.contacts[0]?.campaignObjective}
+                          closesAt={g.contacts[0]?.campaignClosesAt}
+                          emailableCount={emailable}
+                          selectedCount={picked}
+                          allSelected={emailable > 0 && picked === emailable}
+                          sending={sendingKey === key}
+                          collapsed={isCollapsed}
+                          onToggleCollapse={() => toggleCollapse(key)}
+                          onViewDetails={() =>
+                            g.contacts[0]?.campaignId &&
+                            openCampaignDetails({ id: g.contacts[0].campaignId, name: g.campaign })
+                          }
+                          onToggleSelectAll={() => setGroupPicked(g.contacts, picked !== emailable)}
+                          onGroupMessage={() => sendGroupMessage(key, g.contacts)}
+                        />
+                        {!isCollapsed && (
+                          <View style={{ gap: 12 }}>
+                            {g.contacts.map((c) => (
+                              <ContactCard
+                                key={c.relationId}
+                                contact={c}
+                                onDetails={() => setSelected(c)}
+                                selectable
+                                checked={pickedIds.has(c.relationId)}
+                                onToggleSelect={() => togglePick(c.relationId)}
+                              />
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    </View>
-                  ))
+                    );
+                  })
                 )}
               </>
             )}
@@ -1008,6 +1219,21 @@ export default function Contacts() {
         campaign={selected?.campaign ?? null}
         visible={!!selected}
         onClose={() => setSelected(null)}
+        siblings={
+          !selected
+            ? []
+            : activeCampaign
+              ? filteredRows
+              : (groups.find(
+                  (g) =>
+                    (g.contacts[0]?.campaignId || g.campaign) ===
+                    (selected.campaignId || selected.campaign),
+                )?.contacts ?? [selected])
+        }
+        onNavigate={(c) => setSelected(c)}
+        onPriorityChange={() => {
+          void q.refetch();
+        }}
       />
     </ScrollScreen>
   );
