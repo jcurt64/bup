@@ -1280,6 +1280,7 @@ export type Database = {
           motif: string
           non_atteint_counted: boolean
           pro_account_id: string
+          pro_priority: number | null
           prospect_id: string
           reward_cents: number
           sent_at: string
@@ -1300,6 +1301,7 @@ export type Database = {
           motif: string
           non_atteint_counted?: boolean
           pro_account_id: string
+          pro_priority?: number | null
           prospect_id: string
           reward_cents: number
           sent_at?: string
@@ -1320,6 +1322,7 @@ export type Database = {
           motif?: string
           non_atteint_counted?: boolean
           pro_account_id?: string
+          pro_priority?: number | null
           prospect_id?: string
           reward_cents?: number
           sent_at?: string

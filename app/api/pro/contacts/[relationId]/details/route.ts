@@ -84,7 +84,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
   const { data, error } = await admin
     .from("relations")
     .select(
-      `id, status, pro_account_id, prospect_id,
+      `id, status, pro_account_id, prospect_id, pro_priority,
        campaigns ( status, targeting ),
        prospects:prospect_id ( id, removed_tiers, hidden_tiers )`,
     )
@@ -104,6 +104,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     status: string;
     pro_account_id: string;
     prospect_id: string;
+    pro_priority: number | null;
     campaigns:
       | { status: string; targeting: { requiredTiers?: number[] } | null }
       | { status: string; targeting: { requiredTiers?: number[] } | null }[]
@@ -153,15 +154,19 @@ export async function GET(_req: Request, ctx: RouteContext) {
   );
 
   // Alias e-mail watermarqué — généré une fois si le palier identity
-  // est révélé (on ne renvoie jamais le vrai e-mail).
+  // est révélé (on ne renvoie jamais le vrai e-mail). Le slug sert aussi
+  // de RÉFÉRENCE de fiche affichée dans l'en-tête (ex. « REC1A150404FD »),
+  // disponible quel que soit le palier révélé.
   let aliasEmail: string | null = null;
-  if (toReveal.includes("identity")) {
-    try {
-      const slug = await getOrCreateRelationAlias(admin, relationId);
+  let ref: string | null = null;
+  try {
+    const slug = await getOrCreateRelationAlias(admin, relationId);
+    ref = slug.toUpperCase();
+    if (toReveal.includes("identity")) {
       aliasEmail = buildAliasAddress(slug);
-    } catch (err) {
-      console.error("[/api/pro/contacts/details] alias gen failed", err);
     }
+  } catch (err) {
+    console.error("[/api/pro/contacts/details] alias gen failed", err);
   }
 
   const tiers: Array<{
@@ -201,5 +206,5 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "audit_failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ tiers });
+  return NextResponse.json({ tiers, ref, priority: row.pro_priority ?? null });
 }

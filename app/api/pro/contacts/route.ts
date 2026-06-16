@@ -88,8 +88,8 @@ export async function GET(req: Request) {
   let query = admin
     .from("relations")
     .select(
-      `id, decided_at, status, campaign_id, evaluation, evaluated_at,
-       campaigns!inner ( id, name, status, targeting ),
+      `id, decided_at, status, campaign_id, evaluation, evaluated_at, pro_priority,
+       campaigns!inner ( id, name, status, targeting, ends_at ),
        prospects:prospect_id ( id, bupp_score,
          prospect_identity ( prenom, nom, email, telephone )
        )`,
@@ -114,7 +114,8 @@ export async function GET(req: Request) {
     campaign_id: string;
     evaluation: "atteint" | "non_atteint" | null;
     evaluated_at: string | null;
-    campaigns: { id: string; name: string; status: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null } | null;
+    pro_priority: number | null;
+    campaigns: { id: string; name: string; status: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null; ends_at: string | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
@@ -179,6 +180,7 @@ export async function GET(req: Request) {
       campaignId: camp?.id ?? r.campaign_id,
       campaign: camp?.name ?? "—",
       campaignObjective: camp?.targeting?.objectiveId ?? null,
+      campaignClosesAt: camp?.ends_at ?? null,
       campaignChannels,
       proName,
       tier,
@@ -189,6 +191,7 @@ export async function GET(req: Request) {
       receivedAt: r.decided_at,
       evaluation: r.evaluation,
       evaluatedAt: r.evaluated_at,
+      priority: r.pro_priority ?? null,
       // Compteur quota email — front masque/désactive le bouton "Écrire"
       // quand emailsSent atteint 1 (cf. /api/pro/contacts/[id]/email).
       emailsSent: emailsSentByRel.get(r.id) ?? 0,

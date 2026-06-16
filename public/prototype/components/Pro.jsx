@@ -4,7 +4,7 @@ const PRO_SECTIONS = [
   { id: 'create',       icon: 'plus',      label: 'Créer une campagne', featured: true },
   { id: 'overview',     icon: 'chart',     label: "Vue d'ensemble" },
   { id: 'campagnes',    icon: 'target',    label: 'Campagnes' },
-  { id: 'contacts',     icon: 'users',     label: 'Mes contacts' },
+  { id: 'contacts',     icon: 'users',     label: 'Mes prospects' },
   { id: 'analytics',    icon: 'trend',     label: 'Analytics' },
   { id: 'informations', icon: 'briefcase', label: 'Mes informations' },
   { id: 'facturation',  icon: 'money',     label: 'Facturation' },
@@ -1558,6 +1558,31 @@ const fmtDateLong = (iso) => {
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit', month: 'long', year: 'numeric',
   }).format(d);
+};
+
+/* Couleur de catégorie par objectif de campagne — accent latéral + pastille
+   dans « Mes prospects ». Palette crème/encre relevée : ambre · indigo · teal ·
+   rose, désaturée (« épuré, jamais criard »). Clé = targeting.objectiveId
+   (cf. lib/campaigns/mapping.ts). */
+const CATEGORY_STYLE = {
+  contact:   { accent: '#4F46E5', soft: '#EEF0FF', label: 'Contact',        full: 'Prise de contact direct',     icon: 'email' },
+  rdv:       { accent: '#0D9488', soft: '#E6F4F2', label: 'Rendez-vous',    full: 'Prise de rendez-vous',        icon: 'calendar' },
+  evt:       { accent: '#D97706', soft: '#FBF1E1', label: 'Événementiel',   full: 'Événementiel & inscription',  icon: 'sparkle' },
+  dl:        { accent: '#DB2777', soft: '#FCE8F1', label: 'Téléchargement', full: 'Contenus à télécharger',      icon: 'download' },
+  survey:    { accent: '#7C3AED', soft: '#F2ECFD', label: 'Études & avis',  full: 'Études & collecte d\'avis',   icon: 'doc' },
+  promo:     { accent: '#E11D48', soft: '#FCE7EC', label: 'Promotions',     full: 'Promotions & fidélisation',   icon: 'gift' },
+  addigital: { accent: '#0891B2', soft: '#E4F3F8', label: 'Publicité',      full: 'Publicité digitale',          icon: 'globe' },
+};
+const categoryStyle = (objectiveId) =>
+  CATEGORY_STYLE[objectiveId] || { accent: 'var(--accent)', soft: 'var(--ivory-2)', label: 'Campagne', full: 'Campagne', icon: 'target' };
+
+/* Couleur d'avatar (cercle d'initiales) variée par prospect — teintes vives
+   mais douces, encre foncée lisible par-dessus. Hash stable sur le nom. */
+const AVATAR_COLORS = ['#A5B4FC', '#6EE7B7', '#FCD34D', '#F9A8D4', '#C4B5FD', '#67E8F9', '#86EFAC', '#FDBA74'];
+const avatarColor = (name) => {
+  const s = String(name || '?');
+  const h = [...s].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 };
 
 /* Popup de sélection de plan affichée à l'ouverture du wizard de
@@ -5119,7 +5144,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   // panneau audience (distributions par facette), barre de filtres/recherche
   // serveur, et segments enregistrés. Sinon, comportement historique (toutes
   // les lignes, groupées par campagne avec les 3 filtres locaux).
-  const [activeCampaign, setActiveCampaign] = React.useState(null); // { id, name } | null
+  const [activeCampaign, setActiveCampaign] = React.useState(null); // { id, name } | null — atelier (Statistiques)
+  const [campaignFilter, setCampaignFilter] = React.useState(null); // { id, name } | null — filtre de la liste (chips)
   const [audience, setAudience] = React.useState(null); // { total, availableTiers, facets, savedSegments }
   const [segFilters, setSegFilters] = React.useState({}); // SegmentFilters
   const [broadcastOpen, setBroadcastOpen] = React.useState(false); // modal diffusion segment (SP2)
@@ -5273,10 +5299,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   // serveur) regroupée en une seule campagne — réutilise tout le rendu de
   // groupe existant (tableau, actions par ligne, message groupé) inchangé.
   const displayGroups = React.useMemo(() => {
-    if (!activeCampaign) return groups;
+    if (!activeCampaign) {
+      // Les chips de campagne agissent comme un FILTRE de la liste.
+      return campaignFilter ? groups.filter(g => g.campaignId === campaignFilter.id) : groups;
+    }
     const items = filteredRows || [];
     return [{ campaignId: activeCampaign.id, campaign: activeCampaign.name, items }];
-  }, [activeCampaign, filteredRows, groups]);
+  }, [activeCampaign, campaignFilter, filteredRows, groups]);
 
   // Helpers de manipulation des filtres de segment (immutables).
   const setQ = (val) => setSegFilters(f => {
@@ -5409,27 +5438,26 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         <button className="btn btn-ghost btn-sm" style={{ opacity: 0.5, cursor: 'not-allowed' }} disabled><Icon name="lock" size={12}/> Export CSV indisponible</button>
       }/>
 
-      {/* Sélecteur de campagne — entrée de l'atelier de segmentation. */}
-      {campaignList.length > 0 && (
+      {/* Sélecteur de campagne — agit comme un FILTRE de la liste (n'affiche que
+          la campagne choisie). Masqué en mode atelier (Statistiques). */}
+      {campaignList.length > 0 && !activeCampaign && (
         <div className="col gap-2">
-          {!activeCampaign && (
-            <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.08em' }}>
-              ▸ Cliquez une campagne pour analyser et segmenter votre audience
-            </div>
-          )}
+          <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.08em' }}>
+            ▸ Cliquez une campagne pour n'afficher que ses prospects
+          </div>
           <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
           <button
-            onClick={() => { setActiveCampaign(null); setSegFilters({}); }}
-            style={segTabStyle(activeCampaign === null)}
+            onClick={() => setCampaignFilter(null)}
+            style={segTabStyle(campaignFilter === null)}
           >
             Toutes
           </button>
           {campaignList.map(c => {
-            const on = activeCampaign?.id === c.id;
+            const on = campaignFilter?.id === c.id;
             return (
               <button
                 key={c.id}
-                onClick={() => { setActiveCampaign({ id: c.id, name: c.name }); setSegFilters({}); }}
+                onClick={() => setCampaignFilter({ id: c.id, name: c.name })}
                 style={segTabStyle(on)}
               >
                 {c.name}
@@ -5438,6 +5466,25 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           })}
           </div>
         </div>
+      )}
+
+      {/* Bouton retour bien visible (violet clair) — sous le groupe de boutons. */}
+      {activeCampaign && (
+        <button
+          onClick={() => { setActiveCampaign(null); setSegFilters({}); }}
+          className="row center"
+          style={{
+            alignSelf: 'flex-start', gap: 8, padding: '11px 20px', borderRadius: 999,
+            background: '#A78BFA', color: '#3B0764', border: 'none', cursor: 'pointer',
+            fontSize: 14, fontWeight: 600,
+            boxShadow: '0 4px 12px color-mix(in oklab, #A78BFA 40%, transparent)',
+            transition: 'transform .12s, box-shadow .15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+        >
+          <Icon name="arrowLeft" size={16}/> Retour aux campagnes
+        </button>
       )}
 
       {/* Panneau Audience — distributions par facette de la campagne active. */}
@@ -5632,10 +5679,10 @@ function Contacts({ pendingContact, onPendingConsumed }) {
             return (
               <button key={k} onClick={() => toggle(k)} style={{
                 padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500,
-                background: on ? 'var(--accent)' : 'var(--paper)',
+                background: on ? '#3B82F6' : 'var(--paper)',
                 color: on ? 'white' : 'var(--ink)',
-                border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
-                boxShadow: on ? '0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent)' : 'none',
+                border: '1.5px solid ' + (on ? '#3B82F6' : 'var(--line-2)'),
+                boxShadow: on ? '0 0 0 3px color-mix(in oklab, #3B82F6 16%, transparent)' : 'none',
                 cursor: 'pointer', transition: 'all .15s'
               }}>
                 {on && <span style={{ marginRight: 6 }}>✓</span>}
@@ -5754,13 +5801,19 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         const selectedInGroup = emailableIds.filter(id => selected.has(id));
         const allSelected = emailableIds.length > 0 && selectedInGroup.length === emailableIds.length;
         const someSelected = selectedInGroup.length > 0 && !allSelected;
+        // Couleur de catégorie (accent latéral + pastille) dérivée de l'objectif
+        // de la campagne ; date de clôture et aperçu d'avatars depuis les lignes.
+        const cs = categoryStyle(group.items[0]?.campaignObjective);
+        const closesAt = group.items.find(it => it.campaignClosesAt)?.campaignClosesAt || null;
+        const previewAvatars = group.items.slice(0, 3);
+        const extraAvatars = group.items.length - previewAvatars.length;
         return (
-          <div key={group.campaignId} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div key={group.campaignId} className="card" style={{ padding: 0, overflow: 'hidden', borderLeft: `4px solid ${cs.accent}` }}>
             <div
               className="row between"
               style={{
-                padding: '14px 18px',
-                gap: 12,
+                padding: '16px 18px',
+                gap: 14,
                 alignItems: 'center',
                 flexWrap: 'wrap',
                 borderBottom: isCollapsed ? 'none' : '1px solid var(--line)',
@@ -5771,52 +5824,113 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                 className="row center gap-3"
                 style={{
                   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                  textAlign: 'left', minWidth: 0, flex: '1 1 240px',
+                  textAlign: 'left', minWidth: 0, flex: '1 1 260px',
                 }}
                 aria-expanded={!isCollapsed}
                 title={isCollapsed ? 'Déplier' : 'Replier'}
               >
                 <span style={{
                   display: 'inline-flex', width: 24, height: 24, borderRadius: 6,
-                  background: 'var(--ivory-2)', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, color: 'var(--ink-3)',
+                  background: cs.soft, alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, color: cs.accent,
                   transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
                   transition: 'transform .15s',
                 }}>
                   <Icon name="arrow" size={12}/>
                 </span>
                 <div style={{ minWidth: 0 }}>
-                  <div className="serif" style={{ fontSize: 16, lineHeight: 1.2 }}>{group.campaign}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    {group.items.length} prospect{group.items.length > 1 ? 's' : ''}
-                    {selectedInGroup.length > 0 && ` · ${selectedInGroup.length} sélectionné${selectedInGroup.length > 1 ? 's' : ''}`}
+                  {/* Pastille catégorie (eyebrow) — icône selon l'objectif */}
+                  <div className="row center gap-2" style={{ marginBottom: 4 }}>
+                    <span style={{ display: 'inline-flex', color: cs.accent, flexShrink: 0 }}>
+                      <Icon name={cs.icon} size={13}/>
+                    </span>
+                    <span className="mono caps" style={{ fontSize: 10, letterSpacing: '0.12em', color: cs.accent }}>{cs.label}</span>
+                  </div>
+                  <div className="serif" style={{ fontSize: 17, lineHeight: 1.2 }}>{group.campaign}</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                    <span>{group.items.length} prospect{group.items.length > 1 ? 's' : ''}</span>
+                    {closesAt && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span aria-hidden style={{ opacity: 0.5 }}>·</span>
+                        <Icon name="calendar" size={11}/>
+                        Clôturée le {fmtDateLong(closesAt)}
+                      </span>
+                    )}
+                    {selectedInGroup.length > 0 && (
+                      <span><span aria-hidden style={{ opacity: 0.5 }}>·</span> {selectedInGroup.length} sélectionné{selectedInGroup.length > 1 ? 's' : ''}</span>
+                    )}
                   </div>
                 </div>
               </button>
-              <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setGroupSelected(group, !allSelected)}
-                  disabled={emailableIds.length === 0}
-                  style={{ opacity: emailableIds.length === 0 ? 0.4 : 1 }}
-                  title={emailableIds.length === 0 ? 'Aucun email partagé dans ce groupe' : (allSelected ? 'Tout désélectionner' : 'Sélectionner tous')}
-                >
-                  {allSelected ? 'Tout désélectionner' : someSelected ? 'Tout sélectionner' : 'Sélectionner tous'}
-                </button>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => handleGroupMessage(group)}
-                  disabled={selectedInGroup.length === 0 || groupSending}
-                  style={{
-                    background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
-                    color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
-                    cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                  }}
-                >
-                  <Icon name="email" size={12}/>
-                  Message groupé{selectedInGroup.length > 0 ? ` (${selectedInGroup.length})` : ''}
-                </button>
+              <div className="row center" style={{ gap: 14, flexWrap: 'wrap' }}>
+                {/* Pile d'avatars */}
+                <div style={{ display: 'flex', alignItems: 'center' }} title={`${group.items.length} prospect${group.items.length > 1 ? 's' : ''}`}>
+                  {previewAvatars.map((it, idx) => (
+                    <div key={it.relationId || idx} style={{ marginLeft: idx === 0 ? 0 : -10, border: '3px solid var(--paper)', borderRadius: 999, position: 'relative', zIndex: idx }}>
+                      <Avatar name={it.name} size={30} color={avatarColor(it.name)}/>
+                    </div>
+                  ))}
+                  {extraAvatars > 0 && (
+                    <div style={{
+                      marginLeft: -10, width: 30, height: 30, borderRadius: 999,
+                      border: '3px solid var(--paper)', background: 'var(--ink)', color: 'var(--paper)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                    }}>+{extraAvatars}</div>
+                  )}
+                </div>
+                {/* Actions : Déplier · Statistiques · Sélectionner tous · Message groupé */}
+                <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => toggleCollapsed(group.campaignId)}
+                    aria-expanded={!isCollapsed}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                    title={isCollapsed ? 'Déplier la liste des prospects' : 'Replier la liste des prospects'}
+                  >
+                    <span style={{
+                      display: 'inline-flex', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                      transition: 'transform .15s',
+                    }}>
+                      <Icon name="arrow" size={12}/>
+                    </span>
+                    {isCollapsed ? 'Déplier' : 'Replier'}
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => { setActiveCampaign({ id: group.campaignId, name: group.campaign }); setSegFilters({}); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                      color: cs.accent, borderColor: cs.accent,
+                      background: `color-mix(in oklab, ${cs.accent} 8%, var(--paper))`,
+                    }}
+                    title="Statistiques de la campagne (audience, filtres, segments)"
+                  >
+                    <Icon name="chart" size={12}/> Statistiques
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setGroupSelected(group, !allSelected)}
+                    disabled={emailableIds.length === 0}
+                    style={{ opacity: emailableIds.length === 0 ? 0.4 : 1, whiteSpace: 'nowrap' }}
+                    title={emailableIds.length === 0 ? 'Aucun email partagé dans ce groupe' : (allSelected ? 'Tout désélectionner' : 'Sélectionner tous')}
+                  >
+                    {allSelected ? 'Tout désélectionner' : someSelected ? 'Tout sélectionner' : 'Sélectionner tous'}
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => handleGroupMessage(group)}
+                    disabled={selectedInGroup.length === 0 || groupSending}
+                    style={{
+                      background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
+                      color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
+                      cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Icon name="email" size={12}/>
+                    Message groupé{selectedInGroup.length > 0 ? ` (${selectedInGroup.length})` : ''}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -5859,7 +5973,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               title={r.emailAvailable ? '' : "Email non partagé — sélection désactivée"}
                             />
                           </td>
-                          <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                          <td className="row center gap-3"><Avatar name={r.name} size={28} color={avatarColor(r.name)}/><span>{r.name}</span></td>
                           <td className="mono tnum">{r.score}</td>
                           <td><span className="chip">P{r.tier}</span></td>
                           <td className="mono" style={{ fontSize: 12 }}>{r.email}</td>
@@ -5933,7 +6047,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               <button
                                 type="button"
                                 className="btn btn-ghost btn-sm"
-                                onClick={() => setDetailsFor(r)}
+                                onClick={() => setDetailsFor({ row: r, siblings: group.items })}
                                 title="Voir les catégories de données payées dans la campagne"
                                 style={{ whiteSpace: 'nowrap', fontSize: 12 }}
                               >
@@ -5995,7 +6109,12 @@ function Contacts({ pendingContact, onPendingConsumed }) {
 
       {detailsFor && (
         <ProspectDetailsModal
-          row={detailsFor}
+          row={detailsFor.row}
+          siblings={detailsFor.siblings}
+          onNavigate={(nr) => setDetailsFor({ row: nr, siblings: detailsFor.siblings })}
+          onPriorityChange={(relationId, priority) => {
+            setAllRows((prev) => (prev || []).map((r) => r.relationId === relationId ? { ...r, priority } : r));
+          }}
           onClose={() => setDetailsFor(null)}
         />
       )}
@@ -6288,19 +6407,56 @@ function ActionInfoModal({ info, onClose }) {
    Portail vers <body> (échappe au conteneur scrollable du tableau) +
    pattern scroll-safe (overflow auto, align flex-start, margin auto)
    pour rester lisible sur mobile / petit écran. */
-function ProspectDetailsModal({ row, onClose }) {
+// Métadonnées d'affichage par palier (icône + couleur + n°) — alignées sur la
+// maquette de la fiche détaillée.
+const TIER_META = {
+  identity:     { n: 1, color: '#4F46E5', icon: 'user' },
+  localisation: { n: 2, color: '#0D9488', icon: 'mapPin' },
+  vie:          { n: 3, color: '#D97706', icon: 'heart' },
+  pro:          { n: 4, color: '#1F2937', icon: 'briefcase' },
+  patrimoine:   { n: 5, color: '#DB2777', icon: 'home' },
+};
+const PRIORITY_OPTS = [
+  { v: 1, label: 'Haute',   color: '#DC2626' },
+  { v: 2, label: 'Moyenne', color: '#D97706' },
+  { v: 3, label: 'Basse',   color: '#16A34A' },
+];
+const priorityLabel = (v) => (PRIORITY_OPTS.find(o => o.v === v)?.label) || null;
+
+function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onClose }) {
   const [status, setStatus] = React.useState('loading'); // loading | ok | error
   const [tiers, setTiers] = React.useState([]);
+  const [ref, setRef] = React.useState(null);
+  // Priorité : `picked` = sélection courante (non encore enregistrée),
+  // `saved` = dernière valeur persistée (sert au bandeau bas + filtres).
+  const [picked, setPicked] = React.useState(row.priority ?? null);
+  const [saved, setSaved] = React.useState(row.priority ?? null);
+  const [saving, setSaving] = React.useState(false);
+
+  // Navigation entre fiches d'une même campagne (Précédent / Suivant).
+  const list = Array.isArray(siblings) ? siblings : [row];
+  const idx = Math.max(0, list.findIndex(s => s.relationId === row.relationId));
+  const total = list.length;
+  const goPrev = () => { if (idx > 0 && onNavigate) onNavigate(list[idx - 1]); };
+  const goNext = () => { if (idx < total - 1 && onNavigate) onNavigate(list[idx + 1]); };
+
+  const cs = categoryStyle(row.campaignObjective);
 
   React.useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft') goPrev();
+      else if (e.key === 'ArrowRight') goNext();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, idx, total]);
 
   React.useEffect(() => {
     let cancelled = false;
     setStatus('loading');
+    setPicked(row.priority ?? null);
+    setSaved(row.priority ?? null);
     fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/details`, { cache: 'no-store' })
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
@@ -6309,12 +6465,36 @@ function ProspectDetailsModal({ row, onClose }) {
       .then((j) => {
         if (cancelled) return;
         setTiers(Array.isArray(j?.tiers) ? j.tiers : []);
+        setRef(j?.ref ?? null);
+        if (typeof j?.priority !== 'undefined') {
+          setPicked(j.priority ?? null);
+          setSaved(j.priority ?? null);
+        }
         setStatus('ok');
       })
       .catch(() => { if (!cancelled) setStatus('error'); });
     return () => { cancelled = true; };
   }, [row.relationId]);
 
+  async function savePriority() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/priority`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ priority: picked }),
+      });
+      if (!res.ok) { alert("Impossible d'enregistrer la priorité. Réessayez."); return; }
+      setSaved(picked);
+      if (onPriorityChange) onPriorityChange(row.relationId, picked);
+    } catch {
+      alert("Impossible d'enregistrer la priorité. Réessayez.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const num = String(idx + 1).padStart(2, '0');
   const modalNode = (
     <div
       onClick={onClose}
@@ -6330,113 +6510,195 @@ function ProspectDetailsModal({ row, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="prospect-details-title"
-        style={{ width: '100%', maxWidth: 520, padding: 24, margin: 'auto 0' }}
+        style={{ width: '100%', maxWidth: 560, padding: 0, margin: 'auto 0', overflow: 'hidden' }}
       >
-        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 6, gap: 10 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h3
-              id="prospect-details-title"
-              className="serif"
-              style={{ fontSize: 18, lineHeight: 1.3, margin: 0, color: 'var(--ink)', wordBreak: 'break-word' }}
-            >
-              Fiche de {row.name}
-            </h3>
-            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              Catégories payées dans « {row.campaign} »
-            </div>
-          </div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" style={{ flexShrink: 0 }}>
-            <Icon name="close" size={12}/>
-          </button>
-        </div>
-
-        {status === 'loading' && (
-          <div className="muted" style={{ fontSize: 13, padding: '24px 0', textAlign: 'center' }}>
-            Chargement des informations…
-          </div>
-        )}
-        {status === 'error' && (
-          <div role="alert" style={{
-            marginTop: 14, padding: '10px 14px', borderRadius: 10,
-            background: '#fef2f2', border: '1px solid #fca5a5',
-            color: '#991b1b', fontSize: 12.5, lineHeight: 1.5,
-          }}>
-            Impossible de charger les détails de ce prospect pour le moment.
-            Réessayez dans un instant.
-          </div>
-        )}
-        {status === 'ok' && tiers.length === 0 && (
-          <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
-            Aucune catégorie de données disponible pour cette campagne.
-          </div>
-        )}
-        {status === 'ok' && tiers.length > 0 && (
-          <div className="col gap-3" style={{ marginTop: 14 }}>
-            {tiers.map((t) => (
-              <div key={t.key} style={{
-                border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden',
-              }}>
-                <div style={{
-                  padding: '10px 14px', background: 'var(--ivory-2)',
-                  borderBottom: '1px solid var(--line-2)',
-                  fontSize: 13, fontWeight: 600, color: 'var(--ink)',
-                }}>
-                  {t.label}
-                </div>
-                <div>
-                  {(t.items || []).map((it, i) => (
-                    <div
-                      key={i}
-                      className="row between"
-                      style={{
-                        padding: '10px 14px', gap: 12, alignItems: 'flex-start',
-                        borderBottom: i < t.items.length - 1 ? '1px solid var(--line)' : 'none',
-                      }}
-                    >
-                      <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>{it.label}</span>
-                      <span style={{
-                        fontSize: 13, fontWeight: 500, textAlign: 'right',
-                        color: it.value ? 'var(--ink)' : 'var(--ink-4)',
-                        fontStyle: it.value ? 'normal' : 'italic',
-                        wordBreak: 'break-word', minWidth: 0,
-                      }}>
-                        {it.value
-                          ? (it.label === 'Téléphone' ? maskPhoneDisplay(it.value) : it.value)
-                          : '— non renseigné —'}
-                      </span>
-                    </div>
-                  ))}
+        {/* En-tête */}
+        <div style={{ padding: '20px 22px', background: 'var(--ivory-2)', borderBottom: '1px solid var(--line)' }}>
+          <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
+            <div className="row center gap-3" style={{ minWidth: 0 }}>
+              <Avatar name={row.name} size={42} color={avatarColor(row.name)}/>
+              <div style={{ minWidth: 0 }}>
+                <h3 id="prospect-details-title" className="serif" style={{ fontSize: 19, lineHeight: 1.2, margin: 0, color: 'var(--ink)', wordBreak: 'break-word' }}>
+                  Fiche de {row.name}
+                </h3>
+                <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>
+                  <span className="muted">Catégories payées dans </span>
+                  <strong style={{ color: cs.accent }}>« {cs.full} »</strong>
                 </div>
               </div>
-            ))}
-            <div className="row" style={{
-              gap: 8, padding: '10px 12px', borderRadius: 8,
-              background: 'color-mix(in oklab, var(--ink) 4%, var(--paper))',
-              border: '1px solid var(--line)', fontSize: 11.5,
-              color: 'var(--ink-3)', lineHeight: 1.5, alignItems: 'flex-start',
-            }}>
-              <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
-              <span>
-                L'e-mail est un alias sécurisé watermarqué : tout message y est
-                routé vers le prospect, et toute fuite reste imputable. Accès
-                journalisé conformément à notre politique RGPD.
+            </div>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" style={{ flexShrink: 0 }}>
+              <Icon name="close" size={12}/>
+            </button>
+          </div>
+          {/* Badge fiche + pagination */}
+          <div className="row between" style={{ marginTop: 14, gap: 10, flexWrap: 'wrap' }}>
+            <div className="row center gap-2" style={{ minWidth: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'var(--ink)', color: 'var(--paper)', fontSize: 10, fontWeight: 600, letterSpacing: '.06em' }}>
+                <Icon name="doc" size={11}/> FICHE
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', wordBreak: 'break-all' }}>
+                N° {num}{ref ? ` · ${ref}` : ''}
               </span>
             </div>
+            <div className="row center gap-2">
+              <button onClick={goPrev} disabled={idx <= 0} className="btn btn-ghost btn-sm" style={{ opacity: idx <= 0 ? 0.4 : 1, cursor: idx <= 0 ? 'not-allowed' : 'pointer' }}>
+                <Icon name="arrowLeft" size={12}/> Précédent
+              </button>
+              <span className="mono tnum" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                <strong>{num}</strong> <span className="muted">/ {total}</span>
+              </span>
+              <button onClick={goNext} disabled={idx >= total - 1} className="btn btn-ghost btn-sm" style={{ opacity: idx >= total - 1 ? 0.4 : 1, cursor: idx >= total - 1 ? 'not-allowed' : 'pointer' }}>
+                Suivant <Icon name="arrowRight" size={12}/>
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
-        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
-          <button
-            onClick={onClose}
-            className="btn"
-            style={{
-              background: 'var(--ink)', color: 'var(--paper)',
-              padding: '10px 18px', borderRadius: 8, fontWeight: 500,
-              fontSize: 14, border: 0, cursor: 'pointer', minWidth: 120,
-            }}
-          >
-            Fermer
-          </button>
+        {/* Corps scrollable */}
+        <div style={{ padding: '18px 22px', maxHeight: '64vh', overflowY: 'auto' }}>
+          {/* Priorité de traitement */}
+          <div style={{
+            background: 'color-mix(in oklab, #7C3AED 6%, var(--paper))',
+            border: '1px solid color-mix(in oklab, #7C3AED 18%, var(--line))',
+            borderRadius: 14, padding: 16, marginBottom: 16,
+          }}>
+            <div className="row center gap-3" style={{ marginBottom: 12 }}>
+              <span style={{ display: 'inline-flex', width: 34, height: 34, borderRadius: 9, background: 'var(--paper)', border: '1px solid var(--line)', alignItems: 'center', justifyContent: 'center', color: '#7C3AED', flexShrink: 0 }}>
+                <Icon name="flag" size={16}/>
+              </span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Priorité de traitement</div>
+                <div className="muted" style={{ fontSize: 12 }}>Classez la fiche pour filtrer vos prospects par priorité.</div>
+              </div>
+            </div>
+            <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+              {PRIORITY_OPTS.map((o) => {
+                const on = picked === o.v;
+                return (
+                  <button
+                    key={o.v}
+                    onClick={() => setPicked(on ? null : o.v)}
+                    style={{
+                      flex: '1 1 90px', minWidth: 90, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
+                      background: on ? `color-mix(in oklab, ${o.color} 12%, var(--paper))` : 'var(--paper)',
+                      border: '1.5px solid ' + (on ? o.color : 'var(--line-2)'),
+                      transition: 'all .12s',
+                    }}
+                  >
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: o.color, fontWeight: 700, fontSize: 14 }}>
+                      <Icon name="sparkle" size={13}/> {o.v}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{o.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={savePriority}
+              disabled={saving || picked === saved}
+              className="btn"
+              style={{
+                marginTop: 12, background: 'var(--ink)', color: 'var(--paper)',
+                padding: '9px 16px', borderRadius: 8, fontWeight: 500, fontSize: 13, border: 0,
+                cursor: (saving || picked === saved) ? 'default' : 'pointer',
+                opacity: (saving || picked === saved) ? 0.55 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <Icon name="doc" size={12}/> {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
+
+          {status === 'loading' && (
+            <div className="muted" style={{ fontSize: 13, padding: '24px 0', textAlign: 'center' }}>
+              Chargement des informations…
+            </div>
+          )}
+          {status === 'error' && (
+            <div role="alert" style={{
+              padding: '10px 14px', borderRadius: 10,
+              background: '#fef2f2', border: '1px solid #fca5a5',
+              color: '#991b1b', fontSize: 12.5, lineHeight: 1.5,
+            }}>
+              Impossible de charger les détails de ce prospect pour le moment.
+              Réessayez dans un instant.
+            </div>
+          )}
+          {status === 'ok' && tiers.length === 0 && (
+            <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
+              Aucune catégorie de données disponible pour cette campagne.
+            </div>
+          )}
+          {status === 'ok' && tiers.length > 0 && (
+            <div className="col gap-3">
+              {tiers.map((t) => {
+                const m = TIER_META[t.key] || { n: '', color: 'var(--accent)', icon: 'doc' };
+                return (
+                  <div key={t.key} style={{ border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden' }}>
+                    <div className="row between" style={{ padding: '10px 14px', background: 'var(--ivory-2)', borderBottom: '1px solid var(--line-2)', alignItems: 'center', gap: 10 }}>
+                      <div className="row center gap-2" style={{ minWidth: 0 }}>
+                        <span style={{ display: 'inline-flex', width: 26, height: 26, borderRadius: 7, background: m.color, color: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icon name={m.icon} size={14}/>
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{t.label}</span>
+                      </div>
+                      <span className="mono caps" style={{ fontSize: 9, color: 'var(--ink-4)', letterSpacing: '.1em', textAlign: 'right', lineHeight: 1.3, flexShrink: 0 }}>
+                        PALIER<br/>{m.n}
+                      </span>
+                    </div>
+                    <div>
+                      {(t.items || []).map((it, i) => (
+                        <div
+                          key={i}
+                          className="row between"
+                          style={{
+                            padding: '10px 14px', gap: 12, alignItems: 'flex-start',
+                            borderBottom: i < t.items.length - 1 ? '1px solid var(--line)' : 'none',
+                          }}
+                        >
+                          <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>{it.label}</span>
+                          <span style={{
+                            fontSize: 13, fontWeight: 500, textAlign: 'right',
+                            color: it.value ? 'var(--ink)' : 'var(--ink-4)',
+                            fontStyle: it.value ? 'normal' : 'italic',
+                            wordBreak: 'break-word', minWidth: 0,
+                          }}>
+                            {it.value
+                              ? (it.label === 'Téléphone' ? maskPhoneDisplay(it.value) : it.value)
+                              : '— non renseigné —'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="row" style={{
+                gap: 8, padding: '10px 12px', borderRadius: 8,
+                background: 'color-mix(in oklab, #4F46E5 6%, var(--paper))',
+                border: '1px solid color-mix(in oklab, #4F46E5 18%, var(--line))', fontSize: 11.5,
+                color: 'var(--ink-3)', lineHeight: 1.5, alignItems: 'flex-start',
+              }}>
+                <span aria-hidden="true" style={{ flexShrink: 0, color: '#4F46E5' }}><Icon name="info" size={14}/></span>
+                <span>
+                  L'e-mail est un alias sécurisé watermarqué : tout message y est
+                  routé vers le prospect, et toute fuite reste imputable. Accès
+                  journalisé conformément à notre politique RGPD.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bandeau bas */}
+        <div className="row between" style={{ padding: '12px 22px', borderTop: '1px solid var(--line)', background: 'var(--paper)', alignItems: 'center', gap: 10 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {saved
+              ? <>Priorité <strong style={{ color: PRIORITY_OPTS.find(o => o.v === saved)?.color }}>{priorityLabel(saved)}</strong></>
+              : 'Priorité non définie — enregistrez pour filtrer.'}
+          </span>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         </div>
       </div>
     </div>

@@ -118,6 +118,8 @@ const Icon = ({ name, size = 16, stroke = 1.5 }) => {
     // Palier — stacked bars ascending (explicit tiers)
     tiers: <><rect x="3" y="16" width="4" height="5"/><rect x="10" y="11" width="4" height="10"/><rect x="17" y="6" width="4" height="15"/></>,
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 8v.5M12 11v5"/></>,
+    heart: <path d="M12 20s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 5c-2.5 4.5-9.5 9-9.5 9z"/>,
+    home: <><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
     alert: <><path d="M12 3L22 20H2L12 3z"/><path d="M12 10v4M12 17v.5"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     rotate: <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>,
