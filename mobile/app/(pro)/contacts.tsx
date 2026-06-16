@@ -782,6 +782,14 @@ export default function Contacts() {
   const q = useProContacts();
   const p = useContactPalette();
   const [active, setActive] = useState<Set<FilterKey>>(new Set());
+  const [prioFilter, setPrioFilter] = useState<Set<number>>(new Set()); // priorité 1/2/3
+  const togglePrio = (v: number) =>
+    setPrioFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(v)) next.delete(v);
+      else next.add(v);
+      return next;
+    });
   const [selected, setSelected] = useState<ProContact | null>(null);
 
   // Atelier de segmentation (page Statistiques, ouverte via le bouton dédié).
@@ -919,8 +927,10 @@ export default function Contacts() {
   // Filtrage cumulatif local + regroupement (vue « Toutes », sans campagne).
   const groups = useMemo(() => {
     const rows = q.data?.rows ?? [];
-    const filtered = rows.filter((r) =>
-      [...active].every((k) => FILTERS.find((f) => f.key === k)!.test(r)),
+    const filtered = rows.filter(
+      (r) =>
+        [...active].every((k) => FILTERS.find((f) => f.key === k)!.test(r)) &&
+        (prioFilter.size === 0 || prioFilter.has(r.priority ?? -1)),
     );
     const map = new Map<string, ProContact[]>();
     for (const r of filtered) {
@@ -928,7 +938,7 @@ export default function Contacts() {
       (map.get(key) ?? map.set(key, []).get(key)!).push(r);
     }
     return [...map.entries()].map(([campaign, contacts]) => ({ campaign, contacts }));
-  }, [q.data, active]);
+  }, [q.data, active, prioFilter]);
 
   const total = q.data?.rows?.length ?? 0;
   // Groupes affichés : filtrés sur la campagne choisie dans les chips (le cas
@@ -1135,7 +1145,12 @@ export default function Contacts() {
                 <FiltersCard
                   active={active}
                   onToggle={toggle}
-                  onClear={() => setActive(new Set())}
+                  prioActive={prioFilter}
+                  onTogglePrio={togglePrio}
+                  onClear={() => {
+                    setActive(new Set());
+                    setPrioFilter(new Set());
+                  }}
                   shown={shown}
                   total={total}
                 />

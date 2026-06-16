@@ -82,20 +82,32 @@ export const FILTERS: {
   { key: "tier2", label: "F3 · Palier 2", test: (r) => r.tier >= 2 },
 ];
 
+// Options de filtre par priorité (mêmes couleurs que la fiche détaillée).
+const PRIO_FILTER: { v: number; label: string; color: string }[] = [
+  { v: 1, label: "Haute", color: "#DC2626" },
+  { v: 2, label: "Moyenne", color: "#D97706" },
+  { v: 3, label: "Basse", color: "#16A34A" },
+];
+
 export function FiltersCard({
   active,
   onToggle,
+  prioActive,
+  onTogglePrio,
   onClear,
   shown,
   total,
 }: {
   active: Set<FilterKey>;
   onToggle: (k: FilterKey) => void;
+  prioActive?: Set<number>;
+  onTogglePrio?: (v: number) => void;
   onClear: () => void;
   shown: number;
   total: number;
 }) {
   const p = useContactPalette();
+  const noFilter = active.size === 0 && (!prioActive || prioActive.size === 0);
   return (
     <View
       style={{
@@ -177,8 +189,8 @@ export function FiltersCard({
             paddingVertical: 7,
             paddingHorizontal: 13,
             borderRadius: 999,
-            backgroundColor: active.size === 0 ? p.ctaBg : p.card,
-            borderWidth: active.size === 0 ? 0 : 1.5,
+            backgroundColor: noFilter ? p.ctaBg : p.card,
+            borderWidth: noFilter ? 0 : 1.5,
             borderColor: p.border,
           }}
         >
@@ -186,12 +198,43 @@ export function FiltersCard({
             style={{
               fontSize: 12.5,
               fontWeight: "600",
-              color: active.size === 0 ? p.ctaText : p.text,
+              color: noFilter ? p.ctaText : p.text,
             }}
           >
             × Sans filtre
           </Text>
         </Pressable>
+      </View>
+
+      {/* Filtre par priorité de traitement (mêmes icônes/couleurs que la fiche). */}
+      <View className="flex-row items-center" style={{ flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+        <Text className="font-mono" style={{ fontSize: 10, letterSpacing: 0.8, color: p.muted }}>
+          PRIORITÉ
+        </Text>
+        {PRIO_FILTER.map((o) => {
+          const on = !!prioActive?.has(o.v);
+          return (
+            <Pressable
+              key={o.v}
+              onPress={() => onTogglePrio?.(o.v)}
+              className="flex-row items-center active:opacity-70"
+              style={{
+                gap: 4,
+                paddingVertical: 7,
+                paddingHorizontal: 12,
+                borderRadius: 999,
+                backgroundColor: on ? o.color + "1F" : p.card,
+                borderWidth: 1.5,
+                borderColor: on ? o.color : p.border,
+              }}
+            >
+              <Ionicons name="star" size={12} color={o.color} />
+              <Text style={{ fontSize: 12.5, fontWeight: "700", color: o.color }}>
+                {o.v} {o.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
