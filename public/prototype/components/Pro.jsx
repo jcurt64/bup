@@ -5258,10 +5258,15 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     }
   }, []);
   const [active, setActive] = useState(new Set());
+  const [prioFilter, setPrioFilter] = useState(new Set()); // Set<1|2|3> — filtre priorité
   const toggle = (k) => setActive(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const clear = () => setActive(new Set());
+  const togglePrio = (v) => setPrioFilter(s => { const n = new Set(s); n.has(v) ? n.delete(v) : n.add(v); return n; });
+  const clear = () => { setActive(new Set()); setPrioFilter(new Set()); };
   const ALL = allRows || [];
-  const rows = active.size === 0 ? ALL : ALL.filter(r => [...active].every(k => FILTERS[k].test(r)));
+  const rows = ALL.filter(r =>
+    (active.size === 0 || [...active].every(k => FILTERS[k].test(r))) &&
+    (prioFilter.size === 0 || prioFilter.has(r.priority))
+  );
 
   // Regroupement des lignes par campagne (préserve l'ordre d'arrivée).
   const groups = React.useMemo(() => {
@@ -5690,12 +5695,37 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               </button>
             );
           })}
+          {/* Filtre par priorité de traitement (mêmes icônes/couleurs que la fiche). */}
+          <div className="row center gap-2" style={{ marginLeft: 'auto', flexWrap: 'wrap' }}>
+            <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.1em', color: 'var(--ink-4)' }}>Priorité</span>
+            {PRIORITY_OPTS.map((o) => {
+              const on = prioFilter.has(o.v);
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => togglePrio(o.v)}
+                  title={`Filtrer : priorité ${o.label}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '8px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                    background: on ? `color-mix(in oklab, ${o.color} 14%, var(--paper))` : 'var(--paper)',
+                    color: o.color,
+                    border: '1.5px solid ' + (on ? o.color : 'var(--line-2)'),
+                    boxShadow: on ? `0 0 0 3px color-mix(in oklab, ${o.color} 16%, transparent)` : 'none',
+                    cursor: 'pointer', transition: 'all .15s',
+                  }}
+                >
+                  <Icon name="sparkle" size={12}/> {o.v} {o.label}
+                </button>
+              );
+            })}
+          </div>
           <button onClick={clear} style={{
             padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500,
-            background: active.size === 0 ? 'var(--ink)' : 'var(--paper)',
-            color: active.size === 0 ? 'var(--paper)' : 'var(--ink-3)',
-            border: '1.5px solid ' + (active.size === 0 ? 'var(--ink)' : 'var(--line-2)'),
-            cursor: 'pointer', transition: 'all .15s', marginLeft: 'auto'
+            background: (active.size === 0 && prioFilter.size === 0) ? 'var(--ink)' : 'var(--paper)',
+            color: (active.size === 0 && prioFilter.size === 0) ? 'var(--paper)' : 'var(--ink-3)',
+            border: '1.5px solid ' + ((active.size === 0 && prioFilter.size === 0) ? 'var(--ink)' : 'var(--line-2)'),
+            cursor: 'pointer', transition: 'all .15s'
           }}>
             <Icon name="close" size={11}/> Sans filtre
           </button>
@@ -9375,6 +9405,21 @@ const PRO_INFO_FIELDS = [
   { key: 'rmNumber',         label: 'Numéro RM (artisans)',             placeholder: '— facultatif · nécessaire pour éditer votre facture —', optional: true, mono: true },
 ];
 
+// Icône + couleur par champ (en-tête de chaque ligne d'« Informations société »).
+const PRO_INFO_ICON = {
+  raisonSociale:    { icon: 'briefcase', color: '#4F46E5' },
+  formeJuridique:   { icon: 'doc',       color: '#7C3AED' },
+  adresse:          { icon: 'mapPin',    color: '#0D9488' },
+  ville:            { icon: 'mapPin',    color: '#0D9488' },
+  codePostal:       { icon: 'mapPin',    color: '#0891B2' },
+  region:           { icon: 'france',    color: '#0891B2' },
+  capitalSocialEur: { icon: 'money',     color: '#16A34A' },
+  siren:            { icon: 'shield',    color: '#D97706' },
+  siret:            { icon: 'shield',    color: '#D97706' },
+  rcsVille:         { icon: 'doc',       color: '#DB2777' },
+  rmNumber:         { icon: 'doc',       color: '#E11D48' },
+};
+
 function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
   const [editing, setEditing] = useState(null); // { key, label, value }
   const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { key, label }
@@ -9477,38 +9522,51 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
       {/* Plan switcher */}
       <PlanSwitcherSection/>
 
-      {/* Completeness summary */}
-      <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
-        <div>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Complétude du profil entreprise</div>
-          <div className="serif tnum" style={{ fontSize: 40 }}>
-            {filledRequired}<span style={{ fontSize: 20, color: 'var(--ink-4)' }}> / {totalRequired}</span>
+      {/* Completeness summary — jauge circulaire + checklist (coches vertes) */}
+      <div className="card pro-info-completeness" style={{ padding: 24, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'center' }}>
+        <div style={{ position: 'relative', width: 124, height: 124, justifySelf: 'center' }}>
+          {(() => {
+            const pct = totalRequired ? filledRequired / totalRequired : 0;
+            const R = 54, C = 2 * Math.PI * R, off = C * (1 - pct);
+            return (
+              <svg width="124" height="124" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="62" cy="62" r={R} stroke="var(--ivory-2)" strokeWidth="10" fill="none"/>
+                <circle cx="62" cy="62" r={R} stroke="var(--accent)" strokeWidth="10" fill="none"
+                  strokeDasharray={C} strokeDashoffset={off} strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset .5s ease' }}/>
+              </svg>
+            );
+          })()}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="serif tnum" style={{ fontSize: 32, lineHeight: 1, color: 'var(--ink)' }}>{filledRequired}</div>
+            <div className="mono muted" style={{ fontSize: 10, marginTop: 3, letterSpacing: '.08em' }}>/ {totalRequired}</div>
           </div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+        </div>
+        <div>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 12 }}>Complétude du profil entreprise</div>
+          <div className="col gap-2">
+            {PRO_INFO_FIELDS.filter(f => !f.optional).map(f => {
+              const filled = !!info[f.key];
+              return (
+                <div key={f.key} className="row center gap-2" style={{ fontSize: 13 }}>
+                  <span style={{
+                    width: 20, height: 20, borderRadius: 999, flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: filled ? '#16A34A' : 'var(--ivory-2)',
+                    color: filled ? '#fff' : 'var(--ink-4)',
+                  }}>
+                    {filled ? <Icon name="check" size={12} stroke={2.5}/> : <Icon name="dot" size={7}/>}
+                  </span>
+                  <span style={{ color: filled ? 'var(--ink)' : 'var(--ink-3)' }}>{f.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
             {isComplete
               ? 'Toutes les informations obligatoires sont renseignées.'
               : 'Complétez les informations restantes pour finaliser votre profil.'}
           </div>
-        </div>
-        <div className="col gap-2">
-          {PRO_INFO_FIELDS.map(f => {
-            const filled = !!info[f.key];
-            return (
-              <div key={f.key}>
-                <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
-                  <span className="muted">{f.label}{f.optional ? ' (facultatif · nécessaire pour éditer votre facture)' : ''}</span>
-                  <span className="mono tnum">{filled ? '✓' : '—'}</span>
-                </div>
-                <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: filled ? '100%' : '0%',
-                    background: f.optional ? 'var(--ink-4)' : 'var(--accent)',
-                    transition: 'width .25s'
-                  }}/>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
 
@@ -9555,11 +9613,24 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             return (
               <div key={f.key} className="pro-info-tile" style={{
                 background: 'var(--paper)', padding: '14px 16px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12
+                display: 'flex', alignItems: 'center', gap: 12
               }}>
+                {(() => {
+                  const m = PRO_INFO_ICON[f.key] || { icon: 'briefcase', color: 'var(--accent)' };
+                  return (
+                    <span className="pro-info-tile-icon" style={{
+                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                      background: `color-mix(in oklab, ${m.color} 15%, var(--paper))`,
+                      color: m.color,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icon name={m.icon} size={15}/>
+                    </span>
+                  );
+                })()}
                 <div className="pro-info-tile-body" style={{ flex: 1, minWidth: 0 }}>
                   <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>
-                    {f.label}{f.optional ? ' · facultatif · nécessaire pour éditer votre facture' : ''}
+                    {f.label}{f.optional ? ' · facultatif' : ''}
                   </div>
                   <div
                     className={f.mono && val ? 'mono tnum' : ''}
@@ -9575,8 +9646,15 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
                 </div>
                 <div className="row gap-1 pro-info-tile-actions">
                   <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
+                    title="Modifier"
                     onClick={() => setEditing({ key: f.key, label: f.label, value: val, mono: f.mono, placeholder: f.placeholder, optional: f.optional })}>
                     <Icon name="edit" size={11}/>
+                  </button>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
+                    onClick={() => { if (val && typeof navigator !== 'undefined' && navigator.clipboard) navigator.clipboard.writeText(val); }}
+                    disabled={!val}
+                    title={val ? 'Copier' : 'Aucune valeur à copier'}>
+                    <Icon name="copy" size={11}/>
                   </button>
                   <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }}
                     onClick={() => setConfirmFieldDelete({ key: f.key, label: f.label })}
@@ -9594,6 +9672,7 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
             unique et on empile texte / actions verticalement. */}
         <style>{`
           @media (max-width: 640px) {
+            .pro-info-completeness { grid-template-columns: 1fr !important; justify-items: center; gap: 18px !important; }
             .pro-info-fields-grid { grid-template-columns: 1fr !important; }
             .pro-info-tile {
               flex-direction: column !important;
@@ -9803,9 +9882,14 @@ function PlanSwitcherSection() {
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {p.features.map((f, i) => (
-                  <li key={i} className="row" style={{ gap: 8, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
-                    <span style={{ color: p.color, flexShrink: 0, marginTop: 2 }}>
-                      <Icon name="check" size={13} stroke={2.5}/>
+                  <li key={i} className="row" style={{ gap: 9, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
+                    <span style={{
+                      width: 20, height: 20, borderRadius: 999, flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: `color-mix(in oklab, ${p.color} 16%, var(--paper))`,
+                      color: p.color, marginTop: 1,
+                    }}>
+                      <Icon name="check" size={12} stroke={2.5}/>
                     </span>
                     <span style={{ color: 'var(--ink-2)' }}>{f}</span>
                   </li>
@@ -9817,11 +9901,12 @@ function PlanSwitcherSection() {
                 disabled={isCurrent || !!submitting}
                 style={{
                   marginTop: 4,
-                  background: isCurrent ? 'var(--ivory-2)' : (p.id === 'pro' ? p.color : 'var(--ink)'),
-                  color: isCurrent ? 'var(--ink-3)' : 'var(--paper)',
-                  border: '1.5px solid ' + (isCurrent ? 'var(--line-2)' : (p.id === 'pro' ? p.color : 'var(--ink)')),
+                  background: isCurrent ? 'color-mix(in oklab, #16A34A 12%, var(--paper))' : (p.id === 'pro' ? p.color : 'var(--ink)'),
+                  color: isCurrent ? '#16A34A' : 'var(--paper)',
+                  border: '1.5px solid ' + (isCurrent ? '#16A34A' : (p.id === 'pro' ? p.color : 'var(--ink)')),
                   cursor: isCurrent ? 'default' : 'pointer',
                   opacity: submitting && !isLoading ? 0.5 : 1,
+                  fontWeight: 600,
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
                 aria-pressed={isCurrent}

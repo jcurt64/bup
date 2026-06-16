@@ -6635,7 +6635,15 @@ function EmailTrackingConsentCard() {
   return (
     <div className="card" style={{ padding: 28 }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
+        <div className="row" style={{ flex: 1, minWidth: 240, gap: 14, alignItems: 'flex-start' }}>
+          <span style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: 'var(--ivory-2)', color: 'var(--ink-2)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name="email" size={18}/>
+          </span>
+          <div style={{ minWidth: 0 }}>
           <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>
             Suivi des emails BUUPP
           </div>
@@ -6647,6 +6655,7 @@ function EmailTrackingConsentCard() {
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
             Recommandation CNIL n° 2026-042 — vous pouvez l'activer ou le désactiver à
             tout moment. <a href="/cookies" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Détails dans la politique cookies §5</a>.
+          </div>
           </div>
         </div>
         <button
