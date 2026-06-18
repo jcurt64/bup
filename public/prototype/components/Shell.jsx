@@ -74,6 +74,11 @@ const Icon = ({ name, size = 16, stroke = 1.5 }) => {
     users: <><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.5 3-6 7-6s7 2.5 7 6"/><path d="M16 11a3 3 0 0 0 0-6M22 21c0-3-2-5-5-5.5"/></>,
     inbox: <><path d="M3 13h5l2 3h4l2-3h5M3 13v7a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-7"/><path d="M3 13l3-8h12l3 8"/></>,
     shield: <path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z"/>,
+    shieldCheck: <><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></>,
+    history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></>,
+    bulb: <><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.1.5h4.8l.1-.5c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 3z"/></>,
+    send: <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>,
+    grid: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
     gauge: <><path d="M12 15a4 4 0 1 0-4-4"/><path d="M3 12a9 9 0 0 1 18 0"/></>,
     chart: <path d="M3 20h18M6 16l4-6 4 4 6-9"/>,
     sliders: <><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h14M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></>,
@@ -158,17 +163,17 @@ const Avatar = ({ name = "?", size = 32, color }) => {
 };
 
 // Small circular BUUPP Score gauge
-const ScoreGauge = ({ value = 742, max = 1000, size = 120, label = true }) => {
+const ScoreGauge = ({ value = 742, max = 1000, size = 120, label = true, stroke = 4, bold = false }) => {
   const pct = value / max;
-  const R = size / 2 - 6;
+  const R = size / 2 - Math.max(6, stroke);
   const C = 2 * Math.PI * R;
   const offset = C * (1 - pct);
   const tone = value >= 800 ? '#166534' : value >= 600 ? 'var(--accent)' : value >= 400 ? '#A16207' : '#B91C1C';
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={R} stroke="var(--line)" strokeWidth="4" fill="none" />
-        <circle cx={size/2} cy={size/2} r={R} stroke={tone} strokeWidth="4" fill="none"
+        <circle cx={size/2} cy={size/2} r={R} stroke="var(--line)" strokeWidth={stroke} fill="none" />
+        <circle cx={size/2} cy={size/2} r={R} stroke={tone} strokeWidth={stroke} fill="none"
                 strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round"
                 style={{ transition: 'stroke-dashoffset 1s ease' }}/>
       </svg>
@@ -176,8 +181,8 @@ const ScoreGauge = ({ value = 742, max = 1000, size = 120, label = true }) => {
         position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', textAlign: 'center'
       }}>
-        <div className="serif tnum" style={{ fontSize: size * 0.28, lineHeight: 1, color: 'var(--ink)' }}>{value}</div>
-        {label && <div className="mono muted" style={{ fontSize: 10, marginTop: 2, letterSpacing: '0.1em' }}>/ {max}</div>}
+        <div className="serif tnum" style={{ fontSize: size * (bold ? 0.34 : 0.28), fontWeight: bold ? 700 : 400, lineHeight: 1, color: 'var(--ink)' }}>{value}</div>
+        {label && <div className="mono muted" style={{ fontSize: bold ? 13 : 10, marginTop: bold ? 4 : 2, letterSpacing: '0.1em' }}>/ {max}</div>}
       </div>
     </div>
   );

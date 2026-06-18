@@ -2183,10 +2183,7 @@ function ProspectHeader({ onNav }) {
 
   const filleulCount = parrainage?.count ?? null;
   const filleulCap = parrainage?.cap ?? 10;
-  const parrainageText =
-    filleulCount == null ? '…' : `${filleulCount} / ${filleulCap}`;
   const scoreVal = score?.score;
-  const scoreText = scoreVal == null ? '…' : `${scoreVal} / 1000`;
   // Tant que /api/prospect/wallet n'a pas répondu, on garde "…" plutôt
   // que 0 € (évite un flash trompeur). Une fois la réponse reçue, on
   // affiche le vrai cumul du mois (par défaut 0 € si aucun gain).
@@ -2243,48 +2240,50 @@ function ProspectHeader({ onNav }) {
             {pendingSubtitle}
           </div>
         </div>
-        <div className="row center gap-6 prospect-header-pills">
-          <StatusPill
-            label="Vérification"
-            value={verification
-              ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Niveau ${verifTierPosition(verification.tier)}/3`
-              : '…'}
-            chip={
-              verification?.tier === 'certifie_confiance' ? 'chip-good' :
-              verification?.tier === 'verifie' ? 'chip-accent' :
-              ''
-            }
-          />
-          <StatusPill label="BUUPP Score" value={scoreText} chip="chip-good"/>
-          <StatusPill label="Parrainages" value={parrainageText} chip=""/>
+        <div className="row prospect-header-pills" style={{ gap: 16, alignItems: 'stretch' }}>
+          <HeaderPill icon="shieldCheck" label="Vérification">
+            {(() => {
+              const verifChip =
+                verification?.tier === 'certifie_confiance' ? 'chip-good' :
+                verification?.tier === 'verifie' ? 'chip-accent' : '';
+              const verifValue = verification
+                ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Niveau ${verifTierPosition(verification.tier)}/3`
+                : '…';
+              return (
+                <span className={'chip ' + verifChip} style={{
+                  width: '100%', justifyContent: 'flex-start',
+                  padding: '7px 12px', borderRadius: 8, fontSize: 12.5,
+                }}>
+                  {verifChip === 'chip-good' && <Icon name="check" size={12}/>}
+                  {verifValue}
+                </span>
+              );
+            })()}
+          </HeaderPill>
+          <HeaderPill icon="gauge" label="BUUPP Score">
+            <ScoreMeter value={scoreVal} max={1000}/>
+          </HeaderPill>
+          <HeaderPill icon="users" label="Parrainages">
+            <ReferralDots count={filleulCount} cap={filleulCap}/>
+          </HeaderPill>
         </div>
         <style>{`
-          /* Sur mobile, on aligne les 3 pastilles (Vérification / BUUPP
-             Score / Parrainages) en grille 3 colonnes équidistantes pour
-             que labels et chips soient alignés horizontalement, peu
-             importe la longueur du texte de chaque chip. */
+          /* Les 3 pastilles (Vérification / BUUPP Score / Parrainages) sont
+             des cartes autonomes : on les laisse wrapper sous l'en-tête sur
+             écran moyen, puis s'empiler en colonne pleine largeur sur mobile
+             (le contenu — barre de score, rangée de jetons — a besoin de
+             largeur, donc pas de grille 3 colonnes serrée). */
+          @media (max-width: 980px) {
+            .prospect-header-pills { flex-wrap: wrap; }
+          }
           @media (max-width: 720px) {
             .prospect-header-pills {
               display: grid !important;
-              grid-template-columns: repeat(3, 1fr);
+              grid-template-columns: 1fr;
               gap: 12px !important;
               width: 100%;
-              align-items: start;
             }
-            .prospect-header-pills .prospect-pill {
-              text-align: center;
-              min-width: 0;
-            }
-            .prospect-header-pills .prospect-pill .chip {
-              display: block;
-              text-align: center;
-              white-space: normal;
-              word-break: break-word;
-              line-height: 1.35;
-            }
-          }
-          @media (max-width: 420px) {
-            .prospect-header-pills .chip { font-size: 11.5px !important; padding: 5px 6px !important; }
+            .prospect-header-pills .prospect-pill { width: 100%; min-width: 0; }
           }
         `}</style>
       </div>
@@ -2292,11 +2291,72 @@ function ProspectHeader({ onNav }) {
   );
 }
 
-function StatusPill({ label, value, chip }) {
+// Carte-pastille de l'en-tête prospect : bordure fine, ombre douce, icône +
+// libellé mono en tête, puis un corps libre (chip de vérification, jauge de
+// score, rangée de jetons de parrainage).
+function HeaderPill({ icon, label, children }) {
   return (
-    <div className="prospect-pill">
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>{label}</div>
-      <div className={'chip ' + chip} style={{ fontSize: 13, padding: '5px 10px' }}>{value}</div>
+    <div className="prospect-pill" style={{
+      background: 'var(--paper)',
+      border: '1px solid var(--line)',
+      borderRadius: 16,
+      padding: '14px 18px',
+      minWidth: 190,
+      boxShadow: '0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03)',
+    }}>
+      <div className="row center gap-2" style={{ marginBottom: 12, color: 'var(--ink-4)' }}>
+        <Icon name={icon} size={13} stroke={1.6}/>
+        <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em' }}>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Jauge BUUPP Score : grand nombre serif gras + « / 1000 » mono, barre de
+// progression indigo proportionnelle au score.
+function ScoreMeter({ value, max = 1000 }) {
+  const v = value == null ? null : Number(value);
+  const pct = v == null ? 0 : Math.max(0, Math.min(1, v / max));
+  return (
+    <div>
+      <div className="row" style={{ alignItems: 'baseline', gap: 7, marginBottom: 9 }}>
+        <span className="serif tnum" style={{ fontSize: 27, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>
+          {v == null ? '…' : v}
+        </span>
+        <span className="mono muted" style={{ fontSize: 12 }}>/ {max}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct * 100}%`, height: '100%', borderRadius: 999,
+          background: 'linear-gradient(90deg, #818CF8, #4F46E5)', transition: 'width .6s ease',
+        }}/>
+      </div>
+    </div>
+  );
+}
+
+// Parrainages : grand nombre serif gras + « / 10 », puis `cap` jetons ronds
+// (remplis indigo selon le nombre de filleuls, vides en crème sinon).
+function ReferralDots({ count, cap = 10 }) {
+  const c = count == null ? 0 : Number(count);
+  return (
+    <div>
+      <div className="row" style={{ alignItems: 'baseline', gap: 7, marginBottom: 9 }}>
+        <span className="serif tnum" style={{ fontSize: 27, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>
+          {count == null ? '…' : count}
+        </span>
+        <span className="mono muted" style={{ fontSize: 12 }}>/ {cap}</span>
+      </div>
+      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+        {Array.from({ length: cap }).map((_, i) => (
+          <span key={i} style={{
+            width: 11, height: 11, borderRadius: 999, flexShrink: 0, boxSizing: 'border-box',
+            background: i < c ? 'var(--accent)' : 'var(--ivory-2)',
+            border: '1px solid ' + (i < c ? 'var(--accent)' : 'var(--line)'),
+          }}/>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2442,7 +2502,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
       0,
       (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()),
     );
-    return `${months} mois · ${rel}`;
+    return `${months} mois d'activité · ${rel}`;
   })();
 
   return (
@@ -2479,19 +2539,32 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           value={fmt(escrowEur)}
           coins={escrowCoins.toLocaleString('fr-FR')}
           sub="Déblocage à la clôture de la campagne"
-          lock
+          badge={<IconBadge name="lock" tone="neutral"/>}
         />
         <BalanceCard
           label="Cumulé depuis ouverture"
           value={fmt(lifetimeEur)}
           coins={lifetimeCoins.toLocaleString('fr-FR')}
           sub={lifetimeSub}
+          badge={<IconBadge name="trend" tone="good"/>}
         />
       </div>
 
       <div className="card historique-card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20 }}>
-          <div className="serif" style={{ fontSize: 22 }}>Historique des mouvements</div>
+          <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
+            <IconBadge name="history" tone="accent" size={38}/>
+            <div>
+              <div className="serif" style={{ fontSize: 22, lineHeight: 1.1 }}>Historique des mouvements</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                Chaque mise en relation validée crédite votre solde
+                {(() => {
+                  const n = movements?.movements?.length ?? null;
+                  return n == null ? '' : ` · ${n} mouvement${n > 1 ? 's' : ''} ce cycle`;
+                })()}
+              </div>
+            </div>
+          </div>
           {(() => {
             const rows = movements?.movements || [];
             const disabled = rows.length === 0;
@@ -2560,8 +2633,10 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                   Aucun mouvement pour le moment.
                 </td></tr>
               ) : (movements.movements || []).map((m) => {
-                const dateLabel = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' })
-                  .format(new Date(m.date));
+                const _date = new Date(m.date);
+                const dayLabel = new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(_date);
+                const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
+                  .format(_date).replace('.', '');
                 const amountStr = `${m.sign}${fmt(Math.abs(m.amountEur))}`;
                 // Lignes cliquables uniquement quand le mouvement est lié à
                 // une relation (escrow / credit issu d'une mise en relation).
@@ -2586,24 +2661,49 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                       ...(isSignupBonus ? { background: 'color-mix(in oklab, var(--good) 8%, var(--paper))' } : null),
                     }}
                   >
-                    <td className="mono" style={{ color: 'var(--ink-4)' }}>{dateLabel}</td>
+                    <td>
+                      <span className="row" style={{ alignItems: 'baseline', gap: 7 }}>
+                        <span className="serif tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{dayLabel}</span>
+                        <span className="mono caps" style={{ fontSize: 10.5, letterSpacing: '.1em', color: 'var(--ink-5)' }}>{monthLabel}</span>
+                      </span>
+                    </td>
                     <td>
                       {isSignupBonus ? (
                         <span className="chip chip-good" style={{ fontWeight: 600 }}>
                           <Icon name="gift" size={12}/> Bonus fondateur
                         </span>
                       ) : (
-                        m.origin
+                        <div className="row center" style={{ gap: 12 }}>
+                          <OriginAvatar name={m.origin}/>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14, lineHeight: 1.2 }}>{m.origin}</div>
+                            {m.relation?.campaignName && (
+                              <div className="mono caps" style={{ fontSize: 10.5, letterSpacing: '.08em', color: 'var(--ink-5)', marginTop: 2 }}>
+                                {m.relation.campaignName}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </td>
                     <td>{(() => {
                       const t = movementTierLabel(m);
-                      return t
-                        ? <span className="chip">{t.label} {t.value}</span>
-                        : <span className="muted">—</span>;
+                      if (!t) return <span className="muted">—</span>;
+                      // Séparateur « · » (point médian) au lieu du tiret cadratin
+                      // de formatPaliers, pour coller au rendu de la maquette.
+                      const val = t.value.split(' – ').join(' · ');
+                      return (
+                        <span className="chip" style={{ padding: '5px 10px', borderRadius: 8 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }}/>
+                          {t.label} {val}
+                        </span>
+                      );
                     })()}</td>
                     <td>
-                      <span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')}>{m.statusLabel}</span>
+                      <span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')} style={{ borderRadius: 999, padding: '5px 12px' }}>
+                        {m.statusChip === 'good' && <Icon name="check" size={12}/>}
+                        {m.statusLabel}
+                      </span>
                       {(() => {
                         const avail = formatAvailableAt(m.availableAt);
                         return avail
@@ -2612,7 +2712,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                       })()}
                     </td>
                     <td style={{ textAlign: 'right' }} className="mono tnum">
-                      <span style={{ color: m.amountCents >= 0 ? 'var(--good)' : 'var(--ink-3)' }}>{amountStr} €</span>
+                      <span style={{ color: m.amountCents >= 0 ? 'var(--good)' : 'var(--ink-3)', fontWeight: 700, fontSize: 13.5 }}>{amountStr} €</span>
                     </td>
                   </tr>
                 );
@@ -2620,6 +2720,30 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
             </tbody>
           </table>
         </div>
+        {(movements?.movements || []).length > 0 && (() => {
+          const rows = movements.movements || [];
+          const n = rows.length;
+          const totalCredited = rows.reduce(
+            (s, m) => s + (Number(m.amountCents) > 0 ? Number(m.amountEur || 0) : 0),
+            0,
+          );
+          return (
+            <div className="row between historique-footer" style={{
+              marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)',
+              alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            }}>
+              <span className="muted" style={{ fontSize: 13 }}>
+                Affichage des {n} dernier{n > 1 ? 's' : ''} mouvement{n > 1 ? 's' : ''}
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--ink-4)' }}>
+                Total crédité ce cycle :{' '}
+                <strong className="mono tnum" style={{ color: 'var(--good)', fontWeight: 700 }}>
+                  +{fmt(totalCredited)} €
+                </strong>
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {modal === 'retrait' && (
@@ -2644,7 +2768,92 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   );
 }
 
-function BalanceCard({ label, value, coins, sub, primary, lock, big, action, bonusEur }) {
+// Pastille d'icône en carré arrondi (coin haut-droit des cartes de solde et
+// en-tête de l'historique). `tone` choisit le couple fond/teinte.
+function IconBadge({ name, tone = 'neutral', size = 32 }) {
+  const tones = {
+    neutral: { bg: 'var(--ivory-2)', fg: 'var(--ink-4)' },
+    good: { bg: '#ECFDF5', fg: '#15803D' },
+    accent: { bg: 'var(--accent-soft)', fg: 'var(--accent)' },
+    warn: { bg: '#FBEFD6', fg: '#B45309' },
+    pink: { bg: '#FCE7F1', fg: '#DB2777' },
+    teal: { bg: '#DCF1EC', fg: '#0D9488' },
+  };
+  const t = tones[tone] || tones.neutral;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: size, height: size, borderRadius: 10,
+      background: t.bg, color: t.fg, flexShrink: 0,
+    }}>
+      <Icon name={name} size={Math.round(size * 0.5)} stroke={1.7}/>
+    </span>
+  );
+}
+
+// Avatar carré arrondi d'une origine (pro) dans l'historique : initiale +
+// couleur teintée déterministe (somme des codes de caractères du nom), pour
+// qu'un même pro garde toujours la même couleur d'une ligne à l'autre.
+function OriginAvatar({ name }) {
+  // Initiales = première lettre des 2 premiers mots ("Plomberie Saint" → "PS").
+  // Un nom mono-mot ("promax", "MAJELINK") reste une seule lettre.
+  const initials = ((name || '?').trim().split(/[\s-]+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0]).join('') || '?').toUpperCase();
+  const palette = [
+    { bg: '#FEF3C7', fg: '#B45309' },                  // ambre
+    { bg: '#E0F2FE', fg: '#0369A1' },                  // ciel
+    { bg: '#ECFDF5', fg: '#15803D' },                  // vert
+    { bg: 'var(--accent-soft)', fg: 'var(--accent)' }, // indigo
+    { bg: '#FCE7F3', fg: '#BE185D' },                  // rose
+  ];
+  const hash = [...(name || '')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const c = palette[hash % palette.length];
+  return (
+    <span style={{
+      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+      background: c.bg, color: c.fg,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: initials.length > 1 ? 13 : 15,
+    }}>{initials}</span>
+  );
+}
+
+// Carte statistique de l'onglet « Mises en relation » : badge d'icône teinté,
+// libellé mono, valeur serif. `primary` = carte indigo pleine (gains cumulés).
+function RelationStat({ primary, tone, icon, label, value, sub }) {
+  const tones = {
+    good:   { bg: '#ECFDF5', fg: '#15803D' },
+    danger: { bg: '#FDECEC', fg: '#DC2626' },
+    warn:   { bg: '#FBEFD6', fg: '#B45309' },
+  };
+  const t = tones[tone] || tones.good;
+  return (
+    <div className="card" style={{
+      padding: 20,
+      background: primary ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'var(--paper)',
+      borderColor: primary ? 'transparent' : 'var(--line)',
+      color: primary ? '#fff' : 'var(--ink)',
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 10, marginBottom: 16,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: primary ? 'rgba(255,255,255,.16)' : t.bg,
+        color: primary ? '#fff' : t.fg,
+      }}>
+        <Icon name={icon} size={18} stroke={1.8}/>
+      </div>
+      <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', marginBottom: 8,
+        color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span className="serif tnum" style={{ fontSize: 28, fontWeight: 700, lineHeight: 1,
+          color: primary ? '#fff' : 'var(--ink)' }}>{value}</span>
+        {sub && <span style={{ fontSize: 12.5, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bonusEur }) {
   return (
     <div className="card" style={{
       padding: 28,
@@ -2680,7 +2889,7 @@ function BalanceCard({ label, value, coins, sub, primary, lock, big, action, bon
         <div className="mono caps" style={{ fontSize: 10, color: primary ? 'rgba(255,255,255,.5)' : 'var(--ink-4)', letterSpacing: '.14em' }}>
           {label}
         </div>
-        {lock && <Icon name="lock" size={14} stroke={1.5}/>}
+        {badge}
       </div>
       <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
         <span className="serif tnum" style={{ fontSize: big ? 64 : 44, lineHeight: 1, color: primary ? 'var(--paper)' : 'var(--ink)' }}>{value}</span>
@@ -3035,6 +3244,17 @@ const DATA_CATEGORIES = [
   },
 ];
 
+// Couleur d'identité par palier — appliquée au badge d'icône de la carte de
+// catégorie, à la barre de complétude et à la valeur % correspondantes. Chaque
+// palier a une teinte distincte (fond clair `soft` + aplat saturé `fg`).
+const CAT_COLORS = {
+  identity:     { soft: '#EEF2FF', fg: '#4F46E5' }, // indigo
+  localisation: { soft: '#DCF1EC', fg: '#0D9488' }, // teal
+  vie:          { soft: '#FCE7F1', fg: '#DB2777' }, // rose
+  pro:          { soft: '#FAEBCF', fg: '#B45309' }, // ambre
+  patrimoine:   { soft: '#E4F3E9', fg: '#15803D' }, // vert
+};
+
 // ─── Complétude « intégrale » d'un palier ───────────────────────────────
 // Un palier est COMPLET quand TOUS ses champs sont renseignés (distinct du
 // palier « atteint » = ≥ 1 champ, utilisé pour le BUUPP Score). C'est la
@@ -3223,27 +3443,27 @@ function MesDonnees({ onGoPrefs }) {
 
       {/* RGPD rights banner — eye-catching */}
       <div className="alert-block" style={{
-        padding: '22px 26px', borderRadius: 14,
-        background: 'linear-gradient(120deg, #FEF3C7 0%, #FCD34D 100%)',
-        border: '1.5px solid #F59E0B',
-        color: '#78350F',
+        padding: '22px 26px', borderRadius: 16,
+        background: 'linear-gradient(120deg, #FCEFCF 0%, #F7E2A8 100%)',
+        border: '1px solid #ECD89E',
+        color: '#6E4E14',
         display: 'flex', gap: 18, alignItems: 'flex-start'
       }}>
-        <div style={{ width: 42, height: 42, borderRadius: 999, background: '#FDE68A', color: '#78350F',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1.5px solid #B45309' }}>
-          <Icon name="shield" size={20} stroke={2}/>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F0DBA2', color: '#9A7322',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="shieldCheck" size={20} stroke={1.8}/>
         </div>
         <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontSize: 20, marginBottom: 4, color: '#78350F' }}>
+          <div className="serif" style={{ fontSize: 21, marginBottom: 4, color: '#6E4E14' }}>
             Vos droits sur vos données — articles 15 à 22 du RGPD
           </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: '#78350F' }}>
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: '#6E4E14' }}>
             Vous disposez des droits d'<strong>accès</strong>, de <strong>rectification</strong>,
             d'<strong>effacement</strong>, de <strong>limitation du traitement</strong>, de <strong>portabilité</strong>
             et d'<strong>opposition</strong> sur l'intégralité de vos données personnelles. Ces droits
             s'exercent directement depuis cette page — chaque action est horodatée et tracée.
           </div>
-          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#92400E', letterSpacing: '.06em' }}>
+          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#8A6A22', letterSpacing: '.06em' }}>
             RGPD · ARTICLES 15 À 22 · RÈGLEMENT (UE) 2016/679
           </div>
         </div>
@@ -3252,29 +3472,35 @@ function MesDonnees({ onGoPrefs }) {
       {/* Completeness summary */}
       <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
         <div>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Niveau de palier</div>
-          <div className="serif tnum" style={{ fontSize: 40 }}>{completeness}<span style={{ fontSize: 20, color: 'var(--ink-4)' }}>%</span></div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, letterSpacing: '.14em' }}>Niveau de palier</div>
+          <div className="serif tnum" style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em' }}>
+            {completeness}<span style={{ fontSize: 26, fontWeight: 400, color: 'var(--ink-4)' }}>%</span>
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
             <strong style={{ color: 'var(--ink-2)' }}>{reachedTiers}/{visibleCategories.length} paliers atteints</strong>
             {' · '}{filledFields}/{totalFields} champs renseignés
           </div>
-          <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+          <div className="muted" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
             Un palier est <em>atteint</em> dès qu'au moins une donnée y est renseignée. Plus vous remplissez de champs, plus votre BUUPP Score augmente.
           </div>
         </div>
         <div>
-          <div className="col gap-2">
+          <div className="col gap-3">
             {visibleCategories.map(c => {
               const filled = c.fields.filter(([f]) => profile?.[c.key]?.[f]).length;
               const pct = deleted[c.key] ? 0 : Math.round(filled / c.fields.length * 100);
+              const col = CAT_COLORS[c.key] || { soft: 'var(--ivory-2)', fg: 'var(--accent)' };
               return (
                 <div key={c.key}>
-                  <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
-                    <span className="muted">P{c.tier} · {c.label}</span>
-                    <span className="mono tnum">{pct}%</span>
+                  <div className="row between" style={{ fontSize: 13, marginBottom: 6 }}>
+                    <span>
+                      <span className="mono muted" style={{ fontSize: 11, marginRight: 8 }}>P{c.tier}</span>
+                      <span style={{ color: 'var(--ink)' }}>{c.label}</span>
+                    </span>
+                    <span className="mono tnum" style={{ color: pct > 0 ? col.fg : 'var(--ink-5)' }}>{pct}%</span>
                   </div>
-                  <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: pct + '%', background: deleted[c.key] ? 'var(--warn)' : 'var(--accent)', transition: 'width .25s' }}/>
+                  <div style={{ height: 7, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: pct + '%', background: col.fg, transition: 'width .25s' }}/>
                   </div>
                 </div>
               );
@@ -3302,10 +3528,15 @@ function MesDonnees({ onGoPrefs }) {
             <div key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1 }}>
               <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                 <div className="row center gap-4">
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--ivory-2)', color: 'var(--ink-2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon name={cat.icon} size={18}/>
-                  </div>
+                  {(() => {
+                    const col = CAT_COLORS[cat.key] || { soft: 'var(--ivory-2)', fg: 'var(--ink-2)' };
+                    return (
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: col.soft, color: col.fg,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon name={cat.icon} size={20}/>
+                      </div>
+                    );
+                  })()}
                   <div>
                     <div className="row center gap-3">
                       <div className="serif" style={{ fontSize: 20 }}>{cat.label}</div>
@@ -3321,19 +3552,21 @@ function MesDonnees({ onGoPrefs }) {
                       <button className="btn btn-primary btn-sm" onClick={() => ctx?.restore(cat.key)}>
                         <Icon name="rotate" size={12}/> Restaurer
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)} style={{ color: 'var(--danger)' }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)}
+                        style={{ color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 30%, var(--line))' }}>
                         <Icon name="trash" size={12}/> Supprimer définitivement
                       </button>
                     </>
                   ) : (
                     <>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setAdding(cat.key)}>
+                      <button className="btn btn-primary btn-sm" onClick={() => setAdding(cat.key)}>
                         <Icon name="plus" size={12}/> Ajouter
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => setConfirmHide(cat.key)}>
                         <Icon name="eyeSlash" size={12}/> Masquer temporairement
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)} style={{ color: 'var(--danger)' }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)}
+                        style={{ color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 30%, var(--line))' }}>
                         <Icon name="trash" size={12}/> Supprimer
                       </button>
                     </>
@@ -3366,7 +3599,7 @@ function MesDonnees({ onGoPrefs }) {
                         gap: 10,
                         alignItems: 'flex-start',
                       }} role="status">
-                        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>🙃</span>
+                        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>😊</span>
                         <span>
                           Encore un petit effort pour valider la section{' '}
                           <strong>{cat.label}</strong> — il manque{' '}
@@ -3377,7 +3610,7 @@ function MesDonnees({ onGoPrefs }) {
                                 ' et ' +
                                 missing.slice(-1)[0].toLowerCase()}
                           </strong>{' '}
-                          😉
+                          😊
                         </span>
                       </div>
                     )}
@@ -3417,22 +3650,26 @@ function MesDonnees({ onGoPrefs }) {
                             )}
                           </div>
                         </div>
-                        <div className="row gap-1">
-                          <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}
+                        <div className="row gap-2">
+                          <button className="btn btn-ghost" style={{ width: 32, height: 32, padding: 0, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                             onClick={onEdit}
-                            title={isPhone ? (val ? 'Modifier et vérifier le téléphone' : 'Renseigner et vérifier le téléphone') : undefined}>
-                            <Icon name="edit" size={11}/>
+                            title={isPhone ? (val ? 'Modifier et vérifier le téléphone' : 'Renseigner et vérifier le téléphone') : 'Modifier'}>
+                            <Icon name="edit" size={13}/>
                           </button>
-                          <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                          <button className="btn btn-ghost" style={{ width: 32, height: 32, padding: 0, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 28%, var(--line))' }}
                             onClick={() => setConfirmFieldDelete({ category: cat.key, categoryLabel: cat.label, field, label })}
                             disabled={!val}
                             title={val ? 'Supprimer cette donnée' : 'Aucune valeur à supprimer'}>
-                            <Icon name="trash" size={11}/>
+                            <Icon name="trash" size={13}/>
                           </button>
                         </div>
                       </div>
                     );
                   })}
+                  {/* Cellule de remplissage paper quand le nombre de champs est
+                      impair : évite que le fond `--line` de la grille n'apparaisse
+                      en gris dans le dernier emplacement vide. */}
+                  {cat.fields.length % 2 === 1 && <div style={{ background: 'var(--paper)' }}/>}
                 </div>
               </>
             );
@@ -3449,9 +3686,9 @@ function MesDonnees({ onGoPrefs }) {
         border: '1px solid color-mix(in oklab, var(--accent) 30%, transparent)',
         display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap'
       }}>
-        <div style={{ width: 36, height: 36, borderRadius: 999, background: 'var(--accent)', color: 'white',
+        <div style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--accent)', color: 'white',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon name="info" size={16} stroke={2}/>
+          <Icon name="sliders" size={18} stroke={2}/>
         </div>
         <div style={{ flex: 1, minWidth: 240 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2, color: 'var(--ink)' }}>Pensez à affiner vos préférences</div>
@@ -4780,16 +5017,58 @@ function Relations() {
   const [detail, setDetail] = useState(null); // l'objet pending sélectionné
   // « La Vitrine » — interstitiel de sortie depuis la carte ({proName, websiteUrl}).
   const [vitrineLeave, setVitrineLeave] = useState(null);
+
+  // Statistiques dérivées de l'historique → cartes du haut + total du pied.
+  const eur = (v) => Number(v || 0).toFixed(2).replace('.', ',');
+  const acceptedHist = history.filter(h => h.decision === 'Acceptée');
+  const refusedHist = history.filter(h => h.decision === 'Refusée');
+  const acceptedCount = acceptedHist.length;
+  const refusedCount = refusedHist.length;
+  const totalDemandes = history.length;
+  const gainsAccepted = acceptedHist.reduce((s, h) => s + (Number(h.gain) || 0), 0);
+  const escrowSum = acceptedHist
+    .filter(h => /séquestre/i.test(h.status || ''))
+    .reduce((s, h) => s + (Number(h.gain) || 0), 0);
+
   return (
     <div className="col gap-6">
       <SectionTitle eyebrow="Mises en relation" title="Demandes en attente" desc="Le délai d'acceptation dépend de chaque campagne — il est affiché en temps réel sur chaque demande. Sans réponse à temps, la sollicitation expire."/>
+
+      {relationsHydrated && (
+        <>
+          <div className="relations-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <RelationStat primary icon="money" label="Gains acceptés cumulés" value={`${eur(gainsAccepted)} €`}/>
+            <RelationStat tone="good" icon="check" label="Acceptées" value={String(acceptedCount)} sub={`/ ${totalDemandes} demande${totalDemandes > 1 ? 's' : ''}`}/>
+            <RelationStat tone="danger" icon="close" label="Refusées" value={String(refusedCount)} sub={`/ ${totalDemandes} demande${totalDemandes > 1 ? 's' : ''}`}/>
+            <RelationStat tone="warn" icon="lock" label="En séquestre" value={`${eur(escrowSum)} €`}/>
+          </div>
+          <style>{`
+            @media (max-width: 900px) { .relations-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+            @media (max-width: 520px) { .relations-stats { grid-template-columns: 1fr !important; } }
+          `}</style>
+        </>
+      )}
+
       {!relationsHydrated ? (
         <div className="card" style={{ padding: 24, textAlign: 'center' }}>
           <div className="muted" style={{ fontSize: 13 }}>Chargement de vos sollicitations…</div>
         </div>
       ) : pending.length === 0 ? (
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
-          <div className="muted" style={{ fontSize: 13 }}>Aucune demande en attente pour le moment.</div>
+        <div className="card empty-relations" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#ECFDF5', color: '#15803D',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="check" size={22} stroke={2}/>
+          </div>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div className="serif" style={{ fontSize: 20 }}>Aucune demande en attente</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 3 }}>
+              Vous êtes à jour. Les nouvelles sollicitations des professionnels apparaîtront ici dès leur arrivée.
+            </div>
+          </div>
+          <span className="chip chip-good" style={{ borderRadius: 999, padding: '7px 14px', fontSize: 12 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: '#15803D', display: 'inline-block' }}/>
+            Surveillance en temps réel
+          </span>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -4958,30 +5237,40 @@ function Relations() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 28 }}>
+      <div className="card historique-card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20, alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div className="serif" style={{ fontSize: 22 }}>Historique</div>
-          <div className="row gap-2 historique-filters" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="muted" style={{ fontSize: 11 }}>
+          <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
+            <IconBadge name="history" tone="accent" size={38}/>
+            <div>
+              <div className="serif" style={{ fontSize: 22, lineHeight: 1.1 }}>Historique</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                {totalDemandes} sollicitation{totalDemandes > 1 ? 's' : ''} traitée{totalDemandes > 1 ? 's' : ''} · gains crédités après séquestre
+              </div>
+            </div>
+          </div>
+          <div className="row center historique-filters" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <span className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.1em' }}>
               <Icon name="filter" size={11}/> Filtrer
             </span>
-            {HISTORY_FILTERS.map(f => {
-              const active = historyFilter === f.key;
-              return (
-                <button key={f.key}
-                  onClick={() => setHistoryFilter(f.key)}
-                  className="chip"
-                  style={{
-                    cursor: 'pointer',
-                    background: active ? 'var(--ink)' : 'var(--ivory-2)',
-                    color: active ? 'var(--paper)' : 'var(--ink-3)',
-                    border: 0,
-                    fontWeight: active ? 600 : 400,
-                  }}>
-                  {f.label}
-                </button>
-              );
-            })}
+            <div className="row" style={{ background: 'var(--ivory-2)', borderRadius: 999, padding: 4, gap: 2 }}>
+              {HISTORY_FILTERS.map(f => {
+                const active = historyFilter === f.key;
+                return (
+                  <button key={f.key}
+                    onClick={() => setHistoryFilter(f.key)}
+                    style={{
+                      cursor: 'pointer', border: 0, borderRadius: 999,
+                      padding: '6px 14px', fontSize: 12.5, fontFamily: 'var(--sans)',
+                      fontWeight: active ? 600 : 500,
+                      background: active ? 'var(--ink)' : 'transparent',
+                      color: active ? 'var(--paper)' : 'var(--ink-4)',
+                      transition: 'background .15s, color .15s',
+                    }}>
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
         <div className="tbl-scroll">
@@ -4995,6 +5284,10 @@ function Relations() {
               )}
               {filteredHistory.map((h) => {
                 const gainStr = h.gain != null ? '+' + h.gain.toFixed(2).replace('.', ',') : '—';
+                const _d = new Date(h.date);
+                const dayLabel = isNaN(_d.getTime()) ? '' : new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(_d);
+                const monthLabel = isNaN(_d.getTime()) ? '' : new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(_d).replace('.', '');
+                const isEscrow = /séquestre/i.test(h.status || '');
                 // Lignes cliquables — ouvrent RelationDetailModal pour voir le
                 // détail de la campagne + accepter rétroactivement si elle est
                 // encore ouverte (cf. h.campaignOpen côté API).
@@ -5007,46 +5300,94 @@ function Relations() {
                     style={{ cursor: 'pointer' }}
                     title="Voir le détail de la campagne"
                   >
-                    <td className="mono" style={{ color: 'var(--ink-4)' }}>{formatHistoryDate(h.date)}</td>
                     <td>
-                      <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
-                        <span>{h.proName}</span>
-                        {h.isFlashDeal && (
-                          <span title="Sollicitation Flash Deal — gains multipliés"
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 4,
-                              padding: '2px 8px', borderRadius: 999,
-                              background: 'linear-gradient(135deg, #B91C1C, #EF4444)',
-                              color: 'white', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
-                            }}>
-                            <Icon name="bolt" size={9}/> FLASH
-                          </span>
-                        )}
+                      <span className="row" style={{ alignItems: 'baseline', gap: 7 }}>
+                        <span className="serif tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{dayLabel}</span>
+                        <span className="mono caps" style={{ fontSize: 10.5, letterSpacing: '.1em', color: 'var(--ink-5)' }}>{monthLabel}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <div className="row center" style={{ gap: 12 }}>
+                        <OriginAvatar name={h.proName}/>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14, lineHeight: 1.2 }}>{h.proName}</div>
+                          {h.isFlashDeal && (
+                            <span title="Sollicitation Flash Deal — gains multipliés"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4,
+                                padding: '2px 8px', borderRadius: 999,
+                                background: 'linear-gradient(135deg, #B91C1C, #EF4444)',
+                                color: 'white', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+                              }}>
+                              <Icon name="bolt" size={9}/> FLASH
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td>{(() => {
                       const t = movementTierLabel(h);
-                      return t
-                        ? <span className="chip">{t.label} {t.value}</span>
-                        : <span className="muted">—</span>;
+                      if (!t) return <span className="muted">—</span>;
+                      const val = t.value.split(' – ').join(' · ');
+                      return (
+                        <span className="chip" style={{ padding: '5px 10px', borderRadius: 8 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }}/>
+                          {t.label} {val}
+                        </span>
+                      );
                     })()}</td>
-                    <td><span className={'chip ' + (h.decision === 'Acceptée' ? 'chip-good' : '')}>{h.decision}</span></td>
-                    <td className="muted">
-                      <div>{h.status}</div>
-                      {(() => {
-                        const avail = formatAvailableAt(h.availableAt);
-                        return avail
-                          ? <div style={{ fontSize: 11, marginTop: 4 }}>{avail}</div>
-                          : null;
-                      })()}
+                    <td>
+                      {h.decision === 'Acceptée' ? (
+                        <span className="chip chip-good" style={{ borderRadius: 999, padding: '5px 12px' }}>
+                          <Icon name="check" size={12}/> Acceptée
+                        </span>
+                      ) : h.decision === 'Refusée' ? (
+                        <span className="chip" style={{ borderRadius: 999, padding: '5px 12px', background: '#FDECEC', color: '#DC2626', borderColor: '#F6CFCF' }}>
+                          <Icon name="close" size={12}/> Refusée
+                        </span>
+                      ) : (
+                        <span className="chip" style={{ borderRadius: 999, padding: '5px 12px' }}>{h.decision}</span>
+                      )}
                     </td>
-                    <td className="mono tnum" style={{ textAlign: 'right', color: gainStr === '—' ? 'var(--ink-5)' : 'var(--good)' }}>{gainStr === '—' ? '—' : gainStr + ' €'}</td>
+                    <td>
+                      {h.decision === 'Acceptée' && isEscrow ? (
+                        <span className="row center" style={{ gap: 6, fontSize: 13, color: 'var(--ink-3)' }}>
+                          <span style={{ color: '#B45309', display: 'inline-flex' }}><Icon name="lock" size={13} stroke={1.6}/></span>
+                          En séquestre
+                        </span>
+                      ) : (h.status && h.status !== '—') ? (
+                        <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>{h.status}</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="mono tnum">
+                      {gainStr === '—'
+                        ? <span style={{ color: 'var(--ink-5)' }}>—</span>
+                        : <span style={{ color: 'var(--good)', fontWeight: 700, fontSize: 13.5 }}>{gainStr} €</span>}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        {history.length > 0 && (
+          <div className="row between historique-footer" style={{
+            marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)',
+            alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <div className="row center" style={{ gap: 18, fontSize: 12.5, color: 'var(--ink-4)', flexWrap: 'wrap' }}>
+              <span className="row center" style={{ gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#15803D' }}/> Acceptée</span>
+              <span className="row center" style={{ gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#DC2626' }}/> Refusée</span>
+              <span className="row center" style={{ gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#B45309' }}/> En séquestre</span>
+            </div>
+            <span style={{ fontSize: 13, color: 'var(--ink-4)' }}>
+              Total accepté :{' '}
+              <strong className="mono tnum" style={{ color: 'var(--good)', fontWeight: 700 }}>+{eur(gainsAccepted)} €</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {detail && (
@@ -5630,6 +5971,35 @@ function verifTierPosition(tier) {
   return 1;
 }
 
+// Métadonnées d'affichage par niveau de vérification : icône, description
+// complète, avantages débloqués, teintes (badge clair + bannière sombre).
+const VERIF_META = {
+  basique: {
+    icon: 'user',
+    full: "Compte créé. Niveau attribué automatiquement à l'inscription.",
+    perks: ['Accès aux campagnes standard', 'Paliers 1 et 2'],
+    soft: '#EEF2FF', fg: '#4F46E5',
+    dark: 'linear-gradient(135deg, #334155 0%, #1E293B 100%)',
+    banner: 'Niveau de départ — vérifiez votre téléphone pour débloquer plus de campagnes.',
+  },
+  verifie: {
+    icon: 'phone',
+    full: 'Numéro de téléphone vérifié par SMS.',
+    perks: ['Demandes mieux rémunérées', 'Paliers 1 à 4'],
+    soft: '#ECFDF5', fg: '#15803D',
+    dark: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
+    banner: 'Votre téléphone est vérifié — la plupart des campagnes vous sont ouvertes.',
+  },
+  certifie_confiance: {
+    icon: 'shieldCheck',
+    full: 'Rendez-vous physique accepté.',
+    perks: ['Toutes les campagnes ouvertes', 'Tous les paliers · 1 à 5'],
+    soft: '#EEF2FF', fg: '#4F46E5',
+    dark: 'linear-gradient(135deg, #166534 0%, #143C1E 100%)',
+    banner: 'Vous bénéficiez du niveau de confiance maximal — toutes les campagnes vous sont ouvertes.',
+  },
+};
+
 function VerifTiers() {
   const [data, setData] = useState(null);
   const [ribOpen, setRibOpen] = useState(false);
@@ -5656,123 +6026,118 @@ function VerifTiers() {
         title="Vos niveaux"
         desc="Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées."
       />
-      <div className="card" style={{ padding: 32 }}>
-        {/* Progress dots line */}
-        <div style={{ position: 'relative', padding: '0 0 24px' }}>
-          <div style={{ position: 'absolute', top: 14, left: 14, right: 14, height: 2, background: 'var(--line)' }}/>
-          <div style={{
-            position: 'absolute', top: 14, left: 14,
-            width: `calc(${(currentIdx)/(VERIF_TIERS.length-1)*100}% - 28px)`,
-            height: 2, background: 'var(--accent)',
-            transition: 'width .3s'
-          }}/>
-          <div className="row between">
-            {VERIF_TIERS.map((t, i) => (
-              <div key={t.key} style={{ textAlign: 'center', zIndex: 1, width: 160 }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: 999,
-                  background: i <= currentIdx ? 'var(--accent)' : 'var(--paper)',
-                  border: '2px solid ' + (i <= currentIdx ? 'var(--accent)' : 'var(--line-2)'),
-                  color: i <= currentIdx ? 'white' : 'var(--ink-4)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto', fontSize: 12, fontFamily: 'var(--mono)'
-                }}>{i < currentIdx ? '✓' : i + 1}</div>
-                <div style={{ marginTop: 10, fontSize: 13, fontWeight: i === currentIdx ? 500 : 400 }}>{t.label}</div>
+      {(() => {
+        const meta = VERIF_META[tier] || VERIF_META.basique;
+        const pct = Math.round((currentIdx + 1) / VERIF_TIERS.length * 100);
+        return (
+          <div className="card verif-banner" style={{
+            padding: '26px 30px', background: meta.dark, borderColor: 'transparent', color: '#fff',
+            display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap',
+          }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,.14)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="shieldCheck" size={26} stroke={1.8}/>
+            </div>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'rgba(255,255,255,.6)', marginBottom: 6 }}>Votre niveau actuel</div>
+              <div className="row center" style={{ gap: 12, flexWrap: 'wrap' }}>
+                <span className="serif" style={{ fontSize: 26, color: '#fff' }}>{VERIF_TIERS[currentIdx].label}</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--mono)', padding: '4px 10px', borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,.3)', color: 'rgba(255,255,255,.85)' }}>
+                  Niveau {currentIdx + 1}/{VERIF_TIERS.length}
+                </span>
               </div>
-            ))}
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.72)', marginTop: 6, lineHeight: 1.5 }}>{meta.banner}</div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: 'rgba(255,255,255,.6)', marginBottom: 6 }}>Statut</div>
+              <div className="serif" style={{ fontSize: 22, color: '#fff' }}>{pct} % débloqué</div>
+            </div>
           </div>
-        </div>
+        );
+      })()}
 
-        {/* 3 colonnes équidistantes, alignées avec les 3 pastilles de
-            progression au-dessus. Chaque colonne décrit l'état d'un
-            niveau (Validé / Niveau actuel / Prochaine étape / Dernière
-            étape). Le mapping des libellés est dynamique : il dépend du
-            niveau courant — pour un prospect "Basique", on aura
-            Basique → Niveau actuel · Vérifié → Prochaine étape ·
-            Certifié confiance → Dernière étape. */}
-        <div style={{
-          borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 24,
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24,
-        }}>
+      <div className="card" style={{ padding: '34px 36px' }}>
+        <div className="verif-stepper" style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <div aria-hidden style={{ position: 'absolute', top: 20, left: '16.66%', right: '16.66%', height: 3, background: 'var(--line)', borderRadius: 999 }}/>
+          <div aria-hidden style={{ position: 'absolute', top: 20, left: '16.66%', height: 3, background: 'var(--accent)', borderRadius: 999, transition: 'width .3s',
+            width: `calc(${currentIdx / (VERIF_TIERS.length - 1)} * (100% - 33.33%))` }}/>
           {VERIF_TIERS.map((t, i) => {
             const reached = i <= currentIdx;
-            const isCurrent = i === currentIdx;
-            const label = isCurrent
-              ? 'Niveau actuel'
-              : i < currentIdx
-                ? 'Niveau validé'
-                : t.nextLabel;
-            // CTA disponible uniquement pour le niveau "Vérifié" non
-            // encore atteint (ouverture de la modale RIB).
-            const showRibCta = !reached && t.key === 'verifie';
             return (
-              <div key={t.key} style={{ textAlign: 'center', minWidth: 0 }}>
-                <div className="mono caps muted" style={{ marginBottom: 10, fontSize: 10, letterSpacing: '.14em' }}>
-                  — {label}
+              <div key={t.key} style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 999, margin: '0 auto',
+                  background: reached ? 'var(--accent)' : 'var(--paper)',
+                  border: '2px solid ' + (reached ? 'var(--accent)' : 'var(--line-2)'),
+                  color: reached ? '#fff' : 'var(--ink-4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600,
+                  boxShadow: reached ? '0 4px 12px -4px color-mix(in oklab, var(--accent) 55%, transparent)' : 'none',
+                }}>
+                  {i < currentIdx ? <Icon name="check" size={16} stroke={2.5}/> : (i + 1)}
                 </div>
-                <div className="serif" style={{ fontSize: isCurrent ? 24 : 18, marginBottom: 6 }}>
-                  {t.label}
-                  {isCurrent && (
-                    <span className="muted" style={{ fontSize: 14 }}>
-                      {' · Niveau '}{currentIdx + 1}/{VERIF_TIERS.length}
-                    </span>
-                  )}
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5, margin: 0 }}>
-                  {reached ? `${t.done}.` : t.requirement}
-                </p>
-                {isCurrent && ribValidated && ibanMasked && (
-                  <div className="muted mono" style={{ fontSize: 12, marginTop: 8 }}>RIB : {ibanMasked}</div>
-                )}
-                {showRibCta && (
-                  <button
-                    onClick={() => setRibOpen(true)}
-                    className="btn btn-primary btn-sm"
-                    style={{ marginTop: 12 }}
-                  >
-                    {ribValidated ? 'Modifier mon RIB' : 'Renseigner mon RIB'}{' '}
-                    <Icon name="arrow" size={12}/>
-                  </button>
-                )}
+                <div style={{ marginTop: 12, fontWeight: 600, fontSize: 14, color: reached ? 'var(--ink)' : 'var(--ink-4)' }}>{t.label}</div>
+                <div className="mono muted" style={{ fontSize: 11, marginTop: 3 }}>{t.done}</div>
               </div>
             );
           })}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div className="verif-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {VERIF_TIERS.map((t, i) => {
           const reached = i <= currentIdx;
+          const isCurrent = i === currentIdx;
+          const meta = VERIF_META[t.key] || VERIF_META.basique;
           return (
             <div key={t.key} className="card" style={{
-              padding: 20,
-              background: i === currentIdx ? 'var(--paper)' : 'var(--ivory-2)',
-              borderColor: i === currentIdx ? 'var(--ink)' : 'var(--line)',
+              padding: 24,
+              borderColor: isCurrent ? 'var(--accent)' : 'var(--line)',
+              boxShadow: isCurrent ? '0 0 0 1px var(--accent)' : 'none',
             }}>
-              <div className="row between center" style={{ marginBottom: 10 }}>
-                <div className="mono caps muted" style={{ fontSize: 10 }}>Niveau {i + 1}</div>
+              <div className="row between center" style={{ marginBottom: 18 }}>
+                <span className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.14em' }}>Niveau {i + 1}</span>
                 {reached
-                  ? <span className="chip chip-good"><Icon name="check" size={10}/> Validé</span>
-                  : <span className="chip">À venir</span>}
+                  ? <span className="chip chip-good" style={{ borderRadius: 999, padding: '4px 10px' }}><Icon name="check" size={11}/> Validé</span>
+                  : <span className="chip" style={{ borderRadius: 999, padding: '4px 10px' }}>À venir</span>}
               </div>
-              <div className="serif" style={{ fontSize: 22, marginBottom: 10 }}>{t.label}</div>
-              {/* Pour chaque carte, on affiche le même format en deux lignes :
-                  (1) un sous-titre "eyebrow" qui qualifie l'étape (Première /
-                      Étape suivante / Dernière étape),
-                  (2) la description : ce qui a été validé pour les niveaux
-                      atteints, ou le prérequis pour les niveaux à venir.
-                  Cela harmonise visuellement les 3 cartes (notamment "Certifié
-                  confiance" qui rappelle le rendez-vous physique requis). */}
-              <div className="mono caps muted" style={{ fontSize: 9, letterSpacing: '.14em', marginBottom: 4 }}>
-                — {reached ? 'Validé' : t.nextLabel}
+              <div style={{
+                width: 46, height: 46, borderRadius: 12, marginBottom: 16,
+                background: isCurrent ? 'var(--accent)' : meta.soft,
+                color: isCurrent ? '#fff' : meta.fg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name={meta.icon} size={22}/>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }}>
-                {reached ? t.done : t.requirement}
+              <div className="serif" style={{ fontSize: 24, marginBottom: 8 }}>{t.label}</div>
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5, margin: '0 0 16px' }}>{meta.full}</p>
+              <div className="col gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+                {meta.perks.map((p, k) => (
+                  <div key={k} className="row center" style={{ gap: 8, fontSize: 13, color: 'var(--ink-2)' }}>
+                    <span style={{ color: 'var(--good)', display: 'inline-flex', flexShrink: 0 }}><Icon name="check" size={14} stroke={2.2}/></span>
+                    {p}
+                  </div>
+                ))}
+                {isCurrent && (
+                  <div className="row center" style={{ gap: 8, fontSize: 11, marginTop: 2, color: 'var(--accent)',
+                    fontFamily: 'var(--mono)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--accent)' }}/> Niveau actuel
+                  </div>
+                )}
+                {!reached && t.key === 'verifie' && (
+                  <button onClick={() => setRibOpen(true)} className="btn btn-primary btn-sm" style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+                    {ribValidated ? 'Modifier mon RIB' : 'Renseigner mon RIB'} <Icon name="arrow" size={12}/>
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+      <style>{`
+        @media (max-width: 820px) { .verif-cards { grid-template-columns: 1fr !important; } }
+      `}</style>
 
       {ribOpen && <RibModal initial={data?.rib} onClose={() => setRibOpen(false)}/>}
     </div>
@@ -5997,7 +6362,7 @@ function ScorePanel() {
         : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`,
     },
     {
-      icon: 'inbox',
+      icon: 'email',
       label: 'Taux d\'acceptation',
       currentPct: acceptance?.pct ?? 0,
       gain: acceptanceGap,
@@ -6016,10 +6381,16 @@ function ScorePanel() {
 
   return (
     <div className="col gap-6">
+      <style>{`
+        @media (max-width: 880px) {
+          .score-top { grid-template-columns: 1fr !important; }
+          .score-dims { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre taux d'acceptation."/>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
+      <div className="score-top" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <ScoreGauge value={value} size={240}/>
+          <ScoreGauge value={value} size={240} stroke={10} bold/>
           <div className="serif italic" style={{ fontSize: 22, marginTop: 16, color: tier.color }}>{tier.label}</div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{prenom} {nomInitial}</div>
           <div className="col gap-2" style={{ marginTop: 22, borderTop: '1px solid var(--line)', paddingTop: 16, fontSize: 12, textAlign: 'left' }}>
@@ -6042,9 +6413,12 @@ function ScorePanel() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="row between" style={{ marginBottom: 14, gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <div className="serif" style={{ fontSize: 22 }}>Conseils pour améliorer votre score</div>
-          <div className="muted" style={{ fontSize: 12 }}>1 % sur une dimension = ~{ptsPerPct.toFixed(1).replace('.', ',')} pts au score</div>
+        <div className="row between" style={{ marginBottom: 18, gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="row center" style={{ gap: 14 }}>
+            <IconBadge name="bulb" tone="accent" size={38}/>
+            <div className="serif" style={{ fontSize: 22 }}>Conseils pour améliorer votre score</div>
+          </div>
+          <div className="mono muted" style={{ fontSize: 11 }}>1 % sur une dimension = ~{ptsPerPct.toFixed(1).replace('.', ',')} pts au score</div>
         </div>
 
         {/* Bandeau : points acquis + palier courant + gap vers palier suivant */}
@@ -6089,32 +6463,38 @@ function ScorePanel() {
         </div>
 
         {/* Grille des 3 dimensions : carte par dimension, gain exact + hint */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div className="score-dims" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {tips.map((c, i) => {
             const maxed = c.gain === 0;
             return (
               <div key={i} style={{
                 padding: 20,
-                border: '1px dashed ' + (maxed ? 'color-mix(in oklab, var(--good) 30%, var(--line))' : 'var(--line-2)'),
-                borderRadius: 12,
-                background: maxed ? 'color-mix(in oklab, var(--good) 4%, var(--paper))' : 'var(--paper)',
+                border: '1px solid ' + (maxed ? 'color-mix(in oklab, var(--good) 35%, var(--line))' : 'var(--line)'),
+                borderRadius: 14,
+                background: maxed ? 'color-mix(in oklab, var(--good) 6%, var(--paper))' : 'var(--paper)',
               }}>
-                <div className="row between center" style={{ marginBottom: 10 }}>
-                  <span style={{ color: maxed ? 'var(--good, #16a34a)' : 'var(--accent)' }}><Icon name={c.icon} size={18}/></span>
+                <div className="row between center" style={{ marginBottom: 14 }}>
+                  <span style={{
+                    width: 34, height: 34, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: maxed ? '#ECFDF5' : 'var(--accent-soft)',
+                    color: maxed ? '#15803D' : 'var(--accent)',
+                  }}><Icon name={c.icon} size={17}/></span>
                   <span className="mono" style={{
                     fontSize: 11,
-                    color: maxed ? 'var(--good, #16a34a)' : 'var(--accent)',
+                    color: maxed ? '#15803D' : 'var(--accent)',
                   }}>
                     {maxed ? '✓ optimal' : `+${c.gain} pts max`}
                   </span>
                 </div>
-                <div className="serif" style={{ fontSize: 16, marginBottom: 4 }}>{c.label}</div>
-                <div className="row" style={{ alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-                  <span className="mono tnum" style={{ fontSize: 18, fontWeight: 600 }}>{c.currentPct}%</span>
-                  {c.subline && <span className="muted" style={{ fontSize: 11 }}>· {c.subline}</span>}
+                <div className="serif" style={{ fontSize: 17, marginBottom: 8 }}>{c.label}</div>
+                <div className="row" style={{ alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                  <span className="serif tnum" style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: maxed ? '#15803D' : 'var(--ink)' }}>{c.currentPct}%</span>
+                  {c.subline && <span className="mono muted" style={{ fontSize: 11 }}>· {c.subline}</span>}
                 </div>
-                <Progress value={c.currentPct / 100}/>
-                <div className="muted" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.45 }}>{c.hint}</div>
+                <div style={{ height: 7, borderRadius: 999, background: 'var(--ivory-2)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${c.currentPct}%`, borderRadius: 999, background: maxed ? '#15803D' : 'var(--accent)', transition: 'width .3s' }}/>
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 12, lineHeight: 1.45 }}>{c.hint}</div>
               </div>
             );
           })}
@@ -6351,9 +6731,12 @@ function Prefs() {
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between" style={{ marginBottom: 12, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Types de campagne acceptés</div>
-            <div className="muted" style={{ fontSize: 13 }}>Choisissez pour quels types de campagne vous acceptez d'être sollicité.</div>
+          <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
+            <IconBadge name="send" tone="accent" size={40}/>
+            <div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Types de campagne acceptés</div>
+              <div className="muted" style={{ fontSize: 13 }}>Choisissez pour quels types de campagne vous acceptez d'être sollicité.</div>
+            </div>
           </div>
           <button
             onClick={() => ctx?.setAllCampaignTypes(!allTypes)}
@@ -6380,7 +6763,7 @@ function Prefs() {
                 border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line-2)'),
                 transition: 'all .15s', cursor: 'pointer'
               }}>
-                {active && <span style={{ marginRight: 6 }}>✓</span>}
+                {active && <span style={{ marginRight: 6, color: '#34D399' }}>✓</span>}
                 {t}
               </button>
             );
@@ -6390,9 +6773,12 @@ function Prefs() {
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between" style={{ marginBottom: 12, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Catégories autorisées</div>
-            <div className="muted" style={{ fontSize: 13 }}>Seuls les professionnels de ces secteurs pourront vous adresser une demande.</div>
+          <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
+            <IconBadge name="grid" tone="teal" size={40}/>
+            <div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Catégories autorisées</div>
+              <div className="muted" style={{ fontSize: 13 }}>Seuls les professionnels de ces secteurs pourront vous adresser une demande.</div>
+            </div>
           </div>
           <button
             onClick={() => ctx?.setAllCategories(!allCats_)}
@@ -6506,7 +6892,7 @@ function Prefs() {
               justifyContent: 'center', textAlign: 'center', padding: 24, gap: 10,
               border: '1px dashed var(--line-2)',
             }}>
-              <Icon name="mapPin" size={22}/>
+              <IconBadge name="mapPin" tone="accent" size={44}/>
               <div className="serif" style={{ fontSize: 17, lineHeight: 1.3, maxWidth: 320 }}>
                 Renseignez votre ville pour activer cette section
               </div>
@@ -6524,8 +6910,13 @@ function Prefs() {
           )}
         </div>
         <div className="card" style={{ padding: 28 }}>
-          <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne souhaitez pas voir transmis (réversible — aucune donnée n'est effacée).</div>
+          <div className="row" style={{ gap: 14, alignItems: 'flex-start', marginBottom: 16 }}>
+            <IconBadge name="tiers" tone="warn" size={40}/>
+            <div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>
+              <div className="muted" style={{ fontSize: 13 }}>Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne souhaitez pas voir transmis (réversible — aucune donnée n'est effacée).</div>
+            </div>
+          </div>
           {[
             [1, 'Identification', 'minimum 1,00 €'],
             [2, 'Localisation', '1,00 – 2,00 €'],
@@ -6638,7 +7029,7 @@ function EmailTrackingConsentCard() {
         <div className="row" style={{ flex: 1, minWidth: 240, gap: 14, alignItems: 'flex-start' }}>
           <span style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: 'var(--ivory-2)', color: 'var(--ink-2)',
+            background: '#FCE7F1', color: '#DB2777',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Icon name="email" size={18}/>
@@ -6666,7 +7057,7 @@ function EmailTrackingConsentCard() {
           aria-label={active ? 'Désactiver le suivi' : 'Activer le suivi'}
           style={{
             width: 52, height: 30, borderRadius: 999, position: 'relative',
-            background: active ? 'var(--accent)' : 'var(--line-2)',
+            background: active ? '#10B981' : 'var(--line-2)',
             border: 0, cursor: disabled ? 'wait' : 'pointer',
             transition: 'background .2s', flexShrink: 0,
             opacity: disabled ? 0.7 : 1,
@@ -7154,6 +7545,29 @@ function Parrainage() {
         </div>
       )}
 
+      <div className="ref-rewards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {[
+          { tier: 'cuivre', range: '1 – 2', label: 'Used',  c: '#15803D', desc: <><strong>+50 % de coins</strong> sur la 1ʳᵉ acceptation de chaque filleul.</> },
+          { tier: 'argent', range: '3 – 9', label: 'Paid',  c: '#4F46E5', desc: <>Accès aux <strong>offres flash 20 min avant</strong> tout le monde.</> },
+          { tier: 'or',     range: '10',    label: 'Proud', c: '#B45309', desc: <>Statut <strong>Governor</strong> — consulté·e en avant-première sur les nouveautés.</> },
+        ].map((r) => {
+          const isCurrent = data?.badgeTier === r.tier;
+          return (
+            <div key={r.tier} className="card" style={{
+              padding: 20,
+              borderColor: isCurrent ? r.c : 'var(--line)',
+              boxShadow: isCurrent ? `0 0 0 1px ${r.c}` : 'none',
+            }}>
+              <div className="row center" style={{ gap: 10, marginBottom: 10 }}>
+                <span className="mono" style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: r.c, color: '#fff' }}>{r.range}</span>
+                <span className="serif" style={{ fontSize: 20 }}>{r.label}</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5 }}>{r.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="parrainage-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
           ['Filleuls actifs', loading ? '…' : String(count), `/ ${cap} max`],
@@ -7169,6 +7583,9 @@ function Parrainage() {
         ))}
       </div>
       <style>{`
+        @media (max-width: 820px) {
+          .ref-rewards { grid-template-columns: 1fr !important; }
+        }
         @media (max-width: 720px) {
           .parrainage-stats { grid-template-columns: repeat(2, 1fr) !important; }
           .ref-link-card { padding: 20px !important; }
@@ -7201,8 +7618,16 @@ function Parrainage() {
                 <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement de vos filleuls…</td></tr>
               )}
               {!loading && filleuls.length === 0 && (
-                <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>
-                  Vous n'avez pas encore de filleul. Partagez votre lien pour débloquer vos avantages fondateur.
+                <tr><td colSpan={4} style={{ padding: 28, textAlign: 'center' }}>
+                  <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="users" size={22}/>
+                    </span>
+                    <span className="muted" style={{ fontSize: 13, maxWidth: 420, lineHeight: 1.5 }}>
+                      Vous n'avez pas encore de filleul. Partagez votre lien pour débloquer vos avantages fondateur.
+                    </span>
+                  </div>
                 </td></tr>
               )}
               {!loading && filleuls.map((f, i) => {
@@ -7272,13 +7697,14 @@ function Fiscal() {
         desc={`BUUPP transmet vos données récapitulatives à la DGFiP dès le dépassement du seuil déclaratif (${thresholdEur.toLocaleString('fr-FR')} € / ${thresholdTx} transactions en ${cur?.year ?? new Date().getFullYear()}).`}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="fiscal-cards" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 28 }}>
-          <div className="mono caps muted" style={{ marginBottom: 10 }}>
-            — Exercice {cur?.year ?? '…'} (en cours)
+          <div className="row between center" style={{ marginBottom: 12 }}>
+            <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.14em' }}>— Exercice {cur?.year ?? '…'}</div>
+            <span className="chip chip-accent" style={{ borderRadius: 999, padding: '3px 10px', fontSize: 10 }}>En cours</span>
           </div>
           <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-            <span className="serif tnum" style={{ fontSize: 64 }}>{curIntStr}</span>
+            <span className="serif tnum" style={{ fontSize: 64, fontWeight: 700 }}>{curIntStr}</span>
             <span className="muted" style={{ fontSize: 16 }}>,{curDecStr} € cumulés</span>
           </div>
           <div style={{ marginTop: 22 }}>
@@ -7294,20 +7720,42 @@ function Fiscal() {
             <span>Transactions de l'année</span>
             <span className="mono tnum">{cur?.transactionCount ?? 0} / {thresholdTx}</span>
           </div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 14 }}>
-            {!fiscal
-              ? 'Chargement de votre récapitulatif…'
-              : curThresholdReached
-                ? "Vous avez dépassé le seuil. BUUPP transmettra votre récapitulatif à la DGFiP en janvier prochain."
-                : "Vous n'avez pas atteint le seuil. Aucune obligation de déclaration spécifique pour l'instant."}
-          </div>
+          {!fiscal ? (
+            <div className="muted" style={{ fontSize: 12, marginTop: 14 }}>Chargement de votre récapitulatif…</div>
+          ) : (
+            <div style={{
+              marginTop: 16, padding: '12px 14px', borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-start',
+              background: curThresholdReached ? 'color-mix(in oklab, #B45309 8%, var(--paper))' : '#ECFDF5',
+              border: '1px solid ' + (curThresholdReached ? 'color-mix(in oklab, #B45309 30%, var(--line))' : '#A7F3D0'),
+              color: curThresholdReached ? '#92400E' : '#15803D',
+            }}>
+              <span style={{ flexShrink: 0, display: 'inline-flex', marginTop: 1 }}>
+                <Icon name={curThresholdReached ? 'alert' : 'check'} size={14} stroke={2.2}/>
+              </span>
+              <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                {curThresholdReached
+                  ? 'Vous avez dépassé le seuil. BUUPP transmettra votre récapitulatif à la DGFiP en janvier prochain.'
+                  : "Vous n'avez pas atteint le seuil — aucune obligation de déclaration spécifique pour l'instant."}
+              </span>
+            </div>
+          )}
+          <a
+            className="btn btn-ghost btn-sm"
+            href={cur?.year ? `/api/prospect/fiscal/${cur.year}/recap` : undefined}
+            target="_blank" rel="noopener noreferrer"
+            title={`Télécharger le récapitulatif ${cur?.year ?? ''} (PDF)`}
+            style={{ marginTop: 14, ...(cur?.year ? null : { opacity: 0.5, pointerEvents: 'none' }) }}
+          >
+            <Icon name="download" size={12}/> Récap (PDF)
+          </a>
         </div>
         <div className="card" style={{ padding: 28 }}>
-          <div className="mono caps muted" style={{ marginBottom: 10 }}>
-            — Exercice {prev?.year ?? '…'} (clos)
+          <div className="row between center" style={{ marginBottom: 12 }}>
+            <div className="mono caps muted" style={{ fontSize: 10, letterSpacing: '.14em' }}>— Exercice {prev?.year ?? '…'}</div>
+            <span className="chip" style={{ borderRadius: 999, padding: '3px 10px', fontSize: 10 }}>Clos</span>
           </div>
           <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-            <span className="serif tnum" style={{ fontSize: 64 }}>{prevIntStr}</span>
+            <span className="serif tnum" style={{ fontSize: 64, fontWeight: 700 }}>{prevIntStr}</span>
             <span className="muted" style={{ fontSize: 16 }}>,{prevDecStr} €</span>
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 14 }}>
@@ -7349,21 +7797,28 @@ function Fiscal() {
       </div>
 
       <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Seuils à retenir</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+        <div className="serif" style={{ fontSize: 22, marginBottom: 18 }}>Seuils à retenir</div>
+        <div className="fiscal-seuils" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
           {[
-            ['305 €', 'Franchise annuelle', "En dessous, aucune déclaration URSSAF n'est requise."],
-            [`${thresholdEur.toLocaleString('fr-FR')} €`, 'Seuil DGFiP', "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant."],
-            ['77 700 €', 'Plafond micro-BIC', "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant."],
+            { v: '305 €', label: 'Franchise annuelle', desc: "En dessous, aucune déclaration URSSAF n'est requise.", icon: 'shield', tone: 'good' },
+            { v: `${thresholdEur.toLocaleString('fr-FR')} €`, label: 'Seuil DGFiP', desc: "Les plateformes transmettent le récapitulatif des usagers au-dessus de ce montant.", icon: 'doc', tone: 'accent' },
+            { v: '77 700 €', label: 'Plafond micro-BIC', desc: "Au-delà, bascule en régime réel. BUUPP vous alertera 6 mois avant.", icon: 'chart', tone: 'warn' },
           ].map((r, i) => (
-            <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
-              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r[0]}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{r[1]}</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{r[2]}</div>
+            <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 14 }}>
+              <IconBadge name={r.icon} tone={r.tone} size={34}/>
+              <div className="serif tnum" style={{ fontSize: 30, fontWeight: 700, color: 'var(--accent)', marginTop: 14 }}>{r.v}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{r.label}</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.45 }}>{r.desc}</div>
             </div>
           ))}
         </div>
       </div>
+      <style>{`
+        @media (max-width: 760px) {
+          .fiscal-cards { grid-template-columns: 1fr !important; }
+          .fiscal-seuils { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
