@@ -11,9 +11,11 @@
  */
 
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { geocodeAddress } from "@/lib/geo/geocode";
 import type { Database } from "@/lib/supabase/types";
 
 type ProAccountUpdate = Database["public"]["Tables"]["pro_accounts"]["Update"];
@@ -149,5 +151,47 @@ export async function PATCH(req: Request) {
     console.error("[/api/pro/info PATCH] update failed", error);
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
+
+  // Géocodage de l'adresse de l'établissement (best-effort, post-réponse via
+  // `after()` pour ne pas ralentir l'enregistrement). Alimente
+  // pro_accounts.latitude/longitude, utilisées par le ciblage « autour de moi »
+  // à la création de campagne. Re-déclenché dès qu'un champ d'adresse change.
+  const addressTouched =
+    "adresse" in update || "ville" in update || "code_postal" in update;
+  if (addressTouched) {
+    after(async () => {
+      try {
+        // Relit la row fusionnée (le PATCH a pu ne toucher qu'un seul champ).
+        const { data: acc } = await admin
+          .from("pro_accounts")
+          .select("adresse, ville, code_postal")
+          .eq("id", proId!)
+          .maybeSingle();
+        const adresse = acc?.adresse ?? null;
+        const ville = acc?.ville ?? null;
+        const cp = acc?.code_postal ?? null;
+        // Adresse vidée → on purge les coordonnées (le ciblage « autour de
+        // moi » redeviendra indisponible tant qu'aucune adresse n'est saisie).
+        if (!adresse && !ville) {
+          await admin
+            .from("pro_accounts")
+            .update({ latitude: null, longitude: null })
+            .eq("id", proId!);
+          return;
+        }
+        const point = await geocodeAddress(adresse, cp, ville);
+        await admin
+          .from("pro_accounts")
+          .update({
+            latitude: point?.lat ?? null,
+            longitude: point?.lng ?? null,
+          })
+          .eq("id", proId!);
+      } catch (e) {
+        console.warn("[/api/pro/info PATCH] geocode failed", e);
+      }
+    });
+  }
+
   return NextResponse.json({ ok: true, updated: Object.keys(update).length });
 }

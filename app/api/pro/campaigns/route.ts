@@ -21,6 +21,7 @@ import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
 import {
   filterValidSubTypes,
+  normalizeRadiusKm,
   objectiveLabel,
   objectiveToCampaignType,
   SUB_TYPES_BY_OBJECTIVE,
@@ -38,6 +39,9 @@ type Body = {
   subTypes: string[];
   requiredTiers: number[];
   geo: string;
+  /** Rayon (km) pour le ciblage « autour de moi » (`geo === "around"`).
+   *  Borné à 10/30/50 côté serveur (`normalizeRadiusKm`). */
+  radiusKm?: number | null;
   ages: string[];
   verifLevel: string;
   contacts: number;
@@ -183,7 +187,7 @@ export async function POST(req: Request) {
   const { data: pro } = await admin
     .from("pro_accounts")
     .select(
-      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, plan, plan_cycle_count",
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, latitude, longitude, plan, plan_cycle_count",
     )
     .eq("id", proId)
     .single();
@@ -382,10 +386,30 @@ export async function POST(req: Request) {
   // Portée géographique : `national` par défaut (zone sélectionnée par
   // défaut dans le wizard). Toute valeur inconnue retombe sur `national`
   // pour rester cohérent avec le front et éviter un filtre involontaire.
-  const ALLOWED_GEO = ["ville", "dept", "region", "national"] as const;
+  const ALLOWED_GEO = ["ville", "dept", "region", "national", "around"] as const;
   const geo = (ALLOWED_GEO as readonly string[]).includes(body.geo)
     ? body.geo
     : "national";
+  // Rayon « autour de moi » borné à 10/30/50 km (ignoré hors geo=around).
+  const radiusKm = geo === "around" ? normalizeRadiusKm(body.radiusKm) : null;
+
+  // Ciblage « autour de moi » : nécessite les coordonnées de l'établissement
+  // (géocodées depuis l'adresse via /api/pro/info). Sans elles, on ne peut pas
+  // mesurer la distance aux prospects → on refuse AVANT toute réservation de
+  // budget, avec un message qui pointe vers « Mes informations ».
+  const proLat = typeof pro.latitude === "number" ? pro.latitude : null;
+  const proLng = typeof pro.longitude === "number" ? pro.longitude : null;
+  if (geo === "around" && (proLat == null || proLng == null)) {
+    return NextResponse.json(
+      {
+        error: "pro_address_required",
+        message:
+          "Renseignez l'adresse de votre établissement dans Mes informations pour cibler autour de vous.",
+      },
+      { status: 400 },
+    );
+  }
+
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: validSubTypes,
@@ -393,6 +417,7 @@ export async function POST(req: Request) {
     requiredTierKeys: tierNumsToKeys(body.requiredTiers),
     geo,
     geoTarget,
+    radiusKm,
     ages: body.ages,
     verifLevel: body.verifLevel,
     excludeCertified: body.excludeCertified === true,
@@ -507,6 +532,9 @@ export async function POST(req: Request) {
       geo,
       geoTarget,
       proCodePostal: pro.code_postal ?? null,
+      proLat,
+      proLng,
+      radiusKm,
       ages: body.ages,
       verifLevel: body.verifLevel,
       contacts: body.contacts,

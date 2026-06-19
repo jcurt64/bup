@@ -174,10 +174,36 @@ export function geoRadiusFloorKm(geo: string): number | null {
       return 50;
     case "region":
       return 100;
+    case "around":
+      // Le ciblage « autour de moi » applique son propre filtre distance
+      // (haversine pro↔prospect) dans le matcher. Pas de plancher de rayon
+      // prospect ici — c'est la distance réelle qui décide, bornée par le
+      // rayon choisi par le pro (cf. AROUND_RADII).
+      return null;
     case "national":
     default:
       return null;
   }
+}
+
+/**
+ * Rayons (km) proposés au pro pour le ciblage « autour de moi ».
+ * Miroir des boutons du wizard (`public/prototype/components/Pro.jsx`).
+ */
+export const AROUND_RADII = [10, 30, 50] as const;
+export const AROUND_RADIUS_DEFAULT = 10;
+
+/**
+ * Borne le rayon « autour de moi » envoyé par le client à l'une des valeurs
+ * autorisées. Toute valeur inconnue / hors-liste retombe sur le défaut
+ * (10 km) — garde-fou contre un rayon arbitraire qui élargirait le bassin.
+ */
+export function normalizeRadiusKm(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (Number.isFinite(n) && (AROUND_RADII as readonly number[]).includes(n)) {
+    return n;
+  }
+  return AROUND_RADIUS_DEFAULT;
 }
 
 const AGE_BUCKETS: Record<string, [number, number]> = {

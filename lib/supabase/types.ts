@@ -430,6 +430,8 @@ export type Database = {
           email_tracking_consent_given_at: string | null
           forme_juridique: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           plan: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count: number
           raison_sociale: string
@@ -463,6 +465,8 @@ export type Database = {
           email_tracking_consent_given_at?: string | null
           forme_juridique?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           plan?: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count?: number
           raison_sociale: string
@@ -496,6 +500,8 @@ export type Database = {
           email_tracking_consent_given_at?: string | null
           forme_juridique?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           plan?: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count?: number
           raison_sociale?: string

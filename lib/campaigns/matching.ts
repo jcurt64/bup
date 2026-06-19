@@ -22,6 +22,7 @@ import {
   tierNumsToKeys,
   type CampaignTypeDb,
 } from "./mapping";
+import { haversineMeters, type LatLng } from "@/lib/geo/geocode";
 
 export type MatchingInput = {
   objectiveId: string;
@@ -38,6 +39,13 @@ export type MatchingInput = {
     | { type: "region"; deptCodes: string[] }
     | null;
   proCodePostal: string | null;
+  /** Coordonnées de l'établissement pro — requises pour `geo === "around"`
+   *  (ciblage par rayon). Renseignées depuis pro_accounts.latitude/longitude
+   *  (géocodage de l'adresse, cf. /api/pro/info). */
+  proLat?: number | null;
+  proLng?: number | null;
+  /** Rayon (km) du ciblage « autour de moi ». Ignoré hors `geo === "around"`. */
+  radiusKm?: number | null;
   ages: string[];
   verifLevel: string;
   contacts: number;
@@ -90,6 +98,19 @@ export async function findMatchingProspects(
   // accepter une campagne de la portée demandée. Null = national → on
   // ne filtre pas, le prospect reçoit même avec un rayon de 5 km.
   const radiusFloorKm = geoRadiusFloorKm(input.geo);
+
+  // Ciblage « autour de moi » : filtre par distance orthodromique réelle
+  // (haversine) entre l'établissement pro et le domicile du prospect, borné
+  // par le rayon choisi (10/30/50 km). Sans coordonnées pro → aucun match
+  // (la route POST garde déjà ce cas via `pro_address_required`).
+  const isAround = input.geo === "around";
+  const proPoint: LatLng | null =
+    typeof input.proLat === "number" && typeof input.proLng === "number"
+      ? { lat: input.proLat, lng: input.proLng }
+      : null;
+  if (isAround && !proPoint) return [];
+  const aroundRadiusM = (input.radiusKm ?? 0) * 1000;
+
   const ageBounds = ageRangesToBounds(input.ages);
   const wantsTier1 = input.requiredTiers.includes(1);
   const campaignType: CampaignTypeDb = objectiveToCampaignType(input.objectiveId);
@@ -110,7 +131,7 @@ export async function findMatchingProspects(
       removed_tiers,
       hidden_tiers,
       prospect_identity ( email, prenom, naissance ),
-      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in )
+      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in, latitude, longitude )
     `,
     )
     .in("verification", acceptableLevels)
@@ -188,6 +209,22 @@ export async function findMatchingProspects(
     if (radiusFloorKm != null && !nationalOptIn) {
       const prospectRadius = localisation?.targeting_radius_km ?? 25;
       if (prospectRadius < radiusFloorKm) continue;
+    }
+
+    // Filtre « autour de moi » : distance réelle pro↔prospect <= rayon choisi.
+    // `national_opt_in=true` exempte (le prospect accepte n'importe où). Le
+    // prospect non géocodé est exclu (on ne peut pas mesurer la distance), et
+    // sa propre zone d'acceptation (`targeting_radius_km`) doit couvrir la
+    // distance — il ne reçoit pas une sollicitation au-delà de ce qu'il a réglé.
+    if (isAround && !nationalOptIn) {
+      const lat = localisation?.latitude;
+      const lng = localisation?.longitude;
+      if (typeof lat !== "number" || typeof lng !== "number") continue;
+      // proPoint est non-null ici (garde en tête de fonction).
+      const distM = haversineMeters(proPoint as LatLng, { lat, lng });
+      if (distM > aroundRadiusM) continue;
+      const prospectRadiusM = (localisation?.targeting_radius_km ?? 25) * 1000;
+      if (prospectRadiusM < distM) continue;
     }
 
     // Filtre âge — uniquement applicable si tier 1 requis (sinon on ne

@@ -25,6 +25,10 @@ function ProDashboard({ go }) {
   // bloque sur des informations société manquantes et redirige vers
   // "Mes informations" (ex. CreateCampaign → onGoInformations).
   const [returnAfterInfo, setReturnAfterInfo] = useState(null);
+  // Champ de « Mes informations » vers lequel scroller à l'arrivée (ex. le pro
+  // clique « Mes informations » depuis la note adresse du ciblage « autour de
+  // moi » → on l'amène directement au bloc adresse/ville, pas en haut). One-shot.
+  const [infoScrollField, setInfoScrollField] = useState(null);
 
   // Détecte le retour Stripe `?continue_campaign=1` → bascule
   // automatiquement sur le wizard de création de campagne. Le wizard
@@ -94,6 +98,9 @@ function ProDashboard({ go }) {
   // ailleurs ou d'aller voir une autre section.
   const navTo = React.useCallback((next) => {
     setReturnAfterInfo(null);
+    // Navigation manuelle (sidebar) → on n'hérite pas d'un scroll ciblé posé
+    // par un autre écran (ex. note adresse « autour de moi »).
+    setInfoScrollField(null);
     setSec(next);
   }, []);
 
@@ -196,6 +203,12 @@ function ProDashboard({ go }) {
           onDone={() => { setDuplicateSourceId(null); setSec('campagnes'); }}
           companyInfo={companyInfo}
           onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
+          // Édition de l'adresse (ciblage « autour de moi ») : on N'ARME PAS le
+          // retour auto. La raison sociale + la ville étant déjà remplies à ce
+          // stade, returnAfterInfo provoquerait un rebond immédiat vers le
+          // wizard (cf. useEffect [returnAfterInfo, companyInfo]). Le pro édite
+          // son adresse puis revient manuellement — le brouillon restaure l'étape 4.
+          onEditAddress={() => { setReturnAfterInfo(null); setInfoScrollField('adresse'); setSec('informations'); }}
           duplicateSourceId={duplicateSourceId}
           onRecharge={() => setRecharge(true)}
         />
@@ -208,6 +221,8 @@ function ProDashboard({ go }) {
           setInfo={setCompanyInfo}
           returnAfterInfo={returnAfterInfo}
           onCancelReturn={() => setReturnAfterInfo(null)}
+          scrollToFieldKey={infoScrollField}
+          onScrolled={() => setInfoScrollField(null)}
         />
       )}
       {sec === 'facturation' && <Facturation onRecharge={() => setRecharge(true)}/>}
@@ -2486,7 +2501,7 @@ function VitrineOfferModal({ free, url, onSkip, onConfirm }) {
   );
 }
 
-function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
@@ -2680,7 +2695,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         selectedObj,
         selectedSubs: Array.from(selectedSubs),
         selectedTiers: Array.from(selectedTiers),
-        geo, geoTarget, ages: Array.from(ages),
+        geo, geoTarget, radiusKm, ages: Array.from(ages),
         verif, contacts, durationKey, poolMode,
         keywords, kwInput, kwFilter,
         startDate, endDate, brief,
@@ -2743,6 +2758,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       if (d.geoTarget) {
         Promise.resolve().then(() => setGeoTarget(d.geoTarget));
       }
+      if (typeof d.radiusKm === 'number') setRadiusKm(d.radiusKm);
       setAges(new Set(d.ages || []));
       setVerif(d.verif ?? 'p0');
       setContacts(Number(d.contacts ?? 10));
@@ -2878,6 +2894,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (tg.geoTarget && typeof tg.geoTarget === 'object') {
           Promise.resolve().then(() => setGeoTarget(tg.geoTarget));
         }
+        if (typeof tg.radiusKm === 'number') setRadiusKm(tg.radiusKm);
         if (Array.isArray(tg.ages) && tg.ages.length > 0) setAges(new Set(tg.ages));
         if (typeof tg.verifLevel === 'string') setVerif(tg.verifLevel);
         if (typeof tg.durationKey === 'string') setDurationKey(tg.durationKey);
@@ -2917,6 +2934,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   }
   if (!companyInfo?.ville) missingCompanyFields.push('ville');
   const canLaunch = missingCompanyFields.length === 0;
+  // Le ciblage « autour de moi » exige une adresse d'établissement (géocodée
+  // côté serveur). On s'appuie sur l'adresse déjà connue dans « Mes
+  // informations » pour guider le pro avant l'aller-retour réseau.
+  const hasProAddress = !!(companyInfo?.adresse || '').trim();
   const [selectedObj, setSelectedObj] = useState(null);
   const [selectedSubs, setSelectedSubs] = useState(new Set());
   const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
@@ -2943,6 +2964,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // sélection précédente n'a plus de sens (autre échelle).
   const [geoTarget, setGeoTarget] = useState(null);
   useEffect(() => { setGeoTarget(null); }, [geo]);
+  // Rayon (km) du ciblage « autour de moi ». Borné à 10/30/50 ; le serveur
+  // re-valide (normalizeRadiusKm) et exige une adresse pro géocodée.
+  const [radiusKm, setRadiusKm] = useState(10);
   const [ages, setAges] = useState(new Set());
   const [verif, setVerif] = useState('p0');
   const [contacts, setContacts] = useState(10);
@@ -3004,7 +3028,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     step, plan, selectedObj, selectedSubs, selectedTiers,
-    geo, geoTarget, ages, verif, contacts, durationKey, poolMode,
+    geo, geoTarget, radiusKm, ages, verif, contacts, durationKey, poolMode,
     keywords, kwInput, kwFilter, startDate, endDate, brief,
   ]);
 
@@ -3115,6 +3139,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setMultiTierNoticeShown(false);
     setGeo('national');
     setGeoTarget(null);
+    setRadiusKm(10);
     setAges(new Set());
     setVerif('p0');
     setContacts(10);
@@ -3741,8 +3766,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
             </div>
             {/* Champ dynamique : nom de ville / dept / région via l'API
                 officielle geo.api.gouv.fr. Masqué pour la portée nationale
-                (rien à préciser — tous les CP sont éligibles). */}
-            {geo !== 'national' && (
+                (rien à préciser) et pour « autour de moi » (basé sur la
+                distance à l'adresse du pro, pas sur une zone administrative). */}
+            {geo !== 'national' && geo !== 'around' && (
               <div style={{ marginBottom: 12 }}>
                 <div className="label" style={{ marginTop: 6 }}>
                   {geo === 'ville' ? 'Ville ciblée' : geo === 'dept' ? 'Département ciblé' : 'Région ciblée'}
@@ -3754,6 +3780,76 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 />
               </div>
             )}
+
+            {/* Ciblage de proximité : rayon autour de l'adresse de
+                l'établissement. Distinct des portées administratives — basé
+                sur la distance réelle (géocodage de l'adresse du pro). */}
+            <button
+              onClick={() => setGeo('around')}
+              style={{ width: '100%', padding: 14, borderRadius: 10, textAlign: 'left', cursor: 'pointer',
+                marginBottom: geo === 'around' ? 12 : 24, display: 'flex', alignItems: 'center', gap: 12,
+                border: '1px solid ' + (geo === 'around' ? 'var(--accent)' : 'var(--line-2)'),
+                background: geo === 'around' ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
+                boxShadow: geo === 'around' ? '0 0 0 1px var(--accent)' : 'none' }}>
+              <span style={{ flexShrink: 0, color: geo === 'around' ? 'var(--accent)' : 'var(--ink-3)' }}>
+                <Icon name="mapPin" size={18}/>
+              </span>
+              <span style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Autour de moi</div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Prospects situés dans un rayon autour de votre établissement</div>
+              </span>
+            </button>
+
+            {geo === 'around' && (
+              <div style={{ marginBottom: 24 }}>
+                <div className="label">Zone d'extension</div>
+                <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+                  {[10, 30, 50].map(km => (
+                    <button key={km} onClick={() => setRadiusKm(km)} style={{ flex: 1, cursor: 'pointer',
+                      padding: '10px 0', fontSize: 13, fontWeight: 600, borderRadius: 10, textAlign: 'center',
+                      border: '1px solid ' + (radiusKm === km ? 'var(--accent)' : 'var(--line-2)'),
+                      background: radiusKm === km ? 'var(--accent)' : 'var(--paper)',
+                      color: radiusKm === km ? 'white' : 'var(--ink-3)' }}>
+                      {km} km
+                    </button>
+                  ))}
+                </div>
+                {/* Le ciblage de proximité nécessite une adresse géocodable.
+                    Si elle manque, on alerte et on propose d'aller la saisir. */}
+                {hasProAddress ? (
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--ivory-2)',
+                    border: '1px solid var(--line-2)', display: 'flex', gap: 10, alignItems: 'flex-start',
+                    fontSize: 12.5, lineHeight: 1.5 }}>
+                    <span style={{ flexShrink: 0, color: 'var(--accent)', marginTop: 1 }}><Icon name="info" size={16}/></span>
+                    <div>
+                      Le ciblage se base sur l'adresse de votre établissement
+                      {companyInfo?.adresse ? <> (<strong>{companyInfo.adresse}</strong>)</> : null}.
+                      Vous pouvez la consulter ou la modifier dans{' '}
+                      <button onClick={onEditAddress} style={{ background: 'none', border: 'none', padding: 0,
+                        color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
+                        Mes informations
+                      </button>.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: '#FFF7ED',
+                    border: '1px solid #FDBA74', color: '#7C2D12', display: 'flex', gap: 10, alignItems: 'flex-start',
+                    fontSize: 12.5, lineHeight: 1.5 }}>
+                    <span style={{ flexShrink: 0, color: '#EA580C', marginTop: 1 }}><Icon name="alert" size={16}/></span>
+                    <div>
+                      <strong>Adresse requise.</strong> Pour cibler autour de vous, renseignez d'abord
+                      l'adresse de votre établissement.
+                      <div style={{ marginTop: 8 }}>
+                        <button onClick={onEditAddress} className="btn btn-primary" style={{ fontSize: 12, padding: '6px 12px' }}>
+                          Renseigner mon adresse <Icon name="arrow" size={12}/>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Responsive : sur mobile (≤640 px), la grille des portées
                 bascule en 2 colonnes pour éviter des boutons écrasés. */}
             <style>{`
@@ -4368,6 +4464,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
                 ['Zone', (() => {
+                  if (geo === 'around') return `Autour de moi · ${radiusKm} km`;
                   const base = GEO_ZONES.find(z => z.id === geo)?.name || '—';
                   if (!geoTarget) return base;
                   if (geoTarget.type === 'ville') {
@@ -4635,7 +4732,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         objectiveId: selectedObj,
                         subTypes: Array.from(selectedSubs),
                         requiredTiers: Array.from(selectedTiers),
-                        geo, geoTarget, ages: Array.from(ages), verifLevel: verif,
+                        geo, geoTarget, radiusKm, ages: Array.from(ages), verifLevel: verif,
                         contacts,
                         durationKey,
                         startDate, endDate: computedEndDate, brief,
@@ -9420,10 +9517,34 @@ const PRO_INFO_ICON = {
   rmNumber:         { icon: 'doc',       color: '#E11D48' },
 };
 
-function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
+function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn, scrollToFieldKey, onScrolled }) {
   const [editing, setEditing] = useState(null); // { key, label, value }
   const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { key, label }
   const [confirmAllDelete, setConfirmAllDelete] = useState(false);
+
+  // Scroll ciblé : quand on arrive sur l'onglet via un lien pointant un champ
+  // précis (ex. « Mes informations » de la note adresse du ciblage « autour de
+  // moi »), on amène la ligne concernée au centre + flash bref, au lieu de
+  // laisser le pro en haut de page. One-shot : `onScrolled` purge l'intent côté
+  // parent pour qu'un retour ultérieur via la sidebar ne re-scrolle pas.
+  const scrollTargetRef = React.useRef(null);
+  useEffect(() => {
+    if (!scrollToFieldKey) return;
+    const el = scrollTargetRef.current;
+    const t = setTimeout(() => {
+      if (el) {
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        catch { el.scrollIntoView(); }
+        const prevBg = el.style.background;
+        el.style.transition = 'background-color .4s ease';
+        el.style.background = 'color-mix(in oklab, var(--accent) 12%, var(--paper))';
+        setTimeout(() => { el.style.background = prevBg || 'var(--paper)'; }, 1600);
+      }
+      onScrolled && onScrolled();
+    }, 140); // laisse le layout de l'onglet se monter avant de mesurer
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToFieldKey]);
 
   const filledRequired = PRO_INFO_FIELDS.filter(f => !f.optional && info[f.key]).length;
   const totalRequired = PRO_INFO_FIELDS.filter(f => !f.optional).length;
@@ -9611,7 +9732,9 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn }) {
           {PRO_INFO_FIELDS.map(f => {
             const val = info[f.key] || '';
             return (
-              <div key={f.key} className="pro-info-tile" style={{
+              <div key={f.key} className="pro-info-tile"
+                ref={f.key === scrollToFieldKey ? scrollTargetRef : null}
+                style={{
                 background: 'var(--paper)', padding: '14px 16px',
                 display: 'flex', alignItems: 'center', gap: 12
               }}>
