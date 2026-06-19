@@ -147,9 +147,22 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 
 /* Sidebar item */
 .side-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; color: var(--ink-3); font-size: 14px; transition: background .15s, color .15s; cursor: pointer; }
-.side-item:hover { background: var(--ivory-2); color: var(--ink); }
+/* Sidebar verticale : les items gardent leur hauteur ; si le contenu dépasse
+   l'écran, la barre défile (overflow-y:auto inline) au lieu de rogner le
+   dernier item (« Supprimer mon compte »). Neutralisé sur mobile (barre
+   horizontale) par la media-query existante. */
+.dash-shell > aside:not(.is-collapsed) > * { flex-shrink: 0; }
+/* Couleur d'onglet : l'icône prend la teinte `--tab-color` posée en inline
+   sur chaque item ; au survol, on inverse → fond plein de la couleur, contenu
+   en blanc. Repli sur les anciennes teintes si `--tab-color` est absent. */
+.side-item:hover { background: var(--tab-color, var(--ivory-2)); color: #fff; }
+.side-item:hover .side-icon { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .side-item.active { background: var(--ink); color: var(--paper); position: relative; }
-.side-item.active .side-icon { color: var(--paper); }
+.side-item.active .side-icon { background: rgba(255, 255, 255, 0.14); color: var(--paper); }
+/* Items danger / déconnexion : teinte explicite pour garder un hover lisible
+   (sans `--tab-color`, le fond de survol retomberait sur l'ivoire + texte blanc). */
+.side-item-danger { color: #DC2626; }
+.side-item-danger:hover { color: #fff; }
 /* Pastille ronde bleue : indicateur d'onglet actif (sidebar dépliée).
    Poussée à droite par le label (flex:1) ; masquée en mode replié pour
    ne pas entrer en conflit avec les info-bulles `::after` des icônes. */
@@ -163,7 +176,17 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   flex-shrink: 0;
   box-shadow: 0 0 0 3px color-mix(in oklab, #818CF8 22%, transparent);
 }
-.side-icon { width: 16px; height: 16px; color: var(--ink-4); }
+/* Icône d'onglet = badge arrondi avec fond teinté de la couleur d'onglet
+   (même teinte que le survol mais opacité réduite). Au survol/actif, le
+   fond du badge passe en blanc translucide pour rester visible sur le
+   remplissage plein. */
+.side-icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--tab-color, var(--ink-4)) 15%, transparent);
+  color: var(--tab-color, var(--ink-4));
+}
 
 /* Sidebar notification badge — driven by `s.badge` on a section.
    Pill with the count when expanded, small dot on the icon when collapsed. */
@@ -260,6 +283,14 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
   border-color: var(--ink);
   transform: translateY(-1px);
 }
+/* Fond aux couleurs officielles de chaque réseau (icône en blanc).
+   Ciblage via l'attribut `data-label` déjà posé côté JSX. */
+.dash-social-btn[data-label="Facebook"] { background: #1877F2; color: #fff; border-color: #1877F2; }
+.dash-social-btn[data-label="LinkedIn"] { background: #0A66C2; color: #fff; border-color: #0A66C2; }
+.dash-social-btn[data-label="TikTok"]   { background: #010101; color: #fff; border-color: #010101; }
+.dash-social-btn[data-label="Facebook"]:hover { background: #0F66D6; border-color: #0F66D6; }
+.dash-social-btn[data-label="LinkedIn"]:hover { background: #08529E; border-color: #08529E; }
+.dash-social-btn[data-label="TikTok"]:hover   { background: #000;    border-color: #000; }
 
 /* Sidebar repliée (icônes seules, 72 px de large) : les 3 boutons sociaux
    ne tiennent plus côte à côte → on les empile verticalement et on les

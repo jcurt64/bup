@@ -689,6 +689,22 @@ function ProspectDashboardInner({ go, initialTab }) {
   );
 }
 
+// Palette d'onglets : une teinte distincte par entrée de la sidebar (cyclée
+// par position). Posée en `--tab-color` sur chaque `.side-item` → l'icône la
+// porte au repos, le fond la prend au survol (cf. styles.css).
+const TAB_PALETTE = [
+  '#4F46E5', // indigo
+  '#0D9488', // teal
+  '#DB2777', // rose
+  '#B45309', // ambre
+  '#15803D', // vert
+  '#0369A1', // bleu
+  '#7C3AED', // violet
+  '#DC2626', // rouge
+  '#CA8A04', // or
+  '#0891B2', // cyan
+];
+
 function DashShell({ role, go, sections, current, onNav, children, header, overrideName }) {
   // Mobile (≤900px) starts with the menu hidden so the dashboard takes full
   // width; on desktop the sidebar is shown expanded by default.
@@ -746,7 +762,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
         style={{
           borderRight: '1px solid var(--line)', background: 'var(--paper)',
           padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: 4,
-          position: 'sticky', top: 0, height: '100vh'
+          position: 'sticky', top: 0, height: '100vh', overflowY: 'auto'
         }}
       >
         <div className="row between center" style={{ padding: '4px 8px 20px' }}>
@@ -758,8 +774,9 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
         <div className="mono caps muted" style={{ padding: '8px 12px 4px', fontSize: 10, opacity: collapsed ? 0 : 1 }}>
           {role === 'prospect' ? 'Espace prospect' : 'Espace professionnel'}
         </div>
-        {sections.map(s => {
+        {sections.map((s, i) => {
           const active = current === s.id;
+          const tabColor = TAB_PALETTE[i % TAB_PALETTE.length];
           if (s.featured) {
             return (
               <button key={s.id} onClick={() => handleNav(s.id)}
@@ -786,7 +803,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
           }
           const hasBadge = typeof s.badge === 'number' && s.badge > 0;
           return (
-            <div key={s.id} className={'side-item' + (active ? ' active' : '')} data-label={s.label} onClick={() => handleNav(s.id)}>
+            <div key={s.id} className={'side-item' + (active ? ' active' : '')} data-label={s.label} onClick={() => handleNav(s.id)} style={{ '--tab-color': tabColor }}>
               <span className="side-icon" style={{ position: 'relative' }}>
                 <Icon name={s.icon} size={16}/>
                 {hasBadge && collapsed && <span className="side-badge-dot" aria-hidden/>}
@@ -849,6 +866,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             className={'side-item' + (current === 'suggestions' ? ' active' : '')}
             data-label="Vos suggestions"
             onClick={() => handleNav('suggestions')}
+            style={{ '--tab-color': '#0891B2' }}
           >
             <span className="side-icon"><Icon name="sparkle" size={16}/></span>
             {!collapsed && <span>Vos suggestions</span>}
@@ -873,6 +891,7 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             className="side-item"
             data-label="Déconnexion"
             onClick={() => setSignOutOpen(true)}
+            style={{ '--tab-color': '#475569' }}
           >
             <span className="side-icon"><Icon name="logout" size={16}/></span>
             {!collapsed && <span>Déconnexion</span>}
@@ -883,10 +902,10 @@ function DashShell({ role, go, sections, current, onNav, children, header, overr
             className="side-item side-item-danger"
             data-label="Supprimer mon compte"
             onClick={() => setDeleteOpen(true)}
-            style={{ color: '#dc2626' }}
+            style={{ '--tab-color': '#DC2626' }}
             title="Supprimer définitivement mon compte"
           >
-            <span className="side-icon" style={{ color: '#dc2626' }}>
+            <span className="side-icon">
               <Icon name="trash" size={16}/>
             </span>
             {!collapsed && <span>Supprimer mon compte</span>}
