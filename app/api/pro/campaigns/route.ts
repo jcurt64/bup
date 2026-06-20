@@ -132,6 +132,20 @@ const DURATION_MULTIPLIERS: Record<string, { mult: number; ms: number }> = {
   "7d":  { mult: 1,   ms: 7 * 24 * 3600 * 1000 },
 };
 
+// Head-start « profil prioritaire » des flash deals : un flash deal (1h)
+// est affiché aux profils prioritaires (fondateurs ≥ 3 filleuls) 20 min
+// AVANT le grand public. Le public conserve donc une fenêtre pleine d'1h ;
+// le lifetime total de la campagne flash = 1h + 20 min = 1h20. Ce head-start
+// ne concerne QUE les flash deals (durationKey='1h') — les autres durées
+// n'ont pas de blackout sur la home. Doit rester synchronisé avec le
+// blackout côté GET /api/landing/flash-deals.
+const FLASH_PRIORITY_HEAD_START_MS = 20 * 60 * 1000;
+
+function campaignLifetimeMs(durationKey: string): number {
+  const base = DURATION_MULTIPLIERS[durationKey].ms;
+  return durationKey === "1h" ? base + FLASH_PRIORITY_HEAD_START_MS : base;
+}
+
 // La fenêtre de réponse du prospect (response window) ET la fermeture
 // de la campagne sont calquées sur le `durationKey` choisi par le pro :
 // 1h, 24h, 48h ou 7d. Auparavant ces valeurs étaient surchargées par
@@ -452,11 +466,12 @@ export async function POST(req: Request) {
       website_url: websiteUrl,
       website_addon_paid_cents: websiteAddonCents,
       // Campagne ouverte immédiatement et fermée à la fin de la fenêtre
-      // de réponse (= durationKey choisi par le pro). C'est exactement
+      // de réponse (= durationKey choisi par le pro, + 20 min de head-start
+      // prioritaire pour un flash deal 1h → lifetime 1h20). C'est exactement
       // la même horloge que `relations.expires_at` ci-dessous, donc le
       // mail prospect, l'UI et la DB convergent toujours.
       starts_at: new Date().toISOString(),
-      ends_at: new Date(Date.now() + durationMeta.ms).toISOString(),
+      ends_at: new Date(Date.now() + campaignLifetimeMs(durationKey)).toISOString(),
       founder_bonus_enabled: founderBonusEnabled,
     })
     .select("id")
@@ -550,8 +565,9 @@ export async function POST(req: Request) {
   }
 
   // Fenêtre de réponse côté prospect = durationKey du wizard (1h, 24h,
-  // 48h ou 7d). Synchronisé avec `campaigns.ends_at`.
-  const expiresAt = new Date(Date.now() + durationMeta.ms).toISOString();
+  // 48h ou 7d), + 20 min de head-start pour un flash deal 1h. Synchronisé
+  // avec `campaigns.ends_at` (même horloge).
+  const expiresAt = new Date(Date.now() + campaignLifetimeMs(durationKey)).toISOString();
   // body.brief is guaranteed non-empty by validation above.
   const motif = body.brief.trim();
 

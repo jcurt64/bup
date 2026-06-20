@@ -5384,14 +5384,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     for (const r of ALL) {
       const key = r.campaignId || r.campaign;
       if (!key || map.has(key)) continue;
-      map.set(key, { id: key, name: r.campaign || '—' });
+      map.set(key, { id: key, name: r.campaign || '—', locked: !!r.locked });
     }
     return Array.from(map.values());
   }, [ALL]);
 
   // Auto-sélection unique de l'unique campagne (cf. autoSelectedRef ci-dessus).
   React.useEffect(() => {
-    if (!autoSelectedRef.current && activeCampaign === null && campaignList.length === 1) {
+    // On n'auto-ouvre l'atelier que sur une campagne clôturée (déverrouillée) :
+    // l'atelier (audience/segmentation) est gated côté serveur.
+    if (!autoSelectedRef.current && activeCampaign === null && campaignList.length === 1 && !campaignList[0].locked) {
       autoSelectedRef.current = true;
       setActiveCampaign({ id: campaignList[0].id, name: campaignList[0].name });
     }
@@ -5920,10 +5922,14 @@ function Contacts({ pendingContact, onPendingConsumed }) {
       )}
 
       {displayGroups.map((group) => {
+        // Campagne en cours (non clôturée) : NON dépliable — on n'affiche
+        // jamais le détail (lignes prospects, coordonnées) avant la clôture
+        // (séquestre). Seul l'en-tête du groupe est visible.
+        const locked = !!group.items[0]?.locked;
         // Vue d'ensemble (« Toutes ») : campagnes repliées par défaut (cf. effet
         // d'init). En mode atelier (une campagne explicitement ouverte), on force
-        // l'affichage déplié — sinon ses contacts seraient masqués à l'ouverture.
-        const isCollapsed = !activeCampaign && collapsed.has(group.campaignId);
+        // l'affichage déplié. Une campagne verrouillée reste TOUJOURS repliée.
+        const isCollapsed = locked || (!activeCampaign && collapsed.has(group.campaignId));
         const emailableIds = group.items.filter(it => it.emailAvailable).map(it => it.relationId);
         const selectedInGroup = emailableIds.filter(id => selected.has(id));
         const allSelected = emailableIds.length > 0 && selectedInGroup.length === emailableIds.length;
@@ -5947,23 +5953,25 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               }}
             >
               <button
-                onClick={() => toggleCollapsed(group.campaignId)}
+                onClick={locked ? undefined : () => toggleCollapsed(group.campaignId)}
+                disabled={locked}
                 className="row center gap-3"
                 style={{
-                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  background: 'none', border: 'none', padding: 0,
+                  cursor: locked ? 'default' : 'pointer',
                   textAlign: 'left', minWidth: 0, flex: '1 1 260px',
                 }}
-                aria-expanded={!isCollapsed}
-                title={isCollapsed ? 'Déplier' : 'Replier'}
+                aria-expanded={locked ? undefined : !isCollapsed}
+                title={locked ? 'Détails disponibles à la clôture de la campagne' : (isCollapsed ? 'Déplier' : 'Replier')}
               >
                 <span style={{
                   display: 'inline-flex', width: 24, height: 24, borderRadius: 6,
                   background: cs.soft, alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0, color: cs.accent,
-                  transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                  transform: locked ? 'none' : (isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)'),
                   transition: 'transform .15s',
                 }}>
-                  <Icon name="arrow" size={12}/>
+                  <Icon name={locked ? 'lock' : 'arrow'} size={12}/>
                 </span>
                 <div style={{ minWidth: 0 }}>
                   {/* Pastille catégorie (eyebrow) — icône selon l'objectif */}
@@ -5976,7 +5984,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                   <div className="serif" style={{ fontSize: 17, lineHeight: 1.2 }}>{group.campaign}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
                     <span>{group.items.length} prospect{group.items.length > 1 ? 's' : ''}</span>
-                    {closesAt && (
+                    {locked ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: cs.accent }}>
+                        <span aria-hidden style={{ opacity: 0.5 }}>·</span>
+                        <Icon name="clock" size={11}/>
+                        En cours — détails à la clôture
+                      </span>
+                    ) : closesAt && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <span aria-hidden style={{ opacity: 0.5 }}>·</span>
                         <Icon name="calendar" size={11}/>
@@ -5991,6 +6005,9 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               </button>
               <div className="row center" style={{ gap: 14, flexWrap: 'wrap' }}>
                 {/* Pile d'avatars */}
+                {/* Aperçu d'avatars masqué pour une campagne en cours (les
+                    avatars trahiraient des identités avant la clôture). */}
+                {!locked && (
                 <div style={{ display: 'flex', alignItems: 'center' }} title={`${group.items.length} prospect${group.items.length > 1 ? 's' : ''}`}>
                   {previewAvatars.map((it, idx) => (
                     <div key={it.relationId || idx} style={{ marginLeft: idx === 0 ? 0 : -10, border: '3px solid var(--paper)', borderRadius: 999, position: 'relative', zIndex: idx }}>
@@ -6005,7 +6022,11 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                     }}>+{extraAvatars}</div>
                   )}
                 </div>
-                {/* Actions : Déplier · Statistiques · Sélectionner tous · Message groupé */}
+                )}
+                {/* Actions : Déplier · Statistiques · Sélectionner tous · Message groupé.
+                    Toute la barre est masquée pour une campagne en cours (non
+                    dépliable, aucune action possible avant la clôture). */}
+                {!locked && (
                 <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                   <button
                     className="btn btn-ghost btn-sm"
@@ -6022,42 +6043,43 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                     </span>
                     {isCollapsed ? 'Déplier' : 'Replier'}
                   </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => { setActiveCampaign({ id: group.campaignId, name: group.campaign }); setSegFilters({}); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-                      color: cs.accent, borderColor: cs.accent,
-                      background: `color-mix(in oklab, ${cs.accent} 8%, var(--paper))`,
-                    }}
-                    title="Statistiques de la campagne (audience, filtres, segments)"
-                  >
-                    <Icon name="chart" size={12}/> Statistiques
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setGroupSelected(group, !allSelected)}
-                    disabled={emailableIds.length === 0}
-                    style={{ opacity: emailableIds.length === 0 ? 0.4 : 1, whiteSpace: 'nowrap' }}
-                    title={emailableIds.length === 0 ? 'Aucun email partagé dans ce groupe' : (allSelected ? 'Tout désélectionner' : 'Sélectionner tous')}
-                  >
-                    {allSelected ? 'Tout désélectionner' : someSelected ? 'Tout sélectionner' : 'Sélectionner tous'}
-                  </button>
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => handleGroupMessage(group)}
-                    disabled={selectedInGroup.length === 0 || groupSending}
-                    style={{
-                      background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
-                      color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
-                      cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <Icon name="email" size={12}/>
-                    Message groupé{selectedInGroup.length > 0 ? ` (${selectedInGroup.length})` : ''}
-                  </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => { setActiveCampaign({ id: group.campaignId, name: group.campaign }); setSegFilters({}); }}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                          color: cs.accent, borderColor: cs.accent,
+                          background: `color-mix(in oklab, ${cs.accent} 8%, var(--paper))`,
+                        }}
+                        title="Statistiques de la campagne (audience, filtres, segments)"
+                      >
+                        <Icon name="chart" size={12}/> Statistiques
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setGroupSelected(group, !allSelected)}
+                        disabled={emailableIds.length === 0}
+                        style={{ opacity: emailableIds.length === 0 ? 0.4 : 1, whiteSpace: 'nowrap' }}
+                        title={emailableIds.length === 0 ? 'Aucun email partagé dans ce groupe' : (allSelected ? 'Tout désélectionner' : 'Sélectionner tous')}
+                      >
+                        {allSelected ? 'Tout désélectionner' : someSelected ? 'Tout sélectionner' : 'Sélectionner tous'}
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => handleGroupMessage(group)}
+                        disabled={selectedInGroup.length === 0 || groupSending}
+                        style={{
+                          background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
+                          color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
+                          cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Icon name="email" size={12}/>
+                        Message groupé{selectedInGroup.length > 0 ? ` (${selectedInGroup.length})` : ''}
+                      </button>
                 </div>
+                )}
               </div>
             </div>
 
@@ -6066,14 +6088,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                 <table className="tbl">
                   <thead><tr>
                     <th style={{ width: 36 }}>
-                      <input
-                        type="checkbox"
-                        aria-label="Tout sélectionner dans cette campagne"
-                        checked={allSelected}
-                        ref={el => { if (el) el.indeterminate = someSelected; }}
-                        onChange={(e) => setGroupSelected(group, e.target.checked)}
-                        disabled={emailableIds.length === 0}
-                      />
+                      {!locked && (
+                        <input
+                          type="checkbox"
+                          aria-label="Tout sélectionner dans cette campagne"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected; }}
+                          onChange={(e) => setGroupSelected(group, e.target.checked)}
+                          disabled={emailableIds.length === 0}
+                        />
+                      )}
                     </th>
                     <th>Prospect</th><th>Score</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
                   </tr></thead>
@@ -6091,23 +6115,25 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                           } : undefined}
                         >
                           <td>
-                            <input
-                              type="checkbox"
-                              aria-label={`Sélectionner ${r.name}`}
-                              checked={isChecked}
-                              onChange={() => toggleSelected(r.relationId)}
-                              disabled={!r.emailAvailable}
-                              title={r.emailAvailable ? '' : "Email non partagé — sélection désactivée"}
-                            />
+                            {!r.locked && (
+                              <input
+                                type="checkbox"
+                                aria-label={`Sélectionner ${r.name}`}
+                                checked={isChecked}
+                                onChange={() => toggleSelected(r.relationId)}
+                                disabled={!r.emailAvailable}
+                                title={r.emailAvailable ? '' : "Email non partagé — sélection désactivée"}
+                              />
+                            )}
                           </td>
                           <td className="row center gap-3"><Avatar name={r.name} size={28} color={avatarColor(r.name)}/><span>{r.name}</span></td>
                           <td className="mono tnum">{r.score}</td>
                           <td><span className="chip">P{r.tier}</span></td>
-                          <td className="mono" style={{ fontSize: 12 }}>{r.email}</td>
-                          <td className="mono" style={{ fontSize: 12 }}>{r.telephone}</td>
+                          <td className="mono" style={{ fontSize: 12 }}>{r.locked ? <span className="muted" title="Disponible à la clôture">🔒</span> : r.email}</td>
+                          <td className="mono" style={{ fontSize: 12 }}>{r.locked ? <span className="muted" title="Disponible à la clôture">🔒</span> : r.telephone}</td>
                           <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
                           <td>
-                            {(() => {
+                            {r.locked ? <span className="muted">—</span> : (() => {
                               const busy = evalSubmitting.has(r.relationId);
                               if (r.evaluation === 'atteint') {
                                 return (
@@ -6171,6 +6197,34 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              {r.locked ? (
+                                <span className="muted mono" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <Icon name="lock" size={11}/> Disponible à la clôture
+                                </span>
+                              ) : (<>
+                              {/* Priorité de traitement enregistrée sur la fiche
+                                  (ProspectDetailsModal) : badge icône + numéro +
+                                  libellé, mêmes couleurs que le filtre/la fiche.
+                                  Affiché entre l'évaluation et « Voir détails ». */}
+                              {(() => {
+                                const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                                if (!po) return null;
+                                return (
+                                  <span
+                                    title={`Priorité de traitement : ${po.label}`}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                                      padding: '4px 9px', borderRadius: 999,
+                                      fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                                      color: po.color,
+                                      background: `color-mix(in oklab, ${po.color} 12%, var(--paper))`,
+                                      border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
+                                    }}
+                                  >
+                                    <Icon name="sparkle" size={11}/> {po.v} · {po.label}
+                                  </span>
+                                );
+                              })()}
                               <button
                                 type="button"
                                 className="btn btn-ghost btn-sm"
@@ -6213,6 +6267,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               }
                               setReveal({ relationId: r.relationId, intent, name: r.name });
                             }}/>
+                              </>)}
                             </div>
                           </td>
                         </tr>
@@ -8572,6 +8627,8 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
   const [cApplied, setCApplied] = useState({ status: 'all', scoreMin: '', period: 'all' });
   const cFilterActive =
     cApplied.status !== 'all' || cApplied.scoreMin !== '' || cApplied.period !== 'all';
+  // Téléchargement du relevé PDF de la campagne (onglet Facturation).
+  const [statementLoading, setStatementLoading] = useState(false);
 
   const togglePauseStatus = async (campId, nextStatus) => {
     try {
@@ -8597,6 +8654,38 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
   // Camp est l'objet de la liste (cf. Campagnes → onDetail(c)). On l'utilise
   // pour des fallbacks d'affichage tant que le détail complet n'a pas répondu.
   const campId = camp?.id || null;
+
+  // Télécharge le relevé PDF complet de la campagne. On passe par un blob
+  // (plutôt qu'une nav directe) pour rester dans l'iframe du prototype et
+  // gérer proprement les erreurs (401/404/500 → message au lieu d'un PDF
+  // cassé). Le gating séquestre est appliqué côté API.
+  const downloadStatement = async () => {
+    if (!campId || statementLoading) return;
+    setStatementLoading(true);
+    try {
+      const r = await fetch(`/api/pro/campaigns/${campId}/statement`, { cache: 'no-store' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert("Impossible de générer le relevé : " + (j?.error || r.status));
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cd = r.headers.get('content-disposition') || '';
+      const m = cd.match(/filename="?([^"]+)"?/);
+      a.download = m ? m[1] : 'releve-campagne.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Erreur réseau : " + (e.message || ''));
+    } finally {
+      setStatementLoading(false);
+    }
+  };
 
   // Fetch du détail (campaign + funnel + contacts + activity) à l'arrivée
   // sur la page et à chaque changement d'id de campagne.
@@ -8823,13 +8912,21 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               const pending = Number(data.funnel?.pending ?? 0);
               const refused = Number(data.funnel?.refused ?? 0);
               const expired = Number(data.funnel?.expired ?? 0);
-              const parts = [`${winCount} / ${sent} sollicité${sent > 1 ? 's' : ''}`];
-              const tail = [];
-              if (pending > 0) tail.push(`${pending} en attente`);
-              if (refused > 0) tail.push(`${refused} refus`);
-              if (expired > 0) tail.push(`${expired} expiré${expired > 1 ? 's' : ''}`);
-              if (tail.length > 0) parts.push(tail.join(' · '));
-              return parts.join(' · ');
+              // Segments du sous-titre. Le nombre de refus est mis en rouge
+              // (var(--danger)) pour attirer l'œil du pro → on retourne du
+              // JSX (le rendu {k[2]} accepte string OU node).
+              const segs = [`${winCount} / ${sent} sollicité${sent > 1 ? 's' : ''}`];
+              if (pending > 0) segs.push(`${pending} en attente`);
+              if (refused > 0) segs.push(
+                <span key="refus" style={{ color: 'var(--danger)' }}>{refused} refus</span>
+              );
+              if (expired > 0) segs.push(`${expired} expiré${expired > 1 ? 's' : ''}`);
+              const out = [];
+              segs.forEach((s, i) => {
+                if (i > 0) out.push(<span key={'sep' + i}> · </span>);
+                out.push(s);
+              });
+              return <>{out}</>;
             })(),
             'trend'],
           ['Coût moyen / contact',
@@ -8912,7 +9009,12 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
       <div className="row gap-2">
         {[
           ['overview', 'Vue d\'ensemble'],
-          ['contacts', 'Contacts (' + (data.contacts?.length || 0) + ')'],
+          // Le badge reflète le nombre d'acceptations (winCount), pas la
+          // liste détaillée : celle-ci est masquée (=[]) tant que la campagne
+          // n'est pas clôturée (gating séquestre, cf. proCanSeeContacts). Le
+          // compteur n'est pas une donnée personnelle → cohérent avec le KPI
+          // « Contacts obtenus » et la carte verrouillée « X acceptés ».
+          ['contacts', 'Contacts (' + winCount + ')'],
           ['config',   'Configuration'],
           ['activity', 'Activité'],
           ['billing',  'Facturation'],
@@ -9262,7 +9364,14 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               <div className="serif" style={{ fontSize: 22 }}>Facturation de la campagne</div>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Détail des débits et contacts facturés</div>
             </div>
-            <button className="btn btn-ghost btn-sm"><Icon name="download" size={12}/> Relevé complet</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={downloadStatement}
+              disabled={statementLoading}
+              style={statementLoading ? { opacity: 0.6, cursor: 'wait' } : undefined}
+            >
+              <Icon name="download" size={12}/> {statementLoading ? 'Génération…' : 'Relevé complet'}
+            </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
             {[

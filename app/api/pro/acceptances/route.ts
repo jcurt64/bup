@@ -63,7 +63,11 @@ export async function GET(req: Request) {
     )
     .eq("pro_account_id", proId)
     .in("status", ["accepted", "settled"])
-    .eq("campaigns.status", "completed")
+    // Feed des acceptations (toutes campagnes lancées, en cours + clôturées).
+    // Noms masqués (maskName) → pas de fuite avant clôture ; révélation des
+    // coordonnées toujours gated. Cohérent avec « Dernières acceptations »
+    // (/api/pro/overview).
+    .in("campaigns.status", ["active", "paused", "completed"])
     .order("decided_at", { ascending: false })
     .range((page - 1) * size, page * size - 1);
 

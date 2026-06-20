@@ -286,6 +286,227 @@ export async function buildInvoicesPdf(
   return docToBuffer(doc);
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Relevé de campagne (bouton « Relevé complet » de l'onglet Facturation
+   du détail d'une campagne). Ce n'est PAS une facture fiscale : c'est un
+   récapitulatif des débits d'une campagne (budget consommé, commission
+   BUUPP, contacts facturés). Les identités prospect ne sont incluses que
+   si la campagne est clôturée (parité avec le gating séquestre côté API,
+   cf. proCanSeeContacts).
+   ───────────────────────────────────────────────────────────────────── */
+
+export type CampaignStatementContact = {
+  /** Nom du prospect — masqué (« Prospect ») tant que la campagne n'est pas clôturée. */
+  name: string;
+  tierLabel: string;
+  /** Date de décision (ISO). */
+  decidedAt: string;
+  amountEur: number;
+  statusLabel: string;
+};
+
+export type CampaignStatementData = {
+  campaignName: string;
+  objectiveLabel: string;
+  statusLabel: string;
+  createdAtLabel: string | null;
+  endsAtLabel: string | null;
+  budgetEur: number;
+  /** Budget campagne consommé (hors commission). */
+  spentEur: number;
+  /** Commission BUUPP acquise (10 % du consommé). */
+  commissionSpentEur: number;
+  /** Total réellement débité du solde (consommé + commission). */
+  totalDebitedEur: number;
+  /** Nombre de contacts facturés (acceptés + crédités). */
+  winCount: number;
+  /** Objectif de contacts (budget / coût unitaire). */
+  plannedContacts: number;
+  avgCostEur: number;
+  /** Liste détaillée — vide si la campagne n'est pas clôturée. */
+  contacts: CampaignStatementContact[];
+  contactsLocked: boolean;
+};
+
+function eur(amount: number): string {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+/** Dessine le bloc « ÉMETTEUR / DESTINATAIRE » (réutilisé du template facture). */
+function renderParties(doc: PDFKit.PDFDocument, pro: ProBillingInfo): void {
+  const yStart = doc.y + 14;
+  const colWidth = (doc.page.width - 56 * 2 - 24) / 2;
+
+  doc.fontSize(9).fillColor(COLOR_SUBTLE).text("ÉMETTEUR", 56, yStart);
+  doc.fontSize(11).fillColor(COLOR_INK).text(SELLER.name, 56, yStart + 14, { width: colWidth });
+  doc.fontSize(9).fillColor(COLOR_SUBTLE)
+    .text(SELLER.address, 56, doc.y + 2, { width: colWidth })
+    .text(SELLER.postalCity, { width: colWidth })
+    .text(SELLER.rcs, { width: colWidth })
+    .text(SELLER.email, { width: colWidth });
+
+  const rightX = 56 + colWidth + 24;
+  doc.fontSize(9).fillColor(COLOR_SUBTLE).text("DESTINATAIRE", rightX, yStart);
+  doc.fontSize(11).fillColor(COLOR_INK).text(pro.raisonSociale, rightX, yStart + 14, { width: colWidth });
+  doc.fontSize(9).fillColor(COLOR_SUBTLE);
+  if (pro.adresse) doc.text(pro.adresse, rightX, doc.y + 2, { width: colWidth });
+  if (pro.codePostal || pro.ville) {
+    doc.text([pro.codePostal, pro.ville].filter(Boolean).join(" "), { width: colWidth });
+  }
+  if (pro.siret) doc.text(`SIRET : ${pro.siret}`, { width: colWidth });
+  else if (pro.siren) doc.text(`SIREN : ${pro.siren}`, { width: colWidth });
+  if (pro.email) doc.text(pro.email, { width: colWidth });
+
+  doc.x = 56;
+  doc.y = Math.max(doc.y, yStart + 110);
+}
+
+/** Génère le PDF « Relevé complet » d'une campagne. */
+export async function buildCampaignStatementPdf(
+  data: CampaignStatementData,
+  pro: ProBillingInfo,
+): Promise<Buffer> {
+  const doc = newDoc(`Relevé de campagne — ${data.campaignName}`, "Relevé de campagne BUUPP");
+
+  // ─── En-tête ──────────────────────────────────────────────────────
+  doc.fontSize(22).fillColor(COLOR_INK).text("BUUPP", { continued: false });
+  doc.moveUp(0.6).fontSize(10).fillColor(COLOR_SUBTLE).text("Relevé de campagne", { align: "right" });
+
+  doc.moveDown(1.2);
+  doc.fontSize(15).fillColor(COLOR_INK).text(data.campaignName, 56, doc.y, { width: doc.page.width - 56 * 2 });
+  doc.fontSize(9).fillColor(COLOR_SUBTLE).text(
+    [
+      data.objectiveLabel && data.objectiveLabel !== "—" ? data.objectiveLabel : null,
+      `Statut : ${data.statusLabel}`,
+      data.createdAtLabel ? `Créée le ${data.createdAtLabel}` : null,
+      data.endsAtLabel ? `Diffusion jusqu'au ${data.endsAtLabel}` : null,
+    ].filter(Boolean).join("  ·  "),
+    { width: doc.page.width - 56 * 2 },
+  );
+
+  doc.moveDown(1);
+  hr(doc);
+  renderParties(doc, pro);
+  doc.moveDown(1);
+  hr(doc);
+
+  // ─── Récapitulatif financier ──────────────────────────────────────
+  doc.moveDown(1);
+  const labelX = 56;
+  const amountX = doc.page.width - 56 - 160;
+  const amountW = 160;
+  const rows: Array<[string, string, boolean]> = [
+    ["Budget campagne consommé", eur(data.spentEur), false],
+    ["Commission BUUPP (10 %)", eur(data.commissionSpentEur), false],
+    [
+      "Contacts facturés",
+      `${data.winCount}${data.plannedContacts > 0 ? ` / ${data.plannedContacts}` : ""}`,
+      false,
+    ],
+    ["Coût moyen par contact", eur(data.avgCostEur), false],
+  ];
+  doc.fontSize(9).fillColor(COLOR_SUBTLE);
+  doc.text("RÉCAPITULATIF", labelX, doc.y);
+  doc.moveDown(0.5);
+  hr(doc);
+  doc.moveDown(0.4);
+  for (const [label, value] of rows) {
+    const y = doc.y;
+    doc.fontSize(10).fillColor(COLOR_INK).text(label, labelX, y, { width: amountX - labelX - 16 });
+    doc.fontSize(10).fillColor(COLOR_INK).text(value, amountX, y, { width: amountW, align: "right" });
+    doc.moveDown(0.5);
+  }
+  doc.moveDown(0.4);
+  hr(doc);
+  doc.moveDown(0.6);
+  const totalY = doc.y;
+  doc.fontSize(11).fillColor(COLOR_SUBTLE).text("Total débité du solde", labelX, totalY, { width: amountX - labelX - 16, align: "right" });
+  doc.fontSize(15).fillColor(COLOR_ACCENT).text(eur(data.totalDebitedEur), amountX, totalY - 4, { width: amountW, align: "right" });
+  doc.x = 56;
+  doc.moveDown(1.4);
+
+  doc.fontSize(8).fillColor(COLOR_SUBTLE).text(
+    data.winCount === 0
+      ? "Aucune commission n'est due tant qu'aucun prospect n'a accepté."
+      : "La commission BUUPP correspond à 10 % du gain de chaque prospect ayant accepté.",
+    labelX,
+    doc.y,
+    { width: doc.page.width - 56 * 2 },
+  );
+
+  // ─── Détail des contacts facturés ─────────────────────────────────
+  doc.moveDown(1.4);
+  hr(doc);
+  doc.moveDown(0.8);
+  doc.fontSize(9).fillColor(COLOR_SUBTLE).text("CONTACTS FACTURÉS", labelX, doc.y);
+  doc.moveDown(0.6);
+
+  if (data.contactsLocked) {
+    doc.fontSize(9).fillColor(COLOR_SUBTLE).text(
+      "Le détail par prospect (identité, palier, montant) sera disponible une fois la campagne clôturée.",
+      labelX,
+      doc.y,
+      { width: doc.page.width - 56 * 2 },
+    );
+  } else if (data.contacts.length === 0) {
+    doc.fontSize(9).fillColor(COLOR_SUBTLE).text(
+      "Aucun contact facturé pour le moment.",
+      labelX,
+      doc.y,
+      { width: doc.page.width - 56 * 2 },
+    );
+  } else {
+    // Colonnes : Date · Contact · Palier · Montant · Statut
+    const dateX = 56;
+    const nameX = 130;
+    const tierX = 290;
+    const amtX = doc.page.width - 56 - 200;
+    const statusX = doc.page.width - 56 - 100;
+    const drawHeader = () => {
+      const y = doc.y;
+      doc.fontSize(8).fillColor(COLOR_SUBTLE);
+      doc.text("DATE", dateX, y);
+      doc.text("CONTACT", nameX, y, { width: tierX - nameX - 8 });
+      doc.text("PALIER", tierX, y, { width: amtX - tierX - 8 });
+      doc.text("MONTANT", amtX, y, { width: statusX - amtX - 8, align: "right" });
+      doc.text("STATUT", statusX, y, { width: 100 });
+      doc.moveDown(0.5);
+      hr(doc);
+      doc.moveDown(0.4);
+    };
+    drawHeader();
+    for (const c of data.contacts) {
+      // Saut de page si on approche du pied.
+      if (doc.y > doc.page.height - 90) {
+        doc.addPage();
+        drawHeader();
+      }
+      const y = doc.y;
+      doc.fontSize(9).fillColor(COLOR_INK);
+      doc.text(formatDate(c.decidedAt), dateX, y, { width: nameX - dateX - 8 });
+      doc.text(c.name, nameX, y, { width: tierX - nameX - 8 });
+      doc.text(c.tierLabel, tierX, y, { width: amtX - tierX - 8 });
+      doc.text(eur(c.amountEur), amtX, y, { width: statusX - amtX - 8, align: "right" });
+      doc.text(c.statusLabel, statusX, y, { width: 100 });
+      doc.moveDown(0.7);
+    }
+  }
+
+  // ─── Pied de page légal ───────────────────────────────────────────
+  doc.fontSize(8).fillColor(COLOR_SUBTLE).text(
+    `Document indicatif émis par ${SELLER.name} (${SELLER.legalForm}). Pour vos factures fiscales, voir l'onglet Facturation.`,
+    56,
+    doc.page.height - 56 - 24,
+    { width: doc.page.width - 56 * 2, align: "center" },
+  );
+
+  return docToBuffer(doc);
+}
+
 function hr(doc: PDFKit.PDFDocument) {
   const y = doc.y + 4;
   doc

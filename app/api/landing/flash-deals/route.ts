@@ -20,6 +20,14 @@ import { getFounderContext } from "@/lib/founders";
 
 export const runtime = "nodejs";
 
+// Head-start « profil prioritaire » : un flash deal est affiché aux profils
+// prioritaires (fondateurs ≥ 3 filleuls) 20 min AVANT le grand public. Le
+// lifetime d'un flash deal vaut 1h20 (cf. campaignLifetimeMs dans
+// /api/pro/campaigns) : le prioritaire le voit pendant 1h20, le public
+// pendant la dernière 1h (blackout des 20 premières minutes). Cette valeur
+// DOIT rester synchronisée avec FLASH_PRIORITY_HEAD_START_MS côté création.
+const FLASH_PRIORITY_HEAD_START_MS = 20 * 60 * 1000;
+
 type ProspectIdRow = { id: string } | null;
 
 export async function GET() {
@@ -48,10 +56,10 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] auth context failed", e);
   }
 
-  // `getFounderContext` peut échouer si la migration fondateur n'est
-  // pas encore appliquée (RPC absente) ou en cas de hoquet réseau —
-  // on dégrade silencieusement vers un contexte non-fondateur pour
-  // éviter un 500 sur cet endpoint public.
+  // `getFounderContext` peut échouer si la migration fondateur n'est pas
+  // encore appliquée (RPC absente) ou en cas de hoquet réseau — on dégrade
+  // silencieusement vers un contexte non-fondateur pour éviter un 500 sur
+  // cet endpoint public.
   let founder = {
     isFounder: false,
     isWithinBonusWindow: false,
@@ -64,9 +72,11 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] founder context failed", e);
   }
 
-  // Priorité « prioritaire » (palier argent+) : seuls les fondateurs ayant
-  // au moins 3 filleuls voient un flash deal pendant ses 20 premières
-  // minutes. Au-delà, il devient visible pour tout le monde (filtre serveur).
+  // Head-start prioritaire : les profils prioritaires (fondateurs ≥ 3
+  // filleuls) voient le flash deal dès son lancement (1h20). Le grand
+  // public ne le voit qu'après ses 20 premières minutes → il en profite
+  // pendant la dernière 1h pile. Le lifetime de la campagne (ends_at) est
+  // déjà calé sur 1h20 à la création (cf. campaignLifetimeMs).
   let campaignQuery = admin
     .from("campaigns")
     .select(
@@ -82,7 +92,7 @@ export async function GET() {
   if (founder.filleulCount < 3) {
     campaignQuery = campaignQuery.lt(
       "created_at",
-      new Date(Date.now() - 20 * 60_000).toISOString(),
+      new Date(Date.now() - FLASH_PRIORITY_HEAD_START_MS).toISOString(),
     );
   }
 

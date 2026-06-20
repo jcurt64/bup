@@ -70,7 +70,13 @@ export async function GET() {
       )
       .eq("pro_account_id", proId)
       .in("status", ["accepted", "settled"])
-      .eq("campaigns.status", "completed")
+      // « Dernières acceptations » = feed des acceptations récentes de TOUTES
+      // les campagnes lancées (en cours + clôturées). Les noms sont masqués
+      // (maskName), donc aucune fuite d'identité avant clôture ; la révélation
+      // des coordonnées reste gated (cf. /api/pro/contacts/[id]/reveal). Sans
+      // ça, le tableau restait vide alors que le KPI « contacts acceptés »
+      // (requête principale, non gatée) comptait déjà ces acceptations.
+      .in("campaigns.status", ["active", "paused", "completed"])
       .order("decided_at", { ascending: false })
       .limit(4),
   ]);

@@ -13,6 +13,7 @@ import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { loadCampaignAudience } from "@/lib/pro/segmentation/load";
 import { matchesFilters, sanitizeFilters } from "@/lib/pro/segmentation/filter";
+import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
@@ -96,10 +97,20 @@ export async function GET(req: Request) {
     )
     .eq("pro_account_id", proId)
     .in("status", ["accepted", "settled"])
-    .eq("campaigns.status", "completed")
     .order("decided_at", { ascending: false });
-  if (campaignId) query = query.eq("campaign_id", campaignId);
-  else query = query.limit(200);
+  if (campaignId) {
+    // Atelier de segmentation (Statistiques) : réservé aux campagnes
+    // clôturées (audience + révélation gated). On conserve donc le filtre.
+    query = query.eq("campaign_id", campaignId).eq("campaigns.status", "completed");
+  } else {
+    // Vue groupée « Mes prospects » : on inclut aussi les campagnes EN COURS
+    // (active/paused) afin qu'elles apparaissent dès le lancement. Leurs
+    // lignes sont VERROUILLÉES (cf. `locked` plus bas) : coordonnées et
+    // détails restent masqués jusqu'à la clôture (séquestre, proCanSeeContacts).
+    query = query
+      .in("campaigns.status", ["active", "paused", "completed"])
+      .limit(200);
+  }
   const { data, error } = await query;
 
   if (error) {
@@ -173,6 +184,11 @@ export async function GET(req: Request) {
     const campaignChannels = Array.isArray(declared) && declared.length > 0
       ? declared.filter((x): x is string => typeof x === "string")
       : ALL_CHANNELS;
+    // Campagne non clôturée → ligne verrouillée : on n'expose AUCUNE
+    // coordonnée (même watermarquée) ni accès détails/révélation (qui
+    // renverraient 403 de toute façon). Seuls nom masqué + score + palier
+    // + date + statut campagne sont visibles. Cf. proCanSeeContacts.
+    const locked = !proCanSeeContacts(camp?.status);
     return {
       relationId: r.id,
       name: fullName,
@@ -181,13 +197,17 @@ export async function GET(req: Request) {
       campaign: camp?.name ?? "—",
       campaignObjective: camp?.targeting?.objectiveId ?? null,
       campaignClosesAt: camp?.ends_at ?? null,
+      campaignStatus: camp?.status ?? null,
+      // `locked` pilote l'UI : campagne en cours = pas de bouton détails,
+      // pas d'actions de contact, coordonnées masquées (« 🔒 »).
+      locked,
       campaignChannels,
       proName,
       tier,
-      email: maskEmail(ident?.email),
-      telephone: maskPhone(ident?.telephone),
-      emailAvailable: !!ident?.email,
-      telephoneAvailable: !!ident?.telephone,
+      email: locked ? "—" : maskEmail(ident?.email),
+      telephone: locked ? "—" : maskPhone(ident?.telephone),
+      emailAvailable: locked ? false : !!ident?.email,
+      telephoneAvailable: locked ? false : !!ident?.telephone,
       receivedAt: r.decided_at,
       evaluation: r.evaluation,
       evaluatedAt: r.evaluated_at,
