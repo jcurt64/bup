@@ -36,6 +36,8 @@ type InfoBody = {
   siret?: string | null;
   rcsVille?: string | null;
   rmNumber?: string | null;
+  // N° TVA intracommunautaire (facturation électronique).
+  numeroTva?: string | null;
 };
 
 const SIREN_REGEX = /^[0-9]{9}$/;
@@ -61,7 +63,7 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("pro_accounts")
-    .select("raison_sociale, adresse, ville, code_postal, region, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
+    .select("raison_sociale, adresse, ville, code_postal, region, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number, numero_tva")
     .eq("id", proId!)
     .single();
   if (error || !data) {
@@ -84,6 +86,7 @@ export async function GET() {
     siret: data.siret ?? "",
     rcsVille: data.rcs_ville ?? "",
     rmNumber: data.rm_number ?? "",
+    numeroTva: data.numero_tva ?? "",
   });
 }
 
@@ -114,6 +117,7 @@ export async function PATCH(req: Request) {
   if ("siret"         in body) update.siret          = coerce(body.siret);
   if ("rcsVille"      in body) update.rcs_ville      = coerce(body.rcsVille);
   if ("rmNumber"      in body) update.rm_number      = coerce(body.rmNumber);
+  if ("numeroTva"     in body) update.numero_tva     = coerce(body.numeroTva);
   if ("capitalSocialEur" in body) {
     const v = body.capitalSocialEur;
     if (v == null || v === "") {

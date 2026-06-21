@@ -28,6 +28,8 @@ import {
   tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
 import { sendRelationInvitation } from "@/lib/email/relation";
+import { sendReferralInvitation } from "@/lib/email/referral-invitation";
+import { computeReferralReach } from "@/lib/founders/referral-reach";
 import { buildClassicPayload, buildFlashPayload, sendBatch, type ExpoPushMessage } from "@/lib/push/expo";
 import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
 
@@ -614,10 +616,99 @@ export async function POST(req: Request) {
   const code = `BUUPP-${randomCode(4)}-${randomCode(4)}`;
   const { error: countErr } = await admin
     .from("campaigns")
-    .update({ matched_count: insertedCount, code })
+    // `contact_quota` = nombre de contacts payés = plafond d'acceptations
+    // (ciblés + filleuls). Garde appliquée dans accept_relation_tx. Toujours
+    // posé au lancement (le bonus parrain ne fait qu'ajouter des relations
+    // « extra » qui se disputent ce même quota).
+    .update({ matched_count: insertedCount, code, contact_quota: body.contacts })
     .eq("id", campaign.id);
   if (countErr) {
     console.error("[/api/pro/campaigns] update matched_count/code failed", countErr);
+  }
+
+  // ─── Bonus parrain v2 : reach étendu aux filleuls ──────────────────
+  // Si le bonus est actif, on sollicite AUSSI les filleuls des parrains
+  // ciblés (même hors cible), avec mail + message dédiés. Les acceptations
+  // restent plafonnées au quota payé (contact_quota, garde côté RPC) ; le
+  // parrain touche +0,5× forfaitaire à SA propre acceptation (relation
+  // flaggée `referral_parrain_bonus`). Best-effort : un échec ici ne casse
+  // pas le lancement.
+  if (founderBonusEnabled && matched.length > 0) {
+    try {
+      const { filleuls } = await computeReferralReach(admin, {
+        matched: matched.map((m) => ({ prospectId: m.prospectId, email: m.email })),
+        // Borne la CRÉATION de relations extra (les acceptations sont de toute
+        // façon plafonnées au quota par la RPC). Total relations ≤ ~2× contacts.
+        maxExtra: body.contacts,
+      });
+      if (filleuls.length > 0) {
+        const filleulRows = filleuls.map((f) => ({
+          campaign_id: campaign.id,
+          pro_account_id: proId,
+          prospect_id: f.prospectId,
+          motif,
+          reward_cents:
+            f.verification === "certifie_confiance"
+              ? body.costPerContactCents * 2
+              : body.costPerContactCents,
+          status: "pending" as const,
+          expires_at: expiresAt,
+          referral_extra: true,
+        }));
+        const { data: insertedF, error: fErr } = await admin
+          .from("relations")
+          .insert(filleulRows)
+          .select("id, prospect_id");
+        if (fErr) {
+          console.error("[/api/pro/campaigns] filleul relations insert failed", fErr);
+        } else {
+          const relIdByFilleul = new Map<string, string>();
+          for (const r of insertedF ?? []) relIdByFilleul.set(r.prospect_id, r.id);
+          // Le bonus parrain n'est PAS flaggé ici : il est calculé à
+          // l'acceptation de CHAQUE filleul (accept_relation_tx, via la
+          // waitlist), à vie. Le parrain n'a pas besoin d'accepter lui-même.
+          // Notifs filleuls — email + message in-app ciblé (onglet « Mes messages »).
+          const rewardEurFor = (v: string) =>
+            (v === "certifie_confiance"
+              ? body.costPerContactCents * 2
+              : body.costPerContactCents) / 100;
+          void Promise.allSettled(
+            filleuls
+              .filter((f) => f.email)
+              .map((f) =>
+                sendReferralInvitation({
+                  email: f.email!,
+                  prenom: f.prenom,
+                  proName: pro.raison_sociale,
+                  rewardEur: rewardEurFor(f.verification),
+                  expiresAt,
+                  relationId: relIdByFilleul.get(f.prospectId) ?? null,
+                }),
+              ),
+          );
+          const broadcastRows = filleuls
+            .filter((f) => f.clerkUserId)
+            .map((f) => ({
+              title: "Une sollicitation via votre parrain",
+              body: `Votre parrain a reçu une sollicitation de ${pro.raison_sociale} qui pourrait aussi vous intéresser. Renseignez vos informations pour l'accepter et toucher vos gains.`,
+              audience: "prospects" as const,
+              created_by_admin_id: "system",
+              total_recipients: 1,
+              target_clerk_user_id: f.clerkUserId!,
+            }));
+          if (broadcastRows.length > 0) {
+            const { error: bErr } = await admin
+              .from("admin_broadcasts")
+              .insert(broadcastRows);
+            if (bErr) {
+              console.error("[/api/pro/campaigns] filleul broadcast insert failed", bErr);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[/api/pro/campaigns] referral reach failed", e);
+    }
   }
 
   // Incrémente le compteur de cycle : à la cap+1-ème tentative, le client
@@ -802,6 +893,7 @@ export async function GET() {
       brief: c.brief ?? null,
       status: c.status,
       objectiveLabel: objectiveLabel(targeting?.objectiveId),
+      objectiveId: targeting?.objectiveId ?? null,
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
       contactsCount: contactsByCampaign.get(c.id) ?? 0,

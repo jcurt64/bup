@@ -453,10 +453,22 @@ function Overview({ onCreate }) {
   React.useEffect(() => {
     let cancelled = false;
     const refresh = () => fetchProOverview().then(j => { if (!cancelled) setData(j); });
+    // Le cache module n'est invalidé que par les actions du pro ; or les
+    // acceptations arrivent côté PROSPECT (hors de cette session). On force
+    // donc un fetch FRAIS à chaque ouverture de « Vue d'ensemble » pour que
+    // « Dernières acceptations » et les KPI reflètent les acceptations récentes.
+    invalidateProOverview();
     refresh();
     const onChange = () => { invalidateProOverview(); refresh(); };
     window.addEventListener('pro:overview-changed', onChange);
-    return () => { cancelled = true; window.removeEventListener('pro:overview-changed', onChange); };
+    // Rafraîchit aussi au retour sur l'onglet du navigateur (focus).
+    const onFocus = () => { invalidateProOverview(); refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pro:overview-changed', onChange);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
   // Fermeture sur Escape — UX standard pour les modales.
   React.useEffect(() => {
@@ -4164,18 +4176,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                    Activer le bonus parrain (1<sup>er</sup> mois post-lancement)
+                    Activer le bonus parrain (étendre à leurs filleuls)
                   </div>
                   <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-                    Les <strong>fondateurs</strong> (parrains) amènent des
-                    <strong> filleuls</strong> via leur lien de parrainage. Activez ce
-                    bonus pour récompenser le parrainage : lorsqu'un filleul accepte une
-                    de vos sollicitations pour la <strong>1<sup>re</sup> fois</strong>,
-                    son <strong>parrain touche 50 %</strong> de la récompense du filleul
-                    (à votre charge), pendant le <strong>1<sup>er</sup> mois</strong>
-                    post-lancement. Le filleul perçoit sa récompense normale ; le bonus
-                    parrain s'ajoute. Désactivé, vos campagnes restent visibles au tarif
-                    standard, sans bonus parrain.
+                    Lorsqu'un de vos prospects ciblés est un parrain, <strong>tous ses
+                    filleuls reçoivent aussi votre sollicitation</strong> (mail + message),
+                    même hors cible — plus de portée. À chaque acceptation d'un filleul,
+                    son <strong>parrain touche +50 %</strong> de sa récompense (à votre
+                    charge) ; le filleul perçoit la récompense normale. Le quota de la
+                    campagne n'est jamais dépassé.
                   </div>
                 </div>
                 <button
@@ -4656,20 +4665,21 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
             <div style={{ marginTop: 14, padding: 14, borderRadius: 10,
                           background: 'var(--ivory-2)', border: '1px solid var(--line)' }}>
               <div className="mono caps" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 6 }}>
-                Bonus parrain (1er mois post-lancement)
+                Bonus parrain (à vie)
               </div>
               {founderBonusEnabled ? (
                 <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
-                  Activé — la <strong>1<sup>re</sup> acceptation</strong> d'un filleul
-                  verse <strong>50 %</strong> de sa récompense à son parrain, soit
-                  <strong> +{fmtEur(cpc / 2)}</strong> en plus de la récompense
-                  ({fmtEur(cpc)}). Coût max du bonus si tous les contacts sont des
-                  1<sup>res</sup> acceptations de filleuls :
-                  <strong> {fmtEur((cpc / 2) * contacts)}</strong>.
+                  Activé — les <strong>filleuls</strong> des parrains ciblés sont
+                  sollicités en plus. À <strong>chaque acceptation d'un filleul</strong>,
+                  son parrain touche <strong>+50 %</strong> de la récompense du filleul
+                  (soit <strong>+{fmtEur(cpc / 2)}</strong>), <strong>à vie</strong>. Les
+                  filleuls touchent la récompense normale. Les acceptations restent
+                  plafonnées au quota de la campagne.
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
-                  Désactivé pour cette campagne — aucun bonus parrain ne sera versé.
+                  Désactivé pour cette campagne — les filleuls ne seront pas sollicités et
+                  aucun bonus parrain ne sera versé.
                 </div>
               )}
             </div>
@@ -5271,6 +5281,10 @@ function FacetBlock({ title, items, color = 'var(--accent)' }) {
 
 function Contacts({ pendingContact, onPendingConsumed }) {
   const [allRows, setAllRows] = React.useState(null); // null = loading
+  // Campagnes du pro (toutes), pour afficher les campagnes EN COURS sans
+  // acceptation comme cartes vides verrouillées (sinon « Mes prospects » ne
+  // montre que les campagnes ayant ≥1 prospect accepté).
+  const [proCampaigns, setProCampaigns] = React.useState([]);
   const [reveal, setReveal] = React.useState(null); // { relationId, field, name } | null
   // Modale de composition d'email (envoi serveur via BUUPP). Ouverte
   // quand le pro clique le bouton "email" pour un prospect qui n'a pas
@@ -5305,6 +5319,17 @@ function Contacts({ pendingContact, onPendingConsumed }) {
       .then(r => r.ok ? r.json() : { rows: [] })
       .then(j => { if (!cancelled) setAllRows(j.rows || []); })
       .catch(() => { if (!cancelled) setAllRows([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Liste des campagnes du pro → permet d'afficher les campagnes EN COURS
+  // (active/paused) même sans aucune acceptation (carte vide verrouillée).
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/pro/campaigns', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(j => { if (!cancelled) setProCampaigns(j.campaigns || []); })
+      .catch(() => { if (!cancelled) setProCampaigns([]); });
     return () => { cancelled = true; };
   }, []);
 
@@ -5424,6 +5449,44 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     return Array.from(map.values());
   }, [rows]);
 
+  // Campagnes EN COURS (active/paused) sans aucune acceptation : on les
+  // affiche quand même en « carte vide » verrouillée, pour que le pro voie sa
+  // campagne dès le lancement (avant toute acceptation). Les campagnes déjà
+  // représentées (≥1 prospect accepté) ne sont pas dupliquées.
+  const groupsWithEmpty = React.useMemo(() => {
+    // Métadonnées par campagne (brief + date de création) pour distinguer des
+    // campagnes de même nom dans la carte.
+    const metaById = new Map();
+    for (const c of (proCampaigns || [])) {
+      if (c?.id) metaById.set(c.id, { brief: c.brief || null, createdAt: c.createdAt || null });
+    }
+    // Enrichit les groupes ayant des prospects avec brief + date.
+    const enriched = groups.map(g => ({
+      ...g,
+      brief: metaById.get(g.campaignId)?.brief ?? null,
+      createdAt: metaById.get(g.campaignId)?.createdAt ?? null,
+    }));
+    const present = new Set(groups.map(g => g.campaignId));
+    const extra = [];
+    for (const c of (proCampaigns || [])) {
+      if (!c?.id || present.has(c.id)) continue;
+      if (c.status !== 'active' && c.status !== 'paused') continue;
+      extra.push({
+        campaignId: c.id,
+        campaign: c.name || '—',
+        items: [],
+        empty: true,
+        locked: true, // en cours → verrouillé (pas de détail)
+        campaignObjective: c.objectiveId ?? null,
+        brief: c.brief || null,
+        createdAt: c.createdAt || null,
+      });
+    }
+    // Campagnes en cours vides d'abord (les plus récentes en tête de liste),
+    // puis les groupes ayant des prospects.
+    return [...extra, ...enriched];
+  }, [groups, proCampaigns]);
+
   // Liste des campagnes distinctes (à partir de TOUTES les lignes chargées),
   // pour le sélecteur de l'atelier de segmentation. Indépendante des filtres
   // locaux pour rester stable.
@@ -5453,11 +5516,13 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const displayGroups = React.useMemo(() => {
     if (!activeCampaign) {
       // Les chips de campagne agissent comme un FILTRE de la liste.
-      return campaignFilter ? groups.filter(g => g.campaignId === campaignFilter.id) : groups;
+      return campaignFilter
+        ? groupsWithEmpty.filter(g => g.campaignId === campaignFilter.id)
+        : groupsWithEmpty;
     }
     const items = filteredRows || [];
     return [{ campaignId: activeCampaign.id, campaign: activeCampaign.name, items }];
-  }, [activeCampaign, campaignFilter, filteredRows, groups]);
+  }, [activeCampaign, campaignFilter, filteredRows, groupsWithEmpty]);
 
   // Helpers de manipulation des filtres de segment (immutables).
   const setQ = (val) => setSegFilters(f => {
@@ -5907,7 +5972,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         </div>
       )}
 
-      {!activeCampaign && allRows !== null && rows.length === 0 && allRows.length === 0 && (
+      {!activeCampaign && allRows !== null && rows.length === 0 && allRows.length === 0 && groupsWithEmpty.length === 0 && (
         // Empty state aligné sur le pattern boîte aux lettres /
         // campagnes (cf. Prospect.jsx + Campagnes ci-dessus) : cercle
         // pastel + illustration 3D thiings.co + titre serif + sous-texte.
@@ -5973,7 +6038,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         // Campagne en cours (non clôturée) : NON dépliable — on n'affiche
         // jamais le détail (lignes prospects, coordonnées) avant la clôture
         // (séquestre). Seul l'en-tête du groupe est visible.
-        const locked = !!group.items[0]?.locked;
+        const locked = group.locked === true || !!group.items[0]?.locked;
         // Vue d'ensemble (« Toutes ») : campagnes repliées par défaut (cf. effet
         // d'init). En mode atelier (une campagne explicitement ouverte), on force
         // l'affichage déplié. Une campagne verrouillée reste TOUJOURS repliée.
@@ -5984,7 +6049,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         const someSelected = selectedInGroup.length > 0 && !allSelected;
         // Couleur de catégorie (accent latéral + pastille) dérivée de l'objectif
         // de la campagne ; date de clôture et aperçu d'avatars depuis les lignes.
-        const cs = categoryStyle(group.items[0]?.campaignObjective);
+        const cs = categoryStyle(group.items[0]?.campaignObjective ?? group.campaignObjective);
         const closesAt = group.items.find(it => it.campaignClosesAt)?.campaignClosesAt || null;
         const previewAvatars = group.items.slice(0, 3);
         const extraAvatars = group.items.length - previewAvatars.length;
@@ -6030,13 +6095,24 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                     <span className="mono caps" style={{ fontSize: 10, letterSpacing: '0.12em', color: cs.accent }}>{cs.label}</span>
                   </div>
                   <div className="serif" style={{ fontSize: 17, lineHeight: 1.2 }}>{group.campaign}</div>
+                  {group.brief && (
+                    <div className="muted" style={{ fontSize: 12.5, fontStyle: 'italic', marginTop: 3, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      « {group.brief} »
+                    </div>
+                  )}
                   <div className="muted" style={{ fontSize: 12, marginTop: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
                     <span>{group.items.length} prospect{group.items.length > 1 ? 's' : ''}</span>
+                    {group.createdAt && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span aria-hidden style={{ opacity: 0.5 }}>·</span>
+                        Créée le {fmtDateLong(group.createdAt)}
+                      </span>
+                    )}
                     {locked ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: cs.accent }}>
                         <span aria-hidden style={{ opacity: 0.5 }}>·</span>
                         <Icon name="clock" size={11}/>
-                        En cours — détails à la clôture
+                        {group.empty ? 'En cours — en attente d\'acceptations' : 'En cours — détails à la clôture'}
                       </span>
                     ) : closesAt && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -8217,6 +8293,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed, bulk = false, invoi
     siret: '',
     rcsVille: '',
     rmNumber: '',
+    numeroTva: '',
   });
   // État de la vérification SIREN/SIRET côté API officielle
   // (data.gouv.fr / SIRENE). `status` ∈ {'idle','loading','found',
@@ -8241,6 +8318,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed, bulk = false, invoi
           siret: j.siret ?? '',
           rcsVille: j.rcsVille ?? '',
           rmNumber: j.rmNumber ?? '',
+          numeroTva: j.numeroTva ?? '',
         });
         setLoading(false);
       })
@@ -8384,6 +8462,7 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed, bulk = false, invoi
           siret: form.siret.trim() || null,
           rcsVille: form.rcsVille.trim() || null,
           rmNumber: form.rmNumber.trim() || null,
+          numeroTva: form.numeroTva.trim() || null,
         }),
       });
       if (!r.ok) {
@@ -8592,6 +8671,15 @@ function InvoiceFieldsModal({ invoice, onClose, onConfirmed, bulk = false, invoi
             </div>
             <div className="muted" style={{ fontSize: 12 }}>
               Renseignez la ville RCS pour les sociétés commerciales, ou le numéro RM pour les artisans.
+            </div>
+            <div className="row gap-3 wrap">
+              <div style={{ flex: '1 1 220px' }}>
+                <div className="label">N° TVA intracommunautaire</div>
+                <input className="input mono" {...fld('numeroTva')} placeholder="FR.. (si assujetti à la TVA)" />
+              </div>
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Requis pour la facturation électronique (à partir de 2026) si vous êtes assujetti à la TVA. Laissez vide en franchise en base.
             </div>
 
             {missing.length > 0 && (

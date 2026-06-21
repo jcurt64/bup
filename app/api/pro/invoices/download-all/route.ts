@@ -66,7 +66,7 @@ export async function GET() {
       .limit(100),
     admin
       .from("pro_accounts")
-      .select("raison_sociale, adresse, ville, code_postal, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number")
+      .select("raison_sociale, adresse, ville, code_postal, siren, secteur, forme_juridique, capital_social_cents, siret, rcs_ville, rm_number, numero_tva")
       .eq("id", proId)
       .single(),
   ]);
@@ -107,6 +107,7 @@ export async function GET() {
     siret: pro?.siret ?? null,
     rcsVille: pro?.rcs_ville ?? null,
     rmNumber: pro?.rm_number ?? null,
+    numeroTva: pro?.numero_tva ?? null,
   };
 
   const buf = await buildInvoicesPdf(invoices, billing);

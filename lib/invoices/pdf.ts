@@ -44,6 +44,9 @@ export type ProBillingInfo = {
   siret: string | null;
   rcsVille: string | null;
   rmNumber: string | null;
+  // N° TVA intracommunautaire de l'acheteur (réforme facturation électronique).
+  // Null = non assujetti / non renseigné.
+  numeroTva?: string | null;
 };
 
 const COLOR_INK = "#0F172A";
@@ -57,8 +60,14 @@ const SELLER = {
   address: "12 Impasse des Étriers",
   postalCity: "64140 Lons",
   rcs: "RCS Pau 892 514 167",
+  // SIREN émetteur — mention obligatoire (réforme facturation électronique).
+  siren: "892514167",
   email: "contact@buupp.com",
 };
+
+// Type d'opération facturé par BUUPP au pro = prestation de services
+// (commission de mise en relation). Mention obligatoire (biens/services/mixte).
+const OPERATION_TYPE = "Prestation de services";
 
 const TYPE_IN = new Set(["topup", "refund", "credit", "referral_bonus"]);
 
@@ -152,6 +161,7 @@ function renderInvoice(
   doc.fontSize(9).fillColor(COLOR_SUBTLE)
     .text(SELLER.address, 56, doc.y + 2, { width: colWidth })
     .text(SELLER.postalCity, { width: colWidth })
+    .text(`SIREN : ${SELLER.siren}`, { width: colWidth })
     .text(SELLER.rcs, { width: colWidth })
     .text(SELLER.email, { width: colWidth });
 
@@ -181,8 +191,14 @@ function renderInvoice(
   }
   if (pro.siret) {
     doc.text(`SIRET : ${pro.siret}`, { width: colWidth });
-  } else if (pro.siren) {
+  }
+  // SIREN du client = identifiant de routage e-facturation → toujours affiché
+  // s'il est connu (mention obligatoire), même quand le SIRET est présent.
+  if (pro.siren) {
     doc.text(`SIREN : ${pro.siren}`, { width: colWidth });
+  }
+  if (pro.numeroTva) {
+    doc.text(`N° TVA : ${pro.numeroTva}`, { width: colWidth });
   }
   if (pro.rcsVille) {
     const rcsRef = pro.siren ? ` ${pro.siren}` : "";
@@ -234,6 +250,25 @@ function renderInvoice(
 
   doc.moveDown(2);
   doc.fontSize(9).fillColor(COLOR_SUBTLE).text(`Statut : ${invoice.statusLabel}`, labelX, doc.y, { width: 200 });
+
+  // ─── Mentions obligatoires (réforme facturation électronique) ─────
+  // Nature de l'opération (biens/services), adresse de livraison et
+  // exigibilité de la TVA — en plus des SIREN émetteur + client affichés
+  // dans les blocs ci-dessus.
+  doc.moveDown(1);
+  doc.fontSize(8).fillColor(COLOR_SUBTLE);
+  doc.text(`Nature de l'opération : ${OPERATION_TYPE}`, labelX, doc.y, { width: doc.page.width - 56 * 2 });
+  const deliveryAddr = [
+    pro.adresse,
+    [pro.codePostal, pro.ville].filter(Boolean).join(" "),
+  ].filter(Boolean).join(", ");
+  if (deliveryAddr) {
+    doc.text(`Adresse de livraison : ${deliveryAddr}`, { width: doc.page.width - 56 * 2 });
+  }
+  doc.text(
+    "TVA exigible d'après les encaissements (sauf option pour les débits).",
+    { width: doc.page.width - 56 * 2 },
+  );
 
   // ─── Pied de page légal ──────────────────────────────────────────
   const footerY = doc.page.height - 56 - 50;
@@ -346,6 +381,7 @@ function renderParties(doc: PDFKit.PDFDocument, pro: ProBillingInfo): void {
   doc.fontSize(9).fillColor(COLOR_SUBTLE)
     .text(SELLER.address, 56, doc.y + 2, { width: colWidth })
     .text(SELLER.postalCity, { width: colWidth })
+    .text(`SIREN : ${SELLER.siren}`, { width: colWidth })
     .text(SELLER.rcs, { width: colWidth })
     .text(SELLER.email, { width: colWidth });
 

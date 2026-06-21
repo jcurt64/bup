@@ -254,6 +254,7 @@ export type Database = {
           code: string | null
           commission_max_cents: number
           commission_settled_cents: number
+          contact_quota: number | null
           cost_per_contact_cents: number
           created_at: string
           ends_at: string | null
@@ -286,6 +287,7 @@ export type Database = {
           code?: string | null
           commission_max_cents?: number
           commission_settled_cents?: number
+          contact_quota?: number | null
           cost_per_contact_cents: number
           created_at?: string
           ends_at?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           code?: string | null
           commission_max_cents?: number
           commission_settled_cents?: number
+          contact_quota?: number | null
           cost_per_contact_cents?: number
           created_at?: string
           ends_at?: string | null
@@ -432,6 +435,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          numero_tva: string | null
           plan: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count: number
           raison_sociale: string
@@ -467,6 +471,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          numero_tva?: string | null
           plan?: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count?: number
           raison_sociale: string
@@ -502,6 +507,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          numero_tva?: string | null
           plan?: Database["public"]["Enums"]["pro_plan"]
           plan_cycle_count?: number
           raison_sociale?: string
@@ -1291,6 +1297,8 @@ export type Database = {
           pro_account_id: string
           pro_priority: number | null
           prospect_id: string
+          referral_extra: boolean
+          referral_parrain_bonus: boolean
           reward_cents: number
           sent_at: string
           settled_at: string | null
@@ -1312,6 +1320,8 @@ export type Database = {
           pro_account_id: string
           pro_priority?: number | null
           prospect_id: string
+          referral_extra?: boolean
+          referral_parrain_bonus?: boolean
           reward_cents: number
           sent_at?: string
           settled_at?: string | null
@@ -1333,6 +1343,8 @@ export type Database = {
           pro_account_id?: string
           pro_priority?: number | null
           prospect_id?: string
+          referral_extra?: boolean
+          referral_parrain_bonus?: boolean
           reward_cents?: number
           sent_at?: string
           settled_at?: string | null

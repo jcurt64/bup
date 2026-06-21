@@ -702,33 +702,38 @@ export default function CgvPage() {
             Fondateur·ice des CGU).
           </p>
           <p>
-            Pendant le 1er mois suivant le lancement officiel de BUUPP, chaque
-            acceptation d&apos;une sollicitation par un prospect parrain·e /
-            fondateur·ice donne lieu à un débit de{" "}
-            <strong>2× le tarif palier choisi</strong> sur le solde du
-            Professionnel. Lors de la création d&apos;une campagne, le
-            Professionnel peut désactiver cette mécanique pour la campagne
-            concernée — ses sollicitations resteront alors visibles aux
-            parrain·es / fondateur·ices, mais ces dernier·ères gagneront le
-            tarif standard.
+            Lorsque le Professionnel active le <strong>bonus parrain</strong> sur
+            une campagne, les <strong>filleul·es</strong> de tout prospect
+            parrain·e / fondateur·ice ciblé reçoivent <strong>également</strong> la
+            sollicitation, même s&apos;ils ne remplissent pas les critères de
+            ciblage de la campagne. Le filleul·e perçoit la{" "}
+            <strong>récompense normale</strong> de mise en relation.
           </p>
           <p>
-            <strong>Palier VIP (10 filleul·es) — surcoût forfaitaire.</strong>{" "}
-            Lorsqu&apos;un parrain·e ayant atteint le plafond de 10&nbsp;filleul·es
-            accepte une sollicitation, le bonus standard ×2 est remplacé par un{" "}
-            <strong>débit forfaitaire de +5,00&nbsp;€</strong> par acceptation
-            (en sus du tarif palier). Ce surcoût n&apos;est appliqué que sur
-            les campagnes dont le <strong>budget total dépasse
-            300,00&nbsp;€</strong>&nbsp;; en deçà, c&apos;est le doublement
-            standard qui s&apos;applique. Cette mécanique n&apos;est active que
-            pendant le 1er mois suivant le lancement officiel.
+            En contrepartie de cette portée élargie, <strong>à chaque fois
+            qu&apos;un·e filleul·e accepte</strong> une sollicitation issue
+            d&apos;une campagne dont le bonus parrain est activé, son parrain·e
+            perçoit un <strong>bonus égal à 50&nbsp;% de la récompense du·de la
+            filleul·e</strong>, à la charge du Professionnel. Ce bonus est dû à{" "}
+            <strong>chaque acceptation</strong> d&apos;un·e filleul·e (et non à la
+            seule première), <strong>sans limite de durée</strong>. Le·la
+            filleul·e, lui·elle, perçoit la récompense normale (le bonus ne réduit
+            pas sa rémunération).
           </p>
           <p>
-            Le Professionnel reconnaît être dûment informé de ces surcoûts
-            avant validation de la campagne. Le récapitulatif présenté à
-            l&apos;étape de validation indique explicitement le coût maximal
-            projeté avec et sans bonus, ainsi qu&apos;un avertissement dédié
-            lorsque le budget dépasse 300&nbsp;€ (déclencheur du palier VIP).
+            Le nombre total d&apos;acceptations (prospects ciblés et filleul·es
+            confondus) ne peut <strong>jamais dépasser le quota</strong> de la
+            campagne&nbsp;: une fois ce quota atteint, plus aucune acceptation
+            n&apos;est possible. Le bonus parrain (50&nbsp;%) constitue un{" "}
+            <strong>surcoût</strong> à la charge du Professionnel, débité de son
+            solde au moment de l&apos;acceptation du parrain·e.
+          </p>
+          <p>
+            Lors de la création d&apos;une campagne, le Professionnel peut activer
+            ou désactiver le bonus parrain. Désactivé, les filleul·es ne sont pas
+            sollicité·es et aucun bonus n&apos;est versé. Le Professionnel reconnaît
+            être dûment informé de ces mécaniques et surcoûts avant validation de la
+            campagne.
           </p>
         </Section>
 
