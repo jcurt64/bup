@@ -559,16 +559,22 @@ const PROSPECT_SECTIONS = [
   { id: 'messages',     icon: 'inbox',  label: 'Mes messages' },
 ];
 
-function ProspectDashboard({ go, initialTab }) {
+function ProspectDashboard({ go, initialTab, initialScrollTier }) {
   return (
     <ProspectProvider>
-      <ProspectDashboardInner go={go} initialTab={initialTab}/>
+      <ProspectDashboardInner go={go} initialTab={initialTab} initialScrollTier={initialScrollTier}/>
     </ProspectProvider>
   );
 }
 
-function ProspectDashboardInner({ go, initialTab }) {
+function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
   const [sec, setSec] = useState(initialTab || 'portefeuille');
+  // Palier vers lequel scroller à l'ouverture de « Mes données » (ex. depuis
+  // le popup d'acceptation, la carte Zone géo, ou un deep-link home
+  // ?tab=donnees&scrollTier=N). Consommé par MesDonnees.
+  const [donneesScrollTier, setDonneesScrollTier] = useState(
+    initialTab === 'donnees' ? (initialScrollTier ?? null) : null,
+  );
   const {
     pendingRelationsCount, profile,
     acceptGate, setAcceptGate,
@@ -628,6 +634,10 @@ function ProspectDashboardInner({ go, initialTab }) {
     const onGotoTab = (e) => {
       const tab = e?.detail?.tab;
       if (typeof tab === 'string' && PROSPECT_SECTIONS.some(s => s.id === tab)) {
+        // Scroll optionnel vers un palier précis de « Mes données ».
+        if (tab === 'donnees' && e.detail?.scrollTier != null) {
+          setDonneesScrollTier(e.detail.scrollTier);
+        }
         setSec(tab);
       }
     };
@@ -648,7 +658,7 @@ function ProspectDashboardInner({ go, initialTab }) {
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
       header={<ProspectHeader onNav={setSec} />} overrideName={overrideName}>
       {sec === 'portefeuille' && <Portefeuille pendingDetail={pendingDetail} onPendingConsumed={() => setPendingDetail(null)}/>}
-      {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')}/>}
+      {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')} scrollTier={donneesScrollTier} onScrollConsumed={() => setDonneesScrollTier(null)}/>}
       {sec === 'relations' && <Relations />}
       {sec === 'verif' && <VerifTiers />}
       {sec === 'score' && <ScorePanel />}
@@ -663,6 +673,9 @@ function ProspectDashboardInner({ go, initialTab }) {
         missingTierNums={acceptGate.missingTierNums}
         onGoToData={() => {
           setPendingAccept({ relationId: acceptGate.relationId, requiredTierNums: acceptGate.requiredTierNums });
+          // Scroll direct vers le 1er palier manquant (les missingTierNums
+          // sont triés croissants).
+          setDonneesScrollTier(acceptGate.missingTierNums?.[0] ?? null);
           setAcceptGate(null);
           setSec('donnees');
         }}
@@ -3417,8 +3430,28 @@ function fieldConfig(category, field) {
   return FIELD_CONFIG[`${category}.${field}`] || { type: 'text' };
 }
 
-function MesDonnees({ onGoPrefs }) {
+function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
   const ctx = useProspect();
+  // Scroll direct vers le palier concerné (ex. après le popup d'acceptation
+  // qui demande de compléter un palier). Délai pour passer APRÈS le
+  // scroll-en-haut automatique du shell au changement d'onglet.
+  React.useEffect(() => {
+    if (scrollTier == null) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`donnees-tier-${scrollTier}`);
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Petit halo pour attirer l'œil sur le palier à remplir.
+        const prev = el.style.boxShadow;
+        el.style.transition = 'box-shadow .3s';
+        el.style.boxShadow = '0 0 0 3px color-mix(in oklab, var(--accent) 38%, transparent)';
+        setTimeout(() => { el.style.boxShadow = prev || 'none'; }, 1800);
+      }
+      onScrollConsumed?.();
+    }, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollTier]);
   const profile = ctx?.profile;
   const deleted = ctx?.deleted || {};
   const removed = ctx?.removed || {};
@@ -3544,7 +3577,7 @@ function MesDonnees({ onGoPrefs }) {
         {visibleCategories.map(cat => {
           const isDeleted = deleted[cat.key];
           return (
-            <div key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1 }}>
+            <div key={cat.key} id={`donnees-tier-${cat.tier}`} data-tier-key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1, scrollMarginTop: 90 }}>
               <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                 <div className="row center gap-4">
                   {(() => {
@@ -4578,6 +4611,9 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState(null);
   const [info, setInfo] = useState(null);
+  // True quand le numéro saisi est déjà rattaché à un autre compte : on
+  // remplace alors « Envoyer le code » par « Entrer un autre numéro ».
+  const [alreadyUsed, setAlreadyUsed] = useState(false);
 
   const sendCode = async () => {
     setErr(null); setInfo(null); setSubmitting(true);
@@ -4591,6 +4627,7 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
       if (!r.ok) {
         const echoed = j.normalizedPhone ? ` (numéro normalisé : ${j.normalizedPhone})` : '';
         setErr((j.message || "Impossible d'envoyer le code.") + echoed);
+        if (j.error === 'phone_already_used') setAlreadyUsed(true);
         return;
       }
       setStep('code');
@@ -4642,7 +4679,9 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
             par SMS pour valider l'inscription du téléphone à votre profil.
           </div>
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Numéro de téléphone</div>
-          <input className="input" value={phone} onChange={e => setPhone(e.target.value)} autoFocus
+          <input className="input" value={phone}
+            onChange={e => { setPhone(e.target.value); if (alreadyUsed) setAlreadyUsed(false); if (err) setErr(null); }}
+            autoFocus
             placeholder="+33 6 12 34 56 78"
             inputMode="tel"
             style={{ width: '100%', fontSize: 14, marginBottom: 16 }}/>
@@ -4659,10 +4698,18 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
           )}
           <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
             <button onClick={close} className="btn btn-ghost btn-sm" disabled={submitting}>Annuler</button>
-            <button onClick={sendCode} className="btn btn-primary btn-sm"
-              disabled={submitting || !phone.trim()}>
-              {submitting ? 'Envoi…' : 'Envoyer le code'}
-            </button>
+            {alreadyUsed ? (
+              <button
+                onClick={() => { setPhone(''); setErr(null); setAlreadyUsed(false); }}
+                className="btn btn-primary btn-sm">
+                Entrer un autre numéro
+              </button>
+            ) : (
+              <button onClick={sendCode} className="btn btn-primary btn-sm"
+                disabled={submitting || !phone.trim()}>
+                {submitting ? 'Envoi…' : 'Envoyer le code'}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -6961,7 +7008,7 @@ function Prefs() {
               </div>
               <button
                 type="button"
-                onClick={() => { try { window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'donnees' } })); } catch (e) {} }}
+                onClick={() => { try { window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'donnees', scrollTier: 2 } })); } catch (e) {} }}
                 className="btn btn-primary btn-sm"
                 style={{ marginTop: 4 }}>
                 Ouvrir Mes données <Icon name="arrow" size={12}/>

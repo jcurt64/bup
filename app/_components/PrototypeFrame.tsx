@@ -27,10 +27,14 @@ function resolveRoleRoute(intent: "prospect" | "pro", isSignedIn: boolean): stri
 export default function PrototypeFrame({
   route,
   tab,
+  scrollTier,
   version,
 }: {
   route: "auth" | "prospect" | "pro" | "waitlist";
   tab?: string | null;
+  // Palier (1-5) vers lequel scroller à l'ouverture de « Mes données »
+  // (deep-link depuis un CTA « Compléter mes données » de la home).
+  scrollTier?: number | null;
   // Jeton de cache-bust stable par déploiement, fourni par le Server
   // Component parent (cf. lib/prototype/version.ts).
   version: string;
@@ -83,7 +87,9 @@ export default function PrototypeFrame({
     return () => window.removeEventListener("message", onMsg);
   }, [router, signOut, isSignedIn, isLoaded]);
 
-  const hash = tab ? `${route}?tab=${encodeURIComponent(tab)}` : route;
+  const hash = tab
+    ? `${route}?tab=${encodeURIComponent(tab)}${scrollTier ? `&scrollTier=${scrollTier}` : ""}`
+    : route;
   // Cache-bust STABLE par déploiement (cf. lib/prototype/version.ts) :
   // valeur identique côté serveur et client → on rend l'URL versionnée
   // dès le premier pass (aucun mismatch d'hydratation) et SANS

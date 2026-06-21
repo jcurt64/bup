@@ -585,6 +585,16 @@ const TIER_KEY_LABEL_FR: Record<string, string> = {
   patrimoine: "Patrimoine & projets",
 };
 
+// Clé de palier → numéro (1-5), pour deep-linker « Mes données » sur le bon
+// palier depuis le CTA « Compléter mes données ».
+const TIER_NUM_BY_KEY: Record<string, number> = {
+  identity: 1,
+  localisation: 2,
+  vie: 3,
+  pro: 4,
+  patrimoine: 5,
+};
+
 function fmtMultiplier(m: number): string {
   if (m === 1) return "×1";
   if (Number.isInteger(m)) return `×${m}`;
@@ -1104,7 +1114,12 @@ function FlashDeal() {
               `/inscription/prospect?redirect_url=${encodeURIComponent(redirect)}`,
             );
           }}
-          goDonnees={() => guard("prospect", "/prospect?tab=donnees")}
+          goDonnees={(tier) =>
+            guard(
+              "prospect",
+              `/prospect?tab=donnees${tier ? `&scrollTier=${tier}` : ""}`,
+            )
+          }
         />
       )}
       {proBlocked && (
@@ -1292,7 +1307,7 @@ function FlashDealModal({
   onClose: () => void;
   onAfterDecision: () => Promise<void>;
   goAuth: () => void;
-  goDonnees: () => void;
+  goDonnees: (tier?: number) => void;
 }) {
   // Mock deals injectés sur la home quand aucune campagne réelle n'est
   // active : ils n'existent pas en base, donc accept/refuse est simulé
@@ -1312,6 +1327,13 @@ function FlashDealModal({
   const missingLabels = (deal.missingTierKeys || []).map(
     (k) => TIER_KEY_LABEL_FR[k] || k,
   );
+  // Premier palier manquant (numéro le plus bas) → scroll direct dans
+  // « Mes données ».
+  const firstMissingTier =
+    (deal.missingTierKeys || [])
+      .map((k) => TIER_NUM_BY_KEY[k])
+      .filter((n): n is number => typeof n === "number")
+      .sort((a, b) => a - b)[0] ?? undefined;
 
   let mode: string;
   if (!deal.isAuthenticated) mode = "auth";
@@ -1853,7 +1875,7 @@ function FlashDealModal({
               profil pour pouvoir bénéficier de cette offre.
             </div>
             <button
-              onClick={goDonnees}
+              onClick={() => goDonnees(firstMissingTier)}
               className="btn btn-lg"
               style={{
                 width: "100%",
@@ -1887,7 +1909,7 @@ function FlashDealModal({
               éligible.
             </div>
             <button
-              onClick={goDonnees}
+              onClick={() => goDonnees()}
               className="btn btn-lg"
               style={{
                 width: "100%",

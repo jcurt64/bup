@@ -13,7 +13,7 @@ const VALID_TABS = new Set([
   "prefs", "parrainage", "fiscal",
 ]);
 
-type SearchParams = Promise<{ tab?: string }>;
+type SearchParams = Promise<{ tab?: string; scrollTier?: string }>;
 
 export default async function ProspectPage(props: { searchParams: SearchParams }) {
   const { userId } = await auth();
@@ -72,6 +72,10 @@ export default async function ProspectPage(props: { searchParams: SearchParams }
 
   const sp = await props.searchParams;
   const tab = sp.tab && VALID_TABS.has(sp.tab) ? sp.tab : null;
+  // Deep-link optionnel vers un palier de « Mes données » (CTA « Compléter
+  // mes données » des flash deals home). 1-5, ignoré sinon.
+  const stRaw = typeof sp.scrollTier === "string" ? parseInt(sp.scrollTier, 10) : NaN;
+  const scrollTier = Number.isFinite(stRaw) && stRaw >= 1 && stRaw <= 5 ? stRaw : null;
 
-  return <PrototypeFrame route="prospect" tab={tab} version={PROTOTYPE_VERSION} />;
+  return <PrototypeFrame route="prospect" tab={tab} scrollTier={scrollTier} version={PROTOTYPE_VERSION} />;
 }

@@ -80,24 +80,29 @@
       const raw = (window.location.hash || '').replace('#', '').trim();
       const [route, query] = raw.split('?');
       let tab = null;
+      let scrollTier = null;
       if (query) {
         const params = new URLSearchParams(query);
         tab = (params.get('tab') || '').trim() || null;
+        const st = parseInt(params.get('scrollTier') || '', 10);
+        if (Number.isFinite(st) && st >= 1 && st <= 5) scrollTier = st;
       }
       const safeRoute = ['landing','auth','prospect','pro','waitlist'].includes(route) ? route : 'landing';
-      return { route: safeRoute, tab };
+      return { route: safeRoute, tab, scrollTier };
     }
 
     function App() {
       const initial = readRouteAndTab();
       const [route, setRoute] = React.useState(initial.route);
       const [initialTab, setInitialTab] = React.useState(initial.tab);
+      const [initialScrollTier, setInitialScrollTier] = React.useState(initial.scrollTier);
 
       React.useEffect(() => {
         const onHash = () => {
           const next = readRouteAndTab();
           setRoute(next.route);
           setInitialTab(next.tab);
+          setInitialScrollTier(next.scrollTier);
         };
         window.addEventListener('hashchange', onHash);
         return () => window.removeEventListener('hashchange', onHash);
@@ -119,7 +124,7 @@
         <>
           {route === 'landing' && <Landing go={go}/>}
           {route === 'auth' && <Auth go={go}/>}
-          {route === 'prospect' && <ProspectDashboard go={go} initialTab={initialTab}/>}
+          {route === 'prospect' && <ProspectDashboard go={go} initialTab={initialTab} initialScrollTier={initialScrollTier}/>}
           {route === 'pro' && <ProDashboard go={go}/>}
           {route === 'waitlist' && (
             <div style={{ position:'fixed', inset:0, background:'#080808', zIndex: 1 }}>
