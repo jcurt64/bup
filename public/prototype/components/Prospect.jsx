@@ -5215,6 +5215,16 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
             gap: 4px !important;
           }
         }
+        /* Tablette (641–1024px, ex. iPad Air portrait) : la barre reste en flex
+           sur UNE ligne, « Sans filtre » aligné avec les chips à la MÊME hauteur
+           (alignSelf:stretch déjà posé inline). On masque le label « Filtrer » +
+           le séparateur et on resserre l'espacement pour tout faire tenir ; le
+           compteur peut passer seul à la ligne si l'écran est étroit. */
+        @media (min-width: 641px) and (max-width: 1024px) {
+          .rel-fbar { gap: 10px !important; padding: 14px 16px !important; }
+          .rel-fbar-lead { display: none !important; }
+          .rel-fbar-vrule { display: none !important; }
+        }
       `}</style>
       <div className="rel-fbar" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
         {/* Lead « Filtrer » */}

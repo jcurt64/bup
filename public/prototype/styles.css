@@ -1240,16 +1240,18 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   }
 
   /* Exception : les 4 cartes de stats de l'onglet « Mises en relation »
-     (gains / acceptées / refusées / en séquestre) restent en 2 colonnes en
-     portrait — sinon on empile 4 cartes = trop de scroll. Sélecteur plus
-     spécifique (0,2,1) + placé APRÈS la règle générique → l'emporte sur le
-     1-colonne. minmax(0,1fr) évite tout débordement horizontal. */
+     (gains / acceptées / refusées / en séquestre) NE doivent pas être empilées
+     en 1 colonne par la règle générique. Sélecteur plus spécifique (0,2,1) +
+     placé APRÈS la règle générique → l'emporte sur le 1-colonne.
+     - Tablette (≤900px, sidebar repliée) : 4 colonnes sur une ligne.
+     - Téléphone (≤640px) : repli en 2 colonnes (cf. bloc dédié plus bas).
+     minmax(0,1fr) évite tout débordement horizontal. */
   .dash-shell main .relations-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 12px !important;
   }
   .dash-shell main .relations-stats > .card {
-    padding: 16px !important;
+    padding: 14px !important;
   }
 
   /* Messages panel : header empile titre/compteur et bouton "tout marquer
@@ -1645,4 +1647,14 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 @media (prefers-reduced-motion: reduce) {
   .wc-ball-drop { animation: none; }
   .wc-ball-spin { animation: none; }
+}
+
+/* Téléphone (≤640px) : les 4 cartes de stats de « Mises en relation » repassent
+   en 2 colonnes (4 sur une ligne = illisible sur mobile). Placé APRÈS le bloc
+   ≤900px (qui les met en 4 colonnes pour tablette) → l'emporte à largeur
+   téléphone, même spécificité (0,2,1). */
+@media (max-width: 640px) {
+  .dash-shell main .relations-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
