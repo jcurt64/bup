@@ -4646,7 +4646,17 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
             placeholder="+33 6 12 34 56 78"
             inputMode="tel"
             style={{ width: '100%', fontSize: 14, marginBottom: 16 }}/>
-          {err && <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{err}</div>}
+          {err && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12,
+              padding: '10px 12px', borderRadius: 10,
+              background: 'color-mix(in oklab, var(--danger) 8%, var(--paper))',
+              border: '1px solid color-mix(in oklab, var(--danger) 30%, var(--line))',
+            }}>
+              <span style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 1 }}><Icon name="shieldCheck" size={15}/></span>
+              <div style={{ fontSize: 12.5, color: 'var(--danger)', lineHeight: 1.45 }}>{err}</div>
+            </div>
+          )}
           <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
             <button onClick={close} className="btn btn-ghost btn-sm" disabled={submitting}>Annuler</button>
             <button onClick={sendCode} className="btn btn-primary btn-sm"

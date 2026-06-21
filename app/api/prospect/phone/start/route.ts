@@ -112,14 +112,12 @@ export async function POST(req: Request) {
   }
 
   // Garde-fou anti-fraude : un numéro de téléphone ne peut être associé
-  // qu'à un seul prospect. Pour éviter l'énumération (un attaquant qui
-  // testerait 10 000 numéros pour deviner lesquels sont déjà inscrits
-  // d'après une réponse différenciée), on retourne TOUJOURS la même
-  // réponse 200 avec `normalizedPhone`, même si le numéro est déjà pris.
-  // En cas de doublon, on n'envoie PAS de SMS et on n'écrit PAS d'OTP
-  // (économie de coût Brevo et impossibilité de faire avancer le flow).
-  // Le prospect attaquant verra alors "code invalide" à l'étape verify,
-  // sans pouvoir distinguer "numéro pris" de "code mauvais".
+  // qu'à un seul compte (index unique `prospect_identity_telephone_unique`).
+  // Quand le numéro est déjà pris par un AUTRE compte, on renvoie un message
+  // CLAIR dès cette étape (UX : l'utilisateur comprend immédiatement « un
+  // numéro = un compte », sans passer par un OTP fantôme qui afficherait
+  // "code incorrect"). Le risque d'énumération est borné par le rate-limit
+  // SMS par prospect (vérifié plus haut) + l'authentification requise.
   const adminEarly = createSupabaseAdminClient();
   const { data: existingPhone, error: phoneLookupErr } = await adminEarly
     .from("prospect_identity")
@@ -149,12 +147,15 @@ export async function POST(req: Request) {
         /* best-effort */
       }
     })();
-    // Réponse uniforme — pas de SMS envoyé, pas d'OTP persisté.
-    return NextResponse.json({
-      ok: true,
-      brevo: isBrevoConfigured(),
-      normalizedPhone: phone,
-    });
+    // Message clair — pas de SMS envoyé, pas d'OTP persisté.
+    return NextResponse.json(
+      {
+        error: "phone_already_used",
+        message:
+          "Ce numéro est déjà rattaché à un autre compte. Un numéro de téléphone ne peut être associé qu'à un seul compte BUUPP (un numéro = un compte).",
+      },
+      { status: 409 },
+    );
   }
 
   // Code 6 chiffres, padding à gauche pour longueur fixe.
