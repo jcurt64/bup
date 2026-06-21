@@ -5177,23 +5177,38 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
   });
 
   return (
-    <div style={{ background: RF.card, border: '1px solid ' + RF.line, borderRadius: 20, boxShadow: RF.shadowSm }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
+    <div className="rel-fbar-card" style={{ background: RF.card, border: '1px solid ' + RF.line, borderRadius: 20, boxShadow: RF.shadowSm }}>
+      {/* Responsive portrait : la barre passe en colonne (chips pleine largeur,
+          menus qui ne débordent plus, flash/sans-filtre en 2 colonnes, compteur
+          sur sa propre ligne). !important pour battre les styles inline. */}
+      <style>{`
+        @media (max-width: 640px) {
+          .rel-fbar { gap: 10px !important; padding: 14px !important; }
+          .rel-fbar-vrule { display: none !important; }
+          .rel-fbar-chips { width: 100% !important; flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+          .rel-fbar-chip { width: 100% !important; }
+          .rel-fbar-chip > button { width: 100% !important; }
+          .rel-fbar-menu { left: 0 !important; right: 0 !important; min-width: 0 !important; width: 100% !important; }
+          .rel-fbar-flash, .rel-fbar-clear { flex: 1 1 calc(50% - 5px) !important; justify-content: center !important; min-height: 44px !important; }
+          .rel-fbar-right { margin-left: 0 !important; width: 100% !important; justify-content: space-between !important; }
+        }
+      `}</style>
+      <div className="rel-fbar" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
         {/* Lead « Filtrer » */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, paddingRight: 4 }}>
           <span style={{ width: 30, height: 30, borderRadius: 9, background: RF.indigoSoft, color: RF.indigoD, display: 'grid', placeItems: 'center', flex: 'none' }}><SvgFunnel/></span>
           <span style={{ fontFamily: RF.mono, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: RF.ink3 }}>Filtrer</span>
         </div>
-        <div style={{ width: 1, alignSelf: 'stretch', background: RF.line, margin: '2px 2px' }}/>
+        <div className="rel-fbar-vrule" style={{ width: 1, alignSelf: 'stretch', background: RF.line, margin: '2px 2px' }}/>
 
         {/* Chips déroulants */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+        <div className="rel-fbar-chips" style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
           {REL_FILTERS.map(f => {
             const v = valOf(f.id);
             const active = v !== f.def;
             const isOpen = open === f.id;
             return (
-              <div key={f.id} style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+              <div key={f.id} className="rel-fbar-chip" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
                 <button type="button" onClick={() => setOpen(isOpen ? null : f.id)} style={chipBtnStyle(active, isOpen)}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: RF.indigo, flex: 'none', display: active ? 'block' : 'none' }}/>
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left' }}>
@@ -5203,7 +5218,7 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
                   <span style={{ color: active ? RF.indigo : RF.ink4, display: 'inline-flex', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }}><SvgCaret/></span>
                 </button>
                 {isOpen && (
-                  <div style={{
+                  <div className="rel-fbar-menu" style={{
                     position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 200, zIndex: 30,
                     background: RF.card, border: '1px solid ' + RF.line, borderRadius: 14, boxShadow: RF.shadowPop, padding: 6,
                   }}>
@@ -5233,7 +5248,7 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
         </div>
 
         {/* Flash deals toggle — même hauteur que les chips (alignSelf stretch) */}
-        <button type="button" onClick={(e) => { e.stopPropagation(); set.flash(!flash); }}
+        <button type="button" className="rel-fbar-flash" onClick={(e) => { e.stopPropagation(); set.flash(!flash); }}
           style={{
             fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 9,
             alignSelf: 'stretch', padding: '0 15px', borderRadius: 11,
@@ -5248,7 +5263,7 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
 
         {/* Sans filtre / clear-all — juste après Flash deals ; même hauteur
             que les chips (alignSelf stretch). */}
-        <button type="button" onClick={(e) => { e.stopPropagation(); onReset(); }}
+        <button type="button" className="rel-fbar-clear" onClick={(e) => { e.stopPropagation(); onReset(); }}
           style={{
             fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
             alignSelf: 'stretch', padding: '0 14px', borderRadius: 11,
@@ -5262,7 +5277,7 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
         </button>
 
         {/* Reset + compteur (poussé à droite) */}
-        <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+        <div className="rel-fbar-right" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 14 }}>
           {filtersActive && (
             <button type="button" onClick={(e) => { e.stopPropagation(); onReset(); }}
               style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: RF.ink3, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 4px' }}>
@@ -5300,6 +5315,57 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
         </div>
       )}
     </div>
+  );
+}
+
+// « La Vitrine » — aperçu de la page d'accueil du site du pro dans un carré
+// arrondi cliquable (capture via /api/campaign/[id]/preview). Remplace le lien
+// texte. Au clic → interstitiel de sortie (onVisit). Fallback globe si la
+// capture échoue.
+function VitrinePreview({ campaignId, proName, onVisit }) {
+  const [failed, setFailed] = React.useState(false);
+  if (!campaignId) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onVisit(); }}
+      title={`Visiter le site de ${proName}`}
+      style={{
+        display: 'block', width: '100%', marginBottom: 14, padding: 0, cursor: 'pointer',
+        border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden',
+        background: 'var(--ivory-2)', position: 'relative',
+        boxShadow: '0 2px 12px -7px rgba(0,0,0,.3)', transition: 'transform .12s, box-shadow .12s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 24px -12px rgba(0,0,0,.4)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 12px -7px rgba(0,0,0,.3)'; }}
+    >
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', background: 'linear-gradient(135deg, var(--ivory-2), var(--paper))' }}>
+        {!failed ? (
+          <img
+            src={`/api/campaign/${campaignId}/preview?w=640`}
+            alt={`Aperçu du site de ${proName}`}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+          />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-4)' }}>
+            <Icon name="globe" size={26}/>
+            <span style={{ fontSize: 11 }}>Aperçu indisponible</span>
+          </div>
+        )}
+        {/* Bandeau bas : « Visiter le site » */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 12px 9px',
+          display: 'flex', alignItems: 'center', gap: 7, color: '#fff',
+          background: 'linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,0))',
+        }}>
+          <Icon name="globe" size={13}/>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Visiter le site</span>
+          <span style={{ marginLeft: 'auto', display: 'inline-flex', opacity: 0.92 }}><Icon name="ext" size={12}/></span>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -5378,6 +5444,8 @@ function Relations() {
           <style>{`
             @media (max-width: 900px) { .relations-stats { grid-template-columns: repeat(2, 1fr) !important; } }
             @media (max-width: 520px) { .relations-stats { grid-template-columns: 1fr !important; } }
+            @media (max-width: 980px) { .rel-pending-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+            @media (max-width: 640px) { .rel-pending-grid { grid-template-columns: 1fr !important; } }
           `}</style>
         </>
       )}
@@ -5420,7 +5488,7 @@ function Relations() {
               <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={resetFilters}>Réinitialiser les filtres</button>
             </div>
           ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div className="rel-pending-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {filteredPending.map(p => {
             const isAccepted = accepted[p.id], isRefused = refused[p.id];
             return (
@@ -5465,19 +5533,11 @@ function Relations() {
                 {/* « La Vitrine » — accès direct au site du pro depuis la carte
                     (avant d'ouvrir le détail). Ouvre l'interstitiel de sortie. */}
                 {p.websiteUrl && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setVitrineLeave({ proName: p.pro, websiteUrl: p.websiteUrl }); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 14,
-                      padding: '7px 11px', borderRadius: 999, cursor: 'pointer',
-                      background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
-                      border: '1px solid color-mix(in oklab, var(--accent) 28%, var(--line))',
-                      color: 'var(--accent)', fontSize: 12, fontWeight: 600,
-                    }}
-                  >
-                    <Icon name="globe" size={13}/> Visiter le site web du professionnel
-                  </button>
+                  <VitrinePreview
+                    campaignId={p.campaignId}
+                    proName={p.pro}
+                    onVisit={() => setVitrineLeave({ proName: p.pro, websiteUrl: p.websiteUrl })}
+                  />
                 )}
                 <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
                   <div className="row between center" style={{ marginBottom: 12 }}>
@@ -5930,23 +5990,14 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             BUUPP avant la redirection ; le clic est enregistré par
             /api/campaign/[id]/visit au moment de l'ouverture. */}
         {r.websiteUrl && (
-          <button
-            type="button"
-            onClick={() => setVitrineConfirm(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '12px 14px', borderRadius: 10, textAlign: 'left', cursor: 'pointer',
-              background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))',
-              border: '1px solid color-mix(in oklab, var(--accent) 28%, var(--line))',
-            }}
-          >
-            <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="globe" size={18}/></span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Découvrir sa vitrine</div>
-              <div className="muted" style={{ fontSize: 11 }}>Voir ce que ce professionnel propose sur son site</div>
-            </div>
-            <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><Icon name="ext" size={14}/></span>
-          </button>
+          <div>
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Sa vitrine</div>
+            <VitrinePreview
+              campaignId={r.campaignId}
+              proName={r.pro}
+              onVisit={() => setVitrineConfirm(true)}
+            />
+          </div>
         )}
 
         {/* Motif détaillé */}
