@@ -5575,7 +5575,13 @@ function Relations() {
                     </div>
                   ) : (
                     <div className="row gap-2">
-                      <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => acceptRelation(p.id)}>Accepter</button>
+                      <button className="btn btn-sm" style={{
+                        flex: 1, justifyContent: 'center', border: 'none', color: '#fff', fontWeight: 600,
+                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                        boxShadow: '0 6px 16px -6px rgba(22,163,74,0.55)',
+                      }} onClick={() => acceptRelation(p.id)}>
+                        <Icon name="check" size={13} stroke={2.5}/> Accepter
+                      </button>
                       <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => refuseRelation(p.id)}>Refuser</button>
                     </div>
                   )}
@@ -6050,7 +6056,7 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             <button onClick={onRefuse} className="btn btn-ghost btn-sm">Refuser</button>
           )}
           {!isHistory && canAccept && (
-            <button onClick={onAccept} className="btn btn-primary btn-sm">
+            <button onClick={onAccept} className="btn btn-sm" style={{ border: 'none', color: '#fff', fontWeight: 600, background: 'linear-gradient(135deg, #22c55e, #16a34a)', boxShadow: '0 6px 16px -6px rgba(22,163,74,0.55)' }}>
               <Icon name="check" size={12} stroke={2.25}/> Accepter
             </button>
           )}
@@ -6078,7 +6084,7 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
           )}
           {isHistory && !alreadyAccepted && canAccept && (
-            <button onClick={onAccept} className="btn btn-primary btn-sm">
+            <button onClick={onAccept} className="btn btn-sm" style={{ border: 'none', color: '#fff', fontWeight: 600, background: 'linear-gradient(135deg, #22c55e, #16a34a)', boxShadow: '0 6px 16px -6px rgba(22,163,74,0.55)' }}>
               <Icon name="check" size={12} stroke={2.25}/> Accepter la campagne
             </button>
           )}
