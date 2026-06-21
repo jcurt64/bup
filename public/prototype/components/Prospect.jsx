@@ -5178,24 +5178,47 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
 
   return (
     <div className="rel-fbar-card" style={{ background: RF.card, border: '1px solid ' + RF.line, borderRadius: 20, boxShadow: RF.shadowSm }}>
-      {/* Responsive portrait : la barre passe en colonne (chips pleine largeur,
-          menus qui ne débordent plus, flash/sans-filtre en 2 colonnes, compteur
-          sur sa propre ligne). !important pour battre les styles inline. */}
+      {/* Responsive portrait (≤640px) : la barre passe en grille 2 colonnes.
+          Le conteneur des chips passe en `display:contents` → ses 3 chips
+          deviennent des items directs de la grille, et le placement auto donne :
+            Montant | Date
+            Palier  | Flash deals
+            Sans filtre | compteur
+          .rel-fbar a un style inline `display:flex`, donc la règle blanket de
+          styles.css (qui force les grilles INLINE en 1 colonne) ne le cible pas.
+          !important pour battre les styles inline du composant. */}
       <style>{`
         @media (max-width: 640px) {
-          .rel-fbar { gap: 10px !important; padding: 14px !important; }
+          .rel-fbar {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            padding: 14px !important;
+            align-items: stretch !important;
+          }
+          .rel-fbar-lead { display: none !important; }
           .rel-fbar-vrule { display: none !important; }
-          .rel-fbar-chips { width: 100% !important; flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-          .rel-fbar-chip { width: 100% !important; }
-          .rel-fbar-chip > button { width: 100% !important; }
-          .rel-fbar-menu { left: 0 !important; right: 0 !important; min-width: 0 !important; width: 100% !important; }
-          .rel-fbar-flash, .rel-fbar-clear { flex: 1 1 calc(50% - 5px) !important; justify-content: center !important; min-height: 44px !important; }
-          .rel-fbar-right { margin-left: 0 !important; width: 100% !important; justify-content: space-between !important; }
+          .rel-fbar-chips { display: contents !important; }
+          .rel-fbar-chip { width: auto !important; }
+          .rel-fbar-chip > button { width: 100% !important; height: 100% !important; }
+          .rel-fbar-menu { min-width: 180px !important; max-width: calc(100vw - 28px) !important; width: auto !important; }
+          .rel-fbar-chip:nth-child(2) .rel-fbar-menu { left: auto !important; right: 0 !important; }
+          .rel-fbar-flash, .rel-fbar-clear {
+            width: auto !important; align-self: stretch !important;
+            justify-content: center !important; min-height: 46px !important;
+          }
+          .rel-fbar-right {
+            margin-left: 0 !important;
+            flex-direction: column !important;
+            align-items: flex-end !important;
+            justify-content: center !important;
+            gap: 4px !important;
+          }
         }
       `}</style>
       <div className="rel-fbar" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
         {/* Lead « Filtrer » */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, paddingRight: 4 }}>
+        <div className="rel-fbar-lead" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, paddingRight: 4 }}>
           <span style={{ width: 30, height: 30, borderRadius: 9, background: RF.indigoSoft, color: RF.indigoD, display: 'grid', placeItems: 'center', flex: 'none' }}><SvgFunnel/></span>
           <span style={{ fontFamily: RF.mono, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: RF.ink3 }}>Filtrer</span>
         </div>
