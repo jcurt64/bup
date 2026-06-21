@@ -1239,6 +1239,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     gap: 16px !important;
   }
 
+  /* Exception : les 4 cartes de stats de l'onglet « Mises en relation »
+     (gains / acceptées / refusées / en séquestre) restent en 2 colonnes en
+     portrait — sinon on empile 4 cartes = trop de scroll. Sélecteur plus
+     spécifique (0,2,1) + placé APRÈS la règle générique → l'emporte sur le
+     1-colonne. minmax(0,1fr) évite tout débordement horizontal. */
+  .dash-shell main .relations-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+  .dash-shell main .relations-stats > .card {
+    padding: 16px !important;
+  }
+
   /* Messages panel : header empile titre/compteur et bouton "tout marquer
      comme lu" → la rangée flex bascule en colonne pour gagner de la place
      verticale. Cartes : padding intérieur réduit, titre plus petit. */
