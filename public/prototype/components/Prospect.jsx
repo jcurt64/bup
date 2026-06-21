@@ -5062,6 +5062,247 @@ function formatHistoryDate(iso) {
   }).format(d);
 }
 
+// ─── Barre de filtres « Mises en relation » — design premium (cf. fi.html) ──
+// Prédicats de matching réutilisés par la liste filtrée ET les compteurs.
+function relMatchAmount(reward, v) {
+  if (v === '1-2') return reward >= 1 && reward < 2;
+  if (v === '2-5') return reward >= 2 && reward < 5;
+  if (v === '5+') return reward >= 5;
+  return true;
+}
+function relMatchDate(p, v) {
+  if (v === 'all') return true;
+  const t = p.sentAt ? new Date(p.sentAt).getTime() : (p.startDate ? new Date(p.startDate).getTime() : null);
+  if (t == null || isNaN(t)) return false;
+  const now = Date.now(), day = 86400000;
+  const sot = new Date(); sot.setHours(0, 0, 0, 0);
+  if (v === 'today') return t >= sot.getTime();
+  if (v === '3d') return t >= now - 3 * day;
+  if (v === '7d') return t >= now - 7 * day;
+  return true;
+}
+function relMatchTier(tier, v) {
+  if (v === 'all') return true;
+  return Number(tier) === Number(v);
+}
+const REL_FILTERS = [
+  { id: 'amount', label: 'Montant', def: 'all', opts: [
+    { v: 'all', t: 'Tous les montants', short: 'Tous' },
+    { v: '1-2', t: '1 – 2 €', short: '1 – 2 €' },
+    { v: '2-5', t: '2 – 5 €', short: '2 – 5 €' },
+    { v: '5+',  t: '5 € et +',  short: '5 € +' },
+  ]},
+  { id: 'date', label: 'Date', def: 'all', opts: [
+    { v: 'all', t: 'Toutes les dates', short: 'Toutes' },
+    { v: 'today', t: "Aujourd'hui", short: "Aujourd'hui" },
+    { v: '3d', t: '3 derniers jours', short: '3 jours' },
+    { v: '7d', t: '7 derniers jours', short: '7 jours' },
+  ]},
+  { id: 'tier', label: 'Palier', def: 'all', opts: [
+    { v: 'all', t: 'Tous les paliers', short: 'Tous' },
+    { v: '1', t: 'Palier 1', short: 'Palier 1' },
+    { v: '2', t: 'Palier 2', short: 'Palier 2' },
+    { v: '3', t: 'Palier 3', short: 'Palier 3' },
+    { v: '4', t: 'Palier 4', short: 'Palier 4' },
+    { v: '5', t: 'Palier 5', short: 'Palier 5' },
+  ]},
+];
+// Palette fi.html (mode clair).
+const RF = {
+  card: '#fffdf8', ink: '#161a1d', ink2: '#3c444b', ink3: '#757d83', ink4: '#9aa0a4',
+  line: 'rgba(22,26,29,0.10)', lineSoft: 'rgba(22,26,29,0.06)',
+  indigo: '#5a57d6', indigoD: '#4744bf', indigoSoft: '#ecebfb', indigoXsoft: '#f4f3fd',
+  flash: '#d6432f', flashD: '#b8341f', p1soft: '#f7e0dd', paperWarm: '#efeadd',
+  shadowSm: '0 1px 2px rgba(22,26,29,0.04), 0 4px 14px rgba(22,26,29,0.05)',
+  shadowMd: '0 2px 6px rgba(22,26,29,0.05), 0 14px 34px rgba(22,26,29,0.08)',
+  shadowPop: '0 6px 16px rgba(22,26,29,0.10), 0 22px 50px rgba(22,26,29,0.14)',
+  mono: 'IBM Plex Mono, monospace',
+};
+// SVG exacts de fi.html.
+const SvgFunnel = ({ size = 15 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }}><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>
+);
+const SvgFunnelOff = ({ size = 14 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }}><path d="M3 5h18l-7 8v6l-4-2v-4z"/><path d="M21 3L3 21"/></svg>
+);
+const SvgCaret = ({ size = 14 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size, transition: 'transform .18s' }}><path d="M6 9l6 6 6-6"/></svg>
+);
+const SvgTick = ({ size = 15 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }}><path d="M20 6L9 17l-5-5"/></svg>
+);
+const SvgBolt = ({ size = 14 }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: size, height: size }}><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/></svg>
+);
+const SvgReset = ({ size = 13 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }}><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
+);
+const SvgX = ({ size = 9 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }}><path d="M18 6L6 18M6 6l12 12"/></svg>
+);
+
+function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
+  const { amount, date, tier, flash } = values;
+  const [open, setOpen] = React.useState(null); // id du chip ouvert
+  React.useEffect(() => {
+    const close = () => setOpen(null);
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(null); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); };
+  }, []);
+  const total = pending.length;
+  const flashCount = pending.filter(p => p.isFlashDeal).length;
+  const filtersActive = amount !== 'all' || date !== 'all' || tier !== 'all' || flash;
+  const valOf = (id) => (id === 'amount' ? amount : id === 'date' ? date : tier);
+  const setOf = (id, v) => { if (id === 'amount') set.amount(v); else if (id === 'date') set.date(v); else set.tier(v); };
+  const countFor = (id, v) => {
+    if (id === 'amount') return pending.filter(p => relMatchAmount(Number(p.reward) || 0, v)).length;
+    if (id === 'date') return pending.filter(p => relMatchDate(p, v)).length;
+    return pending.filter(p => relMatchTier(Number(p.tier), v)).length;
+  };
+  const shortOf = (f) => (f.opts.find(o => o.v === valOf(f.id)) || f.opts[0]).short;
+  // Tags actifs (bande sous la barre).
+  const activeTags = [];
+  REL_FILTERS.forEach(f => { const v = valOf(f.id); if (v !== f.def) { const o = f.opts.find(x => x.v === v); activeTags.push({ id: f.id, label: `${f.label} : ${o ? o.short : v}` }); } });
+  if (flash) activeTags.push({ id: 'flash', label: 'Flash deals', flash: true });
+
+  const chipBtnStyle = (active, isOpen) => ({
+    fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
+    padding: '9px 13px 9px 14px', borderRadius: 11,
+    border: '1px solid ' + (isOpen ? RF.indigo : active ? 'rgba(90,87,214,0.38)' : RF.line),
+    background: active ? RF.indigoXsoft : RF.card,
+    boxShadow: isOpen ? '0 0 0 3px rgba(90,87,214,0.14)' : 'none',
+    transition: 'border-color .16s, background .16s, box-shadow .16s',
+  });
+
+  return (
+    <div style={{ background: RF.card, border: '1px solid ' + RF.line, borderRadius: 20, boxShadow: RF.shadowSm }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
+        {/* Lead « Filtrer » */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, paddingRight: 4 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 9, background: RF.indigoSoft, color: RF.indigoD, display: 'grid', placeItems: 'center', flex: 'none' }}><SvgFunnel/></span>
+          <span style={{ fontFamily: RF.mono, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: RF.ink3 }}>Filtrer</span>
+        </div>
+        <div style={{ width: 1, alignSelf: 'stretch', background: RF.line, margin: '2px 2px' }}/>
+
+        {/* Chips déroulants */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+          {REL_FILTERS.map(f => {
+            const v = valOf(f.id);
+            const active = v !== f.def;
+            const isOpen = open === f.id;
+            return (
+              <div key={f.id} style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                <button type="button" onClick={() => setOpen(isOpen ? null : f.id)} style={chipBtnStyle(active, isOpen)}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: RF.indigo, flex: 'none', display: active ? 'block' : 'none' }}/>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left' }}>
+                    <span style={{ fontFamily: RF.mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: active ? RF.indigo : RF.ink4 }}>{f.label}</span>
+                    <span style={{ fontWeight: 600, fontSize: 13.5, color: active ? RF.indigoD : RF.ink, lineHeight: 1, whiteSpace: 'nowrap' }}>{shortOf(f)}</span>
+                  </span>
+                  <span style={{ color: active ? RF.indigo : RF.ink4, display: 'inline-flex', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }}><SvgCaret/></span>
+                </button>
+                {isOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 200, zIndex: 30,
+                    background: RF.card, border: '1px solid ' + RF.line, borderRadius: 14, boxShadow: RF.shadowPop, padding: 6,
+                  }}>
+                    <div style={{ fontFamily: RF.mono, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: RF.ink4, padding: '8px 10px 6px' }}>{f.label}</div>
+                    {f.opts.map(o => {
+                      const sel = o.v === v;
+                      return (
+                        <div key={o.v} onClick={() => { setOf(f.id, o.v); setOpen(null); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9,
+                            fontSize: 13.5, color: sel ? RF.ink : RF.ink2, fontWeight: sel ? 600 : 400,
+                            background: sel ? RF.indigoXsoft : 'transparent', cursor: 'pointer',
+                          }}
+                          onMouseEnter={e => { if (!sel) e.currentTarget.style.background = 'rgba(22,26,29,0.045)'; }}
+                          onMouseLeave={e => { if (!sel) e.currentTarget.style.background = 'transparent'; }}>
+                          <span style={{ width: 15, height: 15, color: RF.indigo, flex: 'none', opacity: sel ? 1 : 0, display: 'inline-flex' }}><SvgTick/></span>
+                          <span>{o.t}</span>
+                          <span style={{ marginLeft: 'auto', fontFamily: RF.mono, fontSize: 11, color: sel ? RF.indigo : RF.ink4 }}>{countFor(f.id, o.v)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Flash deals toggle — même hauteur que les chips (alignSelf stretch) */}
+        <button type="button" onClick={(e) => { e.stopPropagation(); set.flash(!flash); }}
+          style={{
+            fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 9,
+            alignSelf: 'stretch', padding: '0 15px', borderRadius: 11,
+            border: '1px solid ' + (flash ? RF.flash : 'rgba(214,67,47,0.34)'),
+            background: flash ? RF.flash : '#fff', color: flash ? '#fff' : RF.flashD, fontWeight: 600, fontSize: 13.5,
+            boxShadow: flash ? '0 6px 18px rgba(214,67,47,0.28)' : 'none', transition: 'all .16s',
+          }}>
+          <SvgBolt/>
+          Flash deals
+          <span style={{ fontFamily: RF.mono, fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: flash ? 'rgba(255,255,255,0.22)' : RF.p1soft, color: flash ? '#fff' : RF.flashD }}>{flashCount}</span>
+        </button>
+
+        {/* Sans filtre / clear-all — juste après Flash deals ; même hauteur
+            que les chips (alignSelf stretch). */}
+        <button type="button" onClick={(e) => { e.stopPropagation(); onReset(); }}
+          style={{
+            fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+            alignSelf: 'stretch', padding: '0 14px', borderRadius: 11,
+            border: '1px solid ' + (filtersActive ? RF.line : RF.ink),
+            background: filtersActive ? RF.card : RF.ink,
+            color: filtersActive ? RF.ink2 : '#fff', fontWeight: 600, fontSize: 13.5,
+            boxShadow: RF.shadowSm, transition: 'all .16s',
+          }}>
+          <span style={{ color: filtersActive ? RF.ink3 : '#fff', display: 'inline-flex' }}><SvgFunnelOff/></span>
+          Sans filtre
+        </button>
+
+        {/* Reset + compteur (poussé à droite) */}
+        <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+          {filtersActive && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onReset(); }}
+              style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: RF.ink3, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 4px' }}>
+              <SvgReset/> Réinitialiser
+            </button>
+          )}
+          <span style={{ fontFamily: RF.mono, fontSize: 12.5, color: RF.ink3, whiteSpace: 'nowrap' }}>
+            <b style={{ color: RF.ink, fontWeight: 600 }}>{filteredCount}</b> / {total} résultat{total > 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Bande de filtres actifs */}
+      {activeTags.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 20px 16px', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: RF.mono, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: RF.ink4 }}>Actifs</span>
+          {activeTags.map(t => (
+            <span key={t.id} style={{
+              whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 500,
+              color: t.flash ? RF.flashD : RF.indigoD,
+              background: t.flash ? RF.p1soft : RF.indigoXsoft,
+              border: '1px solid ' + (t.flash ? 'rgba(214,67,47,0.32)' : 'rgba(90,87,214,0.3)'),
+              padding: '5px 8px 5px 11px', borderRadius: 999,
+            }}>
+              {t.flash && <span style={{ display: 'inline-flex' }}><SvgBolt size={12}/></span>}
+              <span>{t.label}</span>
+              <button type="button" aria-label="Retirer"
+                onClick={(e) => { e.stopPropagation(); if (t.id === 'flash') set.flash(false); else setOf(t.id, 'all'); }}
+                style={{ width: 16, height: 16, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center',
+                  background: t.flash ? 'rgba(214,67,47,0.16)' : 'rgba(90,87,214,0.14)', color: t.flash ? RF.flashD : RF.indigoD }}>
+                <SvgX/>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Relations() {
   const {
     pendingRelations: pending,
@@ -5093,6 +5334,22 @@ function Relations() {
   const [detail, setDetail] = useState(null); // l'objet pending sélectionné
   // « La Vitrine » — interstitiel de sortie depuis la carte ({proName, websiteUrl}).
   const [vitrineLeave, setVitrineLeave] = useState(null);
+
+  // ─── Filtres des sollicitations en attente ───────────────────────────
+  // Montant (récompense), date de réception, palier, et flash deals.
+  const [fAmount, setFAmount] = useState('all'); // all | 1-2 | 2-5 | 5+
+  const [fDate, setFDate] = useState('all');     // all | today | 3d | 7d
+  const [fTier, setFTier] = useState('all');     // all | 1..5
+  const [fFlash, setFFlash] = useState(false);
+  const resetFilters = () => { setFAmount('all'); setFDate('all'); setFTier('all'); setFFlash(false); };
+  const filteredPending = React.useMemo(() => {
+    return (pending || []).filter(p =>
+      relMatchAmount(Number(p.reward) || 0, fAmount) &&
+      relMatchDate(p, fDate) &&
+      relMatchTier(Number(p.tier), fTier) &&
+      (!fFlash || p.isFlashDeal)
+    );
+  }, [pending, fAmount, fDate, fTier, fFlash]);
 
   // Statistiques dérivées de l'historique → cartes du haut + total du pied.
   const eur = (v) => Number(v || 0).toFixed(2).replace('.', ',');
@@ -5147,8 +5404,24 @@ function Relations() {
           </span>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          {pending.map(p => {
+        <>
+          {/* Barre de filtres premium (cf. fi.html) : chips déroulants,
+              toggle Flash deals, bande de filtres actifs, compteur. */}
+          <RelFilterBar
+            values={{ amount: fAmount, date: fDate, tier: fTier, flash: fFlash }}
+            set={{ amount: setFAmount, date: setFDate, tier: setFTier, flash: setFFlash }}
+            pending={pending}
+            filteredCount={filteredPending.length}
+            onReset={resetFilters}
+          />
+          {filteredPending.length === 0 ? (
+            <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+              <div className="muted" style={{ fontSize: 13 }}>Aucune sollicitation ne correspond à vos filtres.</div>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={resetFilters}>Réinitialiser les filtres</button>
+            </div>
+          ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {filteredPending.map(p => {
             const isAccepted = accepted[p.id], isRefused = refused[p.id];
             return (
               <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
@@ -5311,6 +5584,8 @@ function Relations() {
             );
           })}
         </div>
+          )}
+        </>
       )}
 
       <div className="card historique-card" style={{ padding: 28 }}>

@@ -165,6 +165,9 @@ export async function GET() {
         // la « prochaine échéance » (min sur les pending) sans reparser
         // la string `timer`.
         expiresAt: r.expires_at,
+        // Date de réception de la sollicitation (création de la relation) —
+        // sert au filtre « date » côté front (aujourd'hui / 3 / 7 derniers jours).
+        sentAt: r.sent_at,
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
