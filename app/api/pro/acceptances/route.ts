@@ -51,10 +51,29 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("[/api/pro/acceptances] lifecycle trigger failed", err);
   }
+  // Priorité de traitement RÉSOLUE PAR PROSPECT (pas par relation) : un prospect
+  // déjà classé garde sa priorité sur ses nouvelles acceptations. On lit toutes
+  // les relations du pro ayant une priorité, triées par decided_at desc, et on
+  // retient la plus récente par prospect.
+  const priorityByProspect = new Map<string, number>();
+  {
+    const { data: prios } = await admin
+      .from("relations")
+      .select("prospect_id, pro_priority, decided_at")
+      .eq("pro_account_id", proId)
+      .not("pro_priority", "is", null)
+      .order("decided_at", { ascending: false });
+    for (const p of (prios ?? []) as { prospect_id: string | null; pro_priority: number | null }[]) {
+      if (p.prospect_id && p.pro_priority != null && !priorityByProspect.has(p.prospect_id)) {
+        priorityByProspect.set(p.prospect_id, p.pro_priority);
+      }
+    }
+  }
+
   const { data, error, count } = await admin
     .from("relations")
     .select(
-      `id, status, reward_cents, decided_at,
+      `id, status, reward_cents, decided_at, pro_priority, prospect_id,
        campaigns!inner ( name, status, targeting ),
        prospects:prospect_id ( bupp_score,
          prospect_identity ( prenom, nom )
@@ -80,6 +99,8 @@ export async function GET(req: Request) {
     id: string;
     reward_cents: number;
     decided_at: string | null;
+    pro_priority: number | null;
+    prospect_id: string | null;
     campaigns: { name: string; status: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       bupp_score: number;
@@ -103,6 +124,12 @@ export async function GET(req: Request) {
       tier: Math.max(1, ...tiers.map((n) => Number(n) || 0)),
       receivedAt: r.decided_at,
       costCents: Number(r.reward_cents ?? 0),
+      // Priorité résolue par prospect (cf. priorityByProspect) → visible même
+      // sur une nouvelle acceptation d'un prospect déjà classé. Repli sur la
+      // relation courante par sécurité.
+      priority:
+        (r.prospect_id ? priorityByProspect.get(r.prospect_id) : undefined)
+        ?? r.pro_priority ?? null,
     };
   });
 

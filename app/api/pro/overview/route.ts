@@ -45,7 +45,7 @@ export async function GET() {
     admin
       .from("relations")
       .select(
-        `id, status, reward_cents, decided_at,
+        `id, status, reward_cents, decided_at, prospect_id, pro_priority,
        campaigns ( name, targeting ),
        prospects:prospect_id ( bupp_score,
          prospect_identity ( prenom, nom )
@@ -62,7 +62,7 @@ export async function GET() {
     admin
       .from("relations")
       .select(
-        `id, status, reward_cents, decided_at,
+        `id, status, reward_cents, decided_at, pro_priority, prospect_id,
        campaigns!inner ( name, status, targeting ),
        prospects:prospect_id ( bupp_score,
          prospect_identity ( prenom, nom )
@@ -99,6 +99,8 @@ export async function GET() {
     status: string;
     reward_cents: number;
     decided_at: string | null;
+    prospect_id: string | null;
+    pro_priority: number | null;
     campaigns: { name: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       bupp_score: number;
@@ -111,12 +113,26 @@ export async function GET() {
     status: string;
     reward_cents: number;
     decided_at: string | null;
+    pro_priority: number | null;
+    prospect_id: string | null;
     campaigns: { name: string; status: string; targeting: { requiredTiers?: number[] } | null } | null;
     prospects: {
       bupp_score: number;
       prospect_identity: { prenom: string | null; nom: string | null } | null;
     } | null;
   };
+  // Priorité de traitement RÉSOLUE PAR PROSPECT (et non par relation) : un
+  // prospect classé sur une campagne garde sa priorité quand il accepte une
+  // NOUVELLE campagne. On prend la plus récente (la requête `data` est triée
+  // par decided_at desc → la 1ʳᵉ valeur non nulle rencontrée par prospect est
+  // la plus récente). Couvre toutes les relations du pro.
+  const priorityByProspect = new Map<string, number>();
+  for (const r of ((data ?? []) as unknown as Row[])) {
+    if (r.prospect_id && r.pro_priority != null && !priorityByProspect.has(r.prospect_id)) {
+      priorityByProspect.set(r.prospect_id, r.pro_priority);
+    }
+  }
+
   const rows = ((data ?? []) as unknown as Row[]).map((r) => {
     const c = Array.isArray(r.campaigns) ? r.campaigns[0] : r.campaigns;
     const id = Array.isArray(r.prospects) ? r.prospects[0] : r.prospects;
@@ -175,6 +191,12 @@ export async function GET() {
       tier: Math.max(1, ...tiers.map((n) => Number(n) || 0)),
       receivedAt: r.decided_at,
       costCents: Number(r.reward_cents ?? 0),
+      // Priorité résolue par prospect (cf. priorityByProspect) → s'affiche même
+      // pour une nouvelle acceptation d'un prospect déjà classé ailleurs.
+      // Repli sur la priorité de la relation courante par sécurité.
+      priority:
+        (r.prospect_id ? priorityByProspect.get(r.prospect_id) : undefined)
+        ?? r.pro_priority ?? null,
     };
   });
 

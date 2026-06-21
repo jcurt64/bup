@@ -747,6 +747,7 @@ export type Database = {
           adresse: string | null
           center_distance_m: number | null
           code_postal: string | null
+          geo_extension: string
           latitude: number | null
           longitude: number | null
           national_opt_in: boolean
@@ -760,6 +761,7 @@ export type Database = {
           adresse?: string | null
           center_distance_m?: number | null
           code_postal?: string | null
+          geo_extension?: string
           latitude?: number | null
           longitude?: number | null
           national_opt_in?: boolean
@@ -773,6 +775,7 @@ export type Database = {
           adresse?: string | null
           center_distance_m?: number | null
           code_postal?: string | null
+          geo_extension?: string
           latitude?: number | null
           longitude?: number | null
           national_opt_in?: boolean

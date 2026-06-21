@@ -73,6 +73,11 @@ export const TIERS: Record<TierKey, TierMap> = {
       // prospect. Stocké en boolean, sérialisé en "true"/"false" côté
       // UI par rowToUi (cast string), reconverti par le PATCH route.
       nationalOptIn: "national_opt_in",
+      // Niveau d'extension géographique gradué (local | departemental |
+      // regional | national). Remplace l'opt-in national binaire côté UI ;
+      // `national_opt_in` reste maintenu en synchro par la route PATCH
+      // (true ⟺ geo_extension='national') pour la compat du matching.
+      geoExtension: "geo_extension",
     },
   },
   vie: {

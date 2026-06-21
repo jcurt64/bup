@@ -598,13 +598,38 @@ function Overview({ onCreate }) {
         ) : (
           <div className="tbl-scroll">
             <table className="tbl">
-              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Priorité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
               <tbody>
                 {last.map((r, i) => (
                   <tr key={i}>
                     <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
                     <td>{r.campaign}</td>
                     <td><span className="chip">Palier {r.tier}</span></td>
+                    <td>
+                      {(() => {
+                        // Statut « priorité de traitement » enregistré sur la
+                        // fiche du prospect (ProspectDetailsModal). Affiché ici
+                        // si défini ; sinon tiret. Mêmes couleurs/icône que le
+                        // filtre et la fiche (PRIORITY_OPTS).
+                        const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                        if (!po) return <span className="muted">—</span>;
+                        return (
+                          <span
+                            title={`Priorité de traitement : ${po.label}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              padding: '3px 8px', borderRadius: 999,
+                              fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                              color: po.color,
+                              background: `color-mix(in oklab, ${po.color} 12%, var(--paper))`,
+                              border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
+                            }}
+                          >
+                            <Icon name="sparkle" size={11}/> {po.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td><span className="mono tnum">{r.score}</span></td>
                     <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
                     <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>
@@ -862,15 +887,15 @@ function AllAcceptancesModal({ fmt2, onClose }) {
 
         <div className="tbl-scroll" style={{ marginTop: 16 }}>
           <table className="tbl">
-            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Priorité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
             <tbody>
               {loading && rows.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '28px 12px' }}>
                   <span className="muted" style={{ fontSize: 13 }}>Chargement des acceptations…</span>
                 </td></tr>
               )}
               {!loading && rows.length === 0 && !error && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px 12px' }}>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '28px 12px' }}>
                   <span className="muted" style={{ fontSize: 13 }}>Aucune acceptation pour le moment.</span>
                 </td></tr>
               )}
@@ -879,6 +904,29 @@ function AllAcceptancesModal({ fmt2, onClose }) {
                   <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
                   <td>{r.campaign}</td>
                   <td><span className="chip">Palier {r.tier}</span></td>
+                  <td>
+                    {(() => {
+                      // Statut priorité de traitement (cf. fiche prospect) ;
+                      // tiret si non défini. Mêmes couleurs/icône (PRIORITY_OPTS).
+                      const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                      if (!po) return <span className="muted">—</span>;
+                      return (
+                        <span
+                          title={`Priorité de traitement : ${po.label}`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '3px 8px', borderRadius: 999,
+                            fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                            color: po.color,
+                            background: `color-mix(in oklab, ${po.color} 12%, var(--paper))`,
+                            border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
+                          }}
+                        >
+                          <Icon name="sparkle" size={11}/> {po.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td><span className="mono tnum">{r.score}</span></td>
                   <td className="muted mono">{formatRelativeFr(r.receivedAt)}</td>
                   <td className="mono tnum" style={{ textAlign: 'right' }}>−{fmt2(r.costCents/100)} €</td>

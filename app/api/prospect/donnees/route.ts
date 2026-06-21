@@ -204,6 +204,30 @@ export async function PATCH(req: Request) {
     }
   }
 
+  // Niveau d'extension géographique — enum strict. On valide la valeur et
+  // on maintient `national_opt_in` en synchro (true ⟺ 'national') pour que
+  // le matching legacy et tout code lisant le boolean restent corrects.
+  if (
+    tier === "localisation" &&
+    Object.prototype.hasOwnProperty.call(patch, "geo_extension")
+  ) {
+    const raw = patch.geo_extension;
+    const allowed = ["local", "departemental", "regional", "national"];
+    if (typeof raw !== "string" || !allowed.includes(raw)) {
+      return NextResponse.json(
+        {
+          error: "invalid_geo_extension",
+          message:
+            "geo_extension doit valoir local, departemental, regional ou national.",
+        },
+        { status: 400 },
+      );
+    }
+    // Synchro du booléen historique.
+    (patch as unknown as Record<string, boolean>).national_opt_in =
+      raw === "national";
+  }
+
   // Rayon de ciblage (km) — int 5-100. uiToRow l'a déjà sérialisé en
   // string ; on parse + valide + on re-injecte la bonne valeur typée
   // dans le patch pour que l'upsert respecte le check constraint DB.

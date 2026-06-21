@@ -16,7 +16,7 @@ const EMPTY_TIER = {
   // `targetingRadiusKm` est stocké en string (cohérence avec les autres
   // champs du tier — rowToUi serialize tout en string). Le slider Prefs
   // fait le parseInt à la lecture.
-  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'true' },
+  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'true', geoExtension: 'national' },
   vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
   pro:         { statut: '', secteur: '' },
   patrimoine:  { residence: '', projets: '' },
@@ -6690,7 +6690,33 @@ function Prefs() {
   // décoche la case. Une valeur absente / vide / nouvelle row (DEFAULT
   // DB désormais true) ⇒ considéré coché. Cohérent avec la migration
   // 20260517120000 (national_opt_in DEFAULT true).
-  const nationalOptIn = String(ctx?.profile?.localisation?.nationalOptIn ?? 'true') !== 'false';
+  // Niveau d'extension géographique gradué : local | departemental | regional
+  // | national. Remplace l'ancien opt-in national binaire. Rétro-compat : si
+  // `geoExtension` n'est pas encore renseigné, on le dérive de `nationalOptIn`
+  // (true → national, sinon local). Persisté via geo_extension ; la route
+  // PATCH resynchronise national_opt_in (true ⟺ national).
+  const GEO_LEVELS = [
+    { v: 'local',         label: 'Local',        desc: 'Selon mon rayon' },
+    { v: 'departemental', label: 'Départemental', desc: 'Tout mon département' },
+    { v: 'regional',      label: 'Régional',      desc: 'Toute ma région' },
+    { v: 'national',      label: 'National',      desc: 'Partout en France' },
+  ];
+  const geoExtension = (() => {
+    const raw = ctx?.profile?.localisation?.geoExtension;
+    if (raw && GEO_LEVELS.some(l => l.v === raw)) return raw;
+    return String(ctx?.profile?.localisation?.nationalOptIn ?? 'true') !== 'false'
+      ? 'national' : 'local';
+  })();
+  // Le rayon n'est éditable qu'au niveau « local » ; les autres niveaux
+  // définissent une portée nommée (le rayon stocké reste la base locale).
+  const radiusActive = geoExtension === 'local';
+  const geoLevelLabel = (GEO_LEVELS.find(l => l.v === geoExtension) || {}).label || 'National';
+  // Rayon (km) passé à la carte pour adapter le ZOOM au niveau choisi
+  // (la carte cadre sur un cercle de ce rayon). « local » = rayon réel ;
+  // les autres = valeurs représentatives (département ~40 km, région ~130 km,
+  // national ~700 km) pour un dézoom progressif et lisible.
+  const GEO_MAP_RADIUS_KM = { local: radius, departemental: 40, regional: 130, national: 700 };
+  const mapRadius = GEO_MAP_RADIUS_KM[geoExtension] ?? radius;
   // Resync local quand le profile arrive de l'API (hydratation async).
   useEffect(() => {
     if (Number.isFinite(persistedRadius) && persistedRadius !== radius) {
@@ -6850,54 +6876,59 @@ function Prefs() {
               </div>
             </div>
             <div>
-              <div className="muted" style={{ fontSize: 12, textAlign: 'right' }}>Rayon</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: (zoneLocked || nationalOptIn) ? 'var(--ink-4)' : 'var(--accent)' }}>
-                {nationalOptIn
-                  ? <span style={{ fontSize: 16 }}>National</span>
-                  : <>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></>}
+              <div className="muted" style={{ fontSize: 12, textAlign: 'right' }}>Portée</div>
+              <div className="serif tnum" style={{ fontSize: 28, color: (zoneLocked || !radiusActive) ? 'var(--ink-4)' : 'var(--accent)' }}>
+                {radiusActive
+                  ? <>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></>
+                  : <span style={{ fontSize: 16 }}>{geoLevelLabel}</span>}
               </div>
             </div>
           </div>
           <input type="range" min="5" max="100" step="5" value={radius}
-            disabled={zoneLocked || nationalOptIn}
+            disabled={zoneLocked || !radiusActive}
             onChange={e => setRadius(+e.target.value)}
             style={{ width: '100%', accentColor: 'var(--accent)',
-              opacity: (zoneLocked || nationalOptIn) ? 0.4 : 1,
-              cursor: (zoneLocked || nationalOptIn) ? 'not-allowed' : 'pointer' }}/>
-          {/* Case à cocher "Étendre au niveau national" — quand activée,
-              le matching ignore la portée géographique du pro et le rayon
-              local (le prospect accepte les sollicitations partout en
-              France). Désactivable à tout moment pour revenir au rayon. */}
-          <label className={'row center gap-2 ' + (zoneLocked ? '' : '')}
-            style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10,
-              border: '1px solid ' + (nationalOptIn ? 'var(--accent)' : 'var(--line-2)'),
-              background: nationalOptIn ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--paper)',
-              cursor: zoneLocked ? 'not-allowed' : 'pointer',
-              opacity: zoneLocked ? 0.5 : 1,
-              transition: 'all .15s' }}>
-            <span style={{
-              width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-              border: '1.5px solid ' + (nationalOptIn ? 'var(--accent)' : 'var(--line-2)'),
-              background: nationalOptIn ? 'var(--accent)' : 'var(--paper)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>{nationalOptIn && <span style={{ color: 'white', fontSize: 11 }}>✓</span>}</span>
-            <input type="checkbox"
-              checked={nationalOptIn}
-              disabled={zoneLocked}
-              onChange={(e) => {
-                if (zoneLocked) return;
-                ctx?.updateField?.('localisation', 'nationalOptIn', e.target.checked);
-              }}
-              style={{ display: 'none' }}/>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>Étendre au niveau national</div>
-              <div className="muted" style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>
-                J'accepte d'être contacté par des pros partout en France, indépendamment du rayon local.
-              </div>
+              opacity: (zoneLocked || !radiusActive) ? 0.4 : 1,
+              cursor: (zoneLocked || !radiusActive) ? 'not-allowed' : 'pointer' }}/>
+          {/* Sélecteur d'extension géographique : Local (rayon) → Départemental
+              → Régional → National. Le niveau choisi définit jusqu'où le
+              prospect accepte d'être contacté (cf. lib/campaigns/matching.ts :
+              le niveau lève le plancher de rayon jusqu'à la portée, le national
+              levant aussi le filtre code postal). */}
+          <div style={{ marginTop: 16 }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+              Jusqu'où acceptez-vous d'être contacté ?
             </div>
-          </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              {GEO_LEVELS.map((lvl) => {
+                const on = geoExtension === lvl.v;
+                return (
+                  <button
+                    key={lvl.v}
+                    type="button"
+                    disabled={zoneLocked}
+                    onClick={() => {
+                      if (zoneLocked) return;
+                      ctx?.updateField?.('localisation', 'geoExtension', lvl.v);
+                    }}
+                    style={{
+                      textAlign: 'left', padding: '10px 12px', borderRadius: 10,
+                      border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
+                      background: on ? 'color-mix(in oklab, var(--accent) 7%, var(--paper))' : 'var(--paper)',
+                      cursor: zoneLocked ? 'not-allowed' : 'pointer',
+                      opacity: zoneLocked ? 0.5 : 1, transition: 'all .15s',
+                    }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: on ? 'var(--accent)' : 'var(--ink)' }}>
+                      {lvl.label}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{lvl.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div style={{ marginTop: 14 }}>
-            <RealMapThumb ville={ville} codePostal={codePostal} radius={nationalOptIn ? 9999 : radius} fallback={<MapThumb radius={nationalOptIn ? 9999 : radius}/>}/>
+            <RealMapThumb ville={ville} codePostal={codePostal} radius={mapRadius} fallback={<MapThumb radius={mapRadius}/>}/>
           </div>
           {zoneLocked && (
             /* Verrou — bannière + overlay semi-transparent qui couvre la

@@ -99,6 +99,21 @@ export async function findMatchingProspects(
   // ne filtre pas, le prospect reçoit même avec un rayon de 5 km.
   const radiusFloorKm = geoRadiusFloorKm(input.geo);
 
+  // Niveau d'extension géographique du prospect (cf. prospect_localisation.
+  // geo_extension). Il lève le PLANCHER DE RAYON jusqu'à la portée choisie :
+  // un prospect « départemental » accepte les campagnes ville/dept couvrant
+  // sa zone (filtre CP) même avec un petit rayon ; « régional » va jusqu'à la
+  // région ; « national » lève aussi le filtre CP (accepte partout). Le filtre
+  // CP (= « le prospect habite dans la zone ciblée ») reste sinon appliqué.
+  const GEO_SCOPE_RANK: Record<string, number> = { ville: 1, dept: 2, region: 3 };
+  const EXT_RANK: Record<string, number> = {
+    local: 0,
+    departemental: 2,
+    regional: 3,
+    national: 4,
+  };
+  const campaignScopeRank = GEO_SCOPE_RANK[input.geo] ?? 0;
+
   // Ciblage « autour de moi » : filtre par distance orthodromique réelle
   // (haversine) entre l'établissement pro et le domicile du prospect, borné
   // par le rayon choisi (10/30/50 km). Sans coordonnées pro → aucun match
@@ -131,7 +146,7 @@ export async function findMatchingProspects(
       removed_tiers,
       hidden_tiers,
       prospect_identity ( email, prenom, naissance ),
-      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in, latitude, longitude )
+      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in, geo_extension, latitude, longitude )
     `,
     )
     .in("verification", acceptableLevels)
@@ -178,7 +193,15 @@ export async function findMatchingProspects(
     if (requiredKeys.includes("identity") && !identity) continue;
 
     const localisation = row.prospect_localisation;
-    const nationalOptIn = localisation?.national_opt_in === true;
+    const geoExtension = localisation?.geo_extension ?? "national";
+    // `national` lève tous les filtres géo (CP + plancher rayon).
+    const nationalOptIn =
+      geoExtension === "national" || localisation?.national_opt_in === true;
+    // Le plancher de rayon est levé si le prospect est national OU si son
+    // niveau d'extension couvre la portée de la campagne (départemental ⊇
+    // ville/dept ; régional ⊇ ville/dept/region).
+    const bypassRadiusFloor =
+      nationalOptIn || (EXT_RANK[geoExtension] ?? 0) >= campaignScopeRank;
 
     // Filtre CP : un prospect doit habiter dans la zone ciblée. Trois
     // sources possibles (par ordre de priorité) :
@@ -206,7 +229,7 @@ export async function findMatchingProspects(
     // « j'accepte n'importe où »). Si la row palier 2 (localisation)
     // n'existe pas, on suppose le default DB (25 km) — cohérent avec
     // le check constraint.
-    if (radiusFloorKm != null && !nationalOptIn) {
+    if (radiusFloorKm != null && !bypassRadiusFloor) {
       const prospectRadius = localisation?.targeting_radius_km ?? 25;
       if (prospectRadius < radiusFloorKm) continue;
     }
