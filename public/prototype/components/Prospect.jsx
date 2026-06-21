@@ -5442,7 +5442,13 @@ function Relations() {
             <RelationStat tone="warn" icon="lock" label="En séquestre" value={`${eur(escrowSum)} €`}/>
           </div>
           <style>{`
-            @media (max-width: 900px) { .relations-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; } }
+            @media (max-width: 900px) {
+              .relations-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+              .relations-stats > .card { padding: 16px !important; }
+            }
+            @media (max-width: 380px) {
+              .relations-stats > .card { padding: 13px !important; }
+            }
             @media (max-width: 980px) { .rel-pending-grid { grid-template-columns: repeat(2, 1fr) !important; } }
             @media (max-width: 640px) { .rel-pending-grid { grid-template-columns: 1fr !important; } }
           `}</style>
