@@ -2345,8 +2345,9 @@ function ScoreSection() {
   const stats: [string, number][] = [
     ["Complétude des paliers", 85],
     ["Fraîcheur des données", 92],
-    ["Taux d'acceptation", 90],
+    ["Taux de fiabilité", 90],
   ];
+  const [fiabInfo, setFiabInfo] = useState(false);
   return (
     <section className="section">
       <div
@@ -2378,7 +2379,7 @@ function ScoreSection() {
             }}
           >
             Votre score évolue selon la complétude de vos paliers, la fraîcheur
-            de vos données et votre taux d&apos;acceptation. Un score élevé
+            de vos données et votre taux de fiabilité. Un score élevé
             attire des demandes plus exigeantes et mieux rémunérées.
           </p>
           <div className="row gap-6 wrap">
@@ -2433,7 +2434,31 @@ function ScoreSection() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  <span className="muted">{l}</span>
+                  <span
+                    className="muted"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                  >
+                    {l}
+                    {l === "Taux de fiabilité" && (
+                      <button
+                        type="button"
+                        onClick={() => setFiabInfo(true)}
+                        aria-label="Comment se calcule le taux de fiabilité ?"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "transparent",
+                          border: 0,
+                          padding: 0,
+                          cursor: "pointer",
+                          color: "var(--ink-4)",
+                        }}
+                      >
+                        <Icon name="info" size={13} />
+                      </button>
+                    )}
+                  </span>
                   <span className="mono tnum">{v}%</span>
                 </div>
                 <Progress value={v / 100} />
@@ -2442,7 +2467,296 @@ function ScoreSection() {
           </div>
         </div>
       </div>
+
+      {fiabInfo && <FiabiliteInfoModal onClose={() => setFiabInfo(false)} />}
     </section>
+  );
+}
+
+/* Popup « Comment se calcule le taux de fiabilité ? » — design repris de la
+   maquette pop.png (palette premium indigo/teal/ambre/rose/vert). Icônes =
+   jeu existant du site (SiteChrome). Responsive : carte scrollable, tuiles
+   et exemples qui s'adaptent en largeur. */
+function FiabiliteInfoModal({ onClose }: { onClose: () => void }) {
+  const C = {
+    card: "#fffdf8",
+    ink: "#161a1d",
+    ink2: "#3c444b",
+    ink3: "#757d83",
+    ink4: "#9aa0a4",
+    line: "rgba(22,26,29,0.10)",
+    paperWarm: "#efeadd",
+    indigo: "#5a57d6",
+    indigoD: "#4744bf",
+    indigoSoft: "#ecebfb",
+    indigoXsoft: "#f4f3fd",
+    teal: "#1c8a6e",
+    tealSoft: "#e9f5f0",
+    amber: "#b9842a",
+    amberSoft: "#faf4e6",
+    rose: "#c14d77",
+    roseSoft: "#f7e2ea",
+    green: "#2e9e5b",
+    greenSoft: "#dcf0e3",
+  };
+  const tiles: {
+    icon: IconName;
+    n: string;
+    label: string;
+    sub: string;
+    color: string;
+    bg: string;
+  }[] = [
+    { icon: "sparkle", n: "100", label: "Haute", sub: "confiance maximale", color: C.teal, bg: C.tealSoft },
+    { icon: "clock", n: "60", label: "Moyenne", sub: "valeur neutre", color: C.amber, bg: C.amberSoft },
+    { icon: "gauge", n: "20", label: "Basse", sub: "vigilance", color: C.rose, bg: C.roseSoft },
+  ];
+  const examples: { t: string; sub: string; pct: number; color: string }[] = [
+    { t: "Aucun avis", sub: "· point de départ neutre", pct: 60, color: C.ink4 },
+    { t: "1 avis « Haute »", sub: "", pct: 70, color: C.indigo },
+    { t: "10 avis « Haute »", sub: "", pct: 91, color: C.green },
+  ];
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 300,
+        background: "rgba(15,18,25,0.5)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 600,
+          maxHeight: "92vh",
+          overflowY: "auto",
+          background: C.card,
+          borderRadius: 18,
+          boxShadow: "0 30px 80px rgba(22,26,29,0.28)",
+          textAlign: "left",
+        }}
+      >
+        {/* Barre d'accent indigo → vert */}
+        <div
+          style={{
+            height: 4,
+            background: "linear-gradient(90deg, #4744bf 0%, #5a57d6 40%, #2e9e5b 100%)",
+          }}
+        />
+        <div style={{ padding: "clamp(20px, 4vw, 28px)" }}>
+          {/* En-tête */}
+          <div className="row between" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div className="row" style={{ alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 11,
+                  background: C.indigoSoft,
+                  color: C.indigoD,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="shield" size={18} />
+              </span>
+              <div>
+                <div
+                  className="mono caps"
+                  style={{ fontSize: 10, letterSpacing: "0.16em", color: C.ink4, marginBottom: 3 }}
+                >
+                  BUUPP Score
+                </div>
+                <h3 className="serif" style={{ fontSize: "clamp(18px, 2.4vw, 22px)", margin: 0, lineHeight: 1.2, color: C.ink }}>
+                  Comment se calcule le taux de fiabilité&nbsp;?
+                </h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fermer"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 9,
+                border: `1px solid ${C.line}`,
+                background: C.card,
+                color: C.ink3,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="close" size={15} />
+            </button>
+          </div>
+
+          {/* Paragraphe */}
+          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
+            Après une mise en relation, le professionnel peut vous attribuer une note de
+            fiabilité. On retient <strong style={{ color: C.ink }}>une seule note par professionnel</strong>.
+          </p>
+
+          {/* Trois niveaux */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {tiles.map((t) => (
+              <div
+                key={t.label}
+                style={{
+                  flex: "1 1 150px",
+                  minWidth: 150,
+                  padding: 14,
+                  borderRadius: 13,
+                  background: t.bg,
+                  border: `1px solid color-mix(in oklab, ${t.color} 22%, ${C.line})`,
+                }}
+              >
+                <div className="row between" style={{ alignItems: "center" }}>
+                  <span style={{ color: t.color, display: "inline-flex" }}>
+                    <Icon name={t.icon} size={18} />
+                  </span>
+                  <span className="serif" style={{ fontSize: 26, color: t.color, lineHeight: 1 }}>{t.n}</span>
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: t.color, marginTop: 10 }}>{t.label}</div>
+                <div style={{ fontSize: 11.5, color: C.ink4, marginTop: 2 }}>{t.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Moyenne bayésienne */}
+          <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 16px" }}>
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: C.indigoXsoft,
+                color: C.indigoD,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="trend" size={15} />
+            </span>
+            <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
+              Le taux est une <strong style={{ color: C.indigoD }}>moyenne bayésienne</strong>&nbsp;: tant que
+              vous avez peu d&apos;avis, il reste proche d&apos;une valeur neutre, puis il converge vers la
+              vraie moyenne à mesure que les avis s&apos;accumulent.
+            </p>
+          </div>
+
+          {/* Le calcul */}
+          <div className="mono caps" style={{ fontSize: 10, letterSpacing: "0.14em", color: C.ink4, marginBottom: 8 }}>
+            Le calcul
+          </div>
+          <div
+            className="mono"
+            style={{
+              fontSize: 13,
+              color: C.ink2,
+              background: C.indigoXsoft,
+              border: `1px solid color-mix(in oklab, ${C.indigo} 15%, ${C.line})`,
+              borderRadius: 10,
+              padding: "14px 12px",
+              textAlign: "center",
+              lineHeight: 1.7,
+            }}
+          >
+            fiabilité = (3 × <span style={{ color: C.indigoD, fontWeight: 600 }}>60</span> + somme des notes)
+            <br />
+            (3 + nombre d&apos;avis)
+          </div>
+
+          {/* Quelques exemples */}
+          <div className="mono caps" style={{ fontSize: 10, letterSpacing: "0.14em", color: C.ink4, margin: "18px 0 8px" }}>
+            Quelques exemples
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {examples.map((ex, i) => (
+              <div
+                key={ex.t}
+                className="row"
+                style={{
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "11px 2px",
+                  borderTop: i === 0 ? "none" : `1px solid ${C.line}`,
+                }}
+              >
+                <div
+                  style={{
+                    flex: "0 1 auto",
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontSize: 13,
+                    color: C.ink,
+                  }}
+                >
+                  <strong>{ex.t}</strong>
+                  {ex.sub ? <span style={{ color: C.ink4 }}> {ex.sub}</span> : null}
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 7,
+                    minWidth: 60,
+                    borderRadius: 999,
+                    background: C.paperWarm,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ width: `${ex.pct}%`, height: "100%", borderRadius: 999, background: ex.color }} />
+                </div>
+                <div className="serif" style={{ flex: "0 0 auto", fontSize: 20, color: ex.color }}>{ex.pct}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bandeau bas */}
+          <div
+            className="row"
+            style={{
+              gap: 11,
+              alignItems: "center",
+              marginTop: 16,
+              padding: "13px 15px",
+              borderRadius: 12,
+              background: C.greenSoft,
+              border: `1px solid color-mix(in oklab, ${C.green} 22%, ${C.line})`,
+            }}
+          >
+            <span style={{ color: C.green, display: "inline-flex", flexShrink: 0 }}>
+              <Icon name="check" size={17} />
+            </span>
+            <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
+              <strong style={{ color: C.ink }}>Plus vous honorez vos mises en relation</strong>, plus votre
+              fiabilité monte.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

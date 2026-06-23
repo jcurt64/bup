@@ -671,6 +671,7 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     {acceptGate && (
       <AcceptIncompleteModal
         missingTierNums={acceptGate.missingTierNums}
+        profile={profile}
         onGoToData={() => {
           setPendingAccept({ relationId: acceptGate.relationId, requiredTierNums: acceptGate.requiredTierNums });
           // Scroll direct vers le 1er palier manquant (les missingTierNums
@@ -3223,6 +3224,164 @@ function SectionTitle({ eyebrow, title, desc, action }) {
   );
 }
 
+/* Carte « Mon taux de fiabilité » (onglet Mes données, avant les paliers) :
+   nombre de notes reçues des pros par niveau. AUCUNE identité de pro affichée.
+   Données via /api/prospect/score → breakdown.fiabilite { pct, count, levels }. */
+function FiabiliteCard() {
+  const [fiab, setFiab] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      fetch('/api/prospect/score', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { if (!cancelled) setFiab(j?.breakdown?.fiabilite ?? null); })
+        .catch(() => {});
+    load();
+    // Le score est recalculé quand le profil change → on rafraîchit.
+    const onChange = () => load();
+    window.addEventListener('prospect:profile-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('prospect:profile-changed', onChange); };
+  }, []);
+
+  // Palette premium (= maquette fia.png). Icônes = jeu du site (Shell).
+  const C = {
+    teal: '#1c8a6e', tealSoft: '#e9f5f0',
+    amber: '#b9842a', amberSoft: '#faf4e6',
+    rose: '#c14d77', roseSoft: '#f7e2ea',
+    indigo: '#5a57d6', indigoD: '#4744bf', indigoXsoft: '#f4f3fd',
+    ink: '#161a1d', ink2: '#3c444b', ink3: '#757d83', ink4: '#9aa0a4',
+  };
+  const levels = fiab?.levels || { haute: 0, moyenne: 0, basse: 0 };
+  const total = fiab?.count ?? (levels.haute + levels.moyenne + levels.basse);
+  const pct = fiab ? fiab.pct : 60;
+  // Palier qualitatif (pastille) selon le taux.
+  const tier =
+    pct >= 80 ? { label: 'Excellente', color: C.teal }
+    : pct >= 65 ? { label: 'Bonne', color: C.teal }
+    : pct >= 45 ? { label: 'Valeur neutre', color: C.amber }
+    : { label: 'Vigilance', color: C.rose };
+  // Position du marqueur sur l'échelle 20 → 100.
+  const markerPct = Math.max(0, Math.min(100, ((pct - 20) / 80) * 100));
+  const TILES = [
+    { key: 'haute',   label: 'Haute',   vaut: 100, color: C.teal,  bg: C.tealSoft,  icon: 'shieldCheck' },
+    { key: 'moyenne', label: 'Moyenne', vaut: 60,  color: C.amber, bg: C.amberSoft, icon: 'shield' },
+    { key: 'basse',   label: 'Basse',   vaut: 20,  color: C.rose,  bg: C.roseSoft,  icon: 'gauge' },
+  ];
+
+  return (
+    <div className="card" style={{ padding: 'clamp(20px, 3vw, 28px)' }}>
+      {/* En-tête : titre + score /100 + pastille palier */}
+      <div className="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.16em', color: C.ink4, marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 16, height: 1.5, background: C.ink4, display: 'inline-block' }}/> Réputation
+          </div>
+          <div className="serif" style={{ fontSize: 'clamp(22px, 3vw, 28px)', color: C.ink, lineHeight: 1.1 }}>Mon taux de fiabilité</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div className="serif tnum" style={{ fontSize: 34, lineHeight: 1, color: C.ink }}>
+            {pct}<span style={{ fontSize: 16, color: C.ink4 }}>/100</span>
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '4px 10px', borderRadius: 999, background: `color-mix(in oklab, ${tier.color} 12%, var(--paper))`, border: `1px solid color-mix(in oklab, ${tier.color} 30%, var(--line))` }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, background: tier.color }}/>
+            <span className="mono caps" style={{ fontSize: 9.5, letterSpacing: '.08em', color: tier.color, fontWeight: 600 }}>{tier.label}</span>
+          </div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>{total} note{total > 1 ? 's' : ''} pro</div>
+        </div>
+      </div>
+
+      {/* Sous-texte */}
+      <div style={{ fontSize: 12.5, lineHeight: 1.6, color: C.ink3, marginTop: 12 }}>
+        Notes reçues des professionnels après vos mises en relation.{' '}
+        <span style={{ color: C.ink2, fontWeight: 600 }}><Icon name="lock" size={11}/> Leur identité reste anonyme.</span>{' '}
+        Ce taux entre dans votre indice de désirabilité.
+      </div>
+
+      {/* Position sur l'échelle */}
+      <div style={{ marginTop: 20 }}>
+        <div className="row between" style={{ flexWrap: 'wrap', gap: 6 }}>
+          <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.12em', color: C.ink4 }}>Position sur l'échelle</span>
+          <span className="mono" style={{ fontSize: 11, color: C.ink3 }}>Départ neutre · 60 / 100</span>
+        </div>
+        <div style={{ position: 'relative', marginTop: 20 }}>
+          <div style={{ position: 'absolute', left: `${markerPct}%`, top: -16, transform: 'translateX(-50%)', zIndex: 2 }}>
+            <span className="mono" style={{ fontSize: 10, fontWeight: 600, color: '#fff', background: C.ink, padding: '1px 6px', borderRadius: 5 }}>{pct}</span>
+          </div>
+          <div style={{ height: 10, borderRadius: 999, background: 'linear-gradient(90deg, #f3cdd9 0%, #f1e3c2 50%, #cfe9dd 100%)', position: 'relative' }}>
+            <div style={{ position: 'absolute', left: `${markerPct}%`, top: -3, bottom: -3, width: 2, background: C.ink, transform: 'translateX(-50%)', borderRadius: 2 }}/>
+          </div>
+          <div className="row between" style={{ marginTop: 8 }}>
+            <span className="mono" style={{ fontSize: 10, color: C.ink4 }}>20 · <span style={{ color: C.rose }}>Basse</span></span>
+            <span className="mono" style={{ fontSize: 10, color: C.ink4 }}>60 · <span style={{ color: C.amber }}>Neutre</span></span>
+            <span className="mono" style={{ fontSize: 10, color: C.ink4 }}>100 · <span style={{ color: C.teal }}>Haute</span></span>
+          </div>
+        </div>
+      </div>
+
+      {/* Répartition des notes reçues */}
+      <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.12em', color: C.ink4, margin: '22px 0 10px' }}>Répartition des notes reçues</div>
+      <style>{`
+        .fiab-tiles{ display:flex; gap:12px; }
+        .fiab-tile{ flex:1 1 0; min-width:0; padding:16px; border-radius:14px; border-width:1px; border-style:solid; }
+        .fiab-tile-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+        .fiab-ic{ width:30px; height:30px; border-radius:8px; background:#fff; display:inline-flex; align-items:center; justify-content:center; border-width:1px; border-style:solid; flex-shrink:0; }
+        .fiab-meta{ text-align:right; min-width:0; }
+        .fiab-label{ font-size:13.5px; font-weight:700; line-height:1.15; }
+        .fiab-vaut{ font-size:10px; color:${C.ink4}; margin-top:2px; }
+        .fiab-num{ font-size:30px; margin-top:12px; line-height:1; }
+        .fiab-sub{ font-size:11px; margin-top:4px; }
+        .fiab-bar{ height:4px; border-radius:999px; margin-top:12px; overflow:hidden; }
+        .fiab-bar > div{ height:100%; border-radius:999px; }
+        @media (max-width: 560px){
+          .fiab-tiles{ gap:8px; }
+          .fiab-tile{ padding:11px 9px; border-radius:12px; }
+          .fiab-tile-head{ flex-direction:column; align-items:flex-start; gap:8px; }
+          .fiab-meta{ text-align:left; }
+          .fiab-ic{ width:26px; height:26px; }
+          .fiab-label{ font-size:12px; }
+          .fiab-vaut{ font-size:9px; }
+          .fiab-num{ font-size:22px; margin-top:8px; }
+          .fiab-sub{ font-size:10px; }
+        }
+      `}</style>
+      <div className="fiab-tiles">
+        {TILES.map(t => {
+          const n = levels[t.key] ?? 0;
+          const share = total > 0 ? Math.round((n / total) * 100) : 0;
+          return (
+            <div key={t.key} className="fiab-tile" style={{ background: t.bg, borderColor: `color-mix(in oklab, ${t.color} 20%, var(--line))` }}>
+              <div className="fiab-tile-head">
+                <span className="fiab-ic" style={{ color: t.color, borderColor: `color-mix(in oklab, ${t.color} 25%, var(--line))` }}>
+                  <Icon name={t.icon} size={15}/>
+                </span>
+                <div className="fiab-meta">
+                  <div className="fiab-label" style={{ color: t.color }}>{t.label}</div>
+                  <div className="fiab-vaut mono">vaut {t.vaut}</div>
+                </div>
+              </div>
+              <div className="fiab-num serif tnum" style={{ color: t.color }}>{n}</div>
+              <div className="fiab-sub muted">note{n > 1 ? 's' : ''} reçue{n > 1 ? 's' : ''}</div>
+              <div className="fiab-bar" style={{ background: `color-mix(in oklab, ${t.color} 16%, var(--paper))` }}>
+                <div style={{ width: share + '%', background: t.color }}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bandeau bas */}
+      <div className="row" style={{ gap: 11, alignItems: 'flex-start', marginTop: 16, padding: '13px 15px', borderRadius: 12, background: C.indigoXsoft, border: `1px solid color-mix(in oklab, ${C.indigo} 18%, var(--line))` }}>
+        <span style={{ color: C.indigoD, display: 'inline-flex', flexShrink: 0, marginTop: 1 }}><Icon name="clock" size={15}/></span>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.ink2 }}>
+          {total === 0
+            ? <><strong style={{ color: C.indigoD }}>Aucune note pour l'instant</strong> — vous partez d'une valeur neutre (60). Honorez vos mises en relation pour la faire monter.</>
+            : <>Votre fiabilité reflète les notes des professionnels après vos mises en relation. Honorez-les pour la faire monter.</>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Mes données ---------- */
 const DATA_CATEGORIES = [
   {
@@ -3560,6 +3719,9 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
           </div>
         </div>
       </div>
+
+      {/* Mon taux de fiabilité — avant les paliers (Identification en tête) */}
+      <FiabiliteCard/>
 
       {/* Categories */}
       <div className="col gap-4">
@@ -4869,10 +5031,15 @@ function ConfirmHideModal({ category, onConfirm, onClose }) {
 // Modale affichée au clic « Accepter » quand un palier exigé par la
 // campagne n'est pas intégralement renseigné. Invite à compléter ses
 // informations avec un lien direct vers l'onglet « Mes données ».
-function AcceptIncompleteModal({ missingTierNums, onGoToData, onClose }) {
+function AcceptIncompleteModal({ missingTierNums, profile, onGoToData, onClose }) {
   const cats = (missingTierNums || [])
     .map(n => DATA_CATEGORIES.find(c => c.tier === n))
     .filter(Boolean);
+  // Champ considéré comme vide si aucune valeur (chaîne vide / null).
+  const isEmpty = (catKey, fieldKey) => {
+    const v = profile?.[catKey]?.[fieldKey];
+    return !(typeof v === 'string' ? v.trim() : v);
+  };
   return (
     <ModalShell title="Informations incomplètes" onClose={onClose}>
       <div className="alert-block" style={{
@@ -4902,19 +5069,37 @@ function AcceptIncompleteModal({ missingTierNums, onGoToData, onClose }) {
       </div>
       {cats.length > 0 && (
         <div style={{
-          padding: 12, borderRadius: 8, marginBottom: 18,
-          background: 'var(--ivory-2)', fontSize: 12.5, color: 'var(--ink-3)',
+          padding: 14, borderRadius: 8, marginBottom: 18,
+          background: 'var(--ivory-2)',
         }}>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>
-            Paliers à compléter
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10 }}>
+            Informations à compléter
           </div>
-          <div className="col gap-1">
-            {cats.map(c => (
-              <div key={c.key} className="row center gap-2">
-                <Icon name={c.icon} size={13}/>
-                <span style={{ color: 'var(--ink-2)' }}>Palier {c.tier} · {c.label}</span>
-              </div>
-            ))}
+          <div className="col gap-3">
+            {cats.map(c => {
+              // Champs encore vides de ce palier (à renseigner). Si tout est
+              // détecté comme rempli, on liste l'ensemble des champs du palier.
+              const empty = (c.fields || []).filter(([fk]) => isEmpty(c.key, fk));
+              const toShow = empty.length ? empty : (c.fields || []);
+              return (
+                <div key={c.key}>
+                  <div className="row center gap-2" style={{ marginBottom: 6 }}>
+                    <Icon name={c.icon} size={13}/>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)' }}>Palier {c.tier} · {c.label}</span>
+                  </div>
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 6, paddingLeft: 21 }}>
+                    {toShow.map(([fk, label]) => (
+                      <span key={fk} style={{
+                        fontSize: 11.5, fontWeight: 600, color: '#DC2626',
+                        padding: '3px 9px', borderRadius: 999,
+                        background: 'color-mix(in oklab, #DC2626 8%, var(--paper))',
+                        border: '1px solid color-mix(in oklab, #DC2626 28%, var(--line))',
+                      }}>{label}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -6736,7 +6921,9 @@ function ScorePanel() {
 
   const completeness = score?.breakdown?.completeness;
   const freshness = score?.breakdown?.freshness;
-  const acceptance = score?.breakdown?.acceptance;
+  // Fiabilité = note moyenne des professionnels (remplace l'ancien « taux
+  // d'acceptation »). { pct, count } — count = nb de pros ayant noté.
+  const fiabilite = score?.breakdown?.fiabilite;
 
   // ─── Conseils dynamiques : valeurs EXACTES dérivées de la formule ───
   // Formule (cf. lib/prospect/score.ts) : score = round(((completeness +
@@ -6749,7 +6936,9 @@ function ScorePanel() {
   const ptsToFull = (pct) => Math.round(Math.max(0, (100 - (pct ?? 0)) * ptsPerPct));
   const completenessGap = ptsToFull(completeness?.pct);
   const freshnessGap = ptsToFull(freshness?.pct);
-  const acceptanceGap = acceptance && acceptance.total === 0 ? 0 : ptsToFull(acceptance?.pct);
+  // Pas de « gain à débloquer » tant qu'aucun pro n'a noté (le prospect ne
+  // peut pas l'auto-déclencher) — cohérent avec l'ancien taux d'acceptation.
+  const fiabiliteGap = fiabilite && fiabilite.count === 0 ? 0 : ptsToFull(fiabilite?.pct);
 
   // Paliers (alignés sur la grille tier ci-dessus). Trouve le prochain
   // palier et le gap exact en pts.
@@ -6808,20 +6997,20 @@ function ScorePanel() {
         : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`,
     },
     {
-      icon: 'email',
-      label: 'Taux d\'acceptation',
-      currentPct: acceptance?.pct ?? 0,
-      gain: acceptanceGap,
-      subline: acceptance && acceptance.total > 0
-        ? `${acceptance.accepted}/${acceptance.total} acceptées`
-        : (acceptance?.total === 0 ? 'Aucune sollicitation reçue' : null),
-      hint: !acceptance
+      icon: 'shieldCheck',
+      label: 'Fiabilité',
+      currentPct: fiabilite?.pct ?? 0,
+      gain: fiabiliteGap,
+      subline: fiabilite && fiabilite.count > 0
+        ? `${fiabilite.count} note${fiabilite.count > 1 ? 's' : ''} pro`
+        : (fiabilite ? 'Aucune note — valeur neutre' : null),
+      hint: !fiabilite
         ? '—'
-        : acceptance.total === 0
-        ? "Le taux d'acceptation entrera en jeu dès votre première mise en relation."
-        : acceptance.pct >= 100
-        ? 'Vous acceptez 100 % des mises en relation — au maximum.'
-        : `Acceptez plus de mises en relation depuis votre Inbox pour gagner jusqu'à ${acceptanceGap} pts.`,
+        : fiabilite.count === 0
+        ? "Vous partez d'une fiabilité neutre (60). Les notes des professionnels la feront monter (Haute) ou baisser (Basse)."
+        : fiabilite.pct >= 100
+        ? 'Note maximale des professionnels — au top.'
+        : `Honorez vos mises en relation : une note « Haute » des professionnels fait grimper votre fiabilité (jusqu'à ${fiabiliteGap} pts).`,
     },
   ];
 
@@ -6833,7 +7022,7 @@ function ScorePanel() {
           .score-dims { grid-template-columns: 1fr !important; }
         }
       `}</style>
-      <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre taux d'acceptation."/>
+      <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre fiabilité (la note des professionnels)."/>
       <div className="score-top" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
           <ScoreGauge value={value} size={240} stroke={10} bold/>
@@ -6843,7 +7032,7 @@ function ScorePanel() {
             {[
               ['Complétude des paliers', completeness?.pct ?? 0, completeness ? `${completeness.filled}/${completeness.total} paliers` : null],
               ['Fraîcheur des données', freshness?.pct ?? 0, freshness?.ageDays != null ? `${freshness.ageDays} j` : null],
-              ["Taux d'acceptation", acceptance?.pct ?? 0, acceptance ? `${acceptance.accepted}/${acceptance.total}` : null],
+              ['Fiabilité', fiabilite?.pct ?? 0, fiabilite ? `${fiabilite.count} note${fiabilite.count > 1 ? 's' : ''}` : null],
             ].map(([l, v, sub], i) => (
               <div key={i}>
                 <div className="row between" style={{ marginBottom: 4, letterSpacing: '.04em' }}>

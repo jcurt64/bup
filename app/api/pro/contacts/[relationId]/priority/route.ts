@@ -15,10 +15,11 @@
  * 403 → relation introuvable / wrong pro / status hors accepted|settled
  */
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
+import { computeAndPersistProspectScore } from "@/lib/prospect/score";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,7 @@ export async function POST(req: Request, ctx: RouteContext) {
   // Vérif ownership + statut éligible (relation acceptée/réglée du pro courant).
   const { data: rel } = await admin
     .from("relations")
-    .select("id, pro_account_id, status")
+    .select("id, pro_account_id, prospect_id, status")
     .eq("id", relationId)
     .maybeSingle();
 
@@ -79,6 +80,18 @@ export async function POST(req: Request, ctx: RouteContext) {
       `[/api/pro/contacts/${relationId}/priority] update failed → code=${upErr.code} message=${upErr.message}`,
     );
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
+  }
+
+  // La note pro alimente la FIABILITÉ agrégée du prospect (indice de
+  // désirabilité + filtre de ciblage). On recalcule son score après réponse.
+  if (rel.prospect_id) {
+    after(async () => {
+      try {
+        await computeAndPersistProspectScore(admin, rel.prospect_id as string);
+      } catch (e) {
+        console.error("[priority] recompute fiabilité failed", e);
+      }
+    });
   }
 
   return NextResponse.json({ ok: true, priority });

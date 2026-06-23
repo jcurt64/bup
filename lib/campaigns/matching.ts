@@ -52,6 +52,14 @@ export type MatchingInput = {
   /** Quand true, retire les prospects `certifie_confiance` du pool —
    *  le pro a explicitement décoché ce palier dans le wizard. */
   excludeCertified?: boolean;
+  /** Prospects à NE PAS resélectionner (déjà sollicités sur la campagne).
+   *  Utilisé par la re-sollicitation après élargissement (cf. resolicit.ts)
+   *  pour ne ramener que des prospects nouvellement éligibles. */
+  excludeProspectIds?: string[];
+  /** Fiabilité minimum (0-100) exigée par le pro (étape 4 ciblage). Quand > 0,
+   *  ne retient que les prospects dont `prospects.fiabilite_pct >= seuil`
+   *  (les prospects jamais notés, fiabilite_pct NULL, sont exclus). */
+  minFiabilitePct?: number | null;
 };
 
 export type MatchedProspect = {
@@ -126,6 +134,8 @@ export async function findMatchingProspects(
   if (isAround && !proPoint) return [];
   const aroundRadiusM = (input.radiusKm ?? 0) * 1000;
 
+  const excludeSet = new Set(input.excludeProspectIds ?? []);
+
   const ageBounds = ageRangesToBounds(input.ages);
   const wantsTier1 = input.requiredTiers.includes(1);
   const campaignType: CampaignTypeDb = objectiveToCampaignType(input.objectiveId);
@@ -154,6 +164,19 @@ export async function findMatchingProspects(
     .order("id", { ascending: true })
     .limit(selectLimit);
 
+  // Exclut les prospects déjà sollicités (re-sollicitation post-élargissement).
+  // Les UUID n'ont pas besoin d'être quotés dans le filtre `in` de PostgREST.
+  if (excludeSet.size > 0) {
+    query = query.not("id", "in", `(${[...excludeSet].join(",")})`);
+  }
+
+  // Filtre « fiabilité minimum » (étape 4). `gte` exclut nativement les NULL
+  // (prospects jamais notés) — ce que l'on veut quand un seuil est posé.
+  const minFiab = Number(input.minFiabilitePct ?? 0);
+  if (minFiab > 0) {
+    query = query.gte("fiabilite_pct", minFiab);
+  }
+
   // Filtre type campagne : `all_campaign_types=true OR enum dans campaign_types`.
   // ⚠ campaignType DOIT venir de `objectiveToCampaignType` (enum literal).
   // Ne JAMAIS interpoler une chaîne libre ici — risque d'injection PostgREST.
@@ -177,6 +200,7 @@ export async function findMatchingProspects(
   const matched: MatchedProspect[] = [];
   for (const row of data) {
     if (matched.length >= input.contacts) break;
+    if (excludeSet.has(row.id)) continue;
 
     // Tous les paliers requis doivent être présents et pas masqués/supprimés.
     const removed = (row.removed_tiers ?? []) as string[];

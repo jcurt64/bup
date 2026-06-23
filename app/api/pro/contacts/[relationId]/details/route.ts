@@ -206,5 +206,31 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "audit_failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ tiers, ref, priority: row.pro_priority ?? null });
+  // Agrégat de FIABILITÉ du prospect (cross-pro) : nombre de pros DISTINCTS
+  // ayant donné chaque niveau (note la plus récente par pro). Alimente le badge
+  // « N » par niveau sur la fiche. `priority` = la note du pro courant.
+  const { data: ratingRows } = await admin
+    .from("relations")
+    .select("pro_account_id, pro_priority, decided_at")
+    .eq("prospect_id", prospect.id)
+    .not("pro_priority", "is", null)
+    .order("decided_at", { ascending: false });
+  const latestByPro = new Map<string, number>();
+  for (const rr of ratingRows ?? []) {
+    const pa = rr.pro_account_id as string | null;
+    const lvl = rr.pro_priority as number | null;
+    if (!pa || lvl == null || latestByPro.has(pa)) continue;
+    latestByPro.set(pa, lvl);
+  }
+  const fiabiliteAgg: Record<string, number> = { "1": 0, "2": 0, "3": 0 };
+  for (const lvl of latestByPro.values()) {
+    if (lvl === 1 || lvl === 2 || lvl === 3) fiabiliteAgg[String(lvl)] += 1;
+  }
+
+  return NextResponse.json({
+    tiers,
+    ref,
+    priority: row.pro_priority ?? null,
+    fiabiliteAgg,
+  });
 }

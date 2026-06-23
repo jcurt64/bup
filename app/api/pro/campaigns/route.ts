@@ -41,6 +41,8 @@ type Body = {
   subTypes: string[];
   requiredTiers: number[];
   geo: string;
+  /** Fiabilité minimum exigée (0 = toutes, 60, 80) — étape 4 ciblage. */
+  minFiabilite?: number;
   /** Rayon (km) pour le ciblage « autour de moi » (`geo === "around"`).
    *  Borné à 10/30/50 côté serveur (`normalizeRadiusKm`). */
   radiusKm?: number | null;
@@ -408,6 +410,11 @@ export async function POST(req: Request) {
     : "national";
   // Rayon « autour de moi » borné à 10/30/50 km (ignoré hors geo=around).
   const radiusKm = geo === "around" ? normalizeRadiusKm(body.radiusKm) : null;
+  // Fiabilité minimum : seuils figés (0 = toutes, 60 = bonne, 80 = excellente).
+  const ALLOWED_FIAB = [0, 60, 80];
+  const minFiabilite = ALLOWED_FIAB.includes(Number(body.minFiabilite))
+    ? Number(body.minFiabilite)
+    : 0;
 
   // Ciblage « autour de moi » : nécessite les coordonnées de l'établissement
   // (géocodées depuis l'adresse via /api/pro/info). Sans elles, on ne peut pas
@@ -437,6 +444,7 @@ export async function POST(req: Request) {
     ages: body.ages,
     verifLevel: body.verifLevel,
     excludeCertified: body.excludeCertified === true,
+    minFiabilite,
     keywords: body.keywords,
     kwFilter: body.kwFilter,
     poolMode: body.poolMode,
@@ -556,6 +564,7 @@ export async function POST(req: Request) {
       verifLevel: body.verifLevel,
       contacts: body.contacts,
       excludeCertified: body.excludeCertified === true,
+      minFiabilitePct: minFiabilite,
     });
   } catch (err) {
     console.error("[/api/pro/campaigns] matching failed", err);

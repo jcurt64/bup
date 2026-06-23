@@ -64,7 +64,7 @@ export async function GET(req: Request) {
   const { data, error } = await admin
     .from("prospect_score_history")
     .select(
-      "snapshot_date, score, completeness_pct, freshness_pct, acceptance_pct",
+      "snapshot_date, score, completeness_pct, freshness_pct, fiabilite_pct, acceptance_pct",
     )
     .eq("prospect_id", prospectId)
     .gte("snapshot_date", sinceIso)
@@ -83,7 +83,9 @@ export async function GET(req: Request) {
       score: r.score,
       completenessPct: r.completeness_pct,
       freshnessPct: r.freshness_pct,
-      acceptancePct: r.acceptance_pct,
+      // Fiabilité : snapshots récents ; repli sur l'ancien acceptance_pct pour
+      // les points historiques (avant la bascule).
+      fiabilitePct: r.fiabilite_pct ?? r.acceptance_pct ?? 0,
     })),
   });
 }

@@ -23,8 +23,18 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/types";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { objectiveLabel } from "@/lib/campaigns/mapping";
+import {
+  validateAgesWiden,
+  classifyGeoWiden,
+  classifyVerifWiden,
+  classifyFiabiliteWiden,
+  type GeoWidenRequest,
+} from "@/lib/campaigns/edit-targeting";
+import { buildWidenedGeoTarget } from "@/lib/geo/france-admin";
+import { resolicitNewlyEligible } from "@/lib/campaigns/resolicit";
 import {
   filterCampaignContacts,
   type ContactStatusFilter,
@@ -43,8 +53,15 @@ type Targeting = {
   requiredTiers?: number[];
   requiredTierKeys?: string[];
   geo?: string;
+  geoTarget?:
+    | { type: "ville"; nom?: string; code?: string; codesPostaux?: string[] }
+    | { type: "dept"; nom?: string; code?: string }
+    | { type: "region"; nom?: string; code?: string; deptCodes?: string[] }
+    | null;
+  radiusKm?: number | null;
   ages?: string[];
   verifLevel?: string;
+  minFiabilite?: number | null;
   keywords?: string[];
   kwFilter?: boolean;
   poolMode?: string;
@@ -73,6 +90,7 @@ const GEO_LABEL: Record<string, string> = {
   dept: "Département",
   region: "Région",
   national: "National",
+  around: "Autour de moi",
 };
 
 const POOL_LABEL: Record<string, string> = {
@@ -331,9 +349,15 @@ export async function GET(req: Request, ctx: RouteContext) {
       tierLabels,
       geo: targeting?.geo ?? null,
       geoLabel: targeting?.geo ? GEO_LABEL[targeting.geo] ?? targeting.geo : "—",
+      // Rayon « autour de moi » courant (km) — nécessaire à la popup
+      // d'édition pour ne proposer que des rayons strictement plus larges.
+      radiusKm: typeof targeting?.radiusKm === "number" ? targeting.radiusKm : null,
       ages: targeting?.ages ?? [],
       verifLevel: targeting?.verifLevel ?? null,
       verifLabel: targeting?.verifLevel ? VERIF_LEVEL_LABEL[targeting.verifLevel] ?? targeting.verifLevel : "—",
+      // Seuil de fiabilité minimum courant (0/60/80) — la popup d'édition ne
+      // propose que des seuils inférieurs ou égaux (élargir seulement).
+      minFiabilite: typeof targeting?.minFiabilite === "number" ? targeting.minFiabilite : 0,
       keywords: targeting?.keywords ?? [],
       kwFilter: !!targeting?.kwFilter,
       poolMode: targeting?.poolMode ?? null,
@@ -387,6 +411,220 @@ export async function GET(req: Request, ctx: RouteContext) {
   });
 }
 
+type EditGeoBody =
+  | { mode: "around"; radiusKm?: number }
+  | { mode: "national" }
+  | { mode: "zone"; level?: "dept" | "region" };
+
+type PatchBody = {
+  /** Présent → toggle de statut (pause/relance). Absent → édition. */
+  status?: string;
+  /** Lien Vitrine (https) — seulement si l'option est déjà souscrite. */
+  websiteUrl?: string | null;
+  /** Tranches d'âge — doit ÉLARGIR la sélection courante. */
+  ages?: string[];
+  /** Élargissement géo — voir classifyGeoWiden. */
+  geo?: EditGeoBody;
+  /** Niveau de vérification minimum — ABAISSER seulement (p2→p1→p0). */
+  verifLevel?: string;
+  /** Seuil de fiabilité minimum (0/60/80) — BAISSER seulement. */
+  minFiabilite?: number;
+};
+
+/** Validation/normalisation de l'URL Vitrine — https UNIQUEMENT.
+ *  Miroir de `normalizeWebsiteUrl` de app/api/pro/campaigns/route.ts (le
+ *  lien est validé à la création ; on applique exactement la même règle à
+ *  l'édition). */
+function normalizeWebsiteUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw.trim();
+  if (!s) return null;
+  if (/^http:\/\//i.test(s)) return null; // http refusé — https only
+  if (!/^https:\/\//i.test(s)) s = `https://${s}`;
+  let u: URL;
+  try {
+    u = new URL(s);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:") return null;
+  if (!u.hostname.includes(".") || /\s/.test(u.hostname)) return null;
+  return u.toString().slice(0, 2048);
+}
+
+/**
+ * Branche ÉDITION du PATCH : applique uniquement des ÉLARGISSEMENTS sur une
+ * campagne non clôturée (active ou en pause). Ne déclenche aucun re-matching
+ * ni débit — seuls les critères stockés (`targeting`) et le lien Vitrine
+ * sont mis à jour. Garde-fous « élargir-seulement » dans edit-targeting.ts.
+ */
+async function handleCampaignEdit(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  proId: string,
+  id: string,
+  body: PatchBody,
+): Promise<NextResponse> {
+  const { data: camp, error: readErr } = await admin
+    .from("campaigns")
+    .select("id, status, pro_account_id, targeting, website_url")
+    .eq("id", id)
+    .single();
+  if (readErr || !camp) {
+    return NextResponse.json({ error: "campaign_not_found" }, { status: 404 });
+  }
+  if (camp.pro_account_id !== proId) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  // Édition autorisée tant que la campagne n'est pas clôturée.
+  if (camp.status !== "active" && camp.status !== "paused") {
+    return NextResponse.json({ error: "campaign_closed" }, { status: 409 });
+  }
+
+  const targeting = (camp.targeting as Targeting | null) ?? {};
+  const nextTargeting: Targeting = { ...targeting };
+  type CampaignUpdate = Database["public"]["Tables"]["campaigns"]["Update"];
+  const updates: CampaignUpdate = {};
+  let touchedTargeting = false;
+  let touched = false;
+
+  // 1) Lien Vitrine — uniquement si l'option a déjà été souscrite sur cette
+  //    campagne (website_url non nul). Mise à jour du lien sans nouveau débit.
+  if (Object.prototype.hasOwnProperty.call(body, "websiteUrl")) {
+    if (!camp.website_url) {
+      return NextResponse.json({ error: "vitrine_not_subscribed" }, { status: 403 });
+    }
+    const normalized = normalizeWebsiteUrl(body.websiteUrl);
+    if (!normalized) {
+      return NextResponse.json({ error: "invalid_website" }, { status: 400 });
+    }
+    updates.website_url = normalized;
+    touched = true;
+  }
+
+  // 2) Tranche d'âge — élargir seulement (sur-ensemble du courant).
+  if (Array.isArray(body.ages)) {
+    const res = validateAgesWiden(targeting.ages ?? [], body.ages);
+    if (!res.ok) {
+      return NextResponse.json({ error: res.error }, { status: 409 });
+    }
+    nextTargeting.ages = res.ages;
+    touchedTargeting = true;
+    touched = true;
+  }
+
+  // 3) Zone géographique — élargir seulement.
+  if (body.geo && typeof body.geo === "object") {
+    const g = body.geo;
+    const req: GeoWidenRequest =
+      g.mode === "around"
+        ? { mode: "around", radiusKm: Number(g.radiusKm) }
+        : g.mode === "zone"
+          ? { mode: "zone", level: g.level as "dept" | "region" }
+          : { mode: "national" };
+    const cls = classifyGeoWiden(targeting.geo ?? "", targeting.radiusKm ?? null, req);
+    if (!cls.ok) {
+      return NextResponse.json({ error: cls.error }, { status: 409 });
+    }
+    const plan = cls.plan;
+    if (plan.kind === "national") {
+      nextTargeting.geo = "national";
+      nextTargeting.geoTarget = null;
+      nextTargeting.radiusKm = null;
+    } else if (plan.kind === "around") {
+      nextTargeting.geo = "around";
+      nextTargeting.radiusKm = plan.radiusKm;
+      nextTargeting.geoTarget = null;
+    } else {
+      // Zone fixe élargie : dériver le geoTarget côté serveur depuis l'ancre
+      // courante (repli sur le CP du pro pour les campagnes legacy sans cible).
+      const { data: pro } = await admin
+        .from("pro_accounts")
+        .select("code_postal")
+        .eq("id", proId)
+        .single();
+      const target = await buildWidenedGeoTarget(
+        plan.level,
+        targeting.geoTarget ?? null,
+        pro?.code_postal ?? null,
+      );
+      if (!target) {
+        return NextResponse.json({ error: "geo_resolve_failed" }, { status: 502 });
+      }
+      nextTargeting.geo = plan.level;
+      nextTargeting.geoTarget = target;
+      nextTargeting.radiusKm = null;
+    }
+    touchedTargeting = true;
+    touched = true;
+  }
+
+  // 4) Niveau de vérification minimum — abaisser l'exigence seulement.
+  if (typeof body.verifLevel === "string") {
+    const cls = classifyVerifWiden(targeting.verifLevel ?? "p0", body.verifLevel);
+    if (!cls.ok) {
+      return NextResponse.json({ error: cls.error }, { status: 409 });
+    }
+    nextTargeting.verifLevel = body.verifLevel;
+    touchedTargeting = true;
+    touched = true;
+  }
+
+  // 5) Fiabilité minimum — baisser le seuil seulement.
+  if (body.minFiabilite != null) {
+    const cls = classifyFiabiliteWiden(targeting.minFiabilite ?? 0, Number(body.minFiabilite));
+    if (!cls.ok) {
+      return NextResponse.json({ error: cls.error }, { status: 409 });
+    }
+    nextTargeting.minFiabilite = cls.value;
+    touchedTargeting = true;
+    touched = true;
+  }
+
+  if (!touched) {
+    return NextResponse.json({ error: "nothing_to_update" }, { status: 400 });
+  }
+  if (touchedTargeting) {
+    updates.targeting = nextTargeting as unknown as CampaignUpdate["targeting"];
+  }
+
+  const { error: updErr } = await admin
+    .from("campaigns")
+    .update(updates)
+    .eq("id", id)
+    .in("status", ["active", "paused"]); // garde TOCTOU : pas clôturée entre-temps
+  if (updErr) {
+    console.error("[/api/pro/campaigns/PATCH edit] update failed", updErr);
+    return NextResponse.json({ error: "update_failed" }, { status: 500 });
+  }
+
+  // Si la cible a été ÉLARGIE (géo/âge), on sollicite les prospects désormais
+  // éligibles mais pas encore contactés, dans la limite du quota déjà payé
+  // (aucun débit supplémentaire). Pas de re-match pour une simple édition du
+  // lien Vitrine. Best-effort : un échec ne fait pas échouer l'enregistrement.
+  let resolicited = 0;
+  if (touchedTargeting) {
+    try {
+      const r = await resolicitNewlyEligible(admin, id, proId);
+      resolicited = r.added;
+    } catch (e) {
+      console.error("[/api/pro/campaigns/PATCH edit] resolicit failed", e);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    websiteUrl: (updates.website_url as string | undefined) ?? camp.website_url ?? null,
+    geo: nextTargeting.geo ?? null,
+    geoLabel: nextTargeting.geo ? GEO_LABEL[nextTargeting.geo] ?? nextTargeting.geo : "—",
+    radiusKm: typeof nextTargeting.radiusKm === "number" ? nextTargeting.radiusKm : null,
+    ages: nextTargeting.ages ?? [],
+    verifLevel: nextTargeting.verifLevel ?? null,
+    minFiabilite: typeof nextTargeting.minFiabilite === "number" ? nextTargeting.minFiabilite : 0,
+    // Nombre de prospects nouvellement sollicités suite à l'élargissement.
+    resolicited,
+  });
+}
+
 export async function PATCH(req: Request, ctx: RouteContext) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -394,22 +632,29 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
 
-  let body: { status?: string };
-  try { body = (await req.json()) as { status?: string }; }
+  let body: PatchBody;
+  try { body = (await req.json()) as PatchBody; }
   catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }); }
-
-  if (body.status !== "active" && body.status !== "paused") {
-    return NextResponse.json({ error: "invalid_status" }, { status: 400 });
-  }
-  const targetStatus = body.status;
 
   const user = await currentUser();
   const email =
     user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
       ?.emailAddress ?? null;
   const proId = await ensureProAccount({ clerkUserId: userId, email });
-
   const admin = createSupabaseAdminClient();
+
+  // ── Branche ÉDITION (élargissement d'une campagne en cours) ──────────
+  // Sans champ `status`, le PATCH édite les 3 seuls points élargissables
+  // (lien Vitrine, zone géo, âge). Aucun re-matching n'est déclenché : on
+  // ne fait que mettre à jour les critères stockés (cf. handleCampaignEdit).
+  if (body.status === undefined) {
+    return handleCampaignEdit(admin, proId, id, body);
+  }
+
+  if (body.status !== "active" && body.status !== "paused") {
+    return NextResponse.json({ error: "invalid_status" }, { status: 400 });
+  }
+  const targetStatus = body.status;
   const { data: camp, error: readErr } = await admin
     .from("campaigns")
     .select(

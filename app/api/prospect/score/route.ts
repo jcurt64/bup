@@ -55,10 +55,13 @@ export async function GET() {
         lastUpdate: b.lastUpdate,
         ageDays: b.ageDays,
       },
-      acceptance: {
-        pct: b.acceptancePct,
-        accepted: b.acceptedRelations,
-        total: b.totalRelations,
+      // Fiabilité = note moyenne des pros (remplace l'ancien « taux d'acceptation »).
+      fiabilite: {
+        pct: b.fiabilitePct,
+        count: b.fiabiliteCount,
+        // Répartition par niveau (sans identité des pros) — carte « Mon taux
+        // de fiabilité » de l'onglet Mes données.
+        levels: b.fiabiliteByLevel,
       },
     },
   });

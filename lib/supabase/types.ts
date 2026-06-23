@@ -949,6 +949,7 @@ export type Database = {
           acceptance_pct: number
           completeness_pct: number
           created_at: string
+          fiabilite_pct: number | null
           freshness_pct: number
           prospect_id: string
           score: number
@@ -958,6 +959,7 @@ export type Database = {
           acceptance_pct?: number
           completeness_pct?: number
           created_at?: string
+          fiabilite_pct?: number | null
           freshness_pct?: number
           prospect_id: string
           score: number
@@ -967,6 +969,7 @@ export type Database = {
           acceptance_pct?: number
           completeness_pct?: number
           created_at?: string
+          fiabilite_pct?: number | null
           freshness_pct?: number
           prospect_id?: string
           score?: number
@@ -1035,6 +1038,7 @@ export type Database = {
           all_campaign_types: boolean
           all_categories: boolean
           bupp_score: number
+          fiabilite_pct: number | null
           campaign_objectives: string[]
           campaign_types: Database["public"]["Enums"]["campaign_type"][]
           categories: string[]
@@ -1059,6 +1063,7 @@ export type Database = {
           all_campaign_types?: boolean
           all_categories?: boolean
           bupp_score?: number
+          fiabilite_pct?: number | null
           campaign_objectives?: string[]
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]
@@ -1083,6 +1088,7 @@ export type Database = {
           all_campaign_types?: boolean
           all_categories?: boolean
           bupp_score?: number
+          fiabilite_pct?: number | null
           campaign_objectives?: string[]
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]

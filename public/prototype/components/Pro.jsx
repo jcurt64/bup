@@ -610,7 +610,7 @@ function Overview({ onCreate }) {
         ) : (
           <div className="tbl-scroll">
             <table className="tbl">
-              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Priorité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
               <tbody>
                 {last.map((r, i) => (
                   <tr key={i}>
@@ -622,12 +622,12 @@ function Overview({ onCreate }) {
                         // Statut « priorité de traitement » enregistré sur la
                         // fiche du prospect (ProspectDetailsModal). Affiché ici
                         // si défini ; sinon tiret. Mêmes couleurs/icône que le
-                        // filtre et la fiche (PRIORITY_OPTS).
-                        const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                        // filtre et la fiche (FIABILITE_OPTS).
+                        const po = FIABILITE_OPTS.find(o => o.v === r.priority);
                         if (!po) return <span className="muted">—</span>;
                         return (
                           <span
-                            title={`Priorité de traitement : ${po.label}`}
+                            title={`Fiabilité : ${po.label}`}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: 4,
                               padding: '3px 8px', borderRadius: 999,
@@ -637,7 +637,7 @@ function Overview({ onCreate }) {
                               border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
                             }}
                           >
-                            <Icon name="sparkle" size={11}/> {po.label}
+                            <Icon name={po.icon} size={11}/> {po.label}
                           </span>
                         );
                       })()}
@@ -899,7 +899,7 @@ function AllAcceptancesModal({ fmt2, onClose }) {
 
         <div className="tbl-scroll" style={{ marginTop: 16 }}>
           <table className="tbl">
-            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Priorité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
             <tbody>
               {loading && rows.length === 0 && (
                 <tr><td colSpan={7} style={{ textAlign: 'center', padding: '28px 12px' }}>
@@ -919,12 +919,12 @@ function AllAcceptancesModal({ fmt2, onClose }) {
                   <td>
                     {(() => {
                       // Statut priorité de traitement (cf. fiche prospect) ;
-                      // tiret si non défini. Mêmes couleurs/icône (PRIORITY_OPTS).
-                      const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                      // tiret si non défini. Mêmes couleurs/icône (FIABILITE_OPTS).
+                      const po = FIABILITE_OPTS.find(o => o.v === r.priority);
                       if (!po) return <span className="muted">—</span>;
                       return (
                         <span
-                          title={`Priorité de traitement : ${po.label}`}
+                          title={`Fiabilité : ${po.label}`}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                             padding: '3px 8px', borderRadius: 999,
@@ -934,7 +934,7 @@ function AllAcceptancesModal({ fmt2, onClose }) {
                             border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
                           }}
                         >
-                          <Icon name="sparkle" size={11}/> {po.label}
+                          <Icon name={po.icon} size={11}/> {po.label}
                         </span>
                       );
                     })()}
@@ -1112,6 +1112,132 @@ function CampaignDurationBanner({ compact }) {
   );
 }
 
+/* ─── Liste premium des campagnes — repris à l'identique de la maquette
+   public/prototype/Campagnes - Liste premium.html (palette par type, tuiles
+   de stats, barre dégradée, chip code cuivré). Icônes = tracés SVG exacts. */
+function LcIcon({ name }) {
+  const s = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' };
+  switch (name) {
+    case 'survey':   return <svg {...s} strokeWidth="1.7"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 3v2h8V3"/></svg>;
+    case 'download': return <svg {...s} strokeWidth="1.7"><path d="M12 4v10m0 0l4-4m-4 4l-4-4"/><path d="M5 20h14"/></svg>;
+    case 'promo':    return <svg {...s} strokeWidth="1.7"><path d="M21 11.5 12.5 3H4v8.5L12.5 20z"/><circle cx="8.5" cy="7.5" r="1.4"/></svg>;
+    case 'event':    return <svg {...s} strokeWidth="1.7"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M9.5 14.5l1.8 1.8 3.2-3.2"/></svg>;
+    case 'flash':    return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/></svg>;
+    case 'budget':   return <svg {...s} strokeWidth="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M14.5 9.2C14 8.3 13 8 12 8c-1.6 0-2.5.9-2.5 2s.9 1.7 2.5 2 2.5.9 2.5 2-1 2-2.5 2c-1 0-2-.3-2.5-1.2"/></svg>;
+    case 'touch':    return <svg {...s} strokeWidth="1.8"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.5a5 5 0 0 1-4-2l-2.3-3a1.5 1.5 0 0 1 2.4-1.8L9 15"/></svg>;
+    case 'contact':  return <svg {...s} strokeWidth="1.8"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="8" r="4"/><path d="M16 11l1.8 1.8L21 9.5"/></svg>;
+    case 'lock':     return <svg {...s} strokeWidth="1.9"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>;
+    case 'copy':     return <svg {...s} strokeWidth="1.9"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>;
+    case 'pause':    return <svg {...s} strokeWidth="2"><path d="M9 5v14M15 5v14"/></svg>;
+    case 'play':     return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>;
+    case 'edit':     return <svg {...s} strokeWidth="1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>;
+    case 'arrow':    return <svg {...s} strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>;
+    case 'tag':      return <svg {...s} strokeWidth="1.8"><path d="M3 7.5V4h3.5L20 17.5 16.5 21z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg>;
+    default: return null;
+  }
+}
+
+// Couleur + icône par type d'objectif (clés = objectiveLabel renvoyé par l'API).
+const LC_TYPE_STYLE = {
+  'Études & collecte d’avis': { color: 'teal', icon: 'survey' },
+  "Études & collecte d'avis":      { color: 'teal', icon: 'survey' },
+  'Contenus à télécharger':        { color: 'indigo', icon: 'download' },
+  'Promotions & fidélisation':     { color: 'amber', icon: 'promo' },
+  'Événementiel & inscription':    { color: 'blue', icon: 'event' },
+  'Prise de contact direct':       { color: 'rose', icon: 'contact' },
+  'Prise de rendez-vous':          { color: 'teal', icon: 'contact' },
+  'Publicité digitale':            { color: 'indigo', icon: 'promo' },
+};
+function lcStyleFor(c) {
+  // Flash deal (durée 1 h) → corail + éclair, quel que soit l'objectif.
+  if (c.durationKey === '1h') return { color: 'coral', icon: 'flash' };
+  return LC_TYPE_STYLE[c.objectiveLabel] || { color: 'indigo', icon: 'contact' };
+}
+function lcEur(n) {
+  return Number(n ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+const LIST_CARD_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+.lc-list{
+  --lc-paper:#f4f1ea; --lc-paper-warm:#efeadd; --lc-card:#fffdf8;
+  --lc-ink:#161a1d; --lc-ink-2:#3c444b; --lc-ink-3:#757d83; --lc-ink-4:#9aa0a4;
+  --lc-line:rgba(22,26,29,0.10); --lc-line-soft:rgba(22,26,29,0.055);
+  --lc-indigo:#5a57d6; --lc-indigo-soft:#ecebfb;
+  --lc-amber:#b9842a; --lc-amber-soft:#f6ecd6; --lc-amber-xsoft:#faf4e6;
+  --lc-teal:#1c8a6e; --lc-teal-soft:#d9efe6;
+  --lc-rose:#c14d77; --lc-rose-soft:#f7e2ea;
+  --lc-blue:#2f72c4; --lc-blue-soft:#dbe9f8;
+  --lc-coral:#d6432f; --lc-coral-soft:#f7e0dd;
+  --lc-green:#2e9e5b; --lc-green-soft:#dcf0e3;
+  --lc-shadow-sm:0 1px 2px rgba(22,26,29,0.04), 0 3px 12px rgba(22,26,29,0.05);
+  --lc-shadow-md:0 2px 6px rgba(22,26,29,0.05), 0 14px 32px rgba(22,26,29,0.08);
+  display:flex; flex-direction:column; gap:18px;
+  font-family:"Hanken Grotesk", system-ui, sans-serif; color:var(--lc-ink);
+}
+.lc-serif{ font-family:"Newsreader", Georgia, serif; }
+.lc-camp *{ box-sizing:border-box; }
+.lc-camp{ position:relative; background:var(--lc-card); border:1px solid var(--lc-line); border-radius:20px; box-shadow:var(--lc-shadow-sm); padding:22px 24px; overflow:hidden; transition:box-shadow .18s; }
+.lc-camp:hover{ box-shadow:var(--lc-shadow-md); }
+.lc-camp::before{ content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--lc-c); }
+.lc-glow{ position:absolute; top:-40px; right:-30px; width:180px; height:180px; border-radius:50%; background:var(--lc-c); opacity:0.05; filter:blur(8px); pointer-events:none; }
+.lc-c-top{ display:flex; align-items:flex-start; gap:16px; }
+.lc-c-ic{ width:50px; height:50px; border-radius:14px; background:var(--lc-c-soft); color:var(--lc-c); display:grid; place-items:center; flex:none; }
+.lc-c-ic svg{ width:24px; height:24px; }
+.lc-c-head{ flex:1; min-width:0; }
+.lc-c-title-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; row-gap:9px; }
+.lc-c-name{ font-family:"Newsreader", serif; font-weight:600; font-size:25px; letter-spacing:-0.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px; }
+.lc-status{ display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:600; }
+.lc-status .sd{ width:7px; height:7px; border-radius:50%; }
+.lc-status.active{ background:var(--lc-green-soft); color:#1d7a44; }
+.lc-status.active .sd{ background:var(--lc-green); box-shadow:0 0 0 3px rgba(46,158,91,0.2); }
+.lc-status.done{ background:rgba(22,26,29,0.06); color:var(--lc-ink-3); }
+.lc-status.done .sd{ background:var(--lc-ink-4); }
+.lc-status.pause{ background:var(--lc-amber-soft); color:#9a6c1f; }
+.lc-status.pause .sd{ background:var(--lc-amber); }
+.lc-code-chip{ display:inline-flex; align-items:center; gap:9px; padding:6px 8px 6px 12px; border-radius:10px; background:var(--lc-amber-xsoft); border:1px solid rgba(185,132,42,0.28); }
+.lc-code-chip .ck{ font-family:"IBM Plex Mono", monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:#9a6c1f; display:inline-flex; align-items:center; gap:5px; }
+.lc-code-chip .ck svg{ width:11px; height:11px; }
+.lc-code-chip .cv{ font-family:"IBM Plex Mono", monospace; font-size:13px; font-weight:600; letter-spacing:0.08em; color:#7c5414; }
+.lc-code-chip .copy{ width:24px; height:24px; border-radius:7px; background:#fff; border:1px solid rgba(185,132,42,0.3); color:#9a6c1f; display:grid; place-items:center; cursor:pointer; }
+.lc-code-chip .copy svg{ width:12px; height:12px; }
+.lc-c-meta{ margin-top:8px; font-size:13.5px; color:var(--lc-ink-3); display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.lc-c-meta .dotsep{ width:3px; height:3px; border-radius:50%; background:var(--lc-ink-4); }
+.lc-c-meta b{ color:var(--lc-ink-2); font-weight:600; }
+.lc-c-tagline{ margin-top:9px; display:inline-flex; align-items:center; gap:8px; font-family:"Newsreader", serif; font-style:italic; font-size:15px; color:var(--lc-c); max-width:100%; }
+.lc-c-tagline svg{ width:14px; height:14px; flex:none; }
+.lc-c-tagline span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lc-c-actions{ display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start; flex:none; justify-content:flex-end; max-width:420px; }
+.lc-act{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:11px; border:1px solid var(--lc-line); background:var(--lc-card); color:var(--lc-ink-2); font-weight:600; font-size:13.5px; cursor:pointer; white-space:nowrap; transition:border-color .15s, background .15s, box-shadow .15s; }
+.lc-act svg{ width:14px; height:14px; }
+.lc-act:hover{ border-color:rgba(22,26,29,0.22); box-shadow:var(--lc-shadow-sm); }
+.lc-act.primary{ background:var(--lc-ink); color:#fff; border-color:var(--lc-ink); }
+.lc-act.primary:hover{ box-shadow:0 6px 16px rgba(22,26,29,0.22); }
+.lc-c-foot{ margin-top:20px; padding-top:18px; border-top:1px dashed var(--lc-line); display:flex; flex-direction:column; gap:18px; }
+.lc-stats-row{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+.lc-stat{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:13px; background:var(--lc-paper); border:1px solid var(--lc-line-soft); }
+.lc-stat .sic{ width:36px; height:36px; border-radius:10px; display:grid; place-items:center; flex:none; }
+.lc-stat .sic svg{ width:17px; height:17px; }
+.lc-stat .sk{ font-family:"IBM Plex Mono", monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--lc-ink-4); }
+.lc-stat .sv{ font-family:"Newsreader", serif; font-weight:600; font-size:21px; line-height:1; margin-top:3px; letter-spacing:-0.01em; }
+.lc-stat .sv small{ font-size:13px; color:var(--lc-ink-4); font-weight:500; }
+.lc-progress{ min-width:0; }
+.lc-progress .pl{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.lc-progress .pt{ font-family:"IBM Plex Mono", monospace; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--lc-ink-3); }
+.lc-progress .pv{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--lc-ink-2); }
+.lc-progress .pv b{ color:var(--lc-ink); }
+.lc-track{ height:9px; border-radius:999px; background:var(--lc-paper-warm); overflow:hidden; position:relative; }
+.lc-track .fill{ height:100%; border-radius:999px; background:linear-gradient(90deg, var(--lc-c), color-mix(in oklab, var(--lc-c) 60%, #fff)); position:relative; }
+.lc-track .fill::after{ content:""; position:absolute; right:0; top:50%; transform:translateY(-50%); width:7px; height:7px; border-radius:50%; background:#fff; box-shadow:0 0 0 2px var(--lc-c); }
+.lc-progress .note{ margin-top:7px; font-size:11.5px; color:var(--lc-ink-4); }
+@media (max-width: 760px){
+  .lc-stats-row{ grid-template-columns:1fr; }
+  .lc-c-top{ flex-wrap:wrap; }
+  .lc-c-actions{ max-width:none; width:100%; justify-content:flex-start; }
+  .lc-c-name{ max-width:100%; }
+}
+`;
+
 function Campagnes({ onCreate, onDetail, onDuplicate }) {
   const [filter, setFilter] = useState('all');
   const [camps, setCamps] = useState(null); // null = loading
@@ -1120,6 +1246,8 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
   // pour une campagne 7d éligible). On stocke la campagne ciblée pour
   // la confirmation ; null = modale fermée.
   const [pausePromptCamp, setPausePromptCamp] = useState(null);
+  // Campagne en cours d'édition (popup « Modifier ») ; null = fermée.
+  const [editCampId, setEditCampId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1186,7 +1314,8 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
           }}>{l}</button>
         ))}
       </div>
-      <div className="col gap-3">
+      <div className="col gap-3 lc-list">
+        <style>{LIST_CARD_CSS}</style>
         {camps === null && (
           <div className="card" style={{ padding: 24, textAlign: 'center' }}>
             <div className="muted" style={{ fontSize: 13 }}>Chargement…</div>
@@ -1257,114 +1386,87 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
           </div>
         )}
         {filtered.map((c) => {
+          const statusKey = c.status === 'active' ? 'active' : c.status === 'paused' ? 'pause' : 'done';
           const statusLabel = c.status === 'active' ? 'Active' : c.status === 'paused' ? 'En pause' : 'Terminée';
-          const statusChip = c.status === 'active' ? 'chip-good' : c.status === 'paused' ? 'chip-warn' : '';
           const dateStr = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(new Date(c.createdAt));
           const fmt2 = v => Number(v ?? 0).toFixed(2).replace('.', ',');
           const isActive = c.status === 'active';
           const isPaused = c.status === 'paused';
-          // Le bouton "Pause" n'est offert qu'aux campagnes 7d qui n'ont
-          // jamais été mises en pause (`pauseEligible`). Pour toutes les
-          // autres campagnes actives, on n'affiche tout simplement pas
-          // le bouton (cf. `showPauseAction`). Le bouton "Relancer" est
-          // toujours visible sur une campagne en pause.
           const showPauseAction = isActive && c.pauseEligible;
           const showResumeAction = isPaused;
+          const sty = lcStyleFor(c);
+          // Budget effectif = budget + 10 % commission BUUPP (débit wallet intégral).
+          const budgetTotal = c.budgetEur * 1.10;
+          const spentTotal = c.spentEur * 1.10;
+          const pct = budgetTotal > 0 ? Math.min(100, Math.round(spentTotal / budgetTotal * 100)) : 0;
+          const reached = Number(c.reachedCount ?? 0);
+          const acceptRate = reached > 0 ? Math.round(Number(c.contactsCount ?? 0) / reached * 100) : 0;
           return (
-            <div key={c.id} className="card" style={{ padding: 24 }}>
-              <div className="row between" style={{ alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 260 }}>
-                  <div className="row center gap-3" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-                    <div className="serif" style={{ fontSize: 22 }}>{c.name}</div>
-                    <span className={'chip ' + statusChip}>{statusLabel}</span>
+            <div
+              key={c.id}
+              className="lc-camp"
+              style={{ '--lc-c': `var(--lc-${sty.color})`, '--lc-c-soft': `var(--lc-${sty.color}-soft)` }}
+            >
+              <div className="lc-glow"/>
+              <div className="lc-c-top">
+                <div className="lc-c-ic" title={c.objectiveLabel}><LcIcon name={sty.icon}/></div>
+                <div className="lc-c-head">
+                  <div className="lc-c-title-row">
+                    <span className="lc-c-name" title={c.name}>{c.name}</span>
+                    <span className={'lc-status ' + statusKey}><span className="sd"/>{statusLabel}</span>
                     {c.authCode && (
-                      <span
-                        title="À fournir obligatoirement au prospect lors de la prise de contact pour authentifier le service BUUPP."
-                        className="row center gap-2"
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          background: 'color-mix(in oklab, #B45309 10%, var(--paper))',
-                          border: '1px solid color-mix(in oklab, #B45309 35%, var(--line))',
-                          color: '#B45309',
-                          fontSize: 11,
-                          fontWeight: 500,
-                          cursor: 'help',
-                          letterSpacing: '.04em',
-                        }}
-                      >
-                        <Icon name="lock" size={11}/>
-                        <span className="caps" style={{ fontSize: 10, opacity: .85, letterSpacing: '.06em' }}>Code BUUPP</span>
-                        <span className="mono" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.12em' }}>{c.authCode}</span>
+                      <span className="lc-code-chip" title="À fournir au prospect lors de la prise de contact pour authentifier le service BUUPP.">
+                        <span className="ck"><LcIcon name="lock"/>Code buupp</span>
+                        <span className="cv">{c.authCode}</span>
+                        <span
+                          className="copy" role="button" title="Copier le code"
+                          onClick={() => { try { navigator.clipboard?.writeText(c.authCode); } catch (e) { void e; } }}
+                        ><LcIcon name="copy"/></span>
                       </span>
                     )}
                   </div>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {c.objectiveLabel} · créée le {dateStr} · coût unitaire moyen {fmt2(c.avgCostEur)} €
+                  <div className="lc-c-meta">
+                    {c.objectiveLabel}<span className="dotsep"/>créée le <b>{dateStr}</b><span className="dotsep"/>coût unitaire moyen <b>{fmt2(c.avgCostEur)} €</b>
                   </div>
                   {c.brief && (
-                    <div
-                      title={c.brief}
-                      style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 520 }}
-                    >
-                      « {c.brief.length > 80 ? c.brief.slice(0, 80) + '…' : c.brief} »
+                    <div className="lc-c-tagline" title={c.brief}>
+                      <LcIcon name="tag"/><span>« {c.brief} »</span>
                     </div>
                   )}
-                  <div className="row gap-6" style={{ marginTop: 16, flexWrap: 'wrap' }}>
-                    {(() => {
-                      // Budget consommé = budget effectif (campagne + 10 % de
-                      // commission BUUPP) — le wallet est débité de l'intégralité.
-                      const budgetTotal = c.budgetEur * 1.10;
-                      const spentTotal = c.spentEur * 1.10;
-                      const ratio = budgetTotal > 0 ? spentTotal / budgetTotal : 0;
-                      return (
-                        <>
-                          <div title="Budget campagne + 10 % commission BUUPP — la commission n'est facturée qu'à l'acceptation d'un prospect">
-                            <div className="muted mono caps" style={{ fontSize: 10 }}>Budget</div>
-                            <div className="serif tnum" style={{ fontSize: 20 }}>{fmt2(spentTotal)} / {fmt2(budgetTotal)} €</div>
-                            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>commission acquise sur acceptations</div>
-                          </div>
-                          <div title="Prospects notifiés au lancement de la campagne">
-                            <div className="muted mono caps" style={{ fontSize: 10 }}>Touchés</div>
-                            <div className="serif tnum" style={{ fontSize: 20 }}>{Number(c.reachedCount ?? 0)}</div>
-                          </div>
-                          <div title="Prospects ayant accepté la sollicitation"><div className="muted mono caps" style={{ fontSize: 10 }}>Contacts</div><div className="serif tnum" style={{ fontSize: 20 }}>{c.contactsCount}</div></div>
-                          <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end' }}>
-                            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: 6 }}>Budget consommé (commission incluse)</div>
-                            <Progress value={ratio}/>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
                 </div>
-                <div className="row gap-2">
+                <div className="lc-c-actions">
                   {showPauseAction && (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setPausePromptCamp(c)}
-                      title="Mettre la campagne en pause 48 h (une seule fois)"
-                    >
-                      <Icon name="pause" size={12}/> Pause
-                    </button>
+                    <div className="lc-act" role="button" onClick={() => setPausePromptCamp(c)} title="Mettre la campagne en pause 48 h (une seule fois)"><LcIcon name="pause"/>Pause</div>
                   )}
                   {showResumeAction && (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => togglePauseStatus(c.id, 'active')}
-                      title="Reprendre la campagne maintenant — le temps restant est préservé"
-                    >
-                      <Icon name="play" size={12}/> Relancer
-                    </button>
+                    <div className="lc-act" role="button" onClick={() => togglePauseStatus(c.id, 'active')} title="Reprendre maintenant — le temps restant est préservé"><LcIcon name="play"/>Relancer</div>
                   )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => onDuplicate?.(c.id)}
-                    title="Relancer la même campagne avec les mêmes paramètres"
-                  >
-                    <Icon name="copy" size={12}/> Dupliquer
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => onDetail(c)}>Détails <Icon name="arrow" size={12}/></button>
+                  {!isDone(c.status) && (
+                    <div className="lc-act" role="button" onClick={() => setEditCampId(c.id)} title="Élargir la zone, la tranche d'âge ou le lien Vitrine"><LcIcon name="edit"/>Modifier</div>
+                  )}
+                  <div className="lc-act" role="button" onClick={() => onDuplicate?.(c.id)} title="Relancer la même campagne avec les mêmes paramètres"><LcIcon name="copy"/>Dupliquer</div>
+                  <div className="lc-act primary" role="button" onClick={() => onDetail(c)}>Détails<LcIcon name="arrow"/></div>
+                </div>
+              </div>
+              <div className="lc-c-foot">
+                <div className="lc-stats-row">
+                  <div className="lc-stat">
+                    <span className="sic" style={{ background: `var(--lc-${sty.color}-soft)`, color: `var(--lc-${sty.color})` }}><LcIcon name="budget"/></span>
+                    <div><div className="sk">Budget</div><div className="sv">{lcEur(spentTotal)} <small>/ {lcEur(budgetTotal)}</small></div></div>
+                  </div>
+                  <div className="lc-stat">
+                    <span className="sic" style={{ background: 'var(--lc-blue-soft)', color: 'var(--lc-blue)' }}><LcIcon name="touch"/></span>
+                    <div><div className="sk">Touchés</div><div className="sv">{reached}</div></div>
+                  </div>
+                  <div className="lc-stat">
+                    <span className="sic" style={{ background: 'var(--lc-green-soft)', color: 'var(--lc-green)' }}><LcIcon name="contact"/></span>
+                    <div><div className="sk">Contacts</div><div className="sv">{Number(c.contactsCount ?? 0)} <small>· {acceptRate}%</small></div></div>
+                  </div>
+                </div>
+                <div className="lc-progress">
+                  <div className="pl"><span className="pt">Budget consommé</span><span className="pv"><b>{pct}%</b></span></div>
+                  <div className="lc-track"><div className="fill" style={{ width: Math.max(pct, 3) + '%' }}/></div>
+                  <div className="note">Commission incluse · acquise sur les acceptations · {lcEur(spentTotal)} engagés sur {lcEur(budgetTotal)}</div>
                 </div>
               </div>
             </div>
@@ -1379,6 +1481,19 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
             const ok = await togglePauseStatus(pausePromptCamp.id, 'paused');
             setPausePromptCamp(null);
             if (!ok) return;
+          }}
+        />
+      )}
+      {editCampId && (
+        <EditCampaignModal
+          campId={editCampId}
+          onCancel={() => setEditCampId(null)}
+          onSaved={() => {
+            setEditCampId(null);
+            // Rafraîchit la liste + le reste du dashboard pro en temps réel.
+            try { window.dispatchEvent(new Event('pro:overview-changed')); } catch {}
+            try { window.dispatchEvent(new CustomEvent('pro:campaign-edited', { detail: { id: editCampId } })); } catch {}
+            setReloadKey(k => k + 1);
           }}
         />
       )}
@@ -1502,9 +1617,553 @@ function PauseCampaignModal({ camp, onCancel, onConfirm }) {
   );
 }
 
+/* Popup « Modifier une campagne en cours ».
+   Le pro ne peut qu'ÉLARGIR (jamais restreindre) 3 points, sans relancer
+   la campagne ni re-solliciter de prospects :
+     1. le lien du site « Vitrine » (si l'option a été souscrite) ;
+     2. la zone géographique (rayon plus large / niveau supérieur / national) ;
+     3. la tranche d'âge (ajout de tranches uniquement).
+   À l'enregistrement → PATCH /api/pro/campaigns/[id] (branche édition) puis
+   onSaved() rafraîchit les vues concernées. */
+const EDIT_ERR_LABELS = {
+  vitrine_not_subscribed: "L'option Vitrine n'a pas été souscrite pour cette campagne.",
+  invalid_website: "Lien de site invalide (https requis).",
+  age_not_widening: "La tranche d'âge ne peut être qu'élargie, pas restreinte.",
+  geo_not_widening: "La zone ne peut être qu'élargie, pas restreinte.",
+  geo_invalid: "Élargissement de zone invalide.",
+  geo_resolve_failed: "Impossible de résoudre la zone élargie. Réessayez.",
+  campaign_closed: "Cette campagne est clôturée : elle n'est plus modifiable.",
+  nothing_to_update: "Aucune modification à enregistrer.",
+  verif_not_widening: "Le niveau de vérification ne peut être qu'abaissé, pas durci.",
+  verif_invalid: "Niveau de vérification invalide.",
+  fiabilite_not_widening: "Le seuil de fiabilité ne peut être que baissé, pas relevé.",
+  fiabilite_invalid: "Seuil de fiabilité invalide.",
+};
+
+// Seuils de fiabilité minimum proposés dans la popup d'édition (du plus large
+// au plus strict). Élargir = baisser le seuil → seules les options ≤ courant
+// sont sélectionnables.
+const EDIT_FIAB_OPTS = [
+  { v: 0,  name: 'Toutes',           sub: 'Aucun filtre de fiabilité' },
+  { v: 60, name: 'Bonne fiabilité',  sub: '≥ 60 / 100' },
+  { v: 80, name: 'Excellente',       sub: '≥ 80 / 100' },
+];
+
+/* Icônes SVG — reproduites à l'identique de la maquette
+   « Modifier la campagne - Modale.html » (mêmes tracés et épaisseurs). */
+function EcmIcon({ name }) {
+  const p = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' };
+  switch (name) {
+    case 'expand': return <svg {...p} strokeWidth="2"><path d="M4 14v6h6M20 10V4h-6M14 10l6-6M10 14l-6 6"/></svg>;
+    case 'lock':   return <svg {...p} strokeWidth="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>;
+    case 'check':  return <svg {...p} strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>;
+    case 'plus':   return <svg {...p} strokeWidth="2.4"><path d="M12 5v14M5 12h14"/></svg>;
+    case 'x':      return <svg {...p} strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>;
+    case 'save':   return <svg {...p} strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>;
+    default: return null;
+  }
+}
+
+/* Échelle géographique présentée dans la maquette : 4 paliers ordonnés.
+   `around` (rayon autour de moi) suit la même mécanique d'échelle. */
+function buildGeoModel(d) {
+  if (!d) return null;
+  const geo = d.targeting?.geo || null;
+  const radius = d.targeting?.radiusKm ?? null;
+  if (geo === 'around') {
+    const radii = [10, 30, 50];
+    const steps = radii
+      .map(r => ({ lab: `${r} km`, sub: 'Autour de moi', kind: 'around', radiusKm: r }))
+      .concat([{ lab: 'National', sub: 'France entière', kind: 'national' }]);
+    let ci = radii.indexOf(Number(radius));
+    if (ci < 0) ci = 0;
+    return { steps, currentIndex: ci, curLabel: `${radii[ci]} km` };
+  }
+  const steps = [
+    { lab: 'Ville',      sub: '~20 km',        kind: 'zone', level: 'ville' },
+    { lab: 'Département', sub: '~50 km',        kind: 'zone', level: 'dept' },
+    { lab: 'Région',     sub: '~150 km',       kind: 'zone', level: 'region' },
+    { lab: 'National',   sub: 'France entière', kind: 'national' },
+  ];
+  const idx = { ville: 0, dept: 1, region: 2, national: 3 }[geo];
+  const ci = idx == null ? 3 : idx;
+  return { steps, currentIndex: ci, curLabel: steps[ci].lab };
+}
+
+function geoPayloadForStep(step) {
+  if (!step) return null;
+  if (step.kind === 'national') return { mode: 'national' };
+  if (step.kind === 'around') return { mode: 'around', radiusKm: step.radiusKm };
+  return { mode: 'zone', level: step.level };
+}
+
+function EditCampaignModal({ campId, onCancel, onSaved }) {
+  const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState(null);
+
+  // Champs du formulaire.
+  const [site, setSite] = useState('');               // partie après https://
+  const [chosenIndex, setChosenIndex] = useState(0);  // palier géo retenu (>= currentIndex)
+  const [ages, setAges] = useState(() => new Set());  // tranches sélectionnées (buckets)
+  const [lockedAges, setLockedAges] = useState(() => new Set()); // tranches courantes (verrouillées)
+  const [verif, setVerif] = useState('p0');           // niveau de vérification retenu (<= courant)
+  const [baseVerif, setBaseVerif] = useState('p0');   // niveau courant (plafond)
+  const [minFiab, setMinFiab] = useState(0);          // seuil de fiabilité retenu (<= courant)
+  const [baseFiab, setBaseFiab] = useState(0);        // seuil courant (plafond)
+
+  const BUCKETS = AGE_RANGES.filter(a => a !== 'Tous');
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null); setLoadError(null);
+    fetch(`/api/pro/campaigns/${campId}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('load_failed')))
+      .then(j => {
+        if (cancelled) return;
+        setData(j);
+        setSite((j.websiteUrl || '').replace(/^https?:\/\//i, ''));
+        const cur = Array.isArray(j.targeting?.ages) ? j.targeting.ages : [];
+        const isAll = cur.length === 0 || cur.includes('Tous') || BUCKETS.every(b => cur.includes(b));
+        const initial = new Set(isAll ? BUCKETS : cur.filter(a => a !== 'Tous'));
+        setAges(new Set(initial));
+        setLockedAges(new Set(initial));
+        const gm = buildGeoModel(j);
+        setChosenIndex(gm ? gm.currentIndex : 0);
+        const curVerif = j.targeting?.verifLevel || 'p0';
+        setVerif(curVerif); setBaseVerif(curVerif);
+        const curFiab = Number(j.targeting?.minFiabilite ?? 0);
+        setMinFiab(curFiab); setBaseFiab(curFiab);
+      })
+      .catch(e => { if (!cancelled) setLoadError(e.message || 'load_failed'); });
+    return () => { cancelled = true; };
+  }, [campId]);
+
+  const geoModel = data ? buildGeoModel(data) : null;
+  const ci = geoModel ? geoModel.currentIndex : 0;
+  const lastIndex = geoModel ? geoModel.steps.length - 1 : 0;
+  const hasVitrine = !!data?.websiteUrl;
+  const refLabel = data?.name || campId;
+
+  const toggleAge = (b) => {
+    if (lockedAges.has(b)) return; // tranche courante non décochable
+    setAges(prev => {
+      const n = new Set(prev);
+      if (n.has(b)) n.delete(b); else n.add(b);
+      return n;
+    });
+  };
+
+  // Détection des changements par section (pour ne PATCher que le nécessaire).
+  const siteOriginal = (data?.websiteUrl || '').replace(/^https?:\/\//i, '');
+  const siteChanged = hasVitrine && site.trim() && site.trim().replace(/^https?:\/\//i, '') !== siteOriginal;
+  const agesChanged = BUCKETS.filter(b => ages.has(b)).length > lockedAges.size;
+  const geoChanged = !!geoModel && chosenIndex > ci;
+  const verifRank = (id) => VERIF_LEVELS.findIndex(v => v.id === id);
+  const baseVerifRank = verifRank(baseVerif);
+  const verifChanged = verif !== baseVerif;
+  const fiabChanged = minFiab !== baseFiab;
+  const canSubmit = !submitting && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged);
+
+  const geoHelp = geoChanged
+    ? `Cible élargie à « ${geoModel.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
+    : (ci >= lastIndex
+        ? 'Zone déjà à son maximum — France entière.'
+        : 'Sélectionnez une zone plus large pour élargir la diffusion.');
+
+  const submit = async () => {
+    const payload = {};
+    if (siteChanged) payload.websiteUrl = 'https://' + site.trim().replace(/^https?:\/\//i, '');
+    if (agesChanged) payload.ages = BUCKETS.filter(b => ages.has(b));
+    if (geoChanged) payload.geo = geoPayloadForStep(geoModel.steps[chosenIndex]);
+    if (verifChanged) payload.verifLevel = verif;
+    if (fiabChanged) payload.minFiabilite = minFiab;
+    if (Object.keys(payload).length === 0) { setErr(EDIT_ERR_LABELS.nothing_to_update); return; }
+    setSubmitting(true); setErr(null);
+    try {
+      const r = await fetch(`/api/pro/campaigns/${campId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErr(EDIT_ERR_LABELS[j?.error] || ('Échec : ' + (j?.error || r.status)));
+        setSubmitting(false);
+        return;
+      }
+      onSaved();
+    } catch (e) {
+      setErr('Erreur réseau : ' + (e.message || ''));
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog" aria-modal="true" className="ecm-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onCancel(); }}
+    >
+      <div className="ecm-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ecm-inner">
+          {/* En-tête : référence + titre + fermeture */}
+          <div className="ecm-top">
+            <div>
+              <div className="ecm-ref">Campagne · {refLabel}</div>
+              <h2 className="ecm-title ecm-serif">Modifier la campagne</h2>
+            </div>
+            <button className="ecm-close" type="button" aria-label="Fermer" onClick={() => !submitting && onCancel()}>
+              <EcmIcon name="x"/>
+            </button>
+          </div>
+
+          {/* Note « élargir uniquement » */}
+          <div className="ecm-note">
+            <span className="ic"><EcmIcon name="expand"/></span>
+            <p>Vous pouvez uniquement <b>élargir</b> la cible — jamais la restreindre. Les prospects déjà sollicités ne sont pas affectés.</p>
+          </div>
+
+          {!data && !loadError && (
+            <div className="ecm-state">Chargement…</div>
+          )}
+          {loadError && (
+            <div className="ecm-state ecm-error">Impossible de charger la campagne.</div>
+          )}
+
+          {data && (
+            <>
+              {/* 1) Lien de votre site (vitrine) */}
+              {hasVitrine && (
+                <div className="ecm-field">
+                  <div className="ecm-flabel"><span className="k">Lien de votre site (vitrine)</span></div>
+                  <div className="ecm-url">
+                    <span className="pfx">https://</span>
+                    <input
+                      type="text" value={site}
+                      onChange={e => setSite(e.target.value.replace(/^https?:\/\//i, ''))}
+                      placeholder="www.exemple.com"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 2) Zone géographique — échelle 4 paliers (verrouillé / actuel / ajouté) */}
+              {geoModel && (
+                <div className="ecm-field">
+                  <div className="ecm-flabel">
+                    <span className="k">Zone géographique</span>
+                    <span className="cur">Actuelle · {geoModel.curLabel}</span>
+                  </div>
+                  <div className="ecm-geo">
+                    {geoModel.steps.map((s, i) => {
+                      let cls = 'ecm-geo-step';
+                      let tag = null;
+                      if (i < ci) cls += ' locked';
+                      else if (i === ci) { cls += ' current'; tag = 'Actuelle'; }
+                      else if (i <= chosenIndex) { cls += ' added'; if (i === chosenIndex) tag = 'Nouvelle cible'; }
+                      return (
+                        <button
+                          key={i} type="button" className={cls}
+                          onClick={() => { if (i <= ci) return; setChosenIndex(chosenIndex === i ? ci : i); }}
+                        >
+                          {tag && <span className="tag">{tag}</span>}
+                          <div className="lab">{s.lab}{i < ci && <span className="lk"><EcmIcon name="lock"/></span>}</div>
+                          <div className="sub">{s.sub}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="ecm-geohelp">{geoHelp}</p>
+                </div>
+              )}
+
+              {/* 3) Tranche d'âge — pills (verrouillé / ajouté / disponible) + légende */}
+              <div className="ecm-field">
+                <div className="ecm-flabel"><span className="k">Tranche d'âge</span></div>
+                <div className="ecm-pills">
+                  {BUCKETS.map(b => {
+                    const isBase = lockedAges.has(b);
+                    const isAdded = !isBase && ages.has(b);
+                    let cls = 'ecm-pill';
+                    if (isBase) cls += ' base';
+                    else if (isAdded) cls += ' added';
+                    return (
+                      <button
+                        key={b} type="button" className={cls}
+                        onClick={() => toggleAge(b)}
+                        title={isBase ? 'Déjà ciblée — ne peut pas être retirée' : undefined}
+                      >
+                        <span>{b}</span>
+                        {isBase
+                          ? <span className="lk"><EcmIcon name="lock"/></span>
+                          : (isAdded ? <EcmIcon name="check"/> : <EcmIcon name="plus"/>)}
+                      </button>
+                    );
+                  })}
+                  {(() => {
+                    // Bouton « Tous » : coche toutes les tranches d'un coup
+                    // (élargissement maximal). Actif quand tout est sélectionné.
+                    const allSel = BUCKETS.every(b => ages.has(b));
+                    return (
+                      <button
+                        type="button" className={'ecm-pill' + (allSel ? ' added' : '')}
+                        onClick={() => setAges(new Set(BUCKETS))}
+                        title="Cibler toutes les tranches d'âge"
+                      >
+                        <span>Tous</span>
+                        {allSel ? <EcmIcon name="check"/> : <EcmIcon name="plus"/>}
+                      </button>
+                    );
+                  })()}
+                </div>
+                <div className="ecm-legend">
+                  <span><i className="sw base"/>Déjà ciblée (verrouillée)</span>
+                  <span><i className="sw added"/>Ajoutée</span>
+                </div>
+              </div>
+
+              {/* 4) Niveau de vérification minimum — ABAISSER seulement.
+                  Les niveaux plus exigeants que l'actuel sont verrouillés. */}
+              <div className="ecm-field">
+                <div className="ecm-flabel">
+                  <span className="k">Niveau de vérification minimum</span>
+                  <span className="cur">Actuel · {VERIF_LEVELS.find(v => v.id === baseVerif)?.name}</span>
+                </div>
+                <div className="ecm-cards">
+                  {VERIF_LEVELS.map((v, i) => {
+                    const locked = i > baseVerifRank;     // plus strict que l'actuel
+                    const sel = verif === v.id;
+                    const isBase = v.id === baseVerif;
+                    let cls = 'ecm-card';
+                    if (sel) cls += ' sel';
+                    if (locked) cls += ' locked';
+                    return (
+                      <button
+                        key={v.id} type="button" className={cls}
+                        onClick={() => !locked && setVerif(v.id)}
+                        disabled={locked}
+                        title={locked ? 'Plus strict que le niveau actuel — non sélectionnable' : undefined}
+                      >
+                        <span className="cmark">{locked ? <EcmIcon name="lock"/> : (sel ? <EcmIcon name="check"/> : null)}</span>
+                        <span className="nm">{v.name}{isBase && <span className="tag">Actuel</span>}</span>
+                        <span className="sb">{v.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="ecm-geohelp">Vous pouvez abaisser l'exigence pour élargir la cible, jamais la durcir.</p>
+              </div>
+
+              {/* 5) Fiabilité minimum — BAISSER le seuil seulement. */}
+              <div className="ecm-field">
+                <div className="ecm-flabel">
+                  <span className="k">Fiabilité minimum</span>
+                  <span className="cur">Actuel · {EDIT_FIAB_OPTS.find(o => o.v === baseFiab)?.name || ('≥ ' + baseFiab)}</span>
+                </div>
+                <div className="ecm-cards">
+                  {EDIT_FIAB_OPTS.map((o) => {
+                    const locked = o.v > baseFiab;        // seuil plus haut que l'actuel
+                    const sel = minFiab === o.v;
+                    const isBase = o.v === baseFiab;
+                    let cls = 'ecm-card';
+                    if (sel) cls += ' sel';
+                    if (locked) cls += ' locked';
+                    return (
+                      <button
+                        key={o.v} type="button" className={cls}
+                        onClick={() => !locked && setMinFiab(o.v)}
+                        disabled={locked}
+                        title={locked ? 'Seuil plus élevé que l\'actuel — non sélectionnable' : undefined}
+                      >
+                        <span className="cmark">{locked ? <EcmIcon name="lock"/> : (sel ? <EcmIcon name="check"/> : null)}</span>
+                        <span className="nm">{o.name}{isBase && <span className="tag">Actuel</span>}</span>
+                        <span className="sb">{o.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="ecm-geohelp">Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé.</p>
+              </div>
+
+              {err && <div className="ecm-state ecm-error">{err}</div>}
+            </>
+          )}
+
+          {/* Pied : Annuler / Enregistrer */}
+          <div className="ecm-foot">
+            <button className="ecm-btn ecm-btn-ghost" type="button" onClick={() => !submitting && onCancel()} disabled={submitting}>Annuler</button>
+            <button className="ecm-btn ecm-btn-primary" type="button" onClick={submit} disabled={!canSubmit}>
+              <EcmIcon name="save"/>{submitting ? 'Enregistrement…' : 'Enregistrer les changements'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+        .ecm-overlay{
+          --ecm-paper:#f4f1ea; --ecm-paper-warm:#efeadd; --ecm-card:#fffdf8;
+          --ecm-ink:#161a1d; --ecm-ink-2:#3c444b; --ecm-ink-3:#757d83; --ecm-ink-4:#9aa0a4;
+          --ecm-line:rgba(22,26,29,0.10); --ecm-line-soft:rgba(22,26,29,0.06);
+          --ecm-indigo:#5a57d6; --ecm-indigo-d:#4744bf; --ecm-indigo-soft:#ecebfb; --ecm-indigo-xsoft:#f4f3fd;
+          --ecm-shadow-pop:0 8px 24px rgba(22,26,29,0.12), 0 30px 70px rgba(22,26,29,0.20);
+          position:fixed; inset:0; z-index:220;
+          display:flex; align-items:flex-start; justify-content:center;
+          overflow-y:auto; padding:44px 24px 64px;
+          background:rgba(22,26,29,0.42); backdrop-filter:blur(3px);
+          font-family:"Hanken Grotesk", system-ui, sans-serif;
+          color:var(--ecm-ink); -webkit-font-smoothing:antialiased;
+        }
+        .ecm-serif{ font-family:"Newsreader", Georgia, serif; }
+        .ecm-overlay *{ box-sizing:border-box; }
+
+        .ecm-modal{
+          position:relative; width:100%; max-width:600px; margin:auto 0;
+          background:var(--ecm-card); border-radius:22px; overflow:hidden;
+          box-shadow:var(--ecm-shadow-pop);
+          display:flex; flex-direction:column; max-height:calc(100dvh - 64px);
+        }
+        .ecm-modal::before{ content:""; position:absolute; top:0; left:0; right:0; height:4px;
+          background:linear-gradient(90deg, var(--ecm-indigo-d), var(--ecm-indigo) 50%, #8a88ea); z-index:1; }
+        .ecm-inner{ padding:30px 32px 28px; overflow-y:auto; }
+
+        .ecm-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+        .ecm-ref{ font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ecm-ink-4); }
+        .ecm-close{ width:32px; height:32px; border-radius:9px; border:1px solid var(--ecm-line); background:var(--ecm-card); color:var(--ecm-ink-3); display:grid; place-items:center; cursor:pointer; flex:none; }
+        .ecm-close svg{ width:15px; height:15px; }
+        .ecm-close:hover{ background:var(--ecm-paper); color:var(--ecm-ink); }
+        h2.ecm-title{ font-weight:600; font-size:27px; letter-spacing:-0.015em; margin:7px 0 0; }
+
+        .ecm-note{ display:flex; gap:11px; align-items:flex-start; margin-top:16px; padding:13px 15px; border-radius:13px; background:var(--ecm-indigo-xsoft); border:1px solid rgba(90,87,214,0.18); }
+        .ecm-note .ic{ width:26px; height:26px; border-radius:8px; background:#fff; border:1px solid rgba(90,87,214,0.26); color:var(--ecm-indigo-d); display:grid; place-items:center; flex:none; }
+        .ecm-note .ic svg{ width:14px; height:14px; }
+        .ecm-note p{ margin:0; font-size:13px; line-height:1.5; color:var(--ecm-ink-2); }
+        .ecm-note b{ color:var(--ecm-indigo-d); font-weight:700; }
+
+        .ecm-field{ margin-top:22px; }
+        .ecm-flabel{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .ecm-flabel .k{ font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ecm-ink-3); }
+        .ecm-flabel .cur{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ecm-indigo-d); background:var(--ecm-indigo-soft); border:1px solid rgba(90,87,214,0.22); padding:3px 9px; border-radius:999px; }
+
+        .ecm-url{ display:flex; align-items:stretch; border:1.5px solid var(--ecm-line); border-radius:13px; overflow:hidden; background:#fff; transition:border-color .15s, box-shadow .15s; }
+        .ecm-url:focus-within{ border-color:var(--ecm-indigo); box-shadow:0 0 0 3px rgba(90,87,214,0.14); }
+        .ecm-url .pfx{ display:flex; align-items:center; padding:0 15px; background:var(--ecm-paper-warm); color:var(--ecm-ink-3); font-family:"IBM Plex Mono", monospace; font-size:13px; border-right:1px solid var(--ecm-line); }
+        .ecm-url input{ flex:1; min-width:0; border:none; outline:none; background:transparent; padding:14px 16px; font-family:inherit; font-size:15px; color:var(--ecm-ink); }
+        .ecm-url input::placeholder{ color:var(--ecm-ink-4); }
+
+        .ecm-geo{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+        .ecm-geo-step{ position:relative; text-align:left; padding:12px 13px; border-radius:12px; border:1.5px solid var(--ecm-line); background:#fff; cursor:pointer; font-family:inherit; transition:border-color .15s, background .15s, box-shadow .15s; }
+        .ecm-geo-step .lab{ font-weight:600; font-size:13.5px; color:var(--ecm-ink); line-height:1.1; display:flex; align-items:center; gap:6px; }
+        .ecm-geo-step .sub{ font-family:"IBM Plex Mono", monospace; font-size:10px; color:var(--ecm-ink-4); margin-top:4px; letter-spacing:0.02em; }
+        .ecm-geo-step .lk{ display:inline-flex; }
+        .ecm-geo-step .lk svg{ width:12px; height:12px; color:var(--ecm-ink-4); }
+        .ecm-geo-step:hover:not(.locked):not(.current){ border-color:rgba(90,87,214,0.5); box-shadow:0 4px 12px rgba(90,87,214,0.12); }
+        .ecm-geo-step.locked{ background:var(--ecm-paper); border-color:var(--ecm-line-soft); cursor:not-allowed; }
+        .ecm-geo-step.locked .lab{ color:var(--ecm-ink-4); }
+        .ecm-geo-step.current{ border-color:var(--ecm-ink); background:#fff; cursor:default; }
+        .ecm-geo-step.current .lab{ color:var(--ecm-ink); }
+        .ecm-geo-step.current .tag{ position:absolute; top:-8px; left:11px; font-family:"IBM Plex Mono", monospace; font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; background:var(--ecm-ink); color:#fff; padding:2px 6px; border-radius:5px; }
+        .ecm-geo-step.added{ border-color:var(--ecm-indigo); background:var(--ecm-indigo-xsoft); box-shadow:0 4px 12px rgba(90,87,214,0.14); }
+        .ecm-geo-step.added .lab{ color:var(--ecm-indigo-d); }
+        .ecm-geo-step.added .sub{ color:var(--ecm-indigo); }
+        .ecm-geo-step.added .tag{ position:absolute; top:-8px; left:11px; font-family:"IBM Plex Mono", monospace; font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; background:var(--ecm-indigo); color:#fff; padding:2px 6px; border-radius:5px; }
+        .ecm-geohelp{ font-size:12px; color:var(--ecm-ink-3); margin:9px 2px 0; line-height:1.4; }
+
+        .ecm-pills{ display:flex; flex-wrap:wrap; gap:8px; }
+        .ecm-pill{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:999px; border:1.5px solid var(--ecm-line); background:#fff; font-size:13.5px; font-weight:600; color:var(--ecm-ink-2); cursor:pointer; font-family:inherit; transition:border-color .15s, background .15s, color .15s, box-shadow .15s; }
+        .ecm-pill svg{ width:13px; height:13px; }
+        .ecm-pill:hover:not(.base){ border-color:rgba(90,87,214,0.5); }
+        .ecm-pill.base{ background:var(--ecm-paper); border-color:var(--ecm-line-soft); color:var(--ecm-ink-3); cursor:not-allowed; }
+        .ecm-pill.base .lk svg{ color:var(--ecm-ink-4); }
+        .ecm-pill.added{ background:var(--ecm-indigo); border-color:var(--ecm-indigo); color:#fff; box-shadow:0 4px 12px rgba(90,87,214,0.22); }
+
+        .ecm-legend{ display:flex; flex-wrap:wrap; gap:16px; margin-top:11px; }
+        .ecm-legend span{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ecm-ink-3); }
+        .ecm-legend .sw{ width:11px; height:11px; border-radius:4px; }
+        .ecm-legend .sw.base{ background:var(--ecm-paper); border:1.5px solid var(--ecm-line-soft); }
+        .ecm-legend .sw.added{ background:var(--ecm-indigo); }
+
+        /* Cartes « niveau de vérification » / « fiabilité minimum » — 3 par ligne */
+        .ecm-cards{ display:grid; grid-template-columns:repeat(3, 1fr); gap:9px; }
+        .ecm-card{ position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:left; padding:13px 13px 12px; border-radius:14px; border:1.5px solid var(--ecm-line); background:#fff; cursor:pointer; font-family:inherit; transition:border-color .15s, background .15s, box-shadow .15s; }
+        .ecm-card .cmark{ position:absolute; top:11px; right:11px; width:16px; height:16px; display:grid; place-items:center; }
+        .ecm-card .cmark svg{ width:15px; height:15px; color:var(--ecm-ink-4); }
+        .ecm-card .nm{ font-size:14px; font-weight:700; color:var(--ecm-ink); padding-right:20px; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+        .ecm-card .tag{ font-family:"IBM Plex Mono", monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ecm-ink-3); background:var(--ecm-paper); border:1px solid var(--ecm-line); padding:2px 6px; border-radius:999px; }
+        .ecm-card .sb{ font-size:11.5px; color:var(--ecm-ink-3); line-height:1.35; }
+        .ecm-card:hover:not(.locked):not(.sel){ border-color:rgba(90,87,214,0.5); }
+        .ecm-card.sel{ border-color:var(--ecm-indigo); background:var(--ecm-indigo-xsoft); box-shadow:0 4px 14px rgba(90,87,214,0.18); }
+        .ecm-card.sel .cmark svg{ color:var(--ecm-indigo-d); }
+        .ecm-card.locked{ background:var(--ecm-paper); border-color:var(--ecm-line-soft); cursor:not-allowed; opacity:.72; }
+        .ecm-card.locked .nm{ color:var(--ecm-ink-3); }
+
+        .ecm-state{ font-size:13px; color:var(--ecm-ink-3); padding:16px 0; text-align:center; }
+        .ecm-error{ color:#B91C1C; }
+
+        .ecm-foot{ display:flex; gap:12px; margin-top:28px; padding-top:22px; border-top:1px solid var(--ecm-line); }
+        .ecm-btn{ font-family:inherit; cursor:pointer; border-radius:13px; font-weight:600; font-size:15px; padding:15px 22px; transition:transform .12s, box-shadow .15s, background .15s; }
+        .ecm-btn:active{ transform:translateY(1px); }
+        .ecm-btn-ghost{ background:var(--ecm-card); border:1.5px solid var(--ecm-line); color:var(--ecm-ink-2); }
+        .ecm-btn-ghost:hover{ border-color:rgba(22,26,29,0.24); background:var(--ecm-paper); }
+        .ecm-btn-primary{ flex:1; background:var(--ecm-ink); border:1px solid var(--ecm-ink); color:#fff; display:inline-flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 20px rgba(22,26,29,0.22); }
+        .ecm-btn-primary:hover:not(:disabled){ box-shadow:0 10px 26px rgba(22,26,29,0.30); }
+        .ecm-btn-primary svg{ width:16px; height:16px; }
+        .ecm-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+        /* Tablette : modale resserrée, échelle géo conservée en 4 colonnes. */
+        @media (max-width: 720px){
+          .ecm-inner{ padding:26px 22px 24px; }
+        }
+        /* Téléphone : plein écran, échelle géo en 2 colonnes, footer compact. */
+        @media (max-width: 540px){
+          .ecm-overlay{ padding:0; align-items:stretch; }
+          .ecm-modal{ max-width:none; border-radius:0; max-height:100dvh; min-height:100dvh; }
+          .ecm-inner{ padding:24px 18px 22px; }
+          h2.ecm-title{ font-size:23px; }
+          .ecm-geo{ grid-template-columns:repeat(2, 1fr); }
+          .ecm-cards{ gap:6px; }
+          .ecm-card{ padding:10px 9px; border-radius:11px; }
+          .ecm-card .nm{ font-size:12px; padding-right:14px; gap:4px; }
+          .ecm-card .sb{ font-size:10px; }
+          .ecm-card .tag{ font-size:8px; padding:1px 4px; }
+          .ecm-card .cmark{ top:8px; right:8px; width:13px; height:13px; }
+          .ecm-card .cmark svg{ width:12px; height:12px; }
+          .ecm-flabel{ flex-wrap:wrap; }
+          .ecm-flabel .cur{ margin-left:0; }
+          .ecm-foot{ flex-wrap:wrap; }
+          .ecm-btn-ghost{ flex:1; }
+          .ecm-btn-primary{ flex:1 1 100%; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 /* 6-step wizard — objectif, données, ciblage, budget, mots-clés, récap */
 // allowedTiers : paliers accessibles selon le principe de minimisation RGPD.
 // Données strictement nécessaires à la finalité de la campagne.
+// Couleur premium par objectif (cartes étape 1 — création de campagne).
+const OBJ_COLOR = {
+  contact: '#5a57d6', rdv: '#1c8a6e', evt: '#2f72c4', dl: '#b9842a',
+  survey: '#c14d77', promo: '#d6432f', addigital: '#2e9e5b',
+};
+// Icône par palier de données (étape 3 — création de campagne).
+const TIER_ICON = { 1: 'user', 2: 'mapPin', 3: 'heart', 4: 'briefcase', 5: 'wallet' };
+// Icône par zone géographique (étape 4 — ciblage).
+const GEO_ICON = { ville: 'home', dept: 'mapPin', region: 'globe', national: 'france' };
+// Icône par canal / sous-type (étape 1). Repli sur l'icône de l'objectif.
+const CHANNEL_ICON = {
+  email: 'email', sms: 'sms', mms: 'sms', postal: 'send', phone: 'phone', wa: 'whatsapp', pushweb: 'globe', pushapp: 'bell', autres: 'sparkle',
+  rdvphys: 'mapPin', rdvtel: 'phone', rdvvisio: 'globe', consult: 'user', devis: 'doc', essai: 'sparkle',
+  webinar: 'globe', portes: 'home', atelier: 'users', conf: 'mapPin', network: 'users', demo: 'play', launch: 'bolt', tournoi: 'flag',
+  wb: 'globe', etude: 'chart', cat: 'grid', guide: 'doc', info: 'info', rapport: 'chart', tpl: 'doc', check: 'check', replay: 'play',
+  csat: 'heart', nps: 'trend', poll: 'chart', panel: 'users', test: 'bulb', focus: 'users', interview: 'user', vote: 'check',
+  coupon: 'gift', welcome: 'sparkle', flash: 'bolt', contest: 'flag',
+  meta: 'facebook', google: 'globe', tiktok: 'tiktok', linkedin: 'linkedin', snap: 'sparkle', x: 'globe',
+};
+
 const OBJECTIVES = [
   { id:'contact', name:'Prise de contact direct', desc:'8 opérations — email, SMS, push, appel, WhatsApp', icon:'email', allowedTiers:[1], sub:[
     {id:'email',     name:'Email marketing',         desc:'Newsletter, campagne promotionnelle, séquence de bienvenue',   cost:0.15},
@@ -2821,6 +3480,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       if (typeof d.radiusKm === 'number') setRadiusKm(d.radiusKm);
       setAges(new Set(d.ages || []));
       setVerif(d.verif ?? 'p0');
+      setMinFiab(typeof d.minFiab === 'number' ? d.minFiab : 0);
       setContacts(Number(d.contacts ?? 10));
       setDurationKey(typeof d.durationKey === 'string' ? d.durationKey : '7d');
       setPoolMode(d.poolMode ?? 'standard');
@@ -3029,6 +3689,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const [radiusKm, setRadiusKm] = useState(10);
   const [ages, setAges] = useState(new Set());
   const [verif, setVerif] = useState('p0');
+  const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
   const [contacts, setContacts] = useState(10);
   const [durationKey, setDurationKey] = useState('7d');
   const [poolMode, setPoolMode] = useState('standard');
@@ -3088,7 +3749,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     step, plan, selectedObj, selectedSubs, selectedTiers,
-    geo, geoTarget, radiusKm, ages, verif, contacts, durationKey, poolMode,
+    geo, geoTarget, radiusKm, ages, verif, minFiab, contacts, durationKey, poolMode,
     keywords, kwInput, kwFilter, startDate, endDate, brief,
   ]);
 
@@ -3202,6 +3863,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     setRadiusKm(10);
     setAges(new Set());
     setVerif('p0');
+    setMinFiab(0);
     setContacts(10);
     setDurationKey('7d');
     setPoolMode('standard');
@@ -3470,75 +4132,78 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quel est l'objectif de votre campagne ?</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Choisissez un objectif principal, puis affinez avec les sous-types.</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-              {OBJECTIVES.map(o => (
-                <button key={o.id} onClick={() => {
-                  // Ne ré-initialise les sous-types que si l'objectif change
-                  // réellement — un retour en arrière (clic sur le même
-                  // objectif) ne doit pas vider la saisie déjà effectuée.
-                  if (selectedObj !== o.id) {
-                    setSelectedObj(o.id);
-                    setSelectedSubs(new Set());
-                  }
-                }}
-                  style={{ textAlign: 'left', padding: 18, borderRadius: 12, cursor: 'pointer',
-                    border: '1px solid ' + (selectedObj === o.id ? 'var(--accent)' : 'var(--line-2)'),
-                    background: selectedObj === o.id ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                    boxShadow: selectedObj === o.id ? '0 0 0 1px var(--accent)' : 'none',
-                    transition: 'all .15s ease' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--ivory-2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                    <Icon name={o.icon} size={18}/>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{o.name}</div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.45 }}>{o.desc}</div>
-                </button>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+              {OBJECTIVES.map(o => {
+                const sel = selectedObj === o.id;
+                const col = OBJ_COLOR[o.id] || 'var(--accent)';
+                return (
+                  <button key={o.id} onClick={() => {
+                    // Ne ré-initialise les sous-types que si l'objectif change
+                    // réellement (un retour sur le même objectif garde la saisie).
+                    if (selectedObj !== o.id) { setSelectedObj(o.id); setSelectedSubs(new Set()); }
+                  }}
+                    style={{ position: 'relative', textAlign: 'left', padding: 20, borderRadius: 14, cursor: 'pointer',
+                      border: '1.5px solid ' + (sel ? col : 'var(--line-2)'),
+                      background: sel ? `color-mix(in oklab, ${col} 8%, var(--paper))` : 'var(--paper)',
+                      transition: 'border-color .15s, background .15s' }}>
+                    {sel && (
+                      <span style={{ position: 'absolute', top: 12, right: 12, width: 20, height: 20, borderRadius: 999, background: col, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="check" size={12}/>
+                      </span>
+                    )}
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `color-mix(in oklab, ${col} 14%, var(--paper))`, color: col,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                      <Icon name={o.icon} size={20}/>
+                    </div>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{o.name}</div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 5, lineHeight: 1.45 }}>{o.desc}</div>
+                  </button>
+                );
+              })}
             </div>
 
             {selectedObj && obj && (() => {
-              // Aucun sous-type coché → bordure rouge sur tous les choix
-              // pour signaler que la sélection est obligatoire avant
-              // de passer à l'étape suivante.
+              // Aucun sous-type coché → signalé (sélection obligatoire).
               const noneSelected = selectedSubs.size === 0;
               const danger = '#DC2626';
+              const col = OBJ_COLOR[obj.id] || 'var(--accent)';
               return (
                 <div>
-                  <div style={{ height: 1, background: 'var(--line)', margin: '24px 0 20px' }}/>
-                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Précisez : {obj.name}</div>
-                  <div className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
-                    Multi-sélection possible.
+                  <div style={{ height: 1, background: 'var(--line)', margin: '24px 0 18px' }}/>
+                  <div className="row center between" style={{ marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14.5, fontWeight: 600 }}>Précisez les canaux</div>
+                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Multi-sélection possible.</div>
+                    </div>
                     {noneSelected && (
-                      <span style={{ color: danger, fontWeight: 600, marginLeft: 6 }}>
-                        Sélectionnez au moins un sous-type.
-                      </span>
+                      <span style={{ fontSize: 11.5, color: danger, fontWeight: 600 }}>Sélectionnez au moins un canal.</span>
                     )}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                     {obj.sub.map(s => {
                       const checked = selectedSubs.has(s.id);
-                      const borderColor = checked
-                        ? 'var(--accent)'
-                        : noneSelected ? danger : 'var(--line-2)';
+                      const bc = checked ? col : noneSelected ? danger : 'var(--line-2)';
                       return (
                         <button key={s.id} onClick={() => toggleSub(s.id)}
-                          className="row center" style={{ gap: 12, padding: 12, borderRadius: 10, textAlign: 'left',
-                            border: '1px solid ' + borderColor,
-                            background: checked ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                            cursor: 'pointer' }}>
-                          <span style={{ width: 16, height: 16, borderRadius: 4,
-                            border: '1.5px solid ' + (checked ? 'var(--accent)' : noneSelected ? danger : 'var(--line-2)'),
-                            background: checked ? 'var(--accent)' : 'var(--paper)',
-                            color: 'white', fontSize: 10,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {checked ? '✓' : ''}
+                          style={{ display: 'flex', gap: 12, padding: 14, borderRadius: 12, textAlign: 'left', alignItems: 'flex-start',
+                            border: '1.5px solid ' + bc,
+                            background: checked ? `color-mix(in oklab, ${col} 7%, var(--paper))` : 'var(--paper)', cursor: 'pointer' }}>
+                          <span style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                            background: `color-mix(in oklab, ${col} 14%, var(--paper))`,
+                            color: col, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon name={CHANNEL_ICON[s.id] || obj.icon} size={16}/>
                           </span>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 500 }}>{s.name}</div>
-                            {/* La description du sous-type sert d'info à
-                                titre indicatif — le tarif final dépend
-                                uniquement du palier de données sélectionné. */}
-                            <div className="muted" style={{ fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>{s.desc}</div>
+                            <div className="row center between" style={{ gap: 8 }}>
+                              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</span>
+                              <span style={{ width: 16, height: 16, borderRadius: 999, flexShrink: 0,
+                                border: '1.5px solid ' + (checked ? col : 'var(--line-2)'),
+                                background: checked ? col : 'transparent', color: '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {checked && <Icon name="check" size={10}/>}
+                              </span>
+                            </div>
+                            <div className="muted" style={{ fontSize: 11, marginTop: 3, lineHeight: 1.4 }}>{s.desc}</div>
                           </div>
                         </button>
                       );
@@ -3577,48 +4242,41 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
             </div>
 
             <div className="label">Durée de la campagne</div>
-            <div className="wizard-duration-grid" style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 8,
-            }}>
+            <style>{`
+              .wzd-dur{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:8px; }
+              @media (max-width:640px){ .wzd-dur{ grid-template-columns:repeat(2,1fr); } }
+            `}</style>
+            <div className="wzd-dur">
               {DURATIONS.map((d) => {
                 const sel = durationKey === d.id;
-                const accent = d.id === '1h' ? '#B91C1C' : 'var(--accent)';
+                const accent = d.id === '1h' ? '#d6432f' : 'var(--accent)';
                 return (
                   <button
                     key={d.id}
                     type="button"
                     onClick={() => setDurationKey(d.id)}
-                    className="col"
                     style={{
-                      padding: 14, borderRadius: 12, gap: 6, textAlign: 'left',
+                      position: 'relative', padding: 16, borderRadius: 14, textAlign: 'left', cursor: 'pointer',
                       border: '1.5px solid ' + (sel ? accent : 'var(--line-2)'),
-                      background: sel
-                        ? `color-mix(in oklab, ${accent} 6%, var(--paper))`
-                        : 'var(--paper)',
-                      boxShadow: sel ? `0 0 0 2px color-mix(in oklab, ${accent} 18%, transparent)` : 'none',
-                      cursor: 'pointer',
-                      transition: 'all .12s',
-                      position: 'relative',
+                      background: sel ? `color-mix(in oklab, ${accent} 7%, var(--paper))` : 'var(--paper)',
+                      transition: 'border-color .12s, background .12s',
                     }}
                   >
+                    {d.id === '1h' && (
+                      <div className="mono caps" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.08em', color: accent, display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+                        <Icon name="bolt" size={10}/> Flash Deal
+                      </div>
+                    )}
                     <div className="row between" style={{ alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{d.label}</span>
+                      <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{d.label}</span>
                       <span className="mono" style={{
-                        fontSize: 11, fontWeight: 700,
-                        padding: '2px 8px', borderRadius: 999,
-                        background: `color-mix(in oklab, ${accent} 14%, var(--paper))`,
-                        color: accent,
-                        letterSpacing: '.04em',
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                        background: `color-mix(in oklab, ${accent} 14%, var(--paper))`, color: accent, letterSpacing: '.04em',
                       }}>
                         {d.multBadge}
                       </span>
                     </div>
-                    <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.4 }}>{d.sub}</div>
-                    {d.id === '1h' && (
-                      <div style={{ fontSize: 11, color: '#B91C1C', fontWeight: 500, marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Icon name="bolt" size={11}/> Affichée sur la home page avec un compte à rebours.
-                      </div>
-                    )}
+                    <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.4, marginTop: 6 }}>{d.sub}</div>
                   </button>
                 );
               })}
@@ -3715,29 +4373,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                     onClick={() => allowed && toggleTier(t.id)}
                     disabled={!allowed}
                     title={allowed ? '' : (blockedByPlan ? 'Palier réservé à la formule Pro' : 'Palier non disponible pour cette finalité (RGPD — minimisation)')}
-                    className="row center wizard-tier-row" style={{ gap: 16, padding: 16, borderRadius: 12, textAlign: 'left',
-                      border: '1px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
-                      background: checked ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))'
+                    className="row center wizard-tier-row" style={{ gap: 14, padding: 16, borderRadius: 12, textAlign: 'left',
+                      border: '1.5px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
+                      background: checked ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))'
                                 : allowed ? 'var(--paper)'
                                 : 'color-mix(in oklab, var(--ink) 3%, var(--paper))',
-                      boxShadow: checked ? '0 0 0 1px var(--accent)' : 'none',
-                      opacity: allowed ? 1 : 0.45,
+                      opacity: allowed ? 1 : 0.5,
                       cursor: allowed ? 'pointer' : 'not-allowed',
                       position: 'relative'
                     }}>
-                    <span style={{ width: 18, height: 18, borderRadius: 999,
-                      border: '2px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {checked && <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }}/>}
+                    <span style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                      background: allowed ? 'color-mix(in oklab, var(--accent) 12%, var(--paper))' : 'var(--ivory-2)',
+                      color: allowed ? 'var(--accent)' : 'var(--ink-4)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={TIER_ICON[t.id] || 'tiers'} size={18}/>
                     </span>
-                    <div style={{ width: 80, flexShrink: 0 }}>
-                      <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: t.pct + '%', background: allowed ? 'var(--accent)' : 'var(--ink-4)', borderRadius: 999 }}/>
-                      </div>
-                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        Palier {t.id} — {t.name}
+                        Palier {t.id} · {t.name}
                         {t.id === 1 && (
                           <span className="mono caps" style={{
                             fontSize: 9, fontWeight: 700, letterSpacing: '.08em',
@@ -3753,16 +4406,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                       {allowed ? (
                         <>
                           <div className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                            {t.min === t.max ? `min. ${fmtEur(t.min)}` : `${fmtEur(t.min)} – ${fmtEur(t.max)}`}
+                            {t.min === t.max ? `dès ${fmtEur(t.min)}` : `${fmtEur(t.min)} – ${fmtEur(t.max)}`}
                           </div>
                           <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>par contact</div>
                         </>
                       ) : (
-                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: blockedByPlan ? '#B45309' : 'var(--ink-4)', letterSpacing: '.08em' }}>
-                          🔒 {blockedByPlan ? 'Plan Pro' : 'Non autorisé'}
+                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: blockedByPlan ? '#B45309' : 'var(--ink-4)', letterSpacing: '.08em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Icon name="lock" size={11}/> {blockedByPlan ? 'Plan Pro' : 'Non autorisé'}
                         </span>
                       )}
                     </div>
+                    {allowed && (
+                      <span style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0,
+                        border: '2px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
+                        background: checked ? 'var(--accent)' : 'transparent', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {checked && <Icon name="check" size={11}/>}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -3812,17 +4473,28 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Zone géographique, âge et niveau de vérification des prospects.</div>
 
             <div className="label">Zone géographique</div>
-            <div className="geo-zones-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: geo === 'national' ? 24 : 12 }}>
-              {GEO_ZONES.map(z => (
-                <button key={z.id} onClick={() => setGeo(z.id)} style={{ padding: 14, borderRadius: 10, textAlign: 'center', cursor: 'pointer',
-                  border: '1px solid ' + (geo === z.id ? 'var(--accent)' : 'var(--line-2)'),
-                  background: geo === z.id ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                  boxShadow: geo === z.id ? '0 0 0 1px var(--accent)' : 'none',
-                  minHeight: 64 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{z.name}</div>
-                  <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{z.sub}</div>
-                </button>
-              ))}
+            <div className="geo-zones-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: geo === 'national' ? 24 : 12 }}>
+              {GEO_ZONES.map(z => {
+                const sel = geo === z.id;
+                return (
+                  <button key={z.id} onClick={() => setGeo(z.id)} style={{ position: 'relative', padding: '16px 12px', borderRadius: 12, textAlign: 'center', cursor: 'pointer',
+                    border: '1.5px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                    background: sel ? 'color-mix(in oklab, var(--accent) 8%, var(--paper))' : 'var(--paper)' }}>
+                    {sel && (
+                      <span style={{ position: 'absolute', top: 10, right: 10, width: 18, height: 18, borderRadius: 999, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="check" size={11}/>
+                      </span>
+                    )}
+                    <span style={{ width: 38, height: 38, borderRadius: 10, margin: '0 auto 10px',
+                      background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+                      color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={GEO_ICON[z.id] || 'mapPin'} size={18}/>
+                    </span>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{z.name}</div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{z.sub}</div>
+                  </button>
+                );
+              })}
             </div>
             {/* Champ dynamique : nom de ville / dept / région via l'API
                 officielle geo.api.gouv.fr. Masqué pour la portée nationale
@@ -3931,25 +4603,37 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               ))}
             </div>
 
+            <style>{`
+              .tgt-3{ display:flex; gap:8px; }
+              .tgt-card{ display:flex; flex-direction:column; flex:1 1 0; min-width:0; cursor:pointer; text-align:left; border-radius:10px; padding:14px 12px; }
+              .tgt-card .tn{ font-size:13.5px; font-weight:600; line-height:1.15; }
+              .tgt-card .ts{ font-size:11px; margin-top:4px; line-height:1.35; }
+              @media (max-width:560px){
+                .tgt-3{ gap:6px; }
+                .tgt-card{ padding:10px 8px; border-radius:9px; }
+                .tgt-card .tn{ font-size:11.5px; }
+                .tgt-card .ts{ font-size:9.5px; margin-top:3px; }
+              }
+            `}</style>
             <div className="label">Niveau de vérification minimum</div>
-            <div className="col gap-2">
+            <div className="tgt-3">
               {VERIF_LEVELS.map(v => {
                 const sel = verif === v.id;
                 return (
-                  <button key={v.id} onClick={() => setVerif(v.id)} className="row center" style={{ gap: 14, padding: 14, borderRadius: 10, cursor: 'pointer',
-                    border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                    background: sel ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                    textAlign: 'left' }}>
-                    <span style={{ width: 18, height: 18, borderRadius: 999,
-                      border: '2px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {sel && <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }}/>}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{v.name}</div>
-                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{v.sub}</div>
+                  <button key={v.id} onClick={() => setVerif(v.id)} className="tgt-card" style={{
+                    border: '1.5px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                    background: sel ? 'color-mix(in oklab, var(--accent) 8%, var(--paper))' : 'var(--paper)',
+                  }}>
+                    <div className="row center between" style={{ gap: 8 }}>
+                      <span className="tn" style={{ color: sel ? 'var(--accent)' : 'var(--ink)' }}>{v.name}</span>
+                      <span style={{ width: 16, height: 16, borderRadius: 999,
+                        border: '2px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {sel && <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--accent)' }}/>}
+                      </span>
                     </div>
-                    {v.badge && <span className="chip chip-accent" style={{ fontSize: 11, fontWeight: 600 }}>{v.badge}</span>}
+                    <div className="ts muted">{v.sub}</div>
+                    {v.badge && <span className="chip chip-accent" style={{ fontSize: 10, fontWeight: 600, marginTop: 8, alignSelf: 'flex-start' }}>{v.badge}</span>}
                   </button>
                 );
               })}
@@ -3978,6 +4662,38 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 </div>
               </div>
             )}
+
+            {/* Fiabilité minimum — ne cibler que les prospects suffisamment
+                bien notés par les pros (cf. indice de désirabilité). */}
+            <div style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+              <div className="label">Fiabilité minimum</div>
+              <div className="muted" style={{ fontSize: 12.5, margin: '4px 0 10px' }}>
+                Ne sollicitez que les prospects suffisamment bien notés par les professionnels. « Toutes » inclut ceux jamais notés.
+              </div>
+              <div className="tgt-3">
+                {[
+                  { v: 0,  label: 'Toutes',          sub: 'Aucun filtre' },
+                  { v: 60, label: 'Bonne fiabilité', sub: '≥ 60 / 100' },
+                  { v: 80, label: 'Excellente',      sub: '≥ 80 / 100' },
+                ].map(o => {
+                  const on = minFiab === o.v;
+                  return (
+                    <button key={o.v} onClick={() => setMinFiab(o.v)} className="tgt-card" style={{
+                      background: on ? 'color-mix(in oklab, var(--accent) 10%, var(--paper))' : 'var(--paper)',
+                      border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
+                    }}>
+                      <span className="tn" style={{ color: on ? 'var(--accent)' : 'var(--ink)' }}>{o.label}</span>
+                      <span className="ts mono" style={{ color: 'var(--ink-4)' }}>{o.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {minFiab > 0 && (
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+                  Bassin réduit : les prospects jamais notés par un pro sont exclus.
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -4149,10 +4865,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                       background: sel ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
                       boxShadow: sel ? '0 0 0 1px var(--accent)' : 'none',
                       textAlign: 'left' }}>
-                    <span style={{ width: 18, height: 18, borderRadius: 999,
-                      border: '2px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {sel && <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }}/>}
+                    <span style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                      background: disabled ? 'var(--ivory-2)' : 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+                      color: disabled ? 'var(--ink-4)' : 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={m.id === 'standard' ? 'handshake' : 'users'} size={18}/>
                     </span>
                     <div style={{ flex: 1 }}>
                       <div className="row center" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -4163,6 +4879,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{m.sub}</div>
                     </div>
+                    {!disabled && (
+                      <span style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0,
+                        border: '2px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
+                        background: sel ? 'var(--accent)' : 'transparent', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {sel && <Icon name="check" size={11}/>}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -4534,6 +5258,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 })()],
                 ["Tranches d'âge", ages.size === 0 ? 'Toutes (aucune restriction)' : Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
+                ['Fiabilité minimum', minFiab === 0 ? 'Toutes (aucun filtre)' : `≥ ${minFiab} / 100`],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
                 ['Le mot du pro', brief ? '« ' + brief + ' »' : '—'],
@@ -4790,7 +5515,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                         objectiveId: selectedObj,
                         subTypes: Array.from(selectedSubs),
                         requiredTiers: Array.from(selectedTiers),
-                        geo, geoTarget, radiusKm, ages: Array.from(ages), verifLevel: verif,
+                        geo, geoTarget, radiusKm, ages: Array.from(ages), verifLevel: verif, minFiabilite: minFiab,
                         contacts,
                         durationKey,
                         startDate, endDate: computedEndDate, brief,
@@ -5909,14 +6634,14 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           })}
           {/* Filtre par priorité de traitement (mêmes icônes/couleurs que la fiche). */}
           <div className="row center gap-2" style={{ marginLeft: 'auto', flexWrap: 'wrap' }}>
-            <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.1em', color: 'var(--ink-4)' }}>Priorité</span>
-            {PRIORITY_OPTS.map((o) => {
+            <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.1em', color: 'var(--ink-4)' }}>Fiabilité</span>
+            {FIABILITE_OPTS.map((o) => {
               const on = prioFilter.has(o.v);
               return (
                 <button
                   key={o.v}
                   onClick={() => togglePrio(o.v)}
-                  title={`Filtrer : priorité ${o.label}`}
+                  title={`Filtrer : fiabilité ${o.label}`}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                     padding: '8px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600,
@@ -5927,7 +6652,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                     cursor: 'pointer', transition: 'all .15s',
                   }}
                 >
-                  <Icon name="sparkle" size={12}/> {o.v} {o.label}
+                  <Icon name={o.icon} size={12}/> {o.v} {o.label}
                 </button>
               );
             })}
@@ -6331,11 +7056,11 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                                   libellé, mêmes couleurs que le filtre/la fiche.
                                   Affiché entre l'évaluation et « Voir détails ». */}
                               {(() => {
-                                const po = PRIORITY_OPTS.find(o => o.v === r.priority);
+                                const po = FIABILITE_OPTS.find(o => o.v === r.priority);
                                 if (!po) return null;
                                 return (
                                   <span
-                                    title={`Priorité de traitement : ${po.label}`}
+                                    title={`Fiabilité : ${po.label}`}
                                     style={{
                                       display: 'inline-flex', alignItems: 'center', gap: 4,
                                       padding: '4px 9px', borderRadius: 999,
@@ -6345,7 +7070,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                                       border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
                                     }}
                                   >
-                                    <Icon name="sparkle" size={11}/> {po.v} · {po.label}
+                                    <Icon name={po.icon} size={11}/> {po.v} · {po.label}
                                   </span>
                                 );
                               })()}
@@ -6722,12 +7447,15 @@ const TIER_META = {
   pro:          { n: 4, color: '#1F2937', icon: 'briefcase' },
   patrimoine:   { n: 5, color: '#DB2777', icon: 'home' },
 };
-const PRIORITY_OPTS = [
-  { v: 1, label: 'Haute',   color: '#DC2626' },
-  { v: 2, label: 'Moyenne', color: '#D97706' },
-  { v: 3, label: 'Basse',   color: '#16A34A' },
+// Fiabilité (ex-« Priorité de traitement ») : note donnée par le pro au
+// prospect. Chaque niveau a son icône. Sémantique « fiable » : Haute = vert
+// (prospect fiable), Basse = rouge. La valeur DB reste relations.pro_priority.
+const FIABILITE_OPTS = [
+  { v: 1, label: 'Haute',   color: '#16A34A', icon: 'shieldCheck' },
+  { v: 2, label: 'Moyenne', color: '#D97706', icon: 'shield' },
+  { v: 3, label: 'Basse',   color: '#DC2626', icon: 'gauge' },
 ];
-const priorityLabel = (v) => (PRIORITY_OPTS.find(o => o.v === v)?.label) || null;
+const fiabiliteLabel = (v) => (FIABILITE_OPTS.find(o => o.v === v)?.label) || null;
 
 function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onClose }) {
   const [status, setStatus] = React.useState('loading'); // loading | ok | error
@@ -6738,6 +7466,9 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
   const [picked, setPicked] = React.useState(row.priority ?? null);
   const [saved, setSaved] = React.useState(row.priority ?? null);
   const [saving, setSaving] = React.useState(false);
+  // Agrégat de fiabilité cross-pro : { '1': n, '2': n, '3': n } = nb de pros
+  // distincts par niveau (badge sur la fiche).
+  const [fiabAgg, setFiabAgg] = React.useState(null);
 
   // Navigation entre fiches d'une même campagne (Précédent / Suivant).
   const list = Array.isArray(siblings) ? siblings : [row];
@@ -6772,6 +7503,7 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         if (cancelled) return;
         setTiers(Array.isArray(j?.tiers) ? j.tiers : []);
         setRef(j?.ref ?? null);
+        setFiabAgg(j?.fiabiliteAgg ?? null);
         if (typeof j?.priority !== 'undefined') {
           setPicked(j.priority ?? null);
           setSaved(j.priority ?? null);
@@ -6790,11 +7522,11 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ priority: picked }),
       });
-      if (!res.ok) { alert("Impossible d'enregistrer la priorité. Réessayez."); return; }
+      if (!res.ok) { alert("Impossible d'enregistrer la fiabilité. Réessayez."); return; }
       setSaved(picked);
       if (onPriorityChange) onPriorityChange(row.relationId, picked);
     } catch {
-      alert("Impossible d'enregistrer la priorité. Réessayez.");
+      alert("Impossible d'enregistrer la fiabilité. Réessayez.");
     } finally {
       setSaving(false);
     }
@@ -6874,12 +7606,46 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
                 <Icon name="flag" size={16}/>
               </span>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Priorité de traitement</div>
-                <div className="muted" style={{ fontSize: 12 }}>Classez la fiche pour filtrer vos prospects par priorité.</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Fiabilité</div>
+                <div className="muted" style={{ fontSize: 12 }}>Notez la fiabilité de ce prospect : elle alimente son indice de désirabilité et vous sert à filtrer vos contacts.</div>
               </div>
             </div>
+            {(() => {
+              // Badge cross-pro : icône + compteur par niveau (nb de pros
+              // distincts). Ex. « 3 » sur Haute = 3 pros ont noté Haute.
+              const agg = fiabAgg || {};
+              const items = FIABILITE_OPTS
+                .map((o) => ({ o, n: Number(agg[String(o.v)] || 0) }))
+                .filter((x) => x.n > 0);
+              if (items.length === 0) return null;
+              return (
+                <div className="row center gap-2" style={{ flexWrap: 'wrap', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--line)' }}>
+                  <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--ink-4)' }}>Noté par d'autres pros</span>
+                  {items.map(({ o, n }) => (
+                    <span
+                      key={o.v}
+                      title={`${n} professionnel${n > 1 ? 's' : ''} ont noté la fiabilité « ${o.label} »`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '4px 7px 4px 9px', borderRadius: 999, color: o.color,
+                        background: `color-mix(in oklab, ${o.color} 12%, var(--paper))`,
+                        border: `1px solid color-mix(in oklab, ${o.color} 35%, var(--line))`,
+                        fontSize: 11.5, fontWeight: 600,
+                      }}
+                    >
+                      <Icon name={o.icon} size={12}/> {o.label}
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
+                        background: o.color, color: '#fff', fontSize: 10.5, fontWeight: 700,
+                      }}>{n}</span>
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
             <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
-              {PRIORITY_OPTS.map((o) => {
+              {FIABILITE_OPTS.map((o) => {
                 const on = picked === o.v;
                 return (
                   <button
@@ -6893,7 +7659,7 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
                     }}
                   >
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: o.color, fontWeight: 700, fontSize: 14 }}>
-                      <Icon name="sparkle" size={13}/> {o.v}
+                      <Icon name={o.icon} size={13}/> {o.v}
                     </div>
                     <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{o.label}</div>
                   </button>
@@ -7001,8 +7767,8 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         <div className="row between" style={{ padding: '12px 22px', borderTop: '1px solid var(--line)', background: 'var(--paper)', alignItems: 'center', gap: 10 }}>
           <span className="muted" style={{ fontSize: 12 }}>
             {saved
-              ? <>Priorité <strong style={{ color: PRIORITY_OPTS.find(o => o.v === saved)?.color }}>{priorityLabel(saved)}</strong></>
-              : 'Priorité non définie — enregistrez pour filtrer.'}
+              ? <>Fiabilité <strong style={{ color: FIABILITE_OPTS.find(o => o.v === saved)?.color }}>{fiabiliteLabel(saved)}</strong></>
+              : 'Fiabilité non notée — enregistrez pour filtrer.'}
           </span>
           <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
         </div>
