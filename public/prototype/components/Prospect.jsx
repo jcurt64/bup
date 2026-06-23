@@ -3224,7 +3224,8 @@ function SectionTitle({ eyebrow, title, desc, action }) {
   );
 }
 
-/* Carte « Mon taux de fiabilité » (onglet Mes données, avant les paliers) :
+/* Carte « Mon taux de fiabilité » (onglet BUUPP Score, juste avant les
+   Conseils pour améliorer votre score) :
    nombre de notes reçues des pros par niveau. AUCUNE identité de pro affichée.
    Données via /api/prospect/score → breakdown.fiabilite { pct, count, levels }. */
 function FiabiliteCard() {
@@ -3719,9 +3720,6 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
           </div>
         </div>
       </div>
-
-      {/* Mon taux de fiabilité — avant les paliers (Identification en tête) */}
-      <FiabiliteCard/>
 
       {/* Categories */}
       <div className="col gap-4">
@@ -7046,6 +7044,9 @@ function ScorePanel() {
         </div>
         <ScoreEvolution/>
       </div>
+
+      {/* Mon taux de fiabilité — déplacé depuis « Mes données », juste avant les Conseils */}
+      <FiabiliteCard/>
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between" style={{ marginBottom: 18, gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
