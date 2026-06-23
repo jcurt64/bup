@@ -877,22 +877,16 @@ function FlashDeal() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const { guard, modal: roleModal } = useRoleGuard();
-  // Un compte professionnel ne peut PAS accepter une campagne / flash
-  // deal — ce sont les prospects qui acceptent, les pros qui lancent.
-  // On bloque dès le clic avec un popup explicatif plutôt que de
-  // laisser ouvrir la modale d'acceptation.
+  // Un compte professionnel peut consulter le DÉTAIL d'une offre (flash
+  // deal / campagne) mais ne peut PAS l'accepter — ce sont les prospects
+  // qui acceptent, les pros qui lancent. On ouvre donc la modale pour
+  // tout le monde ; côté pro, elle s'affiche en lecture seule (pas de
+  // boutons Accepter / Refuser, cf. `isPro` dans FlashDealModal).
   const { role: currentUserRole } = useCurrentRole();
-  const [proBlocked, setProBlocked] = useState(false);
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [openDealId, setOpenDealId] = useState<string | null>(null);
-  // Ouvre la modale d'un deal SAUF si l'utilisateur est connecté en
-  // tant que pro → on affiche alors le popup "compte prospect requis".
   const requestOpenDeal = (id: string) => {
-    if (currentUserRole === "pro") {
-      setProBlocked(true);
-      return;
-    }
     setOpenDealId(id);
   };
   // Mock deals générés une seule fois au montage — leurs timers
@@ -930,13 +924,10 @@ function FlashDeal() {
     if (deals === null) return;
     // One-shot driven par un side-input externe (URL après auth Clerk) :
     // setState ici est intentionnel, pas un dérivé de props/state.
-    // Même garde que le clic direct : un pro ne peut pas accepter.
+    // Comme le clic direct : on ouvre le détail pour tout le monde ; un
+    // pro le verra en lecture seule (pas de boutons d'acceptation).
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (currentUserRole === "pro") {
-      setProBlocked(true);
-    } else {
-      setOpenDealId(requestedDealId);
-    }
+    setOpenDealId(requestedDealId);
     setAutoOpenConsumed(true);
     /* eslint-enable react-hooks/set-state-in-effect */
     if (typeof window !== "undefined") {
@@ -1087,6 +1078,7 @@ function FlashDeal() {
       {openDeal && (
         <FlashDealModal
           deal={openDeal}
+          isPro={currentUserRole === "pro"}
           remainingHms={(() => {
             const lf = Math.max(
               0,
@@ -1122,180 +1114,14 @@ function FlashDeal() {
           }
         />
       )}
-      {proBlocked && (
-        <ProCannotAcceptModal onClose={() => setProBlocked(false)} />
-      )}
       {roleModal}
     </>
   );
 }
 
-/**
- * Popup affiché quand un compte PRO clique sur un flash deal / une
- * campagne pour l'accepter. Sur BUUPP les rôles sont exclusifs : les
- * professionnels lancent des campagnes, seuls les prospects peuvent
- * les accepter. On explique la situation et on propose de basculer
- * (déconnexion → reconnexion avec un compte prospect).
- */
-function ProCannotAcceptModal({ onClose }: { onClose: () => void }) {
-  const { signOut } = useClerk();
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, busy]);
-
-  const switchAccount = async () => {
-    setBusy(true);
-    try {
-      await signOut({ redirectUrl: "/connexion" });
-    } catch (err) {
-      console.error("[ProCannotAcceptModal] signOut failed", err);
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="pro-cannot-accept-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        background: "rgba(15, 22, 41, 0.55)",
-        // Pattern scroll-safe (cf. InsufficientBalanceModal) : sur les
-        // petits écrans (iPhone SE, paysage) la carte peut dépasser la
-        // hauteur du viewport. alignItems:center + pas de scroll
-        // rognerait le haut sans pouvoir y accéder → on rend l'overlay
-        // scrollable et on centre la carte via margin:auto.
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        overflowY: "auto",
-        padding: "24px 16px 48px",
-        backdropFilter: "blur(2px)",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
-    >
-      <div
-        style={{
-          background: "var(--paper, #FBF9F3)",
-          color: "var(--ink, #0F1629)",
-          borderRadius: 16,
-          width: "min(480px, 100%)",
-          padding: "28px 26px 22px",
-          boxShadow: "0 24px 64px -12px rgba(15,22,41,.45)",
-          border: "1px solid var(--line, #E5E1D6)",
-          // Centre verticalement quand ça tient, scrolle sinon.
-          margin: "auto 0",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "var(--accent, #4F46E5)",
-            fontWeight: 600,
-            marginBottom: 10,
-          }}
-        >
-          Compte professionnel
-        </div>
-        <h2
-          id="pro-cannot-accept-title"
-          style={{
-            fontSize: 22,
-            lineHeight: 1.25,
-            margin: 0,
-            marginBottom: 12,
-            fontWeight: 500,
-            fontFamily: "var(--serif, Georgia, serif)",
-          }}
-        >
-          Un compte <em style={{ color: "var(--accent, #4F46E5)" }}>prospect</em>{" "}
-          est nécessaire pour accepter une campagne.
-        </h2>
-        <p
-          style={{
-            fontSize: 14,
-            lineHeight: 1.55,
-            color: "var(--ink-3, #475467)",
-            margin: 0,
-            marginBottom: 22,
-          }}
-        >
-          Vous êtes connecté avec un compte <strong>professionnel</strong>. Sur
-          BUUPP, les professionnels <strong>lancent</strong> des campagnes&nbsp;;
-          ce sont les <strong>prospects</strong> qui les acceptent. Pour accepter
-          cette offre (flash deal ou campagne), connectez-vous avec un compte
-          prospect.
-        </p>
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 10,
-              border: "1px solid var(--line, #E5E1D6)",
-              background: "transparent",
-              color: "var(--ink, #0F1629)",
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: busy ? "not-allowed" : "pointer",
-              opacity: busy ? 0.5 : 1,
-            }}
-          >
-            Compris
-          </button>
-          <button
-            type="button"
-            onClick={switchAccount}
-            disabled={busy}
-            style={{
-              padding: "10px 18px",
-              borderRadius: 10,
-              border: 0,
-              background: "var(--ink, #0F1629)",
-              color: "var(--paper, #FBF9F3)",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: busy ? "wait" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            {busy ? "Déconnexion…" : "Utiliser un compte prospect"}
-            <span aria-hidden style={{ fontSize: 14 }}>
-              →
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function FlashDealModal({
   deal,
+  isPro,
   remainingHms,
   onClose,
   onAfterDecision,
@@ -1303,6 +1129,7 @@ function FlashDealModal({
   goDonnees,
 }: {
   deal: Deal;
+  isPro: boolean;
   remainingHms: string;
   onClose: () => void;
   onAfterDecision: () => Promise<void>;
@@ -1313,10 +1140,24 @@ function FlashDealModal({
   // active : ils n'existent pas en base, donc accept/refuse est simulé
   // localement (cf. decide()) pour préserver l'UX complète.
   const isMock = deal.id.startsWith("mock-");
+  const { signOut } = useClerk();
   const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(
     null,
   );
+  const [switchingAccount, setSwitchingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Côté pro (lecture seule) : déconnexion puis retour au login pour se
+  // reconnecter avec un compte prospect — seul rôle habilité à accepter.
+  const switchToProspect = async () => {
+    setSwitchingAccount(true);
+    try {
+      await signOut({ redirectUrl: "/connexion" });
+    } catch (err) {
+      console.error("[FlashDealModal] signOut failed", err);
+      setSwitchingAccount(false);
+    }
+  };
   const multStr = fmtMultiplier(deal.multiplier);
   const rewardEur = (Number(deal.costPerContactCents ?? 0) / 100)
     .toFixed(2)
@@ -1336,7 +1177,11 @@ function FlashDealModal({
       .sort((a, b) => a - b)[0] ?? undefined;
 
   let mode: string;
-  if (!deal.isAuthenticated) mode = "auth";
+  // Un compte professionnel peut consulter le détail mais pas accepter :
+  // on court-circuite tous les autres modes pour n'afficher qu'un encart
+  // explicatif en lecture seule (aucun bouton Accepter / Refuser).
+  if (isPro) mode = "pro_readonly";
+  else if (!deal.isAuthenticated) mode = "auth";
   else if (deal.relationStatus === "pending") mode = "decide";
   else if (deal.relationStatus) mode = "already_" + deal.relationStatus;
   else if (isMock) mode = "decide";
@@ -1753,6 +1598,64 @@ function FlashDealModal({
               </span>
             ))}
           </div>
+        )}
+
+        {mode === "pro_readonly" && (
+          <>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background:
+                  "color-mix(in oklab, var(--accent) 7%, var(--paper))",
+                border:
+                  "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))",
+                fontSize: 13,
+                color: "var(--ink-2)",
+                lineHeight: 1.55,
+                marginBottom: 14,
+              }}
+            >
+              <div
+                className="mono caps"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: ".14em",
+                  color: "var(--accent)",
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                Compte professionnel
+              </div>
+              Vous consultez cette offre avec un compte{" "}
+              <strong>professionnel</strong>. Sur BUUPP, les professionnels{" "}
+              <strong>lancent</strong> des campagnes&nbsp;; seuls les{" "}
+              <strong>prospects</strong> peuvent les accepter. Pour accepter
+              cette offre, connectez-vous avec un compte prospect.
+            </div>
+            <button
+              type="button"
+              onClick={switchToProspect}
+              disabled={switchingAccount}
+              className="btn btn-lg"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                background: "var(--ink)",
+                color: "var(--paper)",
+                opacity: switchingAccount ? 0.6 : 1,
+              }}
+            >
+              {switchingAccount ? (
+                "Déconnexion…"
+              ) : (
+                <>
+                  Utiliser un compte prospect <Icon name="arrow" size={14} />
+                </>
+              )}
+            </button>
+          </>
         )}
 
         {mode === "auth" && (
