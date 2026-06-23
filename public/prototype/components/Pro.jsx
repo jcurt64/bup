@@ -6160,7 +6160,9 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const ALL = allRows || [];
   const rows = ALL.filter(r =>
     (active.size === 0 || [...active].every(k => FILTERS[k].test(r))) &&
-    (prioFilter.size === 0 || prioFilter.has(r.priority))
+    (prioFilter.size === 0 || (Array.isArray(r.priorities)
+      ? r.priorities.some(p => prioFilter.has(p))
+      : prioFilter.has(r.priority)))
   );
 
   // Regroupement des lignes par campagne (préserve l'ordre d'arrivée).
@@ -7051,26 +7053,40 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                                   <Icon name="lock" size={11}/> Disponible à la clôture
                                 </span>
                               ) : (<>
-                              {/* Priorité de traitement enregistrée sur la fiche
-                                  (ProspectDetailsModal) : badge icône + numéro +
-                                  libellé, mêmes couleurs que le filtre/la fiche.
-                                  Affiché entre l'évaluation et « Voir détails ». */}
+                              {/* TOUTES les notes de fiabilité du prospect (par ce
+                                  pro), une par niveau distinct (ex. Haute + Moyenne),
+                                  identiques sur toutes ses campagnes. Badges compacts
+                                  icône + numéro SEULEMENT (pas de libellé) : la cellule
+                                  contient déjà « Voir détails » + les icônes de contact,
+                                  les libellés ne tiendraient pas. Libellé au survol. */}
                               {(() => {
-                                const po = FIABILITE_OPTS.find(o => o.v === r.priority);
-                                if (!po) return null;
+                                // Compte de pros par niveau (cross-pro), STRICTEMENT
+                                // identique à la fiche : le chiffre = nb de pros ayant
+                                // donné ce niveau (et non le n° de niveau). Ex. 1 Haute
+                                // + 1 Moyenne → « 🛡 1 » « 📊 1 ».
+                                const agg = r.fiabiliteAgg || {};
+                                const items = FIABILITE_OPTS
+                                  .map((o) => ({ o, n: Number(agg[String(o.v)] || 0) }))
+                                  .filter((x) => x.n > 0);
+                                if (items.length === 0) return null;
                                 return (
-                                  <span
-                                    title={`Fiabilité : ${po.label}`}
-                                    style={{
-                                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                                      padding: '4px 9px', borderRadius: 999,
-                                      fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                                      color: po.color,
-                                      background: `color-mix(in oklab, ${po.color} 12%, var(--paper))`,
-                                      border: `1px solid color-mix(in oklab, ${po.color} 35%, var(--line))`,
-                                    }}
-                                  >
-                                    <Icon name={po.icon} size={11}/> {po.v} · {po.label}
+                                  <span className="row center" style={{ gap: 4, flexWrap: 'wrap' }}>
+                                    {items.map(({ o, n }) => (
+                                      <span
+                                        key={o.v}
+                                        title={`${n} professionnel${n > 1 ? 's' : ''} ont noté la fiabilité « ${o.label} »`}
+                                        style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                                          padding: '4px 9px', borderRadius: 999,
+                                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                                          color: o.color,
+                                          background: `color-mix(in oklab, ${o.color} 12%, var(--paper))`,
+                                          border: `1px solid color-mix(in oklab, ${o.color} 35%, var(--line))`,
+                                        }}
+                                      >
+                                        <Icon name={o.icon} size={11}/> {n}
+                                      </span>
+                                    ))}
                                   </span>
                                 );
                               })()}
@@ -7658,10 +7674,17 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
                       transition: 'all .12s',
                     }}
                   >
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: o.color, fontWeight: 700, fontSize: 14 }}>
-                      <Icon name={o.icon} size={13}/> {o.v}
+                    {/* Icône dans une pastille colorée — plus de chiffre de
+                        niveau (1/2/3), qui prêtait à confusion avec un compte. */}
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 34, height: 34, borderRadius: 999, color: o.color,
+                      background: `color-mix(in oklab, ${o.color} 14%, var(--paper))`,
+                      border: `1px solid color-mix(in oklab, ${o.color} 30%, var(--line))`,
+                    }}>
+                      <Icon name={o.icon} size={16}/>
                     </div>
-                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{o.label}</div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{o.label}</div>
                   </button>
                 );
               })}

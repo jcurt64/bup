@@ -169,6 +169,44 @@ export async function GET(req: Request) {
     }
   }
 
+  // Agrégat de fiabilité CROSS-PRO par prospect — STRICTEMENT identique à la
+  // fiche détail (fiabiliteAgg) : note la plus récente par pro DISTINCT, puis
+  // COMPTE de pros par niveau ({ "1": n, "2": n, "3": n }). Le badge de la
+  // liste « déplier » affiche ce compte (et non le n° de niveau), pour rester
+  // cohérent avec la fiche (ex. 1 Haute + 1 Moyenne, pas « 2 Moyenne »).
+  // NB : `priority` (plus bas) reste la note de CETTE relation (édition fiche).
+  const fiabiliteAggByProspect = new Map<string, Record<string, number>>();
+  if (prospectIds.length > 0) {
+    const { data: ratingRows } = await admin
+      .from("relations")
+      .select("prospect_id, pro_account_id, pro_priority, decided_at")
+      .in("prospect_id", prospectIds)
+      .not("pro_priority", "is", null)
+      .order("decided_at", { ascending: false });
+    // prospect → (pro → note la plus récente). L'ordre desc garantit que la
+    // 1re note vue pour un (prospect, pro) est la plus récente.
+    const latestByProspectPro = new Map<string, Map<string, number>>();
+    for (const rr of (ratingRows ?? []) as {
+      prospect_id: string | null;
+      pro_account_id: string | null;
+      pro_priority: number | null;
+    }[]) {
+      if (!rr.prospect_id || !rr.pro_account_id || rr.pro_priority == null) continue;
+      if (!latestByProspectPro.has(rr.prospect_id)) {
+        latestByProspectPro.set(rr.prospect_id, new Map());
+      }
+      const m = latestByProspectPro.get(rr.prospect_id)!;
+      if (!m.has(rr.pro_account_id)) m.set(rr.pro_account_id, rr.pro_priority);
+    }
+    for (const [pid, proMap] of latestByProspectPro) {
+      const agg: Record<string, number> = { "1": 0, "2": 0, "3": 0 };
+      for (const lvl of proMap.values()) {
+        if (lvl === 1 || lvl === 2 || lvl === 3) agg[String(lvl)] += 1;
+      }
+      fiabiliteAggByProspect.set(pid, agg);
+    }
+  }
+
   const rows = ((data ?? []) as unknown as Row[]).map((r) => {
     const id = (Array.isArray(r.prospects) ? r.prospects[0] : r.prospects) ?? null;
     const ident = id?.prospect_identity
@@ -211,7 +249,16 @@ export async function GET(req: Request) {
       receivedAt: r.decided_at,
       evaluation: r.evaluation,
       evaluatedAt: r.evaluated_at,
+      // Note de CETTE relation (éditée dans la fiche ProspectDetailsModal).
       priority: r.pro_priority ?? null,
+      // Agrégat cross-pro { "1": n, "2": n, "3": n } (= compte de pros par
+      // niveau, identique à la fiche détail). Les badges de la liste l'affichent.
+      fiabiliteAgg: (id?.id && fiabiliteAggByProspect.get(id.id)) || null,
+      // Niveaux présents (count > 0) — sert au filtre fiabilité.
+      priorities: (() => {
+        const agg = id?.id ? fiabiliteAggByProspect.get(id.id) : null;
+        return agg ? [1, 2, 3].filter((l) => (agg[String(l)] ?? 0) > 0) : [];
+      })(),
       // Compteur quota email — front masque/désactive le bouton "Écrire"
       // quand emailsSent atteint 1 (cf. /api/pro/contacts/[id]/email).
       emailsSent: emailsSentByRel.get(r.id) ?? 0,
