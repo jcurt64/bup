@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminIcon from "./AdminIcon";
 
 type Row = {
   id: string;
@@ -124,7 +125,7 @@ export default function ProspectsTable() {
   return (
     <div className="space-y-3">
       {/* Barre de filtres — responsive : 2 colonnes mobile → flex desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="flex flex-col gap-0.5 min-w-0">
           <span className="text-[10px] font-bold uppercase" style={{ color: "var(--ink-3)", fontFamily: "var(--mono)" }}>
             Ville
@@ -132,7 +133,7 @@ export default function ProspectsTable() {
           <select
             value={ville}
             onChange={(e) => setVille(e.target.value)}
-            className="text-sm rounded px-2 py-1.5"
+            className="text-sm rounded-md px-3 py-2.5"
             style={SELECT_STYLE}
           >
             <option value="">Toutes les villes</option>
@@ -155,7 +156,7 @@ export default function ProspectsTable() {
             value={minScore}
             onChange={(e) => setMinScore(e.target.value)}
             placeholder="0"
-            className="text-sm rounded px-2 py-1.5 w-full"
+            className="text-sm rounded-md px-3 py-2.5 w-full"
             style={SELECT_STYLE}
           />
         </label>
@@ -167,7 +168,7 @@ export default function ProspectsTable() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="text-sm rounded px-2 py-1.5"
+            className="text-sm rounded-md px-3 py-2.5"
             style={SELECT_STYLE}
           >
             {PERIODS.map((p) => (
@@ -185,7 +186,7 @@ export default function ProspectsTable() {
           <select
             value={verification}
             onChange={(e) => setVerification(e.target.value)}
-            className="text-sm rounded px-2 py-1.5"
+            className="text-sm rounded-md px-3 py-2.5"
             style={SELECT_STYLE}
           >
             <option value="">Toutes</option>
@@ -204,7 +205,7 @@ export default function ProspectsTable() {
           <select
             value={founder}
             onChange={(e) => setFounder(e.target.value)}
-            className="text-sm rounded px-2 py-1.5"
+            className="text-sm rounded-md px-3 py-2.5"
             style={SELECT_STYLE}
           >
             <option value="">Tous</option>
@@ -220,7 +221,7 @@ export default function ProspectsTable() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="text-sm rounded px-2 py-1.5"
+            className="text-sm rounded-md px-3 py-2.5"
             style={SELECT_STYLE}
           >
             <option value="date_desc">Date ↓ (récents)</option>
@@ -274,9 +275,9 @@ export default function ProspectsTable() {
         </div>
       ) : (
         <div className="overflow-x-auto -mx-4 sm:mx-0">
-          <table className="w-full text-sm border-collapse min-w-[680px]">
+          <table className="w-full text-sm border-collapse min-w-170">
             <thead>
-              <tr style={{ background: "var(--ivory-2)" }}>
+              <tr>
                 {(
                   [
                     { h: "Email", sortable: null, align: "left" },
@@ -311,13 +312,10 @@ export default function ProspectsTable() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {rows.map((r) => (
                 <tr
                   key={r.id}
-                  style={{
-                    background: i % 2 === 1 ? "var(--ivory)" : "transparent",
-                    borderBottom: "1px solid var(--line)",
-                  }}
+                  style={{ borderBottom: "1px solid var(--line)" }}
                 >
                   <td className="px-3 py-2">
                     <Link
@@ -334,27 +332,15 @@ export default function ProspectsTable() {
                   <td className="px-3 py-2" style={{ color: "var(--ink-2)" }}>
                     {r.ville ?? "—"}
                   </td>
-                  <td
-                    className="px-3 py-2 text-right tabular-nums font-semibold"
-                    style={{ color: "var(--ink)" }}
-                  >
-                    {r.score}
+                  <td className="px-3 py-2 text-right">
+                    <ScorePill score={r.score} />
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className="text-[11px] font-bold uppercase rounded px-2 py-0.5"
-                      style={{
-                        background: "var(--accent-soft)",
-                        color: "var(--accent-ink)",
-                        fontFamily: "var(--mono)",
-                      }}
-                    >
-                      {r.verification}
-                    </span>
+                    <VerifPill verification={r.verification} />
                   </td>
                   <td className="px-3 py-2 text-center">
                     {r.founder ? (
-                      <span style={{ color: "var(--gold)", fontWeight: 700 }}>★</span>
+                      <span style={{ color: "#E0A100", fontWeight: 700, fontSize: 15 }}>★</span>
                     ) : (
                       <span style={{ color: "var(--ink-5)" }}>—</span>
                     )}
@@ -409,5 +395,61 @@ export default function ProspectsTable() {
         </div>
       )}
     </div>
+  );
+}
+
+// Pastille de score, teintée par tranche (≥800 vert · ≥500 ambre · sinon gris).
+function ScorePill({ score }: { score: number }) {
+  const tier =
+    score >= 800
+      ? { color: "var(--good)", bg: "color-mix(in oklab, var(--good) 13%, var(--paper))" }
+      : score >= 500
+        ? { color: "#9A6B00", bg: "color-mix(in oklab, #D4A017 16%, var(--paper))" }
+        : { color: "var(--ink-4)", bg: "var(--ivory-2)" };
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full tabular-nums font-bold"
+      style={{
+        minWidth: 44,
+        padding: "3px 10px",
+        fontSize: 12,
+        fontFamily: "var(--mono)",
+        background: tier.bg,
+        color: tier.color,
+      }}
+    >
+      {score}
+    </span>
+  );
+}
+
+// Pastille de niveau de vérification : basique (gris) · verifie (bleu, ✓) ·
+// certifie_confiance (vert, bouclier). Tout autre libellé retombe en gris.
+function VerifPill({ verification }: { verification: string }) {
+  const map: Record<string, { color: string; tint: string; icon: "check" | "badge-check" | null }> = {
+    basique: { color: "var(--ink-4)", tint: "var(--ivory-2)", icon: null },
+    verifie: { color: "#1D4ED8", tint: "color-mix(in oklab, #3B82F6 14%, var(--paper))", icon: "check" },
+    certifie_confiance: {
+      color: "var(--good)",
+      tint: "color-mix(in oklab, var(--good) 13%, var(--paper))",
+      icon: "badge-check",
+    },
+  };
+  const s = map[verification] ?? { color: "var(--ink-4)", tint: "var(--ivory-2)", icon: null };
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md font-bold lowercase"
+      style={{
+        padding: "3px 9px",
+        fontSize: 11,
+        fontFamily: "var(--mono)",
+        background: s.tint,
+        color: s.color,
+        letterSpacing: "0.02em",
+      }}
+    >
+      {s.icon && <AdminIcon name={s.icon} size={12} />}
+      {verification}
+    </span>
   );
 }

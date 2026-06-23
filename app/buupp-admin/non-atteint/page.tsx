@@ -1,17 +1,21 @@
 /**
  * /buupp-admin/non-atteint — Centre d'analyse des prospects signalés
- * non joignables. Affiche :
- *   - Vue d'ensemble (KPI cards : nb prospects flaggés, nb pros impliqués,
- *     villes uniques, alertes ouvertes)
- *   - Distribution prospects (genre, âge, top villes, dépts)
- *   - Distribution pros (secteur, plan, top villes, dépts)
- *   - Liste détaillée des alertes (admin_events) avec pros + dates
+ * non joignables. Refonte visuelle alignée sur `public/prototype/no.png`
+ * (intro éditoriale, cartes KPI à pastilles colorées, mini-cartes de
+ * distribution à barres, liste d'alertes en cartes bordées d'ambre).
  *
  * Server Component : lit via fetchNonAtteintOverview() en service_role.
  */
-import { fetchNonAtteintOverview } from "@/lib/admin/queries/non-atteint";
+import {
+  fetchNonAtteintOverview,
+  type DistributionEntry,
+} from "@/lib/admin/queries/non-atteint";
+import AdminIcon, { type AdminIconName } from "../_components/AdminIcon";
+import KpiCard from "../_components/KpiCard";
 
 export const dynamic = "force-dynamic";
+
+const fmt = new Intl.NumberFormat("fr-FR");
 
 function formatDateFr(iso: string | null): string {
   if (!iso) return "—";
@@ -29,346 +33,302 @@ function formatDateFr(iso: string | null): string {
 
 export default async function NonAtteintAdminPage() {
   const data = await fetchNonAtteintOverview();
-
   const { prospectStats, proStats, alerts } = data;
   const totalSignalements = alerts.reduce((acc, a) => acc + a.count, 0);
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
+    <div className="space-y-7">
+      {/* ─── Intro éditoriale ─────────────────────────────────────── */}
+      <header className="space-y-2 max-w-3xl">
         <div
-          className="text-[11px] uppercase"
-          style={{
-            color: "var(--ink-4)",
-            fontFamily: "var(--mono)",
-            letterSpacing: "0.06em",
-          }}
+          className="text-[11px] font-bold uppercase"
+          style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.14em" }}
         >
           Anti-fraude · Joignabilité
         </div>
-        <h1 className="text-xl font-medium" style={{ letterSpacing: "-0.01em" }}>
-          Prospects non atteints
-        </h1>
-        <p
-          className="text-sm"
-          style={{ color: "var(--ink-3)", maxWidth: 720 }}
+        <h2
+          style={{
+            fontFamily: "var(--serif)",
+            fontSize: 24,
+            fontWeight: 500,
+            color: "var(--ink)",
+            letterSpacing: "-0.01em",
+          }}
         >
+          Prospects non atteints
+        </h2>
+        <p className="text-sm" style={{ color: "var(--ink-3)", lineHeight: 1.6 }}>
           Liste des alertes générées quand un prospect a été signalé{" "}
-          <strong>non atteint</strong> au moins <strong>2 fois</strong> par les
-          pros (tous pros confondus). Ces prospects ont accepté la sollicitation
-          (et touché leur rémunération) mais n'ont pas répondu aux tentatives de
-          contact. Un message gentil leur est envoyé automatiquement.
+          <strong style={{ color: "var(--ink-2)" }}>non atteint</strong> au moins{" "}
+          <strong style={{ color: "var(--ink-2)" }}>2 fois</strong> par les pros (tous pros
+          confondus). Ces prospects ont accepté la sollicitation (et touché leur
+          rémunération) mais n&apos;ont pas répondu aux tentatives de contact. Un
+          message gentil leur est envoyé automatiquement.
         </p>
       </header>
 
-      {/* KPIs top-level */}
-      <KpiGrid
-        items={[
-          { label: "Prospects flaggés", value: prospectStats.total },
-          { label: "Pros impliqués", value: proStats.total },
-          { label: "Alertes (events)", value: alerts.length },
-          { label: "Signalements totaux", value: totalSignalements },
-        ]}
-      />
+      {/* ─── KPIs ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard hideDelta icon="flag" accent="#EC4899" label="Prospects flaggés" value={fmt.format(prospectStats.total)} />
+        <KpiCard hideDelta icon="briefcase" accent="#10B981" label="Pros impliqués" value={fmt.format(proStats.total)} />
+        <KpiCard hideDelta icon="ban" accent="#F59E0B" label="Alertes (events)" value={fmt.format(alerts.length)} />
+        <KpiCard hideDelta icon="list" accent="#6366F1" label="Signalements totaux" value={fmt.format(totalSignalements)} />
+      </div>
 
-      {/* Distributions prospects */}
-      <section className="space-y-3">
-        <SectionTitle title="Profil des prospects signalés" />
-        <div className="non-atteint-grid">
-          <Card title="Tranches d'âge">
-            <Histo data={prospectStats.ageRanges} />
-          </Card>
-          <Card title="Genre">
-            <Histo data={prospectStats.genre} />
-          </Card>
-          <Card title={`Top villes (${prospectStats.villesUnique} uniques)`}>
-            {prospectStats.topVilles.length === 0 ? (
-              <Empty />
-            ) : (
-              <Histo data={prospectStats.topVilles} />
-            )}
-          </Card>
-          <Card title="Top départements">
-            {prospectStats.departements.length === 0 ? (
-              <Empty />
-            ) : (
-              <Histo data={prospectStats.departements} />
-            )}
-          </Card>
+      {/* ─── Profil prospects ─────────────────────────────────────── */}
+      <section>
+        <SectionHead icon="users" accent="#10B981" title="Profil des prospects signalés" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <DistMini title="Tranches d'âge" data={prospectStats.ageRanges} color="#6366F1" />
+          <DistMini title="Genre" data={prospectStats.genre} color="#DC2626" />
+          <DistMini title={`Top villes (${prospectStats.villesUnique} uniques)`} data={prospectStats.topVilles} color="#6366F1" />
+          <DistMini title="Top départements" data={prospectStats.departements} color="#6366F1" />
         </div>
       </section>
 
-      {/* Distributions pros */}
-      <section className="space-y-3">
-        <SectionTitle title="Profil des pros à l'origine des signalements" />
-        <div className="non-atteint-grid">
-          <Card title="Secteurs d'activité">
-            <Histo data={proStats.secteurs} />
-          </Card>
-          <Card title="Plans BUUPP">
-            <Histo data={proStats.plans} />
-          </Card>
-          <Card title={`Top villes (${proStats.villesUnique} uniques)`}>
-            {proStats.topVilles.length === 0 ? (
-              <Empty />
-            ) : (
-              <Histo data={proStats.topVilles} />
-            )}
-          </Card>
-          <Card title="Top départements">
-            {proStats.departements.length === 0 ? (
-              <Empty />
-            ) : (
-              <Histo data={proStats.departements} />
-            )}
-          </Card>
+      {/* ─── Profil pros ──────────────────────────────────────────── */}
+      <section>
+        <SectionHead icon="briefcase" accent="#10B981" title="Profil des pros à l'origine des signalements" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <DistMini title="Secteurs d'activité" data={proStats.secteurs} color="#10B981" />
+          <DistMini title="Plans BUUPP" data={proStats.plans} color="#3B82F6" />
+          <DistMini title={`Top villes (${proStats.villesUnique} uniques)`} data={proStats.topVilles} color="#6366F1" />
+          <DistMini title="Top départements" data={proStats.departements} color="#6366F1" />
         </div>
       </section>
 
-      {/* Liste des alertes */}
-      <section className="space-y-3">
-        <SectionTitle title={`Alertes reçues (${alerts.length})`} />
-        <div
-          className="rounded-lg overflow-hidden"
-          style={{ background: "var(--paper)", border: "1px solid var(--line)" }}
-        >
-          {alerts.length === 0 ? (
-            <div className="p-6">
-              <Empty label="Aucune alerte pour le moment. 🎉" />
-            </div>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: "var(--line-2)" }}>
-              {alerts.map((a) => (
-                <li
+      {/* ─── Alertes reçues ───────────────────────────────────────── */}
+      <section>
+        <SectionHead icon="bell" accent="#F59E0B" title={`Alertes reçues (${alerts.length})`} />
+        {alerts.length === 0 ? (
+          <Card>
+            <EmptyState text="Aucune alerte pour le moment. 🎉" />
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {alerts.map((a) => {
+              const accent =
+                a.severity === "critical" ? "var(--danger)" : "#D4A017";
+              return (
+                <div
                   key={a.id}
-                  className="p-3 sm:p-4"
+                  className="rounded-xl overflow-hidden"
                   style={{
-                    borderLeft: `3px solid ${
-                      a.severity === "critical"
-                        ? "var(--danger)"
-                        : a.severity === "warning"
-                          ? "var(--warn)"
-                          : "var(--line-2)"
-                    }`,
+                    background: "var(--paper)",
+                    border: "1px solid var(--line)",
+                    borderLeft: `4px solid ${accent}`,
+                    boxShadow: "var(--shadow-1)",
                   }}
                 >
-                  <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
-                    <div>
-                      <div
-                        className="font-medium"
-                        style={{ color: "var(--ink)", fontSize: 14 }}
-                      >
-                        🔕 {a.prospectName}
-                        {a.prospectVille && (
-                          <span
-                            className="ml-2"
-                            style={{ color: "var(--ink-4)", fontWeight: 400 }}
-                          >
-                            · {a.prospectVille}
-                          </span>
-                        )}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span
+                          className="inline-flex items-center justify-center rounded-lg shrink-0 mt-0.5"
+                          style={{
+                            width: 30,
+                            height: 30,
+                            background: "color-mix(in oklab, #D4A017 16%, var(--paper))",
+                            color: "#9A6B00",
+                          }}
+                        >
+                          <AdminIcon name="ban" size={16} />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold" style={{ color: "var(--ink)", fontSize: 14 }}>
+                              {a.prospectName}
+                            </span>
+                            {a.prospectVille && (
+                              <span style={{ color: "var(--ink-4)", fontSize: 13 }}>
+                                · {a.prospectVille}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                            <span
+                              className="inline-flex items-center rounded-md font-bold"
+                              style={{
+                                padding: "2px 8px",
+                                fontSize: 11,
+                                fontFamily: "var(--mono)",
+                                background: "color-mix(in oklab, #D4A017 16%, var(--paper))",
+                                color: "#9A6B00",
+                              }}
+                            >
+                              {a.count}× non atteint
+                            </span>
+                            <span style={{ color: "var(--ink-3)", fontSize: 13 }}>
+                              message gentil envoyé au prospect.
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div
-                        className="text-xs"
-                        style={{ color: "var(--ink-3)" }}
+                      <span
+                        className="shrink-0 whitespace-nowrap"
+                        style={{ color: "var(--ink-5)", fontSize: 11, fontFamily: "var(--mono)" }}
                       >
-                        {a.count}× signalé non atteint — message gentil envoyé
-                        au prospect.
-                      </div>
-                    </div>
-                    <div
-                      className="text-xs"
-                      style={{
-                        color: "var(--ink-5)",
-                        fontFamily: "var(--mono)",
-                      }}
-                    >
-                      {formatDateFr(a.createdAt)}
+                        {formatDateFr(a.createdAt)}
+                      </span>
                     </div>
                   </div>
                   {a.pros.length > 0 && (
-                    <ul
-                      className="space-y-0.5"
-                      style={{
-                        paddingLeft: 0,
-                        listStyle: "none",
-                        fontSize: 11,
-                        color: "var(--ink-3)",
-                      }}
-                    >
+                    <div style={{ borderTop: "1px solid var(--line)" }}>
                       {a.pros.map((p, i) => (
-                        <li
+                        <div
                           key={i}
-                          className="flex justify-between gap-3 flex-wrap"
+                          className="flex items-center justify-between gap-3 px-4 py-2.5"
                           style={{
-                            padding: "3px 8px",
-                            borderRadius: 4,
-                            background: "rgba(15,22,41,0.03)",
+                            background: "var(--ivory)",
+                            borderTop: i === 0 ? undefined : "1px solid var(--line)",
                           }}
                         >
-                          <span style={{ fontWeight: 500 }}>{p.raisonSociale}</span>
+                          <span className="truncate" style={{ color: "var(--ink-2)", fontSize: 13 }}>
+                            {p.raisonSociale}
+                          </span>
                           <span
-                            style={{
-                              fontFamily: "var(--mono)",
-                              color: "var(--ink-5)",
-                            }}
+                            className="shrink-0 whitespace-nowrap"
+                            style={{ color: "var(--ink-5)", fontSize: 11, fontFamily: "var(--mono)" }}
                           >
                             {formatDateFr(p.flaggedAt)}
                           </span>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
-
-      {/* Styles responsive — grid 2-col tablet, 4-col desktop. */}
-      <style>{`
-        .non-atteint-grid {
-          display: grid;
-          gap: 14px;
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 640px) {
-          .non-atteint-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (min-width: 1024px) {
-          .non-atteint-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-      `}</style>
     </div>
   );
 }
 
-/* ─── UI atoms ─────────────────────────────────────────────────────── */
+// ──────────────────────────────────────────────────────────────────
+// Helpers de présentation
+// ──────────────────────────────────────────────────────────────────
 
-function SectionTitle({ title }: { title: string }) {
+function SectionHead({
+  icon,
+  accent,
+  title,
+}: {
+  icon: AdminIconName;
+  accent: string;
+  title: string;
+}) {
   return (
-    <h2
-      className="text-sm font-medium"
-      style={{
-        color: "var(--ink-2)",
-        textTransform: "uppercase",
-        letterSpacing: "0.08em",
-        fontSize: 11,
-        fontFamily: "var(--mono)",
-      }}
-    >
-      {title}
-    </h2>
-  );
-}
-
-function KpiGrid({ items }: { items: { label: string; value: number }[] }) {
-  return (
-    <>
-      <div className="kpi-grid">
-        {items.map((it) => (
-          <div
-            key={it.label}
-            className="rounded-lg p-3"
-            style={{ background: "var(--paper)", border: "1px solid var(--line)" }}
-          >
-            <div
-              className="text-[10px] uppercase mb-1"
-              style={{
-                color: "var(--ink-4)",
-                fontFamily: "var(--mono)",
-                letterSpacing: "0.06em",
-              }}
-            >
-              {it.label}
-            </div>
-            <div
-              className="font-medium tabular-nums"
-              style={{ fontSize: 22, color: "var(--ink)" }}
-            >
-              {it.value.toLocaleString("fr-FR")}
-            </div>
-          </div>
-        ))}
-      </div>
-      <style>{`
-        .kpi-grid {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: repeat(2, 1fr);
-        }
-        @media (min-width: 640px) {
-          .kpi-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-      `}</style>
-    </>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-lg p-3"
-      style={{ background: "var(--paper)", border: "1px solid var(--line)" }}
-    >
-      <div
-        className="text-[10px] uppercase mb-2"
+    <div className="flex items-center gap-2.5 mb-3">
+      <span
+        className="inline-flex items-center justify-center rounded-lg shrink-0"
         style={{
-          color: "var(--ink-4)",
-          fontFamily: "var(--mono)",
-          letterSpacing: "0.06em",
+          width: 28,
+          height: 28,
+          background: `color-mix(in oklab, ${accent} 14%, var(--paper))`,
+          color: accent,
         }}
       >
+        <AdminIcon name={icon} size={15} />
+      </span>
+      <span
+        className="text-[12px] font-bold uppercase"
+        style={{ color: "var(--ink-2)", fontFamily: "var(--mono)", letterSpacing: "0.1em" }}
+      >
         {title}
-      </div>
+      </span>
+    </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="rounded-xl p-4 sm:p-5"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-1)",
+      }}
+    >
       {children}
     </div>
   );
 }
 
-function Histo({ data }: { data: { key: string; n: number }[] }) {
-  if (data.length === 0) return <Empty />;
-  const max = Math.max(...data.map((d) => d.n), 1);
+function DistMini({
+  title,
+  data,
+  color,
+}: {
+  title: string;
+  data: DistributionEntry[];
+  color: string;
+}) {
   return (
-    <div className="space-y-1">
-      {data.map((d) => (
-        <div key={d.key} className="flex items-center gap-2">
-          <div
-            className="text-xs font-medium truncate"
-            style={{ width: "40%", color: "var(--ink-3)" }}
-            title={d.key}
-          >
-            {d.key}
-          </div>
-          <div
-            className="flex-1 h-2.5 rounded"
-            style={{ background: "var(--ivory-2)" }}
-          >
-            <div
-              className="h-2.5 rounded"
-              style={{
-                width: `${(d.n / max) * 100}%`,
-                background: "var(--accent)",
-              }}
-            />
-          </div>
-          <div
-            className="text-xs font-semibold tabular-nums"
-            style={{ width: 28, textAlign: "right", color: "var(--ink)" }}
-          >
-            {d.n}
-          </div>
+    <div
+      className="rounded-xl p-4"
+      style={{ background: "var(--paper)", border: "1px solid var(--line)", boxShadow: "var(--shadow-1)" }}
+    >
+      <div
+        className="text-[10.5px] font-bold uppercase mb-3"
+        style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.1em" }}
+      >
+        {title}
+      </div>
+      {data.length === 0 ? (
+        <EmptyState text="Aucune donnée." />
+      ) : (
+        <div className="space-y-2">
+          {(() => {
+            const max = Math.max(...data.map((d) => d.n), 1);
+            return data.map((d) => (
+              <div key={d.key} className="flex items-center gap-2.5">
+                <div
+                  className="shrink-0 truncate text-[13px]"
+                  style={{ width: "42%", color: "var(--ink-2)" }}
+                  title={d.key}
+                >
+                  {d.key}
+                </div>
+                <div className="flex-1 h-3 rounded-full" style={{ background: "var(--ivory-2)" }}>
+                  <div
+                    className="h-3 rounded-full"
+                    style={{
+                      width: `${Math.max((d.n / max) * 100, d.n > 0 ? 8 : 0)}%`,
+                      background: `linear-gradient(90deg, color-mix(in oklab, ${color} 78%, white), ${color})`,
+                    }}
+                  />
+                </div>
+                <div
+                  className="w-6 text-right tabular-nums font-bold shrink-0"
+                  style={{ color: "var(--ink)", fontSize: 13 }}
+                >
+                  {fmt.format(d.n)}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
-function Empty({ label = "Aucune donnée." }: { label?: string }) {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div className="text-xs" style={{ color: "var(--ink-5)" }}>
-      {label}
+    <div className="flex items-center gap-2 py-1 text-sm" style={{ color: "var(--ink-4)" }}>
+      <span
+        className="inline-flex items-center justify-center rounded-full shrink-0"
+        style={{ width: 20, height: 20, border: "1.5px solid var(--line-2)", color: "var(--ink-5)" }}
+        aria-hidden
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </span>
+      {text}
     </div>
   );
 }

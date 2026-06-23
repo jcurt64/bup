@@ -75,22 +75,27 @@ export default async function SignalementsAdminPage({
   ]);
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
+    <div className="space-y-7">
+      {/* Intro éditoriale */}
+      <header className="space-y-2 max-w-3xl">
         <div
-          className="text-[11px] uppercase"
-          style={{
-            color: "var(--ink-4)",
-            fontFamily: "var(--mono)",
-            letterSpacing: "0.06em",
-          }}
+          className="text-[11px] font-bold uppercase"
+          style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.14em" }}
         >
           Anti-fraude · Pros
         </div>
-        <h1 className="text-xl font-medium" style={{ letterSpacing: "-0.01em" }}>
+        <h2
+          style={{
+            fontFamily: "var(--serif)",
+            fontSize: 24,
+            fontWeight: 500,
+            color: "var(--ink)",
+            letterSpacing: "-0.01em",
+          }}
+        >
           Signalements de professionnels
-        </h1>
-        <p className="text-sm" style={{ color: "var(--ink-3)", maxWidth: 720 }}>
+        </h2>
+        <p className="text-sm" style={{ color: "var(--ink-3)", lineHeight: 1.6 }}>
           Liste des signalements envoyés par les prospects depuis la modale de
           mise en relation. Trois motifs possibles : sollicitation multiple,
           faux compte, échange abusif. Marque un signalement « traité » quand
@@ -99,28 +104,28 @@ export default async function SignalementsAdminPage({
       </header>
 
       {/* KPI */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Kpi label="À traiter" value={kpis.open} />
         <Kpi label="Traités 30 j" value={kpis.resolved30d} />
         <Kpi label={`Total ${periodLabel(period)}`} value={kpis.totalPeriod} />
         <div
-          className="rounded-lg p-4 flex flex-col gap-1"
-          style={{ background: "var(--paper)", border: "1px solid var(--line)" }}
+          className="rounded-xl p-4 sm:p-[18px] flex flex-col gap-2"
+          style={{
+            background: "var(--paper)",
+            border: "1px solid var(--line)",
+            boxShadow: "var(--shadow-1)",
+          }}
         >
           <div
-            className="text-[11px] uppercase"
-            style={{
-              color: "var(--ink-4)",
-              fontFamily: "var(--mono)",
-              letterSpacing: "0.06em",
-            }}
+            className="text-[11px] font-bold uppercase"
+            style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.08em" }}
           >
             Répartition motifs
           </div>
-          <div className="flex flex-wrap gap-2 mt-1 text-xs">
-            <span>Multi: {kpis.byReason.sollicitation_multiple}</span>
-            <span>Faux: {kpis.byReason.faux_compte}</span>
-            <span>Abus: {kpis.byReason.echange_abusif}</span>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]" style={{ color: "var(--ink-2)" }}>
+            <span>Multi: <strong>{kpis.byReason.sollicitation_multiple}</strong></span>
+            <span>Faux: <strong>{kpis.byReason.faux_compte}</strong></span>
+            <span>Abus: <strong>{kpis.byReason.echange_abusif}</strong></span>
           </div>
         </div>
       </section>
@@ -128,7 +133,7 @@ export default async function SignalementsAdminPage({
       {/* Filtres */}
       <form
         method="GET"
-        className="flex flex-wrap gap-2 items-end"
+        className="flex flex-wrap gap-3 items-end"
         style={{ color: "var(--ink-3)" }}
       >
         <Select name="status" value={status} options={STATUS_OPTIONS} label="Statut" />
@@ -136,7 +141,7 @@ export default async function SignalementsAdminPage({
         <Select name="period" value={period} options={PERIOD_OPTIONS} label="Période" />
         <button
           type="submit"
-          className="text-xs rounded px-3 py-1.5 cursor-pointer"
+          className="text-sm font-medium rounded-md px-4 py-2.5 cursor-pointer transition-colors"
           style={{
             background: "var(--ink)",
             color: "var(--paper)",
@@ -219,20 +224,30 @@ function buildHref(o: {
 function Kpi({ label, value }: { label: string; value: number }) {
   return (
     <div
-      className="rounded-lg p-4"
-      style={{ background: "var(--paper)", border: "1px solid var(--line)" }}
+      className="rounded-xl p-4 sm:p-[18px] flex flex-col gap-2"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-1)",
+      }}
     >
       <div
-        className="text-[11px] uppercase mb-1"
-        style={{
-          color: "var(--ink-4)",
-          fontFamily: "var(--mono)",
-          letterSpacing: "0.06em",
-        }}
+        className="text-[11px] font-bold uppercase"
+        style={{ color: "var(--ink-4)", fontFamily: "var(--mono)", letterSpacing: "0.08em" }}
       >
         {label}
       </div>
-      <div className="text-2xl" style={{ fontFamily: "var(--serif)" }}>
+      <div
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--serif)",
+          fontSize: 30,
+          lineHeight: 1,
+          fontWeight: 500,
+          color: "var(--ink)",
+          letterSpacing: "-0.02em",
+        }}
+      >
         {new Intl.NumberFormat("fr-FR").format(value)}
       </div>
     </div>
@@ -253,9 +268,9 @@ function Select<T extends string>({
   return (
     <label className="flex flex-col gap-1">
       <span
-        className="text-[10px] uppercase"
+        className="text-[10px] font-bold uppercase"
         style={{
-          color: "var(--ink-4)",
+          color: "var(--ink-3)",
           fontFamily: "var(--mono)",
           letterSpacing: "0.06em",
         }}
@@ -265,7 +280,7 @@ function Select<T extends string>({
       <select
         name={name}
         defaultValue={value}
-        className="text-sm rounded px-2 py-1.5"
+        className="admin-select text-sm rounded-md px-3 py-2.5 cursor-pointer"
         style={{
           background: "var(--paper)",
           color: "var(--ink)",

@@ -47,16 +47,16 @@ export default function ReportCard({ report }: { report: ReportListItem }) {
   const isResolved = report.resolvedAt !== null;
   return (
     <article
-      className="rounded-lg p-4"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "var(--paper)",
         border: "1px solid var(--line)",
         boxShadow: "var(--shadow-1)",
       }}
     >
-      <header className="flex flex-wrap items-start gap-3 mb-3">
+      <header className="flex flex-wrap items-center gap-3 mb-4">
         <span
-          className="text-xs rounded px-2 py-0.5 font-medium"
+          className="text-xs rounded-md px-2.5 py-1 font-semibold"
           style={{ background: tone.bg, color: tone.color }}
         >
           {REASON_LABEL[report.reason]}
@@ -70,7 +70,7 @@ export default function ReportCard({ report }: { report: ReportListItem }) {
         <div className="ml-auto">
           {isResolved ? (
             <span
-              className="text-[11px] uppercase rounded px-2 py-0.5"
+              className="text-[11px] font-bold uppercase rounded-md px-2.5 py-1"
               style={{
                 background: "color-mix(in oklab, var(--good) 14%, var(--paper))",
                 color: "var(--good)",
@@ -82,7 +82,7 @@ export default function ReportCard({ report }: { report: ReportListItem }) {
             </span>
           ) : (
             <span
-              className="text-[11px] uppercase rounded px-2 py-0.5"
+              className="text-[11px] font-bold uppercase rounded-md px-2.5 py-1"
               style={{
                 background: "color-mix(in oklab, var(--warn) 14%, var(--paper))",
                 color: "var(--warn)",

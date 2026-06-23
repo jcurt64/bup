@@ -6,22 +6,25 @@ export default function KpiCard({
   label,
   value,
   unit,
-  current,
-  previous,
+  current = 0,
+  previous = 0,
   spark,
   icon,
   accent = "var(--accent)",
+  hideDelta = false,
 }: {
   label: string;
   value: string;
   unit?: string;
-  current: number;
-  previous: number;
+  current?: number;
+  previous?: number;
   spark?: number[];
   /** Icône affichée dans la pastille teintée (maquette da.png). */
   icon?: AdminIconName;
   /** Couleur d'accent : bordure gauche + teinte de la pastille d'icône. */
   accent?: string;
+  /** Masque la pastille de variation (cartes sans comparaison période). */
+  hideDelta?: boolean;
 }) {
   return (
     <div
@@ -85,7 +88,7 @@ export default function KpiCard({
             </span>
           )}
         </div>
-        <Delta current={current} previous={previous} />
+        {!hideDelta && <Delta current={current} previous={previous} />}
       </div>
       {spark && <Sparkline values={spark} />}
     </div>
