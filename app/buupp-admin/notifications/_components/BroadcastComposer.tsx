@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Audience = "prospects" | "pros" | "all" | "founders_gold";
+type Audience = "prospects" | "pros" | "all" | "founders_gold" | "waitlist";
 
 const AUDIENCE_OPTIONS: { value: Audience; label: string; hint: string }[] = [
   { value: "prospects", label: "Tous les prospects", hint: "Envoie à tous les particuliers inscrits." },
   { value: "pros", label: "Tous les pros", hint: "Envoie à tous les comptes professionnels." },
   { value: "all", label: "Tous les utilisateurs", hint: "Prospects + pros — usage parcimonieux." },
   { value: "founders_gold", label: "Fondateurs Or", hint: "Prospects au palier Or (10 filleuls)." },
+  { value: "waitlist", label: "Liste d'attente", hint: "Inscrits de la waitlist (email uniquement, sans cloche)." },
 ];
 
 const MAX_TITLE = 200;
@@ -425,8 +426,12 @@ function ConfirmSendModal({
     prospects: "tous les prospects",
     pros: "tous les pros",
     founders_gold: "les fondateurs Or (10 filleuls)",
+    waitlist: "les inscrits de la liste d'attente",
   };
   const audienceLabel = AUDIENCE_LABEL_MAP[audience];
+  // Les inscrits waitlist n'ont pas de compte → pas de cloche in-app,
+  // uniquement un email. On adapte la phrase de confirmation.
+  const isWaitlist = audience === "waitlist";
 
   return (
     <div
@@ -463,8 +468,10 @@ function ConfirmSendModal({
           style={{ color: "var(--ink-3)", lineHeight: 1.5 }}
         >
           Le message <strong style={{ color: "var(--ink)" }}>« {title} »</strong> sera
-          envoyé par email à <strong style={{ color: "var(--ink)" }}>{audienceLabel}</strong>{" "}
-          et apparaîtra dans la cloche de leur espace.
+          envoyé par email à <strong style={{ color: "var(--ink)" }}>{audienceLabel}</strong>
+          {isWaitlist
+            ? " (par email uniquement — ces inscrits n'ont pas encore de compte)."
+            : " et apparaîtra dans la cloche de leur espace."}
         </p>
 
         <div

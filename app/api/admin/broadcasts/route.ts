@@ -17,6 +17,7 @@ import { auth, clerkClient } from "@/lib/clerk/server";
 import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
+import { sendWaitlistBroadcast } from "@/lib/email/waitlist-broadcast";
 import { signOptOutToken } from "@/lib/email-tracking/token";
 import { referralBadgeTier } from "@/lib/waitlist/referral";
 
@@ -34,7 +35,13 @@ type RawRecipient = {
 
 export const runtime = "nodejs";
 
-const AUDIENCES = ["prospects", "pros", "all", "founders_gold"] as const;
+const AUDIENCES = [
+  "prospects",
+  "pros",
+  "all",
+  "founders_gold",
+  "waitlist",
+] as const;
 type Audience = (typeof AUDIENCES)[number];
 
 // Allowlist mimetype pour l'upload. Largement défensif — on accepte les
@@ -148,6 +155,67 @@ export async function POST(req: Request) {
         .update({ attachment_path: path, attachment_filename: safeName })
         .eq("id", broadcastId);
     }
+  }
+
+  // 2.bis Audience « liste d'attente » — chemin distinct.
+  //   Les inscrits waitlist n'ont pas (encore) de compte BUUPP : ni
+  //   clerk_user_id (donc pas de token opt-out / cloche in-app), ni rôle
+  //   prospect/pro, ni pixel de mesure CNIL rattaché à un compte. On les
+  //   contacte par email simple (perso. avec le prénom), CTA → création
+  //   de compte. On ne crée donc PAS de rows admin_broadcast_recipients
+  //   (pas de tracking d'ouverture in-app pour cette audience).
+  if (audience === "waitlist") {
+    const wlRecipients = await collectWaitlistRecipients(admin);
+
+    // Pièce jointe : route /api/me/notifications/[id]/attachment est
+    // authentifiée → inutilisable sans compte. On génère une URL signée
+    // Storage (30 jours) pour que le lien fonctionne côté waitlist.
+    let signedAttachmentUrl: string | null = null;
+    if (attachmentPath) {
+      const { data: signed, error: signErr } = await admin.storage
+        .from("admin-broadcasts")
+        .createSignedUrl(attachmentPath, 60 * 60 * 24 * 30);
+      if (signErr) {
+        console.error("[/api/admin/broadcasts POST] signed url failed", signErr);
+      } else {
+        signedAttachmentUrl = signed?.signedUrl ?? null;
+      }
+    }
+
+    await admin
+      .from("admin_broadcasts")
+      .update({ total_recipients: wlRecipients.length })
+      .eq("id", broadcastId);
+
+    const wlSendPromise = sendWaitlistBroadcast({
+      broadcastId,
+      title,
+      body,
+      attachmentUrl: signedAttachmentUrl,
+      attachmentFilename,
+      recipients: wlRecipients,
+    })
+      .then(async () => {
+        await admin
+          .from("admin_broadcasts")
+          .update({ sent_email_at: new Date().toISOString() })
+          .eq("id", broadcastId);
+      })
+      .catch((err) => {
+        console.error("[/api/admin/broadcasts POST] waitlist send loop failed", err);
+      });
+    try {
+      const { after } = await import("next/server");
+      after(wlSendPromise);
+    } catch {
+      void wlSendPromise;
+    }
+
+    return NextResponse.json({
+      id: broadcastId,
+      recipientCount: wlRecipients.length,
+      hasAttachment: !!attachmentPath,
+    });
   }
 
   // 3. Construction de la liste des destinataires.
@@ -327,6 +395,32 @@ export async function GET(req: Request) {
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
+
+// Destinataires de l'audience « liste d'attente » : on lit directement
+// la table `waitlist` (email + prénom). Dédup insensible à la casse.
+async function collectWaitlistRecipients(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+): Promise<{ email: string; prenom: string }[]> {
+  const { data, error } = await admin
+    .from("waitlist")
+    .select("email, prenom")
+    .not("email", "is", null);
+  if (error) {
+    console.error("[broadcasts] waitlist read failed", error);
+    return [];
+  }
+  const seen = new Set<string>();
+  const out: { email: string; prenom: string }[] = [];
+  for (const r of data ?? []) {
+    const email = (r.email ?? "").trim();
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ email, prenom: (r.prenom ?? "").trim() });
+  }
+  return out;
+}
 
 async function collectRecipients(
   admin: ReturnType<typeof createSupabaseAdminClient>,

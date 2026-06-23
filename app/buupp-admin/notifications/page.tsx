@@ -3,11 +3,15 @@ import BroadcastComposer from "./_components/BroadcastComposer";
 
 export const dynamic = "force-dynamic";
 
-const AUDIENCE_LABEL: Record<"prospects" | "pros" | "all" | "founders_gold", string> = {
+const AUDIENCE_LABEL: Record<
+  "prospects" | "pros" | "all" | "founders_gold" | "waitlist",
+  string
+> = {
   prospects: "Tous les prospects",
   pros: "Tous les pros",
   all: "Tous les utilisateurs",
   founders_gold: "Fondateurs Or",
+  waitlist: "Liste d'attente",
 };
 
 export default async function NotificationsAdminPage() {
