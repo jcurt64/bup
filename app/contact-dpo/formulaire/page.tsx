@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import BackHomeButton from "../../_components/BackHomeButton";
 import ContactDpoForm from "../_components/ContactDpoForm";
@@ -28,10 +29,11 @@ export default function DpoFormulairePage() {
           aria-label="Retour à l'accueil BUUPP"
           style={{ display: "inline-block", marginBottom: 32, lineHeight: 0 }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/logo.png"
             alt="BUUPP"
+            width={800}
+            height={295}
             style={{ height: 44, width: "auto", display: "block" }}
           />
         </Link>

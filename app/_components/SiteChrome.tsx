@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
 import LogoutConfirmModal from "./LogoutConfirmModal";
 
@@ -186,10 +187,12 @@ export function Logo({
   const content = (
     <div className="row center" style={{ color: color || "inherit", gap: 8 }}>
       <WorldCupBall size={Math.round(size * 0.42)} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src="/logo.png"
         alt="BUUPP"
+        width={800}
+        height={295}
+        priority
         style={{ height: size, width: "auto", display: "block" }}
       />
     </div>

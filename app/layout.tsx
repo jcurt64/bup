@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, DM_Sans, JetBrains_Mono, Caveat, Josefin_Sans } from "next/font/google";
+import { Fraunces, DM_Sans, JetBrains_Mono, Josefin_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
 
@@ -42,21 +42,13 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-// Police manuscrite « friendly » utilisée pour quelques liens accentués
-// de la navbar (À propos, Contact) — exposée via --font-caveat.
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
-
 // Police des liens accentués du header (« Buupp & vos données », « Contact ») —
-// exposée via --font-josefin.
+// exposée via --font-josefin. Seuls les poids 300 (about) et 700 (header)
+// sont réellement utilisés → on ne télécharge que ceux-là.
 const josefinSans = Josefin_Sans({
   variable: "--font-josefin",
   subsets: ["latin"],
-  weight: ["100", "300", "400", "500", "600", "700"],
+  weight: ["300", "700"],
   display: "swap",
 });
 
@@ -178,7 +170,7 @@ export default function RootLayout({
     <ClerkProvider localization={buppFrFR}>
       <html
         lang="fr"
-        className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${caveat.variable} ${josefinSans.variable}`}
+        className={`${fraunces.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${josefinSans.variable}`}
         suppressHydrationWarning
       >
         <body data-palette="indigo" suppressHydrationWarning>

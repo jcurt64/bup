@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import BackHomeButton from "../_components/BackHomeButton";
 import PageVersion from "../_components/PageVersion";
@@ -120,10 +121,11 @@ export default function StatusPage() {
           aria-label="Retour à l'accueil BUUPP"
           style={{ display: "inline-block", marginBottom: 32, lineHeight: 0 }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/logo.png"
             alt="BUUPP"
+            width={800}
+            height={295}
             style={{ height: 44, width: "auto", display: "block" }}
           />
         </Link>

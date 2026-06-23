@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   // dépendance externe Node, pour que `require('pdfkit')` résolve
   // depuis le vrai `node_modules`.
   serverExternalPackages: ["pdfkit", "fontkit"],
+  // Optimisation des images servies via next/image : sert de l'AVIF/WebP
+  // (bien plus léger que PNG/JPEG) quand le navigateur le supporte, et
+  // met en cache les variantes optimisées 1 an.
+  images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 31536000,
+  },
   // Le prototype est rendu côté navigateur via Babel-standalone : les
   // fichiers `.jsx` de /public/prototype sont chargés à chaque ouverture
   // de l'iframe et compilés à la volée. Sans en-tête no-cache, le
