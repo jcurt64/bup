@@ -9,7 +9,7 @@
  * Permet ensuite au pro de filtrer/trier ses prospects et d'organiser ses
  * relances. La priorité est propre au pro propriétaire de la relation.
  *
- * 200 → { ok: true, priority }
+ * 200 → { ok: true, priority, fiabiliteAgg } (agrégat cross-pro rafraîchi)
  * 400 → body invalide
  * 401 → non authentifié
  * 403 → relation introuvable / wrong pro / status hors accepted|settled
@@ -19,7 +19,11 @@ import { after, NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
-import { computeAndPersistProspectScore } from "@/lib/prospect/score";
+import {
+  computeAndPersistProspectScore,
+  computeFiabiliteAgg,
+  type FiabiliteAgg,
+} from "@/lib/prospect/score";
 
 export const runtime = "nodejs";
 
@@ -83,16 +87,22 @@ export async function POST(req: Request, ctx: RouteContext) {
   }
 
   // La note pro alimente la FIABILITÉ agrégée du prospect (indice de
-  // désirabilité + filtre de ciblage). On recalcule son score après réponse.
+  // désirabilité + filtre de ciblage). On renvoie l'agrégat cross-pro FRAIS
+  // (calculé après l'UPDATE committé) pour que le client rafraîchisse les
+  // badges « N » par niveau sans recharger la liste, puis on recalcule le score
+  // dénormalisé (plus lourd) en tâche de fond.
+  let fiabiliteAgg: FiabiliteAgg | null = null;
   if (rel.prospect_id) {
+    const prospectId = rel.prospect_id as string;
+    fiabiliteAgg = await computeFiabiliteAgg(admin, prospectId);
     after(async () => {
       try {
-        await computeAndPersistProspectScore(admin, rel.prospect_id as string);
+        await computeAndPersistProspectScore(admin, prospectId);
       } catch (e) {
         console.error("[priority] recompute fiabilité failed", e);
       }
     });
   }
 
-  return NextResponse.json({ ok: true, priority });
+  return NextResponse.json({ ok: true, priority, fiabiliteAgg });
 }

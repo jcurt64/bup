@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   fiabilitePctFromRatings,
+  fiabiliteAggFromRatings,
   FIABILITE_POINTS,
   FIABILITE_PRIOR_M0,
   FIABILITE_PRIOR_C,
@@ -33,5 +34,42 @@ describe("fiabilitePctFromRatings (bayésien m₀=60, C=3)", () => {
   });
   it("ignores unknown levels (count only valid ratings)", () => {
     expect(fiabilitePctFromRatings([1, 9, 0])).toBe(70); // only the 1 counts → (180+100)/4
+  });
+});
+
+// Agrégat cross-pro : nb de pros DISTINCTS par niveau, en retenant la note la
+// plus récente de chaque pro (lignes supposées triées par date décroissante).
+describe("fiabiliteAggFromRatings (cross-pro, latest per distinct pro)", () => {
+  it("zeroed when no ratings", () => {
+    expect(fiabiliteAggFromRatings([])).toEqual({ "1": 0, "2": 0, "3": 0 });
+  });
+  it("counts one per distinct pro and per level", () => {
+    expect(
+      fiabiliteAggFromRatings([
+        { pro_account_id: "a", pro_priority: 1 },
+        { pro_account_id: "b", pro_priority: 2 },
+        { pro_account_id: "c", pro_priority: 1 },
+      ]),
+    ).toEqual({ "1": 2, "2": 1, "3": 0 });
+  });
+  it("keeps only the most recent rating of a repeating pro (first row wins)", () => {
+    // Lignes triées desc : la 1re vue pour un pro est sa note la plus récente.
+    expect(
+      fiabiliteAggFromRatings([
+        { pro_account_id: "a", pro_priority: 3 }, // récent → retenu
+        { pro_account_id: "a", pro_priority: 1 }, // ancien → ignoré
+        { pro_account_id: "b", pro_priority: 2 },
+      ]),
+    ).toEqual({ "1": 0, "2": 1, "3": 1 });
+  });
+  it("ignores null pro/level and out-of-range levels", () => {
+    expect(
+      fiabiliteAggFromRatings([
+        { pro_account_id: null, pro_priority: 1 },
+        { pro_account_id: "a", pro_priority: null },
+        { pro_account_id: "b", pro_priority: 9 },
+        { pro_account_id: "c", pro_priority: 2 },
+      ]),
+    ).toEqual({ "1": 0, "2": 1, "3": 0 });
   });
 });

@@ -7159,8 +7159,17 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           row={detailsFor.row}
           siblings={detailsFor.siblings}
           onNavigate={(nr) => setDetailsFor({ row: nr, siblings: detailsFor.siblings })}
-          onPriorityChange={(relationId, priority) => {
-            setAllRows((prev) => (prev || []).map((r) => r.relationId === relationId ? { ...r, priority } : r));
+          onPriorityChange={(relationId, priority, fiabiliteAgg, prospectId) => {
+            setAllRows((prev) => (prev || []).map((r) => {
+              // `priority` = note de CETTE relation. `fiabiliteAgg` (cross-pro)
+              // est propre au prospect → on le propage à TOUTES ses lignes
+              // (mêmes badges sur chacune de ses campagnes).
+              const samePros = fiabiliteAgg && prospectId && r.prospectId === prospectId;
+              if (r.relationId === relationId) {
+                return { ...r, priority, ...(fiabiliteAgg ? { fiabiliteAgg } : {}) };
+              }
+              return samePros ? { ...r, fiabiliteAgg } : r;
+            }));
           }}
           onClose={() => setDetailsFor(null)}
         />
@@ -7539,8 +7548,14 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         body: JSON.stringify({ priority: picked }),
       });
       if (!res.ok) { alert("Impossible d'enregistrer la fiabilité. Réessayez."); return; }
+      const j = await res.json().catch(() => ({}));
       setSaved(picked);
-      if (onPriorityChange) onPriorityChange(row.relationId, picked);
+      // L'agrégat cross-pro (badges « N » par niveau) est recalculé côté serveur
+      // et renvoyé : on rafraîchit le badge de la fiche ET, via le parent, ceux
+      // de la liste « Mes contacts » — sans recharger toute la liste.
+      const agg = j && j.fiabiliteAgg ? j.fiabiliteAgg : null;
+      if (agg) setFiabAgg(agg);
+      if (onPriorityChange) onPriorityChange(row.relationId, picked, agg, row.prospectId);
     } catch {
       alert("Impossible d'enregistrer la fiabilité. Réessayez.");
     } finally {
@@ -7627,36 +7642,65 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
               </div>
             </div>
             {(() => {
-              // Badge cross-pro : icône + compteur par niveau (nb de pros
-              // distincts). Ex. « 3 » sur Haute = 3 pros ont noté Haute.
-              const agg = fiabAgg || {};
-              const items = FIABILITE_OPTS
+              // On sépare VOTRE note (`saved`, la note enregistrée du pro
+              // courant) des notes des AUTRES pros. `fiabAgg` (cross-pro) INCLUT
+              // votre note → on la retranche pour n'afficher en « Noté par
+              // d'autres pros » que celles des confrères. Ainsi le pro voit
+              // toujours quelle note il avait attribuée, même s'il s'apprête à
+              // la changer (le picker reflète `picked`, pas `saved`).
+              const agg = { ...(fiabAgg || {}) };
+              if (saved && agg[String(saved)]) {
+                agg[String(saved)] = Number(agg[String(saved)]) - 1;
+              }
+              const others = FIABILITE_OPTS
                 .map((o) => ({ o, n: Number(agg[String(o.v)] || 0) }))
                 .filter((x) => x.n > 0);
-              if (items.length === 0) return null;
+              const mine = saved ? FIABILITE_OPTS.find((o) => o.v === saved) : null;
+              if (others.length === 0 && !mine) return null;
               return (
-                <div className="row center gap-2" style={{ flexWrap: 'wrap', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--line)' }}>
-                  <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--ink-4)' }}>Noté par d'autres pros</span>
-                  {items.map(({ o, n }) => (
-                    <span
-                      key={o.v}
-                      title={`${n} professionnel${n > 1 ? 's' : ''} ont noté la fiabilité « ${o.label} »`}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '4px 7px 4px 9px', borderRadius: 999, color: o.color,
-                        background: `color-mix(in oklab, ${o.color} 12%, var(--paper))`,
-                        border: `1px solid color-mix(in oklab, ${o.color} 35%, var(--line))`,
-                        fontSize: 11.5, fontWeight: 600,
-                      }}
-                    >
-                      <Icon name={o.icon} size={12}/> {o.label}
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
-                        background: o.color, color: '#fff', fontSize: 10.5, fontWeight: 700,
-                      }}>{n}</span>
-                    </span>
-                  ))}
+                <div className="col gap-2" style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--line)' }}>
+                  {mine && (
+                    <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+                      <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--ink-4)' }}>Votre note</span>
+                      <span
+                        title={`Vous avez noté la fiabilité « ${mine.label} »`}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '4px 10px', borderRadius: 999, color: mine.color,
+                          background: `color-mix(in oklab, ${mine.color} 16%, var(--paper))`,
+                          border: `1.5px solid ${mine.color}`,
+                          fontSize: 11.5, fontWeight: 700,
+                        }}
+                      >
+                        <Icon name={mine.icon} size={12}/> {mine.label}
+                      </span>
+                    </div>
+                  )}
+                  {others.length > 0 && (
+                    <div className="row center gap-2" style={{ flexWrap: 'wrap' }}>
+                      <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--ink-4)' }}>Noté par d'autres pros</span>
+                      {others.map(({ o, n }) => (
+                        <span
+                          key={o.v}
+                          title={`${n} professionnel${n > 1 ? 's' : ''} ont noté la fiabilité « ${o.label} »`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '4px 7px 4px 9px', borderRadius: 999, color: o.color,
+                            background: `color-mix(in oklab, ${o.color} 12%, var(--paper))`,
+                            border: `1px solid color-mix(in oklab, ${o.color} 35%, var(--line))`,
+                            fontSize: 11.5, fontWeight: 600,
+                          }}
+                        >
+                          <Icon name={o.icon} size={12}/> {o.label}
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
+                            background: o.color, color: '#fff', fontSize: 10.5, fontWeight: 700,
+                          }}>{n}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}

@@ -61,6 +61,54 @@ export function fiabilitePctFromRatings(levels: number[]): number {
   );
 }
 
+/** Agrégat de fiabilité cross-pro : nombre de pros DISTINCTS ayant donné chaque
+ *  niveau. `'1'`=Haute, `'2'`=Moyenne, `'3'`=Basse. Alimente les badges « N »
+ *  par niveau côté pro (liste « Mes contacts » + fiche détaillée). */
+export type FiabiliteAgg = { "1": number; "2": number; "3": number };
+
+/**
+ * Réduit des notes pros en agrégat cross-pro : une note par pro DISTINCT (la
+ * plus récente). Les `rows` doivent être triées par date décroissante : la
+ * première ligne vue pour un pro est donc sa note la plus récente. Pur/testable,
+ * partagé par la fiche, la liste « Mes contacts » et la route d'enregistrement.
+ */
+export function fiabiliteAggFromRatings(
+  rows: { pro_account_id: string | null; pro_priority: number | null }[],
+): FiabiliteAgg {
+  const latestByPro = new Map<string, number>();
+  for (const r of rows) {
+    const pa = r.pro_account_id;
+    const lvl = r.pro_priority;
+    if (!pa || lvl == null || latestByPro.has(pa)) continue;
+    latestByPro.set(pa, lvl);
+  }
+  const agg: FiabiliteAgg = { "1": 0, "2": 0, "3": 0 };
+  for (const lvl of latestByPro.values()) {
+    if (lvl === 1 || lvl === 2 || lvl === 3) {
+      agg[String(lvl) as keyof FiabiliteAgg] += 1;
+    }
+  }
+  return agg;
+}
+
+/**
+ * Variante DB de {@link fiabiliteAggFromRatings} : lit les relations notées du
+ * prospect (triées par date décroissante) et renvoie l'agrégat cross-pro frais.
+ * À appeler APRÈS toute mutation de `pro_priority` pour rafraîchir les badges.
+ */
+export async function computeFiabiliteAgg(
+  admin: SupabaseClient<Database>,
+  prospectId: string,
+): Promise<FiabiliteAgg> {
+  const { data } = await admin
+    .from("relations")
+    .select("pro_account_id, pro_priority, decided_at")
+    .eq("prospect_id", prospectId)
+    .not("pro_priority", "is", null)
+    .order("decided_at", { ascending: false });
+  return fiabiliteAggFromRatings(data ?? []);
+}
+
 /** Applique le malus de non-réponse (`prospects.score_malus`) au score brut,
  *  borné à 0. Un malus négatif est ignoré (ne doit jamais bonifier). Cf.
  *  lib/prospect/non-response.ts. */
