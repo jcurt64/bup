@@ -83,10 +83,11 @@ export const FILTERS: {
 ];
 
 // Options de filtre par priorité (mêmes couleurs que la fiche détaillée).
+// Fiabilité (alignée sur le web) : Haute = vert, Moyenne = ambre, Basse = rouge.
 const PRIO_FILTER: { v: number; label: string; color: string }[] = [
-  { v: 1, label: "Haute", color: "#DC2626" },
+  { v: 1, label: "Haute", color: "#16A34A" },
   { v: 2, label: "Moyenne", color: "#D97706" },
-  { v: 3, label: "Basse", color: "#16A34A" },
+  { v: 3, label: "Basse", color: "#DC2626" },
 ];
 
 export function FiltersCard({
@@ -206,10 +207,10 @@ export function FiltersCard({
         </Pressable>
       </View>
 
-      {/* Filtre par priorité de traitement (mêmes icônes/couleurs que la fiche). */}
+      {/* Filtre par fiabilité (mêmes couleurs que la fiche). */}
       <View className="flex-row items-center" style={{ flexWrap: "wrap", gap: 8, marginTop: 12 }}>
         <Text className="font-mono" style={{ fontSize: 10, letterSpacing: 0.8, color: p.muted }}>
-          PRIORITÉ
+          FIABILITÉ
         </Text>
         {PRIO_FILTER.map((o) => {
           const on = !!prioActive?.has(o.v);
@@ -230,7 +231,7 @@ export function FiltersCard({
             >
               <Ionicons name="star" size={12} color={o.color} />
               <Text style={{ fontSize: 12.5, fontWeight: "700", color: o.color }}>
-                {o.v} {o.label}
+                {o.label}
               </Text>
             </Pressable>
           );
@@ -723,6 +724,54 @@ export function ContactCard({
             on={contact.tier >= 2}
           />
         </View>
+
+        {/* Fiabilité — un badge par niveau noté (compte de pros cross-pro,
+            identique à la fiche). Parité web. */}
+        {(() => {
+          const agg = contact.fiabiliteAgg || {};
+          const items = PRIO_FILTER.map((o) => ({
+            o,
+            n: Number(agg[String(o.v)] || 0),
+          })).filter((x) => x.n > 0);
+          if (items.length === 0) return null;
+          return (
+            <View
+              className="flex-row items-center"
+              style={{ gap: 8, marginTop: 11, flexWrap: "wrap" }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "700",
+                  letterSpacing: 0.6,
+                  color: p.muted,
+                }}
+              >
+                FIAB.
+              </Text>
+              {items.map(({ o, n }) => (
+                <View
+                  key={o.v}
+                  className="flex-row items-center"
+                  style={{
+                    gap: 4,
+                    paddingVertical: 3,
+                    paddingHorizontal: 8,
+                    borderRadius: 999,
+                    backgroundColor: o.color + "1F",
+                    borderWidth: 1,
+                    borderColor: o.color + "59",
+                  }}
+                >
+                  <Ionicons name="star" size={11} color={o.color} />
+                  <Text style={{ fontSize: 11.5, fontWeight: "700", color: o.color }}>
+                    {n}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
       </View>
 
       {/* Footer : actions + Voir détails */}

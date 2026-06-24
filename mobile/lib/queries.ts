@@ -347,6 +347,13 @@ export type Score = {
     completeness: { pct: number; filled: number; total: number };
     freshness: { pct: number; ageDays: number };
     acceptance: { pct: number; accepted: number; total: number };
+    /** Fiabilité = note moyenne des pros (note la plus récente par pro
+     *  distinct). `count` = nb de pros notants ; `levels` = répartition. */
+    fiabilite?: {
+      pct: number;
+      count: number;
+      levels: { haute: number; moyenne: number; basse: number };
+    } | null;
   };
 };
 export const useProspectScore = () =>
@@ -1348,8 +1355,12 @@ export type ProContact = {
   email: string | null;
   telephone: string | null;
   receivedAt: string | null;
-  /** Priorité de traitement fixée par le pro : 1=haute, 2=moyenne, 3=basse. */
+  /** Fiabilité notée par le pro pour CETTE relation : 1=haute, 2=moyenne, 3=basse. */
   priority?: number | null;
+  /** Agrégat de fiabilité CROSS-PRO { "1": n, "2": n, "3": n } = nombre de pros
+   *  distincts ayant donné chaque niveau (note la plus récente par pro).
+   *  Renvoyé par /api/pro/contacts — alimente les badges de la liste. */
+  fiabiliteAgg?: Record<string, number> | null;
 };
 
 /** Réponse de GET /api/pro/contacts/[relationId]/details. */

@@ -930,7 +930,14 @@ export default function Contacts() {
     const filtered = rows.filter(
       (r) =>
         [...active].every((k) => FILTERS.find((f) => f.key === k)!.test(r)) &&
-        (prioFilter.size === 0 || prioFilter.has(r.priority ?? -1)),
+        // Filtre fiabilité : matche si le prospect a l'un des niveaux
+        // sélectionnés (agrégat cross-pro), sinon repli sur la note de relation.
+        (prioFilter.size === 0 ||
+          (r.fiabiliteAgg
+            ? [1, 2, 3].some(
+                (l) => (r.fiabiliteAgg?.[String(l)] ?? 0) > 0 && prioFilter.has(l),
+              )
+            : prioFilter.has(r.priority ?? -1))),
     );
     const map = new Map<string, ProContact[]>();
     for (const r of filtered) {

@@ -26,10 +26,12 @@ const TIER_META: Record<string, { n: number; color: string; ion: keyof typeof Io
   pro: { n: 4, color: "#1F2937", ion: "briefcase-outline" },
   patrimoine: { n: 5, color: "#DB2777", ion: "home-outline" },
 };
+// Fiabilité (alignée sur le web) : Haute = vert (prospect fiable),
+// Moyenne = ambre, Basse = rouge.
 const PRIORITY_OPTS: { v: number; label: string; color: string }[] = [
-  { v: 1, label: "Haute", color: "#DC2626" },
+  { v: 1, label: "Haute", color: "#16A34A" },
   { v: 2, label: "Moyenne", color: "#D97706" },
-  { v: 3, label: "Basse", color: "#16A34A" },
+  { v: 3, label: "Basse", color: "#DC2626" },
 ];
 const priorityLabel = (v: number | null) =>
   PRIORITY_OPTS.find((o) => o.v === v)?.label ?? null;
@@ -273,7 +275,7 @@ export function ContactDetailSheet({
       setSaved(picked);
       onPriorityChange?.(contact.relationId, picked);
     } catch {
-      Alert.alert("Priorité", "Impossible d'enregistrer la priorité. Réessayez.");
+      Alert.alert("Fiabilité", "Impossible d'enregistrer la fiabilité. Réessayez.");
     } finally {
       setSaving(false);
     }
@@ -413,8 +415,8 @@ export function ContactDetailSheet({
                 <Ionicons name="flag-outline" size={16} color="#7C3AED" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.text }}>Priorité de traitement</Text>
-                <Text style={{ fontSize: 12, color: p.sub, marginTop: 1 }}>Classez la fiche pour filtrer vos prospects.</Text>
+                <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.text }}>Fiabilité</Text>
+                <Text style={{ fontSize: 12, color: p.sub, marginTop: 1 }}>Notez la fiabilité de ce prospect : elle alimente son indice de désirabilité et vous sert à filtrer vos contacts.</Text>
               </View>
             </View>
             <View className="flex-row" style={{ gap: 8 }}>
@@ -431,11 +433,24 @@ export function ContactDetailSheet({
                       borderWidth: 1.5, borderColor: on ? o.color : p.border,
                     }}
                   >
-                    <View className="flex-row items-center" style={{ gap: 4 }}>
-                      <Ionicons name="star" size={13} color={o.color} />
-                      <Text style={{ fontSize: 14, fontWeight: "800", color: o.color }}>{o.v}</Text>
+                    {/* Icône dans une pastille colorée — plus de chiffre de
+                        niveau (1/2/3), qui prêtait à confusion avec un compte
+                        (parité web). */}
+                    <View
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: o.color + "26",
+                        borderWidth: 1,
+                        borderColor: o.color + "59",
+                      }}
+                    >
+                      <Ionicons name="star" size={16} color={o.color} />
                     </View>
-                    <Text style={{ fontSize: 11, color: p.muted, marginTop: 2 }}>{o.label}</Text>
+                    <Text style={{ fontSize: 11, color: p.muted, marginTop: 4 }}>{o.label}</Text>
                   </Pressable>
                 );
               })}
@@ -452,7 +467,7 @@ export function ContactDetailSheet({
             >
               <Ionicons name="save-outline" size={15} color={p.ctaText} />
               <Text style={{ fontSize: 13.5, fontWeight: "700", color: p.ctaText }}>
-                {saving ? "Enregistrement…" : "Enregistrer la priorité"}
+                {saving ? "Enregistrement…" : "Enregistrer la fiabilité"}
               </Text>
             </Pressable>
           </View>
@@ -550,12 +565,12 @@ export function ContactDetailSheet({
             </Text>
           </View>
 
-          {/* Statut priorité + actions + Fermer */}
+          {/* Statut fiabilité + actions + Fermer */}
           <View style={{ marginTop: 17, gap: 12 }}>
             <Text style={{ fontSize: 12, color: p.muted }}>
               {saved ? (
                 <Text>
-                  Priorité{" "}
+                  Fiabilité{" "}
                   <Text style={{ fontWeight: "700", color: PRIORITY_OPTS.find((o) => o.v === saved)?.color }}>
                     {priorityLabel(saved)}
                   </Text>

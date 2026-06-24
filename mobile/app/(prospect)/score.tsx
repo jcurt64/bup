@@ -1,4 +1,5 @@
-// BUUPP Score — /api/prospect/score (score /1000 + 3 composantes).
+// BUUPP Score — /api/prospect/score (score /1000 + 3 composantes + fiabilité).
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -229,6 +230,117 @@ export default function ScoreScreen() {
                   </Text>
                 )}
               </Card>
+
+              {/* ── Mon taux de fiabilité (parité web : avant les Conseils) ── */}
+              {(() => {
+                const fiab = d.breakdown.fiabilite;
+                const levels = fiab?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
+                const total =
+                  fiab?.count ?? levels.haute + levels.moyenne + levels.basse;
+                const pct = fiab ? fiab.pct : 60;
+                const fTier =
+                  pct >= 80
+                    ? { label: "Excellente", color: "#16A34A" }
+                    : pct >= 65
+                      ? { label: "Bonne", color: "#16A34A" }
+                      : pct >= 45
+                        ? { label: "Valeur neutre", color: "#D97706" }
+                        : { label: "Vigilance", color: "#DC2626" };
+                const TILES: {
+                  key: string;
+                  label: string;
+                  color: string;
+                  icon: keyof typeof Ionicons.glyphMap;
+                  n: number;
+                }[] = [
+                  { key: "haute", label: "Haute", color: "#16A34A", icon: "shield-checkmark", n: levels.haute },
+                  { key: "moyenne", label: "Moyenne", color: "#D97706", icon: "shield-half", n: levels.moyenne },
+                  { key: "basse", label: "Basse", color: "#DC2626", icon: "alert-circle", n: levels.basse },
+                ];
+                return (
+                  <Card badge={{ icon: "shield-checkmark-outline", tone: "teal" }}>
+                    <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text className="font-mono text-[11px] uppercase text-ink-5">
+                          Indice cross-pro
+                        </Text>
+                        <Text className="font-serif text-xl text-ink">
+                          Mon taux de fiabilité
+                        </Text>
+                      </View>
+                      <View className="items-end">
+                        <Text className="font-serif text-3xl text-ink">
+                          {pct}
+                          <Text className="text-base text-ink-4">/100</Text>
+                        </Text>
+                        <View
+                          className="mt-1 flex-row items-center rounded-full px-2 py-0.5"
+                          style={{
+                            backgroundColor: fTier.color + "1F",
+                            borderWidth: 1,
+                            borderColor: fTier.color + "4D",
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: fTier.color,
+                              marginRight: 5,
+                            }}
+                          />
+                          <Text
+                            className="font-mono text-[10px]"
+                            style={{ color: fTier.color, fontWeight: "700" }}
+                          >
+                            {fTier.label.toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text className="mt-1 text-[11px] text-ink-4">
+                          {total} note{total > 1 ? "s" : ""} pro
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text className="mt-3 text-xs leading-5 text-ink-3">
+                      Votre fiabilité reflète les notes des professionnels après
+                      vos mises en relation — leur identité reste anonyme. Honorez
+                      vos rendez-vous pour la faire monter.
+                    </Text>
+
+                    <Text className="mt-4 font-mono text-[10px] uppercase text-ink-4">
+                      Répartition des notes reçues
+                    </Text>
+                    <View className="mt-2 flex-row" style={{ gap: 8 }}>
+                      {TILES.map((t) => (
+                        <View
+                          key={t.key}
+                          className="flex-1 rounded-xl p-3"
+                          style={{
+                            backgroundColor: t.color + "14",
+                            borderWidth: 1,
+                            borderColor: t.color + "33",
+                          }}
+                        >
+                          <View className="flex-row items-center" style={{ gap: 5 }}>
+                            <Ionicons name={t.icon} size={14} color={t.color} />
+                            <Text
+                              className="text-[12.5px]"
+                              style={{ color: t.color, fontWeight: "700" }}
+                            >
+                              {t.label}
+                            </Text>
+                          </View>
+                          <Text className="mt-1 font-serif text-xl text-ink">
+                            {t.n}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                );
+              })()}
 
               {/* ── Conseils pour améliorer votre score ─────────────── */}
               <Card badge={{ icon: "bulb-outline", tone: "amber" }}>
