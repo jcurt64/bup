@@ -1618,7 +1618,7 @@ function Footer() {
           {[
             ['Plateforme', ['Prospects', 'Professionnels', 'Tarifs', 'API']],
             ['Ressources', ['Barème des paliers', 'Documentation', 'API', 'Status']],
-            ['Légal', ['CGU', 'CGV', 'RGPD', 'Contact DPO']],
+            ['Légal', ['CGU', 'CGV', 'RGPD', 'Contact chargé de la protection des données']],
           ].map(([h, items], i) => (
             <div key={i}>
               <div className="mono caps" style={{ color: 'rgba(255,255,255,.4)', marginBottom: 14 }}>{h}</div>

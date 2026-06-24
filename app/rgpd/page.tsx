@@ -88,7 +88,7 @@ export default function RgpdPage() {
           </p>
           <p>
             <strong>Chargé à la protection des données.</strong>{" "}
-            Vous pouvez contacter notre DPO pour toute question relative à
+            Vous pouvez contacter notre chargé de la protection des données pour toute question relative à
             vos données ou à l&apos;exercice de vos droits&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
@@ -103,7 +103,7 @@ export default function RgpdPage() {
             </li>
             <li>
               Par courrier postal&nbsp;: <em>Majelink — À l&apos;attention
-              du DPO — 12 Impasse des Étriers, 64140 Lons</em>
+              du chargé de la protection des données — 12 Impasse des Étriers, 64140 Lons</em>
             </li>
             <li>
               Via le{" "}
@@ -447,7 +447,7 @@ export default function RgpdPage() {
             </li>
           </ul>
           <p>
-            Pour exercer ces droits, contactez notre DPO à{" "}
+            Pour exercer ces droits, contactez notre chargé de la protection des données à{" "}
             <a
               href="mailto:dp.buupp@buupp.com"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
@@ -459,7 +459,7 @@ export default function RgpdPage() {
               href="/contact-dpo"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              Contact DPO
+              Contact chargé de la protection des données
             </Link>
             . Nous répondons dans un délai de <strong>30&nbsp;jours</strong>
             {" "}à compter de la réception de votre demande (prolongeable
@@ -546,7 +546,7 @@ export default function RgpdPage() {
                 politique des cookies §5
               </Link>{" "}
               : information à chaque envoi + droit d’opposition immédiat
-              par simple message au DPO.
+              par simple message au chargé de la protection des données.
             </li>
             <li>
               <strong>Données collectées.</strong> Identifiant opaque de
@@ -559,7 +559,7 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Droits.</strong> Opposition, accès, effacement,
-              portabilité, limitation. À exercer auprès du DPO (voir §7).
+              portabilité, limitation. À exercer auprès du chargé de la protection des données (voir §7).
               Réclamation possible auprès de la CNIL.
             </li>
           </ul>

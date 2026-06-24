@@ -218,7 +218,7 @@ const CATEGORIES: Category[] = [
             <strong>un seul profil BUUPP</strong>. Si l&apos;application vous renvoie un
             message « ce compte bancaire est déjà enregistré par un autre utilisateur »,
             c&apos;est que ce RIB est associé à un autre compte. Contactez-nous via{" "}
-            <Link href="/contact-dpo" style={{ color: "var(--accent)", textDecoration: "underline" }}>la page Contact DPO</Link>{" "}
+            <Link href="/contact-dpo" style={{ color: "var(--accent)", textDecoration: "underline" }}>la page Contact chargé de la protection des données</Link>{" "}
             si vous pensez qu&apos;il s&apos;agit d&apos;une erreur.
           </p>
         ),
@@ -567,7 +567,7 @@ const CATEGORIES: Category[] = [
             </li>
             <li>
               <strong>Honeypots</strong> sur les formulaires publics ouverts aux
-              non-authentifiés (liste d&apos;attente, contact DPO) pour filtrer les
+              non-authentifiés (liste d&apos;attente, contact chargé de la protection des données) pour filtrer les
               bots automatisés.
             </li>
             <li>
@@ -593,7 +593,7 @@ const CATEGORIES: Category[] = [
             </Link>{" "}
             ou contactez directement notre{" "}
             <Link href="/contact-dpo" style={{ color: "var(--accent)", textDecoration: "underline" }}>
-              DPO
+              chargé de la protection des données
             </Link>
             . Délai de réponse : 30 jours, prolongeable de 60 jours pour les demandes
             complexes (avec notification).
@@ -668,7 +668,7 @@ const CATEGORIES: Category[] = [
           <p>
             Signalez-le immédiatement via{" "}
             <Link href="/contact-dpo" style={{ color: "var(--accent)", textDecoration: "underline" }}>
-              la page Contact DPO
+              la page Contact chargé de la protection des données
             </Link>{" "}
             ou en répondant à l&apos;email de sollicitation. Tout abus (sollicitation
             hors objet, harcèlement, fuite de coordonnées) est traçable grâce au

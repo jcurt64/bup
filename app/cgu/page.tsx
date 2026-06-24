@@ -669,7 +669,7 @@ export default function CguPage() {
             amiable auprès du service client de BUUPP, être soumis
             gratuitement à un médiateur de la consommation. Les
             coordonnées du médiateur compétent sont précisées dans la
-            page «&nbsp;Contact DPO&nbsp;» et sur la plateforme européenne
+            page «&nbsp;Contact chargé de la protection des données&nbsp;» et sur la plateforme européenne
             de règlement en ligne des litiges (
             <a
               href="https://ec.europa.eu/consumers/odr"

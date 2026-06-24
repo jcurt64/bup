@@ -227,7 +227,7 @@ export const PAGE_VERSIONS: PageMeta[] = [
   {
     slug: "contact-dpo",
     href: "/contact-dpo",
-    title: "Contact DPO",
+    title: "Contact chargé de la protection des données",
     section: "legal",
     history: [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },

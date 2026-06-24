@@ -564,7 +564,7 @@ export default function ContactDpoForm() {
             </h2>
             <p className="dpo-modal-text">
               Un mail récapitulatif vient d&apos;être envoyé à{" "}
-              <strong>{successInfo.email}</strong>. Notre DPO traitera votre
+              <strong>{successInfo.email}</strong>. Notre chargé de la protection des données traitera votre
               demande (<em>{successInfo.requestLabel}</em>) et reviendra vers
               vous dans un délai d&apos;un mois maximum, conformément au RGPD.
             </p>

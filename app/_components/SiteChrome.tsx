@@ -523,7 +523,7 @@ export function Footer() {
         { label: "CGV", href: "/cgv" },
         { label: "RGPD", href: "/rgpd" },
         { label: "Politique des cookies", href: "/cookies" },
-        { label: "Contact DPO", href: "/contact-dpo" },
+        { label: "Contact chargé de la protection des données", href: "/contact-dpo" },
       ],
     ],
   ];

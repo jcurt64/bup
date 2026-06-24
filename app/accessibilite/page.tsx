@@ -149,7 +149,7 @@ export default function AccessibilitePage() {
           <ul>
             <li>
               Pages publiques : <em>accueil</em>, barème des paliers, pages
-              légales (CGU, CGV, RGPD, cookies, contact DPO).
+              légales (CGU, CGV, RGPD, cookies, contact chargé de la protection des données).
             </li>
             <li>
               Espace prospect (connecté) : portefeuille, mises en relation,
@@ -242,7 +242,7 @@ export default function AccessibilitePage() {
                 textUnderlineOffset: 2,
               }}
             >
-              Contact DPO
+              Contact chargé de la protection des données
             </Link>{" "}
             (interlocuteur unique pour l&apos;accessibilité et la
             protection des données chez Majelink).

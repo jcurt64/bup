@@ -5,7 +5,7 @@ import BackHomeButton from "../../_components/BackHomeButton";
 import ContactDpoForm from "../_components/ContactDpoForm";
 
 export const metadata: Metadata = {
-  title: "Formulaire de demande au DPO — BUUPP",
+  title: "Formulaire de demande au chargé de la protection des données — BUUPP",
   description:
     "Formulaire en ligne pour adresser une demande RGPD (accès, rectification, effacement, opposition, portabilité) au Chargé à la protection des données de BUUPP.",
   robots: { index: true, follow: true },
@@ -42,7 +42,7 @@ export default function DpoFormulairePage() {
           className="mono caps"
           style={{ color: "var(--ink-4)", marginBottom: 14 }}
         >
-          Formulaire DPO
+          Formulaire de demande
         </div>
 
         <h1
@@ -54,7 +54,7 @@ export default function DpoFormulairePage() {
             letterSpacing: "-0.02em",
           }}
         >
-          Adresser une demande au DPO
+          Adresser une demande au chargé de la protection des données
         </h1>
 
         <p
@@ -92,7 +92,7 @@ export default function DpoFormulairePage() {
               textDecoration: "underline",
             }}
           >
-            Contact DPO
+            Contact chargé de la protection des données
           </Link>{" "}
           pour les détails sur la nature des droits (accès, rectification,
           effacement, opposition…), les pièces justificatives requises
@@ -142,7 +142,7 @@ export default function DpoFormulairePage() {
             </a>{" "}
             ou par courrier postal&nbsp;:{" "}
             <em>
-              Majelink — À l&apos;attention du DPO — 12 Impasse des
+              Majelink — À l&apos;attention du chargé de la protection des données — 12 Impasse des
               Étriers, 64140 Lons
             </em>
             .

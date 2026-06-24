@@ -50,7 +50,7 @@ export async function sendDpoRequestConfirmation(
     message,
     "------------",
     "",
-    `Notre DPO va traiter votre demande et reviendra vers vous dans un délai d'un mois maximum, conformément au RGPD. Si besoin, vous pouvez répondre directement à ce mail ou écrire à ${DPO_REPLY_TO}.`,
+    `Notre chargé de la protection des données va traiter votre demande et reviendra vers vous dans un délai d'un mois maximum, conformément au RGPD. Si besoin, vous pouvez répondre directement à ce mail ou écrire à ${DPO_REPLY_TO}.`,
     "",
     `Pour en savoir plus sur notre politique : ${RGPD_URL}`,
     "",
@@ -115,7 +115,7 @@ export async function sendDpoRequestConfirmation(
   </table>
 
   <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#3A4150;">
-    Notre DPO va examiner votre demande et reviendra vers vous <strong>dans un délai d'un mois maximum</strong>, conformément au RGPD. Si nécessaire, ce délai peut être prolongé de deux mois — nous vous le ferions savoir.
+    Notre chargé de la protection des données va examiner votre demande et reviendra vers vous <strong>dans un délai d'un mois maximum</strong>, conformément au RGPD. Si nécessaire, ce délai peut être prolongé de deux mois — nous vous le ferions savoir.
   </p>
   <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#3A4150;">
     Une question dans l'intervalle ? <strong>Répondez simplement à ce mail</strong> ou écrivez à <a href="mailto:${escapeHtml(DPO_REPLY_TO)}" style="color:#4596EC;text-decoration:underline;">${escapeHtml(DPO_REPLY_TO)}</a>.

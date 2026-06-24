@@ -54,7 +54,7 @@ function confirmationHtml(
       : `Vous n'apparaîtrez plus dans les statistiques d'ouverture des prochains broadcasts BUUPP. Vous pouvez réactiver le suivi à tout moment via le bouton ci-dessous, ou depuis votre espace ${role === "pro" ? "« Mes informations »" : "« Préférences »"}.`
     : status === "invalid"
       ? "Ce lien n'est plus valide ou a été modifié. Recliquez sur le lien depuis un email récent ou écrivez à notre Chargé à la protection des données."
-      : "Impossible d'enregistrer votre choix pour le moment. Réessayez dans quelques minutes ou écrivez à notre DPO.";
+      : "Impossible d'enregistrer votre choix pour le moment. Réessayez dans quelques minutes ou écrivez à notre chargé de la protection des données.";
   const accent = isOk ? "#10B981" : "#DC2626";
 
   // Bouton de bascule inverse : seulement quand l'action en cours a réussi

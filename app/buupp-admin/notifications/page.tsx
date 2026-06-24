@@ -152,7 +152,7 @@ export default async function NotificationsAdminPage() {
                 politique cookies §5
               </a>
               ) : régime transitoire jusqu'au 14 juillet 2026 — information
-              dans chaque email + opposition par message au DPO. Mécanisme
+              dans chaque email + opposition par message au chargé de la protection des données. Mécanisme
               de consentement opt-in à déployer avant l'échéance. Métrique
               approximative : Apple Mail Privacy Protection pré-charge toutes
               les images → surévaluation ; Gmail/Outlook bloquent par défaut

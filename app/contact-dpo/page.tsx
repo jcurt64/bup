@@ -5,7 +5,7 @@ import BackHomeButton from "../_components/BackHomeButton";
 import PageVersion from "../_components/PageVersion";
 
 export const metadata: Metadata = {
-  title: "Contact DPO — BUUPP",
+  title: "Contact chargé de la protection des données — BUUPP",
   description:
     "Coordonnées du Chargé à la protection des données de BUUPP et exercice de vos droits RGPD.",
 };
@@ -37,7 +37,7 @@ export default function ContactDpoPage() {
           className="mono caps"
           style={{ color: "var(--ink-4)", marginBottom: 14 }}
         >
-          Contact DPO
+          Contact chargé de la protection des données
         </div>
         <PageVersion page="contact-dpo" />
         <h1
@@ -75,7 +75,7 @@ export default function ContactDpoPage() {
           gap: 36,
         }}
       >
-        <Section title="1. Coordonnées du DPO">
+        <Section title="1. Coordonnées du chargé de la protection des données">
           <p>
             Vous pouvez contacter notre Chargé à la protection des
             données par l&apos;un des moyens suivants&nbsp;:
@@ -110,7 +110,7 @@ export default function ContactDpoPage() {
 
         <Section title="2. Quand nous contacter ?">
           <p>
-            Le DPO est l&apos;interlocuteur dédié pour toute question
+            Le chargé de la protection des données est l&apos;interlocuteur dédié pour toute question
             relative à vos données personnelles, à l&apos;usage de la
             plateforme ou à la sécurité de vos informations. Vous pouvez
             le solliciter notamment pour&nbsp;:
@@ -272,11 +272,11 @@ export default function ContactDpoPage() {
           </p>
         </Section>
 
-        <Section title="6. Envoyer une demande au DPO">
+        <Section title="6. Envoyer une demande au chargé de la protection des données">
           <p>
             Pour transmettre une demande RGPD, utilisez notre formulaire
             en ligne dédié&nbsp;: il vous guide pas à pas et garantit
-            que votre demande arrive directement dans la boîte du DPO,
+            que votre demande arrive directement dans la boîte du chargé de la protection des données,
             avec accusé de réception immédiat.
           </p>
           <div
@@ -302,7 +302,7 @@ export default function ContactDpoPage() {
                 textDecoration: "none",
               }}
             >
-              Ouvrir le formulaire DPO →
+              Ouvrir le formulaire →
             </Link>
             <a
               href="mailto:dp.buupp@buupp.com"
@@ -327,7 +327,7 @@ export default function ContactDpoPage() {
 
         <Section title="7. Recours auprès de la CNIL">
           <p>
-            Si la réponse apportée par le DPO ne vous satisfait pas, vous
+            Si la réponse apportée par le chargé de la protection des données ne vous satisfait pas, vous
             pouvez à tout moment introduire une réclamation auprès de la
             Commission Nationale de l&apos;Informatique et des Libertés —{" "}
             <a
