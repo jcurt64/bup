@@ -2248,11 +2248,16 @@ function ProspectHeader({ onNav }) {
   // Vérification : libellé + position (1..3) dans l'échelle.
   const verifPos = verification ? verifTierPosition(verification.tier) : 1;
   const verifLabel = verification ? (VERIF_LABELS[verification.tier] || 'Basique') : '…';
-  // Parrainage : filleuls restants avant le palier suivant (cuivre→argent=3,
-  // argent→or=10 ; cf. REFERRAL_TIERS).
+  // Parrainage : 3 paliers — Bronze (1 filleul), Argent (3), Or (10) ;
+  // cf. REFERRAL_TIERS. `refNextPalier` = prochain palier à débloquer (null si
+  // Or déjà atteint), `refRemaining` = filleuls manquants pour l'atteindre.
   const refCount = filleulCount == null ? 0 : Number(filleulCount);
-  const refNext = refCount < 3 ? 3 : refCount < 10 ? 10 : null;
-  const refRemaining = refNext ? refNext - refCount : 0;
+  const refNextPalier =
+    refCount < 1 ? { n: 1, key: 'cuivre', label: 'Bronze' }
+    : refCount < 3 ? { n: 3, key: 'argent', label: 'Argent' }
+    : refCount < 10 ? { n: 10, key: 'or', label: 'Or' }
+    : null;
+  const refRemaining = refNextPalier ? refNextPalier.n - refCount : 0;
   // Tant que /api/prospect/wallet n'a pas répondu, on garde "…" plutôt
   // que 0 € (évite un flash trompeur). Une fois la réponse reçue, on
   // affiche le vrai cumul du mois (par défaut 0 € si aucun gain).
@@ -2415,9 +2420,9 @@ function ProspectHeader({ onNav }) {
               ))}
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 16 }}>
-              {refRemaining > 0
-                ? <>Encore <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{refRemaining} filleul{refRemaining > 1 ? 's' : ''}</strong> pour débloquer le palier suivant.</>
-                : <>Palier maximal atteint 🎉</>}
+              {refNextPalier
+                ? <>Plus que <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{refRemaining} filleul{refRemaining > 1 ? 's' : ''}</strong> pour décrocher le palier <strong style={{ color: REFERRAL_TIER_COLOR[refNextPalier.key] }}>{refNextPalier.label}</strong>.</>
+                : <>🏆 Palier <strong style={{ color: REFERRAL_TIER_COLOR.or }}>Or</strong> atteint — vous êtes au sommet du parrainage&nbsp;!</>}
             </div>
           </StatCard>
         </div>
@@ -6828,12 +6833,14 @@ function ReportProModal({ relation, onClose, onSubmitted }) {
 /* ─── Verification (3 niveaux) ──────────────────────────────────────
    Modèle métier (enums Supabase) :
      basique           — créé par défaut à l'ouverture du compte.
-     verifie           — RIB renseigné + auto-validé.
+     verifie           — téléphone vérifié par SMS (prospect_identity.phone_verified_at).
      certifie_confiance — au moins une mise en relation acceptée
                           issue d'une campagne 'prise_de_rendez_vous'.
+   Le RIB (prospect_rib) n'intervient PAS dans le palier : il relève du
+   flux de retrait (Stripe Connect) et n'est lu que pour affichage.
    Données récupérées via /api/prospect/verification (recalcul + persist
    à chaque GET). Le re-fetch est aussi déclenché par le bus
-   `prospect:profile-changed` (ex. après upsert RIB). */
+   `prospect:profile-changed` (ex. après vérification du téléphone). */
 const VERIF_TIERS = [
   {
     key: 'basique',
@@ -6906,7 +6913,6 @@ const VERIF_META = {
 
 function VerifTiers() {
   const [data, setData] = useState(null);
-  const [ribOpen, setRibOpen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const refresh = () =>
@@ -6919,8 +6925,6 @@ function VerifTiers() {
 
   const tier = data?.tier || 'basique';
   const currentIdx = Math.max(0, VERIF_TIERS.findIndex(t => t.key === tier));
-  const ribValidated = data?.rib?.validated;
-  const ibanMasked = data?.rib?.ibanMasked;
 
 
   return (
@@ -7030,8 +7034,10 @@ function VerifTiers() {
                   </div>
                 )}
                 {!reached && t.key === 'verifie' && (
-                  <button onClick={() => setRibOpen(true)} className="btn btn-primary btn-sm" style={{ marginTop: 6, alignSelf: 'flex-start' }}>
-                    {ribValidated ? 'Modifier mon RIB' : 'Renseigner mon RIB'} <Icon name="arrow" size={12}/>
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'donnees', scrollTier: 1 } }))}
+                    className="btn btn-primary btn-sm" style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+                    Vérifier mon téléphone <Icon name="arrow" size={12}/>
                   </button>
                 )}
               </div>
@@ -7042,8 +7048,6 @@ function VerifTiers() {
       <style>{`
         @media (max-width: 820px) { .verif-cards { grid-template-columns: 1fr !important; } }
       `}</style>
-
-      {ribOpen && <RibModal initial={data?.rib} onClose={() => setRibOpen(false)}/>}
     </div>
   );
 }
