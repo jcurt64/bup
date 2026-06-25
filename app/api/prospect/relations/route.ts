@@ -14,6 +14,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { reportedRelationIds } from "@/lib/prospect/reports";
+import { haversineMeters, type LatLng } from "@/lib/geo/geocode";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,11 @@ type RelationRow = {
     raison_sociale: string;
     secteur: string | null;
     ville: string | null;
+    // Coordonnées de l'établissement pro (cf. ciblage « autour de moi »).
+    // Permettent de calculer la distance domicile prospect ↔ pro pour le
+    // filtre « Autour de moi » de l'onglet Mises en relation.
+    latitude: number | null;
+    longitude: number | null;
   } | null;
 };
 
@@ -127,10 +133,36 @@ export async function GET() {
     .select(
       `id, campaign_id, motif, reward_cents, status, sent_at, expires_at, decided_at,
        campaigns ( name, status, brief, starts_at, ends_at, targeting, website_url ),
-       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )`,
+       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville, latitude, longitude )`,
     )
     .eq("prospect_id", prospectId)
     .order("sent_at", { ascending: false });
+
+  // Coordonnées du domicile du prospect (géocodées à l'enregistrement de la
+  // localisation) — point de référence du filtre « Autour de moi ». Best-effort :
+  // sans coordonnées, `distanceKm` reste null et le filtre n'exclut rien.
+  const { data: loc } = await admin
+    .from("prospect_localisation")
+    .select("latitude, longitude")
+    .eq("prospect_id", prospectId)
+    .maybeSingle();
+  const prospectPoint: LatLng | null =
+    typeof loc?.latitude === "number" && typeof loc?.longitude === "number"
+      ? { lat: loc.latitude, lng: loc.longitude }
+      : null;
+
+  // Distance orthodromique (km, arrondie) entre le domicile du prospect et
+  // l'établissement du pro auteur de la sollicitation. null si l'un des deux
+  // points manque.
+  function distanceKmTo(pro: RelationRow["pro_accounts"]): number | null {
+    if (!prospectPoint) return null;
+    if (typeof pro?.latitude !== "number" || typeof pro?.longitude !== "number") {
+      return null;
+    }
+    return Math.round(
+      haversineMeters(prospectPoint, { lat: pro.latitude, lng: pro.longitude }) / 1000,
+    );
+  }
 
   if (error) {
     console.error("[/api/prospect/relations] read failed", error);
@@ -171,6 +203,9 @@ export async function GET() {
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        // Distance domicile prospect ↔ établissement pro (km), pour le filtre
+        // « Autour de moi ». null si coordonnées indisponibles.
+        distanceKm: distanceKmTo(r.pro_accounts),
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (null si l'option
         // n'a pas été prise). Le clic est enregistré par /api/campaign/[id]/visit.
@@ -247,6 +282,7 @@ export async function GET() {
         campaignOpen,
         campaignActive,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        distanceKm: distanceKmTo(r.pro_accounts),
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (cf. pending).
         websiteUrl: r.campaigns?.website_url ? `/api/campaign/${r.campaign_id}/visit` : null,

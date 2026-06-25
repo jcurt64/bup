@@ -2217,6 +2217,12 @@ function ProspectHeader({ onNav }) {
   const filleulCount = parrainage?.count ?? null;
   const filleulCap = parrainage?.cap ?? 10;
   const scoreVal = score?.score;
+  // Taux de fiabilité (notes des pros) — même source que FiabiliteCard
+  // (/api/prospect/score → breakdown.fiabilite). null tant que non chargé.
+  const fiab = score?.breakdown?.fiabilite ?? null;
+  const fiabPct = fiab?.pct ?? null;
+  const fiabLevels = fiab?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
+  const fiabCount = fiab?.count ?? (fiab ? (fiabLevels.haute + fiabLevels.moyenne + fiabLevels.basse) : null);
   // Tant que /api/prospect/wallet n'a pas répondu, on garde "…" plutôt
   // que 0 € (évite un flash trompeur). Une fois la réponse reçue, on
   // affiche le vrai cumul du mois (par défaut 0 € si aucun gain).
@@ -2257,7 +2263,7 @@ function ProspectHeader({ onNav }) {
   const greeting = new Date(nowTs).getHours() >= 19 ? 'Bonsoir' : 'Bonjour';
 
   return (
-    <div style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
+    <div className="prospect-header" style={{ padding: '24px 40px 28px', borderTop: '1px solid var(--line)' }}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 32, flexWrap: 'wrap' }}>
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0 }}>
@@ -2274,7 +2280,15 @@ function ProspectHeader({ onNav }) {
           </div>
         </div>
         <div className="row prospect-header-pills" style={{ gap: 16, alignItems: 'stretch' }}>
-          <HeaderPill icon="shieldCheck" label="Vérification">
+          {/* Taux de fiabilité — placé en premier et mis en avant (highlight)
+              pour attirer l'œil du prospect : c'est le levier de désirabilité. */}
+          <HeaderPill icon="gauge" label="Votre taux de fiabilité" accent="#1c8a6e" highlight>
+            <FiabilitePill pct={fiabPct} levels={fiabLevels} count={fiabCount}/>
+          </HeaderPill>
+          <HeaderPill icon="trend" label="BUUPP Score" accent="#5a57d6">
+            <ScoreMeter value={scoreVal} max={1000}/>
+          </HeaderPill>
+          <HeaderPill icon="shieldCheck" label="Vérification" accent="#2563eb">
             {(() => {
               const verifChip =
                 verification?.tier === 'certifie_confiance' ? 'chip-good' :
@@ -2293,30 +2307,44 @@ function ProspectHeader({ onNav }) {
               );
             })()}
           </HeaderPill>
-          <HeaderPill icon="gauge" label="BUUPP Score">
-            <ScoreMeter value={scoreVal} max={1000}/>
-          </HeaderPill>
-          <HeaderPill icon="users" label="Parrainages">
+          <HeaderPill icon="gift" label="Parrainages" accent="#b9842a">
             <ReferralDots count={filleulCount} cap={filleulCap}/>
           </HeaderPill>
         </div>
         <style>{`
-          /* Les 3 pastilles (Vérification / BUUPP Score / Parrainages) sont
-             des cartes autonomes : on les laisse wrapper sous l'en-tête sur
-             écran moyen, puis s'empiler en colonne pleine largeur sur mobile
-             (le contenu — barre de score, rangée de jetons — a besoin de
-             largeur, donc pas de grille 3 colonnes serrée). */
-          @media (max-width: 980px) {
-            .prospect-header-pills { flex-wrap: wrap; }
-          }
-          @media (max-width: 720px) {
+          /* Les 4 pastilles (Fiabilité / BUUPP Score / Vérification /
+             Parrainages) sont des cartes autonomes. Sur desktop on les met en
+             grille 4 colonnes ÉGALES sur toute la largeur (le flex laissait la
+             1ʳᵉ carte plus large que les 3 autres + un vide à droite). */
+          @media (min-width: 1025px) {
             .prospect-header-pills {
               display: grid !important;
-              grid-template-columns: 1fr;
-              gap: 12px !important;
-              width: 100%;
+              grid-template-columns: repeat(4, 1fr) !important;
+              gap: 16px !important;
+              width: 100% !important;
             }
-            .prospect-header-pills .prospect-pill { width: 100%; min-width: 0; }
+            .prospect-header-pills .prospect-pill { width: 100% !important; min-width: 0 !important; }
+          }
+          /* Tablette (type iPad Air portrait) → téléphone : grille 2×2 à
+             colonnes ÉGALES (le flex-wrap produisait sinon un vilain 3+1 avec
+             des largeurs inégales). */
+          @media (max-width: 1024px) {
+            .prospect-header-pills {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 14px !important;
+              width: 100% !important;
+            }
+            /* !important indispensable : la carte porte un min-width:190 inline
+               (lisibilité desktop) qui, sans override fort, déborde la grille
+               → cartes inégales / décentrées / scroll horizontal. */
+            .prospect-header-pills .prospect-pill { width: 100% !important; min-width: 0 !important; }
+          }
+          @media (max-width: 720px) {
+            /* Padding latéral resserré sur téléphone pour des marges
+               équilibrées et des cartes plus larges. */
+            .prospect-header { padding: 22px 16px 24px !important; }
+            .prospect-header-pills { gap: 12px !important; }
           }
         `}</style>
       </div>
@@ -2327,21 +2355,80 @@ function ProspectHeader({ onNav }) {
 // Carte-pastille de l'en-tête prospect : bordure fine, ombre douce, icône +
 // libellé mono en tête, puis un corps libre (chip de vérification, jauge de
 // score, rangée de jetons de parrainage).
-function HeaderPill({ icon, label, children }) {
+function HeaderPill({ icon, label, children, accent = '#5a57d6', highlight = false }) {
   return (
     <div className="prospect-pill" style={{
-      background: 'var(--paper)',
-      border: '1px solid var(--line)',
+      background: highlight
+        ? `linear-gradient(180deg, color-mix(in oklab, ${accent} 8%, var(--paper)), var(--paper))`
+        : 'var(--paper)',
+      border: '1px solid ' + (highlight ? `color-mix(in oklab, ${accent} 38%, var(--line))` : 'var(--line)'),
       borderRadius: 16,
       padding: '14px 18px',
       minWidth: 190,
-      boxShadow: '0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03)',
+      boxShadow: highlight
+        ? `0 1px 3px rgba(15,23,42,.05), 0 12px 28px -12px color-mix(in oklab, ${accent} 60%, transparent)`
+        : '0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03)',
     }}>
-      <div className="row center gap-2" style={{ marginBottom: 12, color: 'var(--ink-4)' }}>
-        <Icon name={icon} size={13} stroke={1.6}/>
-        <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em' }}>{label}</span>
+      <div className="row center gap-2" style={{ marginBottom: 12 }}>
+        {/* Icône dans une pastille au fond coloré (teinte de l'accent). */}
+        <span style={{
+          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+          background: `color-mix(in oklab, ${accent} 15%, var(--paper))`,
+          color: accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name={icon} size={14} stroke={1.8}/>
+        </span>
+        <span className="mono caps" style={{ fontSize: 10, letterSpacing: '.14em', color: accent }}>{label}</span>
       </div>
       {children}
+    </div>
+  );
+}
+
+// Corps de la pastille « Votre taux de fiabilité » : le taux en gras (xx%) puis
+// le détail des notes reçues par niveau (Haute / Moyenne / Basse), chacune avec
+// son icône colorée et le nombre de notes. Données : /api/prospect/score →
+// breakdown.fiabilite (réutilise la palette de FiabiliteCard).
+function FiabilitePill({ pct, levels, count }) {
+  const LV = [
+    { key: 'haute',   label: 'Haute',   color: '#1c8a6e', bg: '#e9f5f0', icon: 'shieldCheck' },
+    { key: 'moyenne', label: 'Moyenne', color: '#b9842a', bg: '#faf4e6', icon: 'shield' },
+    { key: 'basse',   label: 'Basse',   color: '#c14d77', bg: '#f7e2ea', icon: 'gauge' },
+  ];
+  // Nombre de notes reçues (pros qui vous ont noté). Affiché sous le taux.
+  const notedText = count == null
+    ? '…'
+    : count === 0
+      ? 'pas encore'
+      : `${count} fois`;
+  return (
+    <div>
+      <div className="row" style={{ alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+        <span className="serif tnum" style={{ fontSize: 28, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>
+          {pct == null ? '…' : `${pct}%`}
+        </span>
+      </div>
+      {/* Compteur de notes — « Les pros vous ont noté : N fois ». */}
+      <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginBottom: 12 }}>
+        Les pros vous ont noté : <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{notedText}</strong>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {LV.map(l => (
+          <div key={l.key} className="row between center" style={{ gap: 8 }}>
+            <span className="row center" style={{ gap: 8, minWidth: 0 }}>
+              <span style={{
+                width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                background: l.bg, color: l.color,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name={l.icon} size={11}/>
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)' }}>{l.label}</span>
+            </span>
+            <span className="tnum" style={{ fontSize: 13.5, fontWeight: 700, color: l.color }}>{levels?.[l.key] ?? 0}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2381,7 +2468,7 @@ function ReferralDots({ count, cap = 10 }) {
         </span>
         <span className="mono muted" style={{ fontSize: 12 }}>/ {cap}</span>
       </div>
-      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+      <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
         {Array.from({ length: cap }).map((_, i) => (
           <span key={i} style={{
             width: 11, height: 11, borderRadius: 999, flexShrink: 0, boxSizing: 'border-box',
@@ -5268,6 +5355,17 @@ function relMatchTier(tier, v) {
   if (v === 'all') return true;
   return Number(tier) === Number(v);
 }
+// Filtre « Autour de moi » : distance domicile prospect ↔ établissement pro
+// (km, fournie par /api/prospect/relations#distanceKm). Sans distance connue,
+// une sollicitation est exclue dès qu'un rayon est sélectionné.
+function relMatchDistance(distanceKm, v) {
+  if (v === 'all') return true;
+  if (distanceKm == null || isNaN(distanceKm)) return false;
+  if (v === '10') return distanceKm <= 10;
+  if (v === '10-30') return distanceKm > 10 && distanceKm <= 30; // entre 10 et 30 km
+  if (v === '30') return distanceKm > 30; // « +30 km » = plus de 30 km
+  return true;
+}
 const REL_FILTERS = [
   { id: 'amount', label: 'Montant', def: 'all', opts: [
     { v: 'all', t: 'Tous les montants', short: 'Tous' },
@@ -5288,6 +5386,12 @@ const REL_FILTERS = [
     { v: '3', t: 'Palier 3', short: 'Palier 3' },
     { v: '4', t: 'Palier 4', short: 'Palier 4' },
     { v: '5', t: 'Palier 5', short: 'Palier 5' },
+  ]},
+  { id: 'distance', label: 'Autour de moi', def: 'all', opts: [
+    { v: 'all', t: 'Toutes les distances', short: 'Toutes' },
+    { v: '10', t: 'À moins de 10 km', short: '≤ 10 km' },
+    { v: '10-30', t: 'Entre 10 et 30 km', short: '10–30 km' },
+    { v: '30', t: 'Plus de 30 km', short: '+30 km' },
   ]},
 ];
 // Palette fi.html (mode clair).
@@ -5325,7 +5429,7 @@ const SvgX = ({ size = 9 }) => (
 );
 
 function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
-  const { amount, date, tier, flash } = values;
+  const { amount, date, tier, dist, flash } = values;
   const [open, setOpen] = React.useState(null); // id du chip ouvert
   React.useEffect(() => {
     const close = () => setOpen(null);
@@ -5336,12 +5440,13 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
   }, []);
   const total = pending.length;
   const flashCount = pending.filter(p => p.isFlashDeal).length;
-  const filtersActive = amount !== 'all' || date !== 'all' || tier !== 'all' || flash;
-  const valOf = (id) => (id === 'amount' ? amount : id === 'date' ? date : tier);
-  const setOf = (id, v) => { if (id === 'amount') set.amount(v); else if (id === 'date') set.date(v); else set.tier(v); };
+  const filtersActive = amount !== 'all' || date !== 'all' || tier !== 'all' || dist !== 'all' || flash;
+  const valOf = (id) => (id === 'amount' ? amount : id === 'date' ? date : id === 'distance' ? dist : tier);
+  const setOf = (id, v) => { if (id === 'amount') set.amount(v); else if (id === 'date') set.date(v); else if (id === 'distance') set.dist(v); else set.tier(v); };
   const countFor = (id, v) => {
     if (id === 'amount') return pending.filter(p => relMatchAmount(Number(p.reward) || 0, v)).length;
     if (id === 'date') return pending.filter(p => relMatchDate(p, v)).length;
+    if (id === 'distance') return pending.filter(p => relMatchDistance(p.distanceKm, v)).length;
     return pending.filter(p => relMatchTier(Number(p.tier), v)).length;
   };
   const shortOf = (f) => (f.opts.find(o => o.v === valOf(f.id)) || f.opts[0]).short;
@@ -5385,7 +5490,9 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
           .rel-fbar-chip { width: auto !important; }
           .rel-fbar-chip > button { width: 100% !important; height: 100% !important; }
           .rel-fbar-menu { min-width: 180px !important; max-width: calc(100vw - 28px) !important; width: auto !important; }
-          .rel-fbar-chip:nth-child(2) .rel-fbar-menu { left: auto !important; right: 0 !important; }
+          /* Chips de la colonne de droite (rang pair en grille 2 colonnes) :
+             menu ancré à droite pour ne pas déborder du viewport. */
+          .rel-fbar-chip:nth-child(even) .rel-fbar-menu { left: auto !important; right: 0 !important; }
           .rel-fbar-flash, .rel-fbar-clear {
             width: auto !important; align-self: stretch !important;
             justify-content: center !important; min-height: 46px !important;
@@ -5622,16 +5729,18 @@ function Relations() {
   const [fAmount, setFAmount] = useState('all'); // all | 1-2 | 2-5 | 5+
   const [fDate, setFDate] = useState('all');     // all | today | 3d | 7d
   const [fTier, setFTier] = useState('all');     // all | 1..5
+  const [fDist, setFDist] = useState('all');     // all | 10 | 20 | 30 (autour de moi)
   const [fFlash, setFFlash] = useState(false);
-  const resetFilters = () => { setFAmount('all'); setFDate('all'); setFTier('all'); setFFlash(false); };
+  const resetFilters = () => { setFAmount('all'); setFDate('all'); setFTier('all'); setFDist('all'); setFFlash(false); };
   const filteredPending = React.useMemo(() => {
     return (pending || []).filter(p =>
       relMatchAmount(Number(p.reward) || 0, fAmount) &&
       relMatchDate(p, fDate) &&
       relMatchTier(Number(p.tier), fTier) &&
+      relMatchDistance(p.distanceKm, fDist) &&
       (!fFlash || p.isFlashDeal)
     );
-  }, [pending, fAmount, fDate, fTier, fFlash]);
+  }, [pending, fAmount, fDate, fTier, fDist, fFlash]);
 
   // Statistiques dérivées de l'historique → cartes du haut + total du pied.
   const eur = (v) => Number(v || 0).toFixed(2).replace('.', ',');
@@ -5697,8 +5806,8 @@ function Relations() {
           {/* Barre de filtres premium (cf. fi.html) : chips déroulants,
               toggle Flash deals, bande de filtres actifs, compteur. */}
           <RelFilterBar
-            values={{ amount: fAmount, date: fDate, tier: fTier, flash: fFlash }}
-            set={{ amount: setFAmount, date: setFDate, tier: setFTier, flash: setFFlash }}
+            values={{ amount: fAmount, date: fDate, tier: fTier, dist: fDist, flash: fFlash }}
+            set={{ amount: setFAmount, date: setFDate, tier: setFTier, dist: setFDist, flash: setFFlash }}
             pending={pending}
             filteredCount={filteredPending.length}
             onReset={resetFilters}
