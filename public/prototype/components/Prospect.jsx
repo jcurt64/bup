@@ -2461,6 +2461,12 @@ function ProspectHeader({ onNav }) {
             .prospect-header { padding: 22px 16px 24px !important; }
             .prospect-header-pills { gap: 12px !important; }
           }
+          /* Téléphone : les cartes sont riches (barre, 3 lignes, badges) et
+             illisibles à 2 colonnes étroites (le chiffre passait sous le
+             libellé). On les empile sur une seule colonne pleine largeur. */
+          @media (max-width: 560px) {
+            .prospect-header-pills { grid-template-columns: 1fr !important; }
+          }
         `}</style>
       </div>
     </div>
