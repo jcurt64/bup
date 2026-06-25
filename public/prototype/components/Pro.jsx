@@ -414,7 +414,7 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
         <div>
           <div className="mono caps muted" style={{ marginBottom: 8 }}>— {raison}{secteur ? ' · ' + secteur : ''}</div>
           <div className="serif" style={{ fontSize: 32, letterSpacing: '-0.015em' }}>
-            <em>{balanceText}</em> de crédit disponible · {contactsThisMonth ?? '…'} contact{contactsThisMonth === 1 ? '' : 's'} ce mois
+            <em>{balanceText}</em> de crédit disponible · {contactsThisMonth ?? '…'} sollicitation{contactsThisMonth === 1 ? '' : 's'} acceptée{contactsThisMonth === 1 ? '' : 's'} ce mois
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             {activeCampaigns ?? '…'} campagne{activeCampaigns === 1 ? '' : 's'} active{activeCampaigns === 1 ? '' : 's'} · taux d'acceptation moyen {acceptanceRate != null ? acceptanceRate + '%' : '…'} · ROI estimé {roi}
