@@ -2194,6 +2194,8 @@ function ProspectHeader({ onNav }) {
   const [score, setScore] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [verification, setVerification] = useState(null);
+  // Variation du BUUPP Score sur le mois glissant (carte « +N ce mois »).
+  const [scoreDelta, setScoreDelta] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -2202,6 +2204,18 @@ function ProspectHeader({ onNav }) {
       fetchCachedJson('score', '/api/prospect/score').then(j => !cancelled && setScore(j));
       fetchCachedJson('wallet', '/api/prospect/wallet').then(j => !cancelled && setWallet(j));
       fetchCachedJson('verification', '/api/prospect/verification').then(j => !cancelled && setVerification(j));
+      // Delta du mois : 1er vs dernier snapshot sur 1M (non caché, léger).
+      fetch('/api/prospect/score/history?range=1M', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => {
+          const pts = j?.points;
+          if (!cancelled && Array.isArray(pts) && pts.length > 1) {
+            const first = Number(pts[0]?.score);
+            const last = Number(pts[pts.length - 1]?.score);
+            if (Number.isFinite(first) && Number.isFinite(last)) setScoreDelta(last - first);
+          }
+        })
+        .catch(() => {});
     };
     refresh();
     // Une mutation faite ailleurs (ex. édition dans "Mes données") doit
@@ -2223,6 +2237,22 @@ function ProspectHeader({ onNav }) {
   const fiabPct = fiab?.pct ?? null;
   const fiabLevels = fiab?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
   const fiabCount = fiab?.count ?? (fiab ? (fiabLevels.haute + fiabLevels.moyenne + fiabLevels.basse) : null);
+  // BUUPP Score → indice de désirabilité (label qualitatif + remplissage barre).
+  const scorePct = scoreVal == null ? 0 : Math.max(0, Math.min(1, Number(scoreVal) / 1000));
+  const desirabiliteLabel =
+    scoreVal == null ? '…'
+    : scoreVal >= 850 ? 'Excellente désirabilité'
+    : scoreVal >= 600 ? 'Bonne désirabilité'
+    : scoreVal >= 350 ? 'Désirabilité correcte'
+    : 'Désirabilité à renforcer';
+  // Vérification : libellé + position (1..3) dans l'échelle.
+  const verifPos = verification ? verifTierPosition(verification.tier) : 1;
+  const verifLabel = verification ? (VERIF_LABELS[verification.tier] || 'Basique') : '…';
+  // Parrainage : filleuls restants avant le palier suivant (cuivre→argent=3,
+  // argent→or=10 ; cf. REFERRAL_TIERS).
+  const refCount = filleulCount == null ? 0 : Number(filleulCount);
+  const refNext = refCount < 3 ? 3 : refCount < 10 ? 10 : null;
+  const refRemaining = refNext ? refNext - refCount : 0;
   // Tant que /api/prospect/wallet n'a pas répondu, on garde "…" plutôt
   // que 0 € (évite un flash trompeur). Une fois la réponse reçue, on
   // affiche le vrai cumul du mois (par défaut 0 € si aucun gain).
@@ -2280,36 +2310,116 @@ function ProspectHeader({ onNav }) {
           </div>
         </div>
         <div className="row prospect-header-pills" style={{ gap: 16, alignItems: 'stretch' }}>
-          {/* Taux de fiabilité — placé en premier et mis en avant (highlight)
-              pour attirer l'œil du prospect : c'est le levier de désirabilité. */}
-          <HeaderPill icon="gauge" label="Votre taux de fiabilité" accent="#1c8a6e" highlight>
-            <FiabilitePill pct={fiabPct} levels={fiabLevels} count={fiabCount}/>
-          </HeaderPill>
-          <HeaderPill icon="trend" label="BUUPP Score" accent="#5a57d6">
-            <ScoreMeter value={scoreVal} max={1000}/>
-          </HeaderPill>
-          <HeaderPill icon="shieldCheck" label="Vérification" accent="#2563eb">
-            {(() => {
-              const verifChip =
-                verification?.tier === 'certifie_confiance' ? 'chip-good' :
-                verification?.tier === 'verifie' ? 'chip-accent' : '';
-              const verifValue = verification
-                ? `${VERIF_LABELS[verification.tier] || 'Basique'} · Niveau ${verifTierPosition(verification.tier)}/3`
-                : '…';
-              return (
-                <span className={'chip ' + verifChip} style={{
-                  width: '100%', justifyContent: 'flex-start',
-                  padding: '7px 12px', borderRadius: 8, fontSize: 12.5,
-                }}>
-                  {verifChip === 'chip-good' && <Icon name="check" size={12}/>}
-                  {verifValue}
+          {/* 1 · Taux de fiabilité — 1re carte, ombre d'attention conservée
+               (highlight) ; tuiles d'icônes colorées + chiffres colorés gardés. */}
+          <StatCard accent={PCARD.green} icon="gauge" label="Taux de fiabilité" highlight onInfo={() => onNav && onNav('score')}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <span className="serif tnum" style={{ fontSize: 38, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>{fiabPct == null ? '…' : fiabPct}</span>
+              <span className="serif" style={{ fontSize: 19, color: 'var(--ink-4)' }}>%</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>
+              {fiabCount == null
+                ? <>Noté <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>…</strong> par les professionnels</>
+                : fiabCount === 0
+                  ? <>Pas encore noté par les professionnels</>
+                  : <>Noté <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{fiabCount} fois</strong> par les professionnels</>}
+            </div>
+            <div style={{ height: 7, borderRadius: 999, background: 'var(--line)', overflow: 'hidden', marginTop: 12 }}>
+              <div style={{ width: `${fiabPct == null ? 0 : fiabPct}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #86D6A6, #2EA15C)' }}/>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              {[
+                { key: 'haute',   label: 'Confiance haute',   color: '#16A34A',  icon: 'shieldCheck' },
+                { key: 'moyenne', label: 'Confiance moyenne', color: PCARD.amber, icon: 'shield' },
+                { key: 'basse',   label: 'Confiance basse',   color: PCARD.red,   icon: 'alert' },
+              ].map((r, i) => (
+                <div key={r.key} className="row between center" style={{ padding: '7px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                  <span className="row center" style={{ gap: 9, minWidth: 0 }}>
+                    {/* Icône de niveau dans une tuile au fond coloré (teinte du niveau). */}
+                    <span style={{
+                      width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                      background: `color-mix(in oklab, ${r.color} 15%, var(--paper))`,
+                      color: r.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icon name={r.icon} size={13}/>
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{r.label}</span>
+                  </span>
+                  {/* Chiffre sur fond coloré (badge teinté du niveau). */}
+                  <span className="tnum" style={{
+                    flexShrink: 0, minWidth: 26, textAlign: 'center', fontSize: 14, fontWeight: 700, color: r.color,
+                    background: `color-mix(in oklab, ${r.color} 13%, var(--paper))`,
+                    border: `1px solid color-mix(in oklab, ${r.color} 24%, var(--line))`,
+                    borderRadius: 7, padding: '2px 8px',
+                  }}>{fiabLevels?.[r.key] ?? 0}</span>
+                </div>
+              ))}
+            </div>
+          </StatCard>
+
+          {/* 2 · BUUPP Score → indice de désirabilité */}
+          <StatCard accent={PCARD.purple} icon="trend" label="BUUPP Score" onInfo={() => onNav && onNav('score')}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+              <span className="serif tnum" style={{ fontSize: 38, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>{scoreVal == null ? '…' : scoreVal}</span>
+              <span className="mono" style={{ fontSize: 14, color: 'var(--ink-4)' }}>/ 1000</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>Votre indice de <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>désirabilité</strong></div>
+            <div style={{ position: 'relative', height: 7, borderRadius: 999, background: 'var(--line)', marginTop: 14, marginBottom: 16 }}>
+              <div style={{ width: `${scorePct * 100}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #A99CF8, #6D5EF0)' }}/>
+              <span style={{ position: 'absolute', top: '50%', left: `${scorePct * 100}%`, transform: 'translate(-50%, -50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: `2px solid ${PCARD.purple}`, boxShadow: '0 1px 3px rgba(0,0,0,.22)' }}/>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', rowGap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#5249c8', background: `color-mix(in oklab, ${PCARD.purple} 12%, var(--paper))`, border: `1px solid color-mix(in oklab, ${PCARD.purple} 26%, var(--line))`, padding: '4px 10px', borderRadius: 999 }}>{desirabiliteLabel}</span>
+              {scoreDelta != null && scoreDelta !== 0 && (
+                <span className="row center" style={{ gap: 4, fontSize: 12.5, fontWeight: 600, color: '#16A34A', whiteSpace: 'nowrap' }}>
+                  <Icon name="trend" size={13}/>{scoreDelta > 0 ? '+' : ''}{scoreDelta} ce mois
                 </span>
-              );
-            })()}
-          </HeaderPill>
-          <HeaderPill icon="gift" label="Parrainages" accent="#b9842a">
-            <ReferralDots count={filleulCount} cap={filleulCap}/>
-          </HeaderPill>
+              )}
+            </div>
+          </StatCard>
+
+          {/* 3 · Niveau de vérification */}
+          <StatCard accent={PCARD.blue} icon="shieldCheck" label="Niveau de vérification" onInfo={() => onNav && onNav('verif')}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <span className="serif" style={{ fontSize: 28, lineHeight: 1.05, fontWeight: 700, color: 'var(--ink)' }}>{verifLabel}</span>
+              <span className="mono" style={{ fontSize: 12.5, color: 'var(--ink-4)' }}>niveau {verifPos} / 3</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>Vérifiez votre profil pour <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>gagner plus</strong></div>
+            <div className="row" style={{ gap: 6, marginTop: 16 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ flex: 1, height: 6, borderRadius: 999, background: i < verifPos ? PCARD.blue : 'var(--line)' }}/>
+              ))}
+            </div>
+            <div className="row between" style={{ marginTop: 8 }}>
+              {['Basique', 'Confirmé', 'Certifié'].map((s, i) => (
+                <span key={s} className="mono" style={{ fontSize: 10, color: verifPos >= i + 1 ? PCARD.blue : 'var(--ink-4)', fontWeight: verifPos >= i + 1 ? 600 : 400 }}>{s}</span>
+              ))}
+            </div>
+            {verifPos < 3 && (
+              <button type="button" onClick={() => onNav && onNav('verif')} style={{ marginTop: 16, padding: 0, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+                Passer au niveau supérieur <Icon name="arrow" size={14}/>
+              </button>
+            )}
+          </StatCard>
+
+          {/* 4 · Mes parrainages */}
+          <StatCard accent={PCARD.amber} icon="gift" label="Mes parrainages" onInfo={() => onNav && onNav('parrainage')}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+              <span className="serif tnum" style={{ fontSize: 38, lineHeight: 1, fontWeight: 700, color: 'var(--ink)' }}>{filleulCount == null ? '…' : filleulCount}</span>
+              <span className="mono" style={{ fontSize: 14, color: 'var(--ink-4)' }}>/ {filleulCap}</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>Filleuls actifs sur votre palier</div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 14 }}>
+              {Array.from({ length: filleulCap }).map((_, i) => (
+                <span key={i} style={{ width: 13, height: 13, borderRadius: '50%', flexShrink: 0, background: i < refCount ? PCARD.amber : 'var(--ivory-2)', border: '1px solid ' + (i < refCount ? PCARD.amber : 'var(--line)') }}/>
+              ))}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 16 }}>
+              {refRemaining > 0
+                ? <>Encore <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{refRemaining} filleul{refRemaining > 1 ? 's' : ''}</strong> pour débloquer le palier suivant.</>
+                : <>Palier maximal atteint 🎉</>}
+            </div>
+          </StatCard>
         </div>
         <style>{`
           /* Les 4 pastilles (Fiabilité / BUUPP Score / Vérification /
@@ -2347,6 +2457,62 @@ function ProspectHeader({ onNav }) {
             .prospect-header-pills { gap: 12px !important; }
           }
         `}</style>
+      </div>
+    </div>
+  );
+}
+
+// Palette des cartes d'en-tête prospect (parité car.png) : une teinte par
+// carte, réutilisée pour la barre d'accent, la tuile d'icône et les chiffres.
+const PCARD = {
+  green:  '#2EA15C', // taux de fiabilité
+  amber:  '#E0922E', // confiance moyenne · parrainage
+  red:    '#E2574C', // confiance basse
+  purple: '#6D5EF0', // BUUPP score
+  blue:   '#2F90D8', // vérification
+};
+
+// Carte d'en-tête prospect (parité car.png) : barre d'accent colorée en haut,
+// tuile d'icône teintée + libellé mono + bouton info, puis un corps libre.
+// `highlight` ajoute l'ombre colorée d'attention (réservée à la 1re carte).
+function StatCard({ accent, icon, label, onInfo, highlight = false, children }) {
+  return (
+    <div className="prospect-pill" style={{
+      position: 'relative',
+      background: 'var(--paper)',
+      border: '1px solid ' + (highlight ? `color-mix(in oklab, ${accent} 32%, var(--line))` : 'var(--line)'),
+      borderRadius: 16,
+      overflow: 'hidden',
+      minWidth: 190,
+      boxShadow: highlight
+        ? `0 1px 3px rgba(15,23,42,.05), 0 16px 34px -12px color-mix(in oklab, ${accent} 55%, transparent)`
+        : '0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03)',
+    }}>
+      {/* Barre d'accent supérieure */}
+      <div style={{ height: 5, background: accent }} />
+      <div style={{ padding: '15px 17px 17px' }}>
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 14 }}>
+          <div className="row" style={{ gap: 10, alignItems: 'center', minWidth: 0 }}>
+            <span style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: `color-mix(in oklab, ${accent} 14%, var(--paper))`,
+              color: accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon name={icon} size={17} stroke={1.9}/>
+            </span>
+            <span className="mono caps" style={{ fontSize: 10.5, letterSpacing: '.1em', color: 'var(--ink-3)', lineHeight: 1.3 }}>{label}</span>
+          </div>
+          {onInfo && (
+            <button type="button" onClick={onInfo} aria-label="Plus d'infos" style={{
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+              border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink-4)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon name="info" size={12}/>
+            </button>
+          )}
+        </div>
+        {children}
       </div>
     </div>
   );
