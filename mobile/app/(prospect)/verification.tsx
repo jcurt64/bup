@@ -109,22 +109,16 @@ export default function Verification() {
                       {reached ? `${t.done}.` : t.requirement}
                     </Text>
 
-                    {/* RIB inline pour le palier vérifié (parité web : ibanMasked affiché si validé) */}
-                    {t.key === "verifie" && d.rib?.validated && d.rib.ibanMasked ? (
-                      <Text className="mt-1 font-mono text-xs text-ink-4">
-                        RIB : {d.rib.ibanMasked}
-                      </Text>
-                    ) : null}
-
-                    {/* CTA RIB sur le palier Vérifié (web : bouton primaire). */}
-                    {t.key === "verifie" ? (
+                    {/* CTA palier Vérifié = vérification du téléphone par SMS
+                        (et NON le RIB : le RIB ne valide pas ce palier, cf.
+                        /api/prospect/verification → phone_verified_at). La
+                        vérification SMS se fait dans Préférences. Parité fix web. */}
+                    {t.key === "verifie" && !reached ? (
                       <Pressable
                         className="mt-3 self-start rounded-full border border-line px-4 py-2"
                         onPress={() => router.push("/(prospect)/preferences")}
                       >
-                        <Text className="text-xs text-ink-2">
-                          {d.rib ? "Modifier mon RIB" : "Renseigner mon RIB"}
-                        </Text>
+                        <Text className="text-xs text-ink-2">Vérifier mon téléphone</Text>
                       </Pressable>
                     ) : null}
                   </Card>

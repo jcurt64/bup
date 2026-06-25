@@ -243,6 +243,47 @@ export default function ParrainageScreen() {
                 />
               </View>
 
+              {/* Prochain palier — message adaptatif (parité web : Bronze 1 /
+                  Argent 3 / Or 10 filleuls ; cf. Prospect.jsx carte parrainage). */}
+              {(() => {
+                const TIER_COLOR: Record<string, string> = {
+                  Bronze: "#B87333",
+                  Argent: "#9CA3AF",
+                  Or: "#E6B422",
+                };
+                const next =
+                  d.count < 1
+                    ? { n: 1, label: "Bronze" }
+                    : d.count < 3
+                      ? { n: 3, label: "Argent" }
+                      : d.count < 10
+                        ? { n: 10, label: "Or" }
+                        : null;
+                if (!next) {
+                  return (
+                    <Text className="text-sm text-ink-3">
+                      🏆 Palier{" "}
+                      <Text style={{ color: TIER_COLOR.Or, fontWeight: "700" }}>Or</Text>{" "}
+                      atteint — vous êtes au sommet du parrainage !
+                    </Text>
+                  );
+                }
+                const left = next.n - d.count;
+                return (
+                  <Text className="text-sm text-ink-3">
+                    Plus que{" "}
+                    <Text className="font-semibold text-ink">
+                      {left} filleul{left > 1 ? "s" : ""}
+                    </Text>{" "}
+                    pour décrocher le palier{" "}
+                    <Text style={{ color: TIER_COLOR[next.label], fontWeight: "700" }}>
+                      {next.label}
+                    </Text>
+                    .
+                  </Text>
+                );
+              })()}
+
               <Card badge={{ icon: "trophy-outline", tone: "amber" }}>
                 <Text className="font-serif text-base text-ink">
                   Avantages fondateur·ice (1er mois post-lancement)
