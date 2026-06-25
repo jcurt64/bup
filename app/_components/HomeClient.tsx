@@ -3,6 +3,7 @@
 import {
   useState,
   useEffect,
+  useRef,
   useMemo,
   Fragment,
   type CSSProperties,
@@ -2238,7 +2239,7 @@ function TiersTable() {
   );
 }
 
-function ScoreSection() {
+function ScoreVisual() {
   const ranges: [string, string, string][] = [
     ["0–399", "Découverte", "#B91C1C"],
     ["400–699", "Solide", "#A16207"],
@@ -2252,16 +2253,10 @@ function ScoreSection() {
   ];
   const [fiabInfo, setFiabInfo] = useState(false);
   return (
-    <section className="section">
+    <>
       <div
         className="grid grid-2"
-        data-reveal-group
-        style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          gap: 56,
-          alignItems: "center",
-        }}
+        style={{ gap: 56, alignItems: "center" }}
       >
         <div>
           <div className="mono caps muted" style={{ marginBottom: 16 }}>
@@ -2346,7 +2341,7 @@ function ScoreSection() {
                       <button
                         type="button"
                         onClick={() => setFiabInfo(true)}
-                        aria-label="Comment se calcule le taux de fiabilité ?"
+                        aria-label="Comment se calcule votre taux de fiabilité ?"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -2372,123 +2367,157 @@ function ScoreSection() {
       </div>
 
       {fiabInfo && <FiabiliteInfoModal onClose={() => setFiabInfo(false)} />}
-    </section>
+    </>
   );
 }
 
-/* Popup « Comment se calcule le taux de fiabilité ? » — design repris de la
-   maquette pop.png (palette premium indigo/teal/ambre/rose/vert). Icônes =
-   jeu existant du site (SiteChrome). Responsive : carte scrollable, tuiles
-   et exemples qui s'adaptent en largeur. */
-function FiabiliteInfoModal({ onClose }: { onClose: () => void }) {
-  const C = {
-    card: "#fffdf8",
-    ink: "#161a1d",
-    ink2: "#3c444b",
-    ink3: "#757d83",
-    ink4: "#9aa0a4",
-    line: "rgba(22,26,29,0.10)",
-    paperWarm: "#efeadd",
-    indigo: "#5a57d6",
-    indigoD: "#4744bf",
-    indigoSoft: "#ecebfb",
-    indigoXsoft: "#f4f3fd",
-    teal: "#1c8a6e",
-    tealSoft: "#e9f5f0",
-    amber: "#b9842a",
-    amberSoft: "#faf4e6",
-    rose: "#c14d77",
-    roseSoft: "#f7e2ea",
-    green: "#2e9e5b",
-    greenSoft: "#dcf0e3",
-  };
-  const tiles: {
-    icon: IconName;
-    n: string;
-    label: string;
-    sub: string;
-    color: string;
-    bg: string;
-  }[] = [
-    { icon: "sparkle", n: "100", label: "Haute", sub: "confiance maximale", color: C.teal, bg: C.tealSoft },
-    { icon: "clock", n: "60", label: "Moyenne", sub: "valeur neutre", color: C.amber, bg: C.amberSoft },
-    { icon: "gauge", n: "20", label: "Basse", sub: "vigilance", color: C.rose, bg: C.roseSoft },
-  ];
-  const examples: { t: string; sub: string; pct: number; color: string }[] = [
-    { t: "Aucun avis", sub: "· point de départ neutre", pct: 60, color: C.ink4 },
-    { t: "1 avis « Haute »", sub: "", pct: 70, color: C.indigo },
-    { t: "10 avis « Haute »", sub: "", pct: 91, color: C.green },
-  ];
+/* ── Indice de désirabilité — scène épinglée (scroll-driven storytelling) ──
+   En arrivant sur la section, l'écran se fige ; au défilement, trois popups
+   se succèdent (paliers → fraîcheur → fiabilité) pour rappeler que la qualité
+   de l'indice de désirabilité conditionne le volume de sollicitations reçues.
+   Technique : conteneur haut + enfant `position: sticky` piloté par la
+   progression du scroll NATIF (pas de scroll-jacking → scroll tactile imbriqué
+   et accessibilité préservés). Repli statique si prefers-reduced-motion. */
+
+const SCORE_C = {
+  card: "#fffdf8",
+  ink: "#161a1d",
+  ink2: "#3c444b",
+  ink3: "#757d83",
+  ink4: "#9aa0a4",
+  line: "rgba(22,26,29,0.10)",
+  paperWarm: "#efeadd",
+  indigo: "#5a57d6",
+  indigoD: "#4744bf",
+  indigoSoft: "#ecebfb",
+  indigoXsoft: "#f4f3fd",
+  teal: "#1c8a6e",
+  tealSoft: "#e9f5f0",
+  amber: "#b9842a",
+  amberSoft: "#faf4e6",
+  rose: "#c14d77",
+  roseSoft: "#f7e2ea",
+  green: "#2e9e5b",
+  greenSoft: "#dcf0e3",
+} as const;
+
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
+/* Opacité + décalage vertical d'un popup selon la progression p∈[0,1]. */
+function popupVis(
+  p: number,
+  enter: number,
+  full: number,
+  hold: number,
+  exit: number,
+): { o: number; y: number } {
+  if (p <= enter || p >= exit) return { o: 0, y: p <= enter ? 30 : -30 };
+  if (p < full) {
+    const t = (p - enter) / (full - enter);
+    return { o: t, y: (1 - t) * 30 };
+  }
+  if (p < hold) return { o: 1, y: 0 };
+  const t = (p - hold) / (exit - hold);
+  return { o: 1 - t, y: -t * 30 };
+}
+
+// Bandes [enter, full, hold, exit] de chaque popup sur la progression de la scène.
+const DESIR_BANDS: ReadonlyArray<[number, number, number, number]> = [
+  [0.03, 0.12, 0.28, 0.36],
+  [0.38, 0.47, 0.61, 0.68],
+  [0.7, 0.79, 0.94, 0.995],
+];
+
+/* Carte popup partagée (chrome repris de la maquette pop.png). */
+function ScorePopupCard({
+  accent,
+  icon,
+  kicker,
+  title,
+  children,
+  onClose,
+}: {
+  accent: string;
+  icon: IconName;
+  kicker: string;
+  title: string;
+  children: ReactNode;
+  onClose?: () => void;
+}) {
+  const C = SCORE_C;
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
+      onClick={(e) => e.stopPropagation()}
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 300,
-        background: "rgba(15,18,25,0.5)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
+        position: "relative",
+        width: "100%",
+        maxWidth: 600,
+        maxHeight: "100%",
+        overflowY: "auto",
+        background: C.card,
+        borderRadius: 18,
+        boxShadow: "0 30px 80px rgba(22,26,29,0.28)",
+        textAlign: "left",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "relative",
-          width: "100%",
-          maxWidth: 600,
-          maxHeight: "92vh",
-          overflowY: "auto",
-          background: C.card,
-          borderRadius: 18,
-          boxShadow: "0 30px 80px rgba(22,26,29,0.28)",
-          textAlign: "left",
-        }}
-      >
-        {/* Barre d'accent indigo → vert */}
-        <div
-          style={{
-            height: 4,
-            background: "linear-gradient(90deg, #4744bf 0%, #5a57d6 40%, #2e9e5b 100%)",
-          }}
-        />
-        <div style={{ padding: "clamp(20px, 4vw, 28px)" }}>
-          {/* En-tête */}
-          <div className="row between" style={{ alignItems: "flex-start", gap: 12 }}>
-            <div className="row" style={{ alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-              <span
+      <div style={{ height: 4, background: accent }} />
+      <div style={{ padding: "clamp(20px, 4vw, 28px)" }}>
+        <div className="row between" style={{ alignItems: "flex-start", gap: 12 }}>
+          <div
+            className="row"
+            style={{ alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}
+          >
+            <span
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 11,
+                background: C.indigoSoft,
+                color: C.indigoD,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Icon name={icon} size={18} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div
+                className="mono caps"
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 11,
-                  background: C.indigoSoft,
-                  color: C.indigoD,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
+                  fontSize: 10,
+                  letterSpacing: "0.16em",
+                  color: C.ink4,
+                  marginBottom: 3,
                 }}
               >
-                <Icon name="shield" size={18} />
-              </span>
-              <div>
-                <div
-                  className="mono caps"
-                  style={{ fontSize: 10, letterSpacing: "0.16em", color: C.ink4, marginBottom: 3 }}
-                >
-                  BUUPP Score
-                </div>
-                <h3 className="serif" style={{ fontSize: "clamp(18px, 2.4vw, 22px)", margin: 0, lineHeight: 1.2, color: C.ink }}>
-                  Comment se calcule le taux de fiabilité&nbsp;?
-                </h3>
+                {kicker}
               </div>
+              <h3
+                className="serif"
+                style={{
+                  fontSize: "clamp(18px, 2.4vw, 22px)",
+                  margin: 0,
+                  lineHeight: 1.2,
+                  color: C.ink,
+                }}
+              >
+                {title}
+              </h3>
             </div>
+          </div>
+          {onClose && (
             <button
               type="button"
               onClick={onClose}
@@ -2509,156 +2538,882 @@ function FiabiliteInfoModal({ onClose }: { onClose: () => void }) {
             >
               <Icon name="close" size={15} />
             </button>
-          </div>
+          )}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-          {/* Paragraphe */}
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
-            Après une mise en relation, le professionnel peut vous attribuer une note de
-            fiabilité. On retient <strong style={{ color: C.ink }}>une seule note par professionnel</strong>.
-          </p>
-
-          {/* Trois niveaux */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {tiles.map((t) => (
-              <div
-                key={t.label}
-                style={{
-                  flex: "1 1 150px",
-                  minWidth: 150,
-                  padding: 14,
-                  borderRadius: 13,
-                  background: t.bg,
-                  border: `1px solid color-mix(in oklab, ${t.color} 22%, ${C.line})`,
-                }}
-              >
-                <div className="row between" style={{ alignItems: "center" }}>
-                  <span style={{ color: t.color, display: "inline-flex" }}>
-                    <Icon name={t.icon} size={18} />
-                  </span>
-                  <span className="serif" style={{ fontSize: 26, color: t.color, lineHeight: 1 }}>{t.n}</span>
-                </div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: t.color, marginTop: 10 }}>{t.label}</div>
-                <div style={{ fontSize: 11.5, color: C.ink4, marginTop: 2 }}>{t.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Moyenne bayésienne */}
-          <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 16px" }}>
-            <span
+/* Popup 1 — mécanisme des paliers (complétude). */
+function PaliersBody() {
+  const C = SCORE_C;
+  // 5 marches : libellé, sous-titre, prix affiché, hauteur relative, couleur de barre.
+  const steps: {
+    n: number;
+    label: string;
+    sub: string;
+    price: string;
+    h: number;
+    fill: string;
+    top?: boolean;
+  }[] = [
+    { n: 1, label: "Identification", sub: "email, nom, tél.", price: "1,00 €", h: 60, fill: "#c7c5f1" },
+    { n: 2, label: "Localisation", sub: "adresse, logement", price: "2,00 €", h: 88, fill: "#a9a6ea" },
+    { n: 3, label: "Style de vie", sub: "habitudes, famille", price: "3,50 €", h: 116, fill: "#8b88e2" },
+    { n: 4, label: "Professionnel", sub: "statut, secteur", price: "5,00 €", h: 144, fill: "#6764d6" },
+    { n: 5, label: "Patrimoine", sub: "immobilier, projets", price: "10 €", h: 176, fill: "#4a47bf", top: true },
+  ];
+  return (
+    <>
+      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
+        Vos données sont rangées en{" "}
+        <strong style={{ color: C.ink }}>cinq paliers cloisonnés</strong>, de
+        l&apos;identification aux centres d&apos;intérêt. Plus vous montez de marches,
+        plus chaque palier est <strong style={{ color: C.ink }}>rémunéré</strong> — et
+        plus vous décrochez le sommet.
+      </p>
+      {/* Graphique en escalier */}
+      <div
+        style={{
+          position: "relative",
+          borderRadius: 14,
+          padding: "14px 14px 12px",
+          background:
+            "radial-gradient(160px 120px at 87% 12%, rgba(244,205,95,0.24), rgba(244,205,95,0) 70%), linear-gradient(180deg, #f6f5fd 0%, #edecfb 100%)",
+          border: `1px solid ${C.indigoSoft}`,
+        }}
+      >
+        <div
+          className="mono caps"
+          style={{
+            fontSize: 9.5,
+            letterSpacing: "0.1em",
+            color: C.indigoD,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            marginBottom: 10,
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 12 }}>
+            ↗
+          </span>
+          + de rémunération à chaque marche
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 236 }}>
+          {steps.map((s) => (
+            <div
+              key={s.n}
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: C.indigoXsoft,
-                color: C.indigoD,
-                display: "inline-flex",
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                justifyContent: "flex-end",
+                height: "100%",
               }}
             >
-              <Icon name="trend" size={15} />
-            </span>
-            <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
-              Le taux est une <strong style={{ color: C.indigoD }}>moyenne bayésienne</strong>&nbsp;: tant que
-              vous avez peu d&apos;avis, il reste proche d&apos;une valeur neutre, puis il converge vers la
-              vraie moyenne à mesure que les avis s&apos;accumulent.
-            </p>
-          </div>
-
-          {/* Le calcul */}
-          <div className="mono caps" style={{ fontSize: 10, letterSpacing: "0.14em", color: C.ink4, marginBottom: 8 }}>
-            Le calcul
-          </div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 13,
-              color: C.ink2,
-              background: C.indigoXsoft,
-              border: `1px solid color-mix(in oklab, ${C.indigo} 15%, ${C.line})`,
-              borderRadius: 10,
-              padding: "14px 12px",
-              textAlign: "center",
-              lineHeight: 1.7,
-            }}
-          >
-            fiabilité = (3 × <span style={{ color: C.indigoD, fontWeight: 600 }}>60</span> + somme des notes)
-            <br />
-            (3 + nombre d&apos;avis)
-          </div>
-
-          {/* Quelques exemples */}
-          <div className="mono caps" style={{ fontSize: 10, letterSpacing: "0.14em", color: C.ink4, margin: "18px 0 8px" }}>
-            Quelques exemples
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {examples.map((ex, i) => (
+              {/* Pastille prix */}
               <div
-                key={ex.t}
-                className="row"
                 style={{
+                  position: "relative",
+                  display: "inline-flex",
                   alignItems: "center",
-                  gap: 14,
-                  padding: "11px 2px",
-                  borderTop: i === 0 ? "none" : `1px solid ${C.line}`,
+                  gap: s.top ? 4 : 3,
+                  marginBottom: 10,
+                  padding: s.top ? "3px 12px" : "3px 8px",
+                  borderRadius: 999,
+                  background: s.top
+                    ? "linear-gradient(180deg, #fff7e2 0%, #f6e1a8 100%)"
+                    : "#fff",
+                  border: s.top ? "1px solid #ecc873" : "none",
+                  boxShadow: s.top
+                    ? "0 6px 16px rgba(212,160,47,0.36)"
+                    : "0 3px 8px rgba(71,68,191,0.18)",
+                  fontSize: s.top ? 13 : 11.5,
+                  fontWeight: 700,
+                  color: s.top ? "#a3701a" : C.indigoD,
+                  whiteSpace: "nowrap",
                 }}
               >
-                <div
-                  style={{
-                    flex: "0 1 auto",
-                    minWidth: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    fontSize: 13,
-                    color: C.ink,
-                  }}
-                >
-                  <strong>{ex.t}</strong>
-                  {ex.sub ? <span style={{ color: C.ink4 }}> {ex.sub}</span> : null}
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    height: 7,
-                    minWidth: 60,
-                    borderRadius: 999,
-                    background: C.paperWarm,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div style={{ width: `${ex.pct}%`, height: "100%", borderRadius: 999, background: ex.color }} />
-                </div>
-                <div className="serif" style={{ flex: "0 0 auto", fontSize: 20, color: ex.color }}>{ex.pct}</div>
+                {s.top ? (
+                  <>
+                    <style>{`@keyframes bupp-twinkle{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}@media (prefers-reduced-motion:reduce){.bupp-spark{animation:none!important;opacity:.9}}`}</style>
+                    <span>10</span>
+                    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                      <span
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          inset: -7,
+                          borderRadius: "50%",
+                          background:
+                            "radial-gradient(circle, rgba(245,205,90,0.75), rgba(245,205,90,0) 70%)",
+                        }}
+                      />
+                      <span className="bupp-spark" style={{ position: "absolute", top: -9, left: -9, color: "#e0a72f", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out infinite" }}>
+                        <Icon name="sparkle" size={11} />
+                      </span>
+                      <span className="bupp-spark" style={{ position: "absolute", top: -10, right: -8, color: "#eebb45", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out .5s infinite" }}>
+                        <Icon name="sparkle" size={8} />
+                      </span>
+                      <span className="bupp-spark" style={{ position: "absolute", bottom: -7, right: -9, color: "#eebb45", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out .9s infinite" }}>
+                        <Icon name="sparkle" size={6} />
+                      </span>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="#c9881d" aria-hidden style={{ position: "relative" }}>
+                        <path d="M18 5V3H6v2H2v3a5 5 0 0 0 5 5h.6A6 6 0 0 0 11 15.9V18H8v2h8v-2h-3v-2.1A6 6 0 0 0 16.4 13H17a5 5 0 0 0 5-5V5h-4zM6 11a3 3 0 0 1-3-3V7h3v4zm15-3a3 3 0 0 1-3 3V7h3v1z" />
+                      </svg>
+                    </span>
+                    <span>€</span>
+                  </>
+                ) : (
+                  s.price
+                )}
               </div>
-            ))}
-          </div>
+              {/* Barre */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: s.h,
+                  borderRadius: "9px 9px 0 0",
+                  background: s.fill,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "flex-start",
+                  paddingTop: 9,
+                }}
+              >
+                <span
+                  className="serif"
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.92)",
+                    color: C.indigoD,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 13,
+                  }}
+                >
+                  {s.n}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Libellés sous les marches */}
+        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          {steps.map((s) => (
+            <div key={s.n} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: C.ink,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {s.label}
+              </div>
+              <div style={{ fontSize: 9.5, color: C.ink4, lineHeight: 1.25, marginTop: 1 }}>
+                {s.sub}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 16px" }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: C.indigoXsoft,
+            color: C.indigoD,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="target" size={15} />
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
+          La <strong style={{ color: C.indigoD }}>complétude</strong> mesure la part de
+          paliers validés. Chaque marche gravie fait monter votre indice de désirabilité
+          et débloque des sollicitations mieux rémunérées.
+        </p>
+      </div>
+      <div
+        className="row"
+        style={{
+          gap: 11,
+          alignItems: "center",
+          padding: "13px 15px",
+          borderRadius: 12,
+          background: C.greenSoft,
+          border: `1px solid color-mix(in oklab, ${C.green} 22%, ${C.line})`,
+        }}
+      >
+        <span style={{ color: C.green, display: "inline-flex", flexShrink: 0 }}>
+          <Icon name="check" size={17} />
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
+          <strong style={{ color: C.ink }}>Plus vous complétez de paliers</strong>, plus
+          vous recevez de sollicitations — et mieux rémunérées.
+        </p>
+      </div>
+    </>
+  );
+}
 
-          {/* Bandeau bas */}
-          <div
-            className="row"
+/* Popup 2 — fraîcheur des données. */
+function FraicheurBody() {
+  const C = SCORE_C;
+  // Trois jalons de la courbe : position x (sur 320), y (sur 160), valeur, couleur.
+  const pts: { x: number; y: number; n: string; color: string; soft: string; label: string; sub: string; hero?: boolean }[] = [
+    { x: 54, y: 52, n: "100", color: C.green, soft: C.greenSoft, label: "Récentes", sub: "≤ 3 mois", hero: true },
+    { x: 160, y: 92, n: "60", color: C.amber, soft: C.amberSoft, label: "À rafraîchir", sub: "3 – 12 mois" },
+    { x: 266, y: 126, n: "20", color: C.rose, soft: C.roseSoft, label: "Périmées", sub: "> 12 mois" },
+  ];
+  return (
+    <>
+      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
+        Une donnée récente inspire confiance. Avec le temps, sa valeur s&apos;érode&nbsp;:
+        votre <strong style={{ color: C.ink }}>fraîcheur</strong> — et donc votre score —
+        diminue si vos informations vieillissent, comme une feuille qui se fane.
+      </p>
+      {/* Courbe de décroissance */}
+      <div
+        style={{
+          borderRadius: 14,
+          padding: "12px 12px 10px",
+          background: "linear-gradient(180deg, #fbfaf4 0%, #f3f0e5 100%)",
+          border: `1px solid ${C.line}`,
+        }}
+      >
+        <div className="row between" style={{ marginBottom: 2 }}>
+          <span className="mono caps" style={{ fontSize: 9, letterSpacing: "0.12em", color: C.green }}>
+            Fraîcheur
+          </span>
+          <span className="mono caps" style={{ fontSize: 9, letterSpacing: "0.12em", color: C.ink4 }}>
+            → Temps
+          </span>
+        </div>
+        <svg viewBox="0 0 320 160" width="100%" height="auto" style={{ display: "block" }}>
+          <defs>
+            <linearGradient id="bupp-fresh" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor={C.green} />
+              <stop offset="0.5" stopColor={C.amber} />
+              <stop offset="1" stopColor={C.rose} />
+            </linearGradient>
+            <radialGradient id="bupp-fresh-glow">
+              <stop offset="0" stopColor={C.green} stopOpacity={0.42} />
+              <stop offset="70%" stopColor={C.green} stopOpacity={0} />
+            </radialGradient>
+          </defs>
+          <style>{`@keyframes bupp-twinkle{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}@media (prefers-reduced-motion:reduce){.bupp-spark{animation:none!important;opacity:.9}}`}</style>
+          {pts.map((p) => (
+            <line
+              key={`g${p.x}`}
+              x1={p.x}
+              y1={p.y}
+              x2={p.x}
+              y2={146}
+              stroke="rgba(22,26,29,0.10)"
+              strokeWidth={1}
+              strokeDasharray="3 4"
+            />
+          ))}
+          <path
+            d="M26 44 C 70 52, 80 72, 120 80 C 160 88, 175 100, 200 108 C 235 119, 262 124, 296 130"
+            fill="none"
+            stroke="url(#bupp-fresh)"
+            strokeWidth={4}
+            strokeLinecap="round"
+          />
+          {pts.map((p) => (
+            <g key={`p${p.x}`}>
+              {p.hero && <circle cx={p.x} cy={p.y} r={32} fill="url(#bupp-fresh-glow)" />}
+              <text
+                x={p.x}
+                y={p.y - 22}
+                textAnchor="middle"
+                fill={p.color}
+                style={{ fontFamily: "var(--serif)", fontSize: "23px", fontWeight: 600 }}
+              >
+                {p.n}
+              </text>
+              <g transform={`translate(${p.x} ${p.y})`}>
+                <circle r={15} fill="#fff" stroke={p.color} strokeWidth={1.5} />
+                <path
+                  d="M0 -7 C5.5 -3.5, 5.5 3.5, 0 8 C-5.5 3.5, -5.5 -3.5, 0 -7 Z"
+                  fill={p.soft}
+                  stroke={p.color}
+                  strokeWidth={1.2}
+                />
+                <path d="M0 -5 L0 6.5" fill="none" stroke={p.color} strokeWidth={1.1} />
+              </g>
+              {p.hero &&
+                [
+                  { dx: -24, dy: -16, s: 1.4, c: "#2e9e5b", d: "0s" },
+                  { dx: 20, dy: -20, s: 1.05, c: "#46bd72", d: ".45s" },
+                  { dx: 25, dy: 9, s: 0.85, c: "#46bd72", d: ".9s" },
+                  { dx: -20, dy: 15, s: 0.75, c: "#7ed29a", d: "1.3s" },
+                ].map((sp, k) => (
+                  <g key={k} transform={`translate(${p.x + sp.dx} ${p.y + sp.dy}) scale(${sp.s})`}>
+                    <path
+                      className="bupp-spark"
+                      style={{
+                        animation: `bupp-twinkle 1.8s ease-in-out ${sp.d} infinite`,
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                      }}
+                      fill={sp.c}
+                      d="M0 -5 C.6 -1.6 1.6 -.6 5 0 C1.6 .6 .6 1.6 0 5 C-.6 1.6 -1.6 .6 -5 0 C-1.6 -.6 -.6 -1.6 0 -5 Z"
+                    />
+                  </g>
+                ))}
+            </g>
+          ))}
+        </svg>
+        <div style={{ display: "flex", marginTop: 4 }}>
+          {pts.map((p) => (
+            <div key={`l${p.x}`} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: p.color }}>{p.label}</div>
+              <div style={{ fontSize: 10, color: C.ink4, marginTop: 1 }}>{p.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 16px" }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: C.indigoXsoft,
+            color: C.indigoD,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="trend" size={15} />
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
+          La fraîcheur se recalcule en continu&nbsp;: un simple passage pour{" "}
+          <strong style={{ color: C.indigoD }}>confirmer vos données</strong> suffit à la
+          faire remonter au maximum.
+        </p>
+      </div>
+      <div
+        className="row"
+        style={{
+          gap: 11,
+          alignItems: "center",
+          padding: "13px 15px",
+          borderRadius: 12,
+          background: C.greenSoft,
+          border: `1px solid color-mix(in oklab, ${C.green} 22%, ${C.line})`,
+        }}
+      >
+        <span style={{ color: C.green, display: "inline-flex", flexShrink: 0 }}>
+          <Icon name="check" size={17} />
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
+          <strong style={{ color: C.ink }}>Des données à jour</strong>&nbsp;= un score
+          stable et des sollicitations qui continuent d&apos;affluer.
+        </p>
+      </div>
+    </>
+  );
+}
+
+/* Popup 3 — taux de fiabilité (contenu d'origine, partagé avec le modal info). */
+function FiabiliteBody() {
+  const C = SCORE_C;
+  // Sliders d'exemples : valeur 20→100 mappée sur 0→100 % (60 = neutre, au centre).
+  const rows: { t: string; val: number; color: string }[] = [
+    { t: "Aucun avis", val: 60, color: "#9aa0a4" },
+    { t: "1 avis « Haute »", val: 70, color: C.indigo },
+    { t: "10 avis « Haute »", val: 91, color: C.green },
+  ];
+  return (
+    <>
+      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
+        Après une mise en relation, le professionnel attribue une note&nbsp;:{" "}
+        <strong style={{ color: C.rose }}>Basse</strong>,{" "}
+        <strong style={{ color: C.amber }}>Moyenne</strong> ou{" "}
+        <strong style={{ color: C.green }}>Haute</strong>. La jauge ci-dessous traduit
+        ces avis en un seul taux de confiance.
+      </p>
+      {/* Jauge */}
+      <div
+        style={{
+          borderRadius: 14,
+          padding: "12px 12px 8px",
+          background: "linear-gradient(180deg, #faf9f3 0%, #f1efe5 100%)",
+          border: `1px solid ${C.line}`,
+        }}
+      >
+        <svg viewBox="0 0 280 182" width="100%" height="auto" style={{ display: "block" }}>
+          <style>{`@keyframes bupp-rev{0%{transform:rotate(0deg)}9%{transform:rotate(-31deg)}24%{transform:rotate(27deg)}39%{transform:rotate(-21deg)}54%{transform:rotate(18deg)}69%{transform:rotate(-11deg)}82%{transform:rotate(7deg)}92%{transform:rotate(-3deg)}100%{transform:rotate(0deg)}}@media (prefers-reduced-motion:reduce){.bupp-needle{animation:none!important}}`}</style>
+          {/* Arcs */}
+          <path d="M60 140 A80 80 0 0 1 100 70.7" fill="none" stroke={C.rose} strokeWidth={15} strokeLinecap="round" />
+          <path d="M100 70.7 A80 80 0 0 1 180 70.7" fill="none" stroke={C.amber} strokeWidth={15} strokeLinecap="round" />
+          <path d="M180 70.7 A80 80 0 0 1 220 140" fill="none" stroke={C.green} strokeWidth={15} strokeLinecap="round" />
+          {/* Libellés des zones (hors des arcs) */}
+          <text x={30} y={118} textAnchor="middle" fill={C.rose} style={{ fontSize: "11px", fontWeight: 700 }}>Basse</text>
+          <text x={30} y={135} textAnchor="middle" fill={C.rose} style={{ fontFamily: "var(--serif)", fontSize: "16px" }}>20</text>
+          <text x={140} y={26} textAnchor="middle" fill={C.amber} style={{ fontSize: "11px", fontWeight: 700 }}>Moyenne</text>
+          <text x={140} y={44} textAnchor="middle" fill={C.amber} style={{ fontFamily: "var(--serif)", fontSize: "16px" }}>60</text>
+          <text x={250} y={118} textAnchor="middle" fill={C.green} style={{ fontSize: "11px", fontWeight: 700 }}>Haute</text>
+          <text x={250} y={135} textAnchor="middle" fill={C.green} style={{ fontFamily: "var(--serif)", fontSize: "16px" }}>100</text>
+          {/* Aiguille (pointe vers le neutre = 60, à la verticale) */}
+          <g
+            className="bupp-needle"
             style={{
-              gap: 11,
-              alignItems: "center",
-              marginTop: 16,
-              padding: "13px 15px",
-              borderRadius: 12,
-              background: C.greenSoft,
-              border: `1px solid color-mix(in oklab, ${C.green} 22%, ${C.line})`,
+              transformOrigin: "140px 140px",
+              transformBox: "view-box",
+              animation: "bupp-rev 2.6s cubic-bezier(.45,0,.55,1) infinite",
             }}
           >
-            <span style={{ color: C.green, display: "inline-flex", flexShrink: 0 }}>
-              <Icon name="check" size={17} />
-            </span>
-            <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
-              <strong style={{ color: C.ink }}>Plus vous honorez vos mises en relation</strong>, plus votre
-              fiabilité monte.
-            </p>
+            <polygon points="133,140 147,140 140,70" fill={C.ink} />
+          </g>
+          <circle cx={140} cy={140} r={9} fill={C.ink} />
+          <circle cx={140} cy={140} r={3.5} fill="#fff" />
+          {/* Valeur centrale */}
+          <text x={140} y={164} textAnchor="middle" fill={C.ink3} style={{ fontSize: "11px", fontWeight: 600 }}>60 / 100</text>
+          <text x={140} y={177} textAnchor="middle" fill={C.ink4} style={{ fontSize: "8.5px", letterSpacing: "0.14em" }}>DÉPART NEUTRE</text>
+        </svg>
+      </div>
+      <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 14px" }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: C.indigoXsoft,
+            color: C.indigoD,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+            <path d="M2 13c2.5-5 4.5-5 7 0s4.5 5 7 0 4-4 6-2" />
+          </svg>
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
+          Le taux est une <strong style={{ color: C.indigoD }}>moyenne bayésienne</strong>
+          &nbsp;: avec peu d&apos;avis l&apos;aiguille reste ancrée près du neutre, puis
+          elle converge vers la vraie moyenne à mesure que les avis s&apos;accumulent.
+        </p>
+      </div>
+      {/* Légende des exemples */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: 4,
+          marginBottom: 14,
+        }}
+      >
+        <span className="mono caps" style={{ fontSize: 8.5, letterSpacing: "0.1em", color: C.ink4 }}>
+          Plus d&apos;avis « Haute » → l&apos;aiguille monte
+        </span>
+        <span className="mono caps" style={{ fontSize: 8.5, letterSpacing: "0.1em", color: C.ink4 }}>
+          → converge vers <strong style={{ color: C.indigoD }}>la vraie moyenne</strong>
+        </span>
+      </div>
+      {/* Sliders */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {rows.map((r) => {
+          const pct = ((r.val - 20) / 80) * 100;
+          return (
+            <div key={r.t} className="row" style={{ alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  flex: "0 0 33%",
+                  maxWidth: 130,
+                  minWidth: 0,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: C.ink,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {r.t}
+              </div>
+              <div style={{ flex: 1, position: "relative", height: 8, minWidth: 70 }}>
+                <span
+                  className="mono caps"
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: -13,
+                    transform: "translateX(-50%)",
+                    fontSize: 8,
+                    letterSpacing: "0.08em",
+                    color: C.ink4,
+                  }}
+                >
+                  neutre
+                </span>
+                <div style={{ position: "absolute", inset: 0, borderRadius: 999, background: C.paperWarm }} />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: -3,
+                    bottom: -3,
+                    width: 1.5,
+                    background: "rgba(22,26,29,0.22)",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${pct}%`,
+                    borderRadius: 999,
+                    background: r.color,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${pct}%`,
+                    top: "50%",
+                    width: 14,
+                    height: 14,
+                    borderRadius: 999,
+                    background: "#fff",
+                    border: `2px solid ${r.color}`,
+                    transform: "translate(-50%, -50%)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+                  }}
+                />
+              </div>
+              <div
+                className="serif"
+                style={{ flex: "0 0 auto", fontSize: 20, color: r.color, minWidth: 26, textAlign: "right" }}
+              >
+                {r.val}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div
+        className="row"
+        style={{
+          gap: 11,
+          alignItems: "center",
+          marginTop: 16,
+          padding: "13px 15px",
+          borderRadius: 12,
+          background: C.greenSoft,
+          border: `1px solid color-mix(in oklab, ${C.green} 22%, ${C.line})`,
+        }}
+      >
+        <span style={{ color: C.green, display: "inline-flex", flexShrink: 0 }}>
+          <Icon name="check" size={17} />
+        </span>
+        <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
+          <strong style={{ color: C.ink }}>Plus vous honorez vos mises en relation</strong>,
+          plus votre fiabilité monte.
+        </p>
+      </div>
+    </>
+  );
+}
+
+const DESIR_POPUPS: {
+  key: string;
+  accent: string;
+  icon: IconName;
+  kicker: string;
+  title: string;
+  body: ReactNode;
+}[] = [
+  {
+    key: "paliers",
+    accent: "linear-gradient(90deg, #4744bf 0%, #7d79dd 45%, #d4a02f 100%)",
+    icon: "lock",
+    kicker: "Indice de désirabilité · 1 / 3",
+    title: "Cinq paliers, un prix par palier",
+    body: <PaliersBody />,
+  },
+  {
+    key: "fraicheur",
+    accent: "linear-gradient(90deg, #1c8a6e 0%, #5a57d6 50%, #b9842a 100%)",
+    icon: "clock",
+    kicker: "Indice de désirabilité · 2 / 3",
+    title: "Des données fraîches valent plus",
+    body: <FraicheurBody />,
+  },
+  {
+    key: "fiabilite",
+    accent: "linear-gradient(90deg, #4744bf 0%, #5a57d6 40%, #2e9e5b 100%)",
+    icon: "shield",
+    kicker: "Indice de désirabilité · 3 / 3",
+    title: "Comment se calcule votre taux de fiabilité ?",
+    body: <FiabiliteBody />,
+  },
+];
+
+function DesirabiliteScene() {
+  const reduced = usePrefersReducedMotion();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [p, setP] = useState(0);
+
+  useEffect(() => {
+    if (reduced) return;
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const el = trackRef.current;
+      if (!el) return;
+      const vh = window.innerHeight;
+      const total = el.offsetHeight - vh;
+      const scrolled = -el.getBoundingClientRect().top;
+      setP(total > 0 ? Math.min(1, Math.max(0, scrolled / total)) : 0);
+    };
+    const onScroll = () => {
+      if (!raf) raf = window.requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
+  // Repli statique (accessibilité) : la carte score puis les trois popups empilés.
+  if (reduced) {
+    return (
+      <section className="section">
+        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+          <ScoreVisual />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 24,
+              marginTop: 48,
+            }}
+          >
+            {DESIR_POPUPS.map((pp) => (
+              <ScorePopupCard
+                key={pp.key}
+                accent={pp.accent}
+                icon={pp.icon}
+                kicker={pp.kicker}
+                title={pp.title}
+              >
+                {pp.body}
+              </ScorePopupCard>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const vis = DESIR_BANDS.map((b) => popupVis(p, b[0], b[1], b[2], b[3]));
+  const maxO = Math.max(vis[0].o, vis[1].o, vis[2].o);
+  const backdrop = Math.min(0.55, maxO * 0.62);
+  let active = -1;
+  let best = 0.001;
+  vis.forEach((v, i) => {
+    if (v.o > best) {
+      best = v.o;
+      active = i;
+    }
+  });
+
+  return (
+    <section
+      ref={trackRef}
+      aria-label="Indice de désirabilité"
+      style={{ position: "relative", height: "400vh" }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Fond : la carte « indice de désirabilité » */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            transition: "filter .4s ease",
+            filter: backdrop > 0.05 ? "blur(2px)" : "none",
+          }}
+        >
+          <div className="section" style={{ width: "100%" }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+              <ScoreVisual />
+            </div>
+          </div>
+        </div>
+
+        {/* Voile sombre quand un popup est actif */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "#0f1219",
+            opacity: backdrop,
+            pointerEvents: backdrop > 0.05 ? "auto" : "none",
+            transition: "opacity .12s linear",
+            zIndex: 2,
+          }}
+        />
+
+        {/* Popups successifs */}
+        {DESIR_POPUPS.map((pp, i) => (
+          <div
+            key={pp.key}
+            aria-hidden={vis[i].o < 0.5}
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "86px 16px 96px",
+              opacity: vis[i].o,
+              transform: `translateY(${vis[i].y}px) scale(${0.96 + 0.04 * vis[i].o})`,
+              pointerEvents: vis[i].o > 0.5 ? "auto" : "none",
+              zIndex: 3,
+            }}
+          >
+            <ScorePopupCard
+              accent={pp.accent}
+              icon={pp.icon}
+              kicker={pp.kicker}
+              title={pp.title}
+            >
+              {pp.body}
+            </ScorePopupCard>
+          </div>
+        ))}
+
+        {/* Indicateur d'étapes + invite à défiler */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 22,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+            zIndex: 4,
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ display: "flex", gap: 8 }}>
+            {DESIR_POPUPS.map((pp, i) => (
+              <span
+                key={pp.key}
+                style={{
+                  width: active === i ? 22 : 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background:
+                    active === i
+                      ? "#5a57d6"
+                      : active >= 0
+                        ? "rgba(255,255,255,0.5)"
+                        : "var(--ink-4)",
+                  transition: "all .25s ease",
+                }}
+              />
+            ))}
+          </div>
+          <div
+            className="mono caps"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.16em",
+              color: active >= 0 ? "rgba(255,255,255,0.75)" : "var(--ink-4)",
+              opacity: p > 0.92 ? 0 : 1,
+              transition: "opacity .3s ease, color .2s ease",
+            }}
+          >
+            Continuez à défiler ↓
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+/* Popup « Comment se calcule le taux de fiabilité ? » — design repris de la
+   maquette pop.png (palette premium indigo/teal/ambre/rose/vert). Icônes =
+   jeu existant du site (SiteChrome). Responsive : carte scrollable, tuiles
+   et exemples qui s'adaptent en largeur. */
+function FiabiliteInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 300,
+        background: "rgba(15,18,25,0.5)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <ScorePopupCard
+        accent="linear-gradient(90deg, #4744bf 0%, #5a57d6 40%, #2e9e5b 100%)"
+        icon="shield"
+        kicker="BUUPP Score"
+        title="Comment se calcule votre taux de fiabilité ?"
+        onClose={onClose}
+      >
+        <FiabiliteBody />
+      </ScorePopupCard>
     </div>
   );
 }
@@ -3862,7 +4617,7 @@ export default function HomeClient() {
       <FlashDeal />
       <HowItWorks />
       <TiersTable />
-      <ScoreSection />
+      <DesirabiliteScene />
       <ProsSection />
       <Stats />
       <Pricing />
