@@ -3232,11 +3232,11 @@
         const days = parseFloat(params.get("demoLaunchDays") || "");
         const launchMs =
           Date.now() +
-          (Number.isFinite(days) ? days : 23) * 86_400_000 +
+          (Number.isFinite(days) ? days : 30) * 86_400_000 +
           9 * 3_600_000; // +9 h → compte à rebours « propre » à l'écran
         return {
-          total: Number.isFinite(total) ? total : 487,
-          villes: Number.isFinite(villes) ? villes : 14,
+          total: Number.isFinite(total) ? total : 387,
+          villes: Number.isFinite(villes) ? villes : 15,
           launchAt: new Date(launchMs).toISOString(),
           __demo: true,
         };
