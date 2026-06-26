@@ -250,6 +250,7 @@ export default function ProWizard() {
   const [geo, setGeo] = useState("national");
   const [ages, setAges] = useState<Set<string>>(new Set());
   const [verif, setVerif] = useState<VerifLevel>("p0");
+  const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
   const [excludeCertified, setExcludeCertified] = useState(false);
   const [cpcCents, setCpcCents] = useState(100);
   const [contacts, setContacts] = useState("50");
@@ -287,6 +288,7 @@ export default function ProWizard() {
         setGeo(d.geo);
         setAges(new Set(d.ages ?? []));
         setVerif(d.verif as VerifLevel);
+        setMinFiab(d.minFiab ?? 0);
         setExcludeCertified(d.excludeCertified);
         setCpcCents(d.cpcCents);
         setContacts(d.contacts);
@@ -320,6 +322,7 @@ export default function ProWizard() {
       geo,
       ages: [...ages],
       verif,
+      minFiab,
       excludeCertified,
       cpcCents,
       contacts,
@@ -328,7 +331,7 @@ export default function ProWizard() {
       brief,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, tiers, geo, ages, verif, excludeCertified, cpcCents, contacts, keywords, kwFilter, brief]);
+  }, [hydrated, id, step, subTypes, duration, tiers, geo, ages, verif, minFiab, excludeCertified, cpcCents, contacts, keywords, kwFilter, brief]);
 
   const range = useMemo(() => cpcRange(tiers, duration, verif), [tiers, duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -575,6 +578,7 @@ export default function ProWizard() {
         kwFilter,
         poolMode: "all",
         excludeCertified,
+        minFiabilite: minFiab,
         founder_bonus_enabled: true,
         // « La Vitrine » — URL https du site (le serveur re-valide et recalcule
         // le tarif : offert à la 1re campagne, 2 € sinon).
@@ -871,6 +875,26 @@ export default function ProWizard() {
               ))}
             </View>
           </View>
+          <View>
+            <Text className="mb-1 text-[13px] text-ink-3">Fiabilité minimum</Text>
+            <Text className="mb-2 text-[11.5px] text-ink-4">
+              Ne sollicitez que les prospects suffisamment bien notés par les professionnels. « Toutes » inclut ceux jamais notés.
+            </Text>
+            <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+              {[
+                { v: 0, label: "Toutes", sub: "Aucun filtre" },
+                { v: 60, label: "Taux de fiabilité - Bonne", sub: "≥ 60 / 100" },
+                { v: 80, label: "Taux de fiabilité - Excellente", sub: "≥ 80 / 100" },
+              ].map((o) => (
+                <Chip key={o.v} label={o.label} sub={o.sub} on={minFiab === o.v} onPress={() => setMinFiab(o.v)} flex />
+              ))}
+            </View>
+            {minFiab > 0 ? (
+              <Text className="mt-2 text-[11.5px] text-ink-4">
+                Bassin réduit : les prospects jamais notés par un pro sont exclus.
+              </Text>
+            ) : null}
+          </View>
           <Pressable
             onPress={() => setExcludeCertified((v) => !v)}
             className="flex-row items-center rounded-2xl border bg-paper p-3 active:opacity-80"
@@ -1014,6 +1038,7 @@ export default function ProWizard() {
               ["Paliers", tiers.join(", ")],
               ["Zone", GEO_ZONES.find((z) => z.key === geo)?.label ?? geo],
               ["Vérification", VERIF_LEVELS.find((v) => v.key === verif)?.label ?? verif],
+              ["Fiabilité minimum", minFiab === 0 ? "Toutes (aucun filtre)" : `≥ ${minFiab} / 100`],
               ["Coût / contact", `${(cpcCents / 100).toFixed(2)} €`],
               ["Contacts", String(contactsNum)],
               ["Budget", eur(budgetCents / 100)],

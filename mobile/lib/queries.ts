@@ -1254,6 +1254,8 @@ export type Campaign = {
   authCode?: string | null;
   durationKey?: string | null;
   endsAt?: string | null;
+  /** Description courte (« brief ») — affichée en tagline dans la liste premium. */
+  brief?: string | null;
 };
 export const useProCampaigns = () =>
   useGet<{ campaigns: Campaign[] }>(["pro", "campaigns"], "/api/pro/campaigns", 30_000);
@@ -1299,6 +1301,9 @@ export type ProCampaignDetail = {
     tierLabels: string[];
     geo: string | null;
     geoLabel: string;
+    /** Rayon « autour de moi » courant (km, null hors mode around) — sert au
+     *  sheet d'édition pour ne proposer que des rayons plus larges. */
+    radiusKm: number | null;
     ages: string[];
     verifLevel: string | null;
     verifLabel: string;
@@ -1337,6 +1342,44 @@ export function useProCampaign(id?: string) {
     enabled: !!id,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+  });
+}
+
+// — Édition (élargissement) d'une campagne en cours — PATCH /api/pro/campaigns/[id]
+// (branche « edit » : pas de champ `status`). Seuls 3 points élargissables :
+// lien Vitrine, zone géo, tranche d'âge. Le serveur applique le garde-fou
+// « élargir-seulement » (cf. lib/campaigns/edit-targeting.ts côté web).
+export type EditCampaignGeo =
+  | { mode: "around"; radiusKm: number }
+  | { mode: "national" }
+  | { mode: "zone"; level: "dept" | "region" };
+export type EditCampaignBody = {
+  websiteUrl?: string;
+  ages?: string[];
+  geo?: EditCampaignGeo;
+};
+export type EditCampaignResult = {
+  ok: true;
+  websiteUrl: string | null;
+  geo: string | null;
+  geoLabel: string;
+  radiusKm: number | null;
+  ages: string[];
+};
+export function useEditCampaign(id: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EditCampaignBody) =>
+      api<EditCampaignResult>(`/api/pro/campaigns/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pro", "campaign", id] });
+      qc.invalidateQueries({ queryKey: ["pro", "campaigns"] });
+      qc.invalidateQueries({ queryKey: ["pro", "overview"] });
+    },
   });
 }
 
@@ -1655,6 +1698,9 @@ export type CreateCampaignInput = {
   kwFilter: boolean;
   poolMode: string;
   excludeCertified: boolean;
+  /** Seuil de fiabilité minimum (0 = aucun filtre, 60 = bonne, 80 = excellente).
+   *  Le serveur ne retient que les prospects dont `fiabilite_pct >= seuil`. */
+  minFiabilite?: number;
   founder_bonus_enabled: boolean;
   /** « La Vitrine » — URL https du site (le serveur re-valide et recalcule le
    *  tarif : offert à la 1re campagne, 2 € sinon). Absent si option non prise. */

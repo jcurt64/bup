@@ -14,6 +14,7 @@ export type CampaignDraft = {
   geo: string;
   ages: string[];
   verif: string;
+  minFiab: number;
   excludeCertified: boolean;
   cpcCents: number;
   contacts: string;
