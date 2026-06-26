@@ -234,6 +234,17 @@ em { font-style: italic; color: var(--accent); font-family: var(--serif); font-w
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 .btn-lg { padding: 14px 22px; font-size: 15px; }
 
+/* CTA du hero (page d'accueil) — effets hover dédiés. Les boutons portent
+   des styles inline ; on passe donc par !important là où il faut écraser
+   une propriété inline au survol. */
+.hero-cta { transition: transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease, filter .18s ease; }
+.hero-cta:hover { transform: translateY(-2px); }
+.hero-cta-pre:hover { filter: brightness(1.06); box-shadow: 0 18px 40px -8px rgba(69,150,236,.7), inset 0 1px 0 rgba(255,255,255,.5) !important; }
+.hero-cta-prospect:hover { background: #ffffff !important; box-shadow: 0 14px 30px -10px rgba(0,0,0,.45); }
+/* Bouton « Je suis professionnel » (ghost, texte clair sur héros sombre) :
+   au survol, fond clair + label SOMBRE (sinon le texte blanc disparaît). */
+.hero-cta-pro:hover { background: var(--paper) !important; color: var(--ink) !important; border-color: var(--paper) !important; }
+
 .input { width: 100%; background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 10px 12px; font: inherit; color: var(--ink); transition: border .15s; }
 .input:focus { outline: none; border-color: var(--ink); }
 .label { font-size: 12px; color: var(--ink-4); margin-bottom: 6px; display: block; font-weight: 500; }

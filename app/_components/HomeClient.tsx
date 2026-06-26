@@ -395,7 +395,7 @@ function Hero() {
             }}
           >
             <button
-              className="btn btn-lg btn-block-mobile"
+              className="btn btn-lg btn-block-mobile hero-cta hero-cta-pre"
               onClick={() => goWaitlist(router)}
               style={{
                 background: "linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)",
@@ -420,7 +420,7 @@ function Hero() {
               </span>
             </button>
             <button
-              className="btn btn-lg btn-block-mobile"
+              className="btn btn-lg btn-block-mobile hero-cta hero-cta-prospect"
               onClick={() =>
                 guard(
                   "prospect",
@@ -433,7 +433,7 @@ function Hero() {
               Je suis prospect <Icon name="arrow" size={16} />
             </button>
             <button
-              className="btn btn-lg btn-ghost btn-block-mobile"
+              className="btn btn-lg btn-ghost btn-block-mobile hero-cta hero-cta-pro"
               onClick={() =>
                 guard("pro", "/pro", "/connexion?intent=pro&mode=signin")
               }
