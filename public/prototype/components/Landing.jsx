@@ -216,7 +216,7 @@ function Hero({ go }) {
             Double consentement, RGPD natif, 60% de la valeur reversée au prospect.
           </p>
           <div className="row gap-3" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <button className="btn btn-lg" style={{
+            <button className="btn btn-lg hero-cta hero-cta-pre" style={{
               background: 'linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)',
               color: '#0F1629', fontWeight: 600,
               boxShadow: '0 12px 28px -8px rgba(69,150,236,.55), inset 0 1px 0 rgba(255,255,255,.4)'
@@ -224,11 +224,11 @@ function Hero({ go }) {
                     onClick={() => go('waitlist')}>
               <Icon name="sparkle" size={16}/> Pré-inscription <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 7px', borderRadius: 999, background: 'rgba(15,22,41,.18)', marginLeft: 6 }}>+5€</span>
             </button>
-            <button className="btn btn-lg" style={{ background: 'var(--paper)', color: 'var(--ink)' }}
+            <button className="btn btn-lg hero-cta hero-cta-prospect" style={{ background: 'var(--paper)', color: 'var(--ink)' }}
                     onClick={() => go('prospect')}>
               Je suis prospect <Icon name="arrow" size={16}/>
             </button>
-            <button className="btn btn-lg btn-ghost" style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.28)' }}
+            <button className="btn btn-lg btn-ghost hero-cta hero-cta-pro" style={{ color: 'var(--paper)', borderColor: 'rgba(255,255,255,.28)' }}
                     onClick={() => go('pro')}>
               Je suis professionnel
             </button>
