@@ -4673,8 +4673,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               <div className="tgt-3">
                 {[
                   { v: 0,  label: 'Toutes',                     sub: 'Aucun filtre' },
-                  { v: 60, label: 'Taux de fiabilité - Bonne',  sub: '≥ 60 / 100' },
-                  { v: 80, label: 'Taux de fiabilité - Excellente', sub: '≥ 80 / 100' },
+                  { v: 60, label: 'Taux de fiabilité des prospects - Bonne',  sub: '≥ 60 / 100' },
+                  { v: 80, label: 'Taux de fiabilité des prospects - Excellente', sub: '≥ 80 / 100' },
                 ].map(o => {
                   const on = minFiab === o.v;
                   return (
