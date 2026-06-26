@@ -3037,6 +3037,16 @@
         });
       })();
 
+      // Mode démo : pose la date de lancement fictive TÔT et la verrouille,
+      // pour éviter que le fallback fictif (14 h) ne s'affiche brièvement
+      // avant que les stats démo n'arrivent (sinon flicker à l'écran).
+      (function applyDemoLaunch() {
+        const demo = getDemoStats();
+        if (!demo) return;
+        setLaunchAt(demo.launchAt, { force: true });
+        launchDateLocked = true;
+      })();
+
       // Fallback fictif : période de lancement de 14 h persistée en
       // localStorage. Activé uniquement si aucune date n'est encore
       // connue (ni ?simulate-launch=, ni réponse API). Permet d'avoir
@@ -3203,7 +3213,39 @@
             Math.min(100, (total / WAITLIST_TARGET) * 100).toFixed(1) + "%";
       }
 
+      // ── Mode démo (enregistrement vidéo) ───────────────────────────────
+      // Activé par ?demo (ou ?demo=1) dans l'URL : la page affiche des
+      // valeurs FICTIVES sans jamais toucher la base de données ni appeler
+      // /api/waitlist/stats. Les vraies valeurs restent intactes : il suffit
+      // de retirer le paramètre pour retrouver la page normale.
+      // Valeurs ajustables à la volée par query string :
+      //   ?demo=1&demoInscrits=487&demoVilles=14&demoLaunchDays=23
+      function getDemoStats() {
+        const params = new URLSearchParams(window.location.search);
+        const on =
+          params.has("demo") &&
+          params.get("demo") !== "0" &&
+          params.get("demo") !== "false";
+        if (!on) return null;
+        const total = parseInt(params.get("demoInscrits") || "", 10);
+        const villes = parseInt(params.get("demoVilles") || "", 10);
+        const days = parseFloat(params.get("demoLaunchDays") || "");
+        const launchMs =
+          Date.now() +
+          (Number.isFinite(days) ? days : 23) * 86_400_000 +
+          9 * 3_600_000; // +9 h → compte à rebours « propre » à l'écran
+        return {
+          total: Number.isFinite(total) ? total : 487,
+          villes: Number.isFinite(villes) ? villes : 14,
+          launchAt: new Date(launchMs).toISOString(),
+          __demo: true,
+        };
+      }
+
       async function loadStats() {
+        // En mode démo on court-circuite l'API : valeurs fictives only.
+        const demo = getDemoStats();
+        if (demo) return demo;
         try {
           const r = await fetch("/api/waitlist/stats", { cache: "no-store" });
           if (!r.ok) throw new Error("HTTP " + r.status);
