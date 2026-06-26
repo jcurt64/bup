@@ -2212,7 +2212,7 @@
                   required
                   name="wl-email-nofill"
                   autocomplete="new-password"
-                  onblur="maybeShowEmailNotice(event)"
+                  onblur="maybeShowEmailNotice()"
                 />
                 <div class="email-notice" role="note">
                   <span class="email-notice-icon" aria-hidden="true">!</span>
@@ -2226,7 +2226,7 @@
               </div>
               <div class="form-field full">
                 <label class="field-label" for="inp-ville">Votre ville</label>
-                <select class="field-select" id="inp-ville" required autocomplete="off" onchange="flushEmailNotice()">
+                <select class="field-select" id="inp-ville" required autocomplete="off">
                   <option value="" disabled selected>
                     Sélectionnez votre ville
                   </option>
@@ -3416,48 +3416,15 @@
          « Important » (réutiliser la même adresse au lancement). Objectif :
          s'assurer que les utilisateurs le comprennent vraiment. */
       let emailNoticeShown = false;
-      let emailNoticePending = false;
-      function emailIsValid() {
+      // Affiché dès qu'on QUITTE le champ e-mail (perte de focus), si l'adresse
+      // saisie est valide. Une seule fois.
+      function maybeShowEmailNotice() {
+        if (emailNoticeShown) return;
         const v = (document.getElementById("inp-email").value || "").trim();
         // Validation pragmatique, alignée sur le back (/api/waitlist).
-        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-      }
-      function showEmailNotice() {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return;
         emailNoticeShown = true;
-        emailNoticePending = false;
         document.getElementById("email-notice-overlay").classList.add("show");
-      }
-      // Affiché quand on QUITTE le champ e-mail. Exception : si on le quitte
-      // pour ouvrir le sélecteur de ville (juste en dessous), on NE montre pas
-      // le popup tout de suite — sinon le modal s'ouvre par-dessus et intercepte
-      // le clic sur la liste des villes. On le diffère alors jusqu'à ce que la
-      // ville soit choisie (cf. flushEmailNotice sur le <select>).
-      function maybeShowEmailNotice(e) {
-        if (emailNoticeShown) return;
-        if (!emailIsValid()) return;
-        const next = e && e.relatedTarget;
-        if (next && next.id === "inp-ville") {
-          emailNoticePending = true;
-          return;
-        }
-        // relatedTarget peut être null selon le navigateur (clic sur un
-        // <select>) : on confirme via activeElement au tick suivant.
-        setTimeout(() => {
-          if (emailNoticeShown) return;
-          const ae = document.activeElement;
-          if (ae && ae.id === "inp-ville") {
-            emailNoticePending = true;
-            return;
-          }
-          showEmailNotice();
-        }, 0);
-      }
-      // Appelé quand la ville est choisie : si le popup e-mail était en
-      // attente, on l'affiche maintenant (la liste des villes est refermée,
-      // donc plus d'interférence).
-      function flushEmailNotice() {
-        if (emailNoticeShown || !emailNoticePending) return;
-        showEmailNotice();
       }
 
       function closeEmailNotice() {
