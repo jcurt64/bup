@@ -883,8 +883,8 @@ export default function ProWizard() {
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>
               {[
                 { v: 0, label: "Toutes", sub: "Aucun filtre" },
-                { v: 60, label: "Taux de fiabilité - Bonne", sub: "≥ 60 / 100" },
-                { v: 80, label: "Taux de fiabilité - Excellente", sub: "≥ 80 / 100" },
+                { v: 60, label: "Taux de fiabilité des prospects - Bonne", sub: "≥ 60 / 100" },
+                { v: 80, label: "Taux de fiabilité des prospects - Excellente", sub: "≥ 80 / 100" },
               ].map((o) => (
                 <Chip key={o.v} label={o.label} sub={o.sub} on={minFiab === o.v} onPress={() => setMinFiab(o.v)} flex />
               ))}
