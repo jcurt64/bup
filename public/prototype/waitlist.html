@@ -2149,7 +2149,7 @@
 
           <!-- STEP 1 -->
           <div class="wl-steps active" id="step-1">
-            <form class="wl-form" onsubmit="goStep2(event)">
+            <form class="wl-form" onsubmit="goStep2(event)" autocomplete="off">
               <!-- Honeypot anti-bot : champ caché par CSS et accessibilité.
                    Les humains ne le voient pas, les bots qui auto-remplissent
                    tous les inputs vont le remplir et seront silencieusement
@@ -2183,7 +2183,7 @@
                     type="text"
                     placeholder="Marie"
                     required
-                    autocomplete="given-name"
+                    autocomplete="off"
                   />
                 </div>
                 <div class="form-field">
@@ -2194,7 +2194,7 @@
                     type="text"
                     placeholder="Dupont"
                     required
-                    autocomplete="family-name"
+                    autocomplete="off"
                   />
                 </div>
               </div>
@@ -2208,7 +2208,7 @@
                   type="email"
                   placeholder="marie.dupont@email.fr"
                   required
-                  autocomplete="email"
+                  autocomplete="off"
                   onblur="maybeShowEmailNotice()"
                 />
                 <div class="email-notice" role="note">
@@ -2223,7 +2223,7 @@
               </div>
               <div class="form-field full">
                 <label class="field-label" for="inp-ville">Votre ville</label>
-                <select class="field-select" id="inp-ville" required>
+                <select class="field-select" id="inp-ville" required autocomplete="off">
                   <option value="" disabled selected>
                     Sélectionnez votre ville
                   </option>
