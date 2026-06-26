@@ -3216,20 +3216,53 @@
       // ── Mode démo (enregistrement vidéo) ───────────────────────────────
       // Activé par ?demo (ou ?demo=1) dans l'URL : la page affiche des
       // valeurs FICTIVES sans jamais toucher la base de données ni appeler
-      // /api/waitlist/stats. Les vraies valeurs restent intactes : il suffit
-      // de retirer le paramètre pour retrouver la page normale.
-      // Valeurs ajustables à la volée par query string :
-      //   ?demo=1&demoInscrits=487&demoVilles=14&demoLaunchDays=23
+      // /api/waitlist/stats. Les vraies valeurs restent intactes.
+      // PERSISTANT pour l'onglet : une fois ?demo vu, le mode reste actif via
+      // sessionStorage même si la navigation interne (pastille du bas, Retour…)
+      // fait perdre le paramètre d'URL. Pour revenir en mode normal : ?demo=0
+      // (ou fermer l'onglet).
+      // Valeurs ajustables par query string (mémorisées aussi pour l'onglet) :
+      //   ?demo=1&demoInscrits=387&demoVilles=15&demoLaunchDays=30
+      const DEMO_KEY = "bupp:demo-mode";
       function getDemoStats() {
         const params = new URLSearchParams(window.location.search);
-        const on =
-          params.has("demo") &&
-          params.get("demo") !== "0" &&
-          params.get("demo") !== "false";
+        const raw = params.get("demo");
+        const off = raw === "0" || raw === "false";
+        const onFromUrl = params.has("demo") && !off;
+
+        // Persistance par onglet : on mémorise (ou efface) l'état + les
+        // overrides éventuels dès qu'un paramètre démo est présent dans l'URL.
+        let saved = null;
+        try {
+          if (off) {
+            sessionStorage.removeItem(DEMO_KEY);
+          } else if (onFromUrl) {
+            saved = {
+              inscrits: params.get("demoInscrits"),
+              villes: params.get("demoVilles"),
+              days: params.get("demoLaunchDays"),
+            };
+            sessionStorage.setItem(DEMO_KEY, JSON.stringify(saved));
+          } else {
+            const s = sessionStorage.getItem(DEMO_KEY);
+            if (s) saved = JSON.parse(s);
+          }
+        } catch {
+          /* sessionStorage indisponible → on retombe sur l'URL seule */
+        }
+
+        const on = onFromUrl || (!off && saved != null);
         if (!on) return null;
-        const total = parseInt(params.get("demoInscrits") || "", 10);
-        const villes = parseInt(params.get("demoVilles") || "", 10);
-        const days = parseFloat(params.get("demoLaunchDays") || "");
+
+        saved = saved || {};
+        // Priorité aux overrides d'URL, repli sur ceux mémorisés pour l'onglet.
+        const pick = (p, fallback) => {
+          const v = params.get(p);
+          return v != null ? v : fallback;
+        };
+        const total = parseInt(pick("demoInscrits", saved.inscrits) || "", 10);
+        const villes = parseInt(pick("demoVilles", saved.villes) || "", 10);
+        const days = parseFloat(pick("demoLaunchDays", saved.days) || "");
         const launchMs =
           Date.now() +
           (Number.isFinite(days) ? days : 30) * 86_400_000 +
@@ -3427,6 +3460,28 @@
       async function confirmSignup() {
         // Reset toute erreur de parrainage précédente avant de retenter.
         clearReferrerError();
+
+        // Mode démo (vidéo) : on NE poste RIEN (pas d'écriture en base) et on
+        // simule l'écran de succès avec le rang fictif = inscrits + 1 (#388).
+        const demoSignup = getDemoStats();
+        if (demoSignup) {
+          const code = userData.email
+            ? await refCodeFromEmail(userData.email)
+            : "GUEST00";
+          document.getElementById("step-3").classList.remove("active");
+          document.getElementById("step-indicator").style.display = "none";
+          document.getElementById("success-state").classList.add("active");
+          scrollToPanelTop();
+          launchConfetti({ count: 160, duration: 4200 });
+          applyStats(demoSignup);
+          const rankEl = document.getElementById("rank-num-success");
+          if (rankEl)
+            rankEl.textContent =
+              "#" + (demoSignup.total + 1).toLocaleString("fr-FR");
+          const refLink = document.getElementById("ref-link");
+          if (refLink) refLink.textContent = "buupp.fr/ref/" + code;
+          return;
+        }
 
         // Désactive le bouton de confirmation et affiche un état de chargement
         // pour éviter les double-soumissions pendant l'appel API.
