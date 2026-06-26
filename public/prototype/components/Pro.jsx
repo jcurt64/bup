@@ -1644,9 +1644,9 @@ const EDIT_ERR_LABELS = {
 // au plus strict). Élargir = baisser le seuil → seules les options ≤ courant
 // sont sélectionnables.
 const EDIT_FIAB_OPTS = [
-  { v: 0,  name: 'Toutes',           sub: 'Aucun filtre de fiabilité' },
-  { v: 60, name: 'Bonne fiabilité',  sub: '≥ 60 / 100' },
-  { v: 80, name: 'Excellente',       sub: '≥ 80 / 100' },
+  { v: 0,  name: 'Toutes',                      sub: 'Aucun filtre de fiabilité' },
+  { v: 60, name: 'Taux de fiabilité bonne',     sub: '≥ 60 / 100' },
+  { v: 80, name: 'Taux de fiabilité excellente', sub: '≥ 80 / 100' },
 ];
 
 /* Icônes SVG — reproduites à l'identique de la maquette
