@@ -2516,7 +2516,8 @@ function StatCard({ accent, icon, label, onInfo, highlight = false, children }) 
           {onInfo && (
             <button type="button" onClick={onInfo} aria-label="Plus d'infos" style={{
               width: 22, height: 22, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
-              border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink-4)',
+              // Bordure + icône à la couleur du thème de la carte.
+              border: `1px solid ${accent}`, background: 'transparent', color: accent,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Icon name="info" size={12}/>
