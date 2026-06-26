@@ -38,6 +38,14 @@ export type SendWaitlistBroadcastParams = {
    *  URL signée publique côté API avant l'appel. */
   attachmentUrl: string | null;
   attachmentFilename: string | null;
+  /** Bloc vidéo optionnel : miniature cliquable (bouton play CSS) qui ouvre
+   *  `videoUrl`. Affiché uniquement si les DEUX sont fournis. */
+  videoUrl?: string | null;
+  videoThumbnailUrl?: string | null;
+  /** CTA personnalisé optionnel. Si `ctaUrl` ET `ctaLabel` sont fournis, ils
+   *  remplacent le bouton par défaut « Créer mon compte → » (vers l'inscription). */
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
   recipients: WaitlistBroadcastRecipient[];
 };
 
@@ -51,6 +59,16 @@ export async function sendWaitlistBroadcast(
   }
 
   const { broadcastId, title, body, attachmentUrl, attachmentFilename, recipients } = params;
+  // Bloc vidéo : actif seulement si miniature + URL fournies.
+  const videoUrl = params.videoUrl?.trim() || null;
+  const videoThumbnailUrl = params.videoThumbnailUrl?.trim() || null;
+  const hasVideo = Boolean(videoUrl && videoThumbnailUrl);
+  // CTA personnalisé : actif seulement si label + URL fournis, sinon défaut.
+  const ctaLabel = params.ctaLabel?.trim() || null;
+  const ctaUrl = params.ctaUrl?.trim() || null;
+  const hasCustomCta = Boolean(ctaLabel && ctaUrl);
+  const ctaHref = hasCustomCta ? (ctaUrl as string) : SIGNUP_URL;
+  const ctaText = hasCustomCta ? (ctaLabel as string) : "Créer mon compte →";
 
   const subject = `BUUPP — ${title}`;
   let failed = 0;
@@ -66,11 +84,12 @@ export async function sendWaitlistBroadcast(
       "",
       body,
       "",
+      hasVideo ? `Voir la vidéo : ${videoUrl}` : null,
       attachmentUrl
         ? `Pièce jointe (${attachmentFilename ?? "fichier"}) : ${attachmentUrl}`
         : null,
       "",
-      `Créer mon compte BUUPP : ${SIGNUP_URL}`,
+      `${ctaText.replace(/\s*→\s*$/, "")} : ${ctaHref}`,
       "",
       "— L'équipe BUUPP",
       "",
@@ -87,6 +106,11 @@ export async function sendWaitlistBroadcast(
       prenom,
       attachmentUrl,
       attachmentFilename,
+      videoUrl: hasVideo ? videoUrl : null,
+      videoThumbnailUrl: hasVideo ? videoThumbnailUrl : null,
+      ctaHref,
+      ctaText,
+      hasCustomCta,
     });
 
     try {
@@ -116,8 +140,16 @@ function renderHtml(params: {
   prenom: string;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
+  videoUrl: string | null;
+  videoThumbnailUrl: string | null;
+  ctaHref: string;
+  ctaText: string;
+  hasCustomCta: boolean;
 }): string {
-  const { title, body, prenom, attachmentUrl, attachmentFilename } = params;
+  const {
+    title, body, prenom, attachmentUrl, attachmentFilename,
+    videoUrl, videoThumbnailUrl, ctaHref, ctaText, hasCustomCta,
+  } = params;
   return `
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"/>
@@ -169,17 +201,44 @@ function renderHtml(params: {
       : ""
   }
 
-  <!-- CTA principal : gradient bleu→violet → création de compte -->
+  ${
+    videoUrl && videoThumbnailUrl
+      ? `
+  <!-- Bloc vidéo : miniature cliquable + bouton play (CSS, sans image hébergée).
+       Repli Outlook : cadre sombre cliquable avec le bouton play centré. -->
+  <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;border-collapse:separate;">
+      <tr>
+        <td background="${videoThumbnailUrl}" bgcolor="#0F1629" valign="middle" align="center" height="280"
+            style="background-image:url('${videoThumbnailUrl}');background-position:center;background-size:cover;background-repeat:no-repeat;border-radius:14px;height:280px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+            <td align="center" valign="middle" style="width:66px;height:66px;background:#FFFEF8;border-radius:50%;box-shadow:0 6px 18px -4px rgba(15,22,41,.5);">
+              <div style="display:inline-block;width:0;height:0;border-top:12px solid transparent;border-bottom:12px solid transparent;border-left:19px solid #4596EC;margin-left:5px;"></div>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+    </table>
+  </a>
+  <p style="margin:0 0 22px;text-align:center;font-size:12px;color:#6B7180;">▶ Voir la vidéo</p>`
+      : ""
+  }
+
+  <!-- CTA principal : gradient bleu→violet (création de compte par défaut, ou CTA personnalisé) -->
   <p style="margin:0 0 14px;text-align:center;">
-    <a href="${SIGNUP_URL}" target="_blank" rel="noopener noreferrer"
+    <a href="${ctaHref}" target="_blank" rel="noopener noreferrer"
        style="display:inline-block;padding:14px 32px;background:#4596EC;background-image:linear-gradient(135deg,#4596EC 0%,#6D5BFF 100%);color:#FFFEF8;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;box-shadow:0 4px 14px -4px rgba(69,150,236,.55);">
-      Créer mon compte →
+      ${escapeHtml(ctaText)}
     </a>
   </p>
   <div style="text-align:center;margin:8px 0 4px;font-size:10px;letter-spacing:.6em;color:#C9D2E0;">● ● ● ● ●</div>
-  <p style="margin:0;font-size:12px;color:#6B7180;text-align:center;line-height:1.5;">
+  ${
+    hasCustomCta
+      ? ""
+      : `<p style="margin:0;font-size:12px;color:#6B7180;text-align:center;line-height:1.5;">
     Inscription en 2 minutes, sans engagement.
-  </p>
+  </p>`
+  }
 </td></tr>
 
 <!-- Footer avec triangles décoratifs (aligné sur admin-broadcast.ts) -->

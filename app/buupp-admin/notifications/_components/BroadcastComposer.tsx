@@ -24,6 +24,12 @@ export default function BroadcastComposer() {
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<Audience>("prospects");
   const [attachment, setAttachment] = useState<File | null>(null);
+  // Bloc vidéo + CTA personnalisé — pris en compte par l'audience « liste
+  // d'attente » uniquement (cf. template waitlist-broadcast.ts).
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -37,6 +43,10 @@ export default function BroadcastComposer() {
     setBody("");
     setAudience("prospects");
     setAttachment(null);
+    setVideoUrl("");
+    setVideoThumbnailUrl("");
+    setCtaLabel("");
+    setCtaUrl("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -81,6 +91,14 @@ export default function BroadcastComposer() {
       form.set("body", body.trim());
       form.set("audience", audience);
       if (attachment) form.set("attachment", attachment);
+      // Bloc vidéo + CTA : envoyés seulement pour l'audience liste d'attente
+      // (le template des autres audiences ne les exploite pas).
+      if (audience === "waitlist") {
+        if (videoUrl.trim()) form.set("videoUrl", videoUrl.trim());
+        if (videoThumbnailUrl.trim()) form.set("videoThumbnailUrl", videoThumbnailUrl.trim());
+        if (ctaLabel.trim()) form.set("ctaLabel", ctaLabel.trim());
+        if (ctaUrl.trim()) form.set("ctaUrl", ctaUrl.trim());
+      }
 
       const res = await fetch("/api/admin/broadcasts", { method: "POST", body: form });
       const json: {
@@ -117,6 +135,11 @@ export default function BroadcastComposer() {
 
   const titleLen = title.length;
   const bodyLen = body.length;
+  const inputStyle = {
+    background: "var(--paper)",
+    border: "1px solid var(--line)",
+    color: "var(--ink)",
+  } as const;
 
   return (
     <>
@@ -192,6 +215,71 @@ export default function BroadcastComposer() {
           })}
         </div>
       </Field>
+
+      {audience === "waitlist" && (
+        <div
+          className="space-y-4 rounded-md p-3.5"
+          style={{ background: "var(--ivory-2)", border: "1px solid var(--line)" }}
+        >
+          <div
+            className="text-[11px] font-bold uppercase"
+            style={{ color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
+          >
+            Bloc vidéo &amp; bouton (liste d&apos;attente)
+          </div>
+          <p className="text-[11px]" style={{ color: "var(--ink-4)", lineHeight: 1.5, marginTop: -8 }}>
+            Optionnel. Renseigne une miniature + un lien vidéo : elle devient une vignette
+            cliquable (bouton ▶) dans le mail. Sans CTA personnalisé, le bouton par défaut
+            « Créer mon compte » est conservé.
+          </p>
+          <Field label="Lien de la vidéo" hint="https://…">
+            <input
+              type="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://youtu.be/…"
+              disabled={submitting}
+              className="w-full rounded-md text-sm px-3 py-2"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Miniature vidéo (image)" hint="https://… · 16:9, hébergée">
+            <input
+              type="url"
+              value={videoThumbnailUrl}
+              onChange={(e) => setVideoThumbnailUrl(e.target.value)}
+              placeholder="https://…/miniature.jpg"
+              disabled={submitting}
+              className="w-full rounded-md text-sm px-3 py-2"
+              style={inputStyle}
+            />
+          </Field>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Libellé du bouton (optionnel)" hint={`${ctaLabel.length} / 60`}>
+              <input
+                type="text"
+                value={ctaLabel}
+                onChange={(e) => setCtaLabel(e.target.value.slice(0, 60))}
+                placeholder="Créer mon compte →"
+                disabled={submitting}
+                className="w-full rounded-md text-sm px-3 py-2"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Lien du bouton (optionnel)" hint="https://…">
+              <input
+                type="url"
+                value={ctaUrl}
+                onChange={(e) => setCtaUrl(e.target.value)}
+                placeholder="https://www.buupp.com/inscription/prospect"
+                disabled={submitting}
+                className="w-full rounded-md text-sm px-3 py-2"
+                style={inputStyle}
+              />
+            </Field>
+          </div>
+        </div>
+      )}
 
       <Field
         label="Pièce jointe (optionnel)"
@@ -609,6 +697,10 @@ function errorLabel(code: string | undefined): string | null {
       return "Pièce jointe trop volumineuse (max 5 Mo).";
     case "attachment_mimetype":
       return "Format de pièce jointe non autorisé.";
+    case "invalid_url":
+      return "Lien invalide (la vidéo, la miniature et le bouton doivent être en https://).";
+    case "invalid_cta_label":
+      return "Libellé du bouton trop long (max 60 caractères).";
     case "invalid_form":
       return "Formulaire invalide.";
     case "insert_failed":

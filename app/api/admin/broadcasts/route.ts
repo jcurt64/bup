@@ -83,6 +83,12 @@ export async function POST(req: Request) {
   const body = String(form.get("body") ?? "").trim();
   const audienceRaw = String(form.get("audience") ?? "").trim();
   const attachment = form.get("attachment");
+  // Bloc vidéo + CTA personnalisé — exploités uniquement par l'audience
+  // « liste d'attente » (cf. sendWaitlistBroadcast) ; ignorés ailleurs.
+  const videoUrl = String(form.get("videoUrl") ?? "").trim() || null;
+  const videoThumbnailUrl = String(form.get("videoThumbnailUrl") ?? "").trim() || null;
+  const ctaLabel = String(form.get("ctaLabel") ?? "").trim() || null;
+  const ctaUrl = String(form.get("ctaUrl") ?? "").trim() || null;
 
   if (!title || title.length > 200) {
     return NextResponse.json({ error: "invalid_title" }, { status: 400 });
@@ -92,6 +98,16 @@ export async function POST(req: Request) {
   }
   if (!AUDIENCES.includes(audienceRaw as Audience)) {
     return NextResponse.json({ error: "invalid_audience" }, { status: 400 });
+  }
+  // Les liens éventuels doivent être en https (évite javascript:/data: et le
+  // mixed-content dans le mail). null = champ vide = OK.
+  const isHttpsUrl = (u: string | null) =>
+    u === null || (/^https:\/\/\S+$/i.test(u) && u.length <= 2000);
+  if (!isHttpsUrl(videoUrl) || !isHttpsUrl(videoThumbnailUrl) || !isHttpsUrl(ctaUrl)) {
+    return NextResponse.json({ error: "invalid_url" }, { status: 400 });
+  }
+  if (ctaLabel && ctaLabel.length > 60) {
+    return NextResponse.json({ error: "invalid_cta_label" }, { status: 400 });
   }
   const audience = audienceRaw as Audience;
 
@@ -193,6 +209,10 @@ export async function POST(req: Request) {
       body,
       attachmentUrl: signedAttachmentUrl,
       attachmentFilename,
+      videoUrl,
+      videoThumbnailUrl,
+      ctaLabel,
+      ctaUrl,
       recipients: wlRecipients,
     })
       .then(async () => {
