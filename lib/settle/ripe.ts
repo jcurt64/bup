@@ -61,6 +61,7 @@ export async function settleRipeRelationsAndNotify(
           prenom: r.prospect_prenom,
           proName: r.pro_name ?? "le professionnel",
           rewardEur: Number(r.reward_cents) / 100,
+          relationId: r.relation_id,
         }),
       ),
   );

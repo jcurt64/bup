@@ -24,7 +24,17 @@ export type RelationSettledParams = {
   prenom: string | null;
   proName: string;
   rewardEur: number;
+  /** Identifiant unique de la mise en relation (relation_id). Sert de
+   *  numéro d'authentification : on en affiche les 4 derniers caractères
+   *  au prospect pour qu'il vérifie l'identité du pro qui le sollicite. */
+  relationId: string;
 };
+
+/** Numéro d'authentification lisible dérivé du relation_id : caractères
+ *  alphanumériques, en majuscules (les tirets de l'UUID sont retirés). */
+function authCodeFromRelationId(relationId: string): string {
+  return (relationId || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
 
 export async function sendRelationSettled(
   params: RelationSettledParams,
@@ -32,19 +42,21 @@ export async function sendRelationSettled(
   const transport = getTransport();
   if (!transport) return;
 
-  const { email, prenom, proName, rewardEur } = params;
+  const { email, prenom, proName, rewardEur, relationId } = params;
   const greet = prenom?.trim() || "Bonjour";
   const rewardStr = rewardEur.toFixed(2).replace(".", ",");
+  const authFull = authCodeFromRelationId(relationId);
+  const authLast4 = authFull.slice(-4) || "????";
   const subject = `Vos ${rewardStr} € sont disponibles ✓`;
 
   const text = [
     `Bonjour ${greet},`,
     "",
-    `Bonne nouvelle — votre récompense de ${rewardStr} € pour la mise en relation avec ${proName} vient d'être créditée sur votre portefeuille BUUPP.`,
+    `La campagne dont vous avez accepté la sollicitation est arrivée à son terme : vous empochez ${rewardStr} €, désormais crédités sur votre solde disponible. Cette somme n'est plus sous séquestre.`,
     "",
-    "Le délai de validation est écoulé : les fonds ne sont plus en séquestre, ils sont à présent disponibles dans votre solde.",
+    `À compter de maintenant, ${proName} peut vous solliciter directement. Pour s'authentifier, le professionnel vous communiquera son numéro d'authentification unique, dont les 4 derniers caractères sont : ${authLast4}. Vérifiez qu'ils correspondent avant de lui répondre.`,
     "",
-    "Vous pouvez les consulter ou demander un retrait depuis votre portefeuille :",
+    "Vous pouvez consulter votre solde ou demander un retrait depuis votre portefeuille :",
     LINK_URL,
     "",
     "À bientôt,",
@@ -85,9 +97,9 @@ export async function sendRelationSettled(
     ${escapeHtml(greet)}, vos ${rewardStr} € sont à vous 🎉
   </h1>
   <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#3A4150;">
-    Le délai de validation pour la mise en relation avec
-    <strong>${escapeHtml(proName)}</strong> est écoulé. Votre récompense
-    quitte le séquestre et est désormais <strong>créditée</strong> sur votre portefeuille.
+    La campagne dont vous avez accepté la sollicitation est arrivée à son
+    terme : vous empochez <strong>${rewardStr} €</strong>, désormais crédités
+    sur votre <strong>solde disponible</strong>. Cette somme n'est plus sous séquestre.
   </p>
 
   <!-- Bloc récompense : gradient or → ambre + cercles décoratifs -->
@@ -100,6 +112,29 @@ export async function sendRelationSettled(
         <div style="font-size:11px;color:rgba(255,255,255,0.90);text-transform:uppercase;letter-spacing:.14em;font-weight:600;">💰 Crédité sur votre portefeuille</div>
         <div style="font-family:Georgia,serif;font-size:36px;font-weight:600;line-height:1.1;margin-top:6px;letter-spacing:-.01em;">${rewardStr} €</div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.30);font-size:12px;color:rgba(255,255,255,0.95);">Statut : <strong style="color:#FFFEF8;">Disponible</strong> — retirable selon le seuil en vigueur.</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Bloc authentification : le pro pourra solliciter le prospect et devra
+       citer son numéro d'authentification unique, dont on rappelle les 4
+       derniers caractères pour vérification. -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;border-collapse:separate;">
+    <tr>
+      <td style="padding:16px 18px;background:#FFFEF8;border:1px solid #EAE3D0;border-radius:14px;">
+        <div style="font-size:11px;color:#6B7180;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:8px;">🔐 Authentification du professionnel</div>
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#3A4150;">
+          À compter de maintenant, <strong>${escapeHtml(proName)}</strong> peut vous
+          solliciter directement. Pour s'authentifier, le professionnel vous
+          communiquera son <strong>numéro d'authentification unique</strong>.
+          Vérifiez que ses 4 derniers caractères correspondent à&nbsp;:
+        </p>
+        <div style="text-align:center;padding:12px 10px;background:#0F1629;border-radius:10px;">
+          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:26px;font-weight:700;letter-spacing:.32em;color:#FFFEF8;">${escapeHtml(authLast4)}</span>
+        </div>
+        <p style="margin:10px 0 0;font-size:12px;color:#6B7180;line-height:1.5;">
+          Ne répondez qu'à un professionnel dont le numéro se termine par ces 4&nbsp;caractères.
+        </p>
       </td>
     </tr>
   </table>
