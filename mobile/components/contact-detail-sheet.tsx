@@ -8,6 +8,7 @@
 // aux thèmes buupp / sombre / fushia. Les coordonnées affichées sont MASQUÉES
 // par le serveur (alias watermarqué) — invariant RGPD, cf. contacts.tsx.
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
@@ -222,8 +223,23 @@ export function ContactDetailSheet({
   const [picked, setPicked] = useState<number | null>(null);
   const [saved, setSaved] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [authCopied, setAuthCopied] = useState(false);
 
   const relId = contact?.relationId ?? null;
+  // Numéro d'authentification unique = relation_id nettoyé en majuscules
+  // (même dérivation que le mail de clôture `lib/email/relation-settled.ts`
+  // et que la fiche pro web). Le pro le communique pour s'authentifier ;
+  // le prospect en vérifie les 4 derniers caractères (rappelés dans son mail).
+  const authCode = String(relId ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  async function copyAuthCode() {
+    try {
+      await Clipboard.setStringAsync(authCode);
+      setAuthCopied(true);
+      setTimeout(() => setAuthCopied(false), 1600);
+    } catch {
+      /* presse-papier indisponible */
+    }
+  }
   useEffect(() => {
     if (!relId || !visible) return;
     let cancelled = false;
@@ -407,6 +423,42 @@ export function ContactDetailSheet({
               </Pressable>
             </View>
           </View>
+
+          {/* Numéro d'authentification — visible une fois les détails chargés
+              (campagne clôturée → le pro peut solliciter le prospect). Le pro
+              le communique pour prouver son identité ; le prospect vérifie les
+              4 derniers caractères, rappelés dans son mail de clôture. */}
+          {status === "ok" && authCode ? (
+            <View style={{ marginTop: 16, backgroundColor: p.text, borderRadius: 16, padding: 14 }}>
+              <View className="flex-row items-center" style={{ gap: 10, marginBottom: 12 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={p.card} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.card }}>Numéro d&apos;authentification</Text>
+                  <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.66)", marginTop: 1, lineHeight: 17 }}>
+                    Communiquez-le à ce prospect pour vous authentifier. Il en vérifie les <Text style={{ color: "#F2D189", fontWeight: "700" }}>4 derniers caractères</Text>.
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <View style={{ flex: 1, minWidth: 0, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12 }}>
+                  <Text className="font-mono" style={{ fontSize: 13, letterSpacing: 1 }} numberOfLines={1} ellipsizeMode="head">
+                    <Text style={{ color: "rgba(255,255,255,0.5)" }}>{authCode.slice(0, -4)}</Text>
+                    <Text style={{ color: "#F2D189", fontWeight: "700" }}>{authCode.slice(-4)}</Text>
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={copyAuthCode}
+                  className="active:opacity-80 flex-row items-center"
+                  style={{ gap: 5, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, backgroundColor: authCopied ? "#10B981" : "rgba(255,255,255,0.12)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" }}
+                >
+                  <Ionicons name={authCopied ? "checkmark" : "copy-outline"} size={13} color={p.card} />
+                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: p.card }}>{authCopied ? "Copié" : "Copier"}</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {/* Priorité de traitement */}
           <View style={{ marginTop: 16, backgroundColor: "#7C3AED14", borderWidth: 1, borderColor: "#7C3AED33", borderRadius: 16, padding: 14 }}>
