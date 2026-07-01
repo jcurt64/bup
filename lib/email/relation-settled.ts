@@ -24,17 +24,12 @@ export type RelationSettledParams = {
   prenom: string | null;
   proName: string;
   rewardEur: number;
-  /** Identifiant unique de la mise en relation (relation_id). Sert de
-   *  numéro d'authentification : on en affiche les 4 derniers caractères
-   *  au prospect pour qu'il vérifie l'identité du pro qui le sollicite. */
-  relationId: string;
+  /** Code buupp de la campagne (`campaigns.code`). On en affiche les 4
+   *  derniers caractères au prospect : c'est LE code que le pro devra lui
+   *  annoncer lors de la prise de contact pour s'authentifier (même
+   *  convention que le chip « Code buupp » et le mail d'acceptation). */
+  campaignCode: string | null;
 };
-
-/** Numéro d'authentification lisible dérivé du relation_id : caractères
- *  alphanumériques, en majuscules (les tirets de l'UUID sont retirés). */
-function authCodeFromRelationId(relationId: string): string {
-  return (relationId || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-}
 
 export async function sendRelationSettled(
   params: RelationSettledParams,
@@ -42,11 +37,10 @@ export async function sendRelationSettled(
   const transport = getTransport();
   if (!transport) return;
 
-  const { email, prenom, proName, rewardEur, relationId } = params;
+  const { email, prenom, proName, rewardEur, campaignCode } = params;
   const greet = prenom?.trim() || "Bonjour";
   const rewardStr = rewardEur.toFixed(2).replace(".", ",");
-  const authFull = authCodeFromRelationId(relationId);
-  const authLast4 = authFull.slice(-4) || "????";
+  const authCode = campaignCode ? campaignCode.slice(-4).toUpperCase() : null;
   const subject = `Vos ${rewardStr} € sont disponibles ✓`;
 
   const text = [
@@ -54,8 +48,12 @@ export async function sendRelationSettled(
     "",
     `La campagne dont vous avez accepté la sollicitation est arrivée à son terme : vous empochez ${rewardStr} €, désormais crédités sur votre solde disponible. Cette somme n'est plus sous séquestre.`,
     "",
-    `À compter de maintenant, ${proName} peut vous solliciter directement. Pour s'authentifier, le professionnel vous communiquera son numéro d'authentification unique, dont les 4 derniers caractères sont : ${authLast4}. Vérifiez qu'ils correspondent avant de lui répondre.`,
-    "",
+    ...(authCode
+      ? [
+          `À compter de maintenant, ${proName} peut vous solliciter directement. Pour s'authentifier, le professionnel vous annoncera le code buupp de la campagne : ${authCode}. Ne répondez qu'à un professionnel qui vous communique ce code.`,
+          "",
+        ]
+      : []),
     "Vous pouvez consulter votre solde ou demander un retrait depuis votre portefeuille :",
     LINK_URL,
     "",
@@ -117,27 +115,25 @@ export async function sendRelationSettled(
   </table>
 
   <!-- Bloc authentification : le pro pourra solliciter le prospect et devra
-       citer son numéro d'authentification unique, dont on rappelle les 4
-       derniers caractères pour vérification. -->
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;border-collapse:separate;">
+       lui annoncer le code buupp de la campagne pour s'authentifier. -->
+  ${authCode ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;border-collapse:separate;">
     <tr>
       <td style="padding:16px 18px;background:#FFFEF8;border:1px solid #EAE3D0;border-radius:14px;">
         <div style="font-size:11px;color:#6B7180;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:8px;">🔐 Authentification du professionnel</div>
         <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#3A4150;">
           À compter de maintenant, <strong>${escapeHtml(proName)}</strong> peut vous
           solliciter directement. Pour s'authentifier, le professionnel vous
-          communiquera son <strong>numéro d'authentification unique</strong>.
-          Vérifiez que ses 4 derniers caractères correspondent à&nbsp;:
+          annoncera le <strong>code buupp</strong> de cette campagne&nbsp;:
         </p>
         <div style="text-align:center;padding:12px 10px;background:#0F1629;border-radius:10px;">
-          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:26px;font-weight:700;letter-spacing:.32em;color:#FFFEF8;">${escapeHtml(authLast4)}</span>
+          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:26px;font-weight:700;letter-spacing:.32em;color:#FFFEF8;">${escapeHtml(authCode)}</span>
         </div>
         <p style="margin:10px 0 0;font-size:12px;color:#6B7180;line-height:1.5;">
-          Ne répondez qu'à un professionnel dont le numéro se termine par ces 4&nbsp;caractères.
+          Ne répondez qu'à un professionnel qui vous communique ce code.
         </p>
       </td>
     </tr>
-  </table>
+  </table>` : ""}
 
   <p style="margin:0 0 14px;text-align:center;">
     <a href="${LINK_URL}" target="_blank" rel="noopener noreferrer"

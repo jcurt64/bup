@@ -86,7 +86,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id, prospect_id, pro_priority,
-       campaigns ( status, targeting ),
+       campaigns ( status, targeting, code ),
        prospects:prospect_id ( id, removed_tiers, hidden_tiers )`,
     )
     .eq("id", relationId)
@@ -107,8 +107,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
     prospect_id: string;
     pro_priority: number | null;
     campaigns:
-      | { status: string; targeting: { requiredTiers?: number[] } | null }
-      | { status: string; targeting: { requiredTiers?: number[] } | null }[]
+      | { status: string; targeting: { requiredTiers?: number[] } | null; code: string | null }
+      | { status: string; targeting: { requiredTiers?: number[] } | null; code: string | null }[]
       | null;
     prospects:
       | { id: string; removed_tiers: string[] | null; hidden_tiers: string[] | null }
@@ -212,10 +212,16 @@ export async function GET(_req: Request, ctx: RouteContext) {
   // « N » par niveau sur la fiche. `priority` = la note du pro courant.
   const fiabiliteAgg = await computeFiabiliteAgg(admin, prospect.id);
 
+  // Code buupp d'authentification = 4 derniers caractères du code de campagne
+  // (même convention que le chip « Code buupp » et le mail d'acceptation). Le
+  // pro le communique au prospect lors de la prise de contact post-clôture.
+  const authCode = camp?.code ? camp.code.slice(-4).toUpperCase() : null;
+
   return NextResponse.json({
     tiers,
     ref,
     priority: row.pro_priority ?? null,
     fiabiliteAgg,
+    authCode,
   });
 }

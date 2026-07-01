@@ -7494,15 +7494,15 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
   // Agrégat de fiabilité cross-pro : { '1': n, '2': n, '3': n } = nb de pros
   // distincts par niveau (badge sur la fiche).
   const [fiabAgg, setFiabAgg] = React.useState(null);
-  // Feedback du bouton « Copier » du numéro d'authentification.
+  // Code buupp d'authentification (4 derniers caractères du code de campagne),
+  // fourni par l'API détails. C'est LE code que le pro annonce au prospect
+  // pour s'authentifier (même code que le chip « Code buupp » de la campagne
+  // et que le mail de clôture `lib/email/relation-settled.ts`).
+  const [authCode, setAuthCode] = React.useState(null);
+  // Feedback du bouton « Copier » du code buupp.
   const [authCopied, setAuthCopied] = React.useState(false);
-
-  // Numéro d'authentification unique = relation_id nettoyé en majuscules
-  // (même dérivation que le mail de clôture `lib/email/relation-settled.ts`).
-  // Le pro le communique au prospect pour s'authentifier ; le prospect en
-  // vérifie les 4 derniers caractères (rappelés dans son mail).
-  const authCode = String(row.relationId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const copyAuthCode = React.useCallback(() => {
+    if (!authCode) return;
     try {
       navigator.clipboard?.writeText(authCode);
       setAuthCopied(true);
@@ -7532,6 +7532,7 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
   React.useEffect(() => {
     let cancelled = false;
     setStatus('loading');
+    setAuthCode(null);
     setPicked(row.priority ?? null);
     setSaved(row.priority ?? null);
     fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/details`, { cache: 'no-store' })
@@ -7544,6 +7545,7 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         setTiers(Array.isArray(j?.tiers) ? j.tiers : []);
         setRef(j?.ref ?? null);
         setFiabAgg(j?.fiabiliteAgg ?? null);
+        setAuthCode(j?.authCode ?? null);
         if (typeof j?.priority !== 'undefined') {
           setPicked(j.priority ?? null);
           setSaved(j.priority ?? null);
@@ -7641,42 +7643,38 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
 
         {/* Corps scrollable */}
         <div style={{ padding: '18px 22px', maxHeight: '64vh', overflowY: 'auto' }}>
-          {/* Numéro d'authentification — visible une fois les détails chargés
-              (campagne clôturée → le pro peut solliciter le prospect). Le pro
-              le communique pour prouver son identité ; le prospect vérifie les
-              4 derniers caractères, rappelés dans son mail de clôture. */}
-          {status === 'ok' && authCode && (() => {
-            const head = authCode.slice(0, -4);
-            const last4 = authCode.slice(-4);
-            return (
+          {/* Code buupp d'authentification — visible une fois les détails
+              chargés (campagne clôturée → le pro peut solliciter le prospect).
+              C'est LE code que le pro annonce au prospect pour s'authentifier ;
+              le prospect le retrouve dans son mail de clôture. */}
+          {status === 'ok' && authCode && (
               <div style={{ background: 'var(--ink)', color: 'var(--paper)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
                 <div className="row center gap-3" style={{ marginBottom: 12 }}>
                   <span style={{ display: 'inline-flex', width: 34, height: 34, borderRadius: 9, background: 'rgba(255,255,255,.1)', alignItems: 'center', justifyContent: 'center', color: 'var(--paper)', flexShrink: 0 }}>
                     <Icon name="shieldCheck" size={16}/>
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Numéro d'authentification</div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>Code buupp d'authentification</div>
                     <div style={{ fontSize: 12, color: 'rgba(255,255,255,.66)', lineHeight: 1.45 }}>
-                      Communiquez-le à ce prospect pour vous authentifier. Il en vérifie les <strong style={{ color: '#F2D189' }}>4 derniers caractères</strong>.
+                      Annoncez ce code au prospect lors de la prise de contact pour vous authentifier. Il le retrouve dans son mail.
                     </div>
                   </div>
                 </div>
                 <div className="row center" style={{ gap: 8 }}>
-                  <code className="mono" style={{ flex: 1, minWidth: 0, fontSize: 13, wordBreak: 'break-all', background: 'rgba(255,255,255,.08)', borderRadius: 8, padding: '10px 12px', letterSpacing: '.04em' }}>
-                    <span style={{ color: 'rgba(255,255,255,.5)' }}>{head}</span><span style={{ color: '#F2D189', fontWeight: 700 }}>{last4}</span>
+                  <code className="mono" style={{ flex: 1, minWidth: 0, fontSize: 22, fontWeight: 700, textAlign: 'center', color: '#F2D189', background: 'rgba(255,255,255,.08)', borderRadius: 8, padding: '10px 12px', letterSpacing: '.28em' }}>
+                    {authCode}
                   </code>
                   <button
                     onClick={copyAuthCode}
                     className="btn btn-sm"
                     style={{ flexShrink: 0, background: authCopied ? '#10B981' : 'rgba(255,255,255,.12)', color: 'var(--paper)', border: '1px solid rgba(255,255,255,.2)' }}
-                    title="Copier le numéro d'authentification"
+                    title="Copier le code buupp"
                   >
                     <Icon name={authCopied ? 'check' : 'copy'} size={12}/> {authCopied ? 'Copié' : 'Copier'}
                   </button>
                 </div>
               </div>
-            );
-          })()}
+          )}
           {/* Priorité de traitement */}
           <div style={{
             background: 'color-mix(in oklab, #7C3AED 6%, var(--paper))',

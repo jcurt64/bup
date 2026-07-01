@@ -50,6 +50,22 @@ export async function settleRipeRelationsAndNotify(
     }
   })();
 
+  // Code buupp de chaque campagne concernée — communiqué au prospect dans le
+  // mail : c'est le code que le pro devra lui annoncer pour s'authentifier.
+  const campaignIds = Array.from(
+    new Set(rows.map((r) => r.campaign_id).filter(Boolean)),
+  ) as string[];
+  const codeByCampaign = new Map<string, string | null>();
+  if (campaignIds.length > 0) {
+    const { data: camps } = await admin
+      .from("campaigns")
+      .select("id, code")
+      .in("id", campaignIds);
+    for (const c of camps ?? []) {
+      codeByCampaign.set(c.id as string, (c.code as string | null) ?? null);
+    }
+  }
+
   // Mails fire-and-forget — un échec d'envoi ne doit ni bloquer ni faire
   // remonter d'erreur dans la requête API qui a déclenché le settle.
   void Promise.allSettled(
@@ -61,7 +77,7 @@ export async function settleRipeRelationsAndNotify(
           prenom: r.prospect_prenom,
           proName: r.pro_name ?? "le professionnel",
           rewardEur: Number(r.reward_cents) / 100,
-          relationId: r.relation_id,
+          campaignCode: codeByCampaign.get(r.campaign_id) ?? null,
         }),
       ),
   );
