@@ -1416,6 +1416,9 @@ export type ProContactDetails = {
   tiers: ProDetailTier[];
   ref: string | null;
   priority: number | null;
+  /** Code buupp d'authentification (4 derniers caractères du code de
+   *  campagne) que le pro annonce au prospect. Null si code absent. */
+  authCode: string | null;
 };
 export const useProContacts = () =>
   useGet<{ rows: ProContact[] }>(["pro", "contacts"], "/api/pro/contacts", 30_000);

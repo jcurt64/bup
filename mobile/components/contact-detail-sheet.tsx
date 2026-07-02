@@ -224,14 +224,15 @@ export function ContactDetailSheet({
   const [saved, setSaved] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [authCopied, setAuthCopied] = useState(false);
+  // Code buupp d'authentification (4 derniers caractères du code de campagne),
+  // fourni par l'API détails. C'est LE code que le pro annonce au prospect
+  // pour s'authentifier (même code que le chip « Code buupp » de la campagne
+  // et que le mail de clôture `lib/email/relation-settled.ts`).
+  const [authCode, setAuthCode] = useState<string | null>(null);
 
   const relId = contact?.relationId ?? null;
-  // Numéro d'authentification unique = relation_id nettoyé en majuscules
-  // (même dérivation que le mail de clôture `lib/email/relation-settled.ts`
-  // et que la fiche pro web). Le pro le communique pour s'authentifier ;
-  // le prospect en vérifie les 4 derniers caractères (rappelés dans son mail).
-  const authCode = String(relId ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   async function copyAuthCode() {
+    if (!authCode) return;
     try {
       await Clipboard.setStringAsync(authCode);
       setAuthCopied(true);
@@ -246,6 +247,7 @@ export function ContactDetailSheet({
     setStatus("loading");
     setTiers([]);
     setRefCode(null);
+    setAuthCode(null);
     setPicked(contact?.priority ?? null);
     setSaved(contact?.priority ?? null);
     api<ProContactDetails>(`/api/pro/contacts/${relId}/details`)
@@ -253,6 +255,7 @@ export function ContactDetailSheet({
         if (cancelled) return;
         setTiers(j.tiers || []);
         setRefCode(j.ref ?? null);
+        setAuthCode(j.authCode ?? null);
         setPicked(j.priority ?? null);
         setSaved(j.priority ?? null);
         setStatus("ok");
@@ -424,10 +427,10 @@ export function ContactDetailSheet({
             </View>
           </View>
 
-          {/* Numéro d'authentification — visible une fois les détails chargés
-              (campagne clôturée → le pro peut solliciter le prospect). Le pro
-              le communique pour prouver son identité ; le prospect vérifie les
-              4 derniers caractères, rappelés dans son mail de clôture. */}
+          {/* Code buupp d'authentification — visible une fois les détails
+              chargés (campagne clôturée → le pro peut solliciter le prospect).
+              C'est LE code que le pro annonce au prospect pour s'authentifier ;
+              le prospect le retrouve dans son mail de clôture. */}
           {status === "ok" && authCode ? (
             <View style={{ marginTop: 16, backgroundColor: p.text, borderRadius: 16, padding: 14 }}>
               <View className="flex-row items-center" style={{ gap: 10, marginBottom: 12 }}>
@@ -435,17 +438,16 @@ export function ContactDetailSheet({
                   <Ionicons name="shield-checkmark-outline" size={16} color={p.card} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.card }}>Numéro d&apos;authentification</Text>
+                  <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.card }}>Code buupp d&apos;authentification</Text>
                   <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.66)", marginTop: 1, lineHeight: 17 }}>
-                    Communiquez-le à ce prospect pour vous authentifier. Il en vérifie les <Text style={{ color: "#F2D189", fontWeight: "700" }}>4 derniers caractères</Text>.
+                    Annoncez ce code au prospect lors de la prise de contact pour vous authentifier. Il le retrouve dans son mail.
                   </Text>
                 </View>
               </View>
               <View className="flex-row items-center" style={{ gap: 8 }}>
                 <View style={{ flex: 1, minWidth: 0, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12 }}>
-                  <Text className="font-mono" style={{ fontSize: 13, letterSpacing: 1 }} numberOfLines={1} ellipsizeMode="head">
-                    <Text style={{ color: "rgba(255,255,255,0.5)" }}>{authCode.slice(0, -4)}</Text>
-                    <Text style={{ color: "#F2D189", fontWeight: "700" }}>{authCode.slice(-4)}</Text>
+                  <Text className="font-mono" style={{ fontSize: 22, fontWeight: "700", letterSpacing: 6, textAlign: "center", color: "#F2D189" }} numberOfLines={1}>
+                    {authCode}
                   </Text>
                 </View>
                 <Pressable
