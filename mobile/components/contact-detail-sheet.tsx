@@ -81,16 +81,76 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// Normalise un numéro FR pour WhatsApp (wa.me attend l'international sans +) :
+//  +33 6…/0033 6… → 336… ; 06… (national) → 336… ; sinon chiffres bruts.
+function waNumber(phone: string): string {
+  let d = phone.replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) d = d.slice(1);
+  else if (d.startsWith("00")) d = d.slice(2);
+  else if (d.startsWith("0")) d = "33" + d.slice(1);
+  return d.replace(/\D/g, "");
+}
+
 // ── Rangée d'actions de contact (call / mail / sms / whatsapp) ─────────────
 // Tuiles blanches 34×34. Couleurs : accent (appel + whatsapp), coral (mail),
-// bleu (sms). Coordonnées masquées → seul l'e-mail alias ouvre un mailto.
-export function ContactActions({ email }: { email?: string | null }) {
+// bleu (sms). Les VRAIES coordonnées (alias e-mail + téléphone en clair)
+// proviennent de l'API détails, pas de la liste (qui les masque). Chaque clic
+// est logué (`contact-click` → audit + rappel anti-abus ≥3/24h ; `call-log`
+// pour l'appel), à parité avec le web.
+export function ContactActions({
+  email,
+  phone,
+  relationId,
+}: {
+  email?: string | null;
+  phone?: string | null;
+  relationId?: string | null;
+}) {
   const p = useContactPalette();
-  const masked = () =>
+  const api = useApi();
+
+  const logClick = (channel: "call" | "email" | "sms" | "whatsapp") => {
+    if (!relationId) return;
+    api(`/api/pro/contacts/${relationId}/contact-click`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ channel }),
+    }).catch(() => {});
+  };
+
+  const unavailable = (what: string) =>
     Alert.alert(
-      "Coordonnées masquées",
-      "Les coordonnées du prospect sont protégées (alias watermarqué). Utilisez l'e-mail sécurisé pour le contacter.",
+      "Coordonnée indisponible",
+      `Le prospect n'a pas partagé ${what} pour cette campagne, ou la campagne n'est pas encore clôturée.`,
     );
+  const open = (url: string, fail: string) =>
+    Linking.openURL(url).catch(() =>
+      Alert.alert("Action indisponible", fail),
+    );
+
+  const doCall = () => {
+    if (!phone) return unavailable("son numéro de téléphone");
+    logClick("call");
+    if (relationId)
+      api(`/api/pro/contacts/${relationId}/call-log`, { method: "POST" }).catch(() => {});
+    open(`tel:${phone}`, "Impossible de lancer l'appel depuis cet appareil.");
+  };
+  const doSms = () => {
+    if (!phone) return unavailable("son numéro de téléphone");
+    logClick("sms");
+    open(`sms:${phone}`, "Impossible d'ouvrir la messagerie SMS.");
+  };
+  const doWhatsApp = () => {
+    if (!phone) return unavailable("son numéro de téléphone");
+    logClick("whatsapp");
+    open(`https://wa.me/${waNumber(phone)}`, "Impossible d'ouvrir WhatsApp.");
+  };
+  const doMail = () => {
+    if (!email) return unavailable("d'adresse e-mail");
+    logClick("email");
+    open(`mailto:${email}`, "Impossible d'ouvrir la messagerie e-mail.");
+  };
+
   const Btn = ({
     icon,
     color,
@@ -121,17 +181,10 @@ export function ContactActions({ email }: { email?: string | null }) {
   );
   return (
     <View className="flex-row" style={{ gap: 8 }}>
-      <Btn icon="call-outline" color={p.accent} onPress={masked} label="Appeler" />
-      <Btn
-        icon="mail-outline"
-        color={p.coral}
-        onPress={() =>
-          email ? Linking.openURL(`mailto:${email}`).catch(() => masked()) : masked()
-        }
-        label="Envoyer un e-mail"
-      />
-      <Btn icon="chatbox-outline" color={p.blue} onPress={masked} label="SMS" />
-      <Btn icon="logo-whatsapp" color={p.accent} onPress={masked} label="WhatsApp" />
+      <Btn icon="call-outline" color={p.accent} onPress={doCall} label="Appeler" />
+      <Btn icon="mail-outline" color={p.coral} onPress={doMail} label="Envoyer un e-mail" />
+      <Btn icon="chatbox-outline" color={p.blue} onPress={doSms} label="SMS" />
+      <Btn icon="logo-whatsapp" color={p.accent} onPress={doWhatsApp} label="WhatsApp" />
     </View>
   );
 }
@@ -231,6 +284,15 @@ export function ContactDetailSheet({
   const [authCode, setAuthCode] = useState<string | null>(null);
 
   const relId = contact?.relationId ?? null;
+  // Vraies coordonnées joignables = extraites des tiers de l'API détails
+  // (l'alias e-mail sécurisé « keep/alias » et le téléphone « keep »). La
+  // liste `contact.*` est masquée, donc non utilisable pour appeler/mailer.
+  const identityItems =
+    tiers.find((t) => t.key === "identity")?.items ?? [];
+  const contactEmail =
+    identityItems.find((i) => i.label.startsWith("E-mail"))?.value ?? null;
+  const contactPhone =
+    identityItems.find((i) => i.label === "Téléphone")?.value ?? null;
   async function copyAuthCode() {
     if (!authCode) return;
     try {
@@ -634,7 +696,7 @@ export function ContactDetailSheet({
               )}
             </Text>
             <View className="flex-row items-center" style={{ gap: 8 }}>
-              <ContactActions email={contact.email} />
+              <ContactActions email={contactEmail} phone={contactPhone} relationId={relId} />
               <Pressable
                 onPress={onClose}
                 accessibilityLabel="Fermer"
