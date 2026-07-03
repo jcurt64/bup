@@ -7977,6 +7977,14 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
               target={isExternalLink ? '_blank' : '_top'}
               rel={isExternalLink ? 'noopener noreferrer' : undefined}
               onClick={(e) => {
+                // SMS de préavis « BUUPP + code buupp » au prospect, au moment
+                // où le pro lance l'appel (canal appel uniquement). Serveur
+                // dédupliqué : une seule fois par relation, insensible aux
+                // réouvertures/double-clics. Fire-and-forget : ne bloque jamais
+                // l'ouverture du composeur.
+                if (intent === 'call' && value) {
+                  fetch(`/api/pro/contacts/${relationId}/call-notice`, { method: 'POST' }).catch(() => {});
+                }
                 // Filet de sécurité : certains navigateurs mobiles n'honorent
                 // pas toujours target=_top sur un <a> dans une iframe pour les
                 // schémas externes → on force la navigation de la fenêtre top.

@@ -1288,6 +1288,7 @@ export type Database = {
       }
       relations: {
         Row: {
+          call_notice_sms_sent_at: string | null
           campaign_id: string
           decided_at: string | null
           escrow_release_at: string | null
@@ -1311,6 +1312,7 @@ export type Database = {
           status: Database["public"]["Enums"]["relation_status"]
         }
         Insert: {
+          call_notice_sms_sent_at?: string | null
           campaign_id: string
           decided_at?: string | null
           escrow_release_at?: string | null
@@ -1334,6 +1336,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["relation_status"]
         }
         Update: {
+          call_notice_sms_sent_at?: string | null
           campaign_id?: string
           decided_at?: string | null
           escrow_release_at?: string | null
