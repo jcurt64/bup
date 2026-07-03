@@ -6367,8 +6367,11 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         "constitue une fuite de données personnelles (RGPD).\n" +
         "Rédigez votre message au-dessus de cette ligne.\n"
       );
-      window.location.href =
-        `mailto:${toAddr}?bcc=${bcc}&subject=${subject}&body=${body}`;
+      // Prototype en iframe : cibler la fenêtre top pour que le mailto
+      // ouvre le client mail sur mobile (une navigation mailto dans la
+      // sous-frame est ignorée par les navigateurs mobiles).
+      const mailtoUrl = `mailto:${toAddr}?bcc=${bcc}&subject=${subject}&body=${body}`;
+      try { window.top.location.href = mailtoUrl; } catch { window.location.href = mailtoUrl; }
     } catch {
       alert("Impossible de récupérer les emails. Réessayez.");
     } finally {
@@ -7967,8 +7970,23 @@ function RevealContactModal({ relationId, intent, name, onClose }) {
             </div>
             <a
               href={ctaHref}
-              target={isExternalLink ? '_blank' : undefined}
+              // Le prototype tourne dans une iframe : un lien tel:/sms:/mailto:
+              // navigué DANS la sous-frame est ignoré par les navigateurs
+              // mobiles. On cible donc `_top` (on sort de l'iframe) pour ces
+              // schémas → le composeur/mail/SMS s'ouvre. wa.me (http) → _blank.
+              target={isExternalLink ? '_blank' : '_top'}
               rel={isExternalLink ? 'noopener noreferrer' : undefined}
+              onClick={(e) => {
+                // Filet de sécurité : certains navigateurs mobiles n'honorent
+                // pas toujours target=_top sur un <a> dans une iframe pour les
+                // schémas externes → on force la navigation de la fenêtre top.
+                if (!isExternalLink && ctaHref && ctaHref !== '#') {
+                  try {
+                    e.preventDefault();
+                    window.top.location.href = ctaHref;
+                  } catch { window.location.href = ctaHref; }
+                }
+              }}
               className="btn"
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
