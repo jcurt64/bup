@@ -131,8 +131,12 @@ export function ContactActions({
   const doCall = () => {
     if (!phone) return unavailable("son numéro de téléphone");
     logClick("call");
-    if (relationId)
+    if (relationId) {
       api(`/api/pro/contacts/${relationId}/call-log`, { method: "POST" }).catch(() => {});
+      // SMS de préavis « BUUPP + code buupp » au prospect. Serveur dédupliqué :
+      // une seule fois par relation (même endpoint que le web). Fire-and-forget.
+      api(`/api/pro/contacts/${relationId}/call-notice`, { method: "POST" }).catch(() => {});
+    }
     open(`tel:${phone}`, "Impossible de lancer l'appel depuis cet appareil.");
   };
   const doSms = () => {
