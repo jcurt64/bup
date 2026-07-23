@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { reportedRelationIds } from "@/lib/prospect/reports";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { syncFounderBonusesAndNotify } from "@/lib/founder-bonus/sync";
 import {
   statusLabel,
   statusChip,
@@ -140,6 +141,10 @@ export async function GET() {
   // de lire la table — sinon les mouvements affichent encore "En séquestre"
   // pour des relations qui devraient déjà être créditées.
   await settleRipeRelationsAndNotify(admin);
+
+  // Même logique pour le bonus fondateur : l'historique ne doit pas
+  // afficher « en attente de déblocage » une ligne déjà mûre.
+  await syncFounderBonusesAndNotify(admin);
 
   const { data, error } = await admin
     .from("transactions")

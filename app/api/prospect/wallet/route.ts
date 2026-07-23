@@ -10,6 +10,14 @@
  *   - escrow           : fonds en séquestre — somme des reward_cents des
  *                        relations status='accepted' (acceptées mais pas
  *                        encore settled au-delà de 72 h).
+ *   - signupBonusCents        : bonus fondateur DÉBLOQUÉ (compté dans
+ *                               `available`).
+ *   - signupBonusPendingCents : bonus fondateur provisionné mais encore
+ *                               verrouillé — exclu de tous les agrégats.
+ *   - signupBonusUnlockAt     : date de déblocage = max(création du compte
+ *                               + 3 mois, launch_at).
+ *   - signupBonusHasAcceptance: true si ≥ 1 sollicitation acceptée.
+ *   - signupBonusLocked       : true s'il reste un bonus verrouillé.
  *   - relationsCount   : nombre total de mises en relation reçues depuis
  *                        la création du compte (toutes statuts confondus).
  *   - accountCreatedAt : prospects.created_at, sert à dater le cumul.
@@ -30,6 +38,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import { syncFounderBonusesAndNotify } from "@/lib/founder-bonus/sync";
 import { GAIN_TRANSACTION_TYPES } from "@/lib/prospect/transactions";
 
 export const runtime = "nodejs";
@@ -70,11 +79,16 @@ export async function GET() {
   // sur la réalité tant qu'aucune autre route n'a déclenché le settle.
   await settleRipeRelationsAndNotify(admin);
 
+  // Idem pour le bonus fondateur : provisionne la ligne `pending` d'un
+  // nouveau fondateur et débloque celle dont les conditions viennent
+  // d'être réunies, avant de calculer les agrégats.
+  await syncFounderBonusesAndNotify(admin);
+
   const monthStart = startOfMonthIso();
 
   // Lectures parallèles : 7 requêtes ciblées, toutes indexées sur
   // (account_id, account_kind, status) ou (prospect_id) pour relations.
-  const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow, signupBonus] =
+  const [gainsLifetime, gainsMonth, withdrawals, escrowRelations, relations, prospectRow, signupBonus, signupBonusPending, unlockState] =
     await Promise.all([
       admin
         .from("transactions")
@@ -119,6 +133,14 @@ export async function GET() {
         .eq("account_id", prospectId)
         .eq("type", "signup_bonus")
         .eq("status", "completed"),
+      admin
+        .from("transactions")
+        .select("amount_cents")
+        .eq("account_kind", "prospect")
+        .eq("account_id", prospectId)
+        .eq("type", "signup_bonus")
+        .eq("status", "pending"),
+      admin.rpc("founder_bonus_unlock_state", { p_prospect_id: prospectId }),
     ]);
 
   const lifetimeCents = sumAmounts(gainsLifetime.data);
@@ -130,6 +152,9 @@ export async function GET() {
     0,
   );
   const signupBonusCents = sumAmounts(signupBonus.data);
+  const signupBonusPendingCents = sumAmounts(signupBonusPending.data);
+  // La RPC renvoie une ligne (aucune si le prospect n'existe pas).
+  const unlock = unlockState.data?.[0] ?? null;
 
   return NextResponse.json({
     monthStart,
@@ -141,6 +166,11 @@ export async function GET() {
     availableEur: Math.round(availableCents) / 100,
     signupBonusCents,
     signupBonusEur: Math.round(signupBonusCents) / 100,
+    signupBonusPendingCents,
+    signupBonusPendingEur: Math.round(signupBonusPendingCents) / 100,
+    signupBonusLocked: signupBonusPendingCents > 0,
+    signupBonusUnlockAt: unlock?.unlock_at ?? null,
+    signupBonusHasAcceptance: unlock?.has_acceptance ?? false,
     escrowCents,
     escrowEur: Math.round(escrowCents) / 100,
     canWithdraw: availableCents >= WITHDRAW_THRESHOLD_EUR * 100,

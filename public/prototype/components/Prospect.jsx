@@ -2781,6 +2781,15 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const availableEur = wallet?.availableEur ?? 0;
   const availableCoins = Math.round((wallet?.availableCents ?? 0));
   const signupBonusEur = wallet?.signupBonusEur ?? 0;
+  const bonusLocked = wallet?.signupBonusLocked ?? false;
+  const bonusPendingEur = wallet?.signupBonusPendingEur ?? 0;
+  const bonusUnlockAt = wallet?.signupBonusUnlockAt ?? null;
+  const bonusHasAcceptance = wallet?.signupBonusHasAcceptance ?? false;
+  // La date de déblocage n'est atteinte que si elle est passée.
+  const bonusDateReached = bonusUnlockAt ? new Date(bonusUnlockAt) <= new Date() : false;
+  const bonusUnlockLabel = bonusUnlockAt
+    ? new Date(bonusUnlockAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '—';
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2847,6 +2856,15 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           badge={<IconBadge name="trend" tone="good"/>}
         />
       </div>
+
+      {bonusLocked && (
+        <FounderBonusLockCard
+          amount={fmt(bonusPendingEur)}
+          dateLabel={bonusUnlockLabel}
+          dateReached={bonusDateReached}
+          hasAcceptance={bonusHasAcceptance}
+        />
+      )}
 
       <div className="card historique-card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20 }}>
@@ -2942,6 +2960,9 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                 // non interactifs.
                 const clickable = !!m.relation;
                 const isSignupBonus = m.kind === 'signup_bonus';
+                // Verrouillé tant que la transaction est `pending` — on se fie
+                // au chip calculé côté serveur plutôt qu'au libellé affiché.
+                const isSignupBonusLocked = isSignupBonus && m.statusChip === 'warn';
                 return (
                   <tr
                     key={m.id}
@@ -2956,7 +2977,9 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                     title={clickable ? 'Voir le détail de la campagne' : undefined}
                     style={{
                       ...(clickable ? { cursor: 'pointer' } : null),
-                      ...(isSignupBonus ? { background: 'color-mix(in oklab, var(--good) 8%, var(--paper))' } : null),
+                      ...(isSignupBonus && !isSignupBonusLocked
+                        ? { background: 'color-mix(in oklab, var(--good) 8%, var(--paper))' }
+                        : null),
                     }}
                   >
                     <td>
@@ -2967,7 +2990,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                     </td>
                     <td>
                       {isSignupBonus ? (
-                        <span className="chip chip-good" style={{ fontWeight: 600 }}>
+                        <span className={isSignupBonusLocked ? 'chip chip-warn' : 'chip chip-good'} style={{ fontWeight: 600 }}>
                           <Icon name="gift" size={12}/> Bonus fondateur
                         </span>
                       ) : (
@@ -3146,6 +3169,54 @@ function RelationStat({ primary, tone, icon, label, value, sub }) {
         <span className="serif tnum" style={{ fontSize: 28, fontWeight: 700, lineHeight: 1,
           color: primary ? '#fff' : 'var(--ink)' }}>{value}</span>
         {sub && <span style={{ fontSize: 12.5, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Bonus fondateur provisionné mais pas encore débloqué. Les deux conditions
+// sont affichées avec leur état : une condition remplie passe en vert coché.
+function FounderBonusLockCard({ amount, dateLabel, dateReached, hasAcceptance }) {
+  const Condition = ({ done, children }) => (
+    <div className="row center" style={{ gap: 8, fontSize: 13, color: done ? 'var(--good)' : 'var(--ink-4)' }}>
+      <span style={{
+        width: 18, height: 18, borderRadius: 999, flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: done ? 'color-mix(in oklab, var(--good) 16%, transparent)' : 'var(--ivory-2)',
+        color: done ? 'var(--good)' : 'var(--ink-5)',
+      }}>
+        {done ? <Icon name="check" size={11}/> : <span style={{ fontSize: 11 }}>○</span>}
+      </span>
+      <span>{children}</span>
+    </div>
+  );
+
+  return (
+    <div className="card" style={{ padding: 20, borderStyle: 'dashed' }}>
+      <div className="row between center" style={{ marginBottom: 12, gap: 12 }}>
+        <div className="row center" style={{ gap: 10 }}>
+          <Icon name="gift" size={16}/>
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>
+              Bonus fondateur — {amount} €
+            </div>
+            <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.12em', color: 'var(--ink-5)', marginTop: 2 }}>
+              En attente de déblocage
+            </div>
+          </div>
+        </div>
+        <span className="chip chip-warn">Verrouillé</span>
+      </div>
+      <div className="col" style={{ gap: 8 }}>
+        <Condition done={dateReached}>
+          {dateReached ? 'Compte de plus de 3 mois' : `Débloqué le ${dateLabel}`}
+        </Condition>
+        <Condition done={hasAcceptance}>
+          Au moins une sollicitation acceptée
+        </Condition>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 12 }}>
+        Ces deux conditions réunies, les {amount} € rejoignent votre solde disponible et deviennent retirables.
       </div>
     </div>
   );
