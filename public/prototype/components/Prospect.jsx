@@ -2825,19 +2825,21 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   // verrouillé : c'est l'information la plus utile à cet endroit. Le
   // déblocage n'étant pas automatique, on parle de « débloquable », jamais
   // de « débloqué ».
-  // Une SEULE ligne verte dans la carte « Disponible ». Tant que le bonus
-  // est verrouillé, on n'écrit PAS « dont » : la somme n'est pas comprise
-  // dans le solde affiché. Une fois débloquée, elle l'est — « dont » redevient
-  // exact.
-  const bonusNote = bonusLocked
-    ? (bonusClaimable
-        ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
-        : !bonusDateReached
-          ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
-          : `${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`)
-    : signupBonusEur > 0
-      ? `dont ${fmt(signupBonusEur)} € de bonus fondateur`
-      : null;
+  // Lignes vertes de la carte « Disponible ». Deux informations distinctes,
+  // qui peuvent coexister :
+  //  - le bonus DÉJÀ crédité, compris dans le solde affiché → « dont » ;
+  //  - le bonus encore verrouillé, qui n'y est PAS → « + », jamais « dont »,
+  //    sans quoi la phrase serait fausse.
+  const bonusNotes = [
+    signupBonusEur > 0 ? `dont ${fmt(signupBonusEur)} € de bonus fondateur` : null,
+    bonusLocked
+      ? (bonusClaimable
+          ? `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
+          : !bonusDateReached
+            ? `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
+            : `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`)
+      : null,
+  ].filter(Boolean);
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2873,7 +2875,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
             ? 'Retirable immédiatement · minimum de 5 €'
             : `Retirable à partir de ${threshold} € de gains`}
           primary
-          bonusNote={bonusNote}
+          bonusNotes={bonusNotes}
           action={
             <button
               className="btn btn-accent"
@@ -3309,7 +3311,7 @@ function FounderBonusLockCard({
   );
 }
 
-function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bonusNote }) {
+function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bonusNotes }) {
   return (
     <div className="card" style={{
       padding: 28,
@@ -3351,8 +3353,8 @@ function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bo
         <span className="serif tnum" style={{ fontSize: big ? 64 : 44, lineHeight: 1, color: primary ? 'var(--paper)' : 'var(--ink)' }}>{value}</span>
         <span style={{ fontSize: 14, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€</span>
       </div>
-      {bonusNote && (
-        <div style={{
+      {(bonusNotes || []).map((note) => (
+        <div key={note} style={{
           marginTop: 6,
           fontSize: 12,
           color: 'var(--good)',
@@ -3361,9 +3363,9 @@ function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bo
           gap: 4,
         }}>
           <Icon name="gift" size={12}/>
-          {bonusNote}
+          {note}
         </div>
-      )}
+      ))}
       <div className="row center gap-2" style={{ marginTop: 10, fontSize: 13, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>
         <span className="coin">B</span>
         <span className="mono tnum">{coins} BUUPP Coins</span>
