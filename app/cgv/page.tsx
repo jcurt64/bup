@@ -482,8 +482,8 @@ export default function CgvPage() {
             </li>
             <li>
               régler en temps et en heure les sommes dues (commission,
-              bonus fondateurs, surcoût palier VIP, recharges) sous peine
-              de suspension du compte (cf. article&nbsp;13).
+              bonus parrain·e, recharges) sous peine de suspension du
+              compte (cf. article&nbsp;13).
             </li>
           </ul>
         </Section>

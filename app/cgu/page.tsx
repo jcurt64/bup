@@ -205,9 +205,11 @@ export default function CguPage() {
             <strong>Vérification téléphone.</strong> Le Prospect peut
             valider son numéro via un code SMS à 6&nbsp;chiffres. Cette
             vérification débloque le niveau{" "}
-            <strong>«&nbsp;Vérifié&nbsp;»</strong> qui double la
-            rémunération de toutes les acceptations à venir et est requise
-            pour les retraits supérieurs à un seuil défini.
+            <strong>«&nbsp;Vérifié&nbsp;»</strong>, requis pour les retraits
+            supérieurs à un seuil défini. Le <strong>doublement de la
+            rémunération</strong> n&apos;est en revanche acquis qu&apos;au
+            niveau le plus élevé,{" "}
+            <strong>«&nbsp;certifié confiance&nbsp;»</strong>.
           </p>
           <p>
             <strong>Sécurité.</strong> L&apos;utilisateur est responsable de
@@ -320,8 +322,8 @@ export default function CguPage() {
             </li>
             <li>
               honorer ses engagements financiers (provisionnement du
-              wallet, paiement des bonus fondateurs, des bonus VIP et des
-              commissions BUUPP).
+              wallet, paiement des bonus parrain·e et des commissions
+              BUUPP).
             </li>
           </ul>
         </Section>
@@ -706,16 +708,21 @@ export default function CguPage() {
               portefeuille sous conditions de déblocage (cf. ci-dessous)&nbsp;;
             </li>
             <li>
-              une <strong>priorité de 10 minutes</strong> sur les sollicitations
-              «&nbsp;flash deal&nbsp;» (visibles aux parrain·es / fondateur·ices
-              avant le grand public)&nbsp;;
+              à partir de <strong>3&nbsp;filleul·es</strong> inscrit·es, le
+              statut de <strong>profil prioritaire</strong>&nbsp;: une{" "}
+              <strong>priorité de 20 minutes</strong> sur les sollicitations
+              «&nbsp;flash deal&nbsp;», visibles dès leur lancement alors que
+              le grand public ne les voit qu&apos;après ce délai&nbsp;;
             </li>
             <li>
-              un <strong>doublement de la récompense</strong> versée pour chaque
-              sollicitation acceptée pendant le{" "}
-              <strong>1er mois suivant le lancement officiel</strong>, sauf
-              indication contraire du professionnel à l&apos;origine de la
-              sollicitation&nbsp;;
+              un <strong>bonus parrain·e</strong> égal à{" "}
+              <strong>50&nbsp;% de la récompense</strong> perçue par un·e
+              filleul·e, versé au parrain·e à <strong>chaque</strong>{" "}
+              acceptation de ce·tte filleul·e et <strong>sans limitation de
+              durée</strong>. Ce bonus est à la charge du professionnel et
+              suppose qu&apos;il ait activé l&apos;option sur sa campagne. Le·la
+              filleul·e perçoit, lui·elle, sa récompense normale, que le bonus
+              ne réduit pas&nbsp;;
             </li>
             <li>
               un <strong>code de parrainage personnel</strong> permettant
@@ -771,21 +778,30 @@ export default function CguPage() {
             compte.
           </p>
           <p>
-            <strong>Palier VIP au plafond de 10 filleul·es.</strong> Lorsqu&apos;un
-            parrain·e atteint le plafond de 10&nbsp;filleul·es inscrit·es sur la
-            liste d&apos;attente, il/elle accède à un palier VIP&nbsp;: chaque
-            sollicitation acceptée pendant le 1er mois suivant le lancement
-            donne droit à un bonus exceptionnel <strong>forfaitaire de
-            +5,00&nbsp;€</strong>, en lieu et place du doublement standard. Ce
-            bonus n&apos;est appliqué que sur les campagnes dont le budget
-            total dépasse <strong>300,00&nbsp;€</strong>&nbsp;; en deçà, le
-            doublement standard (×2) demeure applicable.
+            <strong>Sollicitation élargie des filleul·es.</strong> Lorsqu&apos;un
+            professionnel active l&apos;option de bonus parrain·e sur une
+            campagne et qu&apos;un·e parrain·e figure dans le ciblage, ses{" "}
+            <strong>filleul·es sont également sollicité·es</strong>, y compris
+            s&apos;ils·elles ne remplissent pas les critères de ciblage. Le
+            nombre total d&apos;acceptations reste plafonné au volume de
+            contacts financé par le professionnel pour cette campagne.
           </p>
           <p>
             Aucune action n&apos;est requise de la part du parrain·e /
-            fondateur·ice&nbsp;: le bénéfice (×2 standard ou +5&nbsp;€ VIP) est
-            calculé automatiquement à l&apos;acceptation et notifié par
-            courriel.
+            fondateur·ice&nbsp;: le bonus de 50&nbsp;% est calculé
+            automatiquement à l&apos;acceptation du·de la filleul·e et notifié
+            par courriel.
+          </p>
+          <p>
+            <strong>Dispositifs supprimés.</strong> Le doublement automatique
+            (×2) de la récompense des fondateur·ices pendant le 1er mois suivant
+            le lancement, ainsi que le palier VIP et son bonus forfaitaire de
+            +5,00&nbsp;€ au plafond de 10&nbsp;filleul·es, <strong>ne sont plus
+            en vigueur</strong> et sont remplacés par le bonus parrain·e décrit
+            ci-dessus. Demeure applicable, indépendamment du statut de
+            fondateur·ice, le <strong>doublement lié au niveau de vérification
+            «&nbsp;certifié confiance&nbsp;»</strong> prévu à
+            l&apos;article&nbsp;9.
           </p>
         </Section>
 
