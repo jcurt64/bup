@@ -76,7 +76,7 @@ trois mois n'incite à rien.
 
 ## 4. Modèle de données
 
-Nouvelle migration `supabase/migrations/20260724120000_founder_bonus_unlock_conditions.sql`.
+Nouvelle migration `supabase/migrations/20260723142716_founder_bonus_unlock_conditions.sql`.
 
 ### 4.1 Source de vérité des conditions
 

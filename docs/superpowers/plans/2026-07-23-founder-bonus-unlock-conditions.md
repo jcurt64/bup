@@ -24,7 +24,7 @@
 
 | Fichier | Responsabilité |
 |---|---|
-| `supabase/migrations/20260724120000_founder_bonus_unlock_conditions.sql` *(créé)* | Règle de déblocage, provisionnement, RPC de déblocage, index |
+| `supabase/migrations/20260723142716_founder_bonus_unlock_conditions.sql` *(créé)* | Règle de déblocage, provisionnement, RPC de déblocage, index |
 | `lib/supabase/types.ts` *(modifié)* | Types TypeScript des 3 nouvelles RPC |
 | `lib/prospect/transactions.ts` *(modifié)* | Libellé + chip du couple `('signup_bonus','pending')` |
 | `lib/founder-bonus/sync.ts` *(créé)* | Provisionnement, déblocage, notifications — implémentation unique |
@@ -41,7 +41,7 @@
 ### Task 1 : Migration SQL et types
 
 **Files:**
-- Create: `supabase/migrations/20260724120000_founder_bonus_unlock_conditions.sql`
+- Create: `supabase/migrations/20260723142716_founder_bonus_unlock_conditions.sql`
 - Modify: `lib/supabase/types.ts:1586-1624`
 
 **Interfaces:**
@@ -53,7 +53,7 @@
 
 - [ ] **Step 1 : Écrire la migration**
 
-Créer `supabase/migrations/20260724120000_founder_bonus_unlock_conditions.sql` :
+Créer `supabase/migrations/20260723142716_founder_bonus_unlock_conditions.sql` :
 
 ```sql
 -- ════════════════════════════════════════════════════════════════════
@@ -270,7 +270,7 @@ Expected: aucune erreur.
 - [ ] **Step 4 : Commit**
 
 ```bash
-git add supabase/migrations/20260724120000_founder_bonus_unlock_conditions.sql lib/supabase/types.ts
+git add supabase/migrations/20260723142716_founder_bonus_unlock_conditions.sql lib/supabase/types.ts
 git commit -m "feat(db/bonus-fondateur): conditions de déblocage (3 mois + 1 acceptation)"
 ```
 
@@ -1124,7 +1124,7 @@ git commit -m "feat(prospect/portefeuille): carte du bonus fondateur verrouillé
 
 Après validation de toutes les tâches :
 
-1. Appliquer `20260724120000_founder_bonus_unlock_conditions.sql` en prod **via le SQL Editor Supabase**, puis `npx supabase migration repair --status applied 20260724120000`. Ne **jamais** lancer `db push`.
+1. Appliquer `20260723142716_founder_bonus_unlock_conditions.sql` en prod **via le SQL Editor Supabase**, puis `npx supabase migration repair --status applied 20260723142716`. Ne **jamais** lancer `db push`.
 2. **Contrôler la règle de déblocage** dans le SQL Editor, juste après l'application. La matrice des conditions vit en SQL et n'est couverte par aucun test Vitest (cf. spec §7) : cette requête est sa seule validation. Elle est en lecture seule.
 
 ```sql
