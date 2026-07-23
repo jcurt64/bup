@@ -1587,6 +1587,10 @@ export type Database = {
         Args: { p_prospect_id: string }
         Returns: boolean
       }
+      claim_founder_signup_bonus: {
+        Args: { p_prospect_id: string }
+        Returns: boolean
+      }
       clerk_user_id: { Args: never; Returns: string }
       close_campaign_settle: {
         Args: { p_campaign_id: string }
@@ -1601,6 +1605,15 @@ export type Database = {
       count_founder_filleuls: {
         Args: { p_prospect_id: string }
         Returns: number
+      }
+      flag_ripe_founder_bonuses_for_notice: {
+        Args: never
+        Returns: {
+          clerk_user_id: string
+          email: string
+          prenom: string
+          prospect_id: string
+        }[]
       }
       founder_bonus_unlock_state: {
         Args: { p_prospect_id: string }
@@ -1632,16 +1645,6 @@ export type Database = {
           prospect_prenom: string
           relation_id: string
           reward_cents: number
-        }[]
-      }
-      unlock_ripe_founder_signup_bonuses: {
-        Args: never
-        Returns: {
-          clerk_user_id: string
-          email: string
-          prenom: string
-          prospect_id: string
-          transaction_id: string
         }[]
       }
       waitlist_stats: {

@@ -6,17 +6,24 @@
  *    transaction `signup_bonus` en `pending`. Elle est visible dans le
  *    portefeuille mais exclue du solde (les agrégats filtrent
  *    `status = 'completed'`). Aucune notification à ce stade.
- *  - DÉBLOCAGE : quand les conditions tombent (3 mois d'ancienneté du
+ *  - SIGNALEMENT : quand les conditions tombent (3 mois d'ancienneté du
  *    compte + au moins une sollicitation acceptée, avec `launch_at` pour
- *    plancher), la RPC ensembliste bascule la ligne en `completed` et
- *    renvoie les bénéficiaires à notifier. La règle elle-même vit
+ *    plancher), le bonus devient « débloquable » et le prospect en est
+ *    prévenu une seule fois (cloche + email). La règle elle-même vit
  *    exclusivement dans `founder_bonus_unlock_state` côté SQL.
  *
- * Sémantique en cas d'échec après déblocage : la RPC bascule le statut
- * AVANT l'insertion du broadcast et l'envoi de l'email. Si l'un des deux
- * échoue, un re-run ne les rejoue PAS (la ligne n'est plus `pending`).
- * L'opérateur doit comparer les compteurs du résultat : un écart
- * `unlocked > broadcasted/emailed` signale des notifications à reprendre.
+ * Le DÉBLOCAGE lui-même n'est PAS automatique : c'est au prospect de
+ * récupérer son bonus depuis son portefeuille, via
+ * POST /api/prospect/founder-bonus/claim → `claim_founder_signup_bonus`,
+ * qui revérifie les conditions côté serveur. Rien ici ne crédite quoi que
+ * ce soit.
+ *
+ * Sémantique en cas d'échec après signalement : la RPC pose le marqueur
+ * `founder_bonus_unlockable_notified_at` AVANT l'insertion du broadcast et
+ * l'envoi de l'email. Si l'un des deux échoue, un re-run ne les rejoue PAS
+ * (le marqueur n'est plus nul). L'opérateur doit comparer les compteurs du
+ * résultat : un écart `notifiable > broadcasted/emailed` signale des
+ * notifications à reprendre.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
@@ -33,20 +40,21 @@ export type ProvisionResult = {
   errors: number;
 };
 
-export type UnlockResult = {
-  unlocked: number;
+export type NoticeResult = {
+  notifiable: number;
   broadcasted: number;
   emailed: number;
   errors: number;
 };
 
 const BROADCAST = {
-  title: "Votre bonus fondateur est débloqué 🎁",
+  title: "Votre bonus fondateur est débloquable 🎁",
   body:
     "Merci d'avoir rejoint BUUPP dès la liste d'attente ! Votre bonus " +
-    "fondateur de 5,00 € vient d'être débloqué : votre compte a plus de " +
-    "trois mois et vous avez accepté au moins une sollicitation. Il est " +
-    "dès maintenant disponible et retirable.\n\nL'équipe BUUPP",
+    "fondateur de 5,00 € est désormais débloquable : votre compte a plus " +
+    "de trois mois et vous avez accepté au moins une sollicitation. " +
+    "Rendez-vous dans votre portefeuille pour le récupérer — il rejoindra " +
+    "alors votre solde disponible et sera retirable.\n\nL'équipe BUUPP",
 };
 
 /**
@@ -91,26 +99,27 @@ export async function provisionFounderBonuses(
 }
 
 /**
- * Bascule en `completed` les bonus dont les conditions sont réunies, puis
- * notifie chaque bénéficiaire (cloche ciblée + email).
+ * Prévient les prospects dont le bonus vient de devenir débloquable
+ * (cloche ciblée + email). Ne crédite rien : le déblocage reste une
+ * action volontaire du prospect.
  */
-export async function unlockRipeFounderBonusesAndNotify(
+export async function notifyUnlockableFounderBonuses(
   admin: Admin,
   opts?: { sendEmail?: (email: string, params: FounderBonusParams) => Promise<void> },
-): Promise<UnlockResult> {
+): Promise<NoticeResult> {
   const sendEmail = opts?.sendEmail ?? sendFounderBonusEmail;
-  const result: UnlockResult = { unlocked: 0, broadcasted: 0, emailed: 0, errors: 0 };
+  const result: NoticeResult = { notifiable: 0, broadcasted: 0, emailed: 0, errors: 0 };
 
-  const { data, error } = await admin.rpc("unlock_ripe_founder_signup_bonuses");
+  const { data, error } = await admin.rpc("flag_ripe_founder_bonuses_for_notice");
   if (error) {
-    console.error("[founder-bonus] unlock rpc failed", error.message);
+    console.error("[founder-bonus] notice rpc failed", error.message);
     return result;
   }
   const rows = data ?? [];
-  result.unlocked = rows.length;
+  result.notifiable = rows.length;
   if (rows.length === 0) return result;
 
-  console.log(`[founder-bonus] ${rows.length} bonus débloqué(s)`);
+  console.log(`[founder-bonus] ${rows.length} bonus devenu(s) débloquable(s)`);
 
   for (const row of rows) {
     try {
@@ -129,14 +138,14 @@ export async function unlockRipeFounderBonusesAndNotify(
           result.broadcasted += 1;
         }
       } else {
-        console.warn("[founder-bonus] débloqué sans clerk_user_id, broadcast ignoré", row.prospect_id);
+        console.warn("[founder-bonus] débloquable sans clerk_user_id, broadcast ignoré", row.prospect_id);
       }
 
       if (row.email) {
         await sendEmail(row.email, { prenom: row.prenom ?? null });
         result.emailed += 1;
       } else {
-        console.warn("[founder-bonus] débloqué sans email, email ignoré", row.prospect_id);
+        console.warn("[founder-bonus] débloquable sans email, email ignoré", row.prospect_id);
       }
     } catch (err) {
       console.error("[founder-bonus] unexpected error", row.prospect_id, err);
@@ -148,14 +157,16 @@ export async function unlockRipeFounderBonusesAndNotify(
 }
 
 /**
- * Point d'entrée unique : provisionne puis débloque. Appelé par le cron
- * quotidien et, en lecture paresseuse, par les endpoints portefeuille —
- * exactement comme `settleRipeRelationsAndNotify`.
+ * Point d'entrée unique : provisionne, puis prévient ceux dont le bonus
+ * vient de devenir débloquable. Appelé par le cron quotidien et, en
+ * lecture paresseuse, par les endpoints portefeuille — exactement comme
+ * `settleRipeRelationsAndNotify`. Ne crédite jamais : seul le prospect
+ * déclenche le déblocage.
  */
 export async function syncFounderBonusesAndNotify(
   admin: Admin,
-): Promise<{ provision: ProvisionResult; unlock: UnlockResult }> {
+): Promise<{ provision: ProvisionResult; notice: NoticeResult }> {
   const provision = await provisionFounderBonuses(admin, { confirm: true });
-  const unlock = await unlockRipeFounderBonusesAndNotify(admin);
-  return { provision, unlock };
+  const notice = await notifyUnlockableFounderBonuses(admin);
+  return { provision, notice };
 }

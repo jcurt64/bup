@@ -712,9 +712,10 @@ export default function CgvPage() {
             paliers, ni la commission. Il n&apos;est débloqué au bénéfice du
             prospect qu&apos;après <strong>trois (3) mois</strong> d&apos;ancienneté
             de son compte <strong>et</strong> au moins{" "}
-            <strong>une sollicitation acceptée</strong> (cf. Programme Parrain —
-            Fondateur·ice des CGU), sans qu&apos;aucune obligation n&apos;en
-            découle pour le Professionnel.
+            <strong>une sollicitation acceptée</strong>, et sur{" "}
+            <strong>action volontaire du prospect</strong> (cf. Programme
+            Parrain — Fondateur·ice des CGU), sans qu&apos;aucune obligation
+            n&apos;en découle pour le Professionnel.
           </p>
           <p>
             Lorsque le Professionnel active le <strong>bonus parrain</strong> sur

@@ -18,6 +18,10 @@
  *                               + 3 mois, launch_at).
  *   - signupBonusHasAcceptance: true si ≥ 1 sollicitation acceptée.
  *   - signupBonusLocked       : true s'il reste un bonus verrouillé.
+ *   - signupBonusClaimable    : true si les deux conditions sont réunies —
+ *                               le prospect peut alors le débloquer
+ *                               lui-même, le déblocage n'étant pas
+ *                               automatique.
  *   - relationsCount   : nombre total de mises en relation reçues depuis
  *                        la création du compte (toutes statuts confondus).
  *   - accountCreatedAt : prospects.created_at, sert à dater le cumul.
@@ -171,6 +175,9 @@ export async function GET() {
     signupBonusLocked: signupBonusPendingCents > 0,
     signupBonusUnlockAt: unlock?.unlock_at ?? null,
     signupBonusHasAcceptance: unlock?.has_acceptance ?? false,
+    // Conditions réunies : le prospect peut le récupérer lui-même
+    // (POST /api/prospect/founder-bonus/claim). Rien ne se débloque seul.
+    signupBonusClaimable: signupBonusPendingCents > 0 && unlock?.met === true,
     escrowCents,
     escrowEur: Math.round(escrowCents) / 100,
     canWithdraw: availableCents >= WITHDRAW_THRESHOLD_EUR * 100,

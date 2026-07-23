@@ -2728,6 +2728,28 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
       .catch(() => { if (!cancelled) setMovements({ movements: [] }); });
     return () => { cancelled = true; };
   }, []);
+
+  // Déblocage du bonus fondateur — action volontaire du prospect, jamais
+  // automatique. Le serveur revérifie les conditions ; en cas de refus on
+  // rafraîchit quand même pour réaligner l'affichage sur la réalité.
+  const [claimingBonus, setClaimingBonus] = useState(false);
+  const [claimBonusError, setClaimBonusError] = useState(null);
+  const claimFounderBonus = React.useCallback(async () => {
+    setClaimingBonus(true);
+    setClaimBonusError(null);
+    try {
+      const r = await fetch('/api/prospect/founder-bonus/claim', { method: 'POST' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => null);
+        setClaimBonusError(j?.message || 'Le déblocage a échoué. Réessayez dans un instant.');
+      }
+      window.dispatchEvent(new Event('prospect:profile-changed'));
+    } catch {
+      setClaimBonusError('Le déblocage a échoué. Réessayez dans un instant.');
+    } finally {
+      setClaimingBonus(false);
+    }
+  }, []);
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
@@ -2785,6 +2807,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const bonusPendingEur = wallet?.signupBonusPendingEur ?? 0;
   const bonusUnlockAt = wallet?.signupBonusUnlockAt ?? null;
   const bonusHasAcceptance = wallet?.signupBonusHasAcceptance ?? false;
+  const bonusClaimable = wallet?.signupBonusClaimable ?? false;
   // La date de déblocage n'est atteinte que si elle est passée.
   const bonusDateReached = bonusUnlockAt ? new Date(bonusUnlockAt) <= new Date() : false;
   const bonusUnlockLabel = bonusUnlockAt
@@ -2799,12 +2822,16 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
     ? "aujourd'hui"
     : bonusDaysLeft === 1 ? 'dans 1 jour' : `dans ${bonusDaysLeft} jours`;
   // Remplace « Retirable immédiatement » tant qu'un bonus fondateur est
-  // verrouillé : c'est l'information la plus utile à cet endroit.
+  // verrouillé : c'est l'information la plus utile à cet endroit. Le
+  // déblocage n'étant pas automatique, on parle de « débloquable », jamais
+  // de « débloqué ».
   const bonusSubLabel = !bonusLocked
     ? null
-    : !bonusDateReached
-      ? `${fmt(bonusPendingEur)} € de bonus fondateur débloqués ${bonusDaysLabel}`
-      : `${fmt(bonusPendingEur)} € de bonus fondateur en attente d'une 1ʳᵉ sollicitation acceptée`;
+    : bonusClaimable
+      ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
+      : !bonusDateReached
+        ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
+        : `${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`;
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2879,6 +2906,10 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           dateReached={bonusDateReached}
           daysLeft={bonusDaysLeft}
           hasAcceptance={bonusHasAcceptance}
+          claimable={bonusClaimable}
+          claiming={claimingBonus}
+          error={claimBonusError}
+          onClaim={claimFounderBonus}
         />
       )}
 
@@ -3192,7 +3223,12 @@ function RelationStat({ primary, tone, icon, label, value, sub }) {
 
 // Bonus fondateur provisionné mais pas encore débloqué. Les deux conditions
 // sont affichées avec leur état : une condition remplie passe en vert coché.
-function FounderBonusLockCard({ amount, dateLabel, dateReached, daysLeft, hasAcceptance }) {
+// Une fois les deux réunies, le bonus devient « débloquable » et un bouton
+// apparaît — le déblocage n'est jamais automatique.
+function FounderBonusLockCard({
+  amount, dateLabel, dateReached, daysLeft, hasAcceptance,
+  claimable, claiming, error, onClaim,
+}) {
   const Condition = ({ done, children }) => (
     <div className="row center" style={{ gap: 8, fontSize: 13, color: done ? 'var(--good)' : 'var(--ink-4)' }}>
       <span style={{
@@ -3217,13 +3253,15 @@ function FounderBonusLockCard({ amount, dateLabel, dateReached, daysLeft, hasAcc
               Bonus fondateur — {amount} €
             </div>
             <div className="mono caps" style={{ fontSize: 10, letterSpacing: '.12em', color: 'var(--ink-5)', marginTop: 2 }}>
-              En attente de déblocage
+              {claimable ? 'Prêt à être débloqué' : 'En attente de déblocage'}
             </div>
           </div>
         </div>
         {/* Décompte mis en avant tant que la date n'est pas atteinte ;
             une fois passée, seule l'acceptation manque encore. */}
-        {dateReached ? (
+        {claimable ? (
+          <span className="chip chip-good">Débloquable</span>
+        ) : dateReached ? (
           <span className="chip chip-warn">Verrouillé</span>
         ) : (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -3246,9 +3284,21 @@ function FounderBonusLockCard({ amount, dateLabel, dateReached, daysLeft, hasAcc
           Au moins une sollicitation acceptée
         </Condition>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 12 }}>
-        Ces deux conditions réunies, les {amount} € rejoignent votre solde disponible et deviennent retirables.
-      </div>
+      {claimable && (
+        <div style={{ marginTop: 14 }}>
+          <button
+            className="btn btn-accent"
+            onClick={onClaim}
+            disabled={claiming}
+            style={{ opacity: claiming ? 0.6 : 1, cursor: claiming ? 'wait' : 'pointer' }}
+          >
+            {claiming ? 'Déblocage…' : `Débloquer mes ${amount} €`}
+          </button>
+        </div>
+      )}
+      {error && (
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>{error}</div>
+      )}
     </div>
   );
 }

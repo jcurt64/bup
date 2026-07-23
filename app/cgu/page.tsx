@@ -746,17 +746,21 @@ export default function CguPage() {
             </li>
           </ul>
           <p>
-            Le déblocage est <strong>automatique</strong> dès que ces deux
-            conditions sont remplies&nbsp;: aucune démarche n&apos;est requise.
-            Le·la prospect en est informé·e par notification et par courriel, et
-            les 5,00&nbsp;€ rejoignent alors le solde disponible, retirable dans
-            les conditions de l&apos;article&nbsp;9. Le décompte des jours
-            restants est consultable à tout moment depuis l&apos;onglet
-            «&nbsp;Portefeuille&nbsp;».
+            <strong>Le déblocage n&apos;est pas automatique.</strong> Dès que
+            ces deux conditions sont remplies, le bonus devient{" "}
+            <strong>débloquable</strong> et le·la prospect en est informé·e par
+            notification et par courriel. Il·elle doit alors le débloquer
+            lui·elle-même depuis l&apos;onglet
+            «&nbsp;Portefeuille&nbsp;»&nbsp;; les 5,00&nbsp;€ rejoignent à ce
+            moment-là le solde disponible et deviennent retirables dans les
+            conditions de l&apos;article&nbsp;9. Tant que le déblocage
+            n&apos;est pas demandé, la somme reste en attente. Le décompte des
+            jours restants est consultable à tout moment au même endroit.
           </p>
           <p>
             Le bonus n&apos;est assorti d&apos;<strong>aucune date
-            d&apos;expiration</strong>&nbsp;: s&apos;il n&apos;est pas débloqué,
+            d&apos;expiration</strong>&nbsp;: qu&apos;il devienne débloquable
+            sans être réclamé, ou que les conditions ne soient jamais réunies,
             il demeure acquis et en attente sans limitation de durée. Il est
             versé par BUUPP et n&apos;est à la charge d&apos;aucun
             professionnel. Il ne peut être débloqué qu&apos;une seule fois par
