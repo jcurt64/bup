@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   provisionFounderBonuses,
-  unlockRipeFounderBonusesAndNotify,
+  notifyUnlockableFounderBonuses,
 } from "@/lib/founder-bonus/sync";
 
 // Faux client admin : éligibles au provisionnement + lignes débloquées
 // renvoyées par la RPC, `admin_broadcasts.insert` espionné.
 function makeAdmin(
   eligible: { id: string }[] = [],
-  unlocked: {
+  notifiable: {
     prospect_id: string;
-    transaction_id: string;
     clerk_user_id: string | null;
     email: string | null;
     prenom: string | null;
@@ -18,8 +17,8 @@ function makeAdmin(
 ) {
   const insertSpy = vi.fn().mockResolvedValue({ error: null });
   const rpcSpy = vi.fn((name: string) => {
-    if (name === "unlock_ripe_founder_signup_bonuses") {
-      return Promise.resolve({ data: unlocked, error: null });
+    if (name === "flag_ripe_founder_bonuses_for_notice") {
+      return Promise.resolve({ data: notifiable, error: null });
     }
     return Promise.resolve({ data: true, error: null });
   });
@@ -63,38 +62,38 @@ describe("provisionFounderBonuses", () => {
   });
 });
 
-describe("unlockRipeFounderBonusesAndNotify", () => {
+describe("notifyUnlockableFounderBonuses", () => {
   it("aucun bonus mûr : ne notifie rien", async () => {
     const { admin, insertSpy } = makeAdmin([], []);
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await unlockRipeFounderBonusesAndNotify(admin as any, { sendEmail });
-    expect(res.unlocked).toBe(0);
+    const res = await notifyUnlockableFounderBonuses(admin as any, { sendEmail });
+    expect(res.notifiable).toBe(0);
     expect(insertSpy).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it("un bonus débloqué : une cloche + un email", async () => {
+  it("un bonus devenu débloquable : une cloche + un email", async () => {
     const { admin } = makeAdmin([], [
-      { prospect_id: "p1", transaction_id: "t1", clerk_user_id: "c1", email: "lea@ex.com", prenom: "Léa" },
+      { prospect_id: "p1", clerk_user_id: "c1", email: "lea@ex.com", prenom: "Léa" },
     ]);
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await unlockRipeFounderBonusesAndNotify(admin as any, { sendEmail });
-    expect(res.unlocked).toBe(1);
+    const res = await notifyUnlockableFounderBonuses(admin as any, { sendEmail });
+    expect(res.notifiable).toBe(1);
     expect(res.broadcasted).toBe(1);
     expect(res.emailed).toBe(1);
     expect(sendEmail).toHaveBeenCalledWith("lea@ex.com", { prenom: "Léa" });
   });
 
-  it("bénéficiaire sans email ni clerk id : débloqué sans notification", async () => {
+  it("bénéficiaire sans email ni clerk id : signalé sans notification", async () => {
     const { admin, insertSpy } = makeAdmin([], [
-      { prospect_id: "p2", transaction_id: "t2", clerk_user_id: null, email: null, prenom: null },
+      { prospect_id: "p2", clerk_user_id: null, email: null, prenom: null },
     ]);
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await unlockRipeFounderBonusesAndNotify(admin as any, { sendEmail });
-    expect(res.unlocked).toBe(1);
+    const res = await notifyUnlockableFounderBonuses(admin as any, { sendEmail });
+    expect(res.notifiable).toBe(1);
     expect(res.broadcasted).toBe(0);
     expect(res.emailed).toBe(0);
     expect(insertSpy).not.toHaveBeenCalled();
