@@ -30,3 +30,21 @@ describe("transactions display contract", () => {
     expect(SIGNUP_BONUS_ORIGIN).toBe("Bonus fondateur 🎁");
   });
 });
+
+describe("bonus fondateur verrouillé", () => {
+  it("libelle un signup_bonus pending comme en attente de déblocage", () => {
+    expect(statusLabel("signup_bonus", "pending")).toBe("En attente de déblocage");
+  });
+
+  it("garde le libellé « Crédité » une fois débloqué", () => {
+    expect(statusLabel("signup_bonus", "completed")).toBe("Crédité");
+  });
+
+  it("affiche un chip orange tant que le bonus est verrouillé", () => {
+    expect(statusChip("signup_bonus", "pending")).toBe("warn");
+  });
+
+  it("affiche un chip vert une fois le bonus débloqué", () => {
+    expect(statusChip("signup_bonus", "completed")).toBe("good");
+  });
+});

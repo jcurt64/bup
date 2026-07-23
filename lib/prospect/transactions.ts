@@ -5,8 +5,10 @@
  */
 
 /** Types de transaction comptés comme "gain" du prospect (mois + cumul +
- *  disponible). `signup_bonus` = bonus fondateur 5 € crédité à l'inscription,
- *  pleinement retirable au même titre qu'un credit/referral_bonus. */
+ *  disponible). `signup_bonus` = bonus fondateur 5 €. Attention : ces types
+ *  ne sont comptés qu'en `status = 'completed'` — un bonus fondateur encore
+ *  verrouillé (`pending`) est donc exclu du solde par construction, sans
+ *  exception à maintenir ici. */
 export const GAIN_TRANSACTION_TYPES = [
   "credit",
   "referral_bonus",
@@ -25,7 +27,9 @@ export function statusLabel(type: string, status: string): string {
       : status === "canceled" ? "Annulé" : status;
   if (type === "credit") return status === "completed" ? "Crédité" : status;
   if (type === "referral_bonus") return status === "completed" ? "Crédité" : status;
-  if (type === "signup_bonus") return status === "completed" ? "Crédité" : status;
+  if (type === "signup_bonus")
+    return status === "completed" ? "Crédité"
+      : status === "pending" ? "En attente de déblocage" : status;
   if (type === "refund") return "Remboursé";
   return status;
 }
@@ -41,5 +45,8 @@ export function statusChip(type: string, status: string): "good" | "warn" | "" {
     return "good";
   }
   if (type === "escrow" && status === "completed") return "good";
+  // Bonus fondateur provisionné mais pas encore débloqué : même traitement
+  // visuel que le séquestre (orange), il n'entre pas dans le solde.
+  if (type === "signup_bonus" && status === "pending") return "warn";
   return "";
 }
