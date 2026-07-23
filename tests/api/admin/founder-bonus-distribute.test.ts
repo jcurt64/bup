@@ -7,9 +7,9 @@ vi.mock("@/lib/admin/access", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseAdminClient: () => ({}),
 }));
-const distributeMock = vi.fn();
-vi.mock("@/lib/founder-bonus/distribute", () => ({
-  distributeFounderBonus: (...a: unknown[]) => distributeMock(...a),
+const provisionMock = vi.fn();
+vi.mock("@/lib/founder-bonus/sync", () => ({
+  provisionFounderBonuses: (...a: unknown[]) => provisionMock(...a),
 }));
 
 describe("POST /api/admin/founder-bonus/distribute", () => {
@@ -18,35 +18,35 @@ describe("POST /api/admin/founder-bonus/distribute", () => {
     const { POST } = await import("@/app/api/admin/founder-bonus/distribute/route");
     const res = await POST(new Request("http://x/api/admin/founder-bonus/distribute", { method: "POST" }));
     expect(res.status).toBe(404);
-    expect(distributeMock).not.toHaveBeenCalled();
+    expect(provisionMock).not.toHaveBeenCalled();
   });
 
   it("dry-run par défaut (confirm=false)", async () => {
     requireAdminMock.mockResolvedValueOnce(null);
-    distributeMock.mockResolvedValueOnce({ eligible: 7, credited: 0, broadcasted: 0, emailed: 0, errors: 0 });
+    provisionMock.mockResolvedValueOnce({ eligible: 7, provisioned: 0, errors: 0 });
     const { POST } = await import("@/app/api/admin/founder-bonus/distribute/route");
     const res = await POST(new Request("http://x/api/admin/founder-bonus/distribute", { method: "POST" }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.dryRun).toBe(true);
     expect(json.eligible).toBe(7);
-    expect(distributeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirm: false }));
+    expect(provisionMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirm: false }));
   });
 
-  it("confirm=1 → distribution réelle", async () => {
+  it("confirm=1 → provisionnement réel", async () => {
     requireAdminMock.mockResolvedValueOnce(null);
-    distributeMock.mockResolvedValueOnce({ eligible: 7, credited: 7, broadcasted: 7, emailed: 7, errors: 0 });
+    provisionMock.mockResolvedValueOnce({ eligible: 7, provisioned: 7, errors: 0 });
     const { POST } = await import("@/app/api/admin/founder-bonus/distribute/route");
     const res = await POST(new Request("http://x/api/admin/founder-bonus/distribute?confirm=1", { method: "POST" }));
     const json = await res.json();
     expect(json.dryRun).toBe(false);
-    expect(json.credited).toBe(7);
-    expect(distributeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirm: true }));
+    expect(json.provisioned).toBe(7);
+    expect(provisionMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirm: true }));
   });
 
   it("erreur de la lib → 500 JSON actionnable", async () => {
     requireAdminMock.mockResolvedValueOnce(null);
-    distributeMock.mockRejectedValueOnce(new Error("boom"));
+    provisionMock.mockRejectedValueOnce(new Error("boom"));
     const { POST } = await import("@/app/api/admin/founder-bonus/distribute/route");
     const res = await POST(new Request("http://x/api/admin/founder-bonus/distribute?confirm=1", { method: "POST" }));
     const json = await res.json();

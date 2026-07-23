@@ -22,7 +22,7 @@ import { sendAdminDigest } from "@/lib/email/admin-digest";
 import { recordEvent } from "@/lib/admin/events/record";
 import { applyCnilBasculeIfDue } from "@/lib/cnil/bascule";
 import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response";
-import { distributeFounderBonusIfLaunched } from "@/lib/founder-bonus/distribute";
+import { syncFounderBonusesAndNotify } from "@/lib/founder-bonus/sync";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { purgeOldContactReveals } from "@/lib/pro/reveals-retention";
 
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
   let restrictionsLifted = 0;
   let revealsPurged = 0;
   let founderBonus: Awaited<
-    ReturnType<typeof distributeFounderBonusIfLaunched>
+    ReturnType<typeof syncFounderBonusesAndNotify>
   > | null = null;
   if (mode === "daily") {
     try {
@@ -114,14 +114,14 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error("[/api/admin/digest] non-response sweep failed", err);
     }
-    // Piggyback : versement du bonus fondateur AU LANCEMENT. Ne fait rien
-    // tant que launch_at n'est pas atteint ; ensuite crédite (+ cloche +
-    // email) les fondateurs éligibles non crédités. Idempotent (flag par
-    // compte). Cf. lib/founder-bonus/distribute.ts.
+    // Piggyback : bonus fondateur. Provisionne en `pending` les nouveaux
+    // fondateurs, puis débloque (+ cloche + email) ceux dont les conditions
+    // sont réunies — 3 mois d'ancienneté du compte et au moins une
+    // sollicitation acceptée. Idempotent. Cf. lib/founder-bonus/sync.ts.
     try {
-      founderBonus = await distributeFounderBonusIfLaunched(admin);
+      founderBonus = await syncFounderBonusesAndNotify(admin);
     } catch (err) {
-      console.error("[/api/admin/digest] founder bonus distribution failed", err);
+      console.error("[/api/admin/digest] founder bonus sync failed", err);
     }
     // Piggyback : clôture des campagnes échues + libération des séquestres
     // (backstop fiable, indépendant des visites prospect). Idempotent.
