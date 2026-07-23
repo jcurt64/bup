@@ -2825,13 +2825,19 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   // verrouillé : c'est l'information la plus utile à cet endroit. Le
   // déblocage n'étant pas automatique, on parle de « débloquable », jamais
   // de « débloqué ».
-  const bonusSubLabel = !bonusLocked
-    ? null
-    : bonusClaimable
-      ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
-      : !bonusDateReached
-        ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
-        : `${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`;
+  // Une SEULE ligne verte dans la carte « Disponible ». Tant que le bonus
+  // est verrouillé, on n'écrit PAS « dont » : la somme n'est pas comprise
+  // dans le solde affiché. Une fois débloquée, elle l'est — « dont » redevient
+  // exact.
+  const bonusNote = bonusLocked
+    ? (bonusClaimable
+        ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
+        : !bonusDateReached
+          ? `${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
+          : `${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`)
+    : signupBonusEur > 0
+      ? `dont ${fmt(signupBonusEur)} € de bonus fondateur`
+      : null;
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2863,11 +2869,11 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           label="Disponible"
           value={fmt(availableEur)}
           coins={availableCoins.toLocaleString('fr-FR')}
-          sub={bonusSubLabel ?? (canWithdraw
+          sub={canWithdraw
             ? 'Retirable immédiatement · minimum de 5 €'
-            : `Retirable à partir de ${threshold} € de gains`)}
+            : `Retirable à partir de ${threshold} € de gains`}
           primary
-          bonusEur={signupBonusEur}
+          bonusNote={bonusNote}
           action={
             <button
               className="btn btn-accent"
@@ -3303,7 +3309,7 @@ function FounderBonusLockCard({
   );
 }
 
-function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bonusEur }) {
+function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bonusNote }) {
   return (
     <div className="card" style={{
       padding: 28,
@@ -3345,7 +3351,7 @@ function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bo
         <span className="serif tnum" style={{ fontSize: big ? 64 : 44, lineHeight: 1, color: primary ? 'var(--paper)' : 'var(--ink)' }}>{value}</span>
         <span style={{ fontSize: 14, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>€</span>
       </div>
-      {bonusEur > 0 && (
+      {bonusNote && (
         <div style={{
           marginTop: 6,
           fontSize: 12,
@@ -3355,7 +3361,7 @@ function BalanceCard({ label, value, coins, sub, primary, badge, big, action, bo
           gap: 4,
         }}>
           <Icon name="gift" size={12}/>
-          dont {Number(bonusEur).toFixed(2).replace('.', ',')} € de bonus fondateur
+          {bonusNote}
         </div>
       )}
       <div className="row center gap-2" style={{ marginTop: 10, fontSize: 13, color: primary ? 'rgba(255,255,255,.6)' : 'var(--ink-4)' }}>
