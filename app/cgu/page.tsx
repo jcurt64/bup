@@ -729,11 +729,15 @@ export default function CguPage() {
           <p>
             <strong>Bonus fondateur·ice de 5,00&nbsp;€ — conditions de
             déblocage.</strong> Le bonus est inscrit au portefeuille dès la
-            création du compte, mais il y figure à l&apos;état{" "}
+            création du compte et apparaît dans le solde affiché, mais il y
+            figure à l&apos;état{" "}
             <strong>«&nbsp;en attente de déblocage&nbsp;»</strong>&nbsp;: il
-            n&apos;est ni comptabilisé dans le solde disponible, ni retirable
-            tant que les <strong>deux conditions cumulatives</strong> suivantes
-            ne sont pas réunies&nbsp;:
+            n&apos;est <strong>pas retirable</strong>, et il n&apos;est pas
+            davantage pris en compte pour atteindre le seuil minimal de retrait
+            de 5,00&nbsp;€ prévu à l&apos;article&nbsp;9 — celui-ci s&apos;apprécie
+            sur les seuls gains, bonus exclu. Il le devient lorsque les{" "}
+            <strong>deux conditions cumulatives</strong> suivantes sont
+            réunies&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>

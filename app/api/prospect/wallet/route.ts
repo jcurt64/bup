@@ -5,8 +5,13 @@
  *   - monthGains       : cumul des gains du mois courant (header dashboard).
  *   - lifetimeGains    : cumul total des gains depuis l'ouverture du compte
  *                        ("Cumulé depuis ouverture" dans l'onglet Portefeuille).
- *   - available        : solde immédiatement retirable
- *                        = lifetimeGains − retraits déjà exécutés.
+ *   - available        : solde affiché = lifetimeGains − retraits exécutés
+ *                        + bonus fondateur encore verrouillé. Ce dernier est
+ *                        montré car la somme appartient déjà au prospect,
+ *                        mais il n'est PAS retirable.
+ *   - withdrawable     : part réellement retirable = `available` moins le
+ *                        bonus fondateur verrouillé. C'est elle qui est
+ *                        comparée au seuil de 5 €.
  *   - escrow           : fonds en séquestre — somme des reward_cents des
  *                        relations status='accepted' (acceptées mais pas
  *                        encore settled au-delà de 72 h).
@@ -139,7 +144,7 @@ export async function GET() {
         .eq("status", "completed"),
       admin
         .from("transactions")
-        .select("amount_cents")
+        .select("amount_cents, created_at")
         .eq("account_kind", "prospect")
         .eq("account_id", prospectId)
         .eq("type", "signup_bonus")
@@ -147,10 +152,13 @@ export async function GET() {
       admin.rpc("founder_bonus_unlock_state", { p_prospect_id: prospectId }),
     ]);
 
-  const lifetimeCents = sumAmounts(gainsLifetime.data);
-  const monthCents = sumAmounts(gainsMonth.data);
+  const settledGainsCents = sumAmounts(gainsLifetime.data);
+  const settledMonthCents = sumAmounts(gainsMonth.data);
   const withdrawnCents = sumAmounts(withdrawals.data);
-  const availableCents = Math.max(0, lifetimeCents - withdrawnCents);
+  // Solde acquis : gains crédités moins les retraits. Le bonus fondateur
+  // encore verrouillé s'y ajoute à l'affichage (cf. `availableCents`), mais
+  // reste exclu de ce qui est réellement retirable.
+  const settledCents = Math.max(0, settledGainsCents - withdrawnCents);
   const escrowCents = (escrowRelations.data ?? []).reduce(
     (acc, r) => acc + Number(r.reward_cents ?? 0),
     0,
@@ -159,6 +167,30 @@ export async function GET() {
   const signupBonusPendingCents = sumAmounts(signupBonusPending.data);
   // La RPC renvoie une ligne (aucune si le prospect n'existe pas).
   const unlock = unlockState.data?.[0] ?? null;
+
+  // Le bonus fondateur verrouillé est MONTRÉ dans le solde disponible — le
+  // prospect doit voir que la somme lui appartient — mais il n'est pas
+  // retirable et ne permet pas d'atteindre le minimum de retrait. D'où deux
+  // notions distinctes : `availableCents` (affiché) et `withdrawableCents`
+  // (ce que le retrait autorise réellement).
+  const availableCents = settledCents + signupBonusPendingCents;
+  const withdrawableCents = settledCents;
+
+  // Le bonus verrouillé compte aussi dans les cumuls, sans quoi « Disponible »
+  // dépasserait « Cumulé depuis ouverture » — un solde supérieur au total
+  // jamais gagné. Pour les gains du MOIS, il n'est compté que s'il a été
+  // provisionné ce mois-ci.
+  const pendingBonusRows = (signupBonusPending.data ?? []) as {
+    amount_cents: number | null;
+    created_at: string | null;
+  }[];
+  const pendingBonusThisMonthCents = pendingBonusRows.reduce(
+    (acc, r) =>
+      acc + (r.created_at && r.created_at >= monthStart ? Number(r.amount_cents ?? 0) : 0),
+    0,
+  );
+  const lifetimeCents = settledGainsCents + signupBonusPendingCents;
+  const monthCents = settledMonthCents + pendingBonusThisMonthCents;
 
   return NextResponse.json({
     monthStart,
@@ -180,7 +212,10 @@ export async function GET() {
     signupBonusClaimable: signupBonusPendingCents > 0 && unlock?.met === true,
     escrowCents,
     escrowEur: Math.round(escrowCents) / 100,
-    canWithdraw: availableCents >= WITHDRAW_THRESHOLD_EUR * 100,
+    withdrawableCents,
+    withdrawableEur: Math.round(withdrawableCents) / 100,
+    // Le bonus fondateur verrouillé ne compte pas pour atteindre le seuil.
+    canWithdraw: withdrawableCents >= WITHDRAW_THRESHOLD_EUR * 100,
     withdrawThresholdEur: WITHDRAW_THRESHOLD_EUR,
     relationsCount: relations.count ?? 0,
     accountCreatedAt: prospectRow.data?.created_at ?? null,

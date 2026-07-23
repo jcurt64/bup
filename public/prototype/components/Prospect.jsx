@@ -2825,21 +2825,19 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   // verrouillé : c'est l'information la plus utile à cet endroit. Le
   // déblocage n'étant pas automatique, on parle de « débloquable », jamais
   // de « débloqué ».
-  // Lignes vertes de la carte « Disponible ». Deux informations distinctes,
-  // qui peuvent coexister :
-  //  - le bonus DÉJÀ crédité, compris dans le solde affiché → « dont » ;
-  //  - le bonus encore verrouillé, qui n'y est PAS → « + », jamais « dont »,
-  //    sans quoi la phrase serait fausse.
-  const bonusNotes = [
-    signupBonusEur > 0 ? `dont ${fmt(signupBonusEur)} € de bonus fondateur` : null,
-    bonusLocked
-      ? (bonusClaimable
-          ? `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable maintenant`
-          : !bonusDateReached
-            ? `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable ${bonusDaysLabel}`
-            : `+ ${fmt(bonusPendingEur)} € de bonus fondateur débloquable dès une 1ʳᵉ sollicitation acceptée`)
-      : null,
-  ].filter(Boolean);
+  // UNE SEULE ligne verte sous le montant. Le bonus verrouillé étant compté
+  // dans le solde affiché, « dont » est exact — mais il n'est pas retirable,
+  // d'où la mention du délai. Un bonus déjà débloqué se fond dans le solde
+  // et n'appelle plus de délai.
+  const bonusNote = bonusLocked
+    ? (bonusClaimable
+        ? `dont ${fmt(bonusPendingEur)} € de bonus fondateur à débloquer`
+        : !bonusDateReached
+          ? `dont ${fmt(bonusPendingEur)} € de bonus fondateur retirable ${bonusDaysLabel}`
+          : `dont ${fmt(bonusPendingEur)} € de bonus fondateur retirable dès une 1ʳᵉ sollicitation acceptée`)
+    : signupBonusEur > 0
+      ? `dont ${fmt(signupBonusEur)} € de bonus fondateur`
+      : null;
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2873,9 +2871,13 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           coins={availableCoins.toLocaleString('fr-FR')}
           sub={canWithdraw
             ? 'Retirable immédiatement · minimum de 5 €'
-            : `Retirable à partir de ${threshold} € de gains`}
+            : bonusLocked
+              // Le bonus verrouillé est dans le solde affiché mais ne compte
+              // pas pour le seuil : on le dit, sinon le blocage paraît absurde.
+              ? `Retirable à partir de ${threshold} € de gains, hors bonus fondateur`
+              : `Retirable à partir de ${threshold} € de gains`}
           primary
-          bonusNotes={bonusNotes}
+          bonusNotes={bonusNote ? [bonusNote] : []}
           action={
             <button
               className="btn btn-accent"
