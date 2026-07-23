@@ -1602,7 +1602,19 @@ export type Database = {
         Args: { p_prospect_id: string }
         Returns: number
       }
+      founder_bonus_unlock_state: {
+        Args: { p_prospect_id: string }
+        Returns: {
+          has_acceptance: boolean
+          met: boolean
+          unlock_at: string
+        }[]
+      }
       is_within_founder_bonus_window: { Args: never; Returns: boolean }
+      provision_founder_signup_bonus: {
+        Args: { p_prospect_id: string }
+        Returns: boolean
+      }
       refund_relation_tx: {
         Args: {
           p_new_status: Database["public"]["Enums"]["relation_status"]
@@ -1620,6 +1632,16 @@ export type Database = {
           prospect_prenom: string
           relation_id: string
           reward_cents: number
+        }[]
+      }
+      unlock_ripe_founder_signup_bonuses: {
+        Args: never
+        Returns: {
+          clerk_user_id: string
+          email: string
+          prenom: string
+          prospect_id: string
+          transaction_id: string
         }[]
       }
       waitlist_stats: {
