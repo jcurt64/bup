@@ -35,6 +35,7 @@ import {
   Stat,
 } from "../../components/screen";
 import {
+  useClaimFounderBonus,
   useMeTyped,
   useParrainage,
   useProspectMovements,
@@ -43,6 +44,7 @@ import {
   useProspectWallet,
   type Movement,
   type MovementRelation,
+  type ProspectWallet,
 } from "../../lib/queries";
 import { ReferralBadge } from "../../components/referral-badge";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
@@ -164,6 +166,82 @@ function PulseRing({ delay }: { delay: number }) {
   );
 }
 
+/**
+ * État affichable du bonus fondateur (parité web, cf. Prospect.jsx).
+ *
+ * Le bonus est provisionné VERROUILLÉ à l'ouverture du compte : il figure
+ * dans le solde disponible (la somme appartient au prospect) mais n'est ni
+ * retirable, ni comptabilisé pour atteindre le minimum de retrait. Il se
+ * débloque quand les deux conditions sont réunies — 3 mois d'ancienneté du
+ * compte ET au moins une sollicitation acceptée — et **sur action du
+ * prospect**, jamais automatiquement.
+ *
+ * Renvoie `null` si aucun bonus n'est à signaler (ni verrouillé, ni déjà
+ * crédité), ou si le backend déployé n'expose pas encore les champs.
+ */
+function founderBonusState(d: ProspectWallet | undefined) {
+  if (!d) return null;
+  const locked = d.signupBonusLocked === true;
+  const pendingEur = d.signupBonusPendingEur ?? 0;
+  const creditedEur = d.signupBonusEur ?? 0;
+
+  if (!locked) {
+    return creditedEur > 0
+      ? { locked: false as const, note: `dont ${eur(creditedEur)} de bonus fondateur` }
+      : null;
+  }
+
+  const unlockAt = d.signupBonusUnlockAt ? new Date(d.signupBonusUnlockAt) : null;
+  const dateReached = unlockAt ? unlockAt <= new Date() : false;
+  // Jours pleins arrondis au supérieur : tant qu'il reste des heures, on
+  // affiche « 1 jour », jamais « 0 ».
+  const daysLeft = unlockAt
+    ? Math.max(0, Math.ceil((unlockAt.getTime() - Date.now()) / 86_400_000))
+    : null;
+  const daysLabel =
+    daysLeft === 0 ? "aujourd'hui" : daysLeft === 1 ? "dans 1 jour" : `dans ${daysLeft} jours`;
+  const claimable = d.signupBonusClaimable === true;
+
+  return {
+    locked: true as const,
+    claimable,
+    dateReached,
+    daysLeft,
+    amountEur: pendingEur,
+    unlockLabel: unlockAt
+      ? unlockAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+      : "—",
+    hasAcceptance: d.signupBonusHasAcceptance === true,
+    note: claimable
+      ? `dont ${eur(pendingEur)} de bonus fondateur à débloquer`
+      : !dateReached
+        ? `dont ${eur(pendingEur)} de bonus fondateur retirable ${daysLabel}`
+        : `dont ${eur(pendingEur)} de bonus fondateur retirable dès une 1ʳᵉ sollicitation acceptée`,
+  };
+}
+
+/** Ligne de condition du bonus fondateur : cochée verte, ou grise en attente. */
+function BonusCondition({ done, children }: { done: boolean; children: React.ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <View className="flex-row items-center gap-2">
+      <View
+        className="h-[18px] w-[18px] items-center justify-center rounded-full"
+        style={{ backgroundColor: done ? `${c.good}22` : "rgba(120,120,120,0.14)" }}
+      >
+        <Ionicons
+          name={done ? "checkmark" : "ellipse-outline"}
+          size={11}
+          color={done ? c.good : c.ink5}
+        />
+      </View>
+      <Text className="flex-1 text-sm" style={{ color: done ? c.good : c.ink4 }}>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
 export default function Portefeuille() {
   const { isDark, c } = useTheme();
   // Tuile icône blanche : givrée (translucide) en sombre pour ressortir sur
@@ -181,6 +259,15 @@ export default function Portefeuille() {
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
+
+  // ─── Bonus fondateur ───────────────────────────────────────────────
+  // Le bonus verrouillé est compté dans `availableEur` mais n'est pas
+  // retirable : `withdrawableEur` porte la part réellement retirable. Repli
+  // sur `availableEur` tant que le backend déployé n'expose pas le champ.
+  const bonus = founderBonusState(w.data);
+  const withdrawableEur = w.data?.withdrawableEur ?? w.data?.availableEur ?? 0;
+  const bonusNote = bonus?.note ?? null;
+  const claimBonus = useClaimFounderBonus();
 
   // « Solde après opération » affiché dans la modale détail. L'API prod
   // (bup-rouge) ne renvoie pas encore ce champ : on le calcule ici à partir
@@ -400,14 +487,15 @@ export default function Portefeuille() {
               </Text>
               <CoinsLine coins={coins(d.availableCents)} />
 
-              {/* Part « bonus fondateur » (signup_bonus) incluse dans le
-                  disponible — mise en valeur verte avec icône cadeau (parité
-                  web : carte Disponible « dont X € de bonus fondateur »). */}
-              {(d.signupBonusEur ?? 0) > 0 && (
+              {/* UNE SEULE ligne « bonus fondateur », en vert avec icône
+                  cadeau (parité web). Le bonus verrouillé est compté dans le
+                  disponible — « dont » est donc exact — mais il n'est pas
+                  retirable, d'où la mention du délai. */}
+              {bonusNote && (
                 <View className="mt-1.5 flex-row items-center gap-1.5">
                   <Ionicons name="gift" size={13} color={c.good} />
                   <Text className="font-mono text-[12px]" style={{ color: c.good }}>
-                    dont {eur(d.signupBonusEur ?? 0)} de bonus fondateur
+                    {bonusNote}
                   </Text>
                 </View>
               )}
@@ -419,10 +507,12 @@ export default function Portefeuille() {
                 <Text className="flex-1 pr-3 text-sm text-ink-4">
                   {d.canWithdraw
                     ? "Retirable immédiatement · minimum de 5 €"
-                    : `Retirable à partir de ${eur(d.withdrawThresholdEur)}`}
+                    : d.signupBonusLocked
+                      ? `Retirable à partir de ${eur(d.withdrawThresholdEur)} de gains, hors bonus fondateur`
+                      : `Retirable à partir de ${eur(d.withdrawThresholdEur)}`}
                 </Text>
                 <Text className="font-mono text-[12px] text-ink-3">
-                  {`${Math.round(d.availableEur)} / ${Math.round(d.withdrawThresholdEur)} €`}
+                  {`${Math.round(withdrawableEur)} / ${Math.round(d.withdrawThresholdEur)} €`}
                 </Text>
               </View>
               <View
@@ -436,14 +526,14 @@ export default function Portefeuille() {
                 <View
                   className="h-full rounded-full"
                   style={{
+                    // Progression vers le SEUIL : basée sur la part réellement
+                    // retirable, bonus verrouillé exclu — sinon la barre
+                    // serait pleine alors que le retrait reste bloqué.
                     width: `${
                       d.withdrawThresholdEur > 0
                         ? Math.max(
                             0,
-                            Math.min(
-                              1,
-                              d.availableEur / d.withdrawThresholdEur,
-                            ),
+                            Math.min(1, withdrawableEur / d.withdrawThresholdEur),
                           ) * 100
                         : 0
                     }%`,
@@ -505,6 +595,93 @@ export default function Portefeuille() {
                 {lifetimeSub(d.accountCreatedAt, d.relationsCount)}
               </Text>
             </Card>
+
+            {/* Bonus fondateur verrouillé : décompte J-XX, les deux
+                conditions et leur état, et le bouton de déblocage dès
+                qu'elles sont réunies (parité web FounderBonusLockCard). */}
+            {bonus?.locked && (
+              <Card>
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="flex-1 flex-row items-start gap-2.5">
+                    <Ionicons name="gift" size={18} color={c.ink} />
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-ink">
+                        Bonus fondateur — {eur(bonus.amountEur)}
+                      </Text>
+                      <Text
+                        className="mt-0.5 font-mono text-[11px] uppercase text-ink-5"
+                        style={{ letterSpacing: 1 }}
+                      >
+                        {bonus.claimable ? "Prêt à être débloqué" : "En attente de déblocage"}
+                      </Text>
+                    </View>
+                  </View>
+                  {bonus.claimable ? (
+                    <View
+                      className="rounded-full px-2.5 py-1"
+                      style={{ backgroundColor: `${c.good}22` }}
+                    >
+                      <Text className="text-[12px] font-semibold" style={{ color: c.good }}>
+                        Débloquable
+                      </Text>
+                    </View>
+                  ) : bonus.dateReached ? (
+                    <View
+                      className="rounded-full px-2.5 py-1"
+                      style={{ backgroundColor: "#F6ECD8" }}
+                    >
+                      <Text className="text-[12px] font-semibold" style={{ color: "#8A6516" }}>
+                        Verrouillé
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="items-end">
+                      <Text className="font-serif text-2xl text-ink">J-{bonus.daysLeft}</Text>
+                      <Text
+                        className="font-mono text-[10px] uppercase text-ink-5"
+                        style={{ letterSpacing: 1 }}
+                      >
+                        {(bonus.daysLeft ?? 0) > 1 ? "jours restants" : "jour restant"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View className="mt-3 gap-2">
+                  <BonusCondition done={bonus.dateReached}>
+                    {bonus.dateReached
+                      ? "Compte de plus de 3 mois"
+                      : `Compte de plus de 3 mois — le ${bonus.unlockLabel}`}
+                  </BonusCondition>
+                  <BonusCondition done={bonus.hasAcceptance}>
+                    Au moins une sollicitation acceptée
+                  </BonusCondition>
+                </View>
+
+                {bonus.claimable && (
+                  <Pressable
+                    onPress={() => claimBonus.mutate()}
+                    disabled={claimBonus.isPending}
+                    className="mt-4 items-center rounded-full px-5 py-3"
+                    style={{
+                      backgroundColor: "#7C5CFC",
+                      opacity: claimBonus.isPending ? 0.6 : 1,
+                    }}
+                  >
+                    <Text className="text-base font-semibold text-white">
+                      {claimBonus.isPending
+                        ? "Déblocage…"
+                        : `Débloquer mes ${eur(bonus.amountEur)}`}
+                    </Text>
+                  </Pressable>
+                )}
+                {claimBonus.isError && (
+                  <Text className="mt-2 text-sm" style={{ color: c.bad }}>
+                    Le déblocage a échoué. Réessayez dans un instant.
+                  </Text>
+                )}
+              </Card>
+            )}
           </>
         )}
       </QueryGate>
@@ -648,7 +825,13 @@ export default function Portefeuille() {
                 const positive = mv.amountCents > 0;
                 // Bonus fondateur (signup_bonus) : ligne mise en valeur en vert
                 // (parité web : fond accentué + pastille « Bonus fondateur »).
-                const isSignupBonus = mv.kind === "signup_bonus";
+                // Tant qu'il est verrouillé, le serveur renvoie statusChip
+                // 'warn' — on garde alors la ligne neutre plutôt que verte, le
+                // montant n'étant pas encore acquis.
+                const isSignupBonus =
+                  mv.kind === "signup_bonus" && mv.statusChip !== "warn";
+                const isSignupBonusLocked =
+                  mv.kind === "signup_bonus" && mv.statusChip === "warn";
                 return (
                 <Pressable
                   key={mv.id}
@@ -665,7 +848,9 @@ export default function Portefeuille() {
                     borderWidth: 0.7,
                     ...(isSignupBonus
                       ? { backgroundColor: c.goodSoft, borderColor: c.good }
-                      : null),
+                      : isSignupBonusLocked
+                        ? { borderColor: c.warn }
+                        : null),
                     shadowColor: "#0F1629",
                     shadowOpacity: 0.04,
                     shadowRadius: 10,
@@ -678,14 +863,16 @@ export default function Portefeuille() {
                     style={{
                       backgroundColor: isSignupBonus
                         ? c.goodSoft
-                        : positive
-                          ? "rgba(124,92,252,0.12)"
-                          : "rgba(224,145,90,0.14)",
+                        : isSignupBonusLocked
+                          ? "rgba(224,145,90,0.14)"
+                          : positive
+                            ? "rgba(124,92,252,0.12)"
+                            : "rgba(224,145,90,0.14)",
                     }}
                   >
                     <Ionicons
                       name={
-                        isSignupBonus
+                        isSignupBonus || isSignupBonusLocked
                           ? "gift"
                           : positive
                             ? "arrow-down"
@@ -693,7 +880,13 @@ export default function Portefeuille() {
                       }
                       size={20}
                       color={
-                        isSignupBonus ? c.good : positive ? "#7C5CFC" : "#E0915A"
+                        isSignupBonus
+                          ? c.good
+                          : isSignupBonusLocked
+                            ? c.warn
+                            : positive
+                              ? "#7C5CFC"
+                              : "#E0915A"
                       }
                     />
                   </View>

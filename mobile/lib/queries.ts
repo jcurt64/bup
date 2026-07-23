@@ -154,11 +154,26 @@ export type ProspectWallet = {
   lifetimeGainsCents: number;
   availableCents: number;
   escrowCents: number;
-  // Part "bonus fondateur" (signup_bonus) incluse dans available/lifetime.
-  // Optionnel : présent seulement quand le backend déployé l'expose (sinon
-  // la carte masque la mention « dont … »).
+  // Part "bonus fondateur" (signup_bonus) DÉJÀ débloquée, incluse dans
+  // available/lifetime. Optionnel : présent seulement quand le backend
+  // déployé l'expose (sinon la carte masque la mention « dont … »).
   signupBonusEur?: number;
   signupBonusCents?: number;
+  // Bonus fondateur encore VERROUILLÉ. Il est compté dans `available` (la
+  // somme appartient au prospect) mais n'est pas retirable et n'entre pas
+  // dans le calcul du seuil — d'où `withdrawableEur`, la part réellement
+  // retirable, à comparer au seuil plutôt qu'`availableEur`.
+  signupBonusPendingEur?: number;
+  signupBonusPendingCents?: number;
+  signupBonusLocked?: boolean;
+  // Date de déblocage = max(création du compte + 3 mois, launch_at).
+  signupBonusUnlockAt?: string | null;
+  signupBonusHasAcceptance?: boolean;
+  // Les deux conditions sont réunies : le prospect peut le débloquer
+  // lui-même. Le déblocage n'est jamais automatique.
+  signupBonusClaimable?: boolean;
+  withdrawableEur?: number;
+  withdrawableCents?: number;
 };
 export const useProspectWallet = () => {
   const api = useApi();
@@ -377,6 +392,27 @@ export type Parrainage = {
 };
 export const useParrainage = () =>
   useGet<Parrainage>(["prospect", "parrainage"], "/api/prospect/parrainage", 60_000);
+
+/**
+ * Débloquer le bonus fondateur 5 €. Action VOLONTAIRE du prospect : rien ne
+ * se débloque automatiquement. Le serveur revérifie les deux conditions
+ * (3 mois d'ancienneté + une sollicitation acceptée) et répond 409
+ * `not_claimable` si elles ne sont pas réunies ou si c'est déjà fait.
+ */
+export function useClaimFounderBonus() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ claimed: true }>("/api/prospect/founder-bonus/claim", {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
+      qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
+    },
+  });
+}
 
 /** Accepter / refuser une mise en relation (body réel : { action }). */
 export function useDecideRelation() {
