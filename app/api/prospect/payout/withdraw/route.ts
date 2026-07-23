@@ -18,6 +18,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { getStripe } from "@/lib/stripe/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { GAIN_TRANSACTION_TYPES } from "@/lib/prospect/transactions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -101,7 +102,11 @@ export async function POST(request: NextRequest) {
       .select("amount_cents")
       .eq("account_kind", "prospect")
       .eq("account_id", prospectId)
-      .in("type", ["credit", "referral_bonus"])
+      // Même définition du "gain" que /api/prospect/wallet — sinon le solde
+      // affiché et le solde vérifié ici divergent (le bonus fondateur était
+      // compté dans l'un et pas dans l'autre). Le filtre `completed`
+      // ci-dessous exclut le bonus encore verrouillé.
+      .in("type", [...GAIN_TRANSACTION_TYPES])
       .eq("status", "completed"),
     admin
       .from("transactions")
