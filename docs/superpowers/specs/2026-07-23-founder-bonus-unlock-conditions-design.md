@@ -180,10 +180,12 @@ Appelé depuis :
 
 Le provisionnement n'a **qu'une seule implémentation**, exportée par
 `sync.ts` sous la forme `provisionFounderBonuses(admin, { confirm })`.
-`distributeFounderBonus` (endpoint admin `/api/admin/founder-bonus/distribute`)
-n'en est plus qu'un appelant : il conserve son contrat dry-run/confirm et ses
-compteurs, mais délègue et insère donc des lignes `pending`. Il ne distribue
-plus, il provisionne — libellé et documentation mis à jour en conséquence.
+`lib/founder-bonus/distribute.ts` est **supprimé** : son rôle se réduisait à
+créditer, ce que plus personne ne fait directement. L'endpoint admin
+`/api/admin/founder-bonus/distribute` conserve son contrat dry-run/confirm et
+appelle désormais `provisionFounderBonuses` — il ne distribue plus, il
+provisionne, et insère donc des lignes `pending`. Le gabarit de broadcast et
+l'envoi d'email migrent vers `sync.ts`, où ils servent au déblocage.
 
 ### 5.2 Contrat `/api/prospect/wallet`
 
@@ -243,15 +245,25 @@ bonus est verrouillé.
 
 ## 7. Tests
 
-- `tests/lib/founder-bonus/unlock.test.ts` — matrice des conditions :
-  ni l'une ni l'autre, ancienneté seule, acceptation seule, les deux,
-  `launch_at` non atteint mais 3 mois écoulés.
-- `tests/lib/founder-bonus/sync.test.ts` — provisionnement idempotent, une
-  seule notification par bonus débloqué, écarts `credited`/`broadcasted`/
-  `emailed` remontés.
+- `tests/lib/founder-bonus/sync.test.ts` — provisionnement idempotent et
+  silencieux (aucune notification au provisionnement), une seule cloche et un
+  seul email par bonus débloqué, bénéficiaire sans email ni `clerk_user_id`
+  débloqué sans notification, écarts `unlocked`/`broadcasted`/`emailed`
+  remontés.
 - `tests/lib/prospect/transactions.test.ts` — libellé et chip du couple
-  `('signup_bonus','pending')`.
-- Les tests existants de `distribute.ts` sont adaptés au passage en `pending`.
+  `('signup_bonus','pending')`, non-régression du couple `('signup_bonus','completed')`.
+- `tests/api/admin/founder-bonus-distribute.test.ts` — adapté au nouveau
+  résultat `{ eligible, provisioned, errors }`.
+- Les tests de `distribute.ts` disparaissent avec le module.
+
+**La matrice des conditions elle-même n'est pas couverte par Vitest** : elle vit
+dans `founder_bonus_unlock_state`, en SQL, et la base locale a divergé de la
+base distante — un test d'intégration Postgres n'existe nulle part dans ce
+dépôt et ne sera pas introduit pour cette seule fonction. Elle est validée par
+une requête de contrôle exécutée dans le SQL Editor juste après l'application
+de la migration, décrite dans le plan d'implémentation (section Déploiement).
+C'est une limite assumée : une erreur dans la règle SQL ne serait pas
+rattrapée par la suite de tests.
 
 ## 8. Déploiement
 
