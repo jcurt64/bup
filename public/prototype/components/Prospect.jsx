@@ -2790,6 +2790,21 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
   const bonusUnlockLabel = bonusUnlockAt
     ? new Date(bonusUnlockAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
     : '—';
+  // Décompte en jours pleins avant la date de déblocage (arrondi au
+  // supérieur : tant qu'il reste quelques heures, on affiche « 1 jour »).
+  const bonusDaysLeft = bonusUnlockAt
+    ? Math.max(0, Math.ceil((new Date(bonusUnlockAt).getTime() - Date.now()) / 86400000))
+    : null;
+  const bonusDaysLabel = bonusDaysLeft === 0
+    ? "aujourd'hui"
+    : bonusDaysLeft === 1 ? 'dans 1 jour' : `dans ${bonusDaysLeft} jours`;
+  // Remplace « Retirable immédiatement » tant qu'un bonus fondateur est
+  // verrouillé : c'est l'information la plus utile à cet endroit.
+  const bonusSubLabel = !bonusLocked
+    ? null
+    : !bonusDateReached
+      ? `${fmt(bonusPendingEur)} € de bonus fondateur débloqués ${bonusDaysLabel}`
+      : `${fmt(bonusPendingEur)} € de bonus fondateur en attente d'une 1ʳᵉ sollicitation acceptée`;
   const lifetimeEur = wallet?.lifetimeGainsEur ?? 0;
   const lifetimeCoins = Math.round((wallet?.lifetimeGainsCents ?? 0));
   const escrowEur = wallet?.escrowEur ?? 0;
@@ -2821,9 +2836,9 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           label="Disponible"
           value={fmt(availableEur)}
           coins={availableCoins.toLocaleString('fr-FR')}
-          sub={canWithdraw
+          sub={bonusSubLabel ?? (canWithdraw
             ? 'Retirable immédiatement · minimum de 5 €'
-            : `Retirable à partir de ${threshold} € de gains`}
+            : `Retirable à partir de ${threshold} € de gains`)}
           primary
           bonusEur={signupBonusEur}
           action={
@@ -2862,6 +2877,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
           amount={fmt(bonusPendingEur)}
           dateLabel={bonusUnlockLabel}
           dateReached={bonusDateReached}
+          daysLeft={bonusDaysLeft}
           hasAcceptance={bonusHasAcceptance}
         />
       )}
@@ -3176,7 +3192,7 @@ function RelationStat({ primary, tone, icon, label, value, sub }) {
 
 // Bonus fondateur provisionné mais pas encore débloqué. Les deux conditions
 // sont affichées avec leur état : une condition remplie passe en vert coché.
-function FounderBonusLockCard({ amount, dateLabel, dateReached, hasAcceptance }) {
+function FounderBonusLockCard({ amount, dateLabel, dateReached, daysLeft, hasAcceptance }) {
   const Condition = ({ done, children }) => (
     <div className="row center" style={{ gap: 8, fontSize: 13, color: done ? 'var(--good)' : 'var(--ink-4)' }}>
       <span style={{
@@ -3205,11 +3221,26 @@ function FounderBonusLockCard({ amount, dateLabel, dateReached, hasAcceptance })
             </div>
           </div>
         </div>
-        <span className="chip chip-warn">Verrouillé</span>
+        {/* Décompte mis en avant tant que la date n'est pas atteinte ;
+            une fois passée, seule l'acceptation manque encore. */}
+        {dateReached ? (
+          <span className="chip chip-warn">Verrouillé</span>
+        ) : (
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="serif tnum" style={{ fontSize: 26, lineHeight: 1, color: 'var(--ink)' }}>
+              J-{daysLeft}
+            </div>
+            <div className="mono caps" style={{ fontSize: 9.5, letterSpacing: '.12em', color: 'var(--ink-5)', marginTop: 3 }}>
+              {daysLeft > 1 ? 'jours restants' : 'jour restant'}
+            </div>
+          </div>
+        )}
       </div>
       <div className="col" style={{ gap: 8 }}>
         <Condition done={dateReached}>
-          {dateReached ? 'Compte de plus de 3 mois' : `Débloqué le ${dateLabel}`}
+          {dateReached
+            ? 'Compte de plus de 3 mois'
+            : `Compte de plus de 3 mois — le ${dateLabel}`}
         </Condition>
         <Condition done={hasAcceptance}>
           Au moins une sollicitation acceptée

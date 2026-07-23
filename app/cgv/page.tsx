@@ -704,6 +704,19 @@ export default function CgvPage() {
             Fondateur·ice des CGU).
           </p>
           <p>
+            <strong>Bonus fondateur·ice de 5,00&nbsp;€ — hors charge du
+            Professionnel.</strong> Le bonus de bienvenue de 5,00&nbsp;€ accordé
+            aux prospects fondateur·ices est <strong>intégralement financé par
+            BUUPP</strong>. Il n&apos;est refacturé à aucun Professionnel, n&apos;entre
+            dans aucun budget de campagne et n&apos;affecte ni le tarif des
+            paliers, ni la commission. Il n&apos;est débloqué au bénéfice du
+            prospect qu&apos;après <strong>trois (3) mois</strong> d&apos;ancienneté
+            de son compte <strong>et</strong> au moins{" "}
+            <strong>une sollicitation acceptée</strong> (cf. Programme Parrain —
+            Fondateur·ice des CGU), sans qu&apos;aucune obligation n&apos;en
+            découle pour le Professionnel.
+          </p>
+          <p>
             Lorsque le Professionnel active le <strong>bonus parrain</strong> sur
             une campagne, les <strong>filleul·es</strong> de tout prospect
             parrain·e / fondateur·ice ciblé reçoivent <strong>également</strong> la

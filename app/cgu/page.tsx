@@ -702,6 +702,10 @@ export default function CguPage() {
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
+              un <strong>bonus fondateur·ice de 5,00&nbsp;€</strong>, crédité au
+              portefeuille sous conditions de déblocage (cf. ci-dessous)&nbsp;;
+            </li>
+            <li>
               une <strong>priorité de 10 minutes</strong> sur les sollicitations
               «&nbsp;flash deal&nbsp;» (visibles aux parrain·es / fondateur·ices
               avant le grand public)&nbsp;;
@@ -722,6 +726,42 @@ export default function CguPage() {
               atteint&nbsp;».
             </li>
           </ul>
+          <p>
+            <strong>Bonus fondateur·ice de 5,00&nbsp;€ — conditions de
+            déblocage.</strong> Le bonus est inscrit au portefeuille dès la
+            création du compte, mais il y figure à l&apos;état{" "}
+            <strong>«&nbsp;en attente de déblocage&nbsp;»</strong>&nbsp;: il
+            n&apos;est ni comptabilisé dans le solde disponible, ni retirable
+            tant que les <strong>deux conditions cumulatives</strong> suivantes
+            ne sont pas réunies&nbsp;:
+          </p>
+          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+            <li>
+              <strong>trois (3) mois révolus</strong> depuis la création du
+              compte prospect&nbsp;;
+            </li>
+            <li>
+              <strong>au moins une sollicitation acceptée</strong> par le·la
+              prospect.
+            </li>
+          </ul>
+          <p>
+            Le déblocage est <strong>automatique</strong> dès que ces deux
+            conditions sont remplies&nbsp;: aucune démarche n&apos;est requise.
+            Le·la prospect en est informé·e par notification et par courriel, et
+            les 5,00&nbsp;€ rejoignent alors le solde disponible, retirable dans
+            les conditions de l&apos;article&nbsp;9. Le décompte des jours
+            restants est consultable à tout moment depuis l&apos;onglet
+            «&nbsp;Portefeuille&nbsp;».
+          </p>
+          <p>
+            Le bonus n&apos;est assorti d&apos;<strong>aucune date
+            d&apos;expiration</strong>&nbsp;: s&apos;il n&apos;est pas débloqué,
+            il demeure acquis et en attente sans limitation de durée. Il est
+            versé par BUUPP et n&apos;est à la charge d&apos;aucun
+            professionnel. Il ne peut être débloqué qu&apos;une seule fois par
+            compte.
+          </p>
           <p>
             <strong>Palier VIP au plafond de 10 filleul·es.</strong> Lorsqu&apos;un
             parrain·e atteint le plafond de 10&nbsp;filleul·es inscrit·es sur la
