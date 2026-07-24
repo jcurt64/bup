@@ -46,6 +46,11 @@ const isPublicRoute = createRouteMatcher([
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
+  // /tutoriels : bibliothèque de vidéos, cible du bouton « Vidéos » du
+  // header ET des vignettes du mail d'annonce envoyé à la liste d'attente.
+  // Ses destinataires n'ont pas de compte : sans cette entrée, ils
+  // tombent sur /connexion et la vidéo devient inatteignable.
+  "/tutoriels",
   // ─── SEO : robots.txt et sitemap.xml DOIVENT être publics (sinon les
   // moteurs de recherche reçoivent une 307 vers /connexion et ne peuvent
   // pas crawler le site). Générés dynamiquement par app/robots.ts et
@@ -333,7 +338,11 @@ async function getRoleFromDB(clerkUserId: string): Promise<Role | null> {
 export const config = {
   matcher: [
     // Skip Next.js internals and all static files, sauf si on les recherche dans search params.
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Les médias (mp4/webm/mov) sont exclus au même titre que les images :
+    // servis depuis /public, ils n'ont rien à faire dans le middleware —
+    // qui les redirigerait vers /connexion pour un visiteur anonyme et
+    // casserait au passage les requêtes par plage d'octets du lecteur.
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|webm|mov|m4v)).*)",
     // Always run for API routes.
     "/(api|trpc)(.*)",
   ],
