@@ -20,6 +20,7 @@ import { sendBroadcastEmails } from "@/lib/email/admin-broadcast";
 import { sendWaitlistBroadcast } from "@/lib/email/waitlist-broadcast";
 import { signOptOutToken } from "@/lib/email-tracking/token";
 import { referralBadgeTier } from "@/lib/waitlist/referral";
+import { collectWaitlistAudience } from "@/lib/waitlist/recipients";
 
 // Liste de destinataires AVANT insertion en base (sans recipient_id). Une
 // fois en base, on enrichit avec l'UUID retourné pour pouvoir embarquer
@@ -83,10 +84,16 @@ export async function POST(req: Request) {
   const body = String(form.get("body") ?? "").trim();
   const audienceRaw = String(form.get("audience") ?? "").trim();
   const attachment = form.get("attachment");
-  // Bloc vidéo + CTA personnalisé — exploités uniquement par l'audience
+  // Blocs vidéo + CTA personnalisé — exploités uniquement par l'audience
   // « liste d'attente » (cf. sendWaitlistBroadcast) ; ignorés ailleurs.
+  // Deux vidéos max : `videoUrl`/`videoThumbnailUrl` (héritage, = vidéo 1)
+  // et `video2Url`/`video2ThumbnailUrl`, chacune avec une légende optionnelle.
   const videoUrl = String(form.get("videoUrl") ?? "").trim() || null;
   const videoThumbnailUrl = String(form.get("videoThumbnailUrl") ?? "").trim() || null;
+  const videoLabel = String(form.get("videoLabel") ?? "").trim() || null;
+  const video2Url = String(form.get("video2Url") ?? "").trim() || null;
+  const video2ThumbnailUrl = String(form.get("video2ThumbnailUrl") ?? "").trim() || null;
+  const video2Label = String(form.get("video2Label") ?? "").trim() || null;
   const ctaLabel = String(form.get("ctaLabel") ?? "").trim() || null;
   const ctaUrl = String(form.get("ctaUrl") ?? "").trim() || null;
 
@@ -103,11 +110,20 @@ export async function POST(req: Request) {
   // mixed-content dans le mail). null = champ vide = OK.
   const isHttpsUrl = (u: string | null) =>
     u === null || (/^https:\/\/\S+$/i.test(u) && u.length <= 2000);
-  if (!isHttpsUrl(videoUrl) || !isHttpsUrl(videoThumbnailUrl) || !isHttpsUrl(ctaUrl)) {
+  if (
+    !isHttpsUrl(videoUrl) ||
+    !isHttpsUrl(videoThumbnailUrl) ||
+    !isHttpsUrl(video2Url) ||
+    !isHttpsUrl(video2ThumbnailUrl) ||
+    !isHttpsUrl(ctaUrl)
+  ) {
     return NextResponse.json({ error: "invalid_url" }, { status: 400 });
   }
   if (ctaLabel && ctaLabel.length > 60) {
     return NextResponse.json({ error: "invalid_cta_label" }, { status: 400 });
+  }
+  if ((videoLabel && videoLabel.length > 90) || (video2Label && video2Label.length > 90)) {
+    return NextResponse.json({ error: "invalid_video_label" }, { status: 400 });
   }
   const audience = audienceRaw as Audience;
 
@@ -181,7 +197,15 @@ export async function POST(req: Request) {
   //   de compte. On ne crée donc PAS de rows admin_broadcast_recipients
   //   (pas de tracking d'ouverture in-app pour cette audience).
   if (audience === "waitlist") {
-    const wlRecipients = await collectWaitlistRecipients(admin);
+    // Les lignes fictives (fixtures de parrainage, honeypot, diagnostics) et
+    // les adresses invalides sont écartées ici — cf. lib/waitlist/test-accounts.
+    const { recipients: wlRecipients, excluded: wlExcluded, totalRows } =
+      await collectWaitlistAudience(admin);
+    if (wlExcluded.length > 0) {
+      console.log(
+        `[/api/admin/broadcasts POST] waitlist: ${wlRecipients.length}/${totalRows} destinataires réels, ${wlExcluded.length} ligne(s) écartée(s)`,
+      );
+    }
 
     // Pièce jointe : route /api/me/notifications/[id]/attachment est
     // authentifiée → inutilisable sans compte. On génère une URL signée
@@ -209,11 +233,13 @@ export async function POST(req: Request) {
       body,
       attachmentUrl: signedAttachmentUrl,
       attachmentFilename,
-      videoUrl,
-      videoThumbnailUrl,
+      videos: [
+        { url: videoUrl, thumbnailUrl: videoThumbnailUrl, label: videoLabel },
+        { url: video2Url, thumbnailUrl: video2ThumbnailUrl, label: video2Label },
+      ],
       ctaLabel,
       ctaUrl,
-      recipients: wlRecipients,
+      recipients: wlRecipients.map((r) => ({ email: r.email, prenom: r.prenom })),
     })
       .then(async () => {
         await admin
@@ -234,6 +260,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       id: broadcastId,
       recipientCount: wlRecipients.length,
+      excludedCount: wlExcluded.length,
       hasAttachment: !!attachmentPath,
     });
   }
@@ -416,31 +443,9 @@ export async function GET(req: Request) {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-// Destinataires de l'audience « liste d'attente » : on lit directement
-// la table `waitlist` (email + prénom). Dédup insensible à la casse.
-async function collectWaitlistRecipients(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-): Promise<{ email: string; prenom: string }[]> {
-  const { data, error } = await admin
-    .from("waitlist")
-    .select("email, prenom")
-    .not("email", "is", null);
-  if (error) {
-    console.error("[broadcasts] waitlist read failed", error);
-    return [];
-  }
-  const seen = new Set<string>();
-  const out: { email: string; prenom: string }[] = [];
-  for (const r of data ?? []) {
-    const email = (r.email ?? "").trim();
-    if (!email) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ email, prenom: (r.prenom ?? "").trim() });
-  }
-  return out;
-}
+// L'audience « liste d'attente » est lue par collectWaitlistAudience
+// (lib/waitlist/recipients) : lecture + filtrage des lignes fictives au
+// même endroit que le mail de lancement et l'aperçu d'audience.
 
 async function collectRecipients(
   admin: ReturnType<typeof createSupabaseAdminClient>,

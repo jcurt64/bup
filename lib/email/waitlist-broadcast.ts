@@ -28,6 +28,15 @@ export type WaitlistBroadcastRecipient = {
   prenom: string;
 };
 
+export type BroadcastVideo = {
+  url?: string | null;
+  thumbnailUrl?: string | null;
+  label?: string | null;
+};
+
+/** Nombre maximum de vignettes vidéo rendues dans le mail. */
+export const MAX_BROADCAST_VIDEOS = 2;
+
 export type SendWaitlistBroadcastParams = {
   broadcastId: string;
   title: string;
@@ -38,10 +47,10 @@ export type SendWaitlistBroadcastParams = {
    *  URL signée publique côté API avant l'appel. */
   attachmentUrl: string | null;
   attachmentFilename: string | null;
-  /** Bloc vidéo optionnel : miniature cliquable (bouton play CSS) qui ouvre
-   *  `videoUrl`. Affiché uniquement si les DEUX sont fournis. */
-  videoUrl?: string | null;
-  videoThumbnailUrl?: string | null;
+  /** Blocs vidéo optionnels (2 max) : miniature cliquable (bouton play CSS)
+   *  qui ouvre `url`. Une entrée n'est rendue que si `url` ET `thumbnailUrl`
+   *  sont fournis ; `label` est la légende affichée sous la vignette. */
+  videos?: BroadcastVideo[];
   /** CTA personnalisé optionnel. Si `ctaUrl` ET `ctaLabel` sont fournis, ils
    *  remplacent le bouton par défaut « Créer mon compte → » (vers l'inscription). */
   ctaLabel?: string | null;
@@ -59,10 +68,8 @@ export async function sendWaitlistBroadcast(
   }
 
   const { broadcastId, title, body, attachmentUrl, attachmentFilename, recipients } = params;
-  // Bloc vidéo : actif seulement si miniature + URL fournies.
-  const videoUrl = params.videoUrl?.trim() || null;
-  const videoThumbnailUrl = params.videoThumbnailUrl?.trim() || null;
-  const hasVideo = Boolean(videoUrl && videoThumbnailUrl);
+  // Blocs vidéo : une entrée n'est retenue que si miniature + URL fournies.
+  const videos = normalizeVideos(params.videos);
   // CTA personnalisé : actif seulement si label + URL fournis, sinon défaut.
   const ctaLabel = params.ctaLabel?.trim() || null;
   const ctaUrl = params.ctaUrl?.trim() || null;
@@ -84,7 +91,7 @@ export async function sendWaitlistBroadcast(
       "",
       body,
       "",
-      hasVideo ? `Voir la vidéo : ${videoUrl}` : null,
+      ...videos.map((v) => `${v.label ? `${v.label} — ` : "Voir la vidéo : "}${v.url}`),
       attachmentUrl
         ? `Pièce jointe (${attachmentFilename ?? "fichier"}) : ${attachmentUrl}`
         : null,
@@ -106,8 +113,7 @@ export async function sendWaitlistBroadcast(
       prenom,
       attachmentUrl,
       attachmentFilename,
-      videoUrl: hasVideo ? videoUrl : null,
-      videoThumbnailUrl: hasVideo ? videoThumbnailUrl : null,
+      videos,
       ctaHref,
       ctaText,
       hasCustomCta,
@@ -134,21 +140,67 @@ export async function sendWaitlistBroadcast(
   return { attempted: recipients.length, failed };
 }
 
+/**
+ * Rendu HTML du mail — exporté pour l'aperçu et les tests (l'envoi passe
+ * toujours par sendWaitlistBroadcast).
+ */
+export function renderWaitlistBroadcastHtml(params: {
+  title: string;
+  body: string;
+  prenom: string;
+  attachmentUrl?: string | null;
+  attachmentFilename?: string | null;
+  videos?: BroadcastVideo[];
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+}): string {
+  const videos = normalizeVideos(params.videos);
+  const ctaLabel = params.ctaLabel?.trim() || null;
+  const ctaUrl = params.ctaUrl?.trim() || null;
+  const hasCustomCta = Boolean(ctaLabel && ctaUrl);
+  return renderHtml({
+    title: params.title,
+    body: params.body,
+    prenom: params.prenom,
+    attachmentUrl: params.attachmentUrl ?? null,
+    attachmentFilename: params.attachmentFilename ?? null,
+    videos,
+    ctaHref: hasCustomCta ? (ctaUrl as string) : SIGNUP_URL,
+    ctaText: hasCustomCta ? (ctaLabel as string) : "Créer mon compte →",
+    hasCustomCta,
+  });
+}
+
+/** Ne garde que les blocs vidéo exploitables (url + miniature), 2 max. */
+function normalizeVideos(
+  videos: BroadcastVideo[] | undefined,
+): { url: string; thumbnailUrl: string; label: string | null }[] {
+  return (videos ?? [])
+    .map((v) => ({
+      url: v.url?.trim() || null,
+      thumbnailUrl: v.thumbnailUrl?.trim() || null,
+      label: v.label?.trim() || null,
+    }))
+    .filter((v): v is { url: string; thumbnailUrl: string; label: string | null } =>
+      Boolean(v.url && v.thumbnailUrl),
+    )
+    .slice(0, MAX_BROADCAST_VIDEOS);
+}
+
 function renderHtml(params: {
   title: string;
   body: string;
   prenom: string;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
-  videoUrl: string | null;
-  videoThumbnailUrl: string | null;
+  videos: { url: string; thumbnailUrl: string; label: string | null }[];
   ctaHref: string;
   ctaText: string;
   hasCustomCta: boolean;
 }): string {
   const {
     title, body, prenom, attachmentUrl, attachmentFilename,
-    videoUrl, videoThumbnailUrl, ctaHref, ctaText, hasCustomCta,
+    videos, ctaHref, ctaText, hasCustomCta,
   } = params;
   return `
 <!DOCTYPE html>
@@ -202,25 +254,12 @@ function renderHtml(params: {
   }
 
   ${
-    videoUrl && videoThumbnailUrl
+    videos.length > 0
       ? `
-  <!-- Bloc vidéo : miniature cliquable + bouton play (CSS, sans image hébergée).
-       Repli Outlook : cadre sombre cliquable avec le bouton play centré. -->
-  <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;border-collapse:separate;">
-      <tr>
-        <td background="${videoThumbnailUrl}" bgcolor="#0F1629" valign="middle" align="center" height="280"
-            style="background-image:url('${videoThumbnailUrl}');background-position:center;background-size:cover;background-repeat:no-repeat;border-radius:14px;height:280px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
-            <td align="center" valign="middle" style="width:66px;height:66px;background:#FFFEF8;border-radius:50%;box-shadow:0 6px 18px -4px rgba(15,22,41,.5);">
-              <div style="display:inline-block;width:0;height:0;border-top:12px solid transparent;border-bottom:12px solid transparent;border-left:19px solid #4596EC;margin-left:5px;"></div>
-            </td>
-          </tr></table>
-        </td>
-      </tr>
-    </table>
-  </a>
-  <p style="margin:0 0 22px;text-align:center;font-size:12px;color:#6B7180;">▶ Voir la vidéo</p>`
+  <p style="margin:0 0 10px;font-size:11px;color:#4596EC;letter-spacing:.12em;text-transform:uppercase;font-weight:600;">
+    ▶ ${videos.length > 1 ? "En vidéo" : "La vidéo"}
+  </p>
+  ${videos.map((v, i) => renderVideoBlock(v, i, videos.length)).join("")}`
       : ""
   }
 
@@ -267,6 +306,43 @@ function renderHtml(params: {
 </td></tr></table>
 </body></html>
   `.trim();
+}
+
+/**
+ * Une vignette vidéo : image de fond cliquable + bouton play dessiné en CSS
+ * (pas d'image hébergée à charger), légende dessous. Repli Outlook / images
+ * bloquées : cadre sombre `bgcolor` avec le bouton play centré, toujours
+ * cliquable. La hauteur est réduite quand il y a deux vidéos pour que le
+ * bloc reste au-dessus de la ligne de flottaison.
+ */
+function renderVideoBlock(
+  video: { url: string; thumbnailUrl: string; label: string | null },
+  index: number,
+  total: number,
+): string {
+  const height = total > 1 ? 220 : 280;
+  const numbered = total > 1 ? `${index + 1}. ` : "";
+  const caption = video.label
+    ? `${numbered}${video.label}`
+    : `${numbered}Voir la vidéo`;
+  return `
+  <a href="${video.url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;border-collapse:separate;">
+      <tr>
+        <td background="${video.thumbnailUrl}" bgcolor="#0F1629" valign="middle" align="center" height="${height}"
+            style="background-image:url('${video.thumbnailUrl}');background-position:center;background-size:cover;background-repeat:no-repeat;border-radius:14px;height:${height}px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+            <td align="center" valign="middle" style="width:66px;height:66px;background:#FFFEF8;border-radius:50%;box-shadow:0 6px 18px -4px rgba(15,22,41,.5);">
+              <div style="display:inline-block;width:0;height:0;border-top:12px solid transparent;border-bottom:12px solid transparent;border-left:19px solid #4596EC;margin-left:5px;"></div>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+    </table>
+  </a>
+  <p style="margin:0 0 ${index === total - 1 ? 22 : 18}px;text-align:center;font-size:12.5px;color:#3A4150;font-weight:600;">
+    ${escapeHtml(caption)}
+  </p>`;
 }
 
 function escapeHtml(s: string): string {
