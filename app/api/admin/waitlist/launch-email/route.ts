@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendWaitlistLaunched } from "@/lib/email/waitlist-launched";
+import { collectWaitlistAudience } from "@/lib/waitlist/recipients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,22 +51,26 @@ export async function POST(req: Request) {
 
   const admin = createSupabaseAdminClient();
 
-  // Lecture des inscrits non encore notifiés. On limite la fournée à
-  // 1000 par appel (re-call possible) — évite les timeouts si la liste
-  // grossit sans plafond.
-  const { data, error } = await admin
-    .from("waitlist")
-    .select("id, email, prenom")
-    .is("launch_email_sent_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1000);
+  // Lecture des inscrits non encore notifiés, débarrassée des lignes
+  // fictives (fixtures de parrainage, honeypot, diagnostics) et des
+  // adresses invalides — cf. lib/waitlist/test-accounts. On limite la
+  // fournée à 1000 par appel (re-call possible) — évite les timeouts si
+  // la liste grossit sans plafond.
+  const { recipients, excluded } = await collectWaitlistAudience(admin, {
+    onlyNotLaunchEmailed: true,
+    limit: 1000,
+  });
 
-  if (error) {
-    console.error("[/api/admin/waitlist/launch-email] read failed", error);
-    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  // On ne touche PAS aux lignes écartées : leur `launch_email_sent_at`
+  // reste nul (aucun mail n'est parti), elles sont simplement absentes de
+  // l'envoi et décomptées du restant renvoyé plus bas.
+  if (excluded.length > 0) {
+    console.log(
+      `[/api/admin/waitlist/launch-email] ${excluded.length} ligne(s) fictive(s) ignorée(s)`,
+    );
   }
 
-  const rows = (data ?? []) as WaitlistRow[];
+  const rows = recipients as WaitlistRow[];
   if (rows.length === 0) {
     return NextResponse.json({ processed: 0, failed: 0, totalUnsent: 0 });
   }
@@ -112,16 +117,17 @@ export async function POST(req: Request) {
     });
   }
 
-  // Compte ce qu'il reste (utile pour savoir s'il faut re-call).
-  const { count: remainingCount } = await admin
-    .from("waitlist")
-    .select("id", { count: "exact", head: true })
-    .is("launch_email_sent_at", null);
+  // Compte ce qu'il reste de destinataires RÉELS non notifiés (utile pour
+  // savoir s'il faut re-call). Les lignes fictives n'y figurent pas : sinon
+  // le compteur ne tomberait jamais à zéro.
+  const { recipients: remaining, excluded: remainingExcluded } =
+    await collectWaitlistAudience(admin, { onlyNotLaunchEmailed: true });
 
   return NextResponse.json({
     processed,
     failed,
-    totalUnsent: remainingCount ?? 0,
+    totalUnsent: remaining.length,
+    skipped: remainingExcluded.length,
     failures: failures.slice(0, 50),
   });
 }

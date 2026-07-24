@@ -38,7 +38,8 @@ export type IconName =
   | "user"
   | "briefcase"
   | "info"
-  | "gear";
+  | "gear"
+  | "video";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -109,6 +110,14 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M12 2.2l1.6 2.5 2.9-.7.4 3 2.8 1.1-1.3 2.7 1.3 2.7-2.8 1.1-.4 3-2.9-.7L12 21.8l-1.6-2.5-2.9.7-.4-3-2.8-1.1 1.3-2.7-1.3-2.7 2.8-1.1.4-3 2.9.7z" />
     </>
   ),
+  // Caméra : corps rectangulaire + objectif en biseau. Lisible dès 14px,
+  // contrairement à une pellicule dont les perforations se bouchent.
+  video: (
+    <>
+      <rect x="2.5" y="6" width="13" height="12" rx="3" />
+      <path d="M15.5 11l6-3.2v8.4l-6-3.2z" />
+    </>
+  ),
 };
 
 export function Icon({
@@ -137,44 +146,6 @@ export function Icon({
   );
 }
 
-// Ballon de foot réaliste (marqueur Coupe du Monde) — jumeau du WorldCupBall
-// du prototype (Shell.jsx). Pentagone central + 5 pentagones de bord + coutures ;
-// sphère 3D via deux cercles décalés. Tourne via `.wc-ball-spin` (globals.css).
-// Décoratif → aria-hidden. Temporaire.
-export function WorldCupBall({ size = 18 }: { size?: number }) {
-  return (
-    <span className="wc-ball-drop" style={{ flex: "0 0 auto" }}>
-    <svg
-      className="wc-ball-spin"
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      aria-hidden="true"
-      focusable="false"
-      style={{ display: "block", flex: "0 0 auto" }}
-    >
-      <circle cx="32" cy="32" r="30" fill="#d9d9d9" stroke="#2a2a2a" strokeWidth="1.5" />
-      <circle cx="30" cy="29.5" r="27.5" fill="#fbfbfb" />
-      <g fill="#161616">
-        <polygon points="32.00,22.50 41.04,29.06 37.58,39.69 26.42,39.69 22.96,29.06" />
-        <polygon points="32.00,3.90 39.23,9.15 36.47,17.65 27.53,17.65 24.77,9.15" />
-        <polygon points="58.72,23.32 55.96,31.81 47.03,31.81 44.27,23.32 51.50,18.07" />
-        <polygon points="48.52,54.73 39.58,54.73 36.82,46.24 44.05,40.98 51.28,46.24" />
-        <polygon points="15.48,54.73 12.72,46.24 19.95,40.98 27.18,46.24 24.42,54.73" />
-        <polygon points="5.28,23.32 12.50,18.07 19.73,23.32 16.97,31.81 8.04,31.81" />
-      </g>
-      <g stroke="#2b2b2b" strokeWidth="1.6" strokeLinecap="round">
-        <line x1="32.00" y1="22.50" x2="32.00" y2="17.65" />
-        <line x1="41.04" y1="29.06" x2="45.65" y2="27.57" />
-        <line x1="37.58" y1="39.69" x2="40.44" y2="43.61" />
-        <line x1="26.42" y1="39.69" x2="23.56" y2="43.61" />
-        <line x1="22.96" y1="29.06" x2="18.35" y2="27.57" />
-      </g>
-    </svg>
-    </span>
-  );
-}
-
 export function Logo({
   size = 50,
   color,
@@ -186,7 +157,6 @@ export function Logo({
 }) {
   const content = (
     <div className="row center" style={{ color: color || "inherit", gap: 8 }}>
-      <WorldCupBall size={Math.round(size * 0.42)} />
       <Image
         src="/logo.png"
         alt="BUUPP"
@@ -359,6 +329,11 @@ export function Navbar() {
             >
               Contact
             </Link>
+            {/* Vidéos : entre les liens accentués et les CTA de compte —
+                on regarde avant de s'engager. */}
+            <Link className="btn-videos" href="/tutoriels">
+              <Icon name="video" size={15} /> Vidéos
+            </Link>
           </nav>
 
           <div className="row center gap-3 nav-desktop">
@@ -388,19 +363,30 @@ export function Navbar() {
             )}
           </div>
 
-          <button
-            className="hamburger"
-            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
-            aria-expanded={open}
-            aria-controls="mobile-drawer"
-            onClick={() => setOpen((v) => !v)}
-          >
-            <span className="hamburger-bars" aria-hidden>
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+          {/* Sous 880px la nav centrée disparaît : le bouton Vidéos reste
+              néanmoins dans l'en-tête, à gauche du hamburger. Le conteneur
+              est masqué au-dessus du seuil pour ne pas peser comme un
+              troisième élément flex et déséquilibrer le header desktop. */}
+          <div className="nav-mobile-actions">
+            <Link className="btn-videos btn-videos-mobile" href="/tutoriels">
+              <Icon name="video" size={15} />{" "}
+              <span className="btn-videos-label">Vidéos</span>
+            </Link>
+
+            <button
+              className="hamburger"
+              aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+              aria-expanded={open}
+              aria-controls="mobile-drawer"
+              onClick={() => setOpen((v) => !v)}
+            >
+              <span className="hamburger-bars" aria-hidden>
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -449,6 +435,11 @@ export function Navbar() {
           >
             <span style={{ display: "inline-block" }}>
               Contact
+            </span>
+          </button>
+          <button className="drawer-link" onClick={() => go("/tutoriels")}>
+            <span className="row center" style={{ gap: 8 }}>
+              <Icon name="video" size={16} /> Vidéos
             </span>
           </button>
           <div className="drawer-ctas">

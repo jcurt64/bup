@@ -451,6 +451,44 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   .hamburger { display: inline-flex; }
 }
 
+/* ---------- Bouton « Vidéos » du header ----------
+   Pilule bordée accent, entre les liens accentués (« Buupp & vos données »,
+   « Contact ») et les CTA de compte. Fond opaque volontaire : au scroll
+   l'en-tête devient translucide, un bouton sans fond s'y dissoudrait. */
+.btn-videos {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 15px; border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: var(--paper);
+  color: var(--accent);
+  font-size: 14px; font-weight: 600; line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .04);
+  transition: background .18s, color .18s, box-shadow .18s, border-color .18s;
+}
+.btn-videos:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 20px -8px rgba(79, 70, 229, .65);
+}
+/* Pastille de rappel : signale que la rubrique est nouvelle sans texte en plus. */
+.btn-videos::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex: 0 0 auto;
+}
+.btn-videos:hover::before { background: var(--paper); }
+
+/* Jumeau mobile : la version desktop vit dans la nav centrée (masquée sous
+   880px), celle-ci prend le relais à côté du hamburger pour que l'accès aux
+   vidéos ne soit jamais enfoui dans le menu. */
+.nav-mobile-actions { display: none; align-items: center; gap: 10px; }
+@media (max-width: 880px) {
+  .nav-mobile-actions { display: flex; }
+}
+@media (max-width: 380px) {
+  .btn-videos-mobile { padding: 7px 11px; }
+  .btn-videos-mobile .btn-videos-label { display: none; }
+}
+
 /* ---------- RouteNav responsive ---------- */
 .route-nav {
   max-width: calc(100vw - 24px);
@@ -1105,28 +1143,6 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 
 @media (max-width: 760px) {
   #app-mobile .m-decor { display: none; }
-}
-
-/* Marqueur Coupe du Monde — ballon qui tombe, rebondit, puis tourne en continu.
-   Parent .wc-ball-drop = chute + rebonds (une fois) ; enfant .wc-ball-spin =
-   rotation en boucle APRÈS l'atterrissage (animation-delay). */
-@keyframes wcBallSpin { to { transform: rotate(360deg); } }
-@keyframes wcBallDrop {
-  0%   { opacity: 0; transform: translateY(-320%); animation-timing-function: ease-in; }
-  6%   { opacity: 1; }
-  50%  { transform: translateY(0);     animation-timing-function: ease-out; }
-  66%  { transform: translateY(-48%);  animation-timing-function: ease-in; }
-  80%  { transform: translateY(0);     animation-timing-function: ease-out; }
-  90%  { transform: translateY(-16%);  animation-timing-function: ease-in; }
-  100% { opacity: 1; transform: translateY(0); }
-}
-/* Délai 1.5s : le logo s'affiche d'abord, le ballon (invisible via `both` +
-   opacity 0) chute ensuite. Spin = après le délai + la durée de chute. */
-.wc-ball-drop { display: inline-flex; animation: wcBallDrop 1.3s 1.5s 1 both; transform-origin: 50% 100%; }
-.wc-ball-spin { animation: wcBallSpin 5s linear infinite; animation-delay: 2.8s; transform-origin: 50% 50%; }
-@media (prefers-reduced-motion: reduce) {
-  .wc-ball-drop { animation: none; }
-  .wc-ball-spin { animation: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

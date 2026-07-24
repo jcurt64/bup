@@ -14,6 +14,7 @@ import { useAuth, useClerk } from "@clerk/nextjs";
 import { useRoleGuard, useCurrentRole } from "./RoleGuard";
 import DemoModal from "./DemoModal";
 import { Icon, Navbar, Footer, type IconName } from "./SiteChrome";
+import VideoLearnSection from "./VideoLearnSection";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -4623,6 +4624,7 @@ export default function HomeClient() {
       <Pricing />
       <MobileAppSection />
       <FinalCTA />
+      <VideoLearnSection />
       <Footer />
       <StickyPreinscription />
     </div>
