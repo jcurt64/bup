@@ -286,7 +286,7 @@ export default function ParrainageScreen() {
 
               <Card badge={{ icon: "trophy-outline", tone: "amber" }}>
                 <Text className="font-serif text-base text-ink">
-                  Avantages fondateur·ice (1er mois post-lancement)
+                  Avantages fondateur·ice
                 </Text>
                 <Text className="mt-1.5 text-[13px] leading-5 text-ink-3">
                   Inscrire un filleul le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs :
@@ -295,7 +295,7 @@ export default function ParrainageScreen() {
                   <View className="flex-row items-start gap-2">
                     <Text className="text-[13px] font-semibold text-amber">Bronze</Text>
                     <Text className="flex-1 text-[13px] leading-5 text-ink-3">
-                      (1-2 filleuls) — Bonus 50 % des BUUPP coins sur la 1ʳᵉ acceptation de chaque filleul.
+                      (1-2 filleuls) — Bonus 50 % des BUUPP coins à chaque acceptation de chaque filleul, sans limite de durée.
                     </Text>
                   </View>
                   <View className="flex-row items-start gap-2">
