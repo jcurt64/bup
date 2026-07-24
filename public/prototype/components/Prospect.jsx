@@ -2038,7 +2038,7 @@ const _eurFmt = new Intl.NumberFormat('fr-FR', {
 
 // Badge couronne de parrainage (palier selon le nombre de filleuls).
 const REFERRAL_TIERS = [
-  { tier: 'cuivre', label: 'Used',  range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage bonus : 50 % des BUUPP coins de la 1ʳᵉ acceptation de chaque filleul (1er mois post-lancement).' },
+  { tier: 'cuivre', label: 'Used',  range: '1–2 filleuls', color: '#B87333', advantage: 'Avantage bonus : 50 % des BUUPP coins à chaque acceptation de chaque filleul, sans limite de durée.' },
   { tier: 'argent', label: 'Paid',  range: '3–9 filleuls', color: '#9CA3AF', advantage: 'Avantage prioritaire : tous les avantages bonus + accès aux offres flash 20 min avant tout le monde.' },
   { tier: 'or',     label: 'Proud', range: '10 filleuls',  color: '#E6B422', advantage: 'Avantage governor : tous les avantages bonus + avantages prioritaire + consulté·e par BUUPP sur les nouveautés (droit de vote).' },
 ];
@@ -8514,7 +8514,7 @@ function Parrainage() {
       <SectionTitle
         eyebrow="Parrainage = avantages fondateur"
         title="Recommandez, montez de palier"
-        desc="Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs (1er mois post-lancement) : Used (1-2) — bonus de 50 % des coins sur la 1ʳᵉ acceptation de chaque filleul ; Paid (3-9) — accès aux offres flash 20 min avant tout le monde ; Proud (10) — statut Governor, consulté·e sur les nouveautés."
+        desc="Inscrire un filleul sur la liste d'attente le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs : Used (1-2) — bonus de 50 % des coins à chaque acceptation de chaque filleul, sans limite de durée ; Paid (3-9) — accès aux offres flash 20 min avant tout le monde ; Proud (10) — statut Governor, consulté·e sur les nouveautés."
       />
 
       {!loading && data?.badgeTier && (() => {
@@ -8662,7 +8662,7 @@ function Parrainage() {
 
       <div className="ref-rewards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
-          { tier: 'cuivre', range: '1 – 2', label: 'Used',  c: '#15803D', desc: <><strong>+50 % de coins</strong> sur la 1ʳᵉ acceptation de chaque filleul.</> },
+          { tier: 'cuivre', range: '1 – 2', label: 'Used',  c: '#15803D', desc: <><strong>+50 % de coins</strong> à chaque acceptation de chaque filleul, sans limite de durée.</> },
           { tier: 'argent', range: '3 – 9', label: 'Paid',  c: '#4F46E5', desc: <>Accès aux <strong>offres flash 20 min avant</strong> tout le monde.</> },
           { tier: 'or',     range: '10',    label: 'Proud', c: '#B45309', desc: <>Statut <strong>Governor</strong> — consulté·e en avant-première sur les nouveautés.</> },
         ].map((r) => {
