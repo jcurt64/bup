@@ -38,7 +38,8 @@ export type IconName =
   | "user"
   | "briefcase"
   | "info"
-  | "gear";
+  | "gear"
+  | "video";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -107,6 +108,14 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 2.2l1.6 2.5 2.9-.7.4 3 2.8 1.1-1.3 2.7 1.3 2.7-2.8 1.1-.4 3-2.9-.7L12 21.8l-1.6-2.5-2.9.7-.4-3-2.8-1.1 1.3-2.7-1.3-2.7 2.8-1.1.4-3 2.9.7z" />
+    </>
+  ),
+  // Caméra : corps rectangulaire + objectif en biseau. Lisible dès 14px,
+  // contrairement à une pellicule dont les perforations se bouchent.
+  video: (
+    <>
+      <rect x="2.5" y="6" width="13" height="12" rx="3" />
+      <path d="M15.5 11l6-3.2v8.4l-6-3.2z" />
     </>
   ),
 };
@@ -323,6 +332,11 @@ export function Navbar() {
           </nav>
 
           <div className="row center gap-3 nav-desktop">
+            {/* Accès aux tutoriels vidéo — avant les CTA de compte :
+                on regarde avant de s'engager. */}
+            <Link className="btn btn-sm btn-ghost" href="/tutoriels">
+              <Icon name="video" size={15} /> Vidéos
+            </Link>
             {showLogout ? (
               <button
                 className="btn btn-sm btn-primary"
@@ -410,6 +424,11 @@ export function Navbar() {
           >
             <span style={{ display: "inline-block" }}>
               Contact
+            </span>
+          </button>
+          <button className="drawer-link" onClick={() => go("/tutoriels")}>
+            <span className="row center" style={{ gap: 8 }}>
+              <Icon name="video" size={16} /> Vidéos
             </span>
           </button>
           <div className="drawer-ctas">
