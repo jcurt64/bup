@@ -329,14 +329,14 @@ export function Navbar() {
             >
               Contact
             </Link>
+            {/* Vidéos : entre les liens accentués et les CTA de compte —
+                on regarde avant de s'engager. */}
+            <Link className="btn-videos" href="/tutoriels">
+              <Icon name="video" size={15} /> Vidéos
+            </Link>
           </nav>
 
           <div className="row center gap-3 nav-desktop">
-            {/* Accès aux tutoriels vidéo — avant les CTA de compte :
-                on regarde avant de s'engager. */}
-            <Link className="btn btn-sm btn-ghost" href="/tutoriels">
-              <Icon name="video" size={15} /> Vidéos
-            </Link>
             {showLogout ? (
               <button
                 className="btn btn-sm btn-primary"
@@ -363,19 +363,30 @@ export function Navbar() {
             )}
           </div>
 
-          <button
-            className="hamburger"
-            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
-            aria-expanded={open}
-            aria-controls="mobile-drawer"
-            onClick={() => setOpen((v) => !v)}
-          >
-            <span className="hamburger-bars" aria-hidden>
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+          {/* Sous 880px la nav centrée disparaît : le bouton Vidéos reste
+              néanmoins dans l'en-tête, à gauche du hamburger. Le conteneur
+              est masqué au-dessus du seuil pour ne pas peser comme un
+              troisième élément flex et déséquilibrer le header desktop. */}
+          <div className="nav-mobile-actions">
+            <Link className="btn-videos btn-videos-mobile" href="/tutoriels">
+              <Icon name="video" size={15} />{" "}
+              <span className="btn-videos-label">Vidéos</span>
+            </Link>
+
+            <button
+              className="hamburger"
+              aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+              aria-expanded={open}
+              aria-controls="mobile-drawer"
+              onClick={() => setOpen((v) => !v)}
+            >
+              <span className="hamburger-bars" aria-hidden>
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
