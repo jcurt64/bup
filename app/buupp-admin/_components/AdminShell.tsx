@@ -149,8 +149,14 @@ export default function AdminShell({
             onClick={() => setDrawerOpen(false)}
           />
         )}
+        {/* `overflow-hidden` + hauteur bornée : la liste de liens défile
+            dans son propre conteneur (voir plus bas) et le bloc identité +
+            déconnexion reste collé en bas. Sans cela, avec 13 entrées de
+            menu, le bouton « Se déconnecter » passait sous la ligne de
+            flottaison sur un écran d'ordinateur portable — et comme rien
+            ne défilait, il devenait tout simplement inatteignable. */}
         <nav
-          className="relative flex flex-col gap-1 p-4 lg:h-screen lg:sticky lg:top-0 w-[260px] max-w-[85vw] lg:w-auto"
+          className="relative flex flex-col gap-1 p-4 h-full lg:h-screen lg:sticky lg:top-0 w-[260px] max-w-[85vw] lg:w-auto overflow-hidden"
           style={{
             background: "var(--paper)",
             borderRight: "1px solid var(--line)",
@@ -201,6 +207,10 @@ export default function AdminShell({
             </div>
           </div>
 
+          {/* Zone défilante : `min-h-0` est indispensable, sans lui un
+              enfant flex refuse de rétrécir sous sa hauteur de contenu et
+              le débordement repart vers le bas. */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
           {NAV_SECTIONS.map((section, si) => (
             <div key={section.title} className={si > 0 ? "mt-4" : ""}>
               <div
@@ -283,8 +293,11 @@ export default function AdminShell({
               </div>
             </div>
           ))}
+          </div>
+          {/* Pied de barre : toujours visible, quelle que soit la hauteur
+              de l'écran ou le nombre d'entrées de menu. */}
           <div
-            className="mt-auto pt-4 flex flex-col gap-2.5"
+            className="shrink-0 pt-4 flex flex-col gap-2.5"
             style={{ borderTop: "1px solid var(--line)" }}
           >
             <div className="flex items-center gap-2.5 px-1">
