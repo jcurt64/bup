@@ -1,10 +1,15 @@
 /**
- * POST /api/admin/digest?severity=warning|info|daily
+ * GET|POST /api/admin/digest?severity=warning|info|daily
  *
  * Cron : `daily` une fois par jour à 18:00 (Vercel Hobby ne permet
  * qu'un cron quotidien). `warning` et `info` restent supportés pour les
  * déclenchements manuels (curl + x-admin-secret) si on veut un digest
  * ad-hoc à granularité plus fine.
+ *
+ * ⚠ Les crons Vercel appellent le endpoint en **GET** : les deux verbes
+ * doivent rester exportés. Tant que seul POST l'était, le cron répondait
+ * 405 et TOUS les traitements accrochés ci-dessous (bascule CNIL, bonus
+ * fondateur, clôtures, purges) ne tournaient jamais.
  *
  * Modes :
  *   - warning → fenêtre = 1h, severity = warning
@@ -13,10 +18,10 @@
  *
  * Trace `system.digest_sent` dans admin_events pour la page Santé.
  *
- * Auth : x-admin-secret (le cron tourne sans session Clerk).
+ * Auth : `hasCronAuthorization` (le cron tourne sans session Clerk).
  */
 import { NextResponse } from "next/server";
-import { hasAdminSecret } from "@/lib/admin/access";
+import { hasCronAuthorization } from "@/lib/admin/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendAdminDigest } from "@/lib/email/admin-digest";
 import { recordEvent } from "@/lib/admin/events/record";
@@ -35,8 +40,17 @@ const TWENTY_FOUR_HOURS = 24 * HOUR;
 
 type Mode = "warning" | "info" | "daily";
 
+export async function GET(req: Request) {
+  return runDigest(req);
+}
+
 export async function POST(req: Request) {
-  if (!hasAdminSecret(req)) return new Response("Not Found", { status: 404 });
+  return runDigest(req);
+}
+
+async function runDigest(req: Request) {
+  if (!hasCronAuthorization(req))
+    return new Response("Not Found", { status: 404 });
 
   const url = new URL(req.url);
   const raw = url.searchParams.get("severity");

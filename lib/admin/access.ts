@@ -10,8 +10,11 @@
  *     l'env `ADMIN_EMAILS` (séparée par virgules, insensible à la casse).
  *
  *  2. **Header `x-admin-secret`** (`hasAdminSecret`) — utilisé pour les
- *     déclencheurs machine (cron Vercel pour les digests, scripts CLI).
+ *     déclencheurs machine (scripts CLI, curl).
  *     L'env `BUUPP_ADMIN_SECRET` doit être définie côté serveur.
+ *
+ *  3. **Cron Vercel** (`hasCronAuthorization`) — la plateforme appelle le
+ *     endpoint sans en-tête maison ; cf. le commentaire de la fonction.
  *
  * Politique fail-closed : si une env est manquante, l'accès est refusé.
  */
@@ -39,6 +42,36 @@ export function hasAdminSecret(req: Request): boolean {
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
     null;
   return Boolean(provided) && provided === expected;
+}
+
+/**
+ * Autorise une invocation de cron Vercel.
+ *
+ * Vercel appelle les crons en **GET**, sans header maison : le secret
+ * `x-admin-secret` ne peut donc pas être transmis. Trois voies acceptées,
+ * de la plus forte à la plus faible :
+ *
+ *  1. `hasAdminSecret` — déclenchement manuel (curl, script).
+ *  2. `Authorization: Bearer $CRON_SECRET` — Vercel ajoute cet en-tête
+ *     automatiquement dès que l'env `CRON_SECRET` est définie sur le
+ *     projet. C'est la voie recommandée : la définir suffit.
+ *  3. En-tête `x-vercel-cron` — posé par la plateforme sur les
+ *     invocations de cron et écrasé sur les requêtes entrantes externes.
+ *     Repli utilisé tant que `CRON_SECRET` n'est pas définie, pour que le
+ *     cron ne soit jamais silencieusement inopérant.
+ */
+export function hasCronAuthorization(req: Request): boolean {
+  if (hasAdminSecret(req)) return true;
+
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const provided = req.headers
+      .get("authorization")
+      ?.replace(/^Bearer\s+/i, "");
+    if (provided && provided === cronSecret) return true;
+  }
+
+  return Boolean(req.headers.get("x-vercel-cron"));
 }
 
 /**
