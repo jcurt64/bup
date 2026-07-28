@@ -56,9 +56,10 @@ export function hasAdminSecret(req: Request): boolean {
  *     automatiquement dès que l'env `CRON_SECRET` est définie sur le
  *     projet. C'est la voie recommandée : la définir suffit.
  *  3. En-tête `x-vercel-cron` — posé par la plateforme sur les
- *     invocations de cron et écrasé sur les requêtes entrantes externes.
- *     Repli utilisé tant que `CRON_SECRET` n'est pas définie, pour que le
- *     cron ne soit jamais silencieusement inopérant.
+ *     invocations de cron. Repli utilisé UNIQUEMENT si `CRON_SECRET`
+ *     n'est pas définie, pour que le cron ne soit jamais silencieusement
+ *     inopérant faute d'env. Dès que l'env existe, on exige la preuve
+ *     forte : un en-tête seul ne suffit plus.
  */
 export function hasCronAuthorization(req: Request): boolean {
   if (hasAdminSecret(req)) return true;
@@ -68,7 +69,7 @@ export function hasCronAuthorization(req: Request): boolean {
     const provided = req.headers
       .get("authorization")
       ?.replace(/^Bearer\s+/i, "");
-    if (provided && provided === cronSecret) return true;
+    return Boolean(provided) && provided === cronSecret;
   }
 
   return Boolean(req.headers.get("x-vercel-cron"));

@@ -75,6 +75,17 @@ describe("hasCronAuthorization", () => {
     expect(hasCronAuthorization(req({ "x-vercel-cron": "1" }))).toBe(true);
   });
 
+  it("n'accepte plus x-vercel-cron seul dès que CRON_SECRET est définie", () => {
+    delete process.env.BUUPP_ADMIN_SECRET;
+    process.env.CRON_SECRET = "cron-token";
+    expect(hasCronAuthorization(req({ "x-vercel-cron": "1" }))).toBe(false);
+    expect(
+      hasCronAuthorization(
+        req({ "x-vercel-cron": "1", authorization: "Bearer cron-token" }),
+      ),
+    ).toBe(true);
+  });
+
   it("rejette une requête anonyme", () => {
     process.env.BUUPP_ADMIN_SECRET = "s3cret";
     process.env.CRON_SECRET = "cron-token";
