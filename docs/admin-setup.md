@@ -24,8 +24,11 @@ select * from pg_publication_tables where pubname = 'supabase_realtime' and tabl
 
 ## 3. Cron Vercel
 
-`vercel.json` déclare **un** cron quotidien (limite du plan Hobby) :
-`GET /api/admin/digest?severity=daily` à 18:00 UTC. Il porte aussi, en
+`vercel.json` déclare **un** cron : `GET /api/admin/digest?severity=daily`
+à 18:00 UTC. En Hobby, chaque cron tourne au plus **1×/jour** et l'heure
+n'est tenue qu'à **±59 min** (le run de 18:00 peut partir jusqu'à 18:59) ;
+en revanche le plan autorise jusqu'à **100 crons par projet** — c'est la
+fréquence qui est plafonnée, pas le nombre. Il porte aussi, en
 piggyback, la bascule CNIL, la synchro du bonus fondateur, la levée des
 restrictions « non-réponse », les clôtures de campagne et la purge du
 journal des révélations — s'il ne tourne pas, tout cela s'arrête.

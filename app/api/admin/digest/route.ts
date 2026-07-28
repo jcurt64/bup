@@ -1,10 +1,11 @@
 /**
  * GET|POST /api/admin/digest?severity=warning|info|daily
  *
- * Cron : `daily` une fois par jour à 18:00 (Vercel Hobby ne permet
- * qu'un cron quotidien). `warning` et `info` restent supportés pour les
- * déclenchements manuels (curl + x-admin-secret) si on veut un digest
- * ad-hoc à granularité plus fine.
+ * Cron : `daily` une fois par jour à 18:00 UTC — en Hobby, chaque cron
+ * tourne au plus 1×/jour et l'heure n'est garantie qu'à ±59 min.
+ * `warning` et `info` restent supportés pour les déclenchements manuels
+ * (curl + x-admin-secret) si on veut un digest ad-hoc à granularité plus
+ * fine.
  *
  * ⚠ Les crons Vercel appellent le endpoint en **GET** : les deux verbes
  * doivent rester exportés. Tant que seul POST l'était, le cron répondait
@@ -104,9 +105,11 @@ async function runDigest(req: Request) {
   });
 
   // Piggyback CNIL : la bascule du 15 juillet 2026 (reset des consentements
-  // implicites) ne peut pas avoir son propre cron sur le plan Hobby (limite
-  // 1/jour, déjà utilisé). On l'attache donc à ce cron quotidien qui tourne
-  // tous les jours à 18:00 UTC. La fonction est gardée par date + idempotence
+  // implicites) n'a pas besoin de tourner plus d'une fois par jour, on
+  // l'attache donc à ce cron quotidien. (Hobby autorise jusqu'à 100 crons
+  // par projet — c'est la FRÉQUENCE qui est plafonnée à 1×/jour, pas le
+  // nombre : un cron dédié resterait possible si on voulait les séparer.)
+  // La fonction est gardée par date + idempotence
   // (event admin), donc elle ne fait rien tant qu'on n'est pas le 15/07/2026,
   // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
   let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
