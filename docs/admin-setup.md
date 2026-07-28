@@ -24,9 +24,20 @@ select * from pg_publication_tables where pubname = 'supabase_realtime' and tabl
 
 ## 3. Cron Vercel
 
-`vercel.json` déclare deux crons. Sur Vercel → Settings → Environment Variables :
+`vercel.json` déclare **un** cron quotidien (limite du plan Hobby) :
+`GET /api/admin/digest?severity=daily` à 18:00 UTC. Il porte aussi, en
+piggyback, la bascule CNIL, la synchro du bonus fondateur, la levée des
+restrictions « non-réponse », les clôtures de campagne et la purge du
+journal des révélations — s'il ne tourne pas, tout cela s'arrête.
+
+Sur Vercel → Settings → Environment Variables :
 - `BUUPP_ADMIN_SECRET` = la même valeur en prod et preview
 - `CRON_SECRET` = idem
+
+⚠ Les crons Vercel appellent en **GET**. Le route handler doit exporter
+`GET` (et pas seulement `POST`), sinon la plateforme reçoit un 405 et le
+cron est silencieusement inopérant. Contrôle de bonne santé : un event
+`system.digest_sent` doit apparaître chaque jour dans `admin_events`.
 
 ## 4. Premier accès
 

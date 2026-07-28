@@ -49,3 +49,4 @@ next-env.d.ts
 
 # Claude Code (settings locaux + worktrees)
 .claude/
+.clerk-migration-mapping.jsonl
