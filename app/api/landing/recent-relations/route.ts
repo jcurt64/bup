@@ -48,8 +48,11 @@ export async function GET() {
   const { data, error } = await admin
     .from("relations")
     .select(
+      // `relations` a DEUX FK vers pro_accounts (pro_account_id et
+      // evaluated_by_pro_id) : sans nommer la contrainte, PostgREST
+      // refuse l'embed (PGRST201) et le bandeau se vide silencieusement.
       `id, decided_at, reward_cents,
-       pro_accounts ( secteur, ville ),
+       pro_accounts!relations_pro_account_id_fkey ( secteur, ville ),
        prospects:prospect_id ( prospect_identity ( prenom, nom ) )`,
     )
     .in("status", ["accepted", "settled"])

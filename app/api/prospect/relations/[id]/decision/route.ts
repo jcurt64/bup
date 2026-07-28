@@ -326,9 +326,12 @@ async function sendDecisionEmail(
   const { data, error } = await admin
     .from("relations")
     .select(
+      // `relations` a DEUX FK vers pro_accounts (pro_account_id et
+      // evaluated_by_pro_id) : sans nommer la contrainte, PostgREST
+      // refuse l'embed (PGRST201) et l'e-mail de décision ne part jamais.
       `id, reward_cents, motif, founder_bonus_applied, founder_vip_bonus_applied,
        campaigns ( ends_at, code ),
-       pro_accounts ( raison_sociale, secteur ),
+       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur ),
        prospects ( prospect_identity ( email, prenom ) )`,
     )
     .eq("id", relationId)
