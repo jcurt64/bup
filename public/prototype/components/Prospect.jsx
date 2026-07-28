@@ -172,51 +172,6 @@ function ProspectProvider({ children }) {
   const [pendingRelations, setPendingRelations] = useState([]);
   const [historyRelations, setHistoryRelations] = useState([]);
   const [relationsHydrated, setRelationsHydrated] = useState(false);
-  // Décisions prises sur les flash deals fictifs côté home (localStorage,
-  // clé alignée sur app/page.tsx). Fusionnées dans l'historique pour
-  // garder une UX cohérente : si l'utilisateur accepte/refuse un mock
-  // depuis la home, il le retrouve ici.
-  const [mockHistory, setMockHistory] = useState([]);
-
-  const readMockHistory = React.useCallback(() => {
-    try {
-      const raw = window.localStorage.getItem('bupp:mock-deal-decisions:v1');
-      if (!raw) return [];
-      const store = JSON.parse(raw) || {};
-      return Object.values(store).map((rec) => {
-        const reward = Number(rec.rewardCents || 0) / 100;
-        const tier = Math.min(5, Math.max(1, Math.max(...(rec.requiredTiers || [1])) || 1));
-        const isAccepted = rec.decision === 'accepted';
-        return {
-          id: rec.dealId,
-          campaignId: rec.dealId,
-          date: rec.decidedAt,
-          proName: rec.proName || '—',
-          pro: rec.proName || '—',
-          sector: rec.proSector || '',
-          motif: rec.name || '',
-          brief: rec.brief || null,
-          reward,
-          tier,
-          timer: 'Démo',
-          startDate: rec.decidedAt,
-          endDate: rec.endsAt,
-          decision: isAccepted ? 'Acceptée' : 'Refusée',
-          status: isAccepted ? 'En séquestre' : '—',
-          relationStatus: rec.decision,
-          gain: isAccepted ? reward : null,
-          campaignStatus: 'active',
-          campaignOpen: false,
-          campaignActive: false,
-          isFlashDeal: true,
-          isMockDemo: true,
-        };
-      });
-    } catch (e) {
-      return [];
-    }
-  }, []);
-
   const refetchRelations = React.useCallback(async () => {
     try {
       const r = await fetch('/api/prospect/relations', { cache: 'no-store' });
@@ -228,19 +183,6 @@ function ProspectProvider({ children }) {
     finally { setRelationsHydrated(true); }
   }, []);
   useEffect(() => { refetchRelations(); }, [refetchRelations]);
-
-  // Hydratation initiale + écoute des changements (multi-tab via
-  // `storage`, même tab via `bupp:mock-deal-decisions-changed`).
-  useEffect(() => {
-    const sync = () => setMockHistory(readMockHistory());
-    sync();
-    window.addEventListener('bupp:mock-deal-decisions-changed', sync);
-    window.addEventListener('storage', sync);
-    return () => {
-      window.removeEventListener('bupp:mock-deal-decisions-changed', sync);
-      window.removeEventListener('storage', sync);
-    };
-  }, [readMockHistory]);
 
   // Rate-limit client (aligné serveur) : 1 décision toutes les 5 min
   // PAR SOLLICITATION. Même clé localStorage que HomeClient.tsx (v2) pour
@@ -517,16 +459,15 @@ function ProspectProvider({ children }) {
     setProfile(p => ({ ...p, categories: next, allCategories: false }));
     persistPreferences({ allCategories: false, categories: [...next] });
   };
-  // Fusion API + mocks, triés par date de décision desc — l'ordre
-  // d'affichage de l'historique reste cohérent.
+  // Historique trié par date de décision desc.
   const mergedHistory = React.useMemo(() => {
-    const all = [...(historyRelations || []), ...mockHistory];
+    const all = [...(historyRelations || [])];
     return all.sort((a, b) => {
       const da = new Date(a.date || 0).getTime();
       const db = new Date(b.date || 0).getTime();
       return db - da;
     });
-  }, [historyRelations, mockHistory]);
+  }, [historyRelations]);
 
   return (
     <ProspectCtx.Provider value={{
@@ -6732,10 +6673,8 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
         </div>
 
         {/* Footer secondaire : signalement (action discrète, mise en
-            retrait au-dessus des actions principales). Masqué sur les
-            démos flash deal (isMockDemo) — ces "relations" sont stockées
-            uniquement en localStorage, l'API DB ne les connaît pas. */}
-        {!relation.isMockDemo && (
+            retrait au-dessus des actions principales). */}
+        {(
           <div style={{
             borderTop: '1px solid var(--line)',
             paddingTop: 12, marginTop: 4,

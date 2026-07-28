@@ -4,13 +4,12 @@ import {
   useState,
   useEffect,
   useRef,
-  useMemo,
   Fragment,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth, useClerk } from "@clerk/nextjs";
+import { useClerk } from "@clerk/nextjs";
 import { useRoleGuard, useCurrentRole } from "./RoleGuard";
 import DemoModal from "./DemoModal";
 import { Icon, Navbar, Footer, type IconName } from "./SiteChrome";
@@ -603,21 +602,10 @@ function fmtMultiplier(m: number): string {
   return `×${String(m).replace(".", ",")}`;
 }
 
-// ─── Persistance des décisions sur les flash deals fictifs ────────
-// Les mocks ne créent pas de relation en base. Pour que (a) la modale
-// affiche "déjà acceptée" / "déjà refusée" si l'utilisateur reclique
-// dessus, et (b) le prototype prospect puisse afficher ces décisions
-// dans l'onglet "Mises en relation", on les persiste dans
-// localStorage. Même clé lue par /public/prototype/components/Prospect.jsx.
-const MOCK_DECISIONS_KEY = "bupp:mock-deal-decisions:v1";
-const MOCK_DECISIONS_EVENT = "bupp:mock-deal-decisions-changed";
-
-// ─── Rate-limit client (anti-spam local pour mocks ET vrais decisions) ──
+// ─── Rate-limit client (pré-check UX des décisions) ───────────────
 // Aligné sur le rate-limit serveur (/api/prospect/relations/[id]/decision) :
-// 1 décision toutes les 5 min PAR SOLLICITATION. Les mocks bypassent le
-// serveur — sans ce guard local, l'utilisateur peut spammer Accept/Refuse
-// en boucle. Le guard sert aussi de pré-check UX pour les vraies
-// décisions (évite un aller-retour réseau et affiche un countdown).
+// 1 décision toutes les 5 min PAR SOLLICITATION. Sert de pré-check côté
+// UI : évite un aller-retour réseau et affiche un countdown.
 //
 // Stockage : map { <dealId | relationId>: timestamp } dans localStorage
 // (clé v2 pour invalider l'ancien store global v1).
@@ -672,212 +660,10 @@ function buildCooldownMessage(remainingMs: number): string {
   return `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${formatCooldownMs(remainingMs)}.`;
 }
 
-type MockDecisionRecord = {
-  decision: "accepted" | "refused";
-  decidedAt: string;
-  // Snapshot suffisant pour reconstruire un item d'historique côté
-  // prototype, sans dépendance directe au composant home.
-  dealId: string;
-  proName: string;
-  proSector: string;
-  name: string;
-  brief: string | null;
-  multiplier: number;
-  rewardCents: number;
-  requiredTiers: number[];
-  requiredTierKeys: string[];
-  endsAt: string;
-};
-type MockDecisionStore = Record<string, MockDecisionRecord>;
 
-function readMockDecisions(): MockDecisionStore {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(MOCK_DECISIONS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null
-      ? (parsed as MockDecisionStore)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeMockDecision(
-  deal: Deal,
-  decision: "accepted" | "refused" | null,
-) {
-  if (typeof window === "undefined") return;
-  try {
-    const store = readMockDecisions();
-    if (decision === null) {
-      delete store[deal.id];
-    } else {
-      store[deal.id] = {
-        decision,
-        decidedAt: new Date().toISOString(),
-        dealId: deal.id,
-        proName: deal.proName ?? "",
-        proSector: deal.proSector ?? "",
-        name: deal.name,
-        brief: deal.brief,
-        multiplier: deal.multiplier,
-        rewardCents: deal.costPerContactCents,
-        requiredTiers: deal.requiredTiers,
-        requiredTierKeys: deal.requiredTierKeys,
-        endsAt: deal.endsAt,
-      };
-    }
-    window.localStorage.setItem(MOCK_DECISIONS_KEY, JSON.stringify(store));
-    window.dispatchEvent(new Event(MOCK_DECISIONS_EVENT));
-  } catch {
-    /* quota / storage indisponible — silencieux, c'est de la démo */
-  }
-}
-
-function buildMockDeals(now: number): Deal[] {
-  const inMin = (m: number) => new Date(now + m * 60_000).toISOString();
-  return [
-    {
-      id: "mock-plomberie-st-antoine",
-      name: "Prospects chauffage & sanitaires",
-      endsAt: inMin(47),
-      brief:
-        "Plombier-chauffagiste cherche propriétaires avec projet de remplacement chaudière dans les 6 mois.",
-      multiplier: 3,
-      costPerContactCents: 1200,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2],
-      requiredTierKeys: ["identity", "localisation"],
-      proName: "Plomberie Saint-Antoine",
-      proSector: "Chauffage & sanitaires",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-cap-conseil",
-      name: "Acquéreurs primo-accédants",
-      endsAt: inMin(53),
-      brief:
-        "Cabinet de gestion de patrimoine : prospects en projet d'achat immobilier dans les 12 mois.",
-      multiplier: 4,
-      costPerContactCents: 850,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 5],
-      requiredTierKeys: ["identity", "localisation", "patrimoine"],
-      proName: "Cap Conseil",
-      proSector: "Immobilier & patrimoine",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-volets-bleus",
-      name: "Cuisine équipée — devis sur mesure",
-      endsAt: inMin(38),
-      brief:
-        "Cuisiniste artisan : recherche propriétaires en projet de rénovation cuisine, budget 8 000 € et plus.",
-      multiplier: 2,
-      costPerContactCents: 680,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 3],
-      requiredTierKeys: ["identity", "localisation", "vie"],
-      proName: "Atelier des Volets Bleus",
-      proSector: "Cuisine & aménagement",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-solaria",
-      name: "Bilan énergétique solaire offert",
-      endsAt: inMin(42),
-      brief:
-        "Installateur photovoltaïque : prospects propriétaires intéressés par l'auto-consommation solaire.",
-      multiplier: 3,
-      costPerContactCents: 1020,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 5],
-      requiredTierKeys: ["identity", "localisation", "patrimoine"],
-      proName: "Solaria",
-      proSector: "Énergies renouvelables",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-mutuelle-aquitania",
-      name: "Mutuelle santé senior — devis gratuit",
-      endsAt: inMin(56),
-      brief:
-        "Courtier en assurance recherche prospects 55-70 ans souhaitant comparer leur mutuelle santé actuelle.",
-      multiplier: 3,
-      costPerContactCents: 940,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 4],
-      requiredTierKeys: ["identity", "localisation", "professionnel"],
-      proName: "Aquitania Mutuelle",
-      proSector: "Assurance & prévoyance",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-autoplus",
-      name: "Reprise véhicule — offre cash sous 24 h",
-      endsAt: inMin(34),
-      brief:
-        "Concession multimarque : prospects propriétaires d'un véhicule de moins de 8 ans envisageant une revente.",
-      multiplier: 2,
-      costPerContactCents: 720,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 3],
-      requiredTierKeys: ["identity", "localisation", "vie"],
-      proName: "AutoPlus Béarn",
-      proSector: "Automobile",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-    {
-      id: "mock-coach-attitude",
-      name: "Coaching nutrition — bilan offert",
-      endsAt: inMin(49),
-      brief:
-        "Coach nutrition diplômée : prospects 30-50 ans en quête d'un suivi alimentaire personnalisé.",
-      multiplier: 4,
-      costPerContactCents: 580,
-      founderBonusApplied: false,
-      founderVipBonusApplied: false,
-      requiredTiers: [1, 2, 3],
-      requiredTierKeys: ["identity", "localisation", "vie"],
-      proName: "Coach Attitude",
-      proSector: "Bien-être & santé",
-      isAuthenticated: false,
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: null,
-    },
-  ];
-}
 
 function FlashDeal() {
   const router = useRouter();
-  const { isSignedIn } = useAuth();
   const { guard, modal: roleModal } = useRoleGuard();
   // Un compte professionnel peut consulter le DÉTAIL d'une offre (flash
   // deal / campagne) mais ne peut PAS l'accepter — ce sont les prospects
@@ -891,28 +677,6 @@ function FlashDeal() {
   const requestOpenDeal = (id: string) => {
     setOpenDealId(id);
   };
-  // Mock deals générés une seule fois au montage — leurs timers
-  // décomptent normalement et restent stables entre re-renders.
-  const [mockSeedNow] = useState<number>(() => Date.now());
-  const mockDeals = useMemo(
-    () => buildMockDeals(mockSeedNow),
-    [mockSeedNow],
-  );
-  // Décisions déjà prises sur les mocks (localStorage). On rerend
-  // quand le store change pour que la modale, si on rouvre le même
-  // mock, reflète l'état "déjà acceptée" / "déjà refusée".
-  const [mockDecisions, setMockDecisions] = useState<MockDecisionStore>({});
-  useEffect(() => {
-    const sync = () => setMockDecisions(readMockDecisions());
-    sync();
-    window.addEventListener(MOCK_DECISIONS_EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(MOCK_DECISIONS_EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
   // Reprise post-authentification : si la home est ouverte avec
   // `?deal=<id>`, on ré-ouvre la modale correspondante dès que les
   // deals sont chargés. Le param est consommé une seule fois et l'URL
@@ -971,31 +735,11 @@ function FlashDeal() {
 
   // Filtre les deals dont le timer est déjà à 0 — on évite de garder à
   // l'écran un item qui aurait expiré entre deux refetch.
-  const realDeals = (deals ?? []).filter(
+  // Uniquement de vraies campagnes flash : sans campagne active, le
+  // bandeau ne s'affiche pas du tout (aucun repli fictif).
+  const liveDeals = (deals ?? []).filter(
     (d) => new Date(d.endsAt).getTime() - now > 0,
   );
-  // Tant que l'API n'a pas répondu (`deals === null`), on attend.
-  // Une fois chargée, si aucune vraie campagne n'est active, on retombe
-  // sur 4 deals fictifs pour démo / mise en scène de la home.
-  const useFallback = deals !== null && realDeals.length === 0;
-  // Mocks injectés client-side : `isAuthenticated` est forcé à false
-  // dans buildMockDeals(). On le réaligne ici sur l'état Clerk réel
-  // pour que le modal n'affiche pas le bouton "Créer un compte" à un
-  // utilisateur déjà connecté. On hydrate également `relationStatus`
-  // depuis le store local pour qu'un mock déjà accepté/refusé bascule
-  // automatiquement en mode "already_*" dans la modale.
-  const liveDeals = useFallback
-    ? mockDeals
-        .filter((d) => new Date(d.endsAt).getTime() - now > 0)
-        .map((d) => {
-          const rec = mockDecisions[d.id];
-          return {
-            ...d,
-            isAuthenticated: !!isSignedIn,
-            relationStatus: rec ? rec.decision : null,
-          };
-        })
-    : realDeals;
   if (liveDeals.length === 0) return null;
 
   // Durée d'animation proportionnelle au nombre de deals — plus il y en a,
@@ -1138,10 +882,6 @@ function FlashDealModal({
   goAuth: () => void;
   goDonnees: (tier?: number) => void;
 }) {
-  // Mock deals injectés sur la home quand aucune campagne réelle n'est
-  // active : ils n'existent pas en base, donc accept/refuse est simulé
-  // localement (cf. decide()) pour préserver l'UX complète.
-  const isMock = deal.id.startsWith("mock-");
   const { signOut } = useClerk();
   const [submitting, setSubmitting] = useState<"accept" | "refuse" | null>(
     null,
@@ -1186,7 +926,6 @@ function FlashDealModal({
   else if (!deal.isAuthenticated) mode = "auth";
   else if (deal.relationStatus === "pending") mode = "decide";
   else if (deal.relationStatus) mode = "already_" + deal.relationStatus;
-  else if (isMock) mode = "decide";
   else if (
     Array.isArray(deal.missingTierKeys) &&
     deal.missingTierKeys.length > 0
@@ -1241,29 +980,11 @@ function FlashDealModal({
       : undefined;
 
   const decide = async (action: "accept" | "refuse") => {
-    // Rate-limit client (mocks ET vraies décisions) : 1 / 5 min — aligné
-    // sur le rate-limit serveur. Les mocks bypassent l'API, donc sans
-    // ce guard l'utilisateur pouvait spammer Accept/Refuse.
+    // Pré-check du rate-limit serveur : 1 décision / 5 min. Évite un
+    // aller-retour réseau et affiche directement le countdown.
     const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
-      return;
-    }
-    // Deals fictifs : pas de relation en base, on simule la décision
-    // pour rendre le flux complet utilisable en démo. La décision est
-    // persistée dans localStorage pour (a) afficher l'état "déjà
-    // acceptée/refusée" si la modale est rouverte et (b) que le
-    // prototype prospect puisse afficher ces décisions dans l'onglet
-    // Mises en relation.
-    if (isMock) {
-      setSubmitting(action);
-      setError(null);
-      setTimeout(() => {
-        writeMockDecision(deal, action === "accept" ? "accepted" : "refused");
-        setLastDecisionAtFor(deal.id, Date.now());
-        setSubmitting(null);
-        onClose();
-      }, 400);
       return;
     }
     if (!deal.relationId) return;
@@ -1291,23 +1012,11 @@ function FlashDealModal({
 
   // Bascule accepted → refused tant que la campagne tourne encore.
   // Côté API, l'endpoint /decision accepte directement `refuse` depuis
-  // un statut accepted (RPC refund_relation_tx). Pour les mocks, on
-  // ré-écrit simplement la décision dans localStorage.
+  // un statut accepted (RPC refund_relation_tx).
   const refuseAfterAccepted = async () => {
     const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
-      return;
-    }
-    if (isMock) {
-      setSubmitting("refuse");
-      setError(null);
-      setTimeout(() => {
-        writeMockDecision(deal, "refused");
-        setLastDecisionAtFor(deal.id, Date.now());
-        setSubmitting(null);
-        onClose();
-      }, 400);
       return;
     }
     if (!deal.relationId) return;
@@ -1340,18 +1049,6 @@ function FlashDealModal({
     const left = decisionCooldownLeftMs(deal.id);
     if (left > 0) {
       setError(buildCooldownMessage(left));
-      return;
-    }
-    // Mock : on bascule directement la décision persistée en "accepted".
-    if (isMock) {
-      setSubmitting("accept");
-      setError(null);
-      setTimeout(() => {
-        writeMockDecision(deal, "accepted");
-        setLastDecisionAtFor(deal.id, Date.now());
-        setSubmitting(null);
-        onClose();
-      }, 400);
       return;
     }
     if (!deal.relationId) return;
