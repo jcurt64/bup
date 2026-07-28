@@ -332,9 +332,33 @@ export default clerkMiddleware(async (auth, request) => {
   // à un user non habilité qui aurait deviné l'URL).
   // La layout /buupp-admin re-vérifie côté RSC (ceinture + bretelles).
   if (request.nextUrl.pathname.startsWith("/buupp-admin")) {
-    const { userId, redirectToSignIn } = await auth();
+    const { userId } = await auth();
     if (!userId) {
-      return redirectToSignIn({ returnBackUrl: request.url });
+      // Redirection construite à la main plutôt que via redirectToSignIn :
+      // celui-ci est typé `never` et ne permet donc pas d'attacher un
+      // cookie. Le résultat est identique à ce que Clerk produisait
+      // (/connexion?redirect_url=…), le formulaire lisant ce paramètre
+      // pour ramener l'admin sur /buupp-admin après authentification.
+      //
+      // Le cookie ouvre /connexion pour CE parcours, au moment où l'admin
+      // le demande. Pendant le gel des accès, sans lui, la redirection
+      // rebondirait vers /liste-attente et le back-office deviendrait
+      // inatteignable — c'est de là que part le mail J-1.
+      //
+      // Ce n'est pas un affaiblissement : atteindre le formulaire de
+      // connexion ne donne aucun droit. L'autorisation reste Clerk +
+      // l'allowlist ADMIN_EMAILS, vérifiée juste en dessous, puis à
+      // nouveau dans la layout RSC.
+      const signInUrl = new URL("/connexion", request.url);
+      signInUrl.searchParams.set("redirect_url", request.url);
+      const res = NextResponse.redirect(signInUrl);
+      res.cookies.set(ACCESS_BYPASS_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 12,
+        path: "/",
+      });
+      return res;
     }
     // Email primaire : pas de claim custom dans le JWT par défaut → on
     // appelle Clerk côté serveur. Edge runtime OK pour clerkClient.
