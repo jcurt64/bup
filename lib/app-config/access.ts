@@ -24,6 +24,7 @@ import { unstable_cache } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const ACCESS_FLAG_TAG = "app-config:access-buttons";
+export const WAITLIST_FLAG_TAG = "app-config:waitlist-open";
 
 export const getAccessButtonsEnabled = unstable_cache(
   async (): Promise<boolean> => {
@@ -50,4 +51,36 @@ export const getAccessButtonsEnabled = unstable_cache(
   },
   [ACCESS_FLAG_TAG],
   { revalidate: 60, tags: [ACCESS_FLAG_TAG] },
+);
+
+/**
+ * Ouverture de la pré-inscription (liste d'attente).
+ *
+ * Drapeau distinct de `access_buttons_enabled` : la pré-inscription ouvre
+ * AVANT le lancement complet du service, les deux bascules n'ont donc pas
+ * lieu au même moment.
+ *
+ * Même politique de fail-open : si la base est illisible on laisse
+ * l'inscription ouverte plutôt que de la fermer sur un incident passager.
+ */
+export const getWaitlistOpen = unstable_cache(
+  async (): Promise<boolean> => {
+    try {
+      const admin = createSupabaseAdminClient();
+      const { data, error } = await admin
+        .from("app_config")
+        .select("waitlist_open")
+        .maybeSingle();
+      if (error) {
+        console.error("[app-config/waitlist] read failed", error);
+        return true;
+      }
+      return data?.waitlist_open !== false;
+    } catch (err) {
+      console.error("[app-config/waitlist] unexpected", err);
+      return true;
+    }
+  },
+  [WAITLIST_FLAG_TAG],
+  { revalidate: 60, tags: [WAITLIST_FLAG_TAG] },
 );

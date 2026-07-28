@@ -960,6 +960,62 @@
         cursor: default;
         transform: none;
       }
+      /* ─── Bouton gelé jusqu'à l'ouverture des pré-inscriptions ───────
+         Aligné sur `.frozen-cta` du site (app/globals.css). Un bouton
+         désactivé n'émet aucun événement de souris et ne les laisse pas
+         remonter : d'où `pointer-events: none` dessus, pour que le survol
+         soit capté par l'enveloppe qui porte l'infobulle. */
+      .frozen-cta {
+        position: relative;
+        display: flex;
+        width: 100%;
+        cursor: not-allowed;
+      }
+      .frozen-cta > .btn-wl {
+        pointer-events: none;
+        opacity: 0.45;
+        filter: saturate(0.6);
+        transform: none;
+      }
+      .frozen-cta::after {
+        content: attr(data-tip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%) translateY(4px);
+        padding: 6px 11px;
+        border-radius: 8px;
+        background: #0f1629;
+        color: #f7f4ec;
+        font-family: "Outfit", sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.2;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 60;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+      }
+      .frozen-cta::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 3px);
+        transform: translateX(-50%) translateY(4px);
+        border: 5px solid transparent;
+        border-top-color: #0f1629;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 60;
+      }
+      .frozen-cta:hover::after,
+      .frozen-cta:hover::before {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
       .btn-secondary {
         width: 100%;
         font-size: 13px;
@@ -2247,7 +2303,14 @@
                   <option>Autre</option>
                 </select>
               </div>
-              <button class="btn-wl" type="submit">Estimer mes gains →</button>
+              <!-- L'enveloppe reste neutre tant que les pré-inscriptions
+                   sont ouvertes ; le script ci-dessous lui ajoute la classe
+                   `frozen-cta` et l'infobulle quand elles sont fermées. -->
+              <span id="wl-submit-wrap" style="display: flex; width: 100%">
+                <button class="btn-wl" id="wl-submit" type="submit">
+                  Estimer mes gains →
+                </button>
+              </span>
               <p class="rgpd-notice">
                 En vous inscrivant, vous acceptez nos <a href="#">CGU</a> et
                 notre <a href="#">politique RGPD</a>. Vos données ne seront
@@ -3339,8 +3402,37 @@
       });
 
       /* ── Waitlist steps ─────────────────────────────────────────────────── */
+      // ─── Gel des pré-inscriptions ────────────────────────────────────
+      // `?waitlist-closed=1` est posé par le Server Component parent
+      // (app/liste-attente/page.tsx) d'après `app_config.waitlist_open`.
+      // Ce fichier étant un HTML statique, il n'a aucun autre moyen de
+      // connaître l'état. Le gel est doublé côté serveur : POST
+      // /api/waitlist refuse aussi, car ce fichier reste atteignable en
+      // direct, hors de son iframe.
+      const WAITLIST_CLOSED =
+        new URLSearchParams(window.location.search).get("waitlist-closed") ===
+        "1";
+
+      function applyWaitlistFreeze() {
+        if (!WAITLIST_CLOSED) return;
+        const wrap = document.getElementById("wl-submit-wrap");
+        const btn = document.getElementById("wl-submit");
+        if (!wrap || !btn) return;
+        wrap.classList.add("frozen-cta");
+        wrap.setAttribute("data-tip", "Actif au lancement");
+        btn.disabled = true;
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyWaitlistFreeze);
+      } else {
+        applyWaitlistFreeze();
+      }
+
       function goStep2(e) {
         if (e) e.preventDefault();
+        // Garde-fou : le bouton est déjà désactivé, mais un formulaire
+        // reste soumettable au clavier (Entrée dans un champ).
+        if (WAITLIST_CLOSED) return;
         userData.prenom = document.getElementById("inp-prenom").value;
         userData.nom = document.getElementById("inp-nom").value;
         userData.email = document.getElementById("inp-email").value;

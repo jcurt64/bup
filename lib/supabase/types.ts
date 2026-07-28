@@ -231,6 +231,7 @@ export type Database = {
           launch_at: string
           referrals_enabled: boolean
           updated_at: string | null
+          waitlist_open: boolean
         }
         Insert: {
           access_buttons_enabled?: boolean
@@ -238,6 +239,7 @@ export type Database = {
           launch_at: string
           referrals_enabled?: boolean
           updated_at?: string | null
+          waitlist_open?: boolean
         }
         Update: {
           access_buttons_enabled?: boolean
@@ -245,6 +247,7 @@ export type Database = {
           launch_at?: string
           referrals_enabled?: boolean
           updated_at?: string | null
+          waitlist_open?: boolean
         }
         Relationships: []
       }

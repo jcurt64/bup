@@ -12,6 +12,7 @@ import { sendWaitlistConfirmation } from "@/lib/email/waitlist";
 import { refCodeFromEmail } from "@/lib/waitlist/ref-code";
 import { isReferralOpen } from "@/lib/waitlist/referral";
 import { checkRateLimit, getClientIp, hashIp } from "@/lib/rate-limit/check";
+import { getWaitlistOpen } from "@/lib/app-config/access";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
@@ -66,6 +67,21 @@ function parseReferrerCode(input: unknown): string | null {
 }
 
 export async function POST(req: Request) {
+  // Pré-inscriptions fermées (`app_config.waitlist_open = false`) : on
+  // refuse AVANT toute écriture. Le gel côté bouton ne suffit pas — le
+  // HTML statique de la liste d'attente reste atteignable en direct, hors
+  // de son iframe, avec un bouton actif.
+  if (!(await getWaitlistOpen())) {
+    return NextResponse.json(
+      {
+        error: "waitlist_closed",
+        message:
+          "Les pré-inscriptions ne sont pas encore ouvertes. Revenez au lancement.",
+      },
+      { status: 403 },
+    );
+  }
+
   // Rate limit anti-flood : 5 inscriptions par IP / 60 secondes. Évite
   // qu'un attaquant inonde la table waitlist + saturise SMTP/Brevo. La
   // limite est suffisante pour les réinscriptions légitimes (déjà
