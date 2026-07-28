@@ -4,6 +4,7 @@ import {
   buildConflictUrl,
   parseRole,
   parseMode,
+  resolvePostLoginFallback,
 } from "@/lib/auth/postAuth";
 
 describe("resolvePostAuth", () => {
@@ -65,5 +66,22 @@ describe("parseMode", () => {
   it("défaut = signin (filet sûr → renvoie vers connexion)", () => {
     expect(parseMode(undefined)).toBe("signin");
     expect(parseMode("nimporte")).toBe("signin");
+  });
+});
+
+describe("resolvePostLoginFallback", () => {
+  // Régression du 28/07/2026 : après la remise à zéro de la base, tout
+  // compte Clerk survivant s'est retrouvé sans ligne prospect ni pro.
+  // L'ancienne implémentation renvoyait alors vers /connexion, qui
+  // court-circuite les déjà-signés vers /auth/post-login → boucle infinie
+  // (ERR_TOO_MANY_REDIRECTS) constatée en production.
+  it("sans rôle → la home, JAMAIS /connexion (boucle)", () => {
+    expect(resolvePostLoginFallback(null)).toBe("/");
+    expect(resolvePostLoginFallback(null)).not.toBe("/connexion");
+  });
+
+  it("rôle connu → espace correspondant", () => {
+    expect(resolvePostLoginFallback("pro")).toBe("/pro");
+    expect(resolvePostLoginFallback("prospect")).toBe("/prospect");
   });
 });

@@ -47,3 +47,24 @@ export function parseMode(raw: string | string[] | undefined): AuthMode {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return v === "signup" ? "signup" : "signin";
 }
+
+/**
+ * Destination d'un utilisateur authentifié arrivant sur /auth/post-login
+ * SANS intent exploitable (ni `?intent=`, ni cookie d'intent).
+ *
+ * ⚠️ Ne JAMAIS renvoyer vers `/connexion` ici. Cette page court-circuite
+ * les utilisateurs déjà signés vers /auth/post-login : la paire boucle
+ * indéfiniment (ERR_TOO_MANY_REDIRECTS). Le cas s'est produit en
+ * production le 28/07/2026 après la remise à zéro de la base — tous les
+ * comptes Clerk survivants se sont retrouvés sans ligne prospect ni pro,
+ * donc sans rôle, ce qui était jusque-là un état impossible.
+ *
+ * Sans rôle, la home est la seule destination sensée : c'est de là qu'on
+ * choisit « Je suis prospect » ou « Je suis professionnel ». Elle est
+ * publique, donc terminale — aucun risque de rebond.
+ */
+export function resolvePostLoginFallback(role: Role | null): string {
+  if (role === "pro") return "/pro";
+  if (role === "prospect") return "/prospect";
+  return "/";
+}

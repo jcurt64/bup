@@ -18,6 +18,7 @@ import { isAdminEmail } from "@/lib/admin/access";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
 import {
   resolvePostAuth,
+  resolvePostLoginFallback,
   buildConflictUrl,
   parseRole,
   parseMode,
@@ -288,17 +289,15 @@ export default clerkMiddleware(async (auth, request) => {
 
     const role = await getRoleFromDB(userId);
 
-    // Pas d'intent exploitable (hors parcours bouton — ne devrait pas
-    // arriver via l'UI) : on route au mieux selon le rôle DB.
+    // Pas d'intent exploitable (clic sur « Connexion » du menu, par
+    // exemple) : on route au mieux selon le rôle DB. Sans rôle, la
+    // destination est la home — surtout PAS /connexion, qui rebondit ici
+    // même et boucle. Cf. resolvePostLoginFallback.
     if (!intent) {
-      const dest =
-        role === "pro"
-          ? "/pro"
-          : role === "prospect"
-            ? "/prospect"
-            : "/connexion";
       return clearIntent(
-        NextResponse.redirect(new URL(dest, request.url)),
+        NextResponse.redirect(
+          new URL(resolvePostLoginFallback(role), request.url),
+        ),
       );
     }
 
