@@ -226,18 +226,21 @@ export type Database = {
       }
       app_config: {
         Row: {
+          access_buttons_enabled: boolean
           id: boolean
           launch_at: string
           referrals_enabled: boolean
           updated_at: string | null
         }
         Insert: {
+          access_buttons_enabled?: boolean
           id?: boolean
           launch_at: string
           referrals_enabled?: boolean
           updated_at?: string | null
         }
         Update: {
+          access_buttons_enabled?: boolean
           id?: boolean
           launch_at?: string
           referrals_enabled?: boolean

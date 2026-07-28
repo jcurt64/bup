@@ -11,6 +11,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
 import LogoutConfirmModal from "./LogoutConfirmModal";
+import { ACCESS_FROZEN_TOOLTIP } from "@/lib/app-config/access-ui";
 
 /**
  * Chrome partagée du site (en-tête + pied de page) extraite de HomeClient afin
@@ -187,7 +188,15 @@ export function Logo({
   return content;
 }
 
-export function Navbar() {
+/**
+ * `accessOpen = false` gèle les entrées vers l'inscription et la connexion
+ * pendant la période de pré-inscription : les boutons restent visibles mais
+ * inertes, avec l'infobulle « Actif au lancement » au survol. Piloté par
+ * `app_config.access_buttons_enabled` (cf. lib/app-config/access.ts), donc
+ * réversible sans redéploiement. Par défaut ouvert, pour que tout appelant
+ * qui ne passe pas la prop reste fonctionnel.
+ */
+export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoaded, isSignedIn } = useUser();
@@ -344,7 +353,7 @@ export function Navbar() {
               >
                 Se déconnecter <Icon name="arrow" size={14} />
               </button>
-            ) : (
+            ) : accessOpen ? (
               <>
                 <button
                   className="btn btn-sm btn-ghost"
@@ -359,6 +368,20 @@ export function Navbar() {
                   S&apos;inscrire en tant que pro{" "}
                   <Icon name="arrow" size={14} />
                 </button>
+              </>
+            ) : (
+              <>
+                <span className="frozen-cta" data-tip={ACCESS_FROZEN_TOOLTIP}>
+                  <button className="btn btn-sm btn-ghost" disabled>
+                    S&apos;inscrire en tant que prospect
+                  </button>
+                </span>
+                <span className="frozen-cta" data-tip={ACCESS_FROZEN_TOOLTIP}>
+                  <button className="btn btn-sm btn-primary" disabled>
+                    S&apos;inscrire en tant que pro{" "}
+                    <Icon name="arrow" size={14} />
+                  </button>
+                </span>
               </>
             )}
           </div>
@@ -451,7 +474,7 @@ export function Navbar() {
               >
                 Se déconnecter <Icon name="arrow" size={14} />
               </button>
-            ) : (
+            ) : accessOpen ? (
               <>
                 <button
                   className="btn btn-lg btn-ghost"
@@ -468,6 +491,26 @@ export function Navbar() {
                   S&apos;inscrire en tant que pro{" "}
                   <Icon name="arrow" size={14} />
                 </button>
+              </>
+            ) : (
+              <>
+                <span
+                  className="frozen-cta frozen-cta-block"
+                  data-tip={ACCESS_FROZEN_TOOLTIP}
+                >
+                  <button className="btn btn-lg btn-ghost" disabled>
+                    S&apos;inscrire en tant que prospect
+                  </button>
+                </span>
+                <span
+                  className="frozen-cta frozen-cta-block"
+                  data-tip={ACCESS_FROZEN_TOOLTIP}
+                >
+                  <button className="btn btn-lg btn-primary" disabled>
+                    S&apos;inscrire en tant que pro{" "}
+                    <Icon name="arrow" size={14} />
+                  </button>
+                </span>
               </>
             )}
           </div>

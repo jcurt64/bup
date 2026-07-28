@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Navbar, Footer, Icon, type IconName } from "../_components/SiteChrome";
 import PrivacyByDesignTable from "../_components/PrivacyByDesignTable";
 import InfraSouverainete from "../_components/InfraSouverainete";
+import { getAccessButtonsEnabled } from "@/lib/app-config/access";
 
 export const metadata: Metadata = {
   title: "Buupp & vos données",
@@ -94,10 +95,11 @@ const SECURITY: { t: string; d: string }[] = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const accessOpen = await getAccessButtonsEnabled();
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar />
+      <Navbar accessOpen={accessOpen} />
 
       {/* 1 · À propos de BUUPP — introduction pleine largeur */}
       <section

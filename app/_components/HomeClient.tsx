@@ -14,6 +14,7 @@ import { useRoleGuard, useCurrentRole } from "./RoleGuard";
 import DemoModal from "./DemoModal";
 import { Icon, Navbar, Footer, type IconName } from "./SiteChrome";
 import VideoLearnSection from "./VideoLearnSection";
+import { ACCESS_FROZEN_TOOLTIP } from "@/lib/app-config/access-ui";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -246,7 +247,7 @@ function currentPeriodFr(): string {
   }).format(new Date());
 }
 
-function Hero() {
+function Hero({ accessOpen }: { accessOpen: boolean }) {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
   const [heroPeriod, setHeroPeriod] = useState(currentPeriodFr);
@@ -419,31 +420,65 @@ function Hero() {
                 +5€
               </span>
             </button>
-            <button
-              className="btn btn-lg btn-block-mobile hero-cta hero-cta-prospect"
-              onClick={() =>
-                guard(
-                  "prospect",
-                  "/prospect",
-                  "/connexion?intent=prospect&mode=signin",
-                )
-              }
-              style={{ background: "var(--paper)", color: "var(--ink)" }}
-            >
-              Je suis prospect <Icon name="arrow" size={16} />
-            </button>
-            <button
-              className="btn btn-lg btn-ghost btn-block-mobile hero-cta hero-cta-pro"
-              onClick={() =>
-                guard("pro", "/pro", "/connexion?intent=pro&mode=signin")
-              }
-              style={{
-                color: "var(--paper)",
-                borderColor: "rgba(255,255,255,.28)",
-              }}
-            >
-              Je suis professionnel
-            </button>
+            {accessOpen ? (
+              <>
+                <button
+                  className="btn btn-lg btn-block-mobile hero-cta hero-cta-prospect"
+                  onClick={() =>
+                    guard(
+                      "prospect",
+                      "/prospect",
+                      "/connexion?intent=prospect&mode=signin",
+                    )
+                  }
+                  style={{ background: "var(--paper)", color: "var(--ink)" }}
+                >
+                  Je suis prospect <Icon name="arrow" size={16} />
+                </button>
+                <button
+                  className="btn btn-lg btn-ghost btn-block-mobile hero-cta hero-cta-pro"
+                  onClick={() =>
+                    guard("pro", "/pro", "/connexion?intent=pro&mode=signin")
+                  }
+                  style={{
+                    color: "var(--paper)",
+                    borderColor: "rgba(255,255,255,.28)",
+                  }}
+                >
+                  Je suis professionnel
+                </button>
+              </>
+            ) : (
+              <>
+                <span
+                  className="frozen-cta frozen-cta-hero"
+                  data-tip={ACCESS_FROZEN_TOOLTIP}
+                >
+                  <button
+                    className="btn btn-lg btn-block-mobile hero-cta hero-cta-prospect"
+                    disabled
+                    style={{ background: "var(--paper)", color: "var(--ink)" }}
+                  >
+                    Je suis prospect <Icon name="arrow" size={16} />
+                  </button>
+                </span>
+                <span
+                  className="frozen-cta frozen-cta-hero"
+                  data-tip={ACCESS_FROZEN_TOOLTIP}
+                >
+                  <button
+                    className="btn btn-lg btn-ghost btn-block-mobile hero-cta hero-cta-pro"
+                    disabled
+                    style={{
+                      color: "var(--paper)",
+                      borderColor: "rgba(255,255,255,.28)",
+                    }}
+                  >
+                    Je suis professionnel
+                  </button>
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -4307,11 +4342,21 @@ function StickyPreinscription() {
   );
 }
 
-export default function HomeClient() {
+/**
+ * `accessOpen` reflète `app_config.access_buttons_enabled` : à false, les
+ * entrées vers l'inscription et la connexion sont gelées (header + CTA du
+ * hero) pendant la période de pré-inscription. La pré-inscription, elle,
+ * reste toujours active. Cf. lib/app-config/access.ts.
+ */
+export default function HomeClient({
+  accessOpen = true,
+}: {
+  accessOpen?: boolean;
+}) {
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar />
-      <Hero />
+      <Navbar accessOpen={accessOpen} />
+      <Hero accessOpen={accessOpen} />
       <FlashDeal />
       <HowItWorks />
       <TiersTable />

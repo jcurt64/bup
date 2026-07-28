@@ -1399,3 +1399,73 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   .infra .scell{border-right:none;border-bottom:1px solid var(--line-soft);}
   .infra .scell:last-child{border-bottom:none;}
 }
+
+/* ─── Boutons gelés jusqu'au lancement ────────────────────────────────
+   Pendant la période de pré-inscription, les entrées vers l'inscription
+   et la connexion restent visibles mais inertes. Le bouton porte
+   l'attribut `disabled` (donc ni clic ni tabulation) : comme un élément
+   désactivé n'émet pas d'événements de souris, l'infobulle est portée
+   par le conteneur `.frozen-cta`, qui lui reçoit bien le survol. */
+.frozen-cta { position: relative; display: inline-flex; cursor: not-allowed; }
+.frozen-cta > .btn[disabled] {
+  opacity: .45;
+  filter: saturate(.6);
+  transform: none;
+  /* Indispensable : un bouton désactivé n'émet aucun événement de souris
+     et ne les laisse pas remonter au parent. Sans ceci, survoler le bouton
+     ne déclencherait jamais le :hover de `.frozen-cta`, donc pas
+     d'infobulle. Neutraliser ses pointer-events fait que le survol est
+     capté par l'enveloppe. */
+  pointer-events: none;
+}
+.frozen-cta::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  padding: 6px 11px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 60;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .18);
+}
+.frozen-cta::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%) translateY(4px);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 60;
+}
+.frozen-cta:hover::after,
+.frozen-cta:focus-within::after,
+.frozen-cta:hover::before,
+.frozen-cta:focus-within::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+/* Sur les CTA pleine largeur (hero mobile, tiroir), le conteneur doit
+   suivre la largeur du bouton qu'il enveloppe. */
+.frozen-cta.frozen-cta-block { display: flex; width: 100%; }
+.frozen-cta.frozen-cta-block > .btn { width: 100%; justify-content: center; }
+
+/* Les CTA du hero passent pleine largeur sous 768px (btn-block-mobile) :
+   leur enveloppe d'infobulle doit suivre, sinon le bouton gelé garde sa
+   largeur naturelle alors que les actifs s'étirent. */
+@media (max-width: 768px) {
+  .frozen-cta.frozen-cta-hero { display: flex; width: 100%; }
+}

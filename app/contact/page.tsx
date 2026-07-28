@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Navbar, Footer } from "../_components/SiteChrome";
 import HomeContactSection from "../_components/HomeContactSection";
 import RequestDemoSection from "../_components/RequestDemoSection";
+import { getAccessButtonsEnabled } from "@/lib/app-config/access";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -10,10 +11,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const accessOpen = await getAccessButtonsEnabled();
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar />
+      <Navbar accessOpen={accessOpen} />
       <HomeContactSection />
       <RequestDemoSection />
       <Footer />

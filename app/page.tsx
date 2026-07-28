@@ -1,5 +1,6 @@
 import HomeClient from "./_components/HomeClient";
 import RoleConflictToast from "./_components/RoleConflictToast";
+import { getAccessButtonsEnabled } from "@/lib/app-config/access";
 
 type Role = "prospect" | "pro";
 
@@ -59,6 +60,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
   const sp = await props.searchParams;
   const raw = Array.isArray(sp.role_conflict) ? sp.role_conflict[0] : sp.role_conflict;
   const conflictRole: Role | null = raw === "prospect" || raw === "pro" ? raw : null;
+  const accessOpen = await getAccessButtonsEnabled();
 
   return (
     <>
@@ -67,7 +69,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {conflictRole && <RoleConflictToast existingRole={conflictRole} />}
-      <HomeClient />
+      <HomeClient accessOpen={accessOpen} />
     </>
   );
 }
