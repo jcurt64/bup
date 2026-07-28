@@ -4,6 +4,10 @@
  *
  * Routes publiques : landing, liste d'attente, page connexion, RGPD, webhooks.
  * Tout le reste (espace prospect, pro, API métier) requiert un user Clerk.
+ *
+ * Nuance : `/connexion` et `/inscription` restent déclarées publiques ici,
+ * mais sont fermées tant que dure le gel de pré-inscription (étape 0 du
+ * handler, drapeau `app_config.access_buttons_enabled`).
  */
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
@@ -131,7 +135,102 @@ function inscriptionIntent(pathname: string): Role | null {
 
 const INTENT_COOKIE = "bupp_auth_intent";
 
+// ─── Gel des accès pendant la pré-inscription ────────────────────────
+// Quand `app_config.access_buttons_enabled` est à false, les boutons
+// d'inscription/connexion sont inertes côté UI (cf. lib/app-config/access.ts).
+// Cette garde ferme aussi les ROUTES correspondantes, sinon elles restent
+// atteignables par URL directe.
+//
+// ⚠ `/connexion` ne peut pas être fermée sans échappatoire : c'est la cible
+// du redirectToSignIn de la garde /buupp-admin. Sans issue, l'admin lui-même
+// serait enfermé dehors. D'où le contournement `?staff=<BUUPP_ADMIN_SECRET>`,
+// qui pose un cookie de session de 12 h. Le secret n'étant pas devinable,
+// c'est aussi solide que le reste des déclencheurs machine — mais la vraie
+// autorisation reste Clerk + l'allowlist d'e-mails, cette garde n'est qu'un
+// rideau.
+const ACCESS_BYPASS_COOKIE = "bupp_access_bypass";
+const ACCESS_CACHE_TTL_MS = 60_000;
+let accessCache: { value: boolean; at: number } | null = null;
+
+/**
+ * Lit le drapeau, avec un mémo de 60 s en portée module (les instances de
+ * fonction étant réutilisées, ça évite une requête par visite). Aligné sur
+ * le TTL du cache côté pages, donc une réouverture se propage partout dans
+ * la même minute. Fail-open comme côté pages.
+ */
+async function isAccessOpen(): Promise<boolean> {
+  const now = Date.now();
+  if (accessCache && now - accessCache.at < ACCESS_CACHE_TTL_MS) {
+    return accessCache.value;
+  }
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("access_buttons_enabled")
+      .maybeSingle();
+    if (error) throw error;
+    const value = data?.access_buttons_enabled !== false;
+    accessCache = { value, at: now };
+    return value;
+  } catch (err) {
+    console.error("[proxy] access flag read failed", err);
+    accessCache = { value: true, at: now };
+    return true;
+  }
+}
+
+/** Routes fermées pendant le gel : création de compte et connexion. */
+function isAccessGatedRoute(pathname: string): "inscription" | "connexion" | null {
+  if (pathname === "/inscription" || pathname.startsWith("/inscription/")) {
+    return "inscription";
+  }
+  if (pathname === "/connexion" || pathname.startsWith("/connexion/")) {
+    return "connexion";
+  }
+  return null;
+}
+
 export default clerkMiddleware(async (auth, request) => {
+  // Étape 0 — gel des accès. Doit passer AVANT l'étape 1 (qui répond tout
+  // de suite sur /inscription/*) et avant isPublicRoute (qui laisse filer
+  // /connexion et /inscription).
+  const gated = isAccessGatedRoute(request.nextUrl.pathname);
+  if (gated) {
+    const hasBypass =
+      request.cookies.get(ACCESS_BYPASS_COOKIE)?.value === "1";
+    const secret = process.env.BUUPP_ADMIN_SECRET;
+    const staff = request.nextUrl.searchParams.get("staff");
+    // Contournement explicite : ?staff=<secret> sur /connexion. On pose le
+    // cookie et on laisse passer, pour que la navigation interne de Clerk
+    // (qui perd la query string) n'ait pas à le reporter.
+    if (gated === "connexion" && secret && staff && staff === secret) {
+      const res = NextResponse.next();
+      res.cookies.set(ACCESS_BYPASS_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 12,
+        path: "/",
+      });
+      return res;
+    }
+    if (!hasBypass && !(await isAccessOpen())) {
+      // Un utilisateur déjà connecté passe : il peut être au milieu d'un
+      // parcours Clerk, et le gel vise les nouveaux venus, pas les
+      // sessions en cours.
+      const { userId } = await auth();
+      if (!userId) {
+        return NextResponse.redirect(
+          new URL("/liste-attente", request.url),
+        );
+      }
+    }
+  }
+
   // Étape 1 — pose le cookie d'intent dès qu'on entre dans
   // /inscription/{prospect,pro}. Le cookie survit aux redirections
   // Clerk (auto-conversion signup→signin, navigation vers /connexion,
