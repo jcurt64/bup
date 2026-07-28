@@ -2017,7 +2017,13 @@
         <div class="nav-pill">
           <span aria-hidden="true" style="font-size: 14px; line-height: 1">🚀</span>
           <div class="pulse-dot" aria-hidden="true"></div>
-          <span>Lancement dans <span id="countdown">23 jours</span></span>
+          <!-- Le préfixe est masqué quand la date d'ouverture est atteinte :
+               le libellé devient « Lancement imminent » à lui seul, au lieu
+               du « Lancement dans ouvert ✓ » d'avant. -->
+          <span
+            ><span id="countdown-prefix">Lancement dans </span
+            ><span id="countdown">23 jours</span></span
+          >
         </div>
         <button
           onclick="
@@ -2116,9 +2122,7 @@
               <circle cx="5" cy="5" r="3" fill="#4ADE80" />
             </svg>
           </div>
-          <span class="hero-eyebrow-text"
-            >Pré-lancement ouvert — rejoignez la liste</span
-          >
+          <span class="hero-eyebrow-text">Lancement imminent</span>
         </div>
 
         <h1 class="hero-h1 fade-up d1">
@@ -3009,6 +3013,12 @@
       }
       function updateCountdown() {
         const cdEl = document.getElementById("countdown");
+        const cdPrefixEl = document.getElementById("countdown-prefix");
+        // Affiche/masque le « Lancement dans » selon qu'un décompte est en
+        // cours ou non. `inline` et non `""` : le span est inline par nature.
+        const setPrefix = (visible) => {
+          if (cdPrefixEl) cdPrefixEl.style.display = visible ? "inline" : "none";
+        };
         const dEl = document.getElementById("cd-d");
         const hEl = document.getElementById("cd-h");
         const mEl = document.getElementById("cd-m");
@@ -3021,16 +3031,20 @@
           if (sEl) sEl.textContent = s;
         };
         if (!launchDate) {
+          setPrefix(true);
           if (cdEl) cdEl.textContent = "—";
           setCard("—", "—", "—", "—");
           return;
         }
         const diff = launchDate.getTime() - Date.now();
         if (diff <= 0) {
-          if (cdEl) cdEl.textContent = "ouvert ✓";
+          // Date d'ouverture atteinte : plus de décompte à afficher.
+          setPrefix(false);
+          if (cdEl) cdEl.textContent = "Lancement imminent";
           setCard("0", "00", "00", "00");
           return;
         }
+        setPrefix(true);
         const days = Math.floor(diff / 86_400_000);
         const hours = Math.floor((diff % 86_400_000) / 3_600_000);
         const mins = Math.floor((diff % 3_600_000) / 60_000);
@@ -3131,7 +3145,7 @@
           if (raw) {
             const t = parseInt(raw, 10);
             // On invalide le cache si la cible est déjà passée depuis
-            // plus d'1 h (sinon la fenêtre "ouvert ✓" reste figée).
+            // plus d'1 h (sinon la fenêtre « Lancement imminent » reste figée).
             if (Number.isFinite(t) && t - Date.now() > -3_600_000) {
               target = t;
             }
