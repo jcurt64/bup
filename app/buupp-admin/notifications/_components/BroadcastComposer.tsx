@@ -97,7 +97,7 @@ function buildLaunchBody(launchAt: string): string {
     "• vous savez à quoi sert le parrainage — et les places de fondateur se prennent tôt ;",
     "• vous pouvez expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
-    `Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. Le formulaire ouvre ${quand} sur www.buupp.com. D'ici là, il n'y a rien à faire : votre place actuelle n'est pas perdue, elle change simplement de vague.`,
+    `Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. Le formulaire ouvre ${quand} sur www.buupp.com.`,
     "",
     "En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
