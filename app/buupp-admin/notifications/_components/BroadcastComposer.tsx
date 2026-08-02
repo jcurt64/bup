@@ -41,6 +41,12 @@ const SITE = "https://www.buupp.com";
  *  renseignée. L'envoi est bloqué tant qu'il est présent. */
 const DATE_PLACEHOLDER = "[[DATE D'OUVERTURE À COMPLÉTER]]";
 
+/** Date d'ouverture officielle arrêtée le 02/08/2026 : mercredi 5 août, 14h00.
+ *  Pré-remplie pour que le composer soit prêt à relire sans ressaisie — le
+ *  champ reste modifiable, et changer la date suppose de recharger le modèle.
+ *  Le mail part la veille (mardi 4 août) : le corps est écrit au futur. */
+const DEFAULT_LAUNCH_AT = "2026-08-05T14:00";
+
 /** « 2026-07-30T10:00 » → { date: "jeudi 30 juillet", heure: "10h00" } */
 function formatLaunchMoment(value: string): { date: string; heure: string } | null {
   if (!value) return null;
@@ -117,7 +123,7 @@ export default function BroadcastComposer() {
   const [videos, setVideos] = useState<VideoDraft[]>(EMPTY_VIDEOS);
   // Date+heure d'ouverture officielle, injectée dans le corps du modèle
   // (le mail part 24 h avant : « demain jeudi 30 juillet, à 10h00 »).
-  const [launchAt, setLaunchAt] = useState("");
+  const [launchAt, setLaunchAt] = useState(DEFAULT_LAUNCH_AT);
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
