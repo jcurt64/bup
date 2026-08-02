@@ -74,7 +74,7 @@ function capitalize(s: string): string {
 function buildLaunchTitle(launchAt: string): string {
   const moment = formatLaunchMoment(launchAt);
   const quand = moment ? capitalize(moment.date) : DATE_PLACEHOLDER;
-  return `${quand}, BUUPP ouvre officiellement — soyez prêt·e`;
+  return `🚀 ${quand}, BUUPP ouvre officiellement — soyez prêt·e`;
 }
 
 function buildLaunchBody(launchAt: string): string {
@@ -84,26 +84,26 @@ function buildLaunchBody(launchAt: string): string {
   const quand = moment ? `${moment.date} à ${moment.heure}` : DATE_PLACEHOLDER;
   const jour = moment ? moment.jour : DATE_PLACEHOLDER;
   return [
-    "Vous faites partie des tout premiers à avoir réservé votre place sur BUUPP. Merci, sincèrement.",
+    "Vous faites partie des tout premiers à avoir réservé votre place sur BUUPP. Merci, sincèrement. 🙌",
     "",
-    "Cette première vague était une répétition générale : vérifier que le formulaire tenait la route, que les parrainages se comptaient correctement, que les compteurs disaient vrai. Vous nous avez servi de banc d'essai, et ça a fonctionné.",
+    "Cette première vague était une répétition générale : vérifier que le formulaire tenait la route, que les parrainages se comptaient correctement, que les compteurs disaient vrai. Vous nous avez servi de banc d'essai, et ça a fonctionné. ✅",
     "",
-    `${capitalize(quand)}, place au lancement officiel.`,
+    `🚀 ${capitalize(quand)}, place au lancement officiel.`,
     "",
-    "Ce qui change : la pré-inscription officielle s'ouvre, avec les vraies places, les vrais compteurs et les avantages fondateur qui vont avec. Ce qui ne change pas : vous. Vous avez déjà vu comment BUUPP fonctionne — le double consentement, les paliers de données, la rémunération au moment où vous acceptez. Pendant que les autres découvriront, vous saurez déjà quoi faire.",
+    "✨ Ce qui change : la pré-inscription officielle s'ouvre, avec les vraies places, les vrais compteurs et les avantages fondateur qui vont avec. Ce qui ne change pas : vous. Vous avez déjà vu comment BUUPP fonctionne — le double consentement, les paliers de données, la rémunération au moment où vous acceptez. Pendant que les autres découvriront, vous saurez déjà quoi faire.",
     "",
     "Concrètement, vous partez avec trois longueurs d'avance :",
-    "• vous connaissez le parcours d'inscription, vous irez plus vite ;",
-    "• vous savez à quoi sert le parrainage — et les places de fondateur se prennent tôt ;",
-    "• vous pouvez expliquer BUUPP autour de vous sans avoir à le réapprendre.",
+    "⚡ vous connaissez le parcours d'inscription, vous irez plus vite ;",
+    "🤝 vous savez à quoi sert le parrainage — et les places de fondateur se prennent tôt ;",
+    "💬 vous pouvez expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
-    `Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. Le formulaire ouvre ${quand} sur www.buupp.com.`,
+    `📝 Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. 🕑 Le formulaire ouvre ${quand} sur www.buupp.com.`,
     "",
-    "En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
+    "🎬 En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
-    "Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription. Une chose à la fois, proprement.",
+    "ℹ️ Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription. Une chose à la fois, proprement.",
     "",
-    `À ${jour},`,
+    `À ${jour}, 🎉`,
     "— L'équipe BUUPP",
   ].join("\n");
 }
@@ -129,18 +129,24 @@ const LAUNCH_TEMPLATE = {
 
 export default function BroadcastComposer() {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [audience, setAudience] = useState<Audience>("prospects");
+  // Le formulaire s'ouvre PRÉ-REMPLI avec l'annonce de lancement : c'est le
+  // seul message à envoyer d'ici l'ouverture, et l'état React ne survit
+  // pas à un rechargement — le pré-remplir à la main à chaque visite était
+  // une source d'erreur. « Vider le formulaire » rend la page à son état
+  // neutre pour les autres diffusions.
+  const [title, setTitle] = useState(() => buildLaunchTitle(DEFAULT_LAUNCH_AT));
+  const [body, setBody] = useState(() => buildLaunchBody(DEFAULT_LAUNCH_AT));
+  const [audience, setAudience] = useState<Audience>("waitlist");
   const [attachment, setAttachment] = useState<File | null>(null);
   // Blocs vidéo (2 max) + CTA personnalisé — pris en compte par l'audience
   // « liste d'attente » uniquement (cf. template waitlist-broadcast.ts).
-  const [videos, setVideos] = useState<VideoDraft[]>(EMPTY_VIDEOS);
-  // Date+heure d'ouverture officielle, injectée dans le corps du modèle
-  // (le mail part 24 h avant : « demain jeudi 30 juillet, à 10h00 »).
+  const [videos, setVideos] = useState<VideoDraft[]>(() =>
+    LAUNCH_TEMPLATE.videos.map((v) => ({ ...v })),
+  );
+  // Date+heure d'ouverture officielle, injectée dans le corps du modèle.
   const [launchAt, setLaunchAt] = useState(DEFAULT_LAUNCH_AT);
-  const [ctaLabel, setCtaLabel] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
+  const [ctaLabel, setCtaLabel] = useState(LAUNCH_TEMPLATE.ctaLabel);
+  const [ctaUrl, setCtaUrl] = useState(LAUNCH_TEMPLATE.ctaUrl);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -302,10 +308,11 @@ export default function BroadcastComposer() {
         style={{ background: "var(--ivory-2)", border: "1px dashed var(--line-2)" }}
       >
         <span className="block text-xs" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
-          Modèle prêt&nbsp;: <strong>annonce du lancement officiel</strong> — liste
-          d&apos;attente, 2 vidéos, bouton « Voir les 2 vidéos ». À envoyer{" "}
-          <strong>avant</strong> l&apos;ouverture&nbsp;: l&apos;objet et le corps nomment le
-          jour et l&apos;heure saisis ci-dessous.
+          Formulaire <strong>déjà pré-rempli</strong> avec l&apos;annonce du lancement
+          officiel — liste d&apos;attente, 2 vidéos, bouton « Voir les 2 vidéos ». À
+          envoyer <strong>avant</strong> l&apos;ouverture&nbsp;: l&apos;objet et le corps
+          nomment le jour et l&apos;heure saisis ci-dessous. Pour une diffusion
+          ordinaire, « Vider le formulaire ».
         </span>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex-1 min-w-52">
@@ -335,7 +342,18 @@ export default function BroadcastComposer() {
             className="rounded-md text-xs font-semibold h-9 px-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: "var(--paper)", color: "var(--ink-2)", border: "1px solid var(--line)" }}
           >
-            Charger le modèle
+            Recharger le modèle
+          </button>
+          {/* Le formulaire s'ouvrant pré-rempli, il faut une sortie explicite
+              pour écrire une diffusion ordinaire. */}
+          <button
+            type="button"
+            onClick={reset}
+            disabled={submitting}
+            className="rounded-md text-xs font-semibold h-9 px-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: "transparent", color: "var(--ink-4)", border: "1px solid var(--line-2)" }}
+          >
+            Vider le formulaire
           </button>
         </div>
         {launchAt && formatLaunchMoment(launchAt) && (
