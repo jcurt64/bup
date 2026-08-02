@@ -101,7 +101,7 @@ function buildLaunchBody(launchAt: string): string {
     "",
     "🎬 En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
-    "ℹ️ Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription. Une chose à la fois, proprement.",
+    "ℹ️ Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription (1 mois après). Une chose à la fois, proprement.",
     "",
     `À ${jour}, 🎉`,
     "— L'équipe BUUPP",
