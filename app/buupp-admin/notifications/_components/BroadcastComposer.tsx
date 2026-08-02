@@ -26,11 +26,15 @@ const EMPTY_VIDEOS: VideoDraft[] = [
 ];
 
 /* ─── Modèle « Lancement officiel » ──────────────────────────────────
-   Message prêt à l'envoi pour l'audience liste d'attente, prévu pour
-   partir 24 h AVANT l'ouverture : au moment de la lecture, la
-   pré-inscription officielle n'est pas encore ouverte. Le mail annonce
-   donc l'heure d'ouverture et ne renvoie pas vers le formulaire (qui
-   serait un cul-de-sac) mais vers les vidéos, à regarder en attendant.
+   Message prêt à l'envoi pour l'audience liste d'attente, à lire AVANT
+   l'ouverture : au moment de la lecture, la pré-inscription officielle
+   n'est pas encore ouverte. Le mail annonce donc l'heure d'ouverture et
+   ne renvoie pas vers le formulaire (qui serait un cul-de-sac) mais vers
+   les vidéos, à regarder en attendant.
+
+   Le corps NOMME le jour et l'heure (« mercredi 5 août à 14h00 ») au
+   lieu de dire « demain » : l'envoi n'est donc plus contraint à J-1, il
+   reste juste à n'importe quelle date antérieure à l'ouverture.
 
    Les liens pointent en dur sur www.buupp.com : le back-office peut
    tourner en local, le mail doit toujours viser la prod (et l'API
@@ -43,36 +47,48 @@ const DATE_PLACEHOLDER = "[[DATE D'OUVERTURE À COMPLÉTER]]";
 
 /** Date d'ouverture officielle arrêtée le 02/08/2026 : mercredi 5 août, 14h00.
  *  Pré-remplie pour que le composer soit prêt à relire sans ressaisie — le
- *  champ reste modifiable, et changer la date suppose de recharger le modèle.
- *  Le mail part la veille (mardi 4 août) : le corps est écrit au futur. */
+ *  champ reste modifiable, et changer la date suppose de recharger le modèle. */
 const DEFAULT_LAUNCH_AT = "2026-08-05T14:00";
 
-/** « 2026-07-30T10:00 » → { date: "jeudi 30 juillet", heure: "10h00" } */
-function formatLaunchMoment(value: string): { date: string; heure: string } | null {
+/** « 2026-08-05T14:00 » → { jour: "mercredi", date: "mercredi 5 août", heure: "14h00" } */
+function formatLaunchMoment(value: string): { jour: string; date: string; heure: string } | null {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
+  const jour = new Intl.DateTimeFormat("fr-FR", { weekday: "long" }).format(d);
   const date = new Intl.DateTimeFormat("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
   }).format(d);
   const heure = `${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`;
-  return { date, heure };
+  return { jour, date, heure };
+}
+
+/** « mercredi 5 août » → « Mercredi 5 août » (début de phrase / d'objet). */
+function capitalize(s: string): string {
+  return `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
+}
+
+/** Objet du mail. Nomme le jour, comme le corps — pas de « Demain ». */
+function buildLaunchTitle(launchAt: string): string {
+  const moment = formatLaunchMoment(launchAt);
+  const quand = moment ? capitalize(moment.date) : DATE_PLACEHOLDER;
+  return `${quand}, BUUPP ouvre officiellement — soyez prêt·e`;
 }
 
 function buildLaunchBody(launchAt: string): string {
   const moment = formatLaunchMoment(launchAt);
   // Sans date saisie, on laisse un marqueur voyant plutôt qu'une phrase
   // vaguement fausse — l'envoi refusera de partir tant qu'il est là.
-  const quand = moment ? `demain ${moment.date}, à ${moment.heure}` : DATE_PLACEHOLDER;
-  const heure = moment ? moment.heure : DATE_PLACEHOLDER;
+  const quand = moment ? `${moment.date} à ${moment.heure}` : DATE_PLACEHOLDER;
+  const jour = moment ? moment.jour : DATE_PLACEHOLDER;
   return [
     "Vous faites partie des tout premiers à avoir réservé votre place sur BUUPP. Merci, sincèrement.",
     "",
     "Cette première vague était une répétition générale : vérifier que le formulaire tenait la route, que les parrainages se comptaient correctement, que les compteurs disaient vrai. Vous nous avez servi de banc d'essai, et ça a fonctionné.",
     "",
-    `${quand.charAt(0).toUpperCase()}${quand.slice(1)}, place au lancement officiel.`,
+    `${capitalize(quand)}, place au lancement officiel.`,
     "",
     "Ce qui change : la pré-inscription officielle s'ouvre, avec les vraies places, les vrais compteurs et les avantages fondateur qui vont avec. Ce qui ne change pas : vous. Vous avez déjà vu comment BUUPP fonctionne — le double consentement, les paliers de données, la rémunération au moment où vous acceptez. Pendant que les autres découvriront, vous saurez déjà quoi faire.",
     "",
@@ -81,19 +97,18 @@ function buildLaunchBody(launchAt: string): string {
     "• vous savez à quoi sert le parrainage — et les places de fondateur se prennent tôt ;",
     "• vous pouvez expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
-    `Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. Le formulaire ouvre à ${heure} sur www.buupp.com. D'ici là, il n'y a rien à faire : votre place actuelle n'est pas perdue, elle change simplement de vague.`,
+    `Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. Le formulaire ouvre ${quand} sur www.buupp.com. D'ici là, il n'y a rien à faire : votre place actuelle n'est pas perdue, elle change simplement de vague.`,
     "",
     "En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
     "",
     "Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription. Une chose à la fois, proprement.",
     "",
-    "À demain,",
+    `À ${jour},`,
     "— L'équipe BUUPP",
   ].join("\n");
 }
 
 const LAUNCH_TEMPLATE = {
-  title: "Demain, BUUPP ouvre officiellement — soyez prêt·e",
   videos: [
     {
       url: `${SITE}/tutoriels#video-1`,
@@ -107,7 +122,7 @@ const LAUNCH_TEMPLATE = {
     },
   ] as VideoDraft[],
   // Le formulaire n'est pas encore ouvert au moment de la lecture : le
-  // bouton mène aux vidéos, seule destination utile à J-1.
+  // bouton mène aux vidéos, seule destination utile avant l'ouverture.
   ctaLabel: "Voir les 2 vidéos →",
   ctaUrl: `${SITE}/tutoriels`,
 };
@@ -156,7 +171,7 @@ export default function BroadcastComposer() {
     setError(null);
     setSuccess(null);
     setAudience("waitlist");
-    setTitle(LAUNCH_TEMPLATE.title);
+    setTitle(buildLaunchTitle(launchAt));
     setBody(buildLaunchBody(launchAt));
     setVideos(LAUNCH_TEMPLATE.videos.map((v) => ({ ...v })));
     setCtaLabel(LAUNCH_TEMPLATE.ctaLabel);
@@ -196,7 +211,7 @@ export default function BroadcastComposer() {
     // Garde-fou : le modèle laisse un marqueur voyant tant que la date
     // d'ouverture n'a pas été renseignée. Mieux vaut refuser l'envoi que
     // d'annoncer un lancement « [[DATE À COMPLÉTER]] » à toute la liste.
-    if (b.includes(DATE_PLACEHOLDER)) {
+    if (b.includes(DATE_PLACEHOLDER) || t.includes(DATE_PLACEHOLDER)) {
       setError(
         "Renseigne la date d'ouverture officielle puis recharge le modèle — le corps du message contient encore un marqueur.",
       );
@@ -289,8 +304,8 @@ export default function BroadcastComposer() {
         <span className="block text-xs" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
           Modèle prêt&nbsp;: <strong>annonce du lancement officiel</strong> — liste
           d&apos;attente, 2 vidéos, bouton « Voir les 2 vidéos ». À envoyer{" "}
-          <strong>24&nbsp;h avant</strong> l&apos;ouverture&nbsp;: le corps du message dit
-          « demain », et la date ci-dessous y est insérée.
+          <strong>avant</strong> l&apos;ouverture&nbsp;: l&apos;objet et le corps nomment le
+          jour et l&apos;heure saisis ci-dessous.
         </span>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex-1 min-w-52">
@@ -325,9 +340,9 @@ export default function BroadcastComposer() {
         </div>
         {launchAt && formatLaunchMoment(launchAt) && (
           <p className="text-[11px]" style={{ color: "var(--ink-4)" }}>
-            Le message annoncera « demain {formatLaunchMoment(launchAt)!.date}, à{" "}
-            {formatLaunchMoment(launchAt)!.heure} » — à envoyer la veille. Changer la date
-            après coup suppose de recharger le modèle.
+            Le message annoncera « {formatLaunchMoment(launchAt)!.date} à{" "}
+            {formatLaunchMoment(launchAt)!.heure} » — à envoyer avant cette date. Changer
+            la date après coup suppose de recharger le modèle.
           </p>
         )}
       </div>
