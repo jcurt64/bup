@@ -2122,7 +2122,14 @@
               <circle cx="5" cy="5" r="3" fill="#4ADE80" />
             </svg>
           </div>
-          <span class="hero-eyebrow-text">Lancement imminent</span>
+          <!-- Durée de la période de pré-inscription, et non plus « Lancement
+               imminent » : le compte à rebours du header porte déjà l'imminence.
+               Texte par défaut = état OUVERT (celui de la quasi-totalité de la
+               vie de la page) ; `applyWaitlistFreeze()` le repasse à
+               « imminente » tant que `waitlist_open` est à false. -->
+          <span class="hero-eyebrow-text" id="hero-eyebrow-text"
+            >Pré-inscription ouverte 1 mois</span
+          >
         </div>
 
         <h1 class="hero-h1 fade-up d1">
@@ -3429,6 +3436,11 @@
 
       function applyWaitlistFreeze() {
         if (!WAITLIST_CLOSED) return;
+        // Le bandeau du hero annonce la DURÉE de la pré-inscription (1 mois).
+        // Tant qu'elle n'a pas ouvert, annoncer sa durée serait faux : on
+        // retombe sur l'imminence, comme le compte à rebours du header.
+        const eyebrow = document.getElementById("hero-eyebrow-text");
+        if (eyebrow) eyebrow.textContent = "Pré-inscription imminente";
         const wrap = document.getElementById("wl-submit-wrap");
         const btn = document.getElementById("wl-submit");
         if (!wrap || !btn) return;
