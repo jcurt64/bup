@@ -17,6 +17,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import RouteNav from "./_components/RouteNav";
+import { getWaitlistOpen } from "@/lib/app-config/access";
 import CookieConsent from "./_components/CookieConsent";
 import ScrollReveal from "./_components/ScrollReveal";
 
@@ -161,11 +162,17 @@ const organizationJsonLd = {
   identifier: { "@type": "PropertyValue", name: "RCS Pau", value: "892 514 167" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Lu ici (et non dans RouteNav, composant client) pour que la pastille
+  // flottante perde son onglet « Liste d'attente » sur toutes les pages dès
+  // l'expiration de la pré-inscription. Lecture mise en cache 60 s, donc
+  // aucune invocation supplémentaire par visite.
+  const waitlistOpen = await getWaitlistOpen();
+
   return (
     <ClerkProvider localization={buppFrFR}>
       <html
@@ -197,7 +204,7 @@ export default function RootLayout({
           />
           {children}
           <ScrollReveal />
-          <RouteNav />
+          <RouteNav waitlistOpen={waitlistOpen} />
           <CookieConsent />
           {/* Vercel Web Analytics — sans cookie, conforme RGPD. Collecte
               les pages vues / Web Vitals côté client. */}

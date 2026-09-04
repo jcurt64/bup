@@ -165,7 +165,17 @@ function tabStyle(active: boolean, overDark: boolean): CSSProperties {
   };
 }
 
-export default function RouteNav() {
+/**
+ * `waitlistOpen` vient du layout serveur (`app_config.waitlist_open`,
+ * refermé d'office quand `launch_at` est atteinte) : à false, l'onglet
+ * « Liste d'attente » sort de la pastille — la pré-inscription a expiré.
+ * Défaut `true` pour que le composant reste utilisable sans la prop.
+ */
+export default function RouteNav({
+  waitlistOpen = true,
+}: {
+  waitlistOpen?: boolean;
+}) {
   const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -309,8 +319,11 @@ export default function RouteNav() {
         : (inferredFromPath ?? cachedRole))
     : null;
 
-  const visibleIds: TabId[] =
+  const allIds: TabId[] =
     role === "pro" ? PRO_TABS : role === "prospect" ? PROSPECT_TABS : PUBLIC_TABS;
+  const visibleIds: TabId[] = waitlistOpen
+    ? allIds
+    : allIds.filter((id) => id !== "liste-attente");
 
   // Cf. note plus haut : on early-return ICI, après tous les hooks,
   // pour respecter les Rules of Hooks. Quand l'app mobile bascule le

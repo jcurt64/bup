@@ -16,6 +16,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Role } from "@/lib/sync/ensureRole";
 import { isAdminEmail } from "@/lib/admin/access";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { accessOpenFrom } from "@/lib/app-config/launch";
 import {
   resolvePostAuth,
   resolvePostLoginFallback,
@@ -172,10 +173,14 @@ async function isAccessOpen(): Promise<boolean> {
     );
     const { data, error } = await supabase
       .from("app_config")
-      .select("access_buttons_enabled")
+      .select("access_buttons_enabled, launch_at")
       .maybeSingle();
     if (error) throw error;
-    const value = data?.access_buttons_enabled !== false;
+    // Même règle que lib/app-config/access.ts : le drapeau commande, et
+    // `launch_at` ouvre d'office une fois l'heure du lancement passée —
+    // sinon les boutons redeviendraient actifs pendant que ces routes
+    // continueraient de rediriger vers /liste-attente.
+    const value = accessOpenFrom(data?.access_buttons_enabled, data?.launch_at);
     accessCache = { value, at: now };
     return value;
   } catch (err) {

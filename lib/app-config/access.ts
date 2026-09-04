@@ -22,6 +22,7 @@
 
 import { unstable_cache } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { accessOpenFrom, waitlistOpenFrom } from "./launch";
 
 export const ACCESS_FLAG_TAG = "app-config:access-buttons";
 export const WAITLIST_FLAG_TAG = "app-config:waitlist-open";
@@ -32,7 +33,7 @@ export const getAccessButtonsEnabled = unstable_cache(
       const admin = createSupabaseAdminClient();
       const { data, error } = await admin
         .from("app_config")
-        .select("access_buttons_enabled")
+        .select("access_buttons_enabled, launch_at")
         .maybeSingle();
       if (error) {
         console.error("[app-config/access] read failed", error);
@@ -43,7 +44,7 @@ export const getAccessButtonsEnabled = unstable_cache(
       // cher que de laisser fuiter les boutons pendant le gel — d'autant
       // que sans base, les parcours derrière ces boutons ne marchent pas
       // non plus.
-      return data?.access_buttons_enabled !== false;
+      return accessOpenFrom(data?.access_buttons_enabled, data?.launch_at);
     } catch (err) {
       console.error("[app-config/access] unexpected", err);
       return true;
@@ -60,6 +61,12 @@ export const getAccessButtonsEnabled = unstable_cache(
  * AVANT le lancement complet du service, les deux bascules n'ont donc pas
  * lieu au même moment.
  *
+ * Se referme d'office quand `app_config.launch_at` est atteinte — c'est
+ * « l'expiration de la liste d'attente » : les deux entrées vers la
+ * pré-inscription (CTA du hero, pastille flottante) et l'onglet
+ * « Liste d'attente » de la nav disparaissent alors, pendant que
+ * `getAccessButtonsEnabled` bascule dans l'autre sens. Cf. ./launch.ts.
+ *
  * Même politique de fail-open : si la base est illisible on laisse
  * l'inscription ouverte plutôt que de la fermer sur un incident passager.
  */
@@ -69,13 +76,13 @@ export const getWaitlistOpen = unstable_cache(
       const admin = createSupabaseAdminClient();
       const { data, error } = await admin
         .from("app_config")
-        .select("waitlist_open")
+        .select("waitlist_open, launch_at")
         .maybeSingle();
       if (error) {
         console.error("[app-config/waitlist] read failed", error);
         return true;
       }
-      return data?.waitlist_open !== false;
+      return waitlistOpenFrom(data?.waitlist_open, data?.launch_at);
     } catch (err) {
       console.error("[app-config/waitlist] unexpected", err);
       return true;

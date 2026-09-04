@@ -247,7 +247,13 @@ function currentPeriodFr(): string {
   }).format(new Date());
 }
 
-function Hero({ accessOpen }: { accessOpen: boolean }) {
+function Hero({
+  accessOpen,
+  waitlistOpen,
+}: {
+  accessOpen: boolean;
+  waitlistOpen: boolean;
+}) {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
   const [heroPeriod, setHeroPeriod] = useState(currentPeriodFr);
@@ -395,31 +401,36 @@ function Hero({ accessOpen }: { accessOpen: boolean }) {
               alignItems: "flex-end",
             }}
           >
-            <button
-              className="btn btn-lg btn-block-mobile hero-cta hero-cta-pre"
-              onClick={() => goWaitlist(router)}
-              style={{
-                background: "linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)",
-                color: "#0F1629",
-                fontWeight: 600,
-                boxShadow:
-                  "0 12px 28px -8px rgba(69,150,236,.55), inset 0 1px 0 rgba(255,255,255,.4)",
-              }}
-            >
-              <Icon name="sparkle" size={16} /> Pré-inscription
-              <span
+            {/* La pré-inscription disparaît à l'expiration de la liste
+                d'attente (cf. getWaitlistOpen) : une fois les vrais comptes
+                ouverts, il ne reste que « Je suis prospect / pro ». */}
+            {waitlistOpen && (
+              <button
+                className="btn btn-lg btn-block-mobile hero-cta hero-cta-pre"
+                onClick={() => goWaitlist(router)}
                 style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  padding: "2px 7px",
-                  borderRadius: 999,
-                  background: "rgba(15,22,41,.18)",
-                  marginLeft: 6,
+                  background: "linear-gradient(135deg, #4596EC 0%, #6BA8F0 100%)",
+                  color: "#0F1629",
+                  fontWeight: 600,
+                  boxShadow:
+                    "0 12px 28px -8px rgba(69,150,236,.55), inset 0 1px 0 rgba(255,255,255,.4)",
                 }}
               >
-                +5€
-              </span>
-            </button>
+                <Icon name="sparkle" size={16} /> Pré-inscription
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: "2px 7px",
+                    borderRadius: 999,
+                    background: "rgba(15,22,41,.18)",
+                    marginLeft: 6,
+                  }}
+                >
+                  +5€
+                </span>
+              </button>
+            )}
             {accessOpen ? (
               <>
                 <button
@@ -4345,18 +4356,25 @@ function StickyPreinscription() {
 /**
  * `accessOpen` reflète `app_config.access_buttons_enabled` : à false, les
  * entrées vers l'inscription et la connexion sont gelées (header + CTA du
- * hero) pendant la période de pré-inscription. La pré-inscription, elle,
- * reste toujours active. Cf. lib/app-config/access.ts.
+ * hero) pendant la période de pré-inscription.
+ *
+ * `waitlistOpen` reflète `app_config.waitlist_open`, refermé d'office quand
+ * `launch_at` est atteinte : à false, les deux entrées vers la
+ * pré-inscription (CTA du hero et pastille flottante « Pré-inscription »)
+ * disparaissent. Les deux bascules sont inverses l'une de l'autre au
+ * lancement. Cf. lib/app-config/access.ts.
  */
 export default function HomeClient({
   accessOpen = true,
+  waitlistOpen = true,
 }: {
   accessOpen?: boolean;
+  waitlistOpen?: boolean;
 }) {
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
       <Navbar accessOpen={accessOpen} />
-      <Hero accessOpen={accessOpen} />
+      <Hero accessOpen={accessOpen} waitlistOpen={waitlistOpen} />
       <FlashDeal />
       <HowItWorks />
       <TiersTable />
@@ -4368,7 +4386,7 @@ export default function HomeClient({
       <FinalCTA />
       <VideoLearnSection />
       <Footer />
-      <StickyPreinscription />
+      {waitlistOpen && <StickyPreinscription />}
     </div>
   );
 }
