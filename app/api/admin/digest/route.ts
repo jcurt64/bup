@@ -31,6 +31,7 @@ import { sweepExpiredNonResponseRestrictions } from "@/lib/prospect/non-response
 import { syncFounderBonusesAndNotify } from "@/lib/founder-bonus/sync";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { purgeOldContactReveals } from "@/lib/pro/reveals-retention";
+import { sendLaunchEmailsIfDue } from "@/lib/waitlist/launch-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,6 +119,7 @@ async function runDigest(req: Request) {
   let founderBonus: Awaited<
     ReturnType<typeof syncFounderBonusesAndNotify>
   > | null = null;
+  let launchEmails: Awaited<ReturnType<typeof sendLaunchEmailsIfDue>> = null;
   if (mode === "daily") {
     try {
       bascule = await applyCnilBasculeIfDue(admin);
@@ -156,6 +158,17 @@ async function runDigest(req: Request) {
     } catch (err) {
       console.error("[/api/admin/digest] reveals retention purge failed", err);
     }
+    // Piggyback : FILET du mail de lancement à la liste d'attente. Le tir
+    // précis du jour J est un job launchd sur la machine de l'équipe, donc
+    // tributaire d'un Mac allumé ; ce passage quotidien rattrape ce qui
+    // n'est pas parti. Idempotent (`waitlist.launch_email_sent_at`) et
+    // borné à la semaine qui suit `launch_at` — hors de cette fenêtre il
+    // ne lit même pas la liste. Cf. lib/waitlist/launch-email.ts.
+    try {
+      launchEmails = await sendLaunchEmailsIfDue(admin);
+    } catch (err) {
+      console.error("[/api/admin/digest] waitlist launch email failed", err);
+    }
   }
 
   return NextResponse.json({
@@ -165,5 +178,6 @@ async function runDigest(req: Request) {
     restrictionsLifted,
     founderBonus: founderBonus ?? null,
     revealsPurged,
+    launchEmails,
   });
 }

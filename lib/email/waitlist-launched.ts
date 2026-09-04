@@ -6,7 +6,16 @@
  *
  * Cible : utilisateurs qui sont dans `public.waitlist` avec
  * `launch_email_sent_at IS NULL`. À l'inscription Clerk avec le même
- * email, le trigger `sync_founder_status` les marquera fondateurs.
+ * email, le trigger `sync_founder_status` les marquera fondateurs —
+ * d'où l'insistance du mail sur « la même adresse », qui est le seul
+ * point de rattachement et ne se rattrape pas à la main.
+ *
+ * ⚠️ Les avantages énoncés ici doivent rester alignés sur ceux affichés
+ * dans `public/prototype/waitlist.html` (section « Les avantages des
+ * fondateurs ») et sur les paliers Used / Paid / Proud de
+ * `public/prototype/components/Prospect.jsx` (REFERRAL_TIERS). Le ×2
+ * fondateur et le palier VIP +5 € ont été SUPPRIMÉS le 28/05/2026 : ne
+ * pas les réintroduire ici.
  */
 
 import { getFromAddress, getTransport } from "./transport";
@@ -30,40 +39,54 @@ export async function sendWaitlistLaunched(
   if (!transport) return;
 
   const { email, prenom } = params;
-  const subject = "🚀 C'est officiel — BUUPP est lancé !";
+  const subject = "🚀 C'est ouvert ! Votre place de fondateur·ice vous attend";
 
   const text = [
     `Bonjour ${prenom},`,
     "",
-    "C'est officiel : BUUPP est ouvert.",
+    "Un mois d'attente, beaucoup de code et un nombre déraisonnable de",
+    "cafés plus tard : BUUPP ouvre ses portes. Maintenant. Pour de vrai. 🎉",
     "",
-    "Vous êtes inscrit·e sur notre liste d'attente — vous pouvez",
-    "maintenant créer votre compte et commencer à gagner de l'argent",
-    "à chaque sollicitation acceptée.",
-    "",
-    "Vos avantages de parrain·e / fondateur·ice (réservés aux inscrits waitlist)",
-    "----------------------------------------------------------------------------",
-    "  •  Priorité de 10 minutes sur les flash deals — vous voyez les",
-    "     meilleures sollicitations 10 min avant tout le monde.",
-    "  •  Doublement des gains pendant le 1er mois — sur chaque",
-    "     sollicitation acceptée, vous touchez 2× la récompense standard.",
-    "  •  Code de parrainage personnel — invitez jusqu'à 10 filleul·es,",
-    "     qui deviendront fondateur·ices à leur tour.",
-    "  •  Palier VIP au plafond de 10 filleul·es — bonus forfaitaire de",
-    "     +5,00 € par acceptation (à la place du ×2), sur les campagnes",
-    "     de plus de 300 €, pendant le 1er mois post-lancement.",
-    "  •  Badge fondateur·ice permanent sur votre profil.",
-    "",
-    "Comment activer vos avantages",
-    "------------------------------",
-    `Créez votre compte BUUPP avec exactement cette même adresse e-mail`,
-    `(${email}). C'est ce qui nous permet de vous rattacher à votre`,
-    "place sur la liste et d'activer automatiquement votre statut de",
-    "fondateur·ice.",
+    "Vous vous étiez pré-inscrit·e. Votre place de fondateur·ice est",
+    "réservée, votre badge est prêt — il ne manque plus que vous.",
     "",
     `Créer mon compte : ${SIGNUP_URL}`,
     "",
-    "À tout de suite sur la plateforme,",
+    "⚠️ UN SEUL DÉTAIL, MAIS IL EST CAPITAL",
+    "--------------------------------------",
+    "Créez votre compte avec EXACTEMENT la même adresse e-mail que votre",
+    `pré-inscription, c'est-à-dire ${email}.`,
+    "",
+    "C'est elle, et elle seule, qui vous rattache à votre place sur la",
+    "liste. Avec une autre adresse, vous arrivez en simple nouveau venu :",
+    "pas de badge, pas de bonus, pas de 50 %. Et non, on ne peut pas le",
+    "rattraper à la main — c'est automatique, des deux côtés.",
+    "",
+    "CE QUI VOUS ATTEND DERRIÈRE LE BOUTON",
+    "--------------------------------------",
+    "  🥉 Used — 5,00 € de bonus fondateur inscrits à votre portefeuille",
+    "     dès l'ouverture du compte. Ils deviennent débloquables après",
+    "     3 mois d'ancienneté ET votre première sollicitation acceptée ;",
+    "     on vous prévient, vous les débloquez d'un clic. Ils n'expirent",
+    "     jamais.",
+    "     Et dès votre 1er filleul : +50 % de sa récompense à chacune de",
+    "     ses acceptations, à vie.",
+    "",
+    "  🥈 Paid — à partir de 3 filleuls : les offres flash 20 minutes",
+    "     avant tout le monde. Sur un flash deal, 20 minutes, c'est",
+    "     une éternité.",
+    "",
+    "  🥇 Proud — à 10 filleuls : statut Governor, consulté·e avec droit",
+    "     de vote sur les nouveautés de la plateforme.",
+    "",
+    "LE PRINCIPE, EN UNE PHRASE",
+    "---------------------------",
+    "Ce sont les professionnels qui paient pour avoir le droit de vous",
+    "solliciter. Vous acceptez : vous êtes payé·e. Vous refusez : il ne",
+    "se passe rien. Vos données ne bougent pas d'un pixel sans votre",
+    "feu vert.",
+    "",
+    "Bienvenue chez les fondateur·ices,",
     "L'équipe BUUPP",
     "",
     BUUPP_SITE_URL,
@@ -88,82 +111,95 @@ export async function sendWaitlistLaunched(
         <!-- Header -->
         <tr><td style="padding:28px 32px 12px;border-bottom:1px solid #F1ECDB;">
           <div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:600;letter-spacing:-0.02em;color:#0F1629;">BUUPP</div>
-          <div style="font-size:12px;color:#6B7180;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">Lancement officiel</div>
+          <div style="font-size:12px;color:#6B7180;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">Les inscriptions sont ouvertes</div>
         </td></tr>
 
         <!-- Hero -->
         <tr><td style="padding:32px 32px 8px;">
-          <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;color:#0F1629;font-weight:500;">
-            🚀 C'est officiel,<br/>BUUPP est lancé !
+          <h1 style="margin:0 0 14px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;color:#0F1629;font-weight:500;">
+            🚀 C'est ouvert.<br/>Et votre place vous attend.
           </h1>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#3A4150;">
+            Bonjour ${escapeHtml(prenom)}, un mois d'attente, beaucoup de code et un nombre déraisonnable de cafés plus tard : <strong>BUUPP ouvre ses portes.</strong> Maintenant. Pour de vrai. 🎉
+          </p>
           <p style="margin:0;font-size:15px;line-height:1.6;color:#3A4150;">
-            Bonjour ${escapeHtml(prenom)}, vous êtes inscrit·e sur notre liste d'attente — la plateforme est désormais ouverte. Vous pouvez créer votre compte et commencer à <strong>gagner de l'argent</strong> à chaque sollicitation acceptée.
+            Vous vous étiez pré-inscrit·e. Votre place de <strong>fondateur·ice</strong> est réservée, votre badge est prêt — il ne manque plus que vous.
           </p>
         </td></tr>
 
-        <!-- Founder benefits highlight -->
-        <tr><td style="padding:24px 32px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(120deg,#FFF8E1 0%,#FFF1B8 100%);border:1px solid #F2C879;border-radius:12px;">
-            <tr><td style="padding:22px 26px;">
-              <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5C4400;margin-bottom:6px;font-weight:700;">🎖️ Vos avantages parrain·e / fondateur·ice</div>
-              <div style="font-size:13px;line-height:1.55;color:#5C4400;">
-                Parce que vous étiez là dès le début, vous gardez un statut spécial :
-              </div>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;">
-                <tr><td style="padding:6px 0;">
-                  <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">⚡</span>
-                  <span style="font-size:13.5px;color:#5C4400;"><strong>Priorité de 10 minutes</strong> sur les flash deals — vous voyez les meilleures offres avant tout le monde.</span>
-                </td></tr>
-                <tr><td style="padding:6px 0;">
-                  <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">×2</span>
-                  <span style="font-size:13.5px;color:#5C4400;"><strong>Doublement des gains</strong> pendant le 1er mois — chaque sollicitation acceptée vous rapporte 2× la récompense standard.</span>
-                </td></tr>
-                <tr><td style="padding:6px 0;">
-                  <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">👥</span>
-                  <span style="font-size:13.5px;color:#5C4400;"><strong>Code de parrainage personnel</strong> — invitez jusqu'à 10 filleul·es, qui deviendront fondateur·ices à leur tour.</span>
-                </td></tr>
-                <tr><td style="padding:6px 0;">
-                  <span style="display:inline-block;width:18px;color:#B45309;font-weight:700;">🏆</span>
-                  <span style="font-size:13.5px;color:#5C4400;"><strong>Palier VIP</strong> au plafond de 10 filleul·es — bonus forfaitaire de <strong>+5,00 €</strong> par acceptation (à la place du ×2), sur les campagnes &gt; 300 €.</span>
-                </td></tr>
-                <tr><td style="padding:6px 0;">
-                  <span style="display:inline-block;width:18px;color:#5C4400;font-weight:700;">🏷️</span>
-                  <span style="font-size:13.5px;color:#5C4400;"><strong>Badge fondateur·ice</strong> permanent sur votre profil.</span>
-                </td></tr>
-              </table>
-            </td></tr>
-          </table>
-        </td></tr>
-
         <!-- CTA button -->
-        <tr><td style="padding:28px 32px 8px;text-align:center;">
+        <tr><td style="padding:26px 32px 6px;text-align:center;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
             <tr><td style="background:#0F1629;border-radius:999px;">
-              <a href="${SIGNUP_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#FFFEF8;text-decoration:none;letter-spacing:0.01em;">
+              <a href="${SIGNUP_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:15px 34px;font-size:15px;font-weight:600;color:#FFFEF8;text-decoration:none;letter-spacing:0.01em;">
                 Créer mon compte →
               </a>
             </td></tr>
           </table>
           <p style="margin:14px 0 0;font-size:12px;color:#6B7180;">
-            Inscription en 2 minutes, sans engagement.
+            2 minutes, sans engagement.
           </p>
         </td></tr>
 
-        <!-- Important : même email -->
-        <tr><td style="padding:20px 32px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFFBEB;border:1px solid #D97706;border-radius:10px;">
-            <tr><td style="padding:14px 18px;">
-              <div style="font-size:13px;font-weight:700;color:#78350F;margin-bottom:4px;">⚠️ Activation de vos avantages</div>
-              <div style="font-size:13px;line-height:1.55;color:#78350F;">
-                Pour que votre statut fondateur·ice s'active automatiquement, créez votre compte avec <strong>exactement</strong> cette même adresse (<strong>${escapeHtml(email)}</strong>). Sinon, le rattachement à la liste sera perdu.
+        <!-- Le point capital : la même adresse -->
+        <tr><td style="padding:22px 32px 8px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFFBEB;border:1px solid #D97706;border-radius:12px;">
+            <tr><td style="padding:18px 20px;">
+              <div style="font-size:13.5px;font-weight:700;color:#78350F;margin-bottom:8px;">⚠️ Un seul détail, mais il est capital</div>
+              <div style="font-size:13.5px;line-height:1.6;color:#78350F;">
+                Créez votre compte avec <strong>exactement la même adresse e-mail</strong> que votre pré-inscription :
+                <div style="margin:10px 0;padding:10px 14px;background:#FFFFFF;border:1px dashed #D97706;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px;color:#78350F;word-break:break-all;">${escapeHtml(email)}</div>
+                C'est elle, et elle seule, qui vous rattache à votre place sur la liste. Avec une autre adresse, vous arrivez en simple nouveau venu : pas de badge, pas de bonus, pas de 50 %. Et non, on ne peut pas le rattraper à la main — c'est automatique, des deux côtés.
               </div>
             </td></tr>
           </table>
         </td></tr>
 
+        <!-- Avantages fondateur -->
+        <tr><td style="padding:24px 32px 8px;">
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#6B7180;font-weight:700;margin-bottom:12px;">Ce qui vous attend derrière le bouton</div>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FDF1E5;border:1px solid #D9A066;border-radius:12px;">
+            <tr><td style="padding:18px 20px;">
+              <div style="font-size:14px;font-weight:700;color:#7A431A;margin-bottom:6px;">🥉 Used — votre bonus de départ</div>
+              <div style="font-size:13.5px;line-height:1.6;color:#7A431A;">
+                <strong>5,00 €</strong> inscrits à votre portefeuille dès l'ouverture du compte. Ils deviennent débloquables après <strong>3 mois d'ancienneté</strong> et votre <strong>première sollicitation acceptée</strong> : on vous prévient, vous les débloquez d'un clic. Ils n'expirent jamais.
+                <br/><br/>
+                Et dès votre 1<sup>er</sup> filleul : <strong>+50 % de sa récompense</strong> à chacune de ses acceptations, à vie.
+              </div>
+            </td></tr>
+          </table>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:12px;">
+            <tr><td style="padding:18px 20px;">
+              <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:6px;">🥈 Paid — 20 minutes d'avance</div>
+              <div style="font-size:13.5px;line-height:1.6;color:#374151;">
+                À partir de <strong>3 filleuls</strong>, vous voyez les offres flash <strong>20 minutes avant tout le monde</strong>. Sur un flash deal, 20 minutes, c'est une éternité.
+              </div>
+            </td></tr>
+          </table>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;background:#FEF3C7;border:1px solid #E6B422;border-radius:12px;">
+            <tr><td style="padding:18px 20px;">
+              <div style="font-size:14px;font-weight:700;color:#78350F;margin-bottom:6px;">🥇 Proud — vous avez voix au chapitre</div>
+              <div style="font-size:13.5px;line-height:1.6;color:#78350F;">
+                À <strong>10 filleuls</strong>, vous passez <strong>Governor</strong> : consulté·e avec droit de vote sur les nouveautés de la plateforme.
+              </div>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Rappel du principe -->
+        <tr><td style="padding:24px 32px 4px;">
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#6B7180;font-weight:700;margin-bottom:8px;">Le principe, en une phrase</div>
+          <p style="margin:0;font-size:14px;line-height:1.65;color:#3A4150;">
+            Ce sont les <strong>professionnels qui paient</strong> pour avoir le droit de vous solliciter. Vous acceptez : vous êtes payé·e. Vous refusez : il ne se passe rien. Vos données ne bougent pas d'un pixel sans votre feu vert.
+          </p>
+        </td></tr>
+
         <!-- Footer -->
-        <tr><td style="padding:28px 32px 8px;">
-          <p style="margin:0 0 22px;font-size:14px;color:#3A4150;">À tout de suite sur la plateforme,<br/><strong>L'équipe BUUPP</strong></p>
+        <tr><td style="padding:26px 32px 8px;">
+          <p style="margin:0 0 22px;font-size:14px;color:#3A4150;">Bienvenue chez les fondateur·ices,<br/><strong>L'équipe BUUPP</strong></p>
           <p style="margin:0;text-align:center;">
             <a href="${BUUPP_SITE_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none;">
               <img src="${BUUPP_LOGO_URL}" alt="BUUPP" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;"/>
