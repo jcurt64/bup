@@ -52,3 +52,20 @@ export function waitlistOpenFrom(
 ): boolean {
   return flag !== false && !launchReached(launchAt, now);
 }
+
+/**
+ * Chemins de la pré-inscription, à fermer dès que `launch_at` est passée.
+ *
+ * Deux entrées et non une : `/liste-attente` n'est qu'une coquille qui
+ * encadre `public/prototype/waitlist.html` dans une iframe, et ce HTML est
+ * servi depuis /public — il reste donc atteignable en direct, hors de son
+ * iframe, si on ne le nomme pas ici. Fermer seulement la page laisserait
+ * une porte ouverte à qui connaît l'URL (elle a circulé dans le code
+ * source de la page pendant tout le mois de pré-inscription).
+ */
+export function isWaitlistRoute(pathname: string): boolean {
+  return (
+    pathname === "/liste-attente" ||
+    pathname === "/prototype/waitlist.html"
+  );
+}

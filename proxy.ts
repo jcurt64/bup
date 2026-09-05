@@ -16,7 +16,11 @@ import { createClient } from "@supabase/supabase-js";
 import type { Role } from "@/lib/sync/ensureRole";
 import { isAdminEmail } from "@/lib/admin/access";
 import { safeRedirect } from "@/lib/auth/safeRedirect";
-import { accessOpenFrom } from "@/lib/app-config/launch";
+import {
+  accessOpenFrom,
+  isWaitlistRoute,
+  waitlistOpenFrom,
+} from "@/lib/app-config/launch";
 import {
   resolvePostAuth,
   resolvePostLoginFallback,
@@ -151,19 +155,33 @@ const INTENT_COOKIE = "bupp_auth_intent";
 // autorisation reste Clerk + l'allowlist d'e-mails, cette garde n'est qu'un
 // rideau.
 const ACCESS_BYPASS_COOKIE = "bupp_access_bypass";
-const ACCESS_CACHE_TTL_MS = 60_000;
-let accessCache: { value: boolean; at: number } | null = null;
+const CONFIG_CACHE_TTL_MS = 60_000;
+let configCache: {
+  accessOpen: boolean;
+  waitlistOpen: boolean;
+  at: number;
+} | null = null;
 
 /**
- * Lit le drapeau, avec un mémo de 60 s en portée module (les instances de
- * fonction étant réutilisées, ça évite une requête par visite). Aligné sur
- * le TTL du cache côté pages, donc une réouverture se propage partout dans
- * la même minute. Fail-open comme côté pages.
+ * Lit les deux drapeaux du lancement en UNE requête, avec un mémo de 60 s en
+ * portée module (les instances de fonction étant réutilisées, ça évite une
+ * requête par visite). Aligné sur le TTL du cache côté pages, donc une
+ * bascule se propage partout dans la même minute.
+ *
+ * Une seule lecture pour les deux : elles portent sur la même ligne et
+ * doivent basculer ensemble à `launch_at`. Deux caches indépendants
+ * pourraient se désynchroniser d'une minute et laisser voir, pendant ce
+ * battement, une pré-inscription encore ouverte sur un service déjà ouvert.
+ *
+ * Fail-open comme côté pages : sur incident de lecture on laisse passer.
  */
-async function isAccessOpen(): Promise<boolean> {
+async function readLaunchConfig(): Promise<{
+  accessOpen: boolean;
+  waitlistOpen: boolean;
+}> {
   const now = Date.now();
-  if (accessCache && now - accessCache.at < ACCESS_CACHE_TTL_MS) {
-    return accessCache.value;
+  if (configCache && now - configCache.at < CONFIG_CACHE_TTL_MS) {
+    return configCache;
   }
   try {
     const supabase = createClient(
@@ -173,21 +191,36 @@ async function isAccessOpen(): Promise<boolean> {
     );
     const { data, error } = await supabase
       .from("app_config")
-      .select("access_buttons_enabled, launch_at")
+      .select("access_buttons_enabled, waitlist_open, launch_at")
       .maybeSingle();
     if (error) throw error;
-    // Même règle que lib/app-config/access.ts : le drapeau commande, et
-    // `launch_at` ouvre d'office une fois l'heure du lancement passée —
+    // Mêmes règles que lib/app-config/access.ts : le drapeau commande, et
+    // `launch_at` tranche d'office une fois l'heure du lancement passée —
     // sinon les boutons redeviendraient actifs pendant que ces routes
     // continueraient de rediriger vers /liste-attente.
-    const value = accessOpenFrom(data?.access_buttons_enabled, data?.launch_at);
-    accessCache = { value, at: now };
+    const value = {
+      accessOpen: accessOpenFrom(
+        data?.access_buttons_enabled,
+        data?.launch_at,
+      ),
+      waitlistOpen: waitlistOpenFrom(data?.waitlist_open, data?.launch_at),
+      at: now,
+    };
+    configCache = value;
     return value;
   } catch (err) {
-    console.error("[proxy] access flag read failed", err);
-    accessCache = { value: true, at: now };
-    return true;
+    console.error("[proxy] launch config read failed", err);
+    configCache = { accessOpen: true, waitlistOpen: true, at: now };
+    return configCache;
   }
+}
+
+async function isAccessOpen(): Promise<boolean> {
+  return (await readLaunchConfig()).accessOpen;
+}
+
+async function isWaitlistOpen(): Promise<boolean> {
+  return (await readLaunchConfig()).waitlistOpen;
 }
 
 /** Routes fermées pendant le gel : création de compte et connexion. */
@@ -202,7 +235,16 @@ function isAccessGatedRoute(pathname: string): "inscription" | "connexion" | nul
 }
 
 export default clerkMiddleware(async (auth, request) => {
-  // Étape 0 — gel des accès. Doit passer AVANT l'étape 1 (qui répond tout
+  // Étape 0 — expiration de la pré-inscription. Symétrique du gel des
+  // accès ci-dessous : à `launch_at`, l'un ouvre pendant que l'autre
+  // ferme. Retirer l'onglet de la nav et le CTA du hero ne suffit pas —
+  // l'URL a circulé (mail d'annonce du 02/08, partages), elle doit
+  // renvoyer à l'accueil et non afficher un compte à rebours périmé.
+  if (isWaitlistRoute(request.nextUrl.pathname) && !(await isWaitlistOpen())) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Étape 0 bis — gel des accès. Doit passer AVANT l'étape 1 (qui répond tout
   // de suite sur /inscription/*) et avant isPublicRoute (qui laisse filer
   // /connexion et /inscription).
   const gated = isAccessGatedRoute(request.nextUrl.pathname);
@@ -472,5 +514,11 @@ export const config = {
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|webm|mov|m4v)).*)",
     // Always run for API routes.
     "/(api|trpc)(.*)",
+    // Exception à l'exclusion des fichiers statiques ci-dessus : le HTML de
+    // la liste d'attente doit repasser par le proxy pour être fermé à
+    // `launch_at` (cf. étape 0). Nommé fichier par fichier, pour ne pas
+    // faire transiter tout /prototype — dont les .jsx de la maquette —
+    // par le middleware.
+    "/prototype/waitlist.html",
   ],
 };

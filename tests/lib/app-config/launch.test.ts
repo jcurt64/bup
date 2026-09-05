@@ -3,6 +3,7 @@ import {
   launchReached,
   accessOpenFrom,
   waitlistOpenFrom,
+  isWaitlistRoute,
 } from "@/lib/app-config/launch";
 
 // Lancement officiel : samedi 5 septembre 2026, 14 h 00 à Paris.
@@ -59,5 +60,27 @@ describe("waitlistOpenFrom — pré-inscription", () => {
   it("est l'exact inverse de l'accès au moment du lancement", () => {
     expect(accessOpenFrom(false, LAUNCH, APRES)).toBe(true);
     expect(waitlistOpenFrom(true, LAUNCH, APRES)).toBe(false);
+  });
+});
+
+describe("isWaitlistRoute — ce qui se ferme à l'échéance", () => {
+  it("reconnaît la page de pré-inscription", () => {
+    expect(isWaitlistRoute("/liste-attente")).toBe(true);
+  });
+
+  it("reconnaît le HTML statique encadré par l'iframe", () => {
+    // Servi depuis /public : sans lui, l'URL directe resterait ouverte.
+    expect(isWaitlistRoute("/prototype/waitlist.html")).toBe(true);
+  });
+
+  it("ne ferme pas le reste du site", () => {
+    expect(isWaitlistRoute("/")).toBe(false);
+    expect(isWaitlistRoute("/connexion")).toBe(false);
+    expect(isWaitlistRoute("/prototype/index.html")).toBe(false);
+  });
+
+  it("ne se laisse pas contourner par un suffixe ou un sous-chemin", () => {
+    expect(isWaitlistRoute("/liste-attente/")).toBe(false);
+    expect(isWaitlistRoute("/liste-attente-bis")).toBe(false);
   });
 });
