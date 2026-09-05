@@ -3,6 +3,7 @@ import Link from "next/link";
 import BackHomeButton from "../_components/BackHomeButton";
 import { VideoGroup } from "../_components/VideoShowcase";
 import { TUTORIAL_VIDEOS } from "@/lib/videos/catalog";
+import { getWaitlistOpen } from "@/lib/app-config/access";
 
 /* ─── Page publique : la bibliothèque de vidéos ─────────────────────
    Destination du bouton « Vidéos » du header et des vignettes du mail
@@ -23,7 +24,13 @@ export const metadata: Metadata = {
     "Les vidéos qui montrent BUUPP en fonctionnement : le parcours de pré-inscription sur ordinateur et sur téléphone, sans montage qui embellit.",
 };
 
-export default function TutorielsPage() {
+export default async function TutorielsPage() {
+  // Le CTA de bas de page suit l'état de la pré-inscription : une fois
+  // `launch_at` passée, /liste-attente redirige vers l'accueil (cf.
+  // proxy.ts) et « Je réserve ma place » enverrait le visiteur dans le
+  // mur. On l'envoie créer son compte, ce qui est désormais possible.
+  const waitlistOpen = await getWaitlistOpen();
+
   return (
     <main
       style={{
@@ -110,10 +117,12 @@ export default function TutorielsPage() {
               color: "rgba(251,249,243,.8)",
             }}
           >
-            Prêt·e&nbsp;? La pré-inscription prend deux minutes.
+            {waitlistOpen
+              ? "Prêt·e ? La pré-inscription prend deux minutes."
+              : "Prêt·e ? La création de compte prend deux minutes."}
           </p>
           <Link
-            href="/liste-attente"
+            href={waitlistOpen ? "/liste-attente" : "/inscription/prospect"}
             style={{
               display: "inline-block",
               padding: "13px 28px",
@@ -125,7 +134,7 @@ export default function TutorielsPage() {
               fontSize: 15,
             }}
           >
-            Je réserve ma place →
+            {waitlistOpen ? "Je réserve ma place →" : "Je crée mon compte →"}
           </Link>
         </div>
       </div>
