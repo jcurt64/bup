@@ -1,4 +1,5 @@
-// BUUPP Score — /api/prospect/score (score /1000 + 3 composantes + fiabilité).
+// BUUPP Score — /api/prospect/score (indice de désirabilité /1000 :
+// complétude + fraîcheur + fiabilité).
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -93,8 +94,8 @@ export default function ScoreScreen() {
       onRefresh={() => Promise.all([q.refetch(), h.refetch()])}
       hero={{
         eyebrow: "BUUPP Score",
-        title: "Votre cote de confiance",
-        desc: "Calculé sur 1000 à partir de la complétude, la fraîcheur de vos données et votre taux d'acceptation.",
+        title: "Votre indice de désirabilité",
+        desc: "Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre fiabilité (la note des professionnels).",
         nav: "drawer",
       }}
     >
@@ -127,13 +128,16 @@ export default function ScoreScreen() {
 
           const completeness = d.breakdown.completeness;
           const freshness = d.breakdown.freshness;
-          const acceptance = d.breakdown.acceptance;
+          // Fiabilité = note moyenne des pros (remplace l'ancien taux
+          // d'acceptation). Absente d'une vieille réponse API → neutre.
+          const fiabilite = d.breakdown.fiabilite ?? null;
+          const fiabPct = fiabilite?.pct ?? 60;
+          const fiabCount = fiabilite?.count ?? 0;
 
           const completenessGap = ptsToFull(completeness.pct);
           const freshnessGap = ptsToFull(freshness.pct);
-          // Acceptation : si aucune sollicitation, gain = 0 (même logique web)
-          const acceptanceGap =
-            acceptance.total === 0 ? 0 : ptsToFull(acceptance.pct);
+          // Pas de gain « à débloquer » tant qu'aucun pro n'a noté (parité web).
+          const fiabiliteGap = fiabCount === 0 ? 0 : ptsToFull(fiabPct);
 
           // ── Hints (wording identique au web) ────────────────────────────
           const completenessHint =
@@ -151,16 +155,16 @@ export default function ScoreScreen() {
           const freshnessHint =
             freshness.pct >= 100
               ? "Vos données sont à jour (moins d’un an)."
-              : freshness.ageDays > 0
+              : freshness.lastUpdate || (freshness.ageDays ?? 0) > 0
               ? `Ré-éditez un champ dans Mes données pour repasser à 100 % et gagner ${freshnessGap} pts.`
               : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`;
 
-          const acceptanceHint =
-            acceptance.total === 0
-              ? "Le taux d’acceptation entrera en jeu dès votre première mise en relation."
-              : acceptance.pct >= 100
-              ? "Vous acceptez 100 % des mises en relation — au maximum."
-              : `Acceptez plus de mises en relation depuis votre Inbox pour gagner jusqu’à ${acceptanceGap} pts.`;
+          const fiabiliteHint =
+            fiabCount === 0
+              ? "Vous partez d'une fiabilité neutre (60). Les notes des professionnels la feront monter (Haute) ou baisser (Basse)."
+              : fiabPct >= 100
+              ? "Note maximale des professionnels — au top."
+              : `Honorez vos mises en relation : une note « Haute » des professionnels fait grimper votre fiabilité (jusqu'à ${fiabiliteGap} pts).`;
 
           return (
             <>
@@ -189,15 +193,19 @@ export default function ScoreScreen() {
                 <Bar
                   label="Fraîcheur des données"
                   pct={freshness.pct}
-                  hint={`Dernière MAJ il y a ${freshness.ageDays} j`}
+                  hint={
+                    freshness.ageDays != null
+                      ? `Dernière MAJ il y a ${freshness.ageDays} j`
+                      : "Aucune mise à jour"
+                  }
                 />
                 <Bar
-                  label="Taux d’acceptation"
-                  pct={acceptance.pct}
+                  label="Fiabilité"
+                  pct={fiabPct}
                   hint={
-                    acceptance.total > 0
-                      ? `${acceptance.accepted}/${acceptance.total} acceptées`
-                      : "Aucune sollicitation reçue"
+                    fiabCount > 0
+                      ? `${fiabCount} note${fiabCount > 1 ? "s" : ""} pro`
+                      : "Aucune note — valeur neutre"
                   }
                 />
               </Card>
@@ -483,42 +491,42 @@ export default function ScoreScreen() {
                     </Text>
                   </View>
 
-                  {/* Acceptation */}
+                  {/* Fiabilité */}
                   <View className="rounded-xl border border-line bg-ivory p-3">
                     <View className="mb-1 flex-row items-center justify-between">
                       <Text className="font-serif text-base text-ink">
-                        Taux d&apos;acceptation
+                        Fiabilité
                       </Text>
                       <Text
                         className={`font-mono text-[11px] ${
-                          acceptanceGap === 0 ? "text-good" : "text-violet"
+                          fiabiliteGap === 0 ? "text-good" : "text-violet"
                         }`}
                       >
-                        {acceptanceGap === 0
+                        {fiabiliteGap === 0
                           ? "✓ optimal"
-                          : `+${acceptanceGap} pts max`}
+                          : `+${fiabiliteGap} pts max`}
                       </Text>
                     </View>
                     <Text className="font-mono text-lg text-ink">
-                      {acceptance.pct}%
+                      {fiabPct}%
                       <Text className="font-mono text-[11px] text-ink-4">
-                        {acceptance.total > 0
-                          ? ` · ${acceptance.accepted}/${acceptance.total} acceptées`
-                          : " · Aucune sollicitation reçue"}
+                        {fiabCount > 0
+                          ? ` · ${fiabCount} note${fiabCount > 1 ? "s" : ""} pro`
+                          : " · Aucune note — valeur neutre"}
                       </Text>
                     </Text>
                     <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-ivory-2">
                       <View
                         className={`h-1.5 rounded-full ${
-                          acceptanceGap === 0 ? "bg-good" : "bg-violet"
+                          fiabiliteGap === 0 ? "bg-good" : "bg-violet"
                         }`}
                         style={{
-                          width: `${Math.max(0, Math.min(100, acceptance.pct))}%`,
+                          width: `${Math.max(0, Math.min(100, fiabPct))}%`,
                         }}
                       />
                     </View>
                     <Text className="mt-2 text-[11px] leading-4 text-ink-4">
-                      {acceptanceHint}
+                      {fiabiliteHint}
                     </Text>
                   </View>
                 </View>

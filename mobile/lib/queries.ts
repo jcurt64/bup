@@ -45,93 +45,14 @@ export type Notif = {
   attachmentFilename: string | null;
   createdAt: string;
   unread: boolean;
-  /** Catégorie d'affichage forcée (mocks DEV) ; sinon dérivée du contenu. */
-  category?: "annonce" | "alerte" | "communication";
 };
-
-// DEV : injecte des messages fictifs (cf. maquettes mes2/mes3) pour
-// visualiser la liste de messages + la page de détail sans dépendre de
-// broadcasts réels. Mettre à `false` (ou supprimer) avant la prod.
-const SHOW_MOCK_NOTIFICATIONS = true;
-
-function buildMockNotifications(): Notif[] {
-  const now = Date.now();
-  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
-  const base = { audience: "prospects", hasAttachment: false, attachmentFilename: null };
-  return [
-    {
-      ...base,
-      id: "mock-notif-1",
-      title: "Nouveau flash deal près de chez vous",
-      body: "Solaria propose un bilan énergétique — gains ×3 pendant 45 min. Saisissez-le avant la fin du compte à rebours pour empocher 10,20 € au lieu de 3,40 €.",
-      createdAt: iso(2 * 3600_000),
-      unread: true,
-      category: "annonce",
-    },
-    {
-      ...base,
-      id: "mock-notif-2",
-      title: "Récompense bientôt créditée",
-      body: "Votre mise en relation avec FitOne est en séquestre. Le crédit arrive sous 24 h sur votre portefeuille, dès la validation du professionnel.",
-      createdAt: iso(3 * 3600_000 + 27 * 60_000),
-      unread: true,
-      category: "alerte",
-    },
-    {
-      ...base,
-      id: "mock-notif-3",
-      title: "Bienvenue chez buupp 👋",
-      body: "Bienvenue très cher buupper ! Complétez votre profil pour débloquer davantage de mises en relation rémunérées et faire grimper votre BUUPP Score.",
-      createdAt: iso(26 * 3600_000),
-      unread: true,
-      category: "communication",
-    },
-    {
-      ...base,
-      id: "mock-notif-4",
-      title: "Votre relevé de mai est disponible",
-      body: "7,50 € de récompenses cumulées ce mois-ci. Consultez le détail de vos mouvements depuis votre portefeuille.",
-      createdAt: iso(50 * 3600_000),
-      unread: false,
-      category: "communication",
-    },
-  ];
-}
-
-const MOCK_NOTIFICATIONS: Notif[] = SHOW_MOCK_NOTIFICATIONS
-  ? buildMockNotifications()
-  : [];
-// État simulé des mocks (lecture / suppression) — appliqué dans le queryFn.
-const mockReadNotifs = new Set<string>();
-const mockDeletedNotifs = new Set<string>();
-export function isMockNotif(id: string): boolean {
-  return id.startsWith("mock-notif-");
-}
-export function markMockNotifRead(id: string): void {
-  mockReadNotifs.add(id);
-}
-export function deleteMockNotif(id: string): void {
-  mockDeletedNotifs.add(id);
-}
 
 type NotifsResponse = { notifications: Notif[]; unreadCount: number };
 export const useNotifications = () => {
   const api = useApi();
   return useQuery({
     queryKey: ["me", "notifications"],
-    // Fusion des mocks DANS le queryFn (cf. note structuralSharing ailleurs).
-    queryFn: async () => {
-      const d = await api<NotifsResponse>("/api/me/notifications");
-      if (!SHOW_MOCK_NOTIFICATIONS) return d;
-      const mocks = MOCK_NOTIFICATIONS.filter(
-        (n) => !mockDeletedNotifs.has(n.id),
-      ).map((n) => (mockReadNotifs.has(n.id) ? { ...n, unread: false } : n));
-      const mockUnread = mocks.filter((n) => n.unread).length;
-      return {
-        notifications: [...mocks, ...d.notifications],
-        unreadCount: d.unreadCount + mockUnread,
-      };
-    },
+    queryFn: () => api<NotifsResponse>("/api/me/notifications"),
     staleTime: 15_000,
     placeholderData: keepPreviousData,
   });
@@ -179,12 +100,7 @@ export const useProspectWallet = () => {
   const api = useApi();
   return useQuery({
     queryKey: ["prospect", "wallet"],
-    // DEV : ajoute le séquestre des flash deals fictifs acceptés DANS le
-    // queryFn (cf. note structuralSharing sur useFlashDeals).
-    queryFn: async () => {
-      const w = await api<ProspectWallet>("/api/prospect/wallet");
-      return applyMockEscrow(w);
-    },
+    queryFn: () => api<ProspectWallet>("/api/prospect/wallet"),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
@@ -230,127 +146,14 @@ export type Relation = {
   campaignOpen?: boolean;
   campaignActive?: boolean;
 };
-// DEV : 3 sollicitations (demandes en attente) fictives pour visualiser le
-// carrousel de la page Relations. Mettre à `false` avant la prod.
-const SHOW_MOCK_SOLLICITATIONS = true;
-
-function buildMockSollicitations(): Relation[] {
-  const now = Date.now();
-  const iso = (ms: number) => new Date(now + ms).toISOString();
-  const hms = (ms: number) => {
-    const s = Math.max(0, Math.floor(ms / 1000));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  };
-  const base = {
-    isFlashDeal: false,
-    reported: false,
-    relationStatus: "pending",
-    campaignOpen: true,
-    campaignActive: true,
-  };
-  const mk = (
-    id: string,
-    pro: string,
-    sector: string,
-    motif: string,
-    brief: string,
-    reward: number,
-    tier: number,
-    expMs: number,
-  ): Relation => ({
-    ...base,
-    id,
-    campaignId: id,
-    pro,
-    proName: pro,
-    sector,
-    motif,
-    brief,
-    reward,
-    tier,
-    timer: hms(expMs),
-    startDate: iso(-6 * 3600_000),
-    endDate: iso(expMs),
-    expiresAt: iso(expMs),
-  });
-  return [
-    mk(
-      "mock-soll-1",
-      "Studio Verde",
-      "Architecture & déco",
-      "Projet de rénovation d’un loft — recherche de propriétaires.",
-      "Nous accompagnons les particuliers dans la rénovation de leur intérieur.",
-      2.5,
-      2,
-      12 * 3600_000,
-    ),
-    mk(
-      "mock-soll-2",
-      "NutriCoach",
-      "Nutrition & bien-être",
-      "Bilan nutritionnel personnalisé offert.",
-      "Coaching nutritionnel à distance pour reprendre de bonnes habitudes.",
-      1.8,
-      1,
-      5 * 3600_000 + 21 * 60_000,
-    ),
-    mk(
-      "mock-soll-3",
-      "Hexa Immo",
-      "Immobilier",
-      "Estimation gratuite de votre bien.",
-      "Agence locale : estimation et accompagnement à la vente.",
-      3.2,
-      3,
-      20 * 3600_000,
-    ),
-  ];
-}
-
-const MOCK_SOLLICITATIONS: Relation[] = SHOW_MOCK_SOLLICITATIONS
-  ? buildMockSollicitations()
-  : [];
-
-// État simulé des sollicitations fictives (accept/refuse) — appliqué au
-// queryFn. Une sollicitation décidée RESTE dans le carrousel et passe en
-// statut « accepted » (pastille ✓) ou « refused » (pastille « Refusée »).
-const acceptedMockSoll = new Set<string>();
-const refusedMockSoll = new Set<string>();
-export function isMockSollicitation(id: string): boolean {
-  return id.startsWith("mock-soll-");
-}
-export function recordMockSollicitationAccepted(id: string): void {
-  acceptedMockSoll.add(id);
-  refusedMockSoll.delete(id);
-}
-export function recordMockSollicitationRefused(id: string): void {
-  refusedMockSoll.add(id);
-  acceptedMockSoll.delete(id);
-}
-
 export const useProspectRelations = () => {
   const api = useApi();
   return useQuery({
     queryKey: ["prospect", "relations"],
-    // Fusion des sollicitations fictives DANS le queryFn (cf. note
-    // structuralSharing ailleurs).
-    queryFn: async () => {
-      const d = await api<{ pending: Relation[]; history: Relation[] }>(
+    queryFn: () =>
+      api<{ pending: Relation[]; history: Relation[] }>(
         "/api/prospect/relations",
-      );
-      if (!SHOW_MOCK_SOLLICITATIONS) return d;
-      const mockPending = MOCK_SOLLICITATIONS.map((s) =>
-        acceptedMockSoll.has(s.id)
-          ? { ...s, relationStatus: "accepted", decision: "Acceptée" }
-          : refusedMockSoll.has(s.id)
-            ? { ...s, relationStatus: "refused", decision: "Refusée" }
-            : s,
-      );
-      return { ...d, pending: [...mockPending, ...d.pending] };
-    },
+      ),
     staleTime: 90_000,
     placeholderData: keepPreviousData,
   });
@@ -360,8 +163,7 @@ export type Score = {
   score: number;
   breakdown: {
     completeness: { pct: number; filled: number; total: number };
-    freshness: { pct: number; ageDays: number };
-    acceptance: { pct: number; accepted: number; total: number };
+    freshness: { pct: number; ageDays: number | null; lastUpdate?: string | null };
     /** Fiabilité = note moyenne des pros (note la plus récente par pro
      *  distinct). `count` = nb de pros notants ; `levels` = répartition. */
     fiabilite?: {
@@ -557,14 +359,7 @@ export const useProspectMovements = () => {
   const api = useApi();
   return useQuery({
     queryKey: ["prospect", "movements"],
-    // DEV : préfixe les mouvements des flash deals fictifs acceptés dans le
-    // queryFn (cf. note structuralSharing sur useFlashDeals).
-    queryFn: async () => {
-      const d = await api<MovementsResponse>("/api/prospect/movements");
-      return SHOW_MOCK_FLASH_DEALS
-        ? { ...d, movements: [...buildMockAcceptedMovements(), ...d.movements] }
-        : d;
-    },
+    queryFn: () => api<MovementsResponse>("/api/prospect/movements"),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
@@ -625,7 +420,7 @@ export type ScoreHistory = {
     score: number;
     completenessPct: number;
     freshnessPct: number;
-    acceptancePct: number;
+    fiabilitePct: number;
   }[];
 };
 export const useProspectScoreHistory = (range: "1M" | "3M" | "6M" | "12M" = "3M") =>
@@ -937,275 +732,11 @@ type FlashDealsResponse = {
   };
 };
 
-// DEV : injecte 5 flash deals fictifs (durée ~24 h) pour visualiser le
-// carrousel et la sheet de détail sans dépendre de campagnes réelles en
-// base. Mettre à `false` (ou supprimer) avant la mise en prod. Les états
-// (pending / accepted / refused / fill_data) sont variés pour montrer
-// toutes les vues. Note : les actions Accepter/Refuser sur ces deals
-// échouent (relationId fictif) — c'est uniquement pour l'affichage.
-const SHOW_MOCK_FLASH_DEALS = true;
-
-function buildMockFlashDeals(): FlashDeal[] {
-  const now = Date.now();
-  // endsAt ≈ 24 h, légèrement échelonné pour des timers distincts.
-  const endsIn = (i: number) =>
-    new Date(now + 24 * 60 * 60_000 - i * 11 * 60_000).toISOString();
-  // startsAt échelonné (lancé il y a 1 h à ~13 h) → barres de progression
-  // variées dans le carrousel.
-  const startedAt = (i: number) =>
-    new Date(now - (i * 3 + 1) * 60 * 60_000).toISOString();
-  const base = {
-    // Flash deal = durationKey '1h' → multiplicateur ×3 (cf. web
-    // DURATION_MULTIPLIERS : 1h→3, 24h→2, 48h→1.5, 7d→1).
-    multiplier: 3,
-    founderBonusApplied: false,
-    founderVipBonusApplied: false,
-    isAuthenticated: true,
-  };
-  return [
-    {
-      ...base,
-      id: "mock-fd-1",
-      name: "Bilan énergétique solaire offert",
-      endsAt: endsIn(0),
-      startsAt: startedAt(0),
-      brief:
-        "Installateur photovoltaïque : prospects propriétaires intéressés par l'auto-consommation solaire.",
-      costPerContactCents: 1020,
-      requiredTiers: [1, 2, 5],
-      requiredTierKeys: ["identity", "localisation", "patrimoine"],
-      proName: "Solaria",
-      proSector: "Énergies renouvelables",
-      relationId: "mock-rel-1",
-      relationStatus: "pending",
-      missingTierKeys: [],
-    },
-    {
-      ...base,
-      id: "mock-fd-2",
-      name: "Devis dépannage prioritaire",
-      endsAt: endsIn(1),
-      startsAt: startedAt(1),
-      brief:
-        "Dépannage et rénovation : foyers cherchant un artisan de confiance près de chez eux.",
-      costPerContactCents: 760,
-      requiredTiers: [1, 2],
-      requiredTierKeys: ["identity", "localisation"],
-      proName: "Plomberie Martin",
-      proSector: "Chauffage & sanitaire",
-      relationId: "mock-rel-2",
-      relationStatus: "pending",
-      missingTierKeys: [],
-    },
-    {
-      ...base,
-      id: "mock-fd-3",
-      name: "Séance découverte offerte",
-      endsAt: endsIn(2),
-      startsAt: startedAt(2),
-      brief:
-        "Coaching sportif à domicile : profils actifs souhaitant reprendre une activité régulière.",
-      costPerContactCents: 580,
-      requiredTiers: [1, 3],
-      requiredTierKeys: ["identity", "vie"],
-      proName: "Coach Attitude",
-      proSector: "Bien-être & santé",
-      relationId: "mock-rel-3",
-      relationStatus: "accepted",
-      missingTierKeys: [],
-    },
-    {
-      ...base,
-      id: "mock-fd-4",
-      name: "Shooting portrait évènement",
-      endsAt: endsIn(3),
-      startsAt: startedAt(3),
-      brief:
-        "Shooting portrait : particuliers à la recherche d'un photographe pour un évènement.",
-      costPerContactCents: 940,
-      requiredTiers: [1, 2],
-      requiredTierKeys: ["identity", "localisation"],
-      proName: "Studio Lumen",
-      proSector: "Photographie",
-      relationId: "mock-rel-4",
-      relationStatus: "refused",
-      missingTierKeys: [],
-    },
-    {
-      ...base,
-      id: "mock-fd-5",
-      name: "Essai vélo électrique",
-      endsAt: endsIn(4),
-      startsAt: startedAt(4),
-      brief:
-        "Vélos électriques : urbains envisageant de passer à la mobilité douce.",
-      costPerContactCents: 1240,
-      requiredTiers: [1, 2, 5],
-      requiredTierKeys: ["identity", "localisation", "patrimoine"],
-      proName: "Greenmove",
-      proSector: "Mobilité durable",
-      relationId: null,
-      relationStatus: null,
-      missingTierKeys: ["patrimoine"],
-    },
-  ];
-}
-
-// Mocks calculés UNE fois au chargement du module : endsAt fixés au démarrage
-// de l'app (+24 h) → les timers décomptent normalement. Un `select` stable
-// (défini hors du hook) évite que react-query ne régénère les deals à chaque
-// render (ce qui réinitialiserait les compteurs à chaque tick).
-const MOCK_FLASH_DEALS: FlashDeal[] = SHOW_MOCK_FLASH_DEALS
-  ? buildMockFlashDeals()
-  : [];
-const MOCK_DEAL_BY_ID = new Map(MOCK_FLASH_DEALS.map((d) => [d.id, d]));
-
-// ── DEV : décisions simulées sur les flash deals fictifs ───────────────
-// Les deals fictifs n'ont pas de relation réelle en base : on simule
-// l'accept/refuse côté client (pas d'appel API), et un deal accepté est
-// injecté dans les Mouvements du portefeuille (escrow « En séquestre »).
-// `acceptedMockDeals` : id deal fictif → ISO de la décision d'acceptation.
-const acceptedMockDeals = new Map<string, string>();
-// Mocks explicitement refusés (statut « refused » dans la liste → bouton
-// « Accepter finalement » tant que la campagne n'est pas clôturée).
-const refusedMockDeals = new Set<string>();
-// Pré-remplit selon le statut de base : accepted/settled → séquestre +
-// Mouvements d'emblée ; refused → bascule « Accepter finalement ».
-MOCK_FLASH_DEALS.forEach((d) => {
-  if (d.relationStatus === "accepted" || d.relationStatus === "settled") {
-    acceptedMockDeals.set(d.id, new Date().toISOString());
-  } else if (d.relationStatus === "refused") {
-    refusedMockDeals.add(d.id);
-  }
-});
-
-export function isMockDeal(id: string): boolean {
-  return id.startsWith("mock-");
-}
-export function recordMockDealAccepted(id: string): void {
-  acceptedMockDeals.set(id, new Date().toISOString());
-  refusedMockDeals.delete(id);
-}
-export function recordMockDealRefused(id: string): void {
-  acceptedMockDeals.delete(id);
-  refusedMockDeals.add(id);
-}
-
-// Montant total (cents) des flash deals fictifs acceptés — injecté dans le
-// séquestre du portefeuille (parité avec les Mouvements fictifs).
-function mockAcceptedEscrowCents(): number {
-  let c = 0;
-  acceptedMockDeals.forEach((_iso, id) => {
-    const d = MOCK_DEAL_BY_ID.get(id);
-    if (d) c += d.costPerContactCents;
-  });
-  return c;
-}
-// Ajoute le séquestre fictif au wallet (DEV). No-op si le flag est désactivé
-// ou si aucun mock n'est accepté.
-function applyMockEscrow(w: ProspectWallet): ProspectWallet {
-  if (!SHOW_MOCK_FLASH_DEALS) return w;
-  const extra = mockAcceptedEscrowCents();
-  if (extra <= 0) return w;
-  const escrowCents = w.escrowCents + extra;
-  return {
-    ...w,
-    escrowCents,
-    escrowEur: Math.round(escrowCents) / 100,
-    relationsCount: w.relationsCount + acceptedMockDeals.size,
-  };
-}
-
-// Construit la relation détaillée d'un mouvement fictif (réutilisée par la
-// modale détail des Mouvements).
-function buildMockMovementRelation(d: FlashDeal, iso: string): MovementRelation {
-  const reward = d.costPerContactCents / 100;
-  const tier =
-    d.requiredTiers && d.requiredTiers.length > 0
-      ? Math.max(...d.requiredTiers)
-      : 1;
-  return {
-    // On expose l'id du deal fictif (mock-fd-*) comme id de relation : la
-    // modale détail des Mouvements peut ainsi simuler un refus directement.
-    id: d.id,
-    date: iso,
-    pro: d.proName ?? "Un professionnel",
-    proName: d.proName ?? "Un professionnel",
-    sector: d.proSector ?? "",
-    motif: d.name,
-    brief: d.brief,
-    campaignName: d.name,
-    reward,
-    tier,
-    tiers: d.requiredTiers ?? null,
-    timer: "",
-    startDate: d.startsAt ?? null,
-    endDate: d.endsAt,
-    decision: "Acceptée",
-    status: "En séquestre",
-    availableAt: d.endsAt,
-    relationStatus: "accepted",
-    gain: reward,
-    campaignStatus: "active",
-    campaignOpen: true,
-    campaignActive: true,
-    reported: false,
-    balanceAfterCents: null,
-    balanceAfterEur: null,
-  };
-}
-
-// Mouvements fictifs « En séquestre » pour chaque deal fictif accepté
-// (plus récent d'abord), à préfixer aux vrais mouvements.
-function buildMockAcceptedMovements(): Movement[] {
-  const out: Movement[] = [];
-  acceptedMockDeals.forEach((iso, id) => {
-    const d = MOCK_DEAL_BY_ID.get(id);
-    if (!d) return;
-    out.push({
-      id: `mockmov-${id}`,
-      date: iso,
-      origin: d.proName ?? "Un professionnel",
-      tier:
-        d.requiredTiers && d.requiredTiers.length > 0
-          ? Math.max(...d.requiredTiers)
-          : null,
-      tiers: d.requiredTiers ?? null,
-      statusLabel: "En séquestre",
-      statusChip: "warn",
-      amountCents: d.costPerContactCents,
-      amountEur: d.costPerContactCents / 100,
-      sign: "+",
-      relation: buildMockMovementRelation(d, iso),
-    });
-  });
-  return out.reverse();
-}
-
-// Deals fictifs avec leur statut simulé (accepté / refusé) appliqué, pour
-// que le bon bouton « Refuser / Accepter finalement » s'affiche.
-function mockDealsForList(): FlashDeal[] {
-  return MOCK_FLASH_DEALS.map((m) => {
-    if (acceptedMockDeals.has(m.id)) return { ...m, relationStatus: "accepted" };
-    if (refusedMockDeals.has(m.id)) return { ...m, relationStatus: "refused" };
-    return m;
-  });
-}
-
 export const useFlashDeals = () => {
   const api = useApi();
   return useQuery({
     queryKey: ["landing", "flash-deals"],
-    // Fusion des mocks DANS le queryFn (pas en `select`) : sinon, quand le
-    // serveur renvoie des données identiques, `structuralSharing` garde la
-    // même référence et le `select` mémoïsé ne reflète pas le nouvel état
-    // mock (séquestre / accepté / refusé).
-    queryFn: async () => {
-      const d = await api<FlashDealsResponse>("/api/landing/flash-deals");
-      return SHOW_MOCK_FLASH_DEALS
-        ? { ...d, deals: [...mockDealsForList(), ...d.deals] }
-        : d;
-    },
+    queryFn: () => api<FlashDealsResponse>("/api/landing/flash-deals"),
     staleTime: 10_000,
     placeholderData: keepPreviousData,
   });

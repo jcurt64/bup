@@ -9,14 +9,11 @@
 // non rendues ici.
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
 import { CAT_CONF, categorizeMessage, fmtMessageDate } from "../lib/message-category";
 import {
-  deleteMockNotif,
-  isMockNotif,
   useDeleteNotification,
   type Notif,
 } from "../lib/queries";
@@ -35,9 +32,8 @@ export function MessageDetailModal({
   const { c } = useTheme();
   const del = useDeleteNotification();
   const download = useAuthedDownload();
-  const qc = useQueryClient();
   const cat = notif
-    ? CAT_CONF[notif.category ?? categorizeMessage(notif.title, notif.body)]
+    ? CAT_CONF[categorizeMessage(notif.title, notif.body)]
     : null;
 
   function confirmDelete() {
@@ -52,13 +48,6 @@ export function MessageDetailModal({
           text: "Supprimer",
           style: "destructive",
           onPress: () => {
-            // Messages fictifs : suppression simulée (pas d'appel API).
-            if (isMockNotif(id)) {
-              deleteMockNotif(id);
-              qc.invalidateQueries({ queryKey: ["me", "notifications"] });
-              onClose();
-              return;
-            }
             del.mutate(
               { id },
               {

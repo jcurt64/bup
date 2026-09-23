@@ -455,7 +455,7 @@ function SollicitationCard({
             {eur(r.reward)}
           </Text>
           <Text style={{ fontSize: 11.5, color: R.DMUTED, marginTop: 5 }}>
-            Versée dès que vous acceptez
+            En séquestre, créditée à la clôture de la campagne
           </Text>
         </View>
 

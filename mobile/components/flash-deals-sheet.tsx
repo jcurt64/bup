@@ -36,34 +36,11 @@ import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import {
-  isMockDeal,
-  recordMockDealAccepted,
-  recordMockDealRefused,
   useDecideRelation,
   useFlashDeals,
   useProspectScore,
   type FlashDeal,
 } from "../lib/queries";
-
-// DEV : simule une décision sur un flash deal fictif (pas d'appel API) — le
-// deal accepté apparaît dans les Mouvements. Renvoie true si géré (mock).
-function simulateMockDecision(
-  d: FlashDeal,
-  action: "accept" | "refuse",
-  qc: ReturnType<typeof useQueryClient>,
-  onFeedback: (a: "accept" | "refuse") => void,
-): boolean {
-  if (!isMockDeal(d.id)) return false;
-  if (action === "accept") recordMockDealAccepted(d.id);
-  else recordMockDealRefused(d.id);
-  onFeedback(action);
-  setTimeout(() => {
-    qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-    qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
-    qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
-  }, 2500);
-  return true;
-}
 
 // Palette du design « Flash deals · radar en veille » (cf.
 // public/prototype/fl.html). Reprend les tokens exacts de la maquette.
@@ -481,8 +458,6 @@ function FlashDealDetailSheet({
       setShowFillData(true);
       return;
     }
-    // Deals fictifs : décision simulée (pas d'appel API) + mouvement injecté.
-    if (simulateMockDecision(d, action, qc, setJustDecided)) return;
     setBusy(action);
     try {
       await decide.mutateAsync({ id: d.relationId, action });
@@ -532,7 +507,6 @@ function FlashDealDetailSheet({
       setShowFillData(true);
       return;
     }
-    if (simulateMockDecision(d, "accept", qc, setJustDecided)) return;
     setBusy("accept");
     try {
       await decide.mutateAsync({ id: d.relationId, action: "undo" });
@@ -598,7 +572,6 @@ function FlashDealDetailSheet({
   // accepted → refused : direct via /decision action=refuse.
   async function refuseAfterAccepted() {
     if (!d?.relationId || busy) return;
-    if (simulateMockDecision(d, "refuse", qc, setJustDecided)) return;
     setBusy("refuse");
     try {
       await decide.mutateAsync({ id: d.relationId, action: "refuse" });

@@ -19,7 +19,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
 import { useAcceptGate } from "./accept-gate";
@@ -31,12 +30,6 @@ import { ApiError } from "../lib/api";
 import { relationRequiredTierNums } from "../lib/completeness";
 import { useTheme } from "../lib/theme";
 import {
-  isMockDeal,
-  isMockSollicitation,
-  recordMockDealAccepted,
-  recordMockDealRefused,
-  recordMockSollicitationAccepted,
-  recordMockSollicitationRefused,
   useDecideRelation,
   type MovementRelation,
 } from "../lib/queries";
@@ -562,7 +555,6 @@ export function MovementDetailSheet({
   const { c } = useTheme();
   const decide = useDecideRelation();
   const gate = useAcceptGate();
-  const qc = useQueryClient();
   const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
   // Sous-modale de signalement + état local « déjà signalé » pour
   // basculer immédiatement le footer sans refetch. Initialisé depuis
@@ -600,28 +592,7 @@ export function MovementDetailSheet({
     (isHistory && alreadyAccepted && !!r.campaignActive);
 
   async function act(action: "accept" | "refuse") {
-    // Sollicitation fictive (id mock-soll-*) : décision simulée → la card du
-    // carrousel Relations passe en « acceptée » (badge ✓) ou disparaît.
-    if (isMockSollicitation(r.id)) {
-      if (action === "accept") recordMockSollicitationAccepted(r.id);
-      else recordMockSollicitationRefused(r.id);
-      qc.invalidateQueries({ queryKey: ["prospect", "relations"] });
-      onClose();
-      return;
-    }
-    // Mouvement issu d'un flash deal fictif (id mock-*) : décision simulée
-    // sans appel API (parité avec la sheet flash deals). Refuser retire le
-    // mouvement injecté.
-    if (isMockDeal(r.id)) {
-      if (action === "accept") recordMockDealAccepted(r.id);
-      else recordMockDealRefused(r.id);
-      qc.invalidateQueries({ queryKey: ["prospect", "movements"] });
-      qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-      qc.invalidateQueries({ queryKey: ["prospect", "wallet"] });
-      onClose();
-      return;
-    }
-    // Garde « données complètes » : pour ACCEPTER une sollicitation réelle,
+    // Garde « données complètes » : pour ACCEPTER une sollicitation,
     // tous les paliers exigés par la campagne (r.tiers) doivent être
     // intégralement renseignés. Sinon on ouvre la modale d'invitation à
     // compléter SANS appeler l'API (le serveur refuse aussi en 422). Pré-check

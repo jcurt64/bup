@@ -96,7 +96,7 @@ function PushBridge() {
         data,
       });
       void qc.invalidateQueries({ queryKey: ["prospect", "relations"] });
-      void qc.invalidateQueries({ queryKey: ["flash-deals"] });
+      void qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
     });
     return () => sub.remove();
   }, [banner, qc]);

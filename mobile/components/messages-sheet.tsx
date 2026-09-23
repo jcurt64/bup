@@ -6,7 +6,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
@@ -14,9 +13,6 @@ import { BuuppLoader } from "./loader";
 import { MessageDetailModal } from "./message-detail";
 import { useTheme } from "../lib/theme";
 import {
-  deleteMockNotif,
-  isMockNotif,
-  markMockNotifRead,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -40,7 +36,7 @@ function MessageCard({
   onDelete: () => void;
 }) {
   const { c } = useTheme();
-  const cat = CAT_CONF[n.category ?? categorizeMessage(n.title, n.body)];
+  const cat = CAT_CONF[categorizeMessage(n.title, n.body)];
   return (
     <View
       style={{
@@ -182,7 +178,6 @@ export function MessagesSheet({
   const read = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
   const del = useDeleteNotification();
-  const qc = useQueryClient();
   const { c } = useTheme();
   // Détail ouvert PAR-DESSUS la sheet (la liste reste montée dessous) — évite
   // le flash sur l'accueil et garde le retour/suppression vers la liste.
@@ -209,12 +204,6 @@ export function MessagesSheet({
           text: "Supprimer",
           style: "destructive",
           onPress: () => {
-            // Messages fictifs : suppression simulée (pas d'appel API).
-            if (isMockNotif(id)) {
-              deleteMockNotif(id);
-              qc.invalidateQueries({ queryKey: ["me", "notifications"] });
-              return;
-            }
             del.mutate(
               { id },
               {
@@ -232,14 +221,7 @@ export function MessagesSheet({
   }
 
   function openMessage(n: Notif) {
-    if (n.unread) {
-      if (isMockNotif(n.id)) {
-        markMockNotifRead(n.id);
-        qc.invalidateQueries({ queryKey: ["me", "notifications"] });
-      } else {
-        read.mutate({ id: n.id });
-      }
-    }
+    if (n.unread) read.mutate({ id: n.id });
     // Ouvre le détail PAR-DESSUS la sheet (pas de fermeture/navigation).
     setOpenDetail(n);
   }
@@ -271,14 +253,7 @@ export function MessagesSheet({
           <Pressable
             onPress={() => {
               if (markAll.isPending) return;
-              // Sépare mocks (lecture simulée) et réels (API markAll).
-              const mockUnread = unreadIds.filter(isMockNotif);
-              const realUnread = unreadIds.filter((id) => !isMockNotif(id));
-              if (mockUnread.length > 0) {
-                mockUnread.forEach(markMockNotifRead);
-                qc.invalidateQueries({ queryKey: ["me", "notifications"] });
-              }
-              if (realUnread.length > 0) markAll.mutate({ ids: realUnread });
+              markAll.mutate({ ids: unreadIds });
             }}
             disabled={markAll.isPending}
             accessibilityRole="button"
