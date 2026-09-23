@@ -28,6 +28,7 @@ import { PushBannerProvider, usePushBanner } from "../components/in-app-push-ban
 import { tokenCache } from "../lib/clerk-token-cache";
 import { ensurePushChannelsAndroid, registerForPushNotifications } from "../lib/push";
 import { ThemeProvider, useTheme } from "../lib/theme";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // StatusBar dont les icônes (claires/sombres) suivent le thème actif.
 function ThemedStatusBar() {
@@ -164,6 +165,9 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    // Racine gestes : requise par react-native-gesture-handler (balayage du
+    // bandeau de notification in-app) — sans elle, le bandeau plantait l'app.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ClerkProvider
       tokenCache={tokenCache}
       publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
@@ -210,5 +214,6 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </QueryClientProvider>
     </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }
