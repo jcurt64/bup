@@ -1,7 +1,6 @@
 // Mes données — /api/prospect/donnees (lecture + édition par palier via
 // PATCH /api/prospect/donnees) + masquer/supprimer (POST /api/prospect/tier).
 // Champs/libellés/ordre = Prospect.jsx fn MesDonnees (web).
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -10,7 +9,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -87,7 +85,7 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
     },
     {
       key: "naissance",
-      label: "Date de naissance",
+      label: "Naissance (mois et année)",
       icon: "calendar-outline",
       cfg: { type: "date" },
     },
@@ -269,107 +267,57 @@ function FieldIcon({
   );
 }
 
-// Parse "JJ/MM/AAAA" → Date (ou null si invalide). Parité avec
-// isNaissanceValid (Prospect.jsx) : regex + plage 0-12 / 0-31 + roundtrip
-// pour rejeter 31/02 etc.
-function parseDateFr(s: string): Date | null {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return null;
-  const [d, m, y] = s.split("/").map(Number);
-  const dt = new Date(y, m - 1, d);
-  if (
-    Number.isNaN(dt.getTime()) ||
-    dt.getFullYear() !== y ||
-    dt.getMonth() !== m - 1 ||
-    dt.getDate() !== d
-  ) {
-    return null;
-  }
-  return dt;
+// Naissance = mois + année uniquement ("MM/AAAA", minimisation RGPD —
+// suffisant pour le ciblage par âge). Parité maskNaissance /
+// isNaissanceValid (Prospect.jsx) et normalizeNaissance (API).
+// Une ancienne valeur "JJ/MM/AAAA" est convertie (le jour est abandonné).
+function maskNaissance(input: string): string {
+  const legacy = /^\d{2}\/(\d{2}\/\d{4})$/.exec(input.trim());
+  if (legacy) return legacy[1];
+  const digits = input.replace(/\D/g, "").slice(0, 6);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
-// Date → "JJ/MM/AAAA" (format de stockage attendu par /api/prospect/donnees).
-function formatDateFr(d: Date): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear());
-  return `${day}/${month}/${year}`;
+function isNaissanceValid(s: string): boolean {
+  if (!s) return true; // vide = champ effacé
+  if (!/^\d{2}\/\d{4}$/.test(s)) return false;
+  const [m, y] = s.split("/").map(Number);
+  if (m < 1 || m > 12) return false;
+  const now = new Date();
+  const year = now.getFullYear();
+  if (y < year - 120 || y > year) return false;
+  if (y === year && m > now.getMonth() + 1) return false;
+  return true;
 }
 
-// Champ date — Pressable qui ouvre le date picker natif (modal Android,
-// spinner inline iOS). Stocke en "JJ/MM/AAAA" via onChange. Plage = 120
-// ans dans le passé jusqu'à aujourd'hui (parité isNaissanceValid).
-function DateField({
+// Champ naissance — saisie masquée "MM/AAAA" au clavier numérique.
+function MonthYearField({
   value,
   onChange,
 }: {
   value: string;
   onChange: (v: string) => void;
 }) {
-  const { c } = useTheme();
-  const [open, setOpen] = useState(false);
-  const parsed = parseDateFr(value);
-  const today = new Date();
-  const minDate = new Date(today.getFullYear() - 120, 0, 1);
-  // Date initiale du picker : valeur courante si valide, sinon ~25 ans
-  // en arrière (ouverture sur une décennie crédible pour une majorité
-  // de prospects).
-  const initial =
-    parsed ?? new Date(today.getFullYear() - 25, today.getMonth(), today.getDate());
-
-  function handleChange(
-    event: { type?: string },
-    selected?: Date,
-  ) {
-    if (Platform.OS === "android") {
-      // Android : le dialog se ferme automatiquement après "set" ou
-      // "dismissed", on rebascule le state.
-      setOpen(false);
-    }
-    if (event.type === "dismissed") return;
-    if (selected) onChange(formatDateFr(selected));
-  }
-
+  const shown = maskNaissance(value);
+  const invalid = !!shown && shown.length === 7 && !isNaissanceValid(shown);
   return (
-    <View>
-      <Pressable
-        onPress={() => setOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Sélectionner une date"
-        className="flex-row items-center justify-between rounded-xl border border-line bg-paper px-3 py-3"
-      >
-        <Text
-          className={`text-base ${value ? "text-ink" : "text-ink-4"}`}
-        >
-          {value || "JJ/MM/AAAA"}
-        </Text>
-        <Ionicons name="calendar-outline" size={18} color={c.ink4} />
-      </Pressable>
-      {open ? (
-        <>
-          <DateTimePicker
-            value={initial}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            maximumDate={today}
-            minimumDate={minDate}
-            onChange={handleChange}
-            locale="fr-FR"
-          />
-          {Platform.OS === "ios" ? (
-            <View className="mt-1 flex-row justify-end">
-              <Pressable
-                onPress={() => setOpen(false)}
-                className="rounded-full bg-accent px-4 py-1.5"
-              >
-                <Text className="text-sm font-semibold text-paper">
-                  Terminé
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </>
-      ) : null}
-    </View>
+    <>
+      <TextInput
+        value={shown}
+        onChangeText={(v) => onChange(maskNaissance(v))}
+        keyboardType="number-pad"
+        maxLength={7}
+        placeholder="MM/AAAA"
+        accessibilityLabel="Mois et année de naissance"
+        className={`rounded-xl border bg-paper px-3 py-2.5 text-base text-ink ${invalid ? "border-bad" : "border-line"}`}
+      />
+      <Text className={`mt-1 text-[13px] ${invalid ? "text-bad" : "text-ink-4"}`}>
+        {invalid
+          ? "Format attendu : MM/AAAA (ex. 06/1988)."
+          : "Mois et année uniquement (ex. 06/1988)."}
+      </Text>
+    </>
   );
 }
 
@@ -1966,7 +1914,7 @@ export default function Donnees() {
                           let widget: React.ReactNode;
                           if (f.cfg?.type === "date") {
                             widget = (
-                              <DateField
+                              <MonthYearField
                                 value={currentValue}
                                 onChange={(v) =>
                                   setDraft((s) => ({ ...s, [f.key]: v }))
