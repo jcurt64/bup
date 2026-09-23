@@ -1113,6 +1113,20 @@ function fetchMe() {
   return _mePromise;
 }
 
+/* Identité affichée (prénom / nom) : données « Mes données » d'abord,
+   puis /api/me (DB puis Clerk). Jamais de nom fictif en repli. */
+function useDisplayIdentity(profile) {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe().then(j => { if (!cancelled && j) setMe(j); });
+    return () => { cancelled = true; };
+  }, []);
+  const prenom = (profile?.identity?.prenom || me?.prenom || '').trim();
+  const nom = (profile?.identity?.nom || me?.nom || '').trim();
+  return { prenom, nom };
+}
+
 /* Calcule des initiales à partir d'un nom libre. Stratégie :
      - 2+ mots → première lettre de chacun des 2 premiers (« Marie Leroy » → ML)
      - 1 mot   → 2 premières lettres alpha (« AtelierMercier » → AT)
@@ -2123,7 +2137,7 @@ function ProspectHeader({ onNav }) {
     profile,
     pendingRelations, pendingRelationsCount, relationsHydrated,
   } = useProspect() || {};
-  const prenom = profile?.identity?.prenom || 'Marie';
+  const { prenom } = useDisplayIdentity(profile);
   const [parrainage, setParrainage] = useState(null);
   // Tick 60 s : suffit pour rafraîchir le libellé « prochaine échéance »
   // (précision minute) sans re-render chaque seconde tout l'en-tête.
@@ -7276,8 +7290,8 @@ function RibModal({ initial, onClose }) {
 /* ---------- Score panel ---------- */
 function ScorePanel() {
   const { profile } = useProspect() || {};
-  const prenom = profile?.identity?.prenom || 'Marie';
-  const nomInitial = (profile?.identity?.nom || 'L.').charAt(0) + '.';
+  const { prenom, nom } = useDisplayIdentity(profile);
+  const displayedName = [prenom, nom ? nom.charAt(0).toUpperCase() + '.' : ''].filter(Boolean).join(' ');
 
   // Récupère le score live depuis /api/prospect/score (cache mutualisé
   // avec le header). Re-fetch si une mutation profil est diffusée.
@@ -7412,7 +7426,7 @@ function ScorePanel() {
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
           <ScoreGauge value={value} size={240} stroke={10} bold/>
           <div className="serif italic" style={{ fontSize: 22, marginTop: 16, color: tier.color }}>{tier.label}</div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{prenom} {nomInitial}</div>
+          {displayedName && <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{displayedName}</div>}
           <div className="col gap-2" style={{ marginTop: 22, borderTop: '1px solid var(--line)', paddingTop: 16, fontSize: 12, textAlign: 'left' }}>
             {[
               ['Complétude des paliers', completeness?.pct ?? 0, completeness ? `${completeness.filled}/${completeness.total} paliers` : null],
