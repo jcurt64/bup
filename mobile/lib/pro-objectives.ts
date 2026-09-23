@@ -1,6 +1,8 @@
 // Catalogue des objectifs de campagne — porté à l'identique du dashboard web
 // (public/prototype/components/Pro.jsx → OBJECTIVES). 7 objectifs, chacun
 // avec ses sous-opérations (id, nom, description, coût indicatif € / contact).
+// « Autres » (coût 0) = canal libre, précisé à l'étape Description — le
+// serveur l'accepte (SUB_TYPES_BY_OBJECTIVE, lib/campaigns/mapping.ts).
 import type { Ionicons } from "@expo/vector-icons";
 
 export type CampaignSubType = {
@@ -15,6 +17,8 @@ export type CampaignObjective = {
   name: string;
   desc: string;
   icon: keyof typeof Ionicons.glyphMap;
+  /** Paliers autorisés par la finalité (minimisation RGPD, art. 5.1.c) —
+   *  intersectés avec le plafond du plan dans le wizard. */
   allowedTiers: number[];
   sub: CampaignSubType[];
 };
@@ -35,6 +39,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "wa", name: "WhatsApp Business", desc: "Message direct via canal messaging instantané", cost: 0.25 },
       { id: "pushweb", name: "Push notification web", desc: "Notification navigateur envoyée à un abonné consentant", cost: 0.1 },
       { id: "pushapp", name: "Push notification app", desc: "Notification mobile sur application installée", cost: 0.1 },
+      { id: "autres", name: "Autres", desc: "Autre canal de contact — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -50,6 +55,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "consult", name: "Consultation gratuite", desc: "Bilan offert en échange de coordonnées (coach, kiné…)", cost: 1.5 },
       { id: "devis", name: "Devis à domicile", desc: "Visite technique pour établir un chiffrage (BTP, énergie)", cost: 3.0 },
       { id: "essai", name: "Essai produit planifié", desc: "Test drive, essai cuisine, démo logiciel avec commercial", cost: 2.5 },
+      { id: "autres", name: "Autres", desc: "Autre format de rendez-vous — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -67,6 +73,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "demo", name: "Démo produit collective", desc: "Présentation d’un produit à un groupe d’invités", cost: 1.5 },
       { id: "launch", name: "Lancement produit", desc: "Événement dédié à la révélation d’une nouveauté", cost: 2.5 },
       { id: "tournoi", name: "Tournoi / challenge", desc: "Compétition sponsorisée autour d’un thème produit", cost: 1.2 },
+      { id: "autres", name: "Autres", desc: "Autre type d’événement — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -85,6 +92,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "tpl", name: "Template / modèle", desc: "Outil prêt à l’emploi offert en échange d’un email", cost: 0.6 },
       { id: "check", name: "Checklist", desc: "Liste de contrôle pratique téléchargeable", cost: 0.4 },
       { id: "replay", name: "Replay vidéo", desc: "Enregistrement d’un webinar ou conférence passée", cost: 0.8 },
+      { id: "autres", name: "Autres", desc: "Autre format de contenu — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -102,6 +110,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "focus", name: "Groupe focus (focus group)", desc: "Réunion qualitative avec 6 à 12 participants", cost: 3.0 },
       { id: "interview", name: "Interview client", desc: "Entretien individuel approfondi sur un besoin", cost: 2.5 },
       { id: "vote", name: "Vote / élection produit", desc: "Participation à un choix (packaging, nom, design)", cost: 0.6 },
+      { id: "autres", name: "Autres", desc: "Autre format d’étude — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -115,6 +124,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "welcome", name: "Offre de bienvenue", desc: "Avantage exclusif à la première commande ou inscription", cost: 0.6 },
       { id: "flash", name: "Vente flash", desc: "Promotion à durée limitée pour créer l’urgence", cost: 0.5 },
       { id: "contest", name: "Concours / jeu-concours", desc: "Animation avec gain à la clé pour créer de l’engagement", cost: 0.8 },
+      { id: "autres", name: "Autres", desc: "Autre mécanique promo — précisez à l’étape Description", cost: 0 },
     ],
   },
   {
@@ -130,6 +140,7 @@ export const OBJECTIVES: CampaignObjective[] = [
       { id: "linkedin", name: "LinkedIn Matched Audiences", desc: "Audience B2B pour LinkedIn Ads", cost: 0.3 },
       { id: "snap", name: "Snapchat Ads", desc: "Audience pour ciblage publicitaire Snap", cost: 0.2 },
       { id: "x", name: "X (Twitter) Ads", desc: "Liste pour ciblage publicitaire sur X", cost: 0.2 },
+      { id: "autres", name: "Autres", desc: "Autre régie / plateforme — précisez à l’étape Description", cost: 0 },
     ],
   },
 ];

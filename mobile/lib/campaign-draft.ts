@@ -18,9 +18,21 @@ export type CampaignDraft = {
   excludeCertified: boolean;
   cpcCents: number;
   contacts: string;
-  keywords: string;
+  /** Liste de mots-clés (puces). Les anciens brouillons stockaient une
+   *  chaîne « a, b, c » — toujours relue par le wizard. */
+  keywords: string[] | string;
   kwFilter: boolean;
   brief: string;
+  // Champs ajoutés pour la parité web (optionnels : brouillons antérieurs).
+  geoTarget?: unknown;
+  radiusKm?: number;
+  /** Jour de lancement « AAAA-MM-JJ » (heure locale). */
+  startDay?: string;
+  poolMode?: string;
+  founderBonusEnabled?: boolean;
+  vitrineUrl?: string;
+  vitrineAdded?: boolean;
+  vitrineModalSeen?: boolean;
   updatedAt: number;
 };
 

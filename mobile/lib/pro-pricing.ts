@@ -37,6 +37,73 @@ export const GEO_ZONES: { key: string; label: string; sub: string }[] = [
   { key: "region", label: "Région", sub: "rayon ~150 km" },
   { key: "national", label: "National", sub: "toute la France" },
 ];
+// NB : « Autour de moi » (`around`) est proposé à part dans le wizard (bouton
+// dédié sous ces 4 portées, comme le web) — cf. AROUND_RADII ci-dessous.
+
+// Description courte de chaque palier (étape 3) — miroir de TIERS_DATA web.
+export const TIER_SUBS: Record<TierNum, string> = {
+  1: "Email, nom, téléphone, date de naissance",
+  2: "Adresse postale, logement, mobilité",
+  3: "Habitudes, famille, véhicule, sport",
+  4: "Statut, secteur",
+  5: "Immobilier, projets",
+};
+
+// Ciblage « Autour de moi » (geo = "around") : rayon autour de l'adresse de
+// l'établissement, borné à 10/30/50 km (normalizeRadiusKm côté serveur).
+// Aucun impact tarifaire : le coût par contact ne dépend que des paliers,
+// de la vérification et de la durée (identique au web).
+export const AROUND_RADII = [10, 30, 50] as const;
+export type AroundRadius = (typeof AROUND_RADII)[number];
+
+// Cible géographique précise (autocomplete geo.api.gouv.fr) — même forme que
+// le `geoTarget` envoyé par le wizard web (normalizeGeoTarget côté serveur).
+export type GeoTarget =
+  | {
+      type: "ville";
+      nom: string;
+      code: string;
+      codesPostaux: string[];
+      codeDepartement: string | null;
+      codeRegion: string | null;
+    }
+  | { type: "dept"; nom: string; code: string; codeRegion: string | null }
+  | { type: "region"; nom: string; code: string; deptCodes: string[] };
+
+/** Libellé de zone pour le récapitulatif (miroir du récap web). */
+export function geoSummary(geo: string, target: GeoTarget | null, radiusKm: number): string {
+  if (geo === "around") return `Autour de moi · ${radiusKm} km`;
+  const base = GEO_ZONES.find((z) => z.key === geo)?.label ?? geo;
+  if (!target) return base;
+  if (target.type === "ville") {
+    const cp = target.codesPostaux[0];
+    return `${base} · ${target.nom}${cp ? ` (${cp})` : ""}`;
+  }
+  if (target.type === "dept") return `${base} · ${target.nom} (${target.code})`;
+  return `${base} · ${target.nom}`;
+}
+
+// Mots-clés proposés en un tap (étape 6) — identiques au web.
+export const KW_SUGGESTIONS = [
+  "véhicule",
+  "immobilier",
+  "retraite",
+  "sport",
+  "artisan",
+  "nutrition",
+  "coaching",
+  "BTP",
+  "épargne",
+  "assurance",
+  "crédit",
+  "jardinage",
+  "animaux",
+  "voyages",
+  "informatique",
+];
+
+// Brief affiché au prospect (« Le mot du professionnel ») — 50 car. max (web).
+export const BRIEF_MAX_LENGTH = 50;
 
 function durMult(key: DurationKey) {
   return DURATIONS.find((d) => d.key === key)?.mult ?? 1;
