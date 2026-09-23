@@ -104,31 +104,6 @@ function startTimestamp(iso: string): number {
 function fmtDayLong(ts: number): string {
   return new Date(ts).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
-/** « JJ/MM » ou « JJ/MM/AAAA » → « AAAA-MM-JJ » (jour passé ⇒ année suivante). */
-function parseJjMm(input: string): string | null {
-  const m = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/.exec(input.trim());
-  if (!m) return null;
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const today = todayMidnight();
-  let year = m[3] ? Number(m[3]) : today.getFullYear();
-  const build = (y: number) => new Date(y, month - 1, day);
-  let d = build(year);
-  if (d.getMonth() !== month - 1 || d.getDate() !== day) return null; // 31/02…
-  if (!m[3] && d.getTime() < today.getTime()) {
-    year += 1;
-    d = build(year);
-  }
-  if (d.getTime() < today.getTime()) return null;
-  return dayIso(d);
-}
-const START_PRESETS: { n: number; label: string }[] = [
-  { n: 0, label: "Aujourd'hui" },
-  { n: 1, label: "Demain" },
-  { n: 2, label: "Dans 2 jours" },
-  { n: 7, label: "Dans 7 jours" },
-];
-
 /** Relit une liste de mots-clés (tableau, ou ancienne chaîne « a, b »). */
 function readKeywords(v: unknown): string[] {
   if (Array.isArray(v)) return v.filter((k): k is string => typeof k === "string" && !!k.trim());
@@ -361,8 +336,8 @@ export default function ProWizard() {
   const [step, setStep] = useState(1);
   const [maxStep, setMaxStep] = useState(1);
   const [subTypes, setSubTypes] = useState<Set<string>>(new Set());
-  const [startDay, setStartDay] = useState(() => dayFromOffset(1));
-  const [customDate, setCustomDate] = useState("");
+  // Toujours aujourd'hui : le serveur démarre la campagne à sa validation.
+  const [startDay] = useState(() => dayFromOffset(0));
   const [duration, setDuration] = useState<DurationKey>("7d");
   const [tiers, setTiers] = useState<number[]>([1]);
   const [tier1Notice, setTier1Notice] = useState(false);
@@ -439,7 +414,6 @@ export default function ProWizard() {
         setGeo(d.geo);
         setGeoTarget(readGeoTarget(d.geoTarget));
         if (typeof d.radiusKm === "number") setRadiusKm(d.radiusKm);
-        if (d.startDay && dayOffset(d.startDay) >= 0) setStartDay(d.startDay);
         setAges(new Set(d.ages ?? []));
         setVerif(d.verif as VerifLevel);
         setMinFiab(d.minFiab ?? 0);
@@ -1078,64 +1052,16 @@ export default function ProWizard() {
           avant ; les durées standard (24h/48h/7d) en dessous. */}
       {step === 2 ? (
         <View className="gap-3">
-          {/* Date de lancement (web : input date, min = aujourd'hui, défaut demain). */}
-          <View>
-            <View className="mb-2 flex-row items-center" style={{ gap: 6 }}>
-              <Ionicons name="calendar-outline" size={14} color={c.textMuted} />
-              <Text className="font-mono text-[11px] uppercase text-ink-4" style={{ letterSpacing: 0.8 }}>
-                Date de lancement
-              </Text>
-            </View>
-            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-              {START_PRESETS.map((p) => (
-                <Chip
-                  key={p.n}
-                  label={p.label}
-                  on={dayOffset(startDay) === p.n && !customDate}
-                  onPress={() => {
-                    setCustomDate("");
-                    setStartDay(dayFromOffset(p.n));
-                  }}
-                />
-              ))}
-            </View>
-            <View className="mt-2 flex-row items-center" style={{ gap: 8 }}>
-              <Text className="text-[12.5px] text-ink-3">Autre date :</Text>
-              <TextInput
-                value={customDate}
-                onChangeText={(t) => {
-                  // Saisie JJ/MM (ou JJ/MM/AAAA) — « / » inséré automatiquement.
-                  let v = t.replace(/[^\d/]/g, "");
-                  if (/^\d{3,}$/.test(v)) v = `${v.slice(0, 2)}/${v.slice(2)}`;
-                  v = v.slice(0, 10);
-                  setCustomDate(v);
-                  const iso = parseJjMm(v);
-                  if (iso) setStartDay(iso);
-                }}
-                placeholder="JJ/MM"
-                placeholderTextColor={c.textMuted}
-                keyboardType="numbers-and-punctuation"
-                maxLength={10}
-                style={{
-                  width: 120,
-                  backgroundColor: c.field,
-                  borderColor: customDate && !parseJjMm(customDate) ? c.bad : customDate ? c.accent : c.borderSoft,
-                  borderWidth: 1,
-                  borderRadius: 12,
-                  paddingHorizontal: 12,
-                  paddingVertical: 9,
-                  fontSize: 15,
-                  color: c.text,
-                }}
-              />
-            </View>
-            {customDate && !parseJjMm(customDate) ? (
-              <Text className="mt-1 text-[11.5px]" style={{ color: c.bad }}>
-                Date invalide ou passée (format JJ/MM).
-              </Text>
-            ) : null}
-            <Text className="mt-2 text-[12.5px] text-ink-3">
-              Lancement : <Text style={{ color: c.text, fontWeight: "600" }}>{fmtDayLong(startTs)}</Text>
+          {/* Le serveur démarre la campagne à sa validation (starts_at = now) :
+              pas de lancement différé (parité web). */}
+          <View
+            className="flex-row items-center rounded-xl border border-line bg-ivory px-3 py-3"
+            style={{ gap: 8 }}
+          >
+            <Ionicons name="calendar-outline" size={16} color={c.textMuted} />
+            <Text className="flex-1 text-[13px] text-ink-3">
+              <Text style={{ color: c.text, fontWeight: "600" }}>Lancement immédiat</Text>{" "}
+              dès la validation — aujourd&apos;hui, {fmtDayLong(startTs)}.
             </Text>
           </View>
 
@@ -1901,7 +1827,7 @@ export default function ProWizard() {
                 "Opérations",
                 [...subTypes].map((sid) => obj.sub.find((x) => x.id === sid)?.name).filter(Boolean).join(", ") || "—",
               ],
-              ["Date de lancement", fmtDayLong(startTs)],
+              ["Lancement", "Immédiat, dès validation"],
               ["Date de fin estimée", fmtDayLong(endTs)],
               ["Durée", DURATIONS.find((d) => d.key === duration)?.label ?? duration],
               ["Paliers", tiers.map((t) => TIER_REWARDS[t as TierNum]?.label ?? t).join(", ")],
