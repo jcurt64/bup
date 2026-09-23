@@ -163,7 +163,7 @@ export function WithdrawSheet({
               ? "Redirection…"
               : p.hasAccount
                 ? "Reprendre l'onboarding"
-                : "Activer mes retraits"
+                : "Oui, je veux retirer"
           }
           disabled={onboard.isPending}
           onPress={async () => {
