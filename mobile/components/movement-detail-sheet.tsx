@@ -8,7 +8,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
@@ -21,18 +21,13 @@ import Animated, {
 
 
 import { BottomSheet } from "./bottom-sheet";
-import { useAcceptGate } from "./accept-gate";
 import { NeonBorder } from "./neon-border";
-import { PhoneConsentSheet } from "./phone-consent-sheet";
+import { useRelationDecision } from "./relation-decision";
 import { ReportProSheet } from "./report-pro-sheet";
+import { campaignIdFromVisitUrl, VitrinePreview } from "./vitrine-preview";
 import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
-import { ApiError } from "../lib/api";
-import { relationRequiredTierNums } from "../lib/completeness";
 import { useTheme } from "../lib/theme";
-import {
-  useDecideRelation,
-  type MovementRelation,
-} from "../lib/queries";
+import type { MovementRelation } from "../lib/queries";
 
 // Footer signature inversé — panneau navy (#0F1629, façon hero du site
 // web) : le mot « buupp » et le slogan passent en clair pour contraster.
@@ -553,9 +548,9 @@ export function MovementDetailSheet({
   isHistory?: boolean;
 }) {
   const { c } = useTheme();
-  const decide = useDecideRelation();
-  const gate = useAcceptGate();
-  const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
+  // Flux de décision partagé (garde données complètes, consentement
+  // téléphone, undo→accept, erreurs 422/429/403…) — cf. relation-decision.
+  const decision = useRelationDecision();
   // Sous-modale de signalement + état local « déjà signalé » pour
   // basculer immédiatement le footer sans refetch. Initialisé depuis
   // `relation.reported` (annoté côté serveur par reportedRelationIds)
@@ -565,8 +560,6 @@ export function MovementDetailSheet({
   const [reportedLocal, setReportedLocal] = useState(false);
   // « La Vitrine » — interstitiel de sortie vers le site externe du pro.
   const [vitrineConfirm, setVitrineConfirm] = useState(false);
-  // Consentement au canal téléphonique (opt-in) affiché à l'acceptation.
-  const [phoneConsentVisible, setPhoneConsentVisible] = useState(false);
 
   useEffect(() => {
     setReportedLocal(!!relation?.reported);
@@ -591,133 +584,13 @@ export function MovementDetailSheet({
     (!isHistory && !alreadyAccepted && !alreadyRefused) ||
     (isHistory && alreadyAccepted && !!r.campaignActive);
 
-  async function act(action: "accept" | "refuse") {
-    // Garde « données complètes » : pour ACCEPTER une sollicitation,
-    // tous les paliers exigés par la campagne (r.tiers) doivent être
-    // intégralement renseignés. Sinon on ouvre la modale d'invitation à
-    // compléter SANS appeler l'API (le serveur refuse aussi en 422). Pré-check
-    // client uniquement — le backstop 422 ci-dessous couvre le cas profil non
-    // chargé.
-    if (action === "accept" && gate.guardAccept({ id: r.id, tiers: r.tiers, tier: r.tier })) {
-      onClose();
-      return;
-    }
-    // Consentement préalable et spécifique au canal téléphonique (réforme
-    // démarchage téléphonique = opt-in) : avant de finaliser l'acceptation on
-    // ouvre la popup de consentement. La finalisation a lieu dans
-    // performDecision('accept') UNIQUEMENT si le prospect confirme.
-    if (action === "accept") {
-      setPhoneConsentVisible(true);
-      return;
-    }
-    await performDecision(action);
-  }
-
-  async function performDecision(action: "accept" | "refuse") {
-    setBusy(action);
-    try {
-      // refused → accepted : l'API n'autorise pas la transition directe
-      // (table de transitions : refused → pending via undo, puis pending
-      // → accepted via accept). Le serveur rate-limite TOUTES les actions
-      // sur la clé `<userId>:<relationId>` avec fenêtre 5 min : l'undo
-      // consomme le slot, l'accept immédiat reçoit donc 429. On capture
-      // ce cas spécifiquement pour informer l'utilisateur que l'undo a
-      // réussi et lui dire quand réessayer l'accept.
-      if (action === "accept" && alreadyRefused) {
-        await decide.mutateAsync({ id: r.id, action: "undo" });
-        try {
-          await decide.mutateAsync({ id: r.id, action: "accept", phoneConsent: true });
-        } catch (acceptErr) {
-          if (acceptErr instanceof ApiError && acceptErr.status === 429) {
-            // Parse retryAfterSec pour humaniser le délai ("4 min" plutôt
-            // que "237 s"). Fallback générique si le body est illisible.
-            let waitMsg = "Réessayez dans quelques minutes";
-            try {
-              const j = JSON.parse(acceptErr.body) as {
-                retryAfterSec?: number;
-              };
-              if (
-                typeof j.retryAfterSec === "number" &&
-                j.retryAfterSec > 0
-              ) {
-                const mins = Math.ceil(j.retryAfterSec / 60);
-                waitMsg = `Réessayez dans ${mins} min`;
-              }
-            } catch {}
-            Alert.alert(
-              "Refus annulé",
-              `Votre refus a été annulé — cette sollicitation est de nouveau en attente. Pour confirmer votre acceptation, ${waitMsg}.`,
-            );
-            onClose();
-            return;
-          }
-          throw acceptErr;
-        }
-      } else {
-        await decide.mutateAsync({
-          id: r.id,
-          action,
-          phoneConsent: action === "accept" ? true : undefined,
-        });
-      }
-      onClose();
-    } catch (e) {
-      // Handler générique 429/402/410/409 (cf. commit e331ce8). Le body
-      // 429 contient { message } rédigé côté serveur (« Pas trop vite 😊
-      // … Réessayez dans X min Y s »).
-      const status = e instanceof ApiError ? e.status : 0;
-      // Backstop garde « données complètes » : si l'API renvoie 422
-      // tiers_incomplete (typiquement quand le profil n'était pas encore
-      // chargé côté client), on ouvre la même modale que le pré-check, avec
-      // les paliers manquants renvoyés par le serveur.
-      if (status === 422 && action === "accept") {
-        let missingTiers: number[] = [];
-        if (e instanceof ApiError) {
-          try {
-            const j = JSON.parse(e.body) as { missingTiers?: number[] };
-            if (Array.isArray(j.missingTiers)) {
-              missingTiers = j.missingTiers.filter((n) => Number.isFinite(n));
-            }
-          } catch {}
-        }
-        gate.openIncomplete(
-          r.id,
-          relationRequiredTierNums({ tiers: r.tiers, tier: r.tier }),
-          missingTiers,
-        );
-        onClose();
-        return;
-      }
-      let serverMsg: string | null = null;
-      if (e instanceof ApiError) {
-        try {
-          const j = JSON.parse(e.body) as { message?: string };
-          if (typeof j.message === "string") serverMsg = j.message;
-        } catch {}
-      }
-      // 403 accept_restricted : compte mis en pause 2 mois (4 sollicitations
-      // acceptées sans réponse). Le serveur fournit un message courtois.
-      const msg =
-        (status === 429 || status === 403) && serverMsg
-          ? serverMsg
-          : status === 402
-            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-            : status === 410
-              ? "Cette campagne a expiré."
-              : status === 409
-                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-                : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(
-        status === 429
-          ? "Patientez un instant"
-          : status === 403 && serverMsg
-            ? "Acceptation en pause"
-            : "Action impossible",
-        msg,
-      );
-    } finally {
-      setBusy(null);
-    }
+  const busy = decision.busyFor(r.id);
+  function act(action: "accept" | "refuse") {
+    decision.request(
+      action,
+      { id: r.id, tier: r.tier, tiers: r.tiers, relationStatus: r.relationStatus },
+      onClose,
+    );
   }
 
   // Couleurs de bannière selon état (parité web color-mix accent/good).
@@ -914,6 +787,14 @@ export function MovementDetailSheet({
         {/* « La Vitrine » — lien tracké vers le site du pro (option côté pro).
             Un interstitiel prévient le prospect qu'il quitte BUUPP avant la
             redirection ; le clic est enregistré par /api/campaign/[id]/visit. */}
+        {/* Miniature du site (capture /api/campaign/[id]/preview), parité web. */}
+        {r.websiteUrl ? (
+          <VitrinePreview
+            campaignId={campaignIdFromVisitUrl(r.websiteUrl)}
+            proName={r.pro}
+            onVisit={() => setVitrineConfirm(true)}
+          />
+        ) : null}
         {r.websiteUrl ? (
           // Bordure néon rotative — met en avant le service Vitrine proposé.
           <NeonBorder radius={14} borderWidth={2} padding={0} surface={c.tintViolet}>
@@ -1001,7 +882,7 @@ export function MovementDetailSheet({
           {/* === Pending (carte demande en attente) === */}
           {!isHistory && canRefuse ? (
             <Pressable
-              disabled={busy !== null}
+              disabled={decision.busy}
               onPress={() => act("refuse")}
               className="flex-1 items-center rounded-full border border-navy bg-paper py-3.5 active:opacity-70"
             >
@@ -1012,7 +893,7 @@ export function MovementDetailSheet({
           ) : null}
           {!isHistory && canAccept ? (
             <Pressable
-              disabled={busy !== null}
+              disabled={decision.busy}
               onPress={() => act("accept")}
               className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
             >
@@ -1033,7 +914,7 @@ export function MovementDetailSheet({
           {/* === Historique : déjà acceptée === */}
           {isHistory && alreadyAccepted && canRefuse ? (
             <Pressable
-              disabled={busy !== null}
+              disabled={decision.busy}
               onPress={() => act("refuse")}
               className="flex-1 items-center rounded-full border border-bad bg-paper py-3.5 active:opacity-70"
             >
@@ -1062,7 +943,7 @@ export function MovementDetailSheet({
           ) : null}
           {isHistory && !alreadyAccepted && canAccept ? (
             <Pressable
-              disabled={busy !== null}
+              disabled={decision.busy}
               onPress={() => act("accept")}
               className="flex-1 items-center rounded-full bg-ink py-3.5 active:opacity-80"
             >
@@ -1125,14 +1006,7 @@ export function MovementDetailSheet({
         websiteUrl={r.websiteUrl ?? null}
         onClose={() => setVitrineConfirm(false)}
       />
-      <PhoneConsentSheet
-        visible={phoneConsentVisible}
-        onClose={() => setPhoneConsentVisible(false)}
-        onAccept={() => {
-          setPhoneConsentVisible(false);
-          void performDecision("accept");
-        }}
-      />
+      {decision.sheet}
     </BottomSheet>
   );
 }

@@ -15,6 +15,45 @@ import {
 import { useParrainage } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
+// Paliers de parrainage — noms/couleurs/avantages identiques au web
+// (Prospect.jsx REFERRAL_TIERS : Used / Paid / Proud).
+const REFERRAL_TIERS = [
+  {
+    tier: "cuivre",
+    label: "Used",
+    range: "1 – 2",
+    color: "#B87333",
+    cardColor: "#15803D",
+    desc: "+50 % de coins à chaque acceptation de chaque filleul, sans limite de durée.",
+    advantage:
+      "Avantage bonus : 50 % des BUUPP coins à chaque acceptation de chaque filleul, sans limite de durée.",
+  },
+  {
+    tier: "argent",
+    label: "Paid",
+    range: "3 – 9",
+    color: "#9CA3AF",
+    cardColor: "#4F46E5",
+    desc: "Accès aux offres flash 20 min avant tout le monde.",
+    advantage:
+      "Avantage prioritaire : tous les avantages bonus + accès aux offres flash 20 min avant tout le monde.",
+  },
+  {
+    tier: "or",
+    label: "Proud",
+    range: "10",
+    color: "#E6B422",
+    cardColor: "#B45309",
+    desc: "Statut Governor — consulté·e en avant-première sur les nouveautés.",
+    advantage:
+      "Avantage governor : tous les avantages bonus + avantages prioritaire + consulté·e par BUUPP sur les nouveautés (droit de vote).",
+  },
+] as const;
+
+// Lien de parrainage — MÊME forme que le web (Prospect.jsx : « buupp.com/ref/CODE »),
+// utilisé à la fois par « Copier » et « Partager ».
+const referralLink = (code: string) => `https://www.buupp.com/ref/${code}`;
+
 function splitCountdown(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
   return {
@@ -72,11 +111,46 @@ export default function ParrainageScreen() {
             hasLaunch && !expired && launchMs - now <= 86_400_000;
           const launchLabel = hasLaunch ? launchLabelFr(launchMs) : null;
 
+          const currentTier = REFERRAL_TIERS.find((t) => t.tier === d.badgeTier) ?? null;
+
           return (
             <>
+              {/* « Palier X atteint » — parité web (carte teintée à la couleur
+                  du palier + avantage débloqué). */}
+              {currentTier ? (
+                <View
+                  className="flex-row items-center gap-3.5 rounded-3xl p-4"
+                  style={{
+                    backgroundColor: `${currentTier.color}1F`,
+                    borderWidth: 1,
+                    borderColor: currentTier.color,
+                  }}
+                >
+                  <Text style={{ fontSize: 28, lineHeight: 34 }}>👑</Text>
+                  <View className="flex-1">
+                    <Text
+                      className="text-[11px] font-bold uppercase text-ink"
+                      style={{ letterSpacing: 1.5 }}
+                    >
+                      Palier {currentTier.label} atteint
+                    </Text>
+                    <Text className="mt-1 text-[14px] leading-5 text-ink-2">
+                      {currentTier.advantage}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
               <Card dark badge={{ icon: "gift-outline", tone: "violet" }}>
                 <Text className="font-mono text-[11px] uppercase text-ink-5">
-                  Votre code
+                  Votre lien unique
+                </Text>
+                <Text
+                  className="mt-1 font-mono text-[13px] text-ink-5"
+                  numberOfLines={1}
+                  style={linkDisabled ? { opacity: 0.45 } : undefined}
+                >
+                  buupp.com/ref/{d.refCode}
                 </Text>
                 <Text
                   className="mt-1 font-serif text-3xl tracking-widest text-paper"
@@ -98,13 +172,13 @@ export default function ParrainageScreen() {
                     style={linkDisabled ? { opacity: 0.5 } : undefined}
                     onPress={async () => {
                       if (linkDisabled) return;
-                      await Clipboard.setStringAsync(d.refCode);
+                      await Clipboard.setStringAsync(referralLink(d.refCode));
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
                   >
                     <Text className="text-sm font-semibold text-ink">
-                      {capReached ? "Plafond atteint" : expired ? "Lien expiré" : copied ? "Copié ✓" : "Copier"}
+                      {capReached ? "Plafond atteint" : expired ? "Lien expiré" : copied ? "Copié !" : "Copier"}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -114,7 +188,7 @@ export default function ParrainageScreen() {
                     onPress={() => {
                       if (linkDisabled) return;
                       Share.share({
-                        message: `Rejoins BUUPP avec mon code ${d.refCode} : https://www.buupp.com/inscription/prospect?ref=${d.refCode}`,
+                        message: `Rejoins BUUPP avec mon code ${d.refCode} : ${referralLink(d.refCode)}`,
                       });
                     }}
                   >
@@ -212,25 +286,9 @@ export default function ParrainageScreen() {
               <View className="flex-row gap-3">
                 <Stat
                   label="Votre palier"
-                  value={
-                    d.badgeTier === "or"
-                      ? "Or"
-                      : d.badgeTier === "argent"
-                        ? "Argent"
-                        : d.badgeTier === "cuivre"
-                          ? "Bronze"
-                          : "—"
-                  }
-                  hint={
-                    d.badgeTier === "or"
-                      ? "Governor"
-                      : d.badgeTier === "argent"
-                        ? "Flash 20 min avant"
-                        : d.badgeTier === "cuivre"
-                          ? "Bonus 50 % coins"
-                          : "Invitez vos proches"
-                  }
-                  accent={d.badgeTier != null}
+                  value={currentTier?.label ?? "—"}
+                  hint={d.count > 0 ? "avantages débloqués" : "invitez pour débloquer"}
+                  accent={currentTier != null}
                 />
                 <Stat
                   label="Statut"
@@ -243,27 +301,23 @@ export default function ParrainageScreen() {
                 />
               </View>
 
-              {/* Prochain palier — message adaptatif (parité web : Bronze 1 /
-                  Argent 3 / Or 10 filleuls ; cf. Prospect.jsx carte parrainage). */}
+              {/* Prochain palier — message adaptatif (Used 1 / Paid 3 / Proud
+                  10 filleuls ; noms de paliers identiques au web). */}
               {(() => {
-                const TIER_COLOR: Record<string, string> = {
-                  Bronze: "#B87333",
-                  Argent: "#9CA3AF",
-                  Or: "#E6B422",
-                };
+                const byTier = Object.fromEntries(REFERRAL_TIERS.map((t) => [t.tier, t]));
                 const next =
                   d.count < 1
-                    ? { n: 1, label: "Bronze" }
+                    ? { n: 1, t: byTier.cuivre }
                     : d.count < 3
-                      ? { n: 3, label: "Argent" }
+                      ? { n: 3, t: byTier.argent }
                       : d.count < 10
-                        ? { n: 10, label: "Or" }
+                        ? { n: 10, t: byTier.or }
                         : null;
                 if (!next) {
                   return (
                     <Text className="text-sm text-ink-3">
                       🏆 Palier{" "}
-                      <Text style={{ color: TIER_COLOR.Or, fontWeight: "700" }}>Or</Text>{" "}
+                      <Text style={{ color: byTier.or.color, fontWeight: "700" }}>Proud</Text>{" "}
                       atteint — vous êtes au sommet du parrainage !
                     </Text>
                   );
@@ -276,10 +330,7 @@ export default function ParrainageScreen() {
                       {left} filleul{left > 1 ? "s" : ""}
                     </Text>{" "}
                     pour décrocher le palier{" "}
-                    <Text style={{ color: TIER_COLOR[next.label], fontWeight: "700" }}>
-                      {next.label}
-                    </Text>
-                    .
+                    <Text style={{ color: next.t.color, fontWeight: "700" }}>{next.t.label}</Text>.
                   </Text>
                 );
               })()}
@@ -291,25 +342,33 @@ export default function ParrainageScreen() {
                 <Text className="mt-1.5 text-[13px] leading-5 text-ink-3">
                   Inscrire un filleul le rend Fondateur·ice à son tour. Selon votre nombre de filleuls, vous débloquez des avantages cumulatifs :
                 </Text>
-                <View className="mt-3 gap-2">
-                  <View className="flex-row items-start gap-2">
-                    <Text className="text-[13px] font-semibold text-amber">Bronze</Text>
-                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
-                      (1-2 filleuls) — Bonus 50 % des BUUPP coins à chaque acceptation de chaque filleul, sans limite de durée.
-                    </Text>
-                  </View>
-                  <View className="flex-row items-start gap-2">
-                    <Text className="text-[13px] font-semibold text-ink-3">Argent</Text>
-                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
-                      (3-9 filleuls) — Prioritaire : accès aux offres flash 20 min avant tout le monde.
-                    </Text>
-                  </View>
-                  <View className="flex-row items-start gap-2">
-                    <Text className="text-[13px] font-semibold text-gold">Or</Text>
-                    <Text className="flex-1 text-[13px] leading-5 text-ink-3">
-                      (10 filleuls) — Governor : consulté·e par BUUPP sur les nouveautés, droit de vote.
-                    </Text>
-                  </View>
+                <View className="mt-3 gap-2.5">
+                  {REFERRAL_TIERS.map((t) => {
+                    const isCurrent = d.badgeTier === t.tier;
+                    return (
+                      <View
+                        key={t.tier}
+                        className="rounded-2xl p-3"
+                        style={{
+                          borderWidth: isCurrent ? 1.5 : 1,
+                          borderColor: isCurrent ? t.cardColor : "rgba(120,120,120,0.18)",
+                        }}
+                      >
+                        <View className="flex-row items-center gap-2.5">
+                          <View
+                            className="rounded-full px-2.5 py-0.5"
+                            style={{ backgroundColor: t.cardColor }}
+                          >
+                            <Text className="font-mono text-[11px] font-semibold text-white">
+                              {t.range}
+                            </Text>
+                          </View>
+                          <Text className="font-serif text-lg text-ink">{t.label}</Text>
+                        </View>
+                        <Text className="mt-1.5 text-[13px] leading-5 text-ink-3">{t.desc}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </Card>
 

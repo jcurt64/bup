@@ -1,6 +1,11 @@
-// Mises en relation — /api/prospect/relations. Accept/refuse via la
-// mutation useDecideRelation (body { action }) → invalidation des vues
-// impactées (relations/wallet/score) = synchro web⇄mobile (§6.1).
+// Mises en relation — /api/prospect/relations. Accept/refuse via le flux
+// partagé useRelationDecision (garde données complètes, consentement
+// téléphone, erreurs 422/429/403) → invalidation des vues impactées
+// (relations/wallet/score) = synchro web⇄mobile (§6.1). Parité web
+// (Prospect.jsx fn Relations) : 4 cartes de stats, barre de filtres
+// (Montant / Date / Palier / Autour de moi / Flash deals), cartes avec tous
+// les paliers requis + motif + Accepter/Refuser directs, historique avec
+// badge FLASH, statut séquestre/crédité et « Total accepté ».
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useState } from "react";
@@ -16,9 +21,18 @@ import {
 
 import { router, useLocalSearchParams } from "expo-router";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
+import { RelationFilterBar } from "../../components/relation-filter-bar";
+import { useRelationDecision, type DecisionAction } from "../../components/relation-decision";
 import { dateFr, eur, QueryGate, ScrollScreen } from "../../components/screen";
 import { VitrineLeaveSheet } from "../../components/vitrine-leave-sheet";
+import { VitrinePreview } from "../../components/vitrine-preview";
 import { useProspectRelations } from "../../lib/queries";
+import {
+  applyRelFilters,
+  REL_FILTER_DEFAULTS,
+  tierListLabel,
+  type RelFilterValues,
+} from "../../lib/relation-filters";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
@@ -143,6 +157,7 @@ function HistoryRow({
   const isAccepted = r.decision === "Acceptée";
   const accent = isAccepted ? R.DGREEN : isRefused ? R.DCORAL : R.DV;
   const gainPositive = r.gain != null && r.gain > 0;
+  const isEscrow = /séquestre/i.test(r.status ?? "");
   const gainStr = gainPositive ? "+" + eur(r.gain) : "—";
   return (
     <Pressable
@@ -202,6 +217,7 @@ function HistoryRow({
                   {r.sector}
                 </Text>
               ) : null}
+              {r.isFlashDeal ? <FlashBadge /> : null}
             </View>
             <Text
               style={{ fontSize: 12.5, color: R.DMUTEDL, fontStyle: "italic" }}
@@ -232,8 +248,11 @@ function HistoryRow({
               }}
             >
               <Ionicons name="trending-up" size={12} color={R.DAMBER_TXT} />
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}>
-                Palier {r.tier}
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}
+              >
+                {tierListLabel(r)}
               </Text>
             </View>
             <View
@@ -273,9 +292,136 @@ function HistoryRow({
               {gainStr}
             </Text>
           </View>
+
+          {/* Statut des fonds : séquestre (cadenas ambre) ou crédité. */}
+          {isAccepted && isEscrow ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+              <Ionicons name="lock-closed-outline" size={13} color="#B45309" />
+              <Text style={{ fontSize: 13, color: R.DMUTED }}>En séquestre</Text>
+            </View>
+          ) : r.status && r.status !== "—" ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+              <Ionicons name="checkmark-circle-outline" size={13} color={R.DGREEN_TXT} />
+              <Text style={{ fontSize: 13, color: R.DMUTED }}>{r.status}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </Pressable>
+  );
+}
+
+// Badge « FLASH » (sollicitation Flash Deal — gains multipliés), parité web.
+function FlashBadge() {
+  return (
+    <LinearGradient
+      colors={["#B91C1C", "#EF4444"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        alignSelf: "flex-start",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        marginTop: 4,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 999,
+      }}
+    >
+      <Ionicons name="flash" size={9} color="#fff" />
+      <Text style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.6, color: "#fff" }}>
+        FLASH
+      </Text>
+    </LinearGradient>
+  );
+}
+
+// Carte de statistique (4 en grille 2×2) — parité RelationStat du web :
+// gains acceptés (carte primaire indigo), acceptées, refusées, séquestre.
+function RelationStat({
+  primary,
+  tone = "good",
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  primary?: boolean;
+  tone?: "good" | "danger" | "warn";
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  const R = useRel();
+  const { isDark } = useTheme();
+  const tones = {
+    good: { bg: isDark ? "rgba(22,163,74,0.18)" : "#ECFDF5", fg: isDark ? "#4ADE80" : "#15803D" },
+    danger: { bg: isDark ? "rgba(220,38,38,0.18)" : "#FDECEC", fg: isDark ? "#F87171" : "#DC2626" },
+    warn: { bg: isDark ? "rgba(180,83,9,0.22)" : "#FBEFD6", fg: isDark ? "#FBBF24" : "#B45309" },
+  } as const;
+  const t = tones[tone];
+  const inner = (
+    <>
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          marginBottom: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: primary ? "rgba(255,255,255,0.16)" : t.bg,
+        }}
+      >
+        <Ionicons name={icon} size={17} color={primary ? "#fff" : t.fg} />
+      </View>
+      <Text
+        className="font-mono"
+        numberOfLines={2}
+        style={{
+          fontSize: 9.5,
+          letterSpacing: 1.1,
+          textTransform: "uppercase",
+          marginBottom: 6,
+          color: primary ? "rgba(255,255,255,0.65)" : R.DMUTEDL,
+        }}
+      >
+        {label}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+        <Text
+          className="font-serif-bold"
+          style={{ fontSize: 24, lineHeight: 28, color: primary ? "#fff" : R.DNAVY }}
+        >
+          {value}
+        </Text>
+        {sub ? (
+          <Text style={{ fontSize: 12, color: primary ? "rgba(255,255,255,0.65)" : R.DMUTEDL }}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
+  const box = {
+    flex: 1,
+    borderRadius: 18,
+    padding: 15,
+    borderWidth: 1,
+  } as const;
+  return primary ? (
+    <LinearGradient
+      colors={["#6366F1", "#4F46E5"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ ...box, borderColor: "transparent" }}
+    >
+      {inner}
+    </LinearGradient>
+  ) : (
+    <View style={{ ...box, backgroundColor: R.surface, borderColor: R.DLINE }}>{inner}</View>
   );
 }
 
@@ -290,10 +436,18 @@ function SollicitationCard({
   r,
   onOpen,
   onVitrine,
+  onDecide,
+  busyAction,
+  disabled,
 }: {
   r: Relation;
   onOpen: (r: Relation) => void;
   onVitrine: (r: Relation) => void;
+  onDecide: (action: DecisionAction, r: Relation) => void;
+  /** Décision en cours sur CETTE carte (libellé « … »). */
+  busyAction: DecisionAction | null;
+  /** Une décision est en cours (n'importe quelle carte). */
+  disabled: boolean;
 }) {
   const R = useRel();
   const start = r.startDate ? new Date(r.startDate).getTime() : 0;
@@ -401,8 +555,8 @@ function SollicitationCard({
                 borderColor: R.DVL,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
-                Palier {r.tier}
+              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
+                {tierListLabel(r)}
               </Text>
             </View>
           )}
@@ -422,6 +576,15 @@ function SollicitationCard({
               style={{ fontSize: 12.5, color: R.DMUTED, marginTop: 3 }}
             >
               {r.sector}
+            </Text>
+          ) : null}
+          {/* Motif de la campagne (parité web). */}
+          {r.motif ? (
+            <Text
+              numberOfLines={4}
+              style={{ fontSize: 13, lineHeight: 19, color: R.DMUTED, marginTop: 10 }}
+            >
+              {r.motif}
             </Text>
           ) : null}
         </View>
@@ -511,52 +674,85 @@ function SollicitationCard({
           </View>
         </View>
 
-        {/* « La Vitrine » — accès direct au site du pro depuis la carte
-            (ouvre l'interstitiel de sortie). Affiché seulement si l'option
-            a été prise par le pro (r.websiteUrl non nul). */}
+        {/* « La Vitrine » — miniature du site du pro (capture
+            /api/campaign/[id]/preview) ; au tap → interstitiel de sortie.
+            Affichée seulement si l'option a été prise (r.websiteUrl). */}
         {r.websiteUrl ? (
-          <Pressable
-            onPress={() => onVitrine(r)}
-            accessibilityRole="button"
-            className="active:opacity-70"
-            style={{
-              marginTop: 14,
-              alignSelf: "flex-start",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 7,
-              paddingVertical: 7,
-              paddingHorizontal: 11,
-              borderRadius: 999,
-              backgroundColor: R.DVXL,
-              borderWidth: 1,
-              borderColor: R.DVL,
-            }}
-          >
-            <Ionicons name="globe-outline" size={13} color={R.DV} />
-            <Text style={{ fontSize: 12, fontWeight: "600", color: R.DV }}>
-              Visiter le site web du professionnel
-            </Text>
-          </Pressable>
+          <View style={{ marginTop: 14 }}>
+            <VitrinePreview campaignId={r.campaignId} proName={r.pro} onVisit={() => onVitrine(r)} />
+          </View>
+        ) : null}
+
+        {/* Accepter / Refuser directs (même flux que le détail). */}
+        {!accepted && !refused && !expired ? (
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
+            <Pressable
+              disabled={disabled}
+              onPress={() => onDecide("accept", r)}
+              accessibilityRole="button"
+              accessibilityLabel={`Accepter la sollicitation de ${r.pro}`}
+              className="active:opacity-85"
+              style={{ flex: 1, borderRadius: 13, overflow: "hidden", opacity: disabled && !busyAction ? 0.6 : 1 }}
+            >
+              <LinearGradient
+                colors={["#22C55E", "#16A34A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  paddingVertical: 13,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <Ionicons name="checkmark" size={15} color="#fff" />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                  {busyAction === "accept" ? "…" : "Accepter"}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              disabled={disabled}
+              onPress={() => onDecide("refuse", r)}
+              accessibilityRole="button"
+              accessibilityLabel={`Refuser la sollicitation de ${r.pro}`}
+              className="active:opacity-70"
+              style={{
+                flex: 1,
+                paddingVertical: 13,
+                borderRadius: 13,
+                borderWidth: 1,
+                borderColor: R.DLINE,
+                backgroundColor: R.surface,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: disabled && !busyAction ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: R.DNAVY }}>
+                {busyAction === "refuse" ? "…" : "Refuser"}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         <Pressable
           onPress={() => onOpen(r)}
+          className="active:opacity-70"
           style={{
-            marginTop: 15,
-            paddingVertical: 13,
-            borderRadius: 13,
-            backgroundColor: R.btnBg,
+            marginTop: 10,
+            paddingVertical: 8,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
-            gap: 8,
+            gap: 6,
           }}
         >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: R.btnText }}>
-            Voir le détail
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: R.DV }}>
+            Voir le détail de l’offre
           </Text>
-          <Ionicons name="chevron-forward" size={16} color={R.btnText} />
+          <Ionicons name="chevron-forward" size={15} color={R.DV} />
         </Pressable>
       </View>
     </View>
@@ -569,6 +765,10 @@ export default function Relations() {
   const q = useProspectRelations();
   useRefetchOnFocus(q);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  // Filtres des sollicitations en attente (parité web RelFilterBar).
+  const [relFilters, setRelFilters] = useState<RelFilterValues>(REL_FILTER_DEFAULTS);
+  // Flux de décision partagé avec le détail (boutons directs des cartes).
+  const decision = useRelationDecision();
   // Relation sélectionnée pour ouverture du détail-sheet. Stocké
   // séparément du `visible` pour conserver le contenu pendant l'animation
   // de fermeture (sinon flash blanc).
@@ -600,7 +800,28 @@ export default function Relations() {
     return () => clearTimeout(t);
   }, [focusRelationId]);
 
-  const history: Relation[] = q.data?.history ?? [];
+  const history: Relation[] = useMemo(() => q.data?.history ?? [], [q.data?.history]);
+  const pendingAll: Relation[] = useMemo(() => q.data?.pending ?? [], [q.data?.pending]);
+  const filteredPending = useMemo(
+    () => applyRelFilters(pendingAll, relFilters),
+    [pendingAll, relFilters],
+  );
+
+  // Statistiques dérivées de l'historique (cartes du haut + total du pied),
+  // mêmes calculs que le web.
+  const stats = useMemo(() => {
+    const acc = history.filter((h) => h.decision === "Acceptée");
+    const ref = history.filter((h) => h.decision === "Refusée");
+    return {
+      accepted: acc.length,
+      refused: ref.length,
+      total: history.length,
+      gains: acc.reduce((sum, h) => sum + (Number(h.gain) || 0), 0),
+      escrow: acc
+        .filter((h) => /séquestre/i.test(h.status ?? ""))
+        .reduce((sum, h) => sum + (Number(h.gain) || 0), 0),
+    };
+  }, [history]);
 
   const filteredHistory = history.filter(
     (h) =>
@@ -719,6 +940,32 @@ export default function Relations() {
         </LinearGradient>
       </View>
 
+      {/* ── Statistiques (4 cartes, grille 2×2) ──────────── */}
+      {q.data ? (
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <RelationStat primary icon="cash-outline" label="Gains acceptés cumulés" value={eur(stats.gains)} />
+            <RelationStat
+              tone="good"
+              icon="checkmark"
+              label="Acceptées"
+              value={String(stats.accepted)}
+              sub={`/ ${stats.total} demande${stats.total > 1 ? "s" : ""}`}
+            />
+          </View>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <RelationStat
+              tone="danger"
+              icon="close"
+              label="Refusées"
+              value={String(stats.refused)}
+              sub={`/ ${stats.total} demande${stats.total > 1 ? "s" : ""}`}
+            />
+            <RelationStat tone="warn" icon="lock-closed-outline" label="En séquestre" value={eur(stats.escrow)} />
+          </View>
+        </View>
+      ) : null}
+
       {/* ── Demandes en attente ──────────────────────────── */}
       <QueryGate query={q}>
         {(d) =>
@@ -811,68 +1058,123 @@ export default function Relations() {
               </View>
             </View>
           ) : (
-            <View>
+            <View style={{ gap: 12 }}>
+              <RelationFilterBar
+                values={relFilters}
+                onChange={(next) => {
+                  setRelFilters(next);
+                  setSolIdx(0);
+                }}
+                pending={d.pending}
+                filteredCount={filteredPending.length}
+              />
               <Text
                 className="font-mono"
-                style={{ fontSize: 13, color: R.DMUTED, marginBottom: 4 }}
+                style={{ fontSize: 13, color: R.DMUTED }}
               >
                 {d.pending.filter(isAwaitingDecision).length}{" "}
                 {d.pending.filter(isAwaitingDecision).length === 1
                   ? "demande en attente"
                   : "demandes en attente"}
               </Text>
-              {/* Carrousel horizontal de sollicitations (modèle flash deals). */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                decelerationRate="fast"
-                snapToInterval={REL_CARD_W + SOL_GAP}
-                snapToAlignment="start"
-                onScroll={onSolScroll}
-                scrollEventThrottle={16}
-                contentContainerStyle={{ gap: SOL_GAP, paddingTop: 10, paddingRight: 24 }}
-              >
-                {d.pending.map((r) => (
-                  <SollicitationCard
-                    key={r.id}
-                    r={r}
-                    onOpen={(rel) => {
-                      setDetail(rel);
-                      setDetailIsHistory(false);
-                      setDetailVisible(true);
-                    }}
-                    onVitrine={(rel) =>
-                      setVitrineLeave({ proName: rel.pro, websiteUrl: rel.websiteUrl ?? "" })
-                    }
-                  />
-                ))}
-              </ScrollView>
-              {d.pending.length > 1 ? (
+              {filteredPending.length === 0 ? (
                 <View
                   style={{
-                    flexDirection: "row",
+                    borderRadius: 18,
+                    backgroundColor: R.surface,
+                    borderWidth: 1,
+                    borderColor: R.DLINE,
+                    paddingVertical: 24,
+                    paddingHorizontal: 20,
                     alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    marginTop: 14,
                   }}
                 >
-                  {d.pending.map((r, i) => {
-                    const on = i === Math.min(solIdx, d.pending.length - 1);
-                    return (
-                      <View
-                        key={r.id}
-                        style={{
-                          width: on ? 18 : 7,
-                          height: 7,
-                          borderRadius: 999,
-                          backgroundColor: on ? R.DV : R.DLINE,
-                        }}
-                      />
-                    );
-                  })}
+                  <Text style={{ fontSize: 13, color: R.DMUTED, textAlign: "center" }}>
+                    Aucune sollicitation ne correspond à vos filtres.
+                  </Text>
+                  <Pressable
+                    onPress={() => setRelFilters(REL_FILTER_DEFAULTS)}
+                    className="active:opacity-70"
+                    style={{
+                      marginTop: 10,
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: R.DLINE,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: R.DNAVY }}>
+                      Réinitialiser les filtres
+                    </Text>
+                  </Pressable>
                 </View>
-              ) : null}
+              ) : (
+                <View>
+                  {/* Carrousel horizontal de sollicitations (modèle flash deals). */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    decelerationRate="fast"
+                    snapToInterval={REL_CARD_W + SOL_GAP}
+                    snapToAlignment="start"
+                    onScroll={onSolScroll}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={{ gap: SOL_GAP, paddingTop: 4, paddingRight: 24 }}
+                  >
+                    {filteredPending.map((r) => (
+                      <SollicitationCard
+                        key={r.id}
+                        r={r}
+                        onOpen={(rel) => {
+                          setDetail(rel);
+                          setDetailIsHistory(false);
+                          setDetailVisible(true);
+                        }}
+                        onVitrine={(rel) =>
+                          setVitrineLeave({ proName: rel.pro, websiteUrl: rel.websiteUrl ?? "" })
+                        }
+                        onDecide={(action, rel) =>
+                          decision.request(action, {
+                            id: rel.id,
+                            tier: rel.tier,
+                            tiers: rel.tiers,
+                            relationStatus: rel.relationStatus,
+                          })
+                        }
+                        busyAction={decision.busyFor(r.id)}
+                        disabled={decision.busy}
+                      />
+                    ))}
+                  </ScrollView>
+                  {filteredPending.length > 1 ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        marginTop: 14,
+                      }}
+                    >
+                      {filteredPending.map((r, i) => {
+                        const on = i === Math.min(solIdx, filteredPending.length - 1);
+                        return (
+                          <View
+                            key={r.id}
+                            style={{
+                              width: on ? 18 : 7,
+                              height: 7,
+                              borderRadius: 999,
+                              backgroundColor: on ? R.DV : R.DLINE,
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              )}
             </View>
           )
         }
@@ -984,6 +1286,37 @@ export default function Relations() {
             ))}
           </View>
         )}
+
+        {/* Pied : légende + total accepté (parité web). */}
+        {history.length > 0 ? (
+          <View
+            style={{
+              paddingTop: 14,
+              borderTopWidth: 1,
+              borderTopColor: R.DLINE,
+              gap: 10,
+            }}
+          >
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+              {[
+                { label: "Acceptée", color: "#15803D" },
+                { label: "Refusée", color: "#DC2626" },
+                { label: "En séquestre", color: "#B45309" },
+              ].map((l) => (
+                <View key={l.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: l.color }} />
+                  <Text style={{ fontSize: 12.5, color: R.DMUTEDL }}>{l.label}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={{ fontSize: 13, color: R.DMUTEDL }}>
+              Total accepté :{" "}
+              <Text className="font-mono" style={{ fontWeight: "700", color: R.DGREEN_TXT }}>
+                +{eur(stats.gains)}
+              </Text>
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <MovementDetailSheet
@@ -992,6 +1325,7 @@ export default function Relations() {
         relation={detail ? toMovementRelation(detail) : null}
         isHistory={detailIsHistory}
       />
+      {decision.sheet}
       <VitrineLeaveSheet
         visible={!!vitrineLeave}
         proName={vitrineLeave?.proName ?? ""}

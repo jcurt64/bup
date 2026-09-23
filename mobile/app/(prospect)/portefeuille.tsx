@@ -20,9 +20,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-// Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
-const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
-
 import { useFlashSheet } from "../../components/flash-sheet-context";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import {
@@ -39,7 +36,9 @@ import {
   useMeTyped,
   useParrainage,
   useProspectMovements,
+  useProspectRelations,
   useProspectScore,
+  useProspectScoreHistory,
   useProspectVerification,
   useProspectWallet,
   type Movement,
@@ -47,8 +46,52 @@ import {
   type ProspectWallet,
 } from "../../lib/queries";
 import { ReferralBadge } from "../../components/referral-badge";
+import { ApiError } from "../../lib/api";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import { useTheme } from "../../lib/theme";
+
+// Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
+const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
+
+// "dispo le 12/12/2026" — parité web (Prospect.jsx fn formatAvailableAt).
+function formatAvailableAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return (
+    "dispo le " +
+    d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
+  );
+}
+
+// BUUPP Score → libellé d'indice de désirabilité (seuils identiques au web,
+// cf. Prospect.jsx ProspectHeader).
+function desirabiliteLabel(score: number | null): string {
+  if (score == null) return "…";
+  if (score >= 850) return "Excellente désirabilité";
+  if (score >= 600) return "Bonne désirabilité";
+  if (score >= 350) return "Désirabilité correcte";
+  return "Désirabilité à renforcer";
+}
+
+// Niveaux de fiabilité (notes des pros) — libellés, couleurs et icônes
+// alignés sur la carte « Taux de fiabilité » du web.
+const FIAB_LEVELS = [
+  { key: "haute", label: "Confiance haute", color: "#16A34A", icon: "shield-checkmark" },
+  { key: "moyenne", label: "Confiance moyenne", color: "#D97706", icon: "shield-half" },
+  { key: "basse", label: "Confiance basse", color: "#DC2626", icon: "alert-circle" },
+] as const;
+
+// Message serveur (body.message) d'une ApiError, sinon null.
+function apiErrorMessage(e: unknown): string | null {
+  if (!(e instanceof ApiError)) return null;
+  try {
+    const j = JSON.parse(e.body) as { message?: string };
+    return typeof j.message === "string" && j.message ? j.message : null;
+  } catch {
+    return null;
+  }
+}
 
 // Mirror Prospect.jsx — libellés affichés pour chaque tier de vérif.
 const VERIF_LABELS: Record<string, string> = {
@@ -253,9 +296,11 @@ export default function Portefeuille() {
   const verif = useProspectVerification();
   const score = useProspectScore();
   const parrainage = useParrainage();
+  const relations = useProspectRelations();
+  const scoreHist = useProspectScoreHistory("1M");
   const badgeTier = parrainage.data?.badgeTier ?? null;
   const founderNumber = parrainage.data?.founderNumber ?? null;
-  useRefetchOnFocus(w, m, verif, score, parrainage);
+  useRefetchOnFocus(w, m, verif, score, parrainage, relations, scoreHist);
   // Relation sélectionnée pour la modale de détail (parité web :
   // RelationDetailModal ouverte au clic sur une ligne d'historique).
   const [detail, setDetail] = useState<MovementRelation | null>(null);
@@ -332,6 +377,54 @@ export default function Portefeuille() {
   const scoreNum = score.data?.score ?? null;
   const scorePct =
     scoreNum != null ? Math.max(0, Math.min(1, scoreNum / 1000)) : 0;
+  // Variation du score sur le mois glissant (1er vs dernier point 1M).
+  const scoreDelta = useMemo(() => {
+    const pts = scoreHist.data?.points;
+    if (!Array.isArray(pts) || pts.length < 2) return null;
+    const first = Number(pts[0]?.score);
+    const last = Number(pts[pts.length - 1]?.score);
+    return Number.isFinite(first) && Number.isFinite(last) ? last - first : null;
+  }, [scoreHist.data?.points]);
+
+  // Taux de fiabilité (notes des pros) — /api/prospect/score → breakdown.fiabilite.
+  const fiab = score.data?.breakdown?.fiabilite ?? null;
+  const fiabPct = fiab?.pct ?? null;
+  const fiabLevels = fiab?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
+  const fiabCount = score.data
+    ? (fiab?.count ?? fiabLevels.haute + fiabLevels.moyenne + fiabLevels.basse)
+    : null;
+
+  // « N mises en relation en attente · prochaine échéance dans X » (parité
+  // sous-titre du ProspectHeader web). Tick 60 s pour le décompte.
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const pendingSubtitle = useMemo(() => {
+    const pending = relations.data?.pending;
+    if (!pending) return "Chargement de vos sollicitations…";
+    const n = pending.length;
+    if (n === 0) return "Aucune mise en relation en attente";
+    let soonest: number | null = null;
+    for (const r of pending) {
+      if (!r.expiresAt) continue;
+      const t = new Date(r.expiresAt).getTime();
+      if (Number.isNaN(t) || t <= nowTs) continue;
+      if (soonest == null || t < soonest) soonest = t;
+    }
+    let deadline: string | null = null;
+    if (soonest != null) {
+      const ms = soonest - nowTs;
+      const h = Math.floor(ms / 3_600_000);
+      const mn = Math.floor((ms % 3_600_000) / 60_000);
+      deadline = h > 0 ? `${h} h ${String(mn).padStart(2, "0")} min` : `${mn} min`;
+    }
+    return (
+      `${n} mise${n > 1 ? "s" : ""} en relation en attente` +
+      (deadline ? ` · prochaine échéance dans ${deadline}` : "")
+    );
+  }, [relations.data?.pending, nowTs]);
 
   // Extras du header compact (visibles quand la page est scrollée vers
   // le bas) : disponible + séquestre, chacun précédé d'une petite
@@ -362,7 +455,15 @@ export default function Portefeuille() {
   return (
     <ScrollScreen
       onRefresh={() =>
-        Promise.all([w.refetch(), m.refetch(), verif.refetch(), score.refetch(), parrainage.refetch()])
+        Promise.all([
+          w.refetch(),
+          m.refetch(),
+          verif.refetch(),
+          score.refetch(),
+          parrainage.refetch(),
+          relations.refetch(),
+          scoreHist.refetch(),
+        ])
       }
       compactExtras={compactExtras}
     >
@@ -404,6 +505,15 @@ export default function Portefeuille() {
             ) : (
               <Text className="font-serif text-2xl text-white">{hello}</Text>
             )}
+            <Pressable
+              onPress={() => router.push("/(prospect)/relations")}
+              accessibilityRole="link"
+              className="mt-1.5 active:opacity-70"
+            >
+              <Text className="text-[12.5px] leading-[18px] text-white/70">
+                {pendingSubtitle}
+              </Text>
+            </Pressable>
           </View>
           <View className="flex-row items-center gap-2">
             {badgeTier ? (
@@ -452,8 +562,134 @@ export default function Portefeuille() {
             style={{ width: `${scorePct * 100}%`, backgroundColor: "#C4B5FD" }}
           />
         </View>
+        {/* Indice de désirabilité + variation du mois (parité web). */}
+        <Text className="mt-2.5 text-[12.5px] text-white/70">
+          Votre indice de <Text className="font-semibold text-white/90">désirabilité</Text>
+        </Text>
+        <View className="mt-2 flex-row flex-wrap items-center justify-between gap-2">
+          <View
+            className="rounded-full px-2.5 py-1"
+            style={{
+              backgroundColor: "rgba(196,181,253,0.16)",
+              borderWidth: 1,
+              borderColor: "rgba(196,181,253,0.4)",
+            }}
+          >
+            <Text className="text-[12px] font-semibold" style={{ color: "#DDD6FE" }}>
+              {desirabiliteLabel(scoreNum)}
+            </Text>
+          </View>
+          {scoreDelta != null && scoreDelta !== 0 ? (
+            <View className="flex-row items-center gap-1">
+              <Ionicons
+                name={scoreDelta > 0 ? "trending-up" : "trending-down"}
+                size={13}
+                color={scoreDelta > 0 ? "#86EFAC" : "#FCA5A5"}
+              />
+              <Text
+                className="text-[12.5px] font-semibold"
+                style={{ color: scoreDelta > 0 ? "#86EFAC" : "#FCA5A5" }}
+              >
+                {scoreDelta > 0 ? "+" : ""}
+                {scoreDelta} ce mois
+              </Text>
+            </View>
+          ) : null}
+        </View>
         </View>
       </View>
+
+      {/* Taux de fiabilité — note des professionnels (parité 1re carte du
+          ProspectHeader web) : %, nombre de notations, barre, répartition
+          par niveau (icône teintée + badge chiffré). */}
+      <Pressable
+        onPress={() => router.push("/(prospect)/score")}
+        accessibilityRole="button"
+        accessibilityLabel="Taux de fiabilité — voir le BUUPP Score"
+        className="active:opacity-90"
+      >
+        <Card tone="teal">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-xl"
+                style={{ backgroundColor: tileBg }}
+              >
+                <Ionicons name="speedometer-outline" size={18} color="#16A34A" />
+              </View>
+              <Text
+                className="font-mono text-[11px] uppercase text-ink-4"
+                style={{ letterSpacing: 1.2 }}
+              >
+                Taux de fiabilité
+              </Text>
+            </View>
+            <Ionicons name="information-circle-outline" size={18} color={c.ink4} />
+          </View>
+          <View className="mt-3 flex-row items-baseline gap-0.5">
+            <Text className="font-serif-bold text-[38px] leading-[42px] text-ink">
+              {fiabPct == null ? "…" : fiabPct}
+            </Text>
+            <Text className="font-serif text-lg text-ink-4">%</Text>
+          </View>
+          <Text className="mt-1 text-[12.5px] text-ink-3">
+            {fiabCount == null ? (
+              <>
+                Noté <Text className="font-semibold text-ink-2">…</Text> par les professionnels
+              </>
+            ) : fiabCount === 0 ? (
+              "Pas encore noté par les professionnels"
+            ) : (
+              <>
+                Noté <Text className="font-semibold text-ink-2">{fiabCount} fois</Text> par les
+                professionnels
+              </>
+            )}
+          </Text>
+          <View
+            className="mt-3 h-[7px] overflow-hidden rounded-full"
+            style={{ backgroundColor: c.track }}
+          >
+            <LinearGradient
+              colors={["#86D6A6", "#2EA15C"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ width: `${fiabPct ?? 0}%`, height: "100%", borderRadius: 999 }}
+            />
+          </View>
+          <View className="mt-3">
+            {FIAB_LEVELS.map((lv, i) => (
+              <View
+                key={lv.key}
+                className="flex-row items-center justify-between py-2"
+                style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.borderSoft } : undefined}
+              >
+                <View className="flex-row items-center gap-2.5">
+                  <View
+                    className="h-6 w-6 items-center justify-center rounded-md"
+                    style={{ backgroundColor: `${lv.color}26` }}
+                  >
+                    <Ionicons name={lv.icon} size={13} color={lv.color} />
+                  </View>
+                  <Text className="text-[13px] text-ink-2">{lv.label}</Text>
+                </View>
+                <View
+                  className="min-w-[28px] items-center rounded-md px-2 py-0.5"
+                  style={{
+                    backgroundColor: `${lv.color}21`,
+                    borderWidth: 1,
+                    borderColor: `${lv.color}3D`,
+                  }}
+                >
+                  <Text className="text-[14px] font-bold" style={{ color: lv.color }}>
+                    {fiabLevels[lv.key] ?? 0}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card>
+      </Pressable>
 
       <QueryGate query={w}>
         {(d) => (
@@ -550,6 +786,7 @@ export default function Portefeuille() {
                 label="En séquestre"
                 value={eur(d.escrowEur)}
                 coins={coins(d.escrowCents)}
+                hint="Déblocage à la clôture de la campagne"
                 icon="lock-closed-outline"
                 tone="amber"
                 squareIcon
@@ -677,7 +914,8 @@ export default function Portefeuille() {
                 )}
                 {claimBonus.isError && (
                   <Text className="mt-2 text-sm" style={{ color: c.bad }}>
-                    Le déblocage a échoué. Réessayez dans un instant.
+                    {apiErrorMessage(claimBonus.error) ??
+                      "Le déblocage a échoué. Réessayez dans un instant."}
                   </Text>
                 )}
               </Card>
@@ -896,12 +1134,30 @@ export default function Portefeuille() {
                     <Text className="text-[15px] text-ink" numberOfLines={1}>
                       {mv.origin}
                     </Text>
+                    {/* Nom de la campagne sous l'origine (parité web). */}
+                    {mv.relation?.campaignName ? (
+                      <Text
+                        className="mt-0.5 font-mono text-[10.5px] uppercase text-ink-5"
+                        style={{ letterSpacing: 0.8 }}
+                        numberOfLines={1}
+                      >
+                        {mv.relation.campaignName}
+                      </Text>
+                    ) : null}
                     <Text
                       className="mt-1 font-mono text-[12px] text-ink-4"
                       numberOfLines={1}
                     >
                       {dateFr(mv.date)} · {mv.statusLabel}
                     </Text>
+                    {(() => {
+                      const avail = formatAvailableAt(mv.availableAt);
+                      return avail ? (
+                        <Text className="mt-0.5 text-[11px] text-good" numberOfLines={1}>
+                          {avail}
+                        </Text>
+                      ) : null;
+                    })()}
                   </View>
 
                   {/* Montant (proéminent) + chip palier empilé. */}
@@ -945,6 +1201,29 @@ export default function Portefeuille() {
                 </Pressable>
                 );
               })}
+              {/* Pied : nombre de mouvements affichés + total crédité du
+                  cycle (somme des montants positifs — parité web). */}
+              {(() => {
+                const n = d.movements.length;
+                const totalCredited = d.movements.reduce(
+                  (sum, mv) => sum + (Number(mv.amountCents) > 0 ? Number(mv.amountEur || 0) : 0),
+                  0,
+                );
+                return (
+                  <View
+                    className="mt-1.5 gap-1 pt-3"
+                    style={{ borderTopWidth: 1, borderTopColor: c.borderSoft }}
+                  >
+                    <Text className="text-[13px] text-ink-4">
+                      Affichage des {n} dernier{n > 1 ? "s" : ""} mouvement{n > 1 ? "s" : ""}
+                    </Text>
+                    <Text className="text-[13px] text-ink-4">
+                      Total crédité ce cycle :{" "}
+                      <Text className="font-mono font-bold text-good">+{eur(totalCredited)}</Text>
+                    </Text>
+                  </View>
+                );
+              })()}
             </View>
             )
           )}

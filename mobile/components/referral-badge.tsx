@@ -1,7 +1,7 @@
 // components/referral-badge.tsx
 // Badge couronne de parrainage (pastille LinearGradient cliquable sur le hero)
 // + popup « Programme parrainage » (cf. public/prototype/pa.pdf) :
-// en-tête fondateur + stepper Bronze/Argent/Or + 3 cards paliers (palier
+// en-tête fondateur + stepper Used/Paid/Proud (ex-Bronze/Argent/Or) + 3 cards paliers (palier
 // courant mis en avant) + carte CTA + bouton Fermer. Design only — aucune
 // donnée backend changée (réutilise tier / founderNumber / filleulCount).
 import { useState } from "react";
@@ -26,7 +26,7 @@ const VIOLET_DEEP = "#5B3FE0";
 const VIOLET_BORDER = "#D5C8F7";
 // Pastille navy de l'en-tête (couleur de marque, identique dans les 2 modes).
 const NAVY = "#0F1629";
-// Doré « Golden Buupper » en mode clair (basculé sur c.gold en sombre).
+// Doré « Proud Buupper » en mode clair (basculé sur c.gold en sombre).
 const GOLD = "#E0972F";
 
 const TIER_ORDER: BadgeTier[] = ["cuivre", "argent", "or"];
@@ -46,7 +46,7 @@ const TIER_INFO: TierInfo[] = [
   {
     tier: "cuivre",
     n: 1,
-    label: "Bronze",
+    label: "Used",
     range: "1–2 filleuls",
     eyebrow: "BONUS PARRAIN",
     body: "50 % des BUUPP coins à chaque acceptation de chaque filleul, sans limite de durée.",
@@ -56,17 +56,17 @@ const TIER_INFO: TierInfo[] = [
   {
     tier: "argent",
     n: 2,
-    label: "Argent",
+    label: "Paid",
     range: "3–9 filleuls",
     eyebrow: "ACCÈS PRIORITAIRE",
-    body: "Tous les avantages Bronze, plus l’accès aux offres flash 20 min avant tout le monde.",
+    body: "Tous les avantages Used, plus l’accès aux offres flash 20 min avant tout le monde.",
     grad: ["#E4E7EC", "#A7AEB8"],
     num: "#5A6068",
   },
   {
     tier: "or",
     n: 3,
-    label: "Or",
+    label: "Proud",
     range: "10 filleuls",
     eyebrow: "GOVERNOR · DROIT DE VOTE",
     body: "Tous les avantages, et vous êtes consulté·e par BUUPP sur les nouveautés.",
@@ -95,7 +95,7 @@ function CrownPill({ tier, size = 22 }: { tier: BadgeTier; size?: number }) {
   );
 }
 
-// Stepper Bronze → Argent → Or : nœud passé = pastille pleine + ✓, nœud
+// Stepper Used → Paid → Proud : nœud passé = pastille pleine + ✓, nœud
 // courant = cercle blanc à liseré violet + numéro, nœud à venir = cercle vide.
 function Stepper({ currentIndex }: { currentIndex: number }) {
   const { c } = useTheme();
@@ -541,7 +541,7 @@ export function ReferralBadge({
                 >
                   <Text style={{ fontSize: 14, lineHeight: 21, color: c.text }}>
                     Parrainez des prospects pour monter de palier et devenir un{" "}
-                    <Text style={{ fontWeight: "700", color: isDark ? c.gold : GOLD }}>Golden Buupper</Text>.
+                    <Text style={{ fontWeight: "700", color: isDark ? c.gold : GOLD }}>Proud Buupper</Text>.
                     Votre lien se trouve dans l’onglet Parrainage.
                   </Text>
                   <Pressable
