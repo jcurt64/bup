@@ -9,26 +9,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
-import { eur, QueryGate, ScrollScreen } from "../../components/screen";
-import { ApiError } from "../../lib/api";
+import { QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 import {
   useDeleteRib,
   useEmailTracking,
-  usePayoutOnboarding,
-  usePayoutStatus,
-  usePayoutWithdraw,
   usePatchDonnees,
   usePatchPreferences,
   useProspectDonnees,
   useProspectVerification,
-  useProspectWallet,
   useSaveRib,
   useSetEmailTracking,
   useTierAction,
@@ -90,20 +84,6 @@ function resolveGeoExtension(loc: Record<string, unknown>): GeoLevel {
   const hit = GEO_LEVELS.find((l) => l.v === raw);
   if (hit) return hit.v;
   return String(loc.nationalOptIn ?? "true") !== "false" ? "national" : "local";
-}
-
-// Message lisible d'une erreur API ({ message } JSON) — repli générique.
-function apiErrorMessage(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) {
-    try {
-      const j = JSON.parse(e.body) as { message?: string; error?: string };
-      if (j.message) return j.message;
-      if (j.error) return j.error;
-    } catch {
-      // corps non-JSON
-    }
-  }
-  return fallback;
 }
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
@@ -397,15 +377,11 @@ export default function Preferences() {
   const { c, mode } = useTheme();
   const don = useProspectDonnees();
   const ver = useProspectVerification();
-  const pay = usePayoutStatus();
-  const wal = useProspectWallet();
   const mail = useEmailTracking();
-  useRefetchOnFocus(don, ver, pay, wal, mail);
+  useRefetchOnFocus(don, ver, mail);
 
   const saveRib     = useSaveRib();
   const delRib      = useDeleteRib();
-  const onboard     = usePayoutOnboarding();
-  const withdraw    = usePayoutWithdraw();
   const setMail     = useSetEmailTracking();
   const patchDon    = usePatchDonnees();
   const patchPrefs  = usePatchPreferences();
@@ -415,9 +391,6 @@ export default function Preferences() {
   const [iban,    setIban]    = useState("");
   const [bic,     setBic]     = useState("");
   const [holder,  setHolder]  = useState("");
-  const [amount,  setAmount]  = useState("");
-  const [withdrawError, setWithdrawError] = useState<string | null>(null);
-  const [withdrawDone,  setWithdrawDone]  = useState(false);
 
   // Types de campagne & catégories acceptés — hydratés depuis
   // /api/prospect/donnees (bloc `preferences`) puis persistés à chaque
@@ -482,37 +455,6 @@ export default function Preferences() {
     patchPrefs.mutate({ allCategories: on, categories: [...selCats] });
   };
 
-  // Retrait — parité web RetraitModal (submitWithdraw). Le plafond client
-  // est la part réellement retirable (hors bonus fondateur verrouillé) quand
-  // le backend l'expose, sinon le solde disponible ; le serveur re-vérifie.
-  const threshold = wal.data?.withdrawThresholdEur ?? 5;
-  const canWithdraw = wal.data?.canWithdraw ?? false;
-  const maxWithdrawEur = wal.data?.withdrawableEur ?? wal.data?.availableEur ?? 0;
-  const availableLabel = wal.isPending
-    ? "…"
-    : wal.isError
-      ? "—"
-      : eur(wal.data?.availableEur ?? 0);
-  const submitWithdraw = () => {
-    const eurValue = Math.max(0, Number(amount.replace(",", ".")) || 0);
-    if (eurValue < threshold) {
-      setWithdrawError(`Minimum ${threshold} €.`);
-      return;
-    }
-    if (eurValue > maxWithdrawEur) {
-      setWithdrawError("Solde insuffisant.");
-      return;
-    }
-    setWithdrawError(null);
-    withdraw.mutate(
-      { amountCents: Math.round(eurValue * 100) },
-      {
-        onSuccess: () => setWithdrawDone(true),
-        onError: (e) => setWithdrawError(apiErrorMessage(e, "Erreur retrait")),
-      },
-    );
-  };
-
   // ── Extras du header compact (au scroll) ───────────────────────────────
   // 1) Téléphone : icône pleine si vérifié, barrée sinon.
   // 2) Zone géographique renseignée (niveau d'extension ou rayon en km).
@@ -561,8 +503,6 @@ export default function Preferences() {
         Promise.all([
           don.refetch(),
           ver.refetch(),
-          pay.refetch(),
-          wal.refetch(),
           mail.refetch(),
         ])
       }
@@ -1180,192 +1120,6 @@ export default function Preferences() {
               </View>
             )
           }
-        </QueryGate>
-      </PrefCard>
-
-      {/* ── 7. Retrait des gains (Stripe Connect) ──────────────────────── */}
-      {/* Parité web RetraitModal : garde canWithdraw (seuil), onboarding
-          Stripe tant que payoutsEnabled est faux, validation min/max côté
-          client, erreurs serveur affichées, état « Retrait enregistré ». */}
-      <PrefCard iconBg={c.tintViolet} icon="cash-outline" iconColor={c.accVioletDeep}>
-        <H3>Retrait des gains</H3>
-        <QueryGate query={pay}>
-          {(p) => {
-            if (withdrawDone) {
-              return (
-                <View className="items-center" style={{ marginTop: 14, gap: 6 }}>
-                  <View
-                    className="items-center justify-center"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 999,
-                      backgroundColor: c.tintViolet,
-                    }}
-                  >
-                    <Ionicons name="checkmark" size={24} color={c.accVioletDeep} />
-                  </View>
-                  <Text
-                    className="font-serif"
-                    style={{ fontSize: 20, color: c.text, marginTop: 4 }}
-                  >
-                    Retrait enregistré
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      lineHeight: 19,
-                      color: c.textSub,
-                      textAlign: "center",
-                    }}
-                  >
-                    Le virement sera versé sur l&apos;IBAN renseigné chez Stripe
-                    sous 1 à 3 jours ouvrés.
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setWithdrawDone(false);
-                      setAmount("");
-                      setWithdrawError(null);
-                    }}
-                    className="active:opacity-70"
-                    style={{
-                      marginTop: 8,
-                      paddingVertical: 9,
-                      paddingHorizontal: 16,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: c.borderSoft,
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: c.text }}>
-                      Fermer
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }
-
-            // Garde seuil : tant que les gains retirables sont sous le
-            // seuil, pas de retrait ni d'onboarding (bouton web désactivé).
-            if (!canWithdraw) {
-              return (
-                <View>
-                  <Text style={{ marginTop: 11, fontSize: 12.5, color: c.textSub }}>
-                    Disponible : {availableLabel}
-                  </Text>
-                  <Text
-                    style={{
-                      marginTop: 8,
-                      fontSize: 12.5,
-                      lineHeight: 18,
-                      color: c.textMuted,
-                    }}
-                  >
-                    {wal.data?.signupBonusLocked
-                      ? `Retirable à partir de ${threshold} € de gains, hors bonus fondateur.`
-                      : `Retirable à partir de ${threshold} € de gains.`}
-                  </Text>
-                  <DarkButton label="Retirer mes gains" disabled onPress={() => {}} />
-                </View>
-              );
-            }
-
-            if (!p.payoutsEnabled) {
-              return (
-                <View>
-                  <View
-                    style={{
-                      marginTop: 12,
-                      padding: 14,
-                      borderRadius: 13,
-                      backgroundColor: c.field,
-                    }}
-                  >
-                    <Text className="font-serif" style={{ fontSize: 16, color: c.text }}>
-                      {p.hasAccount
-                        ? "Finalisez votre onboarding Stripe"
-                        : "Activez vos retraits"}
-                    </Text>
-                    <Text
-                      style={{
-                        marginTop: 6,
-                        fontSize: 12.5,
-                        lineHeight: 18,
-                        color: c.textSub,
-                      }}
-                    >
-                      Pour recevoir vos gains sur votre IBAN, vous devez
-                      d&apos;abord créer un compte Stripe Connect (procédure
-                      hébergée par Stripe, ~2 minutes : votre IBAN). Vos données
-                      ne transitent jamais par BUUPP.
-                    </Text>
-                  </View>
-                  {onboard.isError && (
-                    <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
-                      {apiErrorMessage(onboard.error, "Erreur onboarding")}
-                    </Text>
-                  )}
-                  <DarkButton
-                    label={
-                      onboard.isPending
-                        ? "Redirection…"
-                        : p.hasAccount
-                          ? "Reprendre l'onboarding"
-                          : "Activer mes retraits"
-                    }
-                    disabled={onboard.isPending}
-                    onPress={async () => {
-                      try {
-                        const r = await onboard.mutateAsync();
-                        if (r?.url) {
-                          await WebBrowser.openBrowserAsync(r.url);
-                        }
-                      } catch {
-                        // erreur affichée via onboard.isError
-                      } finally {
-                        // Au retour du navigateur, relire le statut Stripe.
-                        pay.refetch();
-                      }
-                    }}
-                  />
-                </View>
-              );
-            }
-
-            return (
-              <View>
-                <Text style={{ marginTop: 11, fontSize: 12.5, color: c.textSub }}>
-                  Disponible : {availableLabel}
-                </Text>
-                <TextInput
-                  value={amount}
-                  onChangeText={(t) => {
-                    setAmount(t);
-                    setWithdrawError(null);
-                  }}
-                  placeholder="Montant en €"
-                  placeholderTextColor={c.textMuted}
-                  keyboardType="decimal-pad"
-                  style={fieldStyle(c)}
-                />
-                <Text style={{ marginTop: 6, fontSize: 12, color: c.textMuted }}>
-                  Min {threshold} € · Max {eur(maxWithdrawEur)} · Virement vers
-                  Stripe puis IBAN
-                </Text>
-                {withdrawError && (
-                  <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
-                    {withdrawError}
-                  </Text>
-                )}
-                <DarkButton
-                  label={withdraw.isPending ? "Retrait…" : "Confirmer le retrait"}
-                  disabled={withdraw.isPending}
-                  onPress={submitWithdraw}
-                />
-              </View>
-            );
-          }}
         </QueryGate>
       </PrefCard>
 

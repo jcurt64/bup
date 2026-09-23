@@ -49,6 +49,7 @@ import { ReferralBadge } from "../../components/referral-badge";
 import { ApiError } from "../../lib/api";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import { useTheme } from "../../lib/theme";
+import { WithdrawSheet } from "../../components/withdraw-sheet";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
 const EMPTY_WALLET = require("../../assets/images/empty-wallet.png");
@@ -291,6 +292,7 @@ export default function Portefeuille() {
   // la carte teintée foncée.
   const tileBg = isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF";
   const w = useProspectWallet();
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const m = useProspectMovements();
   const me = useMeTyped();
   const verif = useProspectVerification();
@@ -777,6 +779,37 @@ export default function Portefeuille() {
                   }}
                 />
               </View>
+
+              {/* Retrait des gains (parité web « Retirer mes gains ») : actif
+                  seulement quand une somme est réellement retirable. */}
+              {(() => {
+                const enabled = d.canWithdraw && withdrawableEur > 0;
+                return (
+                  <Pressable
+                    onPress={() => setShowWithdraw(true)}
+                    disabled={!enabled}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !enabled }}
+                    className="mt-4 flex-row items-center justify-center rounded-full py-3.5 active:opacity-85"
+                    style={{
+                      gap: 8,
+                      backgroundColor: enabled ? "#7C5CFC" : isDark ? "rgba(255,255,255,0.10)" : "#EDE9FE",
+                    }}
+                  >
+                    <Ionicons
+                      name="arrow-down-circle-outline"
+                      size={18}
+                      color={enabled ? "#FFFFFF" : "#A78BFA"}
+                    />
+                    <Text
+                      className="text-[15px] font-semibold"
+                      style={{ color: enabled ? "#FFFFFF" : "#A78BFA" }}
+                    >
+                      Retirer mes gains
+                    </Text>
+                  </Pressable>
+                );
+              })()}
             </Card>
 
             <View className="flex-row gap-3">
@@ -1234,6 +1267,13 @@ export default function Portefeuille() {
         visible={detail !== null}
         onClose={() => setDetail(null)}
         relation={detail}
+      />
+      <WithdrawSheet
+        visible={showWithdraw}
+        onClose={() => {
+          setShowWithdraw(false);
+          void w.refetch();
+        }}
       />
     </ScrollScreen>
   );
