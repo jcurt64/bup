@@ -183,7 +183,7 @@ export function Field({
 
 // Base web (= prod que pointe le mobile). Les pages légales sont servies
 // par l'app web : /cgv, /rgpd, /cookies (mêmes slugs que le footer web).
-const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
+const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://www.buupp.com";
 
 // iOS : on ouvre les pages légales dans SFSafariViewController via
 // expo-web-browser (navigateur in-app, URL visible, conforme App Review)
@@ -203,6 +203,13 @@ export function LegalFooter() {
     <View className="pb-1">
       <Text className="text-center text-[11px] leading-4 text-ink-4">
         En continuant, vous acceptez nos{" "}
+        <Text
+          className="underline text-ink-3"
+          onPress={() => openLegal("/cgu")}
+        >
+          conditions générales d&apos;utilisation
+        </Text>
+        , nos{" "}
         <Text
           className="underline text-ink-3"
           onPress={() => openLegal("/cgv")}

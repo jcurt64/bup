@@ -23,10 +23,11 @@ import { BuuppLoader } from "../components/loader";
 import { unregisterPushToken } from "../lib/push";
 import { useApi } from "../lib/api";
 import { useDeleteAccount, usePageVersions } from "../lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../lib/theme";
 
 const WEB_BASE =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://www.buupp.com";
 
 // Ajoute le marqueur `?from=mobile-app` à un href web : la RouteNav
 // (pastille flottante du bas) et autres éléments « web-only » s'auto-
@@ -57,6 +58,7 @@ const LINKS: {
   { slug: "cgv", icon: "receipt-outline", color: "#FF7A6B" }, // coral
   { slug: "rgpd", icon: "shield-checkmark-outline", color: "#2FB8A6", labelOverride: "Politique des données personnelles" }, // teal
   { slug: "cookies", emoji: "🍪", color: "#F2B65A", labelOverride: "Politique des cookies" }, // amber
+  { slug: "contact", icon: "chatbubbles-outline", color: "#0EA5E9", labelOverride: "Contacter le support" }, // cyan
   { slug: "contact-dpo", icon: "mail-outline", color: "#5B8DEF", labelOverride: "Contact DPO" }, // sky
   { slug: "bareme", icon: "bar-chart-outline", color: "#16A34A", labelOverride: "Barème des paliers" }, // good
   { slug: "minimisation", icon: "funnel-outline", color: "#B45309", labelOverride: "Minimisation" }, // gold
@@ -176,6 +178,7 @@ export default function AccountPage() {
   const api = useApi();
   const versions = usePageVersions();
   const del = useDeleteAccount();
+  const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   // Sheet d'avertissement renforcée affichée au clic sur la Row
   // « Suppression du compte ». Ne pas confondre avec l'Alert natif
@@ -188,7 +191,9 @@ export default function AccountPage() {
   const [pushBusy, setPushBusy] = useState<"classic" | "flash" | null>(null);
 
   useEffect(() => {
-    api<{ tokens: Array<unknown> }>("/api/me/push-status")
+    // Outil de support réservé aux builds de dev (pas d'appel en prod).
+    if (!__DEV__) return;
+    api<{ tokens: unknown[] }>("/api/me/push-status")
       .then((d) => setPushTokensCount(d.tokens?.length ?? 0))
       .catch(() => setPushTokensCount(0));
   }, [api]);
@@ -246,8 +251,11 @@ export default function AccountPage() {
   async function doDelete() {
     setBusy(true);
     try {
-      await del.mutateAsync();
+      // Désinscrit le token push AVANT la suppression : après, la session
+      // Clerk est invalide et l'appel reviendrait en 401.
       await unregisterPushToken(getToken).catch(() => {});
+      await del.mutateAsync();
+      qc.clear();
       // Déconnexion Clerk côté client après le DELETE serveur — la row
       // a déjà sauté de Supabase + Clerk a été supprimé via API.
       try {
@@ -331,9 +339,11 @@ export default function AccountPage() {
           )}
         </View>
 
-        {/* Diagnostic push — bloc support : combien de devices enregistrés
-            + boutons pour déclencher un push de test (classique / flash).
-            Lit /api/me/push-status au mount, déclenche /api/me/push-test. */}
+        {/* Diagnostic push — outil de support réservé aux builds de dev
+            (`__DEV__`, retiré des builds EAS) : nb de devices enregistrés
+            + push de test (classique / flash). */}
+        {__DEV__ ? (
+        <>
         <View className="my-2 h-px bg-line" />
         <View className="gap-2">
           <Text
@@ -398,6 +408,8 @@ export default function AccountPage() {
             </View>
           </View>
         </View>
+        </>
+        ) : null}
 
         {/* Séparateur visuel + Row danger discrète. Le bloc d'avertissement
             renforcé n'apparaît qu'à l'ouverture du BottomSheet ci-dessous. */}

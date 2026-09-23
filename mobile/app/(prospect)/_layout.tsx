@@ -28,7 +28,6 @@ export default function ProspectLayout() {
           <Tabs.Screen name="relations" />
           <Tabs.Screen name="preferences" />
           <Tabs.Screen name="reglages" />
-          <Tabs.Screen name="messages" options={{ href: null }} />
           <Tabs.Screen name="verification" options={{ href: null }} />
           <Tabs.Screen name="score" options={{ href: null }} />
           <Tabs.Screen name="parrainage" options={{ href: null }} />

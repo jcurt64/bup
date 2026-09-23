@@ -31,7 +31,7 @@ import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // Base web (= prod que pointe le mobile) — sert les pages légales (/rgpd…),
 // même logique que openLegal() dans components/ui.tsx.
-const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://buupp.com";
+const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://www.buupp.com";
 
 // Config par champ — parité avec FIELD_CONFIG côté web (Prospect.jsx).
 // L'absence de `cfg` = type text par défaut.

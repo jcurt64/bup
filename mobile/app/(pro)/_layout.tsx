@@ -29,7 +29,6 @@ export default function ProLayout() {
         <Tabs.Screen name="analytics" options={{ href: null }} />
         <Tabs.Screen name="informations" options={{ href: null }} />
         <Tabs.Screen name="suggestions" options={{ href: null }} />
-        <Tabs.Screen name="messages" options={{ href: null }} />
       </Tabs>
     </FlashSheetProvider>
   );

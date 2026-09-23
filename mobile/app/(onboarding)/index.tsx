@@ -207,8 +207,8 @@ const SLIDES: Slide[] = [
           </Text>
           <Text className="font-serif text-4xl text-paper">742</Text>
           <Text className="mt-1 text-[10px] text-ink-5">
-            Marie L. ·{" "}
-            <Text className="font-serif-italic text-violet">Recherche</Text>
+            Exemple ·{" "}
+            <Text className="font-serif-italic text-violet">Recherchée</Text>
           </Text>
         </View>
 
@@ -225,13 +225,12 @@ const SLIDES: Slide[] = [
           </Text>
         </MiniCard>
 
-        {/* Carte ROI — eyebrow puis valeur + moyenne */}
+        {/* Carte modèle de paiement (pas de statistique chiffrée non sourcée) */}
         <MiniCard className="left-3 bottom-3">
-          <Text className="font-mono text-[9px] uppercase text-ink-4">ROI</Text>
-          <Text className="font-serif text-lg text-violet">
-            ×3.4{" "}
-            <Text className="font-mono text-[9px] text-ink-4">en moy.</Text>
+          <Text className="font-mono text-[9px] uppercase text-ink-4">
+            Vous payez
           </Text>
+          <Text className="font-serif text-lg text-violet">au contact</Text>
         </MiniCard>
 
         {/* Badge paiement vert */}
