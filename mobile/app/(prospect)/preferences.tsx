@@ -1,17 +1,20 @@
 // Préférences — refonte visuelle alignée pixel sur pre.html (prototype
 // design). Données : /api/prospect/donnees, /api/prospect/verification,
 // /api/prospect/payout/status, /api/me/email-tracking. Actions :
-// phone/rib/payout/email-tracking, zone géographique (rayon + nationalOptIn
-// via patchDonnees), paliers partageables (tierAction hide/restore).
+// phone/rib/payout/email-tracking, zone géographique (rayon + niveau
+// d'extension geoExtension local/départemental/régional/national via
+// patchDonnees), paliers partageables (tierAction hide/restore).
 // Types de campagne et catégories = hydratés depuis /api/prospect/donnees
 // (bloc preferences) et persistés via /api/prospect/preferences (patchPrefs).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { eur, QueryGate, ScrollScreen } from "../../components/screen";
+import { ApiError } from "../../lib/api";
 import type { CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
@@ -69,6 +72,40 @@ const TIER_ROWS: { n: number; key: TierKey; name: string; range: string }[] = [
   { n: 4, key: "pro",         name: "Données pro",    range: "3,50 – 5,00 €" },
   { n: 5, key: "patrimoine",  name: "Patrimoine",     range: "5,00 – 10,00 €" },
 ];
+
+// Niveaux d'extension géographique (parité web Prospect.jsx GEO_LEVELS).
+// Persistés dans prospect_localisation.geo_extension ; la route PATCH
+// resynchronise national_opt_in (true ⟺ national).
+type GeoLevel = "local" | "departemental" | "regional" | "national";
+const GEO_LEVELS: { v: GeoLevel; label: string; desc: string }[] = [
+  { v: "local",         label: "Local",         desc: "Selon mon rayon" },
+  { v: "departemental", label: "Départemental", desc: "Tout mon département" },
+  { v: "regional",      label: "Régional",      desc: "Toute ma région" },
+  { v: "national",      label: "National",      desc: "Partout en France" },
+];
+
+// Rétro-compat web : si `geoExtension` n'est pas encore renseigné, on le
+// dérive de `nationalOptIn` (tout sauf "false" → national, sinon local).
+function resolveGeoExtension(loc: Record<string, unknown>): GeoLevel {
+  const raw = loc.geoExtension;
+  const hit = GEO_LEVELS.find((l) => l.v === raw);
+  if (hit) return hit.v;
+  return String(loc.nationalOptIn ?? "true") !== "false" ? "national" : "local";
+}
+
+// Message lisible d'une erreur API ({ message } JSON) — repli générique.
+function apiErrorMessage(e: unknown, fallback: string): string {
+  if (e instanceof ApiError) {
+    try {
+      const j = JSON.parse(e.body) as { message?: string; error?: string };
+      if (j.message) return j.message;
+      if (j.error) return j.error;
+    } catch {
+      // corps non-JSON
+    }
+  }
+  return fallback;
+}
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
 
@@ -383,6 +420,8 @@ export default function Preferences() {
   const [bic,     setBic]     = useState("");
   const [holder,  setHolder]  = useState("");
   const [amount,  setAmount]  = useState("");
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawDone,  setWithdrawDone]  = useState(false);
 
   // Types de campagne & catégories acceptés — hydratés depuis
   // /api/prospect/donnees (bloc `preferences`) puis persistés à chaque
@@ -447,27 +486,52 @@ export default function Preferences() {
     patchPrefs.mutate({ allCategories: on, categories: [...selCats] });
   };
 
-  // NaN-guard sur le montant de retrait
-  const amountCents = Math.round(
-    parseFloat(amount.replace(",", ".")) * 100,
-  );
-  const withdrawDisabled =
-    withdraw.isPending ||
-    !Number.isFinite(amountCents) ||
-    amountCents <= 0;
+  // Retrait — parité web RetraitModal (submitWithdraw). Le plafond client
+  // est la part réellement retirable (hors bonus fondateur verrouillé) quand
+  // le backend l'expose, sinon le solde disponible ; le serveur re-vérifie.
+  const threshold = wal.data?.withdrawThresholdEur ?? 5;
+  const canWithdraw = wal.data?.canWithdraw ?? false;
+  const maxWithdrawEur = wal.data?.withdrawableEur ?? wal.data?.availableEur ?? 0;
+  const availableLabel = wal.isPending
+    ? "…"
+    : wal.isError
+      ? "—"
+      : eur(wal.data?.availableEur ?? 0);
+  const submitWithdraw = () => {
+    const eurValue = Math.max(0, Number(amount.replace(",", ".")) || 0);
+    if (eurValue < threshold) {
+      setWithdrawError(`Minimum ${threshold} €.`);
+      return;
+    }
+    if (eurValue > maxWithdrawEur) {
+      setWithdrawError("Solde insuffisant.");
+      return;
+    }
+    setWithdrawError(null);
+    withdraw.mutate(
+      { amountCents: Math.round(eurValue * 100) },
+      {
+        onSuccess: () => setWithdrawDone(true),
+        onError: (e) => setWithdrawError(apiErrorMessage(e, "Erreur retrait")),
+      },
+    );
+  };
 
   // ── Extras du header compact (au scroll) ───────────────────────────────
   // 1) Téléphone : icône pleine si vérifié, barrée sinon.
-  // 2) Zone géographique renseignée (National ou rayon en km).
+  // 2) Zone géographique renseignée (niveau d'extension ou rayon en km).
   const d0 = don.data;
   const loc0 = (d0?.localisation ?? {}) as Record<string, unknown>;
   const phoneVerified = Boolean(d0?.identityMeta?.phoneVerifiedAt);
-  const national0 = loc0.nationalOptIn !== "false" && loc0.nationalOptIn !== null;
+  const geo0 = resolveGeoExtension(loc0);
   const radius0 = (() => {
     const p = parseInt(String(loc0.targetingRadiusKm ?? "25"), 10);
     return Number.isFinite(p) && p >= 5 && p <= 100 ? p : 25;
   })();
-  const zoneLabel = national0 ? "National" : `${radius0} km`;
+  const zoneLabel =
+    geo0 === "local"
+      ? `${radius0} km`
+      : (GEO_LEVELS.find((l) => l.v === geo0)?.label ?? "National");
   const compactExtras: CompactExtra[] | undefined = d0
     ? [
         phoneVerified
@@ -550,7 +614,7 @@ export default function Preferences() {
         right={
           <AllButton
             active={allTypes}
-            label="Tous"
+            label="Tous types de campagne"
             onPress={() => setAllTypesPersist(!allTypes)}
           />
         }
@@ -583,7 +647,7 @@ export default function Preferences() {
         right={
           <AllButton
             active={allCats}
-            label="Toutes"
+            label="Toutes catégories"
             onPress={() => setAllCatsPersist(!allCats)}
           />
         }
@@ -620,24 +684,30 @@ export default function Preferences() {
             const radius     = Number.isFinite(persisted) && persisted >= 5 && persisted <= 100
               ? persisted
               : 25;
-            const nationalOptIn =
-              loc.nationalOptIn !== "false" && loc.nationalOptIn !== null;
+            const geoExtension = resolveGeoExtension(loc);
+            const radiusActive = geoExtension === "local";
+            const geoLevelLabel =
+              GEO_LEVELS.find((l) => l.v === geoExtension)?.label ?? "National";
             const zoneLocked = !ville;
 
             return (
               <View>
-                {/* Centrée sur / Rayon */}
+                {/* Centrée sur / Portée */}
                 <View
                   className="flex-row items-end justify-between"
                   style={{ gap: 14, marginTop: 16 }}
                 >
-                  <View>
+                  <View style={{ flexShrink: 1 }}>
                     <Text style={{ fontSize: 12, color: c.textSub }}>
                       Centrée sur
                     </Text>
                     <Text
-                      className="font-serif"
-                      style={{ fontSize: 16, color: c.text, marginTop: 3 }}
+                      className={zoneLocked ? "font-serif-italic" : "font-serif"}
+                      style={{
+                        fontSize: 16,
+                        color: zoneLocked ? c.textMuted : c.text,
+                        marginTop: 3,
+                      }}
                     >
                       {zoneLocked
                         ? "Ville non renseignée"
@@ -647,126 +717,198 @@ export default function Preferences() {
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 12, color: c.textSub }}>Rayon</Text>
+                    <Text style={{ fontSize: 12, color: c.textSub }}>Portée</Text>
                     <Text
                       className="font-serif"
-                      style={{ fontSize: 17, color: c.accVioletDeep, marginTop: 3 }}
+                      style={{
+                        fontSize: 17,
+                        color:
+                          zoneLocked || !radiusActive
+                            ? c.textMuted
+                            : c.accVioletDeep,
+                        marginTop: 3,
+                      }}
                     >
-                      {nationalOptIn ? "National" : `${radius} km`}
+                      {radiusActive ? `${radius} km` : geoLevelLabel}
                     </Text>
                   </View>
                 </View>
 
-                {/* Boutons +/- (remplacent le slider — pas de Slider Expo) */}
-                {!nationalOptIn && !zoneLocked && (
+                {/* Boutons +/- (remplacent le slider — pas de Slider Expo).
+                    Éditables seulement au niveau « Local » (parité web :
+                    slider grisé sur les autres niveaux). */}
+                {!zoneLocked && (
                   <View
                     className="flex-row items-center"
-                    style={{ gap: 10, marginTop: 14 }}
+                    style={{
+                      gap: 10,
+                      marginTop: 14,
+                      opacity: radiusActive ? 1 : 0.4,
+                    }}
                   >
-                    <Pressable
-                      disabled={radius <= 5 || patchDon.isPending}
-                      className="flex-1 items-center active:opacity-70"
-                      style={{
-                        paddingVertical: 11,
-                        borderRadius: 13,
-                        backgroundColor: c.surface,
-                        borderWidth: 1,
-                        borderColor: c.borderSoft,
-                      }}
-                      onPress={() =>
-                        patchDon.mutate({
-                          tier: "localisation",
-                          fields: { targetingRadiusKm: Math.max(5, radius - 5) },
-                        })
-                      }
-                    >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
-                        −5 km
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      disabled={radius >= 100 || patchDon.isPending}
-                      className="flex-1 items-center active:opacity-70"
-                      style={{
-                        paddingVertical: 11,
-                        borderRadius: 13,
-                        backgroundColor: c.surface,
-                        borderWidth: 1,
-                        borderColor: c.borderSoft,
-                      }}
-                      onPress={() =>
-                        patchDon.mutate({
-                          tier: "localisation",
-                          fields: { targetingRadiusKm: Math.min(100, radius + 5) },
-                        })
-                      }
-                    >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
-                        +5 km
-                      </Text>
-                    </Pressable>
+                    {([-5, 5] as const).map((delta) => {
+                      const next = Math.min(100, Math.max(5, radius + delta));
+                      return (
+                        <Pressable
+                          key={delta}
+                          disabled={
+                            !radiusActive ||
+                            next === radius ||
+                            patchDon.isPending
+                          }
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            delta < 0 ? "Réduire le rayon" : "Augmenter le rayon"
+                          }
+                          className="flex-1 items-center active:opacity-70"
+                          style={{
+                            paddingVertical: 11,
+                            borderRadius: 13,
+                            backgroundColor: c.surface,
+                            borderWidth: 1,
+                            borderColor: c.borderSoft,
+                          }}
+                          onPress={() =>
+                            patchDon.mutate({
+                              tier: "localisation",
+                              fields: { targetingRadiusKm: String(next) },
+                            })
+                          }
+                        >
+                          <Text
+                            style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}
+                          >
+                            {delta < 0 ? "−5 km" : "+5 km"}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 )}
 
-                {/* Note ville à renseigner */}
+                {/* Sélecteur d'extension géographique : Local (rayon) →
+                    Départemental → Régional → National (parité web). */}
+                <Text style={{ fontSize: 12, color: c.textSub, marginTop: 16 }}>
+                  Jusqu&apos;où acceptez-vous d&apos;être contacté ?
+                </Text>
+                <View
+                  className="flex-row flex-wrap"
+                  style={{ gap: 8, marginTop: 8 }}
+                >
+                  {GEO_LEVELS.map((lvl) => {
+                    const on = geoExtension === lvl.v;
+                    return (
+                      <Pressable
+                        key={lvl.v}
+                        disabled={zoneLocked || patchDon.isPending}
+                        accessibilityRole="radio"
+                        accessibilityState={{
+                          selected: on,
+                          disabled: zoneLocked,
+                        }}
+                        accessibilityLabel={`${lvl.label} — ${lvl.desc}`}
+                        className="active:opacity-80"
+                        style={{
+                          flexBasis: "47%",
+                          flexGrow: 1,
+                          paddingVertical: 10,
+                          paddingHorizontal: 12,
+                          borderRadius: 12,
+                          borderWidth: 1.5,
+                          borderColor: on ? VIOLET : c.borderSoft,
+                          backgroundColor: on ? c.tintViolet : c.surface,
+                          opacity: zoneLocked ? 0.5 : 1,
+                        }}
+                        onPress={() => {
+                          if (zoneLocked || on) return;
+                          patchDon.mutate({
+                            tier: "localisation",
+                            fields: { geoExtension: lvl.v },
+                          });
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 13.5,
+                            fontWeight: "600",
+                            color: on ? c.accVioletDeep : c.text,
+                          }}
+                        >
+                          {lvl.label}
+                        </Text>
+                        <Text
+                          style={{ fontSize: 11.5, color: c.textSub, marginTop: 2 }}
+                        >
+                          {lvl.desc}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Verrou — ville manquante → renvoi vers Mes données. */}
                 {zoneLocked && (
-                  <Text
+                  <View
+                    className="items-center"
                     style={{
-                      marginTop: 12,
-                      fontSize: 12.5,
-                      lineHeight: 19,
-                      color: c.textSub,
+                      marginTop: 14,
+                      padding: 16,
+                      gap: 8,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: c.borderSoft,
+                      backgroundColor: c.surface2,
                     }}
                   >
-                    Renseignez votre ville dans « Mes données » → Localisation
-                    pour activer le rayon de ciblage.
-                  </Text>
-                )}
-
-                {/* Étendre au niveau national — box violette + checkbox */}
-                <Pressable
-                  disabled={zoneLocked || patchDon.isPending}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: nationalOptIn }}
-                  accessibilityLabel="Étendre au niveau national"
-                  className="flex-row items-start active:opacity-80"
-                  style={{
-                    gap: 12,
-                    marginTop: 14,
-                    paddingVertical: 14,
-                    paddingHorizontal: 15,
-                    borderRadius: 14,
-                    backgroundColor: c.tintViolet,
-                    borderWidth: 1,
-                    borderColor: c.violetSoft,
-                    opacity: zoneLocked ? 0.5 : 1,
-                  }}
-                  onPress={() => {
-                    if (zoneLocked) return;
-                    patchDon.mutate({
-                      tier: "localisation",
-                      fields: { nationalOptIn: !nationalOptIn },
-                    });
-                  }}
-                >
-                  <CheckBox checked={nationalOptIn} />
-                  <View className="flex-1">
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: c.text }}>
-                      Étendre au niveau national
+                    <Ionicons name="location" size={24} color={c.accCoral} />
+                    <Text
+                      className="font-serif"
+                      style={{
+                        fontSize: 16,
+                        lineHeight: 21,
+                        color: c.text,
+                        textAlign: "center",
+                      }}
+                    >
+                      Renseignez votre ville pour activer cette section
                     </Text>
                     <Text
                       style={{
                         fontSize: 12.5,
                         lineHeight: 18,
                         color: c.textSub,
-                        marginTop: 3,
+                        textAlign: "center",
                       }}
                     >
-                      J&apos;accepte d&apos;être contacté par des pros partout
-                      en France, indépendamment du rayon local.
+                      Le rayon de ciblage dépend de votre ville. Allez dans{" "}
+                      <Text style={{ fontWeight: "700", color: c.text }}>
+                        Mes données
+                      </Text>{" "}
+                      → palier Localisation pour la saisir.
                     </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.push("/(prospect)/donnees")}
+                      className="flex-row items-center active:opacity-80"
+                      style={{
+                        gap: 6,
+                        marginTop: 4,
+                        paddingVertical: 9,
+                        paddingHorizontal: 16,
+                        borderRadius: 999,
+                        backgroundColor: c.btnBg,
+                      }}
+                    >
+                      <Text
+                        style={{ fontSize: 13, fontWeight: "600", color: c.btnText }}
+                      >
+                        Ouvrir Mes données
+                      </Text>
+                      <Ionicons name="arrow-forward" size={13} color={c.btnText} />
+                    </Pressable>
                   </View>
-                </Pressable>
+                )}
               </View>
             );
           }}
@@ -793,17 +935,28 @@ export default function Preferences() {
             return (
               <View style={{ marginTop: 16 }}>
                 {TIER_ROWS.map((row, idx) => {
+                  // Palier 1 (Identification) = obligatoire : forcé coché et
+                  // verrouillé (l'API refuse `hide` → identity_tier_required).
+                  const required = row.n === 1;
                   const hidden  = hiddenSet.has(row.key);
                   const removed = removedSet.has(row.key);
-                  const shared  = !hidden && !removed;
+                  const shared  = required || (!hidden && !removed);
+                  const locked  = required || removed;
                   const isLast  = idx === TIER_ROWS.length - 1;
                   return (
                     <Pressable
                       key={row.key}
-                      disabled={removed || tierAction.isPending}
+                      disabled={locked || tierAction.isPending}
                       accessibilityRole="checkbox"
-                      accessibilityState={{ checked: shared }}
+                      accessibilityState={{ checked: shared, disabled: locked }}
                       accessibilityLabel={`Palier ${row.n} — ${row.name}`}
+                      accessibilityHint={
+                        required
+                          ? "Palier obligatoire : sans données d'identification, aucun professionnel ne peut vous contacter."
+                          : removed
+                            ? "Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données."
+                            : undefined
+                      }
                       className="flex-row items-center active:opacity-70"
                       style={{
                         gap: 12,
@@ -813,7 +966,7 @@ export default function Preferences() {
                         opacity: removed ? 0.5 : 1,
                       }}
                       onPress={() => {
-                        if (removed) return;
+                        if (locked) return;
                         tierAction.mutate({
                           tier: row.key,
                           action: shared ? "hide" : "restore",
@@ -833,7 +986,20 @@ export default function Preferences() {
                       >
                         {row.name}
                       </Text>
-                      {removed ? (
+                      {required ? (
+                        <View
+                          style={{
+                            borderRadius: 999,
+                            backgroundColor: c.tintViolet,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                          }}
+                        >
+                          <Text style={{ fontSize: 10, color: c.accVioletDeep }}>
+                            obligatoire
+                          </Text>
+                        </View>
+                      ) : removed ? (
                         <View
                           style={{
                             borderRadius: 999,
@@ -1040,45 +1206,188 @@ export default function Preferences() {
       </PrefCard>
 
       {/* ── 7. Retrait des gains (Stripe Connect) ──────────────────────── */}
+      {/* Parité web RetraitModal : garde canWithdraw (seuil), onboarding
+          Stripe tant que payoutsEnabled est faux, validation min/max côté
+          client, erreurs serveur affichées, état « Retrait enregistré ». */}
       <PrefCard iconBg={c.tintViolet} icon="cash-outline" iconColor={c.accVioletDeep}>
         <H3>Retrait des gains</H3>
         <QueryGate query={pay}>
-          {(p) =>
-            !p.detailsSubmitted ? (
-              <DarkButton
-                label={onboard.isPending ? "…" : "Configurer les paiements"}
-                disabled={onboard.isPending}
-                onPress={async () => {
-                  const r = await onboard.mutateAsync();
-                  await WebBrowser.openBrowserAsync(r.url);
-                }}
-              />
-            ) : (
+          {(p) => {
+            if (withdrawDone) {
+              return (
+                <View className="items-center" style={{ marginTop: 14, gap: 6 }}>
+                  <View
+                    className="items-center justify-center"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 999,
+                      backgroundColor: c.tintViolet,
+                    }}
+                  >
+                    <Ionicons name="checkmark" size={24} color={c.accVioletDeep} />
+                  </View>
+                  <Text
+                    className="font-serif"
+                    style={{ fontSize: 20, color: c.text, marginTop: 4 }}
+                  >
+                    Retrait enregistré
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 19,
+                      color: c.textSub,
+                      textAlign: "center",
+                    }}
+                  >
+                    Le virement sera versé sur l&apos;IBAN renseigné chez Stripe
+                    sous 1 à 3 jours ouvrés.
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setWithdrawDone(false);
+                      setAmount("");
+                      setWithdrawError(null);
+                    }}
+                    className="active:opacity-70"
+                    style={{
+                      marginTop: 8,
+                      paddingVertical: 9,
+                      paddingHorizontal: 16,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: c.borderSoft,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: c.text }}>
+                      Fermer
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            }
+
+            // Garde seuil : tant que les gains retirables sont sous le
+            // seuil, pas de retrait ni d'onboarding (bouton web désactivé).
+            if (!canWithdraw) {
+              return (
+                <View>
+                  <Text style={{ marginTop: 11, fontSize: 12.5, color: c.textSub }}>
+                    Disponible : {availableLabel}
+                  </Text>
+                  <Text
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12.5,
+                      lineHeight: 18,
+                      color: c.textMuted,
+                    }}
+                  >
+                    {wal.data?.signupBonusLocked
+                      ? `Retirable à partir de ${threshold} € de gains, hors bonus fondateur.`
+                      : `Retirable à partir de ${threshold} € de gains.`}
+                  </Text>
+                  <DarkButton label="Retirer mes gains" disabled onPress={() => {}} />
+                </View>
+              );
+            }
+
+            if (!p.payoutsEnabled) {
+              return (
+                <View>
+                  <View
+                    style={{
+                      marginTop: 12,
+                      padding: 14,
+                      borderRadius: 13,
+                      backgroundColor: c.field,
+                    }}
+                  >
+                    <Text className="font-serif" style={{ fontSize: 16, color: c.text }}>
+                      {p.hasAccount
+                        ? "Finalisez votre onboarding Stripe"
+                        : "Activez vos retraits"}
+                    </Text>
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12.5,
+                        lineHeight: 18,
+                        color: c.textSub,
+                      }}
+                    >
+                      Pour recevoir vos gains sur votre IBAN, vous devez
+                      d&apos;abord créer un compte Stripe Connect (procédure
+                      hébergée par Stripe, ~2 minutes : votre IBAN). Vos données
+                      ne transitent jamais par BUUPP.
+                    </Text>
+                  </View>
+                  {onboard.isError && (
+                    <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
+                      {apiErrorMessage(onboard.error, "Erreur onboarding")}
+                    </Text>
+                  )}
+                  <DarkButton
+                    label={
+                      onboard.isPending
+                        ? "Redirection…"
+                        : p.hasAccount
+                          ? "Reprendre l'onboarding"
+                          : "Activer mes retraits"
+                    }
+                    disabled={onboard.isPending}
+                    onPress={async () => {
+                      try {
+                        const r = await onboard.mutateAsync();
+                        if (r?.url) {
+                          await WebBrowser.openBrowserAsync(r.url);
+                        }
+                      } catch {
+                        // erreur affichée via onboard.isError
+                      } finally {
+                        // Au retour du navigateur, relire le statut Stripe.
+                        pay.refetch();
+                      }
+                    }}
+                  />
+                </View>
+              );
+            }
+
+            return (
               <View>
                 <Text style={{ marginTop: 11, fontSize: 12.5, color: c.textSub }}>
-                  Disponible :{" "}
-                  {wal.isPending
-                    ? "…"
-                    : wal.isError
-                      ? "—"
-                      : eur(wal.data?.availableEur ?? 0)}
+                  Disponible : {availableLabel}
                 </Text>
                 <TextInput
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(t) => {
+                    setAmount(t);
+                    setWithdrawError(null);
+                  }}
                   placeholder="Montant en €"
                   placeholderTextColor={c.textMuted}
                   keyboardType="decimal-pad"
                   style={fieldStyle(c)}
                 />
+                <Text style={{ marginTop: 6, fontSize: 12, color: c.textMuted }}>
+                  Min {threshold} € · Max {eur(maxWithdrawEur)} · Virement vers
+                  Stripe puis IBAN
+                </Text>
+                {withdrawError && (
+                  <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
+                    {withdrawError}
+                  </Text>
+                )}
                 <DarkButton
-                  label={withdraw.isPending ? "…" : "Demander un retrait"}
-                  disabled={withdrawDisabled}
-                  onPress={() => withdraw.mutate({ amountCents })}
+                  label={withdraw.isPending ? "Retrait…" : "Confirmer le retrait"}
+                  disabled={withdraw.isPending}
+                  onPress={submitWithdraw}
                 />
               </View>
-            )
-          }
+            );
+          }}
         </QueryGate>
       </PrefCard>
 
