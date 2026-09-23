@@ -7,12 +7,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, Text, View } from "react-native";
 
-import {
-  ContactActions,
-  initials,
-  useContactPalette,
-} from "./contact-detail-sheet";
+import { ContactActions } from "./contact-actions";
+import { initials, useContactPalette } from "./contact-detail-sheet";
 import type { ProContact } from "../lib/queries";
+import type { ContactEvaluation, ProContactRow } from "../lib/queries-pro-contacts";
 
 // « il y a 8 h » / « 29 mai » selon l'ancienneté.
 export function receivedLabel(iso: string | null): string {
@@ -71,16 +69,25 @@ export function avatarGradient(name: string): [string, string] {
 }
 
 // ── Filtres cumulatifs (AND) appliqués côté client ────────────────────────
+// Parité web (Pro.jsx FILTERS) : F2 = signalement « Atteint » du pro (et non
+// la simple présence d'un e-mail), F3 = palier 2 EXACT.
 export type FilterKey = "score" | "reached" | "tier2";
 export const FILTERS: {
   key: FilterKey;
   label: string;
-  test: (r: ProContact) => boolean;
+  test: (r: ProContactRow) => boolean;
 }[] = [
-  { key: "score", label: "F1 · Score ≥ 720", test: (r) => r.score >= 720 },
-  { key: "reached", label: "F2 · Contact atteint", test: (r) => !!r.email },
-  { key: "tier2", label: "F3 · Palier 2", test: (r) => r.tier >= 2 },
+  { key: "score", label: "F1 · Score ≥ 720", test: (r) => Number(r.score) >= 720 },
+  { key: "reached", label: "F2 · Contact atteint", test: (r) => r.evaluation === "atteint" },
+  { key: "tier2", label: "F3 · Palier 2", test: (r) => Number(r.tier) === 2 },
 ];
+
+/** Ligne « e-mailable » (sélection groupée) : email partagé et campagne clôturée. */
+export function isEmailable(r: ProContactRow): boolean {
+  if (r.locked) return false;
+  if (typeof r.emailAvailable === "boolean") return r.emailAvailable;
+  return !!r.email && r.email !== "—";
+}
 
 // Options de filtre par priorité (mêmes couleurs que la fiche détaillée).
 // Fiabilité (alignée sur le web) : Haute = vert, Moyenne = ambre, Basse = rouge.
@@ -312,6 +319,8 @@ export function GroupHeader({
   allSelected = false,
   sending = false,
   collapsed = false,
+  locked = false,
+  empty = false,
   onToggleCollapse,
   onViewDetails,
   onToggleSelectAll,
@@ -322,6 +331,11 @@ export function GroupHeader({
   objective?: string | null;
   closesAt?: string | null;
   contacts?: ProContact[];
+  /** Campagne en cours (séquestre) : carte verrouillée, non dépliable, sans
+   *  avatars ni actions — les détails n'apparaissent qu'à la clôture. */
+  locked?: boolean;
+  /** Campagne en cours sans aucune acceptation (carte vide). */
+  empty?: boolean;
   emailableCount?: number;
   selectedCount?: number;
   allSelected?: boolean;
@@ -341,7 +355,7 @@ export function GroupHeader({
     <View
       style={{
         gap: 12,
-        marginBottom: 12,
+        marginBottom: locked ? 0 : 12,
         borderLeftWidth: 3,
         borderLeftColor: cat.accent,
         paddingLeft: 12,
@@ -359,7 +373,7 @@ export function GroupHeader({
             justifyContent: "center",
           }}
         >
-          <Ionicons name={cat.ion} size={16} color={cat.accent} />
+          <Ionicons name={locked ? "lock-closed" : cat.ion} size={16} color={cat.accent} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View className="flex-row items-center" style={{ gap: 6, marginBottom: 2 }}>
@@ -387,7 +401,15 @@ export function GroupHeader({
             <Text style={{ fontSize: 11.5, color: p.muted }}>
               {count} prospect{count > 1 ? "s" : ""}
             </Text>
-            {closed ? (
+            {locked ? (
+              <View className="flex-row items-center" style={{ gap: 3, marginLeft: 6 }}>
+                <Text style={{ fontSize: 11.5, color: p.muted, opacity: 0.5 }}>·</Text>
+                <Ionicons name="time-outline" size={12} color={cat.accent} />
+                <Text style={{ fontSize: 11.5, color: cat.accent }}>
+                  {empty ? "En cours — en attente d'acceptations" : "En cours — détails à la clôture"}
+                </Text>
+              </View>
+            ) : closed ? (
               <View className="flex-row items-center" style={{ gap: 3, marginLeft: 6 }}>
                 <Text style={{ fontSize: 11.5, color: p.muted, opacity: 0.5 }}>·</Text>
                 <Ionicons name="calendar-outline" size={12} color={p.muted} />
@@ -403,10 +425,14 @@ export function GroupHeader({
             ) : null}
           </View>
         </View>
-        {contacts.length > 0 ? <AvatarStack contacts={contacts} /> : null}
+        {/* Avatars masqués pour une campagne en cours (ils trahiraient des
+            identités avant la clôture). */}
+        {!locked && contacts.length > 0 ? <AvatarStack contacts={contacts} /> : null}
       </View>
 
-      {/* Actions : Déplier · Statistiques · Sélectionner tous · Message groupé */}
+      {/* Actions : Déplier · Statistiques · Sélectionner tous · Message groupé
+          — aucune action possible sur une campagne en cours. */}
+      {locked ? null : (
       <View className="flex-row" style={{ flexWrap: "wrap", gap: 8 }}>
         <Pressable
           onPress={onToggleCollapse}
@@ -504,39 +530,72 @@ export function GroupHeader({
           </Text>
         </Pressable>
       </View>
+      )}
     </View>
   );
 }
 
-// Pilule d'état (point + libellé). Verte si atteinte, neutre sinon.
-function EvalPill({ label, on }: { label: string; on: boolean }) {
+// Signalement « Atteint / Non atteint » (parité web, colonne Évaluation).
+// Alimente l'escalade non-réponse du prospect (2 → signalement, 3 → malus,
+// 4 → restriction) : le pro doit pouvoir le poser, et le réinitialiser (↺).
+function EvaluationControl({
+  value,
+  busy,
+  onChange,
+}: {
+  value: ContactEvaluation | null | undefined;
+  busy: boolean;
+  onChange?: (v: ContactEvaluation | null) => void;
+}) {
   const p = useContactPalette();
-  return (
+  const GOOD = "#16A34A";
+  const WARN = "#D97706";
+  const chip = (label: string, color: string) => (
     <View
-      className="flex-row items-center"
       style={{
-        gap: 5,
         paddingVertical: 5,
         paddingHorizontal: 11,
         borderRadius: 999,
-        backgroundColor: on ? p.accentSoft : p.card,
+        backgroundColor: color + "1F",
         borderWidth: 1.5,
-        borderColor: on ? p.accentBorder : p.border,
+        borderColor: color + "66",
       }}
     >
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
-          backgroundColor: on ? p.accent : p.ink5,
-        }}
-      />
-      <Text
-        style={{ fontSize: 12, fontWeight: "600", color: on ? p.accentInk : p.sub }}
-      >
-        {label}
-      </Text>
+      <Text style={{ fontSize: 12, fontWeight: "700", color }}>{label}</Text>
+    </View>
+  );
+  const btn = (label: string, v: ContactEvaluation | null, a11y: string) => (
+    <Pressable
+      onPress={() => onChange?.(v)}
+      disabled={busy || !onChange}
+      accessibilityLabel={a11y}
+      hitSlop={4}
+      className="active:opacity-70"
+      style={{
+        paddingVertical: 5,
+        paddingHorizontal: 11,
+        borderRadius: 999,
+        backgroundColor: p.card,
+        borderWidth: 1.5,
+        borderColor: p.border,
+        opacity: busy ? 0.55 : 1,
+      }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: "600", color: p.text }}>{label}</Text>
+    </Pressable>
+  );
+  if (value === "atteint" || value === "non_atteint") {
+    return (
+      <View className="flex-row items-center" style={{ gap: 6 }}>
+        {value === "atteint" ? chip("✓ Atteint", GOOD) : chip("Non atteint", WARN)}
+        {btn("↺", null, "Réinitialiser l'évaluation")}
+      </View>
+    );
+  }
+  return (
+    <View className="flex-row items-center" style={{ gap: 6, flexWrap: "wrap" }}>
+      {btn("Atteint", "atteint", "Vous avez joint le prospect (échange constructif)")}
+      {btn("Non atteint", "non_atteint", "Le prospect n'a pas répondu à vos sollicitations")}
     </View>
   );
 }
@@ -548,17 +607,22 @@ export function ContactCard({
   selectable = false,
   checked = false,
   onToggleSelect,
+  onEvaluate,
+  evaluating = false,
 }: {
-  contact: ProContact;
+  contact: ProContactRow;
   onDetails: () => void;
   /** Mode sélection groupée : affiche une case à cocher (email requis). */
   selectable?: boolean;
   checked?: boolean;
   onToggleSelect?: () => void;
+  /** Signalement Atteint / Non atteint (null = reset). */
+  onEvaluate?: (v: ContactEvaluation | null) => void;
+  evaluating?: boolean;
 }) {
   const p = useContactPalette();
-  const reached = !!contact.email; // « Contact atteint » = coordonnées révélées
-  const canSelect = selectable && reached; // pas d'email partagé → non sélectionnable
+  const locked = !!contact.locked;
+  const canSelect = selectable && isEmailable(contact); // pas d'email partagé → non sélectionnable
   return (
     <View
       style={{
@@ -577,7 +641,7 @@ export function ContactCard({
       <View style={{ paddingVertical: 15, paddingHorizontal: 16 }}>
         {/* (Case à cocher) + Avatar + identité + reçu */}
         <View className="flex-row items-center" style={{ gap: 12 }}>
-          {selectable ? (
+          {selectable && !locked ? (
             <Pressable
               onPress={canSelect ? onToggleSelect : undefined}
               disabled={!canSelect}
@@ -695,13 +759,13 @@ export function ContactCard({
               style={{ fontSize: 12, color: p.text, flex: 1 }}
               numberOfLines={1}
             >
-              {contact.email ?? "—"}
+              {locked ? "🔒 Disponible à la clôture" : (contact.email ?? "—")}
             </Text>
           </View>
           <View className="flex-row items-center" style={{ gap: 9, marginTop: 8 }}>
             <Ionicons name="call-outline" size={16} color={p.muted} />
             <Text style={{ fontSize: 12.5, color: p.muted }}>
-              {contact.telephone ?? "—"}
+              {locked ? "🔒 Disponible à la clôture" : (contact.telephone ?? "—")}
             </Text>
           </View>
         </View>
@@ -718,11 +782,15 @@ export function ContactCard({
           >
             ÉVAL.
           </Text>
-          <EvalPill label={reached ? "Atteint" : "Non atteint"} on={reached} />
-          <EvalPill
-            label={contact.tier >= 2 ? "Palier 2" : "Palier 1"}
-            on={contact.tier >= 2}
-          />
+          {locked ? (
+            <Text style={{ fontSize: 12, color: p.muted }}>—</Text>
+          ) : (
+            <EvaluationControl
+              value={contact.evaluation}
+              busy={evaluating}
+              onChange={onEvaluate}
+            />
+          )}
         </View>
 
         {/* Fiabilité — un badge par niveau noté (compte de pros cross-pro,
@@ -786,7 +854,14 @@ export function ContactCard({
           borderTopColor: p.line,
         }}
       >
-        <ContactActions email={contact.email} />
+        {locked ? (
+          <View className="flex-row items-center" style={{ gap: 5 }}>
+            <Ionicons name="lock-closed" size={12} color={p.muted} />
+            <Text style={{ fontSize: 11.5, color: p.muted }}>Disponible à la clôture</Text>
+          </View>
+        ) : (
+          <>
+        <ContactActions contact={contact} />
         <Pressable
           onPress={onDetails}
           accessibilityLabel="Voir les détails du prospect"
@@ -805,6 +880,8 @@ export function ContactCard({
             Voir détails
           </Text>
         </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

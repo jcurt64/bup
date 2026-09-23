@@ -24,6 +24,7 @@ import {
   FILTERS,
   FiltersCard,
   GroupHeader,
+  isEmailable,
   type FilterKey,
 } from "../../components/contact-cards";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,13 +40,32 @@ import {
   useProSegmentDelete,
   useProSegmentBroadcast,
   useProGroupReveal,
+  useProCampaigns,
   type BroadcastResult,
   type AudienceFacets,
   type ProAudience,
-  type ProContact,
   type ProSegment,
   type SegmentFilters,
 } from "../../lib/queries";
+import {
+  useContactEvaluation,
+  type ContactEvaluation,
+  type ProCampaignListItem,
+  type ProContactRow,
+} from "../../lib/queries-pro-contacts";
+
+type ProContact = ProContactRow;
+
+// Groupe de la vue « Toutes » : une campagne + ses lignes. `locked` = campagne
+// en cours (séquestre) ; `empty` = campagne en cours sans acceptation.
+type ContactGroup = {
+  key: string;
+  campaign: string;
+  contacts: ProContact[];
+  locked: boolean;
+  empty?: boolean;
+  objective?: string | null;
+};
 
 type Palette = ReturnType<typeof useContactPalette>;
 
@@ -780,6 +800,11 @@ function CampaignSelector({
 
 export default function Contacts() {
   const q = useProContacts();
+  // Campagnes du pro : les campagnes EN COURS sans aucune acceptation
+  // apparaissent quand même en carte verrouillée (parité web groupsWithEmpty).
+  const campaignsQ = useProCampaigns();
+  const evaluation = useContactEvaluation();
+  const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
   const p = useContactPalette();
   const [active, setActive] = useState<Set<FilterKey>>(new Set());
   const [prioFilter, setPrioFilter] = useState<Set<number>>(new Set()); // priorité 1/2/3
@@ -790,7 +815,10 @@ export default function Contacts() {
       else next.add(v);
       return next;
     });
-  const [selected, setSelected] = useState<ProContact | null>(null);
+  // Id de la fiche ouverte : la ligne est relue dans le cache à chaque rendu
+  // (reflète évaluation / quota e-mail mis à jour pendant que la fiche est ouverte).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const setSelected = (c: ProContact | null) => setSelectedId(c?.relationId ?? null);
 
   // Atelier de segmentation (page Statistiques, ouverte via le bouton dédié).
   const [activeCampaign, setActiveCampaign] = useState<{ id: string; name: string } | null>(null);
@@ -830,8 +858,8 @@ export default function Contacts() {
       return next;
     });
 
-  // Emailables d'un groupe (email partagé) et ceux déjà cochés.
-  const emailableOf = (contacts: ProContact[]) => contacts.filter((c) => !!c.email);
+  // Emailables d'un groupe (email partagé, campagne clôturée) et ceux cochés.
+  const emailableOf = (contacts: ProContact[]) => contacts.filter(isEmailable);
   const pickedOf = (contacts: ProContact[]) =>
     emailableOf(contacts).filter((c) => pickedIds.has(c.relationId));
 
@@ -893,6 +921,24 @@ export default function Contacts() {
     }
   };
 
+  // Signalement Atteint / Non atteint — optimiste, rollback + alerte si échec.
+  const evaluate = (relationId: string, v: ContactEvaluation | null) => {
+    setEvaluatingIds((prev) => new Set(prev).add(relationId));
+    evaluation.mutate(
+      { relationId, evaluation: v },
+      {
+        onError: () =>
+          Alert.alert("Évaluation", "Impossible d'enregistrer l'évaluation. Réessayez."),
+        onSettled: () =>
+          setEvaluatingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(relationId);
+            return next;
+          }),
+      },
+    );
+  };
+
   const openCampaignDetails = (c: { id: string; name: string }) => {
     setActiveCampaign(c);
     setSegFilters({});
@@ -906,28 +952,36 @@ export default function Contacts() {
       return next;
     });
 
+  const allRows = useMemo(() => (q.data?.rows ?? []) as ProContact[], [q.data]);
+
   // Campagnes distinctes (ordre d'apparition) dérivées des lignes.
   const campaigns = useMemo(() => {
-    const rows = q.data?.rows ?? [];
-    const map = new Map<string, string>();
-    for (const r of rows) {
-      if (r.campaignId && !map.has(r.campaignId)) map.set(r.campaignId, r.campaign);
+    const map = new Map<string, { name: string; locked: boolean }>();
+    for (const r of allRows) {
+      if (r.campaignId && !map.has(r.campaignId)) {
+        map.set(r.campaignId, { name: r.campaign, locked: !!r.locked });
+      }
     }
-    return [...map.entries()].map(([id, name]) => ({ id, name }));
-  }, [q.data]);
+    return [...map.entries()].map(([id, v]) => ({ id, name: v.name, locked: v.locked }));
+  }, [allRows]);
 
-  // Auto-sélection si une seule campagne (une fois, comme le web).
+  // Auto-sélection si une seule campagne (une fois, comme le web) — seulement
+  // si elle est clôturée : l'atelier (audience/segmentation) est gated serveur.
   const autoSelected = useRef(false);
-  if (!autoSelected.current && campaigns.length === 1 && !activeCampaign) {
+  if (
+    !autoSelected.current &&
+    campaigns.length === 1 &&
+    !campaigns[0].locked &&
+    !activeCampaign
+  ) {
     autoSelected.current = true;
-    setActiveCampaign(campaigns[0]);
+    setActiveCampaign({ id: campaigns[0].id, name: campaigns[0].name });
     setSegFilters({});
   }
 
   // Filtrage cumulatif local + regroupement (vue « Toutes », sans campagne).
-  const groups = useMemo(() => {
-    const rows = q.data?.rows ?? [];
-    const filtered = rows.filter(
+  const groups = useMemo<ContactGroup[]>(() => {
+    const filtered = allRows.filter(
       (r) =>
         [...active].every((k) => FILTERS.find((f) => f.key === k)!.test(r)) &&
         // Filtre fiabilité : matche si le prospect a l'un des niveaux
@@ -939,32 +993,67 @@ export default function Contacts() {
               )
             : prioFilter.has(r.priority ?? -1))),
     );
-    const map = new Map<string, ProContact[]>();
+    const map = new Map<string, ContactGroup>();
     for (const r of filtered) {
-      const key = r.campaign || "Sans campagne";
-      (map.get(key) ?? map.set(key, []).get(key)!).push(r);
+      const key = r.campaignId || r.campaign || "Sans campagne";
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          campaign: r.campaign || "Sans campagne",
+          contacts: [],
+          locked: false,
+          objective: r.campaignObjective ?? null,
+        });
+      }
+      const g = map.get(key)!;
+      g.contacts.push(r);
+      if (r.locked) g.locked = true;
     }
-    return [...map.entries()].map(([campaign, contacts]) => ({ campaign, contacts }));
-  }, [q.data, active, prioFilter]);
+    const withRows = [...map.values()];
+    // Campagnes en cours (active/paused) sans acceptation → cartes vides
+    // verrouillées, en tête de liste (parité web).
+    const present = new Set(allRows.map((r) => r.campaignId || r.campaign));
+    const extra: ContactGroup[] = [];
+    for (const c of (campaignsQ.data?.campaigns ?? []) as ProCampaignListItem[]) {
+      if (!c?.id || present.has(c.id)) continue;
+      if (c.status !== "active" && c.status !== "paused") continue;
+      extra.push({
+        key: c.id,
+        campaign: c.name || "—",
+        contacts: [],
+        locked: true,
+        empty: true,
+        objective: c.objectiveId ?? null,
+      });
+    }
+    return [...extra, ...withRows];
+  }, [allRows, active, prioFilter, campaignsQ.data]);
 
-  const total = q.data?.rows?.length ?? 0;
+  const total = allRows.length;
   // Groupes affichés : filtrés sur la campagne choisie dans les chips (le cas
   // échéant). Sans filtre → toutes les campagnes.
   const visibleGroups = campaignFilter
-    ? groups.filter((g) => (g.contacts[0]?.campaignId || g.campaign) === campaignFilter.id)
+    ? groups.filter((g) => g.key === campaignFilter.id)
     : groups;
   const shown = visibleGroups.reduce((n, g) => n + g.contacts.length, 0);
 
   // Replie toutes les campagnes au premier chargement (vue « Toutes ») — une
   // seule fois, pour ne pas réannuler les dépliages manuels (parité web).
   const didInitCollapse = useRef(false);
-  if (!didInitCollapse.current && groups.length > 0) {
+  if (!didInitCollapse.current && allRows.length > 0) {
     didInitCollapse.current = true;
-    setCollapsedKeys(new Set(groups.map((g) => g.contacts[0]?.campaignId || g.campaign)));
+    setCollapsedKeys(new Set(allRows.map((r) => r.campaignId || r.campaign)));
   }
 
   const hasSegFilters = Object.keys(segFilters).length > 0;
-  const filteredRows = filteredQ.data?.rows ?? [];
+  const filteredRows = (filteredQ.data?.rows ?? []) as ProContact[];
+  const selected =
+    selectedId == null
+      ? null
+      : (filteredRows.find((r) => r.relationId === selectedId) ??
+        allRows.find((r) => r.relationId === selectedId) ??
+        null);
+  const hasInflight = groups.some((g) => g.empty);
 
   return (
     <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
@@ -992,7 +1081,7 @@ export default function Contacts() {
 
       <QueryGate
         query={q}
-        isEmpty={(d) => (d.rows?.length ?? 0) === 0}
+        isEmpty={(d) => (d.rows?.length ?? 0) === 0 && !hasInflight}
         emptyLabel="Aucun contact acquis pour le moment."
       >
         {() => (
@@ -1139,6 +1228,8 @@ export default function Contacts() {
                             selectable
                             checked={pickedIds.has(c.relationId)}
                             onToggleSelect={() => togglePick(c.relationId)}
+                            onEvaluate={(v) => evaluate(c.relationId, v)}
+                            evaluating={evaluatingIds.has(c.relationId)}
                           />
                         ))}
                       </View>
@@ -1180,11 +1271,12 @@ export default function Contacts() {
                   visibleGroups.map((g) => {
                     const emailable = emailableOf(g.contacts).length;
                     const picked = pickedOf(g.contacts).length;
-                    const key = g.contacts[0]?.campaignId || g.campaign;
-                    const isCollapsed = collapsedKeys.has(key);
+                    const key = g.key;
+                    // Campagne en cours : jamais dépliable (séquestre).
+                    const isCollapsed = g.locked || collapsedKeys.has(key);
                     return (
                       <View
-                        key={g.campaign}
+                        key={key}
                         style={{
                           backgroundColor: p.accentSoft,
                           borderRadius: 20,
@@ -1197,13 +1289,15 @@ export default function Contacts() {
                           campaign={g.campaign}
                           count={g.contacts.length}
                           contacts={g.contacts}
-                          objective={g.contacts[0]?.campaignObjective}
+                          objective={g.objective ?? g.contacts[0]?.campaignObjective}
                           closesAt={g.contacts[0]?.campaignClosesAt}
                           emailableCount={emailable}
                           selectedCount={picked}
                           allSelected={emailable > 0 && picked === emailable}
                           sending={sendingKey === key}
                           collapsed={isCollapsed}
+                          locked={g.locked}
+                          empty={g.empty}
                           onToggleCollapse={() => toggleCollapse(key)}
                           onViewDetails={() =>
                             g.contacts[0]?.campaignId &&
@@ -1222,6 +1316,8 @@ export default function Contacts() {
                                 selectable
                                 checked={pickedIds.has(c.relationId)}
                                 onToggleSelect={() => togglePick(c.relationId)}
+                                onEvaluate={(v) => evaluate(c.relationId, v)}
+                                evaluating={evaluatingIds.has(c.relationId)}
                               />
                             ))}
                           </View>
@@ -1236,6 +1332,30 @@ export default function Contacts() {
         )}
       </QueryGate>
 
+      {/* Politique d'usage (parité web) — toujours visible sous la liste. */}
+      <View
+        className="flex-row"
+        style={{
+          alignItems: "flex-start",
+          gap: 10,
+          padding: 14,
+          borderRadius: 16,
+          backgroundColor: "#FEF2F2",
+          borderWidth: 1,
+          borderColor: "#FCA5A5",
+          borderLeftWidth: 4,
+          borderLeftColor: "#B91C1C",
+        }}
+      >
+        <Ionicons name="shield-outline" size={16} color="#B91C1C" style={{ marginTop: 1 }} />
+        <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 18, color: "rgba(185,28,28,0.75)" }}>
+          <Text style={{ fontWeight: "700", color: "#B91C1C" }}>Politique d&apos;usage. </Text>
+          Les données des prospects sont watermarquées individuellement. Toute utilisation hors
+          périmètre de la campagne déclenchera une enquête automatique et peut entraîner la
+          résiliation du compte.
+        </Text>
+      </View>
+
       <ContactDetailSheet
         contact={selected}
         campaign={selected?.campaign ?? null}
@@ -1246,11 +1366,8 @@ export default function Contacts() {
             ? []
             : activeCampaign
               ? filteredRows
-              : (groups.find(
-                  (g) =>
-                    (g.contacts[0]?.campaignId || g.campaign) ===
-                    (selected.campaignId || selected.campaign),
-                )?.contacts ?? [selected])
+              : (groups.find((g) => g.key === (selected.campaignId || selected.campaign))
+                  ?.contacts ?? [selected])
         }
         onNavigate={(c) => setSelected(c)}
         onPriorityChange={() => {

@@ -11,12 +11,14 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "../lib/theme";
 import { useApi } from "../lib/api";
-import type { ProContact, ProContactDetails, ProDetailTier } from "../lib/queries";
+import type { ProContactDetails, ProDetailTier } from "../lib/queries";
+import type { ProContactRow } from "../lib/queries-pro-contacts";
+import { ContactActions, maskPhoneDisplay } from "./contact-actions";
 import { avatarGradient, categoryStyle } from "./contact-cards";
 
 // Métadonnées d'affichage par palier (icône Ionicons + couleur + n°).
@@ -79,118 +81,6 @@ export function initials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-// Normalise un numéro FR pour WhatsApp (wa.me attend l'international sans +) :
-//  +33 6…/0033 6… → 336… ; 06… (national) → 336… ; sinon chiffres bruts.
-function waNumber(phone: string): string {
-  let d = phone.replace(/[^\d+]/g, "");
-  if (d.startsWith("+")) d = d.slice(1);
-  else if (d.startsWith("00")) d = d.slice(2);
-  else if (d.startsWith("0")) d = "33" + d.slice(1);
-  return d.replace(/\D/g, "");
-}
-
-// ── Rangée d'actions de contact (call / mail / sms / whatsapp) ─────────────
-// Tuiles blanches 34×34. Couleurs : accent (appel + whatsapp), coral (mail),
-// bleu (sms). Les VRAIES coordonnées (alias e-mail + téléphone en clair)
-// proviennent de l'API détails, pas de la liste (qui les masque). Chaque clic
-// est logué (`contact-click` → audit + rappel anti-abus ≥3/24h ; `call-log`
-// pour l'appel), à parité avec le web.
-export function ContactActions({
-  email,
-  phone,
-  relationId,
-}: {
-  email?: string | null;
-  phone?: string | null;
-  relationId?: string | null;
-}) {
-  const p = useContactPalette();
-  const api = useApi();
-
-  const logClick = (channel: "call" | "email" | "sms" | "whatsapp") => {
-    if (!relationId) return;
-    api(`/api/pro/contacts/${relationId}/contact-click`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ channel }),
-    }).catch(() => {});
-  };
-
-  const unavailable = (what: string) =>
-    Alert.alert(
-      "Coordonnée indisponible",
-      `Le prospect n'a pas partagé ${what} pour cette campagne, ou la campagne n'est pas encore clôturée.`,
-    );
-  const open = (url: string, fail: string) =>
-    Linking.openURL(url).catch(() =>
-      Alert.alert("Action indisponible", fail),
-    );
-
-  const doCall = () => {
-    if (!phone) return unavailable("son numéro de téléphone");
-    logClick("call");
-    if (relationId) {
-      api(`/api/pro/contacts/${relationId}/call-log`, { method: "POST" }).catch(() => {});
-      // SMS de préavis « BUUPP + code buupp » au prospect. Serveur dédupliqué :
-      // une seule fois par relation (même endpoint que le web). Fire-and-forget.
-      api(`/api/pro/contacts/${relationId}/call-notice`, { method: "POST" }).catch(() => {});
-    }
-    open(`tel:${phone}`, "Impossible de lancer l'appel depuis cet appareil.");
-  };
-  const doSms = () => {
-    if (!phone) return unavailable("son numéro de téléphone");
-    logClick("sms");
-    open(`sms:${phone}`, "Impossible d'ouvrir la messagerie SMS.");
-  };
-  const doWhatsApp = () => {
-    if (!phone) return unavailable("son numéro de téléphone");
-    logClick("whatsapp");
-    open(`https://wa.me/${waNumber(phone)}`, "Impossible d'ouvrir WhatsApp.");
-  };
-  const doMail = () => {
-    if (!email) return unavailable("d'adresse e-mail");
-    logClick("email");
-    open(`mailto:${email}`, "Impossible d'ouvrir la messagerie e-mail.");
-  };
-
-  const Btn = ({
-    icon,
-    color,
-    onPress,
-    label,
-  }: {
-    icon: keyof typeof Ionicons.glyphMap;
-    color: string;
-    onPress: () => void;
-    label: string;
-  }) => (
-    <Pressable
-      onPress={onPress}
-      hitSlop={6}
-      accessibilityLabel={label}
-      className="items-center justify-center active:opacity-70"
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        backgroundColor: p.card,
-        borderWidth: 0.7,
-        borderColor: p.border,
-      }}
-    >
-      <Ionicons name={icon} size={17} color={color} />
-    </Pressable>
-  );
-  return (
-    <View className="flex-row" style={{ gap: 8 }}>
-      <Btn icon="call-outline" color={p.accent} onPress={doCall} label="Appeler" />
-      <Btn icon="mail-outline" color={p.coral} onPress={doMail} label="Envoyer un e-mail" />
-      <Btn icon="chatbox-outline" color={p.blue} onPress={doSms} label="SMS" />
-      <Btn icon="logo-whatsapp" color={p.accent} onPress={doWhatsApp} label="WhatsApp" />
-    </View>
-  );
 }
 
 // Ligne « label / valeur » de la carte d'identification.
@@ -259,14 +149,14 @@ export function ContactDetailSheet({
   onNavigate,
   onPriorityChange,
 }: {
-  contact: ProContact | null;
+  contact: ProContactRow | null;
   /** Nom de la campagne d'où provient le contact (sous-titre de l'en-tête). */
   campaign: string | null;
   visible: boolean;
   onClose: () => void;
   /** Fiches de la même campagne (navigation Précédent / Suivant). */
-  siblings?: ProContact[];
-  onNavigate?: (c: ProContact) => void;
+  siblings?: ProContactRow[];
+  onNavigate?: (c: ProContactRow) => void;
   onPriorityChange?: (relationId: string, priority: number | null) => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -288,15 +178,6 @@ export function ContactDetailSheet({
   const [authCode, setAuthCode] = useState<string | null>(null);
 
   const relId = contact?.relationId ?? null;
-  // Vraies coordonnées joignables = extraites des tiers de l'API détails
-  // (l'alias e-mail sécurisé « keep/alias » et le téléphone « keep »). La
-  // liste `contact.*` est masquée, donc non utilisable pour appeler/mailer.
-  const identityItems =
-    tiers.find((t) => t.key === "identity")?.items ?? [];
-  const contactEmail =
-    identityItems.find((i) => i.label.startsWith("E-mail"))?.value ?? null;
-  const contactPhone =
-    identityItems.find((i) => i.label === "Téléphone")?.value ?? null;
   async function copyAuthCode() {
     if (!authCode) return;
     try {
@@ -635,7 +516,13 @@ export function ContactDetailSheet({
                     <InfoRow
                       key={i}
                       label={it.label}
-                      value={it.value ?? NR}
+                      value={
+                        it.value
+                          ? it.label === "Téléphone"
+                            ? maskPhoneDisplay(it.value)
+                            : it.value
+                          : NR
+                      }
                       mono={!!it.value && (it.label.startsWith("E-mail") || it.label === "Téléphone")}
                       last={i === t.items.length - 1}
                     />
@@ -700,7 +587,7 @@ export function ContactDetailSheet({
               )}
             </Text>
             <View className="flex-row items-center" style={{ gap: 8 }}>
-              <ContactActions email={contactEmail} phone={contactPhone} relationId={relId} />
+              <ContactActions contact={contact} />
               <Pressable
                 onPress={onClose}
                 accessibilityLabel="Fermer"
