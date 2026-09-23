@@ -10,6 +10,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -206,12 +207,15 @@ export function EmailComposerSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={[varStyle, { flex: 1 }]}
       >
-        <Pressable
-          onPress={() => !sending && onClose()}
-          style={{ flex: 1, backgroundColor: "rgba(10,22,40,0.44)", justifyContent: "center", padding: 18 }}
-        >
+        {/* Fond et carte FRÈRES : un Pressable autour du ScrollView lui
+            volait les gestes (défilement bloqué). */}
+        <View style={{ flex: 1, justifyContent: "center", padding: 18 }}>
           <Pressable
-            onPress={() => {}}
+            onPress={() => !sending && onClose()}
+            accessibilityLabel="Fermer"
+            style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,22,40,0.44)" }]}
+          />
+          <View
             style={{
               maxHeight: "92%",
               backgroundColor: p.card,
@@ -364,8 +368,8 @@ export function EmailComposerSheet({
                 </>
               )}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

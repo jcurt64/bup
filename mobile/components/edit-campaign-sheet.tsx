@@ -13,7 +13,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { ApiError, useApi } from "../lib/api";
 import { AGE_RANGES_NO_TOUS } from "../lib/pro-pricing";
@@ -293,12 +304,18 @@ export function EditCampaignSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable
-        onPress={() => !edit.isPending && onClose()}
-        style={{ flex: 1, backgroundColor: "rgba(22,26,29,0.42)", alignItems: "center", justifyContent: "center", padding: 16 }}
+      {/* Fond et carte sont FRÈRES : envelopper le ScrollView dans un
+          Pressable lui volait les gestes (défilement bloqué). */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16 }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={() => !edit.isPending && onClose()}
+          accessibilityLabel="Fermer"
+          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(22,26,29,0.42)" }]}
+        />
+        <View
           style={{
             width: "100%", maxWidth: 460, maxHeight: "90%",
             backgroundColor: C.card, borderRadius: 22, overflow: "hidden",
@@ -308,7 +325,12 @@ export function EditCampaignSheet({
           {/* Barre d'accent indigo (haut de carte) */}
           <LinearGradient colors={[C.indigoD, C.indigo, "#8a88ea"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 4 }} />
 
-          <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 22 }} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={{ padding: 24, paddingBottom: 22 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
             {/* En-tête : réf + titre + fermer */}
             <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
               <View style={{ flex: 1 }}>
@@ -563,8 +585,8 @@ export function EditCampaignSheet({
               </Text>
             ) : null}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

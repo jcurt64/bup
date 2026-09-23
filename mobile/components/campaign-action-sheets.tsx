@@ -5,7 +5,7 @@
 //    10 € HT débités du solde, une seule fois).
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "../lib/theme";
 
@@ -23,12 +23,15 @@ function Shell({
   const { c, varStyle } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => !busy && onClose()}>
-      <Pressable
-        onPress={() => !busy && onClose()}
-        style={[varStyle, { flex: 1, backgroundColor: "rgba(15,22,41,0.55)", justifyContent: "center", padding: 18 }]}
-      >
+      {/* Fond et carte FRÈRES : un Pressable autour du ScrollView lui
+          volait les gestes (défilement bloqué). */}
+      <View style={[varStyle, { flex: 1, justifyContent: "center", padding: 18 }]}>
         <Pressable
-          onPress={() => {}}
+          onPress={() => !busy && onClose()}
+          accessibilityLabel="Fermer"
+          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(15,22,41,0.55)" }]}
+        />
+        <View
           style={{
             maxHeight: "92%",
             backgroundColor: c.surface,
@@ -38,9 +41,11 @@ function Shell({
             overflow: "hidden",
           }}
         >
-          <ScrollView contentContainerStyle={{ padding: 20 }}>{children}</ScrollView>
-        </Pressable>
-      </Pressable>
+          <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
