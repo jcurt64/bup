@@ -17,6 +17,7 @@
 import { auth } from "@/lib/clerk/server";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit/check";
 import {
   buildClassicPayload,
   buildFlashPayload,
@@ -32,6 +33,20 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Outil de diagnostic : 5 envois / heure / utilisateur, pour éviter
+  // qu'un client s'envoie des pushes en boucle.
+  const limit = await checkRateLimit({
+    key: `push-test:user:${userId}`,
+    limit: 5,
+    windowSec: 3600,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterSec: limit.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+    );
   }
 
   let body: Body = {};

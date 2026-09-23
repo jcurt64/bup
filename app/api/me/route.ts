@@ -183,6 +183,14 @@ export async function DELETE() {
     .eq("clerk_user_id", userId);
   if (errPro) dbErrors.push("pro_accounts: " + errPro.message);
 
+  // Tokens push (pas de FK vers prospects/pro_accounts) : sans purge
+  // explicite, le token de l'appareil survivrait à la suppression du compte.
+  const { error: errPush } = await admin
+    .from("push_tokens")
+    .delete()
+    .eq("user_id", userId);
+  if (errPush) dbErrors.push("push_tokens: " + errPush.message);
+
   if (email) {
     const { error: errWaitlist } = await admin
       .from("waitlist")
