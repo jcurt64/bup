@@ -12,7 +12,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "../../components/bottom-sheet";
 import { eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
-import { useProOverview, type ProOverview } from "../../lib/queries";
+import { useProOverview, useProTimeseries, type ProOverview } from "../../lib/queries";
+import { ALL_ACCEPTANCES_MAX, useProAcceptances } from "../../lib/queries-pro-analytics";
 import { useTheme, type ThemeMode } from "../../lib/theme";
 
 // Dégradé de la carte héros par thème (buupp = violet de l'image proto).
@@ -272,8 +273,7 @@ function RoiInfoModal({ d, visible, onClose }: { d: ProOverview; visible: boolea
         <Text style={{ fontSize: 12, lineHeight: 19, color: c.ink4, marginBottom: 18 }}>
           <Text style={{ fontWeight: "700", color: c.textSub }}>À garder en tête : </Text>
           c&apos;est une estimation. Si votre secteur convertit plus que la moyenne (services premium, immobilier…),
-          votre ROI réel sera meilleur. À l&apos;inverse en e-commerce, il sera plus faible. Bientôt vous pourrez
-          personnaliser ces deux hypothèses dans vos paramètres.
+          votre ROI réel sera meilleur. À l&apos;inverse en e-commerce, il sera plus faible.
         </Text>
 
         <Pressable
@@ -450,7 +450,7 @@ function AccRow({ a, last, colors }: { a: Acceptance; last: boolean; colors: rea
             {a.campaign}
           </Text>
         </View>
-        <View className="flex-row items-center" style={{ gap: 8, marginTop: 8 }}>
+        <View className="flex-row flex-wrap items-center" style={{ gap: 8, marginTop: 8 }}>
           <Text
             style={{
               fontSize: 10.5,
@@ -467,6 +467,7 @@ function AccRow({ a, last, colors }: { a: Acceptance; last: boolean; colors: rea
           >
             Palier {a.tier}
           </Text>
+          <FiabiliteBadge priority={a.priority} />
           <View className="flex-row items-center" style={{ gap: 4 }}>
             <Ionicons name="time-outline" size={12} color={c.ink4} />
             <Text style={{ fontSize: 11, color: c.ink4 }}>{dateShort(a.receivedAt)}</Text>
@@ -548,11 +549,328 @@ function ScoreLegend() {
   );
 }
 
+// ── Fiabilité (ex-Priorité) — mêmes niveaux/couleurs que le web
+// (Pro.jsx → FIABILITE_OPTS) et que la fiche contact mobile. ───────────
+const FIABILITE_OPTS: { v: number; label: string; color: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { v: 1, label: "Haute", color: "#16A34A", icon: "shield-checkmark-outline" },
+  { v: 2, label: "Moyenne", color: "#D97706", icon: "shield-outline" },
+  { v: 3, label: "Basse", color: "#DC2626", icon: "speedometer-outline" },
+];
+
+function FiabiliteBadge({ priority }: { priority?: number | null }) {
+  const po = FIABILITE_OPTS.find((o) => o.v === priority);
+  if (!po) return null;
+  return (
+    <View
+      accessibilityLabel={`Fiabilité : ${po.label}`}
+      className="flex-row items-center"
+      style={{
+        gap: 3,
+        paddingHorizontal: 7,
+        paddingVertical: 2,
+        borderRadius: 999,
+        backgroundColor: po.color + "1F",
+        borderWidth: 1,
+        borderColor: po.color + "59",
+      }}
+    >
+      <Ionicons name={po.icon} size={11} color={po.color} />
+      <Text style={{ fontSize: 10.5, fontWeight: "600", color: po.color }}>{po.label}</Text>
+    </View>
+  );
+}
+
+// Carte générique de la Vue d'ensemble (titre serif + sous-titre).
+function OvCard({ title, sub, right, children }: { title: string; sub?: string; right?: React.ReactNode; children: React.ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.borderSoft, padding: 18 }}>
+      <View className="flex-row items-start justify-between" style={{ gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text className="font-serif" style={{ fontSize: 20, color: c.text }}>
+            {title}
+          </Text>
+          {sub ? <Text style={{ fontSize: 12, color: c.textSub, marginTop: 3 }}>{sub}</Text> : null}
+        </View>
+        {right}
+      </View>
+      <View style={{ marginTop: 14 }}>{children}</View>
+    </View>
+  );
+}
+
+// ── « Performance des campagnes » — port de PerformanceCard (web) :
+// acceptations bucketisées via /api/pro/timeseries, 7J/30J/90J.
+// Histogramme en View (pas de react-native-svg dans le projet). ─────────
+type Range = "7d" | "30d" | "90d";
+const RANGE_LABELS: Record<Range, string> = {
+  "7d": "7 derniers jours",
+  "30d": "30 derniers jours",
+  "90d": "90 derniers jours",
+};
+
+function PerformanceCard() {
+  const { c } = useTheme();
+  const [range, setRange] = useState<Range>("30d");
+  const q = useProTimeseries(range);
+  const series = q.data && q.data.range === range ? q.data : null;
+  const buckets = series?.buckets ?? [];
+  const counts = buckets.map((b) => Number(b.count) || 0);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const rawMax = Math.max(...counts, 1);
+  const step = rawMax <= 4 ? 1 : rawMax <= 10 ? 2 : rawMax <= 25 ? 5 : 10;
+  const max = Math.ceil(rawMax / step) * step;
+  const H = 150;
+
+  const chips = (
+    <View className="flex-row" style={{ gap: 6 }}>
+      {(
+        [
+          ["7d", "7J"],
+          ["30d", "30J"],
+          ["90d", "90J"],
+        ] as const
+      ).map(([k, l]) => {
+        const active = range === k;
+        return (
+          <Pressable
+            key={k}
+            onPress={() => setRange(k)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            className="active:opacity-70"
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 999,
+              backgroundColor: active ? c.btnBg : c.surface2,
+            }}
+          >
+            <Text style={{ fontSize: 11.5, fontWeight: "600", color: active ? c.btnText : c.textSub }}>{l}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  return (
+    <OvCard
+      title="Performance des campagnes"
+      sub={`Contacts obtenus, ${RANGE_LABELS[range]}${series ? ` · ${total} acceptation${total === 1 ? "" : "s"}` : ""}`}
+    >
+      <View style={{ marginBottom: 14 }}>{chips}</View>
+      {series === null ? (
+        q.isError ? (
+          <Text style={{ fontSize: 13, color: c.ink4, textAlign: "center", paddingVertical: 28 }}>
+            Chargement impossible pour le moment.
+          </Text>
+        ) : (
+          <Text style={{ fontSize: 13, color: c.ink4, textAlign: "center", paddingVertical: 28 }}>Chargement…</Text>
+        )
+      ) : total === 0 ? (
+        <View className="items-center" style={{ paddingVertical: 20 }}>
+          <Ionicons name="bar-chart-outline" size={26} color={c.ink4} />
+          <Text className="mt-2 text-center" style={{ fontSize: 14, fontWeight: "500", color: c.text }}>
+            Pas encore de courbe à tracer
+          </Text>
+          <Text className="mt-0.5 text-center" style={{ fontSize: 12, color: c.ink4 }}>
+            Vos acceptations apparaîtront ici dès qu&apos;une campagne tourne.
+          </Text>
+        </View>
+      ) : (
+        <View>
+          <View style={{ height: H, flexDirection: "row", alignItems: "flex-end", gap: buckets.length > 10 ? 3 : 6 }}>
+            {/* Lignes de grille (pointillés) */}
+            {Array.from({ length: max / step }, (_, i) => (i + 1) * step).map((v) => (
+              <View
+                key={`g${v}`}
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: (v / max) * (H - 14),
+                  borderTopWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: c.borderSoft,
+                }}
+              />
+            ))}
+            {counts.map((v, i) => (
+              <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                {v > 0 ? (
+                  <Text className="font-mono" style={{ fontSize: 9, color: c.textSub, marginBottom: 2 }}>
+                    {v}
+                  </Text>
+                ) : null}
+                <View
+                  style={{
+                    width: "100%",
+                    height: Math.max(v > 0 ? 3 : 0, (v / max) * (H - 14)),
+                    borderTopLeftRadius: 3,
+                    borderTopRightRadius: 3,
+                    backgroundColor: i === counts.length - 1 ? c.accent : c.ink2,
+                  }}
+                />
+              </View>
+            ))}
+          </View>
+          <View className="flex-row" style={{ marginTop: 6, gap: buckets.length > 10 ? 3 : 6 }}>
+            {buckets.map((b, i) => (
+              <Text
+                key={i}
+                numberOfLines={1}
+                className="font-mono"
+                style={{ flex: 1, textAlign: "center", fontSize: buckets.length > 10 ? 7.5 : 9, color: c.ink4 }}
+              >
+                {b.label}
+              </Text>
+            ))}
+          </View>
+        </View>
+      )}
+    </OvCard>
+  );
+}
+
+// ── « Répartition par palier » — port web (tierBreakdown de l'overview) :
+// volume + coût cumulés depuis l'ouverture ; jauge = contacts / 40. ──────
+function TierBreakdownCard({ tiers }: { tiers: ProOverview["tierBreakdown"] }) {
+  const { c } = useTheme();
+  const empty = tiers.every((t) => t.contacts === 0);
+  return (
+    <OvCard title="Répartition par palier" sub="Coût et volume cumulés depuis l'ouverture">
+      {empty ? (
+        <View className="items-center" style={{ paddingVertical: 16 }}>
+          <Ionicons name="layers-outline" size={26} color={c.ink4} />
+          <Text className="mt-2 text-center" style={{ fontSize: 14, fontWeight: "500", color: c.text }}>
+            Aucun palier rempli
+          </Text>
+          <Text className="mt-0.5 text-center" style={{ fontSize: 12, color: c.ink4 }}>
+            Dès que des prospects accepteront vos campagnes, ils se répartiront ici par palier.
+          </Text>
+        </View>
+      ) : (
+        tiers.map((r, i) => (
+          <View
+            key={r.tier}
+            style={{ paddingVertical: 10, borderBottomWidth: i < tiers.length - 1 ? 1 : 0, borderBottomColor: c.borderSoft }}
+          >
+            <View className="flex-row items-center justify-between" style={{ gap: 8, marginBottom: 6 }}>
+              <View className="flex-row items-center" style={{ gap: 6, flexShrink: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: "600",
+                    color: c.accVioletDeep,
+                    backgroundColor: c.tintViolet,
+                    borderRadius: 6,
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    overflow: "hidden",
+                  }}
+                >
+                  P{r.tier}
+                </Text>
+                <Text numberOfLines={1} style={{ fontSize: 13, color: c.text, flexShrink: 1 }}>
+                  {r.label}
+                </Text>
+              </View>
+              <Text className="font-mono" style={{ fontSize: 11.5, color: c.textSub }}>
+                {r.contacts} contact{r.contacts > 1 ? "s" : ""} · {eur(r.totalCents / 100)}
+              </Text>
+            </View>
+            <View style={{ height: 6, borderRadius: 999, overflow: "hidden", backgroundColor: c.track }}>
+              <View
+                style={{
+                  width: `${Math.round(Math.min(1, r.contacts / 40) * 100)}%`,
+                  height: "100%",
+                  borderRadius: 999,
+                  backgroundColor: c.accent,
+                }}
+              />
+            </View>
+          </View>
+        ))
+      )}
+    </OvCard>
+  );
+}
+
+// ── Modale « Toutes les acceptations » — port de AllAcceptancesModal
+// (web) : 50 plus récentes via GET /api/pro/acceptances. ─────────────────
+function AllAcceptancesSheet({
+  visible,
+  onClose,
+  colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  colors: readonly [string, string];
+}) {
+  const { c } = useTheme();
+  const q = useProAcceptances(visible);
+  const rows = (q.data?.rows ?? []).slice(0, ALL_ACCEPTANCES_MAX);
+  const total = q.data?.total ?? 0;
+  const capped = total > ALL_ACCEPTANCES_MAX;
+  const loading = q.isPending;
+  return (
+    <BottomSheet visible={visible} onClose={onClose} heightPct={85}>
+      <View className="flex-row items-start justify-between" style={{ marginBottom: 10 }}>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text className="font-serif" style={{ fontSize: 22, lineHeight: 28, color: c.text }}>
+            Toutes les acceptations
+          </Text>
+          <Text style={{ fontSize: 13, color: c.textSub, marginTop: 2 }}>
+            {loading
+              ? "Chargement…"
+              : capped
+                ? `${ALL_ACCEPTANCES_MAX} plus récentes affichées · ${total} au total`
+                : `${total} acceptation${total > 1 ? "s" : ""} au total`}
+          </Text>
+        </View>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" hitSlop={10} className="active:opacity-60" style={{ padding: 4 }}>
+          <Ionicons name="close" size={22} color={c.ink4} />
+        </Pressable>
+      </View>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        {q.isError ? (
+          <View style={{ padding: 14, borderRadius: 12, borderLeftWidth: 3, borderLeftColor: c.bad, backgroundColor: c.badSoft }}>
+            <Text style={{ fontSize: 13, color: c.bad }}>Impossible de charger les acceptations.</Text>
+          </View>
+        ) : loading ? (
+          <Text style={{ fontSize: 13, color: c.ink4, textAlign: "center", paddingVertical: 28 }}>
+            Chargement des acceptations…
+          </Text>
+        ) : rows.length === 0 ? (
+          <Text style={{ fontSize: 13, color: c.ink4, textAlign: "center", paddingVertical: 28 }}>
+            Aucune acceptation pour le moment.
+          </Text>
+        ) : (
+          <View style={{ borderRadius: 16, borderWidth: 1, borderColor: c.borderSoft, overflow: "hidden", backgroundColor: c.surface }}>
+            {rows.map((a, i) => (
+              <AccRow key={i} a={a} last={i === rows.length - 1} colors={colors} />
+            ))}
+          </View>
+        )}
+        {!loading && capped ? (
+          <Text style={{ fontSize: 12, lineHeight: 18, color: c.ink4, textAlign: "center", marginTop: 14 }}>
+            Affichage limité aux {ALL_ACCEPTANCES_MAX} acceptations les plus récentes. Retrouvez l&apos;historique
+            complet dans l&apos;onglet Facturation.
+          </Text>
+        ) : null}
+        <View style={{ height: 16 }} />
+      </ScrollView>
+    </BottomSheet>
+  );
+}
+
 export default function ProOverviewScreen() {
   const q = useProOverview();
   const { c, mode } = useTheme();
   const heroColors = HERO_GRADIENT[mode];
   const [roiInfoOpen, setRoiInfoOpen] = useState(false);
+  const [allAccOpen, setAllAccOpen] = useState(false);
 
   return (
     <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
@@ -631,6 +949,10 @@ export default function ProOverviewScreen() {
                 />
               </View>
 
+              {/* PERFORMANCE + RÉPARTITION PAR PALIER (parité web) */}
+              <PerformanceCard />
+              <TierBreakdownCard tiers={d.tierBreakdown ?? []} />
+
               {/* DERNIÈRES ACCEPTATIONS */}
               <SectionTitle
                 eyebrow="Activité pro"
@@ -674,7 +996,7 @@ export default function ProOverviewScreen() {
                         Prospects · {d.lastAcceptances.length}
                       </Text>
                       <Pressable
-                        onPress={() => router.push("/(pro)/contacts")}
+                        onPress={() => setAllAccOpen(true)}
                         accessibilityRole="button"
                         className="flex-row items-center active:opacity-70"
                         style={{ gap: 4 }}
@@ -701,6 +1023,7 @@ export default function ProOverviewScreen() {
           );
         }}
       </QueryGate>
+      <AllAcceptancesSheet visible={allAccOpen} onClose={() => setAllAccOpen(false)} colors={heroColors} />
     </ScrollScreen>
   );
 }
