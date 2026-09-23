@@ -42,6 +42,7 @@ import {
 } from "../lib/header-scroll";
 import { useFlashDeals, useNotifications } from "../lib/queries";
 import { useTheme } from "../lib/theme";
+import { PURCHASES_ENABLED } from "../lib/purchases";
 
 // Mapping pathname → libellé de page affiché dans le header compact.
 // On match sur la fin du segment (ignore les groupes (prospect)/(pro)).
@@ -428,13 +429,15 @@ export function AppHeader({
               // Header étendu : pas de « + » création ici (il apparaît dans le
               // header compact au scroll). Recharge + notifs + compte.
               <View className="flex-row items-center" style={{ gap: 8 }}>
-                <IconButton
-                  icon="add"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Recharger mon compte"
-                  onPress={() => setShowRecharge(true)}
-                />
+                {PURCHASES_ENABLED ? (
+                  <IconButton
+                    icon="add"
+                    bg="bg-paper"
+                    color={iconColor}
+                    label="Recharger mon compte"
+                    onPress={() => setShowRecharge(true)}
+                  />
+                ) : null}
                 <IconButton
                   icon="notifications-outline"
                   bg="bg-paper"
@@ -517,13 +520,15 @@ export function AppHeader({
                     label="Lancer une campagne"
                     onPress={() => router.push("/(pro)/creation")}
                   />
-                  <IconButton
-                    icon="add"
-                    bg="bg-paper"
-                    color={iconColor}
-                    label="Recharger mon compte"
-                    onPress={() => setShowRecharge(true)}
-                  />
+                  {PURCHASES_ENABLED ? (
+                    <IconButton
+                      icon="add"
+                      bg="bg-paper"
+                      color={iconColor}
+                      label="Recharger mon compte"
+                      onPress={() => setShowRecharge(true)}
+                    />
+                  ) : null}
                 </>
               ) : null}
               {ctx?.compactExtras?.length ? (

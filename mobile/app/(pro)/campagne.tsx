@@ -29,6 +29,7 @@ import {
 } from "../../lib/queries-pro-contacts";
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
+import { PURCHASES_ENABLED } from "../../lib/purchases";
 
 type Tab = "overview" | "contacts" | "config" | "activity" | "billing";
 
@@ -239,7 +240,9 @@ const ERR_LABELS: Record<string, string> = {
   extension_already_used: "Cette campagne a déjà été prolongée.",
   campaign_not_extendable: "Cette campagne ne peut plus être prolongée.",
   campaign_expired: "La campagne est déjà expirée.",
-  insufficient_funds: "Solde disponible insuffisant : 10 € sont nécessaires. Rechargez votre compte.",
+  insufficient_funds: PURCHASES_ENABLED
+    ? "Solde disponible insuffisant : 10 € sont nécessaires. Rechargez votre compte."
+    : "Solde disponible insuffisant : 10 € sont nécessaires.",
   unknown_duration: "Durée de campagne inconnue — prolongation impossible.",
 };
 const errMsg = (e: unknown) => {

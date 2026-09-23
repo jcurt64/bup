@@ -36,6 +36,7 @@ import {
 } from "../../lib/queries-pro-billing";
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
+import { PURCHASES_ENABLED } from "../../lib/purchases";
 
 function Eyebrow({ children }: { children: string }) {
   return (
@@ -516,8 +517,13 @@ export default function Facturation() {
       </QueryGate>
 
       <PlanCard />
-      <SavedCardCard />
-      <AutoRechargeCard onOpenRecharge={() => setShowRecharge(true)} />
+      {/* Achats masqués sur iOS (App Store 3.1.1 / 3.1.3(g)) — lib/purchases. */}
+      {PURCHASES_ENABLED ? (
+        <>
+          <SavedCardCard />
+          <AutoRechargeCard onOpenRecharge={() => setShowRecharge(true)} />
+        </>
+      ) : null}
 
       <View className="mt-2 flex-row items-center justify-between">
         <Text

@@ -55,6 +55,7 @@ import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
 import { RechargeSheet } from "../../components/recharge-sheet";
 import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
+import { PURCHASES_ENABLED } from "../../lib/purchases";
 
 // Dégradé violet de l'en-tête/succès (115deg du design), thémé.
 const HERO_GRADIENT: Record<ThemeMode, readonly [string, string, string]> = {
@@ -1561,7 +1562,7 @@ export default function ProWizard() {
             <Text className="mt-1 text-[11px]" style={{ color: fundsOk ? c.textMuted : c.bad }}>
               Crédit disponible : {eur(availableCents / 100)} {fundsOk ? "" : "— insuffisant"}
             </Text>
-            {!fundsOk ? (
+            {!fundsOk && PURCHASES_ENABLED ? (
               <Pressable
                 onPress={() => setShowRecharge(true)}
                 accessibilityRole="button"
@@ -1946,15 +1947,17 @@ export default function ProWizard() {
                   (budget + commission max.).
                 </Text>
               </View>
-              <Pressable
-                onPress={() => setShowRecharge(true)}
-                accessibilityRole="button"
-                className="mt-2 flex-row items-center justify-center gap-1.5 rounded-full py-2.5 active:opacity-80"
-                style={{ backgroundColor: c.bad }}
-              >
-                <Ionicons name="add" size={15} color="#FFFFFF" />
-                <Text className="text-[13px] font-semibold text-white">Recharger votre crédit</Text>
-              </Pressable>
+              {PURCHASES_ENABLED ? (
+                <Pressable
+                  onPress={() => setShowRecharge(true)}
+                  accessibilityRole="button"
+                  className="mt-2 flex-row items-center justify-center gap-1.5 rounded-full py-2.5 active:opacity-80"
+                  style={{ backgroundColor: c.bad }}
+                >
+                  <Ionicons name="add" size={15} color="#FFFFFF" />
+                  <Text className="text-[13px] font-semibold text-white">Recharger votre crédit</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -2031,7 +2034,7 @@ export default function ProWizard() {
       <InsufficientBalanceSheet
         details={insufficient}
         onCancel={() => setInsufficient(null)}
-        onRecharge={openRechargeFromInsufficient}
+        onRecharge={PURCHASES_ENABLED ? openRechargeFromInsufficient : undefined}
       />
       <RechargeSheet
         visible={showRecharge}

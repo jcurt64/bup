@@ -26,7 +26,8 @@ export function InsufficientBalanceSheet({
 }: {
   details: InsufficientDetails | null;
   onCancel: () => void;
-  onRecharge: () => void;
+  /** Absent → pas de bouton de recharge (achats masqués sur iOS). */
+  onRecharge?: () => void;
 }) {
   const { c } = useTheme();
   const d = details;
@@ -101,6 +102,7 @@ export function InsufficientBalanceSheet({
         >
           <Text className="text-sm font-semibold text-ink-3">Plus tard</Text>
         </Pressable>
+        {onRecharge ? (
         <Pressable
           onPress={onRecharge}
           accessibilityRole="button"
@@ -112,9 +114,12 @@ export function InsufficientBalanceSheet({
             Recharger mon crédit
           </Text>
         </Pressable>
+        ) : null}
       </View>
       <Text className="mt-3 text-center text-[11px] italic text-ink-4">
-        Votre saisie est conservée : vous reprendrez le lancement juste après la recharge.
+        {onRecharge
+          ? "Votre saisie est conservée : vous reprendrez le lancement juste après la recharge."
+          : "Votre saisie est conservée dans le brouillon."}
       </Text>
     </BottomSheet>
   );
