@@ -730,9 +730,14 @@ export default function Portefeuille() {
                   disponible — « dont » est donc exact — mais il n'est pas
                   retirable, d'où la mention du délai. */}
               {bonusNote && (
-                <View className="mt-1.5 flex-row items-center gap-1.5">
-                  <Ionicons name="gift" size={13} color={c.good} />
-                  <Text className="font-mono text-[12px]" style={{ color: c.good }}>
+                <View className="mt-1.5 flex-row items-start gap-1.5">
+                  <Ionicons name="gift" size={13} color={c.good} style={{ marginTop: 2 }} />
+                  {/* flexShrink : le texte revient à la ligne au lieu de
+                      déborder de la carte (constaté sur Android). */}
+                  <Text
+                    className="font-mono text-[12px] leading-[17px]"
+                    style={{ color: c.good, flexShrink: 1 }}
+                  >
                     {bonusNote}
                   </Text>
                 </View>

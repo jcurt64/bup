@@ -48,8 +48,30 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const clerkErr = (e: unknown, fb: string) =>
-    (e as { errors?: { message?: string }[] })?.errors?.[0]?.message ?? fb;
+  // Erreurs Clerk traduites (Clerk renvoie des messages bruts en anglais,
+  // ex. « is invalid ») ; repli sur le message fourni par l'appelant.
+  const clerkErr = (e: unknown, fb: string) => {
+    const first = (e as { errors?: { code?: string; message?: string }[] })
+      ?.errors?.[0];
+    const byCode: Record<string, string> = {
+      form_param_format_invalid: "Adresse e-mail invalide.",
+      form_param_nil: "Renseignez votre adresse e-mail.",
+      form_identifier_not_found:
+        "Aucun compte avec cet e-mail. Utilisez l'onglet Inscription.",
+      form_identifier_exists:
+        "Un compte existe déjà avec cet e-mail. Utilisez l'onglet Connexion.",
+      form_code_incorrect: "Code incorrect.",
+      verification_expired: "Code expiré. Demandez-en un nouveau.",
+      verification_failed: "Code incorrect ou expiré.",
+      too_many_requests: "Trop de tentatives. Réessayez dans quelques minutes.",
+      session_exists: "Vous êtes déjà connecté.",
+      oauth_access_denied: "Connexion annulée.",
+      external_account_not_found:
+        "Aucun compte BUUPP n'est lié à ce compte. Inscrivez-vous d'abord.",
+      not_allowed_access: "Cette adresse n'est pas autorisée.",
+    };
+    return (first?.code && byCode[first.code]) || fb;
+  };
 
   function reset(toTab?: Tab) {
     if (toTab) setTab(toTab);
