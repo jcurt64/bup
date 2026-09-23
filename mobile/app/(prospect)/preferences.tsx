@@ -24,8 +24,6 @@ import {
   usePayoutOnboarding,
   usePayoutStatus,
   usePayoutWithdraw,
-  usePhoneStart,
-  usePhoneVerify,
   usePatchDonnees,
   usePatchPreferences,
   useProspectDonnees,
@@ -37,6 +35,7 @@ import {
   type TierKey,
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
+import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
 
 // Accent violet global (pre.html)
 const VIOLET = "#7C5CFF";
@@ -403,8 +402,6 @@ export default function Preferences() {
   const mail = useEmailTracking();
   useRefetchOnFocus(don, ver, pay, wal, mail);
 
-  const phoneStart  = usePhoneStart();
-  const phoneVerify = usePhoneVerify();
   const saveRib     = useSaveRib();
   const delRib      = useDeleteRib();
   const onboard     = usePayoutOnboarding();
@@ -414,8 +411,7 @@ export default function Preferences() {
   const patchPrefs  = usePatchPreferences();
   const tierAction  = useTierAction();
 
-  const [phone,   setPhone]   = useState("");
-  const [code,    setCode]    = useState("");
+  const [phoneSheet, setPhoneSheet] = useState(false);
   const [iban,    setIban]    = useState("");
   const [bic,     setBic]     = useState("");
   const [holder,  setHolder]  = useState("");
@@ -889,7 +885,7 @@ export default function Preferences() {
                     </Text>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => router.push("/(prospect)/donnees")}
+                      onPress={() => router.push("/(prospect)/donnees?tier=localisation")}
                       className="flex-row items-center active:opacity-80"
                       style={{
                         gap: 6,
@@ -1041,76 +1037,58 @@ export default function Preferences() {
             const tel = String(
               (d.identity as Record<string, unknown> | null)?.telephone ?? "",
             ).trim();
-            return d.identityMeta.phoneVerifiedAt ? (
+            const verified = !!d.identityMeta.phoneVerifiedAt;
+            return (
               <View>
-                <View
-                  className="flex-row items-center justify-between"
-                  style={fieldStyle(c)}
-                >
-                  <Text style={{ fontSize: 14.5, color: c.text }}>
-                    {tel || "Numéro vérifié"}
-                  </Text>
+                {tel ? (
                   <View
-                    className="flex-row items-center"
-                    style={{
-                      gap: 5,
-                      paddingVertical: 3,
-                      paddingHorizontal: 9,
-                      borderRadius: 999,
-                      backgroundColor: c.goodSoft,
-                    }}
+                    className="flex-row items-center justify-between"
+                    style={fieldStyle(c)}
                   >
-                    <Ionicons name="checkmark-circle" size={13} color={c.good} />
-                    <Text style={{ fontSize: 11.5, fontWeight: "600", color: c.good }}>
-                      Vérifié
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ) : (
-              <View>
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+33 6 12 34 56 78"
-                  placeholderTextColor={c.textMuted}
-                  keyboardType="phone-pad"
-                  style={fieldStyle(c)}
-                />
-                <DarkButton
-                  label={phoneStart.isPending ? "…" : "Recevoir un code SMS"}
-                  disabled={phoneStart.isPending}
-                  onPress={() => phoneStart.mutate({ phone })}
-                />
-                {phoneStart.isSuccess && (
-                  <>
-                    <TextInput
-                      value={code}
-                      onChangeText={setCode}
-                      placeholder="Code à 6 chiffres"
-                      placeholderTextColor={c.textMuted}
-                      keyboardType="number-pad"
-                      style={fieldStyle(c)}
-                    />
-                    <Pressable
-                      disabled={phoneVerify.isPending}
-                      onPress={() => phoneVerify.mutate({ code })}
-                      className="items-center active:opacity-70"
+                    <Text style={{ fontSize: 14.5, color: c.text }}>{tel}</Text>
+                    <View
+                      className="flex-row items-center"
                       style={{
-                        marginTop: 11,
-                        paddingVertical: 14,
-                        borderRadius: 13,
-                        borderWidth: 1,
-                        borderColor: c.borderSoft,
-                        backgroundColor: c.surface,
+                        gap: 5,
+                        paddingVertical: 3,
+                        paddingHorizontal: 9,
+                        borderRadius: 999,
+                        backgroundColor: verified ? c.goodSoft : c.surface2,
                       }}
                     >
-                      <Text style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}>
-                        {phoneVerify.isPending ? "…" : "Valider le code"}
+                      <Ionicons
+                        name={verified ? "checkmark-circle" : "alert-circle-outline"}
+                        size={13}
+                        color={verified ? c.good : c.textMuted}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: "600",
+                          color: verified ? c.good : c.textSub,
+                        }}
+                      >
+                        {verified ? "Vérifié" : "Non vérifié"}
                       </Text>
-                    </Pressable>
-                  </>
-                )}
+                    </View>
+                  </View>
+                ) : null}
+                <DarkButton
+                  label={
+                    !tel
+                      ? "Ajouter et vérifier par SMS"
+                      : verified
+                        ? "Changer de numéro"
+                        : "Vérifier par SMS"
+                  }
+                  onPress={() => setPhoneSheet(true)}
+                />
+                <PhoneVerifySheet
+                  visible={phoneSheet}
+                  initialPhone={verified ? "" : tel}
+                  onClose={() => setPhoneSheet(false)}
+                  onDone={() => setPhoneSheet(false)}
+                />
               </View>
             );
           }}
