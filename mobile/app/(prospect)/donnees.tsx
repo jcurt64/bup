@@ -3,7 +3,7 @@
 // Champs/libellés/ordre = Prospect.jsx fn MesDonnees (web).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -15,10 +15,13 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type Reanimated from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "../../components/bottom-sheet";
+import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
 import { QueryGate, ScrollScreen } from "../../components/screen";
-import type { CompactExtra } from "../../lib/header-scroll";
+import { HEADER_BASE_HEIGHT, type CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 import {
@@ -80,8 +83,11 @@ const FIELDS: Record<TierKey, FieldDef[]> = {
       key: "telephone",
       label: "Téléphone",
       icon: "call-outline",
+      // Jamais PATCHé via /api/prospect/donnees (refusé côté serveur) :
+      // saisie/changement uniquement via la vérification SMS
+      // (PhoneVerifySheet), parité web PhoneVerifyModal.
       readOnly: true,
-      hint: "Modifiable via Préférences (vérification SMS)",
+      hint: "Enregistré uniquement après vérification par SMS",
     },
     {
       key: "naissance",
@@ -1319,6 +1325,159 @@ function DeleteTierSheet({
   );
 }
 
+// Sheet de confirmation « Supprimer : <champ> » — réplique mobile de
+// ConfirmFieldDeleteModal (Prospect.jsx). Suppression d'UNE donnée (le champ
+// est vidé via PATCH /api/prospect/donnees, comme sur le web) ; réversible
+// puisqu'on peut la renseigner à nouveau.
+function FieldDeleteSheet({
+  visible,
+  fieldLabel,
+  tierLabel,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  fieldLabel: string;
+  tierLabel: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <BottomSheet visible={visible} onClose={busy ? () => {} : onClose}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ gap: 16, paddingBottom: 12 }}
+      >
+        <View className="flex-row items-center gap-3">
+          <View
+            className="h-10 w-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: "#DC2626" }}
+          >
+            <Ionicons name="trash-outline" size={17} color="#FFFFFF" />
+          </View>
+          <Text className="flex-1 font-serif text-xl text-ink" numberOfLines={2}>
+            Supprimer : {fieldLabel}
+          </Text>
+        </View>
+
+        <View
+          className="flex-row gap-3 rounded-2xl px-4 py-3.5"
+          style={{
+            backgroundColor: "#FEF2F2",
+            borderWidth: 1.5,
+            borderColor: "#FECACA",
+          }}
+        >
+          <View
+            className="h-9 w-9 items-center justify-center rounded-full"
+            style={{ backgroundColor: "#DC2626" }}
+          >
+            <Ionicons name="alert" size={16} color="#FFFFFF" />
+          </View>
+          <View className="flex-1">
+            <Text className="font-semibold text-[14px]" style={{ color: "#7F1D1D" }}>
+              Conséquence sur vos sollicitations
+            </Text>
+            <Text className="mt-1 text-[13px] leading-5" style={{ color: "#991B1B" }}>
+              En supprimant la donnée{" "}
+              <Text className="font-semibold">{fieldLabel}</Text> (catégorie{" "}
+              <Text className="font-semibold">{tierLabel}</Text>), vous{" "}
+              <Text className="font-semibold">ne pourrez plus être sollicité</Text>{" "}
+              pour les campagnes dont le professionnel a besoin de cette
+              information — et donc{" "}
+              <Text className="font-semibold">plus être rémunéré</Text> sur ces
+              mises en relation.
+            </Text>
+            <Text
+              className="mt-2.5 font-mono text-[11px] uppercase"
+              style={{ color: "#991B1B", letterSpacing: 0.7 }}
+            >
+              Vous pourrez la renseigner à nouveau à tout moment depuis cette page
+            </Text>
+          </View>
+        </View>
+
+        <View className="mt-1 flex-row gap-3">
+          <Pressable
+            disabled={busy}
+            onPress={onClose}
+            className="flex-1 items-center rounded-full border border-line bg-paper py-3.5 active:opacity-70"
+          >
+            <Text className="text-sm font-medium text-ink-3">Annuler</Text>
+          </Pressable>
+          <Pressable
+            disabled={busy}
+            onPress={onConfirm}
+            accessibilityRole="button"
+            accessibilityLabel="Confirmer la suppression de la donnée"
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-full py-3.5 active:opacity-80"
+            style={{ backgroundColor: busy ? "#FCA5A5" : "#DC2626" }}
+          >
+            <Ionicons name="trash-outline" size={14} color="#FFFFFF" />
+            <Text className="text-sm font-semibold text-paper" numberOfLines={1}>
+              {busy ? "…" : "Confirmer la suppression"}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </BottomSheet>
+  );
+}
+
+// Bandeau « section incomplète » (parité web MesDonnees) : visible dès qu'au
+// moins un champ du palier est rempli ET qu'un autre ne l'est pas. Simple
+// nudge non bloquant.
+function IncompleteTierBanner({
+  tierLabel,
+  missing,
+}: {
+  tierLabel: string;
+  missing: string[];
+}) {
+  const { c } = useTheme();
+  const lower = missing.map((l) => l.toLowerCase());
+  const list =
+    lower.length === 1
+      ? lower[0]
+      : `${lower.slice(0, -1).join(", ")} et ${lower[lower.length - 1]}`;
+  return (
+    <View
+      accessibilityRole="summary"
+      style={{
+        flexDirection: "row",
+        gap: 10,
+        alignItems: "flex-start",
+        marginHorizontal: 14,
+        marginTop: 12,
+        marginBottom: 2,
+        paddingHorizontal: 14,
+        paddingVertical: 11,
+        borderRadius: 12,
+        backgroundColor: "rgba(180,83,9,0.08)",
+        borderWidth: 1,
+        borderColor: "rgba(180,83,9,0.30)",
+      }}
+    >
+      <Text style={{ fontSize: 17, lineHeight: 20 }}>😊</Text>
+      <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 20, color: c.textSub }}>
+        Encore un petit effort pour valider la section{" "}
+        <Text style={{ fontWeight: "700", color: c.text }}>{tierLabel}</Text> — il
+        manque <Text style={{ fontWeight: "700", color: c.text }}>{list}</Text> 😊
+      </Text>
+    </View>
+  );
+}
+
+// Clé de palier valide pour le paramètre de route `?tier=` (envoyé par le
+// gate d'acceptation — components/accept-gate.tsx).
+function parseTierParam(v: unknown): TierKey | null {
+  return typeof v === "string" && (TIERS as string[]).includes(v)
+    ? (v as TierKey)
+    : null;
+}
+
 export default function Donnees() {
   const { c, isDark, mode } = useTheme();
   const q = useProspectDonnees();
@@ -1336,6 +1495,84 @@ export default function Donnees() {
   // Local-only — pour les regards par-dessus l'épaule. État volontairement
   // non persisté : on repart en clair à la prochaine ouverture.
   const [pseudonymized, setPseudonymized] = useState(false);
+  // Suppression d'une donnée individuelle (icône corbeille par champ).
+  const [confirmFieldDelete, setConfirmFieldDelete] = useState<{
+    tier: TierKey;
+    field: FieldDef;
+  } | null>(null);
+  // Vérification SMS du téléphone (ajout / changement de numéro).
+  const [phoneSheet, setPhoneSheet] = useState<{ initialPhone: string } | null>(
+    null,
+  );
+
+  // ── Défilement vers un palier (`?tier=<clé>`) ───────────────────────
+  // Parité web `scrollTier` : le gate d'acceptation ouvre Mes données sur
+  // le 1er palier manquant. On mémorise la cible, on consomme le paramètre,
+  // puis on scrolle dès que les positions des cards sont connues, on ouvre
+  // l'édition du palier et on l'entoure brièvement d'un halo.
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<Reanimated.ScrollView>(null);
+  const params = useLocalSearchParams<{ tier?: string }>();
+  const tierParam = parseTierParam(params.tier);
+  const [scrollTarget, setScrollTarget] = useState<TierKey | null>(null);
+  const [highlightTier, setHighlightTier] = useState<TierKey | null>(null);
+  const listY = useRef<number | null>(null);
+  const cardY = useRef<Partial<Record<TierKey, number>>>({});
+  const [layoutTick, setLayoutTick] = useState(0);
+
+  useEffect(() => {
+    if (!tierParam) return;
+    setScrollTarget(tierParam);
+    router.setParams({ tier: undefined });
+  }, [tierParam]);
+
+  useEffect(() => {
+    if (!scrollTarget || !q.data) return;
+    const base = listY.current;
+    const y = cardY.current[scrollTarget];
+    if (base == null || y == null) return;
+    const target = scrollTarget;
+    const removed = q.data.removedTiers.includes(target);
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, base + y - (insets.top + HEADER_BASE_HEIGHT) - 12),
+        animated: true,
+      });
+      setHighlightTier(target);
+      if (!removed) {
+        setEditing(target);
+        setDraft({});
+      }
+      setScrollTarget(null);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [scrollTarget, q.data, layoutTick, insets.top]);
+
+  useEffect(() => {
+    if (!highlightTier) return;
+    const t = setTimeout(() => setHighlightTier(null), 1800);
+    return () => clearTimeout(t);
+  }, [highlightTier]);
+
+  async function confirmDeleteField() {
+    if (!confirmFieldDelete) return;
+    const { tier, field } = confirmFieldDelete;
+    // Champ composite (tag+text) : on efface aussi le sous-champ détail
+    // pour garder un état cohérent (parité web).
+    const fields: Record<string, string> = { [field.key]: "" };
+    if (field.cfg?.type === "tag+text") fields[field.cfg.detailField] = "";
+    try {
+      await patch.mutateAsync({ tier, fields });
+      setConfirmFieldDelete(null);
+    } catch (e) {
+      Alert.alert(
+        "Suppression impossible",
+        e instanceof Error && e.message
+          ? e.message
+          : "Une erreur est survenue. Réessayez dans un instant.",
+      );
+    }
+  }
 
   // Action commune : exécute la mutation, ferme la sheet en cas de succès,
   // remonte une Alert en cas d'erreur (pas de promise non-traitée silencieuse
@@ -1387,7 +1624,11 @@ export default function Donnees() {
     : undefined;
 
   return (
-    <ScrollScreen onRefresh={q.refetch} compactExtras={compactExtras}>
+    <ScrollScreen
+      onRefresh={q.refetch}
+      compactExtras={compactExtras}
+      scrollRef={scrollRef}
+    >
       {/* Hero — card gradient violet (do.html). Eyebrow + titre + desc à
           gauche, tuile icône layers translucide à droite. */}
       <LinearGradient
@@ -1513,7 +1754,13 @@ export default function Donnees() {
           const { tierStats, reachedTiers, visibleCount, completeness, totalFields, filledFields } =
             computeStats(d);
           return (
-          <View className="gap-3">
+          <View
+            className="gap-3"
+            onLayout={(e) => {
+              listY.current = e.nativeEvent.layout.y;
+              setLayoutTick((t) => t + 1);
+            }}
+          >
             {/* Card « Niveau de palier » (do.html) — anneau circulaire +
                 récap, puis une barre de progression par palier dans la
                 couleur d'accent du palier. */}
@@ -1727,13 +1974,32 @@ export default function Donnees() {
               const hidden = d.hiddenTiers.includes(k);
               const removed = d.removedTiers.includes(k);
               const isEditing = editing === k;
+              const highlighted = highlightTier === k;
+              // Bandeau « il manque X » : palier partiellement rempli.
+              const missingLabels = FIELDS[k]
+                .filter((f) => row[f.key] == null || String(row[f.key]).trim() === "")
+                .map((f) => f.label);
+              const showIncomplete =
+                !hidden &&
+                !removed &&
+                !isEditing &&
+                missingLabels.length > 0 &&
+                missingLabels.length < FIELDS[k].length;
               return (
                 <View
                   key={k}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    if (cardY.current[k] !== y) {
+                      cardY.current[k] = y;
+                      setLayoutTick((t) => t + 1);
+                    }
+                  }}
                   className={`overflow-hidden rounded-[20px] bg-paper ${removed || hidden ? "opacity-60" : ""}`}
                   style={{
-                    borderWidth: 1,
-                    borderColor: c.borderSoft,
+                    // Halo temporaire quand on arrive via `?tier=`.
+                    borderWidth: highlighted ? 2.5 : 1,
+                    borderColor: highlighted ? c.accent : c.borderSoft,
                     shadowColor: "#000000",
                     shadowOpacity: 0.05,
                     shadowRadius: 16,
@@ -1799,6 +2065,13 @@ export default function Donnees() {
                       </View>
                     ) : null}
                   </View>
+
+                  {showIncomplete ? (
+                    <IncompleteTierBanner
+                      tierLabel={m.label}
+                      missing={missingLabels}
+                    />
+                  ) : null}
 
                   {/* Body — édition : padding standard (px-5 py-4).
                       Lecture : lignes pleine largeur séparées par des
@@ -1900,6 +2173,33 @@ export default function Donnees() {
                                   <Text className="text-[13px] text-ink-4">
                                     {f.hint}
                                   </Text>
+                                ) : null}
+                                {k === "identity" && f.key === "telephone" ? (
+                                  <Pressable
+                                    onPress={() =>
+                                      setPhoneSheet({
+                                        initialPhone: String(row.telephone ?? ""),
+                                      })
+                                    }
+                                    accessibilityRole="button"
+                                    className="mt-1 flex-row items-center justify-center gap-2 self-start rounded-full border border-line bg-paper px-4 py-2 active:opacity-70"
+                                  >
+                                    <Ionicons
+                                      name="chatbubble-ellipses-outline"
+                                      size={14}
+                                      color={c.accVioletDeep}
+                                    />
+                                    <Text
+                                      className="text-[13px] font-semibold"
+                                      style={{ color: c.accVioletDeep }}
+                                    >
+                                      {String(row.telephone ?? "").trim() === ""
+                                        ? "Ajouter et vérifier par SMS"
+                                        : d.identityMeta?.phoneVerifiedAt
+                                          ? "Changer de numéro"
+                                          : "Vérifier par SMS"}
+                                    </Text>
+                                  </Pressable>
                                 ) : null}
                               </View>
                             );
@@ -2115,16 +2415,29 @@ export default function Donnees() {
                           // pseudonymisé pour rester cohérent.
                           const isPhone =
                             k === "identity" && f.key === "telephone";
+                          const phoneIsVerified = Boolean(
+                            d.identityMeta?.phoneVerifiedAt,
+                          );
                           const phoneVerified =
-                            isPhone &&
-                            Boolean(d.identityMeta?.phoneVerifiedAt) &&
-                            main !== "" &&
-                            !isMasked;
+                            isPhone && phoneIsVerified && main !== "" && !isMasked;
+                          // Chip « Non vérifié » (parité web) : numéro présent
+                          // mais pas (encore) validé par SMS.
+                          const phoneUnverified =
+                            isPhone && !phoneIsVerified && main !== "" && !isMasked;
                           // Champ vide & éditable → pastille « Ajouter »
-                          // (do.html) qui ouvre l'édition du palier. Champ
-                          // read-only (téléphone) vide → on garde « — ».
+                          // (do.html) qui ouvre l'édition du palier. Téléphone
+                          // vide → « Ajouter » ouvre la vérification SMS.
+                          // Autre champ read-only (région) vide → « — ».
                           const isEmpty = main === "";
-                          const showAddButton = isEmpty && !f.readOnly;
+                          const showAddButton = isEmpty && (!f.readOnly || isPhone);
+                          // Corbeille par champ (parité web) : uniquement si
+                          // une valeur existe et que le palier est actif. Le
+                          // téléphone n'est pas supprimable (PATCH refusé côté
+                          // serveur) → icône « changer de numéro » à la place.
+                          const canDeleteField =
+                            !isEmpty && !isPhone && !hidden && !removed;
+                          const canChangePhone =
+                            isPhone && !isEmpty && !removed;
                           const isLast = idx === FIELDS[k].length - 1;
                           return (
                             <View
@@ -2156,11 +2469,15 @@ export default function Donnees() {
                               </Text>
                               <View
                                 className="flex-row items-center justify-end"
-                                style={{ gap: 7, maxWidth: "55%" }}
+                                style={{ gap: 7, maxWidth: "62%" }}
                               >
                                 {showAddButton ? (
                                   <AddPill
-                                    onPress={() => setEditing(k)}
+                                    onPress={() =>
+                                      isPhone
+                                        ? setPhoneSheet({ initialPhone: "" })
+                                        : setEditing(k)
+                                    }
                                     label={f.label}
                                   />
                                 ) : (
@@ -2193,6 +2510,89 @@ export default function Donnees() {
                                       color={c.good}
                                     />
                                   </View>
+                                ) : null}
+                                {phoneUnverified ? (
+                                  <Pressable
+                                    onPress={() =>
+                                      setPhoneSheet({ initialPhone: main })
+                                    }
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Téléphone non vérifié — vérifier par SMS"
+                                    hitSlop={6}
+                                    style={{
+                                      paddingVertical: 2,
+                                      paddingHorizontal: 7,
+                                      borderRadius: 999,
+                                      backgroundColor: "rgba(217,119,6,0.14)",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 10.5,
+                                        fontWeight: "600",
+                                        color: c.warn,
+                                      }}
+                                    >
+                                      Non vérifié
+                                    </Text>
+                                  </Pressable>
+                                ) : null}
+                                {canChangePhone ? (
+                                  <Pressable
+                                    onPress={() =>
+                                      setPhoneSheet({ initialPhone: main })
+                                    }
+                                    accessibilityRole="button"
+                                    accessibilityLabel={
+                                      phoneIsVerified
+                                        ? "Changer de numéro (vérification SMS)"
+                                        : "Vérifier le téléphone par SMS"
+                                    }
+                                    hitSlop={6}
+                                    className="items-center justify-center active:opacity-70"
+                                    style={{
+                                      width: 30,
+                                      height: 30,
+                                      borderRadius: 999,
+                                      borderWidth: 1,
+                                      borderColor: c.borderSoft,
+                                      backgroundColor: c.surface,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Ionicons
+                                      name="pencil-outline"
+                                      size={13}
+                                      color={c.textSub}
+                                    />
+                                  </Pressable>
+                                ) : null}
+                                {canDeleteField ? (
+                                  <Pressable
+                                    onPress={() =>
+                                      setConfirmFieldDelete({ tier: k, field: f })
+                                    }
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Supprimer ${f.label}`}
+                                    hitSlop={6}
+                                    className="items-center justify-center active:opacity-70"
+                                    style={{
+                                      width: 30,
+                                      height: 30,
+                                      borderRadius: 999,
+                                      borderWidth: 1,
+                                      borderColor: c.badSoft,
+                                      backgroundColor: c.surface,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Ionicons
+                                      name="trash-outline"
+                                      size={13}
+                                      color={c.bad}
+                                    />
+                                  </Pressable>
                                 ) : null}
                               </View>
                             </View>
@@ -2407,6 +2807,21 @@ export default function Donnees() {
         onConfirm={() =>
           confirmDelete && void runTierAction(confirmDelete, "delete")
         }
+      />
+      <FieldDeleteSheet
+        visible={confirmFieldDelete !== null}
+        fieldLabel={confirmFieldDelete?.field.label ?? ""}
+        tierLabel={
+          confirmFieldDelete ? TIER_META[confirmFieldDelete.tier].label : ""
+        }
+        busy={patch.isPending}
+        onClose={() => setConfirmFieldDelete(null)}
+        onConfirm={() => void confirmDeleteField()}
+      />
+      <PhoneVerifySheet
+        visible={phoneSheet !== null}
+        initialPhone={phoneSheet?.initialPhone}
+        onClose={() => setPhoneSheet(null)}
       />
     </ScrollScreen>
   );

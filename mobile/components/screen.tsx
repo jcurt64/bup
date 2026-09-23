@@ -2,7 +2,7 @@
 // (fraîcheur active §6.2), porte d'état React Query (loading/erreur 401/
 // vide), carte et ligne de stat. Évite la répétition sur tous les
 // onglets prospect/pro.
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, type Ref, useCallback, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -175,6 +175,7 @@ export function ScrollScreen({
   hero,
   compactExtras,
   headerVariant = "prospect",
+  scrollRef,
 }: {
   children: ReactNode;
   onRefresh?: () => Promise<unknown>;
@@ -185,6 +186,9 @@ export function ScrollScreen({
   compactExtras?: CompactExtra[];
   /** "pro" → header avec boutons lancer/recharger + drawer pro. */
   headerVariant?: "prospect" | "pro";
+  /** Ref optionnelle sur le ScrollView (ex. défilement programmatique vers
+   *  une section — Mes données `?tier=`). */
+  scrollRef?: Ref<Animated.ScrollView>;
 }) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
@@ -216,6 +220,7 @@ export function ScrollScreen({
       <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
         <GridBg />
         <Animated.ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerStyle={{
             padding: 20,

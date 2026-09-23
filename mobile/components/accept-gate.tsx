@@ -148,6 +148,14 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
         missingTierNums={acceptGate?.missingTierNums ?? []}
         onClose={() => setAcceptGate(null)}
         onGoToData={() => {
+          // Défilement direct vers le 1er palier manquant (parité web
+          // `setDonneesScrollTier(missingTierNums[0])`) : donnees.tsx lit
+          // le paramètre `?tier=<clé>` puis scrolle et ouvre ce palier.
+          const firstMissing = acceptGate
+            ? [...acceptGate.missingTierNums].sort((a, b) => a - b)[0]
+            : undefined;
+          const tierKey =
+            firstMissing != null ? TIER_NUM_TO_KEY[firstMissing] : undefined;
           if (acceptGate) {
             setPendingAccept({
               relationId: acceptGate.relationId,
@@ -155,7 +163,11 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
             });
           }
           setAcceptGate(null);
-          router.push("/(prospect)/donnees");
+          router.push(
+            tierKey
+              ? { pathname: "/(prospect)/donnees", params: { tier: tierKey } }
+              : "/(prospect)/donnees",
+          );
         }}
       />
       <AcceptReadySheet
