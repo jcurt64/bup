@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { BuuppLoader } from "../components/loader";
 import { hasSeenOnboarding } from "../lib/onboarding";
@@ -28,6 +28,23 @@ export default function Index() {
   }
 
   if (role.isPending) return <Splash />;
+  // Rôle illisible (réseau, jeton pas prêt…) : on NE devine PAS depuis
+  // l'intention locale — un pro se retrouverait dans l'espace prospect.
+  if (role.isError) {
+    return (
+      <View className="flex-1 items-center justify-center gap-4 bg-ivory px-8">
+        <Text className="text-center text-base text-ink-3">
+          Impossible de charger votre espace. Vérifiez votre connexion.
+        </Text>
+        <Pressable
+          onPress={() => role.refetch()}
+          className="rounded-full bg-ink px-6 py-3 active:opacity-80"
+        >
+          <Text className="font-semibold text-paper">Réessayer</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (role.data?.role === "pro") return <Redirect href="/(pro)/overview" />;
   if (role.data?.role === "prospect")
     return <Redirect href="/(prospect)/portefeuille" />;

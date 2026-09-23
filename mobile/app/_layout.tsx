@@ -68,6 +68,21 @@ const queryClient = new QueryClient({
   },
 });
 
+// Vide le cache React Query dès que l'utilisateur Clerk change (déconnexion,
+// changement de compte, expiration de session) : aucune donnée — ni le rôle —
+// d'un compte ne peut fuiter vers le suivant, quel que soit le chemin.
+function SessionCacheGuard() {
+  const { userId, isLoaded } = useAuth();
+  const qc = useQueryClient();
+  const prev = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (prev.current !== undefined && prev.current !== userId) qc.clear();
+    prev.current = userId ?? null;
+  }, [userId, isLoaded, qc]);
+  return null;
+}
+
 function PushBridge() {
   const banner = usePushBanner();
   const { getToken, isSignedIn } = useAuth();
@@ -157,6 +172,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <ThemeProvider>
           <PushBannerProvider>
+            <SessionCacheGuard />
             <PushBridge />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />

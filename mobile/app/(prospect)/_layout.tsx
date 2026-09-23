@@ -8,10 +8,14 @@ import { Redirect, Tabs } from "expo-router";
 import { AcceptGateProvider } from "../../components/accept-gate";
 import FloatingTabBar from "../../components/floating-tab-bar";
 import { FlashSheetProvider } from "../../components/flash-sheet-context";
+import { useRole } from "../../lib/queries";
 
 export default function ProspectLayout() {
   const { isLoaded, isSignedIn } = useAuth();
+  const role = useRole();
   if (isLoaded && !isSignedIn) return <Redirect href="/(auth)/sign-in" />;
+  // Garde de rôle : un compte pro n'affiche jamais l'espace prospect.
+  if (role.data?.role === "pro") return <Redirect href="/(pro)/overview" />;
 
   return (
     <FlashSheetProvider>

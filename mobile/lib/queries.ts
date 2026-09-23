@@ -2,6 +2,7 @@
 // du wrapper /api/*. 1 queryKey par endpoint ; invalidation après
 // mutation = équivalent mobile des events web. Refetch on focus/reconnect
 // réglé dans _layout. Shapes alignées sur les routes réelles du web.
+import { useAuth } from "@clerk/clerk-expo";
 import {
   keepPreviousData,
   useMutation,
@@ -32,8 +33,19 @@ function useGet<T>(key: (string | number)[], path: string, staleMs = 30_000) {
 // — Session / rôle —
 export const useMe = () =>
   useGet<Record<string, unknown>>(["me"], "/api/me");
-export const useRole = () =>
-  useGet<{ role: Role }>(["me", "role"], "/api/me/role", 60_000);
+// Rôle — clé indexée sur l'utilisateur Clerk et SANS keepPreviousData :
+// après un changement de compte, jamais de rôle hérité du compte précédent.
+export const useRole = () => {
+  const api = useApi();
+  const { userId } = useAuth();
+  return useQuery({
+    queryKey: ["me", "role", userId ?? "anon"],
+    queryFn: () => api<{ role: Role }>("/api/me/role"),
+    enabled: !!userId,
+    staleTime: 60_000,
+    retry: 2,
+  });
+};
 
 // — Notifications (prospect ET pro : /api/me/notifications) —
 export type Notif = {
