@@ -21,7 +21,7 @@ import {
   useContactEmail,
   type ProContactRow,
 } from "../lib/queries-pro-contacts";
-import { useContactPalette } from "./contact-detail-sheet";
+import { useContactPalette } from "./contact-style";
 
 type Tpl = { label: string; subject: string; body: string };
 

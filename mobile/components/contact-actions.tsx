@@ -18,7 +18,7 @@ import { Alert, Linking, Modal, Pressable, Text, View } from "react-native";
 import { useApi } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import { useContactReveal, type ProContactRow } from "../lib/queries-pro-contacts";
-import { useContactPalette } from "./contact-detail-sheet";
+import { useContactPalette } from "./contact-style";
 import { EmailComposerSheet } from "./email-composer-sheet";
 
 type Intent = "call" | "email" | "sms" | "whatsapp";

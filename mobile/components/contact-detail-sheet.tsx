@@ -19,7 +19,14 @@ import { useApi } from "../lib/api";
 import type { ProContactDetails, ProDetailTier } from "../lib/queries";
 import type { ProContactRow } from "../lib/queries-pro-contacts";
 import { ContactActions, maskPhoneDisplay } from "./contact-actions";
-import { avatarGradient, categoryStyle } from "./contact-cards";
+import {
+  avatarGradient,
+  categoryStyle,
+  initials,
+  useContactPalette,
+} from "./contact-style";
+
+export { initials, useContactPalette };
 
 // Métadonnées d'affichage par palier (icône Ionicons + couleur + n°).
 const TIER_META: Record<string, { n: number; color: string; ion: keyof typeof Ionicons.glyphMap }> = {
@@ -39,49 +46,7 @@ const PRIORITY_OPTS: { v: number; label: string; color: string }[] = [
 const priorityLabel = (v: number | null) =>
   PRIORITY_OPTS.find((o) => o.v === v)?.label ?? null;
 
-// ── Palette dérivée du thème ──────────────────────────────────────────────
-// Mappe les couleurs « forest » de la maquette vers les tokens du thème actif.
-export function useContactPalette() {
-  const { c, isDark } = useTheme();
-  return {
-    isDark,
-    card: c.surface, // #fff
-    border: c.borderSoft, // #e7e1d2
-    text: c.text, // #0a1628
-    sub: c.textSub, // #6b7384
-    muted: c.textMuted, // #9aa1ad
-    accent: c.accent, // #2f8d5b
-    accentInk: c.accentInk, // #1d6b42
-    accentSoft: c.accentSoft, // #eaf5ee
-    accentBorder: c.accent + (isDark ? "55" : "40"), // #cfe9d8 (accent translucide)
-    field: c.surface2, // #f4f1e9 (encart e-mail watermark)
-    line: c.track, // #ece7d9 (filets)
-    coral: c.accCoral, // #dd5f48 (action e-mail)
-    blue: c.accBlue, // #3f7fd6 (action SMS)
-    // Bouton sombre neutre (× Sans filtre / Voir détails / Fermer). Dans la
-    // maquette forest c'est un foncé navy/quasi-noir (PAS l'accent vert) → on
-    // utilise c.ink (neutre foncé teinté par thème : navy buupp, quasi-noir
-    // forest, prune fushia). En sombre, c.ink est clair → on inverse en pastille
-    // claire (c.btnBg) pour garder le contraste.
-    ctaBg: isDark ? c.btnBg : c.ink,
-    ctaText: c.btnText,
-    palier: c.ivory2, // pastille « P1 »
-    ink5: c.ink5,
-    sheetBg: c.bg, // fond de la sheet (= ivoire du thème, #f4f1e9 en forest)
-    avatar: (isDark ? [c.accent, c.violet] : [c.accent, c.accentInk]) as [
-      string,
-      string,
-    ],
-  };
-}
 
-// Initiales (2 lettres max) à partir du nom affiché.
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 // Ligne « label / valeur » de la carte d'identification.
 function InfoRow({

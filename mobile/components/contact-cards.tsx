@@ -8,9 +8,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, Text, View } from "react-native";
 
 import { ContactActions } from "./contact-actions";
-import { initials, useContactPalette } from "./contact-detail-sheet";
+import {
+  avatarGradient,
+  categoryStyle,
+  initials,
+  useContactPalette,
+} from "./contact-style";
 import type { ProContact } from "../lib/queries";
 import type { ContactEvaluation, ProContactRow } from "../lib/queries-pro-contacts";
+
+export { avatarGradient, categoryStyle };
 
 // « il y a 8 h » / « 29 mai » selon l'ancienneté.
 export function receivedLabel(iso: string | null): string {
@@ -33,40 +40,7 @@ export function closeLabel(iso: string | null | undefined): string | null {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
-// Couleur de catégorie par objectif de campagne (parité web Pro.jsx) :
-// accent latéral + pastille. Palette désaturée « épuré, jamais criard ».
-type CategoryStyle = { accent: string; label: string; ion: keyof typeof Ionicons.glyphMap };
-const CATEGORY: Record<string, CategoryStyle> = {
-  contact: { accent: "#4F46E5", label: "Contact", ion: "mail-outline" },
-  rdv: { accent: "#0D9488", label: "Rendez-vous", ion: "calendar-outline" },
-  evt: { accent: "#D97706", label: "Événementiel", ion: "sparkles-outline" },
-  dl: { accent: "#DB2777", label: "Téléchargement", ion: "download-outline" },
-  survey: { accent: "#7C3AED", label: "Études & avis", ion: "document-text-outline" },
-  promo: { accent: "#E11D48", label: "Promotions", ion: "gift-outline" },
-  addigital: { accent: "#0891B2", label: "Publicité", ion: "globe-outline" },
-};
-export function categoryStyle(objectiveId?: string | null): CategoryStyle {
-  return (objectiveId && CATEGORY[objectiveId]) || { accent: "#6B7280", label: "Campagne", ion: "pricetag-outline" };
-}
 
-// Gradient d'avatar (cercle d'initiales) varié par prospect — teintes vives,
-// initiales blanches. Hash stable sur le nom (parité avec le web).
-const AVATAR_GRADIENTS: [string, string][] = [
-  ["#6366F1", "#4F46E5"], // indigo
-  ["#14B8A6", "#0D9488"], // teal
-  ["#F59E0B", "#D97706"], // ambre
-  ["#EC4899", "#DB2777"], // rose
-  ["#8B5CF6", "#7C3AED"], // violet
-  ["#06B6D4", "#0891B2"], // cyan
-  ["#22C55E", "#16A34A"], // vert
-  ["#FB7185", "#E11D48"], // rose foncé
-];
-export function avatarGradient(name: string): [string, string] {
-  const s = name || "?";
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h += s.charCodeAt(i);
-  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
-}
 
 // ── Filtres cumulatifs (AND) appliqués côté client ────────────────────────
 // Parité web (Pro.jsx FILTERS) : F2 = signalement « Atteint » du pro (et non
