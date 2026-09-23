@@ -507,27 +507,61 @@ export function EditCampaignSheet({
               </>
             ) : null}
 
-            {/* Pied : Annuler / Enregistrer */}
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 28, paddingTop: 22, borderTopWidth: 1, borderTopColor: C.line }}>
+            {/* Pied : Annuler (secondaire) / Enregistrer (principal, dégradé
+                indigo de la modale). Même hauteur, coins pilule, état
+                désactivé explicite tant qu'aucun élargissement n'est choisi. */}
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 26, paddingTop: 20, borderTopWidth: 1, borderTopColor: C.line }}>
               <Pressable
                 onPress={() => !edit.isPending && onClose()}
-                style={{ paddingHorizontal: 22, paddingVertical: 15, borderRadius: 13, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card }}
+                accessibilityRole="button"
+                style={({ pressed }) => ({
+                  flex: 1, height: 52, borderRadius: 999, alignItems: "center", justifyContent: "center",
+                  borderWidth: 1.5, borderColor: C.line, backgroundColor: pressed ? C.paperWarm : "#fff",
+                })}
               >
                 <Text style={{ fontSize: 15, fontWeight: "600", color: C.ink2 }}>Annuler</Text>
               </Pressable>
               <Pressable
                 onPress={submit}
                 disabled={!canSubmit}
-                style={{
-                  flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-                  paddingHorizontal: 22, paddingVertical: 15, borderRadius: 13, backgroundColor: C.ink,
-                  opacity: canSubmit ? 1 : 0.5,
-                }}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !canSubmit }}
+                style={({ pressed }) => ({
+                  flex: 1.6, height: 52, borderRadius: 999, overflow: "hidden",
+                  opacity: canSubmit ? (pressed ? 0.85 : 1) : 1,
+                  shadowColor: C.indigoD, shadowOpacity: canSubmit ? 0.3 : 0, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
+                  elevation: canSubmit ? 4 : 0,
+                })}
               >
-                <Ionicons name="save-outline" size={16} color="#fff" />
-                <Text style={{ fontSize: 15, fontWeight: "600", color: "#fff" }}>{edit.isPending ? "Enregistrement…" : "Enregistrer les changements"}</Text>
+                {canSubmit ? (
+                  <LinearGradient
+                    colors={[C.indigoD, C.indigo]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  >
+                    {edit.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    )}
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+                      {edit.isPending ? "Enregistrement…" : "Enregistrer"}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.paperWarm, borderRadius: 999 }}>
+                    <Ionicons name="checkmark-circle-outline" size={18} color={C.ink4} />
+                    <Text style={{ fontSize: 15, fontWeight: "600", color: C.ink4 }}>Enregistrer</Text>
+                  </View>
+                )}
               </Pressable>
             </View>
+            {!canSubmit && d ? (
+              <Text style={{ marginTop: 10, fontSize: 11.5, color: C.ink4, textAlign: "center" }}>
+                Élargissez au moins un critère pour enregistrer.
+              </Text>
+            ) : null}
           </ScrollView>
         </Pressable>
       </Pressable>

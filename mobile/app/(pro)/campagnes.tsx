@@ -144,7 +144,7 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
       <View pointerEvents="none" style={{ position: "absolute", top: -40, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: tc.c, opacity: 0.05 }} />
 
       {/* En-tête : tuile d'icône + nom + statut + code */}
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
+      <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
         <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: tc.soft }}>
           <Ionicons name={TYPE_ION[sty.icon] ?? "ellipse-outline"} size={23} color={tc.c} />
         </View>
@@ -157,33 +157,36 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
             </View>
           </View>
 
-          {code ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", marginTop: 8, paddingLeft: 10, paddingRight: 6, paddingVertical: 5, borderRadius: 10, backgroundColor: LC.amberXsoft, borderWidth: 1, borderColor: LC.codeBorder }}>
-              <Ionicons name="lock-closed" size={11} color={LC.ck} />
-              <Text style={{ fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ck, fontWeight: "600" }}>Code buupp</Text>
-              <Text style={{ fontSize: 12.5, fontWeight: "700", letterSpacing: 1, color: LC.cv }}>{code}</Text>
-              <Pressable
-                onPress={() => Clipboard.setStringAsync(String(code))}
-                hitSlop={6}
-                style={{ width: 24, height: 24, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: LC.codeBorder }}
-              >
-                <Ionicons name="copy-outline" size={12} color={LC.ck} />
-              </Pressable>
-            </View>
-          ) : null}
-
-          <Text style={{ marginTop: 8, fontSize: 12.5, color: LC.ink3 }} numberOfLines={2}>
-            {camp.objectiveLabel} · créée le <Text style={{ color: LC.ink2, fontWeight: "600" }}>{dateShort(camp.createdAt)}</Text> · coût moyen <Text style={{ color: LC.ink2, fontWeight: "600" }}>{eur(camp.avgCostEur)}</Text>
-          </Text>
-
-          {camp.brief ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
-              <Ionicons name="pricetag-outline" size={13} color={tc.c} />
-              <Text className="font-serif-italic" style={{ fontSize: 14, color: tc.c, flexShrink: 1 }} numberOfLines={1}>« {camp.brief} »</Text>
-            </View>
-          ) : null}
         </View>
       </View>
+
+      {/* Code buupp, infos et brief : pleine largeur, centrés dans la carte
+          (hors de la colonne décalée par la tuile d'icône). */}
+      {code ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "center", marginTop: 14, paddingLeft: 10, paddingRight: 6, paddingVertical: 5, borderRadius: 10, backgroundColor: LC.amberXsoft, borderWidth: 1, borderColor: LC.codeBorder }}>
+          <Ionicons name="lock-closed" size={11} color={LC.ck} />
+          <Text style={{ fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ck, fontWeight: "600" }}>Code buupp</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: "700", letterSpacing: 1, color: LC.cv }}>{code}</Text>
+          <Pressable
+            onPress={() => Clipboard.setStringAsync(String(code))}
+            hitSlop={6}
+            style={{ width: 24, height: 24, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: LC.codeBorder }}
+          >
+            <Ionicons name="copy-outline" size={12} color={LC.ck} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      <Text style={{ marginTop: 10, fontSize: 12.5, lineHeight: 18, color: LC.ink3, textAlign: "center" }} numberOfLines={2}>
+        {camp.objectiveLabel} · créée le <Text style={{ color: LC.ink2, fontWeight: "600" }}>{dateShort(camp.createdAt)}</Text> · coût moyen <Text style={{ color: LC.ink2, fontWeight: "600" }}>{eur(camp.avgCostEur)}</Text>
+      </Text>
+
+      {camp.brief ? (
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 }}>
+          <Ionicons name="pricetag-outline" size={13} color={tc.c} />
+          <Text className="font-serif-italic" style={{ fontSize: 14, color: tc.c, flexShrink: 1 }} numberOfLines={1}>« {camp.brief} »</Text>
+        </View>
+      ) : null}
 
       {/* Séparateur */}
       <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: LC.line }} />
@@ -214,7 +217,7 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
       {/* Actions */}
       <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {editable ? <LcAct icon="create-outline" label="Modifier" onPress={() => onEdit(camp.id)} /> : null}
-        <LcAct icon="copy-outline" label="Dupliquer" onPress={() => router.push("/(pro)/creation")} />
+        <LcAct icon="copy-outline" label="Dupliquer" onPress={() => router.push(`/(pro)/objectif?duplicate=${camp.id}` as never)} />
         <LcAct icon="arrow-forward" label="Détails" primary onPress={() => router.push(`/(pro)/campagne?id=${camp.id}` as never)} />
       </View>
     </View>
