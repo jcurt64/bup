@@ -7,7 +7,7 @@
 // exclu du projet) ; titre en Fraunces (font-serif).
 //
 // Règle métier inchangée : on ne peut qu'ÉLARGIR (jamais restreindre) — lien
-// Vitrine, zone géo, tranche d'âge — sans re-solliciter de prospects. Le
+// Vitrine, zone géo, tranche d'âge, niveau de vérification, fiabilité minimum. Le
 // serveur applique le garde-fou (cf. lib/campaigns/edit-targeting.ts côté web).
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -51,7 +51,24 @@ const ERR_LABELS: Record<string, string> = {
   geo_resolve_failed: "Impossible de résoudre la zone élargie. Réessayez.",
   campaign_closed: "Cette campagne est clôturée : elle n'est plus modifiable.",
   nothing_to_update: "Aucune modification à enregistrer.",
+  verif_not_widening: "Le niveau de vérification ne peut être qu'abaissé, pas durci.",
+  verif_invalid: "Niveau de vérification invalide.",
+  fiabilite_not_widening: "Le seuil de fiabilité ne peut être que baissé, pas relevé.",
+  fiabilite_invalid: "Seuil de fiabilité invalide.",
 };
+
+// Niveaux de vérification (du plus large au plus strict) — libellés web.
+const EDIT_VERIF_OPTS: { id: string; name: string; sub: string }[] = [
+  { id: "p0", name: "Basique", sub: "Compte créé — email vérifié" },
+  { id: "p1", name: "Vérifié", sub: "Numéro de téléphone vérifié par SMS" },
+  { id: "p2", name: "Certifié confiance", sub: "Rendez-vous physique accepté" },
+];
+// Seuils de fiabilité minimum (du plus large au plus strict).
+const EDIT_FIAB_OPTS: { v: number; name: string; sub: string }[] = [
+  { v: 0, name: "Toutes", sub: "Aucun filtre de fiabilité" },
+  { v: 60, name: "Fiabilité bonne", sub: "≥ 60 / 100" },
+  { v: 80, name: "Fiabilité excellente", sub: "≥ 80 / 100" },
+];
 
 type GeoStep = { lab: string; sub: string; kind: "around" | "zone" | "national"; radiusKm?: number; level?: "dept" | "region" | "ville" };
 type GeoModel = { steps: GeoStep[]; currentIndex: number; curLabel: string };
@@ -103,6 +120,71 @@ function parseErrCode(e: unknown): string {
 // Libellé « mono » de la maquette (capitales + interlettrage).
 const MONO = { letterSpacing: 1.3, textTransform: "uppercase" as const };
 
+// Cartes de niveau (vérification / fiabilité) : les options plus strictes que
+// l'actuelle sont verrouillées (élargir seulement, parité modale web).
+function LevelCards({
+  title,
+  current,
+  options,
+  help,
+}: {
+  title: string;
+  current: string;
+  options: {
+    key: string;
+    name: string;
+    sub: string;
+    locked: boolean;
+    isBase: boolean;
+    selected: boolean;
+    onPress: () => void;
+  }[];
+  help: string;
+}) {
+  return (
+    <View style={{ marginTop: 22 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <Text style={{ fontSize: 11, color: C.ink3, ...MONO }}>{title}</Text>
+        <View style={{ marginLeft: "auto", backgroundColor: C.indigoSoft, borderWidth: 1, borderColor: "rgba(90,87,214,0.22)", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 }}>
+          <Text style={{ fontSize: 10, color: C.indigoD, ...MONO }}>Actuel · {current}</Text>
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        {options.map((o) => {
+          const added = o.selected && !o.isBase;
+          return (
+            <Pressable
+              key={o.key}
+              disabled={o.locked}
+              onPress={o.onPress}
+              accessibilityState={{ disabled: o.locked, selected: o.selected }}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1.5,
+                borderColor: added ? C.indigo : o.selected ? C.ink : o.locked ? C.lineSoft : C.line,
+                backgroundColor: added ? C.indigoXsoft : o.locked ? C.paper : "#fff",
+              }}
+            >
+              <Ionicons
+                name={o.locked ? "lock-closed" : o.selected ? "checkmark-circle" : "ellipse-outline"}
+                size={16}
+                color={o.locked ? C.ink4 : added ? C.indigo : o.selected ? C.ink : C.ink3}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: o.locked ? C.ink4 : added ? C.indigoD : C.ink }}>
+                  {o.name}
+                  {o.isBase ? <Text style={{ fontSize: 10, color: C.ink3 }}>{"  "}ACTUEL</Text> : null}
+                </Text>
+                <Text style={{ fontSize: 11.5, color: C.ink3, marginTop: 2 }}>{o.sub}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 12, color: C.ink3, marginTop: 9, lineHeight: 17 }}>{help}</Text>
+    </View>
+  );
+}
+
 export function EditCampaignSheet({
   campId,
   visible,
@@ -127,6 +209,8 @@ export function EditCampaignSheet({
   const [chosenIndex, setChosenIndex] = useState(0);
   const [ages, setAges] = useState<Set<string>>(() => new Set());
   const [locked, setLocked] = useState<Set<string>>(() => new Set());
+  const [verif, setVerif] = useState("p0");
+  const [minFiab, setMinFiab] = useState(0);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -144,6 +228,8 @@ export function EditCampaignSheet({
     setLocked(new Set(init));
     const gm = buildGeoModel(d);
     setChosenIndex(gm.currentIndex);
+    setVerif(d.targeting?.verifLevel || "p0");
+    setMinFiab(Number(d.targeting?.minFiabilite ?? 0));
     setErr(null);
     setLoadedId(d.id);
   }, [d, loadedId]);
@@ -170,7 +256,13 @@ export function EditCampaignSheet({
   const selectedAges = AGE_RANGES_NO_TOUS.filter((b) => ages.has(b));
   const agesChanged = selectedAges.length > locked.size;
   const geoChanged = !!geoModel && chosenIndex > ci;
-  const canSubmit = !edit.isPending && (siteChanged || agesChanged || geoChanged);
+  const baseVerif = d?.targeting?.verifLevel || "p0";
+  const baseVerifRank = Math.max(0, EDIT_VERIF_OPTS.findIndex((v) => v.id === baseVerif));
+  const baseFiab = Number(d?.targeting?.minFiabilite ?? 0);
+  const verifChanged = verif !== baseVerif;
+  const fiabChanged = minFiab !== baseFiab;
+  const canSubmit =
+    !edit.isPending && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged);
 
   const geoHelp = geoChanged
     ? `Cible élargie à « ${geoModel!.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
@@ -183,6 +275,8 @@ export function EditCampaignSheet({
     if (siteChanged) body.websiteUrl = "https://" + siteTrim;
     if (agesChanged) body.ages = selectedAges;
     if (geoChanged) body.geo = geoPayloadForStep(geoModel!.steps[chosenIndex]);
+    if (verifChanged) body.verifLevel = verif;
+    if (fiabChanged) body.minFiabilite = minFiab;
     if (Object.keys(body).length === 0) {
       setErr(ERR_LABELS.nothing_to_update);
       return;
@@ -372,6 +466,38 @@ export function EditCampaignSheet({
                     </View>
                   </View>
                 </View>
+
+                {/* 4) Niveau de vérification minimum — abaisser seulement */}
+                <LevelCards
+                  title="Niveau de vérification minimum"
+                  current={EDIT_VERIF_OPTS[baseVerifRank]?.name ?? "—"}
+                  options={EDIT_VERIF_OPTS.map((v, i) => ({
+                    key: v.id,
+                    name: v.name,
+                    sub: v.sub,
+                    locked: i > baseVerifRank,
+                    isBase: v.id === baseVerif,
+                    selected: verif === v.id,
+                    onPress: () => setVerif(v.id),
+                  }))}
+                  help="Vous pouvez abaisser l'exigence pour élargir la cible, jamais la durcir."
+                />
+
+                {/* 5) Fiabilité minimum — baisser le seuil seulement */}
+                <LevelCards
+                  title="Fiabilité minimum"
+                  current={EDIT_FIAB_OPTS.find((o) => o.v === baseFiab)?.name ?? `≥ ${baseFiab}`}
+                  options={EDIT_FIAB_OPTS.map((o) => ({
+                    key: String(o.v),
+                    name: o.name,
+                    sub: o.sub,
+                    locked: o.v > baseFiab,
+                    isBase: o.v === baseFiab,
+                    selected: minFiab === o.v,
+                    onPress: () => setMinFiab(o.v),
+                  }))}
+                  help="Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé."
+                />
 
                 {err ? (
                   <View style={{ marginTop: 16, padding: 11, borderRadius: 12, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}>

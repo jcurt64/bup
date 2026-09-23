@@ -884,6 +884,8 @@ export type ProCampaignDetail = {
     ages: string[];
     verifLevel: string | null;
     verifLabel: string;
+    /** Seuil de fiabilité minimum (0 / 60 / 80). */
+    minFiabilite?: number;
     keywords: string[];
     kwFilter: boolean;
     poolLabel: string;
@@ -934,6 +936,10 @@ export type EditCampaignBody = {
   websiteUrl?: string;
   ages?: string[];
   geo?: EditCampaignGeo;
+  /** Niveau de vérification minimum — abaisser seulement (p2 → p1 → p0). */
+  verifLevel?: string;
+  /** Seuil de fiabilité minimum — baisser seulement (80 → 60 → 0). */
+  minFiabilite?: number;
 };
 export type EditCampaignResult = {
   ok: true;
