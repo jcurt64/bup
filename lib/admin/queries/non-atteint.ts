@@ -12,6 +12,7 @@
  * attendu (qq dizaines max).
  */
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { ageFromBirth } from "@/lib/prospect/naissance";
 
 export type AlertItem = {
   id: string;
@@ -57,31 +58,8 @@ const AGE_BUCKETS: Array<{ label: string; min: number; max: number }> = [
 ];
 
 function ageFromNaissance(s: string | null): number | null {
-  if (!s) return null;
-  // Le champ `naissance` est stocké en `text` au format français
-  // DD/MM/YYYY (cf. contrainte SQL `prospect_identity_naissance_format_chk`).
-  // On accepte aussi YYYY-MM-DD pour la robustesse future.
-  let day: number, month: number, year: number;
-  const fr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (fr) {
-    day = Number(fr[1]);
-    month = Number(fr[2]);
-    year = Number(fr[3]);
-  } else if (iso) {
-    year = Number(iso[1]);
-    month = Number(iso[2]);
-    day = Number(iso[3]);
-  } else {
-    return null;
-  }
-  const d = new Date(Date.UTC(year, month - 1, day));
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let age = now.getUTCFullYear() - d.getUTCFullYear();
-  const m = now.getUTCMonth() - d.getUTCMonth();
-  if (m < 0 || (m === 0 && now.getUTCDate() < d.getUTCDate())) age -= 1;
-  return age;
+  // `naissance` est stocké en `MM/AAAA` (anciens formats tolérés).
+  return ageFromBirth(s);
 }
 
 function bucketAge(age: number | null): string {

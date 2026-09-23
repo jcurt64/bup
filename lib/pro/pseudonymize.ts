@@ -31,6 +31,8 @@
  * mobile : la pseudonymisation profite automatiquement aux deux.
  */
 
+import { ageFromBirth } from "@/lib/prospect/naissance";
+
 export type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
 
 export type PseudoKind =
@@ -101,32 +103,15 @@ export function maskToken(value: unknown): string | null {
 }
 
 /**
- * Date de naissance (« JJ/MM/AAAA » ou « AAAA-MM-JJ ») → tranche d'âge
- * par tranche de 5 ans (« 32–37 ans »). `ref` permet de figer la date pour les tests.
+ * Date de naissance (« MM/AAAA », anciens « JJ/MM/AAAA » / « AAAA-MM-JJ »
+ * tolérés) → tranche d'âge par tranche de 5 ans (« 32–37 ans »).
+ * `ref` permet de figer la date pour les tests.
  */
 export function ageRange(value: unknown, ref?: Date): string | null {
   const s = strOrNull(value);
   if (!s) return null;
-  let y: number | undefined, m: number | undefined, d: number | undefined;
-  let mt = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (mt) {
-    d = +mt[1];
-    m = +mt[2];
-    y = +mt[3];
-  } else {
-    mt = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (mt) {
-      y = +mt[1];
-      m = +mt[2];
-      d = +mt[3];
-    }
-  }
-  if (!y || !m || !d) return null;
-  const now = ref ?? new Date();
-  let age = now.getFullYear() - y;
-  const mo = now.getMonth() + 1;
-  if (mo < m || (mo === m && now.getDate() < d)) age -= 1;
-  if (age < 0 || age > 120) return null;
+  const age = ageFromBirth(s, ref);
+  if (age === null) return null;
   // Tranche de 5 ans (au lieu d'une décennie) : on conserve la précision du
   // profil tout en généralisant. Les paliers sont ancrés sur +2 (…, 27–32,
   // 32–37, 37–42, …) de sorte que l'âge se situe au cœur de sa tranche

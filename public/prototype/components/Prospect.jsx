@@ -3775,7 +3775,7 @@ const DATA_CATEGORIES = [
       ['nom', 'Nom'],
       ['email', 'Email'],
       ['telephone', 'Téléphone'],
-      ['naissance', 'Date de naissance'],
+      ['naissance', 'Naissance (mois et année)'],
     ],
   },
   {
@@ -4448,36 +4448,32 @@ function ModalShell({ title, children, onClose, width = 460 }) {
   );
 }
 
-/* Masque "JJ/MM/AAAA" pour la date de naissance.
-   - On extrait jusqu'à 8 chiffres (JJMMAAAA) et on insère les slashs
-     automatiquement après 2 et 4 chiffres.
-   - Pas de validation stricte ici (jour/mois) — uniquement le format.
-     La validation jour/mois/année est faite à la sauvegarde via
-     `isNaissanceValid` (et côté API, autoritaire). */
+/* Masque "MM/AAAA" pour la date de naissance : seuls le mois et l'année
+   sont collectés (minimisation RGPD — suffisants pour le ciblage par âge).
+   - Une ancienne valeur "JJ/MM/AAAA" est convertie (le jour est abandonné).
+   - Sinon on extrait jusqu'à 6 chiffres (MMAAAA) et on insère le slash
+     après 2 chiffres.
+   La validation mois/année est faite via `isNaissanceValid` (et côté API,
+   autoritaire). */
 function maskNaissance(input) {
-  const digits = String(input || '').replace(/\D/g, '').slice(0, 8);
+  const legacy = /^\d{2}\/(\d{2}\/\d{4})$/.exec(String(input || '').trim());
+  if (legacy) return legacy[1];
+  const digits = String(input || '').replace(/\D/g, '').slice(0, 6);
   if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return digits.slice(0, 2) + '/' + digits.slice(2);
-  return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+  return digits.slice(0, 2) + '/' + digits.slice(2);
 }
 
 function isNaissanceValid(s) {
   if (!s) return true; // vide = champ effacé, autorisé
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return false;
-  const [d, m, y] = s.split('/').map(Number);
+  if (!/^\d{2}\/\d{4}$/.test(s)) return false;
+  const [m, y] = s.split('/').map(Number);
   if (m < 1 || m > 12) return false;
-  if (d < 1 || d > 31) return false;
-  // Plage raisonnable (ex. pas de date dans le futur ni > 120 ans).
+  // Plage raisonnable : pas dans le futur ni > 120 ans.
   const now = new Date();
   const year = now.getFullYear();
   if (y < year - 120 || y > year) return false;
-  // Vérifie que la date existe (ex. 31/02/1990 → invalide).
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return (
-    dt.getUTCFullYear() === y &&
-    dt.getUTCMonth() === m - 1 &&
-    dt.getUTCDate() === d
-  );
+  if (y === year && m > now.getMonth() + 1) return false;
+  return true;
 }
 
 /* Autocomplétion ville + code postal + région (France) basée sur l'API
@@ -4829,7 +4825,7 @@ function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory 
   // Ville, code postal et région partagent le même flow d'autocomplétion :
   // une sélection patche atomiquement les trois champs (cf. CityPostalAutocomplete).
   const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal' || edit.field === 'region');
-  const [val, setVal] = useState(edit.value);
+  const [val, setVal] = useState(isNaissance ? maskNaissance(edit.value) : edit.value);
   const initialDetail =
     cfg.type === 'tag+text' && cfg.detailField
       ? (profileForCategory?.[cfg.detailField] || '')
@@ -4914,19 +4910,19 @@ function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory 
           value={val}
           onChange={e => setVal(maskNaissance(e.target.value))}
           autoFocus
-          placeholder="JJ/MM/AAAA"
+          placeholder="MM/AAAA"
           inputMode="numeric"
-          maxLength={10}
+          maxLength={7}
           style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
         />
         {showError && (
           <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-            Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+            Format attendu : MM/AAAA (ex. 06/1988).
           </div>
         )}
         {!val && (
           <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-            Format attendu : JJ/MM/AAAA.
+            Format attendu : MM/AAAA (mois et année uniquement).
           </div>
         )}
         <SaveIndicator status={saveStatus} />
@@ -5100,14 +5096,14 @@ function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
             value={val}
             onChange={e => setVal(maskNaissance(e.target.value))}
             autoFocus
-            placeholder="JJ/MM/AAAA"
+            placeholder="MM/AAAA"
             inputMode="numeric"
-            maxLength={10}
+            maxLength={7}
             style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
           />
           {showError && (
             <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-              Format attendu : JJ/MM/AAAA (ex. 14/06/1988).
+              Format attendu : MM/AAAA (ex. 06/1988).
             </div>
           )}
         </>

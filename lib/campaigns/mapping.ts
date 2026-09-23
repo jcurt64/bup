@@ -9,6 +9,7 @@
  */
 
 import type { Database } from "@/lib/supabase/types";
+import { ageFromBirth } from "@/lib/prospect/naissance";
 
 export type CampaignTypeDb = Database["public"]["Enums"]["campaign_type"];
 export type VerificationLevelDb = Database["public"]["Enums"]["verification_level"];
@@ -225,26 +226,10 @@ export function ageRangesToBounds(
     .filter((b): b is [number, number] => Boolean(b));
 }
 
-/** Calcule l'âge à partir d'une date de naissance string (`YYYY-MM-DD`). */
+/** Âge à partir de la date de naissance stockée (`MM/AAAA`, anciens
+ *  formats `JJ/MM/AAAA` / `AAAA-MM-JJ` tolérés). */
 export function ageFromBirthString(s: string | null): number | null {
-  if (!s) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
-  if (!m) return null;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  const birth = new Date(y, mo - 1, d);
-  if (isNaN(birth.getTime())) return null;
-  // Guard contre l'overflow silencieux du constructeur Date
-  // (ex. "2001-02-29" devient "2001-03-01"). Rejette les dates invalides.
-  if (birth.getFullYear() !== y || birth.getMonth() !== mo - 1 || birth.getDate() !== d) {
-    return null;
-  }
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const md = now.getMonth() - birth.getMonth();
-  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
-  return age;
+  return ageFromBirth(s);
 }
 
 export function ageMatchesAny(
