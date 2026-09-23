@@ -126,8 +126,13 @@ export type Relation = {
   endDate: string;
   isFlashDeal: boolean;
   reported: boolean;
+  /** Distance domicile prospect ↔ établissement pro (km, arrondie) — filtre
+   *  « Autour de moi ». null si coordonnées indisponibles. */
+  distanceKm?: number | null;
   // Champs spécifiques pending
   expiresAt?: string;
+  /** Date de réception (création de la relation) — filtre « Date ». */
+  sentAt?: string;
   // Champs spécifiques history
   date?: string;
   /** Label décision affiché : "Acceptée" | "Refusée" | "Expirée" */
@@ -352,6 +357,9 @@ export type Movement = {
    *  utilisé pour la mise en valeur de la ligne. Optionnel : présent seulement
    *  quand le backend déployé l'expose. */
   kind?: string;
+  /** ISO de disponibilité des fonds en séquestre (fin de campagne) —
+   *  affiché « dispo le … » sous le statut. */
+  availableAt?: string | null;
   relation: MovementRelation | null;
 };
 type MovementsResponse = { movements: Movement[] };
@@ -800,6 +808,8 @@ export type ProOverview = {
     tier: number;
     receivedAt: string | null;
     costCents: number;
+    /** Fiabilité (1 Haute · 2 Moyenne · 3 Basse) résolue par prospect ; null = non notée. */
+    priority?: number | null;
   }[];
   tierBreakdown: { tier: number; label: string; contacts: number; totalCents: number }[];
 };
@@ -1156,6 +1166,10 @@ export type Invoice = {
   description: string | null;
   amountEur: number;
   statusLabel: string;
+  /** Id de la transaction — sert au PDF (/api/pro/invoices/:id/pdf). */
+  transactionId: string;
+  status?: string;
+  type?: string;
 };
 export const useProInvoices = () =>
   useGet<{ invoices: Invoice[] }>(["pro", "invoices"], "/api/pro/invoices", 60_000);
@@ -1202,6 +1216,10 @@ export type ProInfo = {
   siret: string;
   rcsVille: string;
   rmNumber: string;
+  /** Région (auto-renseignée avec la ville via l'autocomplétion). */
+  region: string;
+  /** N° TVA intracommunautaire (facturation électronique). */
+  numeroTva: string;
 };
 export const useProInfo = () =>
   useGet<ProInfo>(["pro", "info"], "/api/pro/info", 60_000);
@@ -1210,7 +1228,9 @@ export function usePatchProInfo() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: Partial<ProInfo>) =>
+    // `null` = effacer le champ (PATCH partiel : seules les clés présentes
+    // sont appliquées côté serveur).
+    mutationFn: (v: { [K in keyof ProInfo]?: ProInfo[K] | null }) =>
       api<{ ok: true; updated: number }>("/api/pro/info", {
         method: "PATCH",
         body: JSON.stringify(v),
@@ -1231,6 +1251,9 @@ export type ProAnalytics = {
     total: number;
     max: number;
   };
+  /** Taux de lecture des messages pro→prospect (pixel, consentement CNIL).
+   *  rate = null ⇒ aucun envoi traçable. */
+  messageOpens?: { sent: number; trackable: number; opened: number; rate: number | null };
   sampleSize: { rows: number; wins: number };
   campaigns: { id: string; name: string; status: string }[];
   filters: { campaignId: string | null; period: string };
@@ -1255,6 +1278,11 @@ export type CreateCampaignInput = {
   subTypes: string[];
   requiredTiers: number[];
   geo: string;
+  /** Cible précise ville/dept/région (autocomplete geo.api.gouv.fr) — cf.
+   *  GeoTarget dans lib/pro-pricing.ts. Ignorée hors ville/dept/region. */
+  geoTarget?: unknown;
+  /** Rayon « autour de moi » (10/30/50 km) — utile seulement si geo=around. */
+  radiusKm?: number;
   ages: string[];
   verifLevel: string;
   contacts: number;
