@@ -3487,7 +3487,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       setKeywords(d.keywords || []);
       setKwInput(d.kwInput || '');
       setKwFilter(Boolean(d.kwFilter));
-      setStartDate(d.startDate || isoPlusDays(1));
+      setStartDate(todayIso());
       setEndDate(d.endDate || isoPlusDays(8));
       setBrief(d.brief || '');
       // Le drapeau bloque l'écrasement asynchrone par l'effet décision
@@ -3712,7 +3712,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // toujours cliquable visuellement plutôt que de le griser).
   const kwInputRef = React.useRef(null);
   // Étape 2 : dates de lancement / fin de campagne
-  const [startDate, setStartDate] = useState(isoPlusDays(1));
+  // Le serveur démarre toute campagne à sa validation (starts_at = now) :
+  // pas de date de lancement différée, la date affichée est donc aujourd'hui.
+  const [startDate, setStartDate] = useState(todayIso());
   const [endDate, setEndDate] = useState(isoPlusDays(8));
   const datesValid = !!startDate && !!durationKey;
   // Étape 7 : brief / description (50 caractères max)
@@ -3873,7 +3875,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     setKeywords([]);
     setKwInput('');
     setKwFilter(false);
-    setStartDate(isoPlusDays(1));
+    setStartDate(todayIso());
     setEndDate(isoPlusDays(8));
     setBrief('');
     setBriefError(false);
@@ -4220,24 +4222,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quand votre campagne sera-t-elle diffusée ?</div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>
-              Choisissez la date de lancement et la durée de diffusion. Plus la fenêtre est courte,
-              plus les gains pour les prospects sont multipliés.
+              Votre campagne démarre dès sa validation. Choisissez sa durée de diffusion : plus la
+              fenêtre est courte, plus les gains pour les prospects sont multipliés.
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <label className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, display: 'block' }}>
-                <Icon name="calendar" size={11}/> Date de lancement
-              </label>
-              <input
-                type="date"
-                className="input"
-                value={startDate}
-                min={todayIso()}
-                onChange={e => setStartDate(e.target.value)}
-                style={{ width: '100%', maxWidth: 320, fontSize: 14, padding: '10px 12px' }}
-              />
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                {startDate ? fmtDateLong(startDate) : 'Sélectionnez une date'}
+            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, background: 'var(--ivory-2)', border: '1px solid var(--line-2)', maxWidth: 420 }}>
+              <Icon name="calendar" size={14}/>
+              <div style={{ fontSize: 13 }}>
+                <strong>Lancement immédiat</strong> dès la validation — aujourd'hui, {fmtDateLong(startDate)}.
               </div>
             </div>
 
@@ -5240,7 +5232,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               {[
                 ['Objectif', obj?.name || '—'],
                 ['Sous-types', obj ? Array.from(selectedSubs).map(sid => obj.sub.find(s => s.id === sid)?.name).filter(Boolean).join(', ') || '—' : '—'],
-                ['Date de lancement', fmtDateLong(startDate)],
+                ['Lancement', 'Immédiat, dès validation'],
                 ['Date de fin estimée', fmtDateLong(computedEndDate)],
                 ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
                 ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
