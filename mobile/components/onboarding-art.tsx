@@ -159,35 +159,51 @@ function IconTile({
   );
 }
 
-// Onde qui se propage depuis le centre (anneaux concentriques).
-function Ripple({ delay, size, color }: { delay: number; size: number; color: string }) {
-  const p = useSharedValue(0);
+// Halo qui « respire » très lentement derrière le logo + orbite en
+// pointillés qui tourne à peine : présence douce, sans pulsation.
+function CalmHalo({ color }: { color: string }) {
+  const breath = useSharedValue(0);
+  const spin = useSharedValue(0);
   useEffect(() => {
-    p.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 3200, easing: Easing.out(Easing.quad) }), -1, false),
+    breath.value = withRepeat(
+      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
     );
-    return () => cancelAnimation(p);
-  }, [p, delay]);
-  const style = useAnimatedStyle(() => ({
-    opacity: 0.55 * (1 - p.value),
-    transform: [{ scale: 0.45 + p.value * 1.1 }],
+    spin.value = withRepeat(withTiming(1, { duration: 60000, easing: Easing.linear }), -1, false);
+    return () => {
+      cancelAnimation(breath);
+      cancelAnimation(spin);
+    };
+  }, [breath, spin]);
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: 0.75 + breath.value * 0.25,
+    transform: [{ scale: 0.96 + breath.value * 0.06 }],
+  }));
+  const orbitStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value * 360}deg` }],
   }));
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        {
-          position: "absolute",
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: 1.5,
-          borderColor: color,
-        },
-        style,
-      ]}
-    />
+    <>
+      <Animated.View pointerEvents="none" style={[{ position: "absolute" }, haloStyle]}>
+        <Glow size={260} color={color} style={{ position: "relative" }} />
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: "absolute",
+            width: 200,
+            height: 200,
+            borderRadius: 100,
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: withAlpha(color, "55"),
+          },
+          orbitStyle,
+        ]}
+      />
+    </>
   );
 }
 
@@ -225,9 +241,7 @@ export function IntroArt({ active }: { active: boolean }) {
 
   return (
     <View style={{ height: 300, width: "100%", alignItems: "center", justifyContent: "center" }}>
-      <Ripple delay={900} size={220} color={c.violet} />
-      <Ripple delay={1966} size={220} color={c.violet} />
-      <Ripple delay={3033} size={220} color={c.violet} />
+      <CalmHalo color={c.violet} />
       <Animated.View style={logoStyle}>
         <BrandLogo />
       </Animated.View>
