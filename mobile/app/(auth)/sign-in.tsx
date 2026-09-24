@@ -6,11 +6,7 @@
 // donc ici le MÊME mécanisme en 2 étapes (e-mail → code à 6 chiffres),
 // pour Connexion ET Inscription. Pas de champ mot de passe ni de
 // "mot de passe oublié" (sans objet en passwordless).
-import {
-  useSignIn,
-  useSignUp,
-  useSSO,
-} from "@clerk/clerk-expo";
+import { useSignIn, useSignUp, useSSO } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
@@ -25,7 +21,10 @@ import {
   PrimaryButton,
   SocialButtons,
 } from "../../components/ui";
+import { AuthBackdrop } from "../../components/auth-backdrop";
+import { withAlpha } from "../../components/onboarding-art";
 import { setRoleIntent, type RoleIntent } from "../../lib/role-intent";
+import { useTheme } from "../../lib/theme";
 
 type OAuthStrategy = "oauth_apple" | "oauth_google" | "oauth_facebook";
 
@@ -40,6 +39,7 @@ export default function AuthScreen() {
   const { signUp, setActive: setSignUpActive } = useSignUp();
   const { startSSOFlow } = useSSO();
 
+  const { c, isDark } = useTheme();
   const [tab, setTab] = useState<Tab>("login");
   const [step, setStep] = useState<Step>("email");
   const [role, setRole] = useState<RoleIntent>("prospect");
@@ -171,148 +171,178 @@ export default function AuthScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-ivory"
-      contentContainerClassName="grow justify-center px-6 py-6 gap-4"
-      keyboardShouldPersistTaps="handled"
-    >
-      <View className="items-center pt-2">
-        <BrandLogo small />
-      </View>
+    <View className="flex-1 bg-ivory">
+      <AuthBackdrop />
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="grow justify-center px-5 py-6 gap-4"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="items-center pt-2">
+          <BrandLogo small />
+        </View>
 
-      <View className="gap-1">
-        <Text className="text-center font-serif text-3xl text-ink">
-          {tab === "login" ? (
+        <View className="gap-1">
+          <Text className="text-center font-serif text-3xl text-ink">
+            {tab === "login" ? (
+              <>
+                Bon retour, <Accent>buupper</Accent>.
+              </>
+            ) : (
+              <>
+                Rejoignez <Accent>buupp</Accent>.
+              </>
+            )}
+          </Text>
+          <Text className="text-center text-lg leading-6 text-ink-3">
+            {step === "code"
+              ? `Code envoyé à ${email}`
+              : tab === "login"
+                ? "On vous envoie un code par e-mail."
+                : "Quelques secondes, et c'est parti."}
+          </Text>
+        </View>
+
+        {/* Formulaire posé sur une carte translucide, au-dessus du décor */}
+        <View
+          className="gap-4"
+          style={{
+            borderRadius: 28,
+            padding: 16,
+            backgroundColor: withAlpha(c.surface, isDark ? "E6" : "EB"),
+            borderWidth: 1,
+            borderColor: c.borderSoft,
+            shadowColor: isDark ? "#000000" : c.navyDeep,
+            shadowOpacity: isDark ? 0.45 : 0.1,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 6,
+          }}
+        >
+          {/* Tabs Connexion / Inscription */}
+          <View className="flex-row rounded-full bg-ivory-2 p-1">
+            {(["login", "signup"] as Tab[]).map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => reset(t)}
+                className={`flex-1 items-center rounded-full py-2.5 ${
+                  tab === t ? "bg-ink" : ""
+                }`}
+              >
+                <Text
+                  className={`text-sm font-semibold ${
+                    tab === t ? "text-paper" : "text-ink-3"
+                  }`}
+                >
+                  {t === "login" ? "Connexion" : "Inscription"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {step === "email" && (
             <>
-              Bon retour, <Accent>buupper</Accent>.
-            </>
-          ) : (
-            <>
-              Rejoignez <Accent>buupp</Accent>.
+              {/* JE SUIS — toggle rôle */}
+              <View className="gap-1.5">
+                <Text
+                  className="text-[11px] font-bold uppercase text-ink-4"
+                  style={{ letterSpacing: 1.2 }}
+                >
+                  Je suis
+                </Text>
+                <View className="flex-row gap-3">
+                  {(
+                    [
+                      {
+                        r: "prospect",
+                        t: "Buupper",
+                        s: "je vends mon attention",
+                      },
+                      {
+                        r: "pro",
+                        t: "Professionnel",
+                        s: "je cherche des prospects",
+                      },
+                    ] as { r: RoleIntent; t: string; s: string }[]
+                  ).map((o) => {
+                    const on = role === o.r;
+                    return (
+                      <Pressable
+                        key={o.r}
+                        onPress={() => setRole(o.r)}
+                        className={`flex-1 rounded-2xl border bg-paper p-3 ${
+                          on ? "border-violet bg-violet-soft" : "border-line"
+                        }`}
+                      >
+                        <Text className="font-serif text-base italic text-ink">
+                          {o.t}
+                        </Text>
+                        <Text className="mt-0.5 text-[11px] text-ink-4">
+                          {o.s}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <Field
+                label="Email"
+                placeholder="vous@email.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              {err ? (
+                <Text className="text-center text-sm text-bad">{err}</Text>
+              ) : null}
+              <PrimaryButton
+                label="Recevoir le code"
+                loading={busy}
+                onPress={requestCode}
+              />
+
+              {/* OU + connexion sociale (primitive partagée) */}
+              <SocialButtons onPress={onSocial} />
             </>
           )}
-        </Text>
-        <Text className="text-center text-lg leading-6 text-ink-3">
-          {step === "code"
-            ? `Code envoyé à ${email}`
-            : tab === "login"
-              ? "On vous envoie un code par e-mail."
-              : "Quelques secondes, et c'est parti."}
-        </Text>
-      </View>
 
-      {/* Tabs Connexion / Inscription */}
-      <View className="flex-row rounded-full bg-ivory-2 p-1">
-        {(["login", "signup"] as Tab[]).map((t) => (
-          <Pressable
-            key={t}
-            onPress={() => reset(t)}
-            className={`flex-1 items-center rounded-full py-2.5 ${
-              tab === t ? "bg-ink" : ""
-            }`}
-          >
-            <Text
-              className={`text-sm font-semibold ${
-                tab === t ? "text-paper" : "text-ink-3"
-              }`}
-            >
-              {t === "login" ? "Connexion" : "Inscription"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+          {step === "code" && (
+            <>
+              <Field
+                label="Code reçu par e-mail"
+                placeholder="123456"
+                keyboardType="number-pad"
+                value={code}
+                onChangeText={setCode}
+              />
+              {err ? (
+                <Text className="text-center text-sm text-bad">{err}</Text>
+              ) : null}
+              <PrimaryButton
+                label={tab === "login" ? "Se connecter" : "Créer mon compte"}
+                loading={busy}
+                onPress={verifyCode}
+              />
+              <View className="flex-row justify-between">
+                <Pressable onPress={() => reset()}>
+                  <Text className="text-sm text-ink-4">
+                    ← Changer d&apos;e-mail
+                  </Text>
+                </Pressable>
+                <Pressable onPress={requestCode} disabled={busy}>
+                  <Text className="text-sm font-medium text-violet">
+                    Renvoyer le code
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
 
-      {step === "email" && (
-        <>
-          {/* JE SUIS — toggle rôle */}
-          <View className="gap-1.5">
-            <Text
-              className="text-[11px] font-bold uppercase text-ink-4"
-              style={{ letterSpacing: 1.2 }}
-            >
-              Je suis
-            </Text>
-            <View className="flex-row gap-3">
-              {(
-                [
-                  { r: "prospect", t: "Buupper", s: "je vends mon attention" },
-                  { r: "pro", t: "Professionnel", s: "je cherche des prospects" },
-                ] as { r: RoleIntent; t: string; s: string }[]
-              ).map((o) => {
-                const on = role === o.r;
-                return (
-                  <Pressable
-                    key={o.r}
-                    onPress={() => setRole(o.r)}
-                    className={`flex-1 rounded-2xl border bg-paper p-3 ${
-                      on ? "border-violet bg-violet-soft" : "border-line"
-                    }`}
-                  >
-                    <Text className="font-serif text-base italic text-ink">
-                      {o.t}
-                    </Text>
-                    <Text className="mt-0.5 text-[11px] text-ink-4">
-                      {o.s}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <Field
-            label="Email"
-            placeholder="vous@email.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          {err ? (
-            <Text className="text-center text-sm text-bad">{err}</Text>
-          ) : null}
-          <PrimaryButton
-            label="Recevoir le code"
-            loading={busy}
-            onPress={requestCode}
-          />
-
-          {/* OU + connexion sociale (primitive partagée) */}
-          <SocialButtons onPress={onSocial} />
-        </>
-      )}
-
-      {step === "code" && (
-        <>
-          <Field
-            label="Code reçu par e-mail"
-            placeholder="123456"
-            keyboardType="number-pad"
-            value={code}
-            onChangeText={setCode}
-          />
-          {err ? (
-            <Text className="text-center text-sm text-bad">{err}</Text>
-          ) : null}
-          <PrimaryButton
-            label={tab === "login" ? "Se connecter" : "Créer mon compte"}
-            loading={busy}
-            onPress={verifyCode}
-          />
-          <View className="flex-row justify-between">
-            <Pressable onPress={() => reset()}>
-              <Text className="text-sm text-ink-4">← Changer d&apos;e-mail</Text>
-            </Pressable>
-            <Pressable onPress={requestCode} disabled={busy}>
-              <Text className="text-sm font-medium text-violet">
-                Renvoyer le code
-              </Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-
-      <LegalFooter />
-    </ScrollView>
+        <LegalFooter />
+      </ScrollView>
+    </View>
   );
 }

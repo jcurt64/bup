@@ -45,7 +45,7 @@ function useShadow(strength: "soft" | "strong" = "soft") {
 }
 
 // ── Primitive : entrée en cascade + flottement continu ─────────────────
-function Pop({
+export function Pop({
   active,
   delay = 0,
   float = 5,
@@ -95,7 +95,7 @@ function Pop({
   return <Animated.View style={[{ position: "absolute" }, style, anim]}>{children}</Animated.View>;
 }
 
-function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   const { c } = useTheme();
   const shadow = useShadow();
   return (
@@ -132,7 +132,7 @@ function HeroCard({ children, style }: { children: ReactNode; style?: ViewStyle 
   );
 }
 
-function IconTile({
+export function IconTile({
   name,
   bg,
   color,
