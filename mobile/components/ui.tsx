@@ -59,7 +59,10 @@ export function BrandLogo({ small = false }: { small?: boolean }) {
       }}
     >
       <Text
-        className={`font-serif-bold text-paper ${small ? "text-base" : "text-2xl"}`}
+        className={`font-serif-bold ${small ? "text-base" : "text-2xl"}`}
+        // Blanc fixe : le fond est toujours un dégradé foncé, alors que
+        // text-paper devient sombre en thème Sombre.
+        style={{ color: "#FFFFFF" }}
       >
         buupp
       </Text>
@@ -242,12 +245,13 @@ export function SocialButtons({
 }: {
   onPress: (p: "apple" | "google" | "facebook") => void;
 }) {
+  const { c } = useTheme();
   const items: {
     key: "apple" | "google" | "facebook";
     icon: keyof typeof Ionicons.glyphMap;
     color: string;
   }[] = [
-    { key: "apple", icon: "logo-apple", color: "#0F1629" },
+    { key: "apple", icon: "logo-apple", color: c.text },
     { key: "google", icon: "logo-google", color: "#EA4335" },
     { key: "facebook", icon: "logo-facebook", color: "#1877F2" },
   ];
