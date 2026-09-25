@@ -2,29 +2,15 @@
 // et mode d'affichage (thèmes, persisté SecureStore).
 import { Ionicons } from "@expo/vector-icons";
 import { type ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Text } from "react-native";
 
+import { FunCard } from "../../components/fun-card";
 import { PushSettings } from "../../components/push-settings";
 import { ScrollScreen, SectionTitle } from "../../components/screen";
 import { ThemePicker } from "../../components/theme-picker";
-import { useTheme, type Palette } from "../../lib/theme";
+import { useTheme } from "../../lib/theme";
 
-function cardStyle(c: Palette) {
-  return {
-    backgroundColor: c.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.borderSoft,
-    padding: 20,
-    shadowColor: "#000000",
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2,
-  } as const;
-}
-
-// Carte de section : tuile icône (42) + titre Fraunces + desc + contenu.
+// Carte de section : style « fun » partagé (FunCard) + titre + desc.
 function SettingsCard({
   iconBg,
   icon,
@@ -42,13 +28,7 @@ function SettingsCard({
 }) {
   const { c } = useTheme();
   return (
-    <View style={cardStyle(c)}>
-      <View
-        className="items-center justify-center"
-        style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: iconBg }}
-      >
-        <Ionicons name={icon} size={21} color={iconColor} />
-      </View>
+    <FunCard iconBg={iconBg} icon={icon} iconColor={iconColor}>
       <Text
         className="font-serif"
         style={{ fontSize: 21, color: c.text, marginTop: 15 }}
@@ -63,7 +43,7 @@ function SettingsCard({
         </Text>
       ) : null}
       {children}
-    </View>
+    </FunCard>
   );
 }
 

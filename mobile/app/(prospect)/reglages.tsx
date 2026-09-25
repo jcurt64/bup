@@ -8,9 +8,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
+import { FunCard } from "../../components/fun-card";
 import { PushSettings } from "../../components/push-settings";
 import { ScrollScreen } from "../../components/screen";
-import { useTheme, type Palette, type ThemeMode } from "../../lib/theme";
+import { useTheme, type ThemeMode } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 
 // Thèmes d'affichage — dégradé d'aperçu (≈ diagonal) aligné reg.html.
@@ -25,22 +26,8 @@ const THEMES = [
 
 type ThemeKey = (typeof THEMES)[number]["key"];
 
-function cardStyle(c: Palette) {
-  return {
-    backgroundColor: c.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.borderSoft,
-    padding: 20,
-    shadowColor: "#000000",
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2,
-  } as const;
-}
-
-// Carte de section : tuile icône (42) + titre Fraunces + desc + contenu.
+// Carte de section : même style « fun » que Préférences (FunCard) —
+// pastille icône dégradée, titre Fraunces, description, contenu.
 function SettingsCard({
   iconBg,
   icon,
@@ -58,13 +45,7 @@ function SettingsCard({
 }) {
   const { c } = useTheme();
   return (
-    <View style={cardStyle(c)}>
-      <View
-        className="items-center justify-center"
-        style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: iconBg }}
-      >
-        <Ionicons name={icon} size={21} color={iconColor} />
-      </View>
+    <FunCard iconBg={iconBg} icon={icon} iconColor={iconColor}>
       <Text
         className="font-serif"
         style={{ fontSize: 21, color: c.text, marginTop: 15 }}
@@ -79,7 +60,7 @@ function SettingsCard({
         </Text>
       ) : null}
       {children}
-    </View>
+    </FunCard>
   );
 }
 
