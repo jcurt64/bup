@@ -824,6 +824,17 @@ const TIER_META: Record<TierKey, TierMeta> = {
   },
 };
 
+// Éclaircit (amt > 0) ou fonce (amt < 0) une couleur #RRGGBB.
+function shade(hex: string, amt: number) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const ch = (v: number) =>
+    Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt);
+  const r = ch((n >> 16) & 255);
+  const g = ch((n >> 8) & 255);
+  const b = ch(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
 // Libellés courts (chemin des paliers de la card TierQuest).
 const TIER_SHORT: Record<TierKey, string> = {
   identity: "Identité",
@@ -1778,6 +1789,7 @@ export default function Donnees() {
               const missingLabels = FIELDS[k]
                 .filter((f) => row[f.key] == null || String(row[f.key]).trim() === "")
                 .map((f) => f.label);
+              const filledCount = FIELDS[k].length - missingLabels.length;
               const showIncomplete =
                 !hidden &&
                 !removed &&
@@ -1794,76 +1806,169 @@ export default function Donnees() {
                       setLayoutTick((t) => t + 1);
                     }
                   }}
-                  className={`overflow-hidden rounded-[20px] bg-paper ${removed || hidden ? "opacity-60" : ""}`}
+                  className={`overflow-hidden rounded-[24px] bg-paper ${removed || hidden ? "opacity-60" : ""}`}
                   style={{
                     // Halo temporaire quand on arrive via `?tier=`.
                     borderWidth: highlighted ? 2.5 : 1,
                     borderColor: highlighted ? c.accent : c.borderSoft,
-                    shadowColor: "#000000",
-                    shadowOpacity: 0.05,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 5 },
-                    elevation: 2,
+                    // Ombre teintée à la couleur du palier.
+                    shadowColor: isDark ? "#000000" : m.accent,
+                    shadowOpacity: isDark ? 0.35 : 0.16,
+                    shadowRadius: 18,
+                    shadowOffset: { width: 0, height: 8 },
+                    elevation: 4,
                   }}
                 >
-                  {/* En-tête de card (do.html) : fond teinté du palier,
-                      tuile icône blanche bordée, « PALIER N » en accent +
-                      nom du palier en Fraunces. */}
-                  <View
-                    className="flex-row items-center"
-                    style={{
-                      gap: 13,
-                      paddingHorizontal: 16,
-                      paddingVertical: 15,
-                      backgroundColor: m.headerBg,
-                    }}
+                  {/* En-tête ludique : bandeau dégradé à la couleur du
+                      palier, grand pictogramme en filigrane, pastille
+                      « PALIER N », jauge segmentée (1 segment par info) et
+                      badge Complet / x sur y. */}
+                  <LinearGradient
+                    colors={
+                      isDark
+                        ? [shade(m.accent, -0.25), shade(m.accent, -0.6)]
+                        : [m.accent, shade(m.accent, -0.3)]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ paddingHorizontal: 16, paddingTop: 15, paddingBottom: 14, overflow: "hidden" }}
                   >
                     <View
-                      className="items-center justify-center"
+                      pointerEvents="none"
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 12,
-                        backgroundColor: c.surface,
-                        borderWidth: 1,
-                        borderColor: m.boxBorder,
-                        flexShrink: 0,
+                        position: "absolute",
+                        right: -14,
+                        top: -12,
+                        transform: [{ rotate: "-14deg" }],
+                        opacity: 0.18,
                       }}
                     >
-                      <Ionicons name={m.icon} size={20} color={m.accent} />
+                      <Ionicons name={m.icon} size={104} color="#FFFFFF" />
                     </View>
-                    <View className="flex-1">
-                      <Text
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: "absolute",
+                        left: -30,
+                        bottom: -60,
+                        width: 120,
+                        height: 120,
+                        borderRadius: 60,
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      }}
+                    />
+                    <View className="flex-row items-center" style={{ gap: 12 }}>
+                      <View
+                        className="items-center justify-center"
                         style={{
-                          fontSize: 10.5,
-                          fontWeight: "700",
-                          letterSpacing: 0.8,
-                          color: m.accent,
+                          width: 44,
+                          height: 44,
+                          borderRadius: 14,
+                          backgroundColor: "rgba(255,255,255,0.22)",
+                          borderWidth: 1,
+                          borderColor: "rgba(255,255,255,0.35)",
+                          transform: [{ rotate: "-6deg" }],
                         }}
                       >
-                        PALIER {m.n}
-                      </Text>
-                      <Text
-                        className="font-serif"
-                        numberOfLines={1}
-                        style={{
-                          fontSize: 19,
-                          color: c.text,
-                          lineHeight: 22,
-                          marginTop: 1,
-                        }}
-                      >
-                        {m.label}
-                      </Text>
-                    </View>
-                    {hidden || removed ? (
-                      <View className="rounded-full bg-paper px-3 py-1">
-                        <Text className="font-mono text-sm text-ink-4">
-                          {removed ? "supprimé" : "masqué"}
+                        <Ionicons name={m.icon} size={22} color="#FFFFFF" />
+                      </View>
+                      <View className="flex-1">
+                        <View
+                          style={{
+                            alignSelf: "flex-start",
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 999,
+                            backgroundColor: "rgba(255,255,255,0.2)",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: "800",
+                              letterSpacing: 1.2,
+                              color: "#FFFFFF",
+                            }}
+                          >
+                            PALIER {m.n}
+                          </Text>
+                        </View>
+                        <Text
+                          className="font-serif"
+                          numberOfLines={1}
+                          style={{ fontSize: 20, color: "#FFFFFF", lineHeight: 24, marginTop: 4 }}
+                        >
+                          {m.label}
                         </Text>
                       </View>
-                    ) : null}
-                  </View>
+                      {hidden || removed ? (
+                        <View
+                          className="flex-row items-center"
+                          style={{
+                            gap: 5,
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            backgroundColor: "rgba(0,0,0,0.22)",
+                          }}
+                        >
+                          <Ionicons
+                            name={removed ? "trash-outline" : "eye-off-outline"}
+                            size={12}
+                            color="#FFFFFF"
+                          />
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>
+                            {removed ? "supprimé" : "masqué"}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View
+                          className="flex-row items-center"
+                          style={{
+                            gap: 5,
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            backgroundColor:
+                              filledCount === FIELDS[k].length ? "#FFFFFF" : "rgba(255,255,255,0.2)",
+                          }}
+                        >
+                          {filledCount === FIELDS[k].length ? (
+                            <>
+                              <Ionicons name="star" size={12} color="#F2B65A" />
+                              <Text style={{ fontSize: 12, fontWeight: "800", color: m.accent }}>
+                                Complet
+                              </Text>
+                            </>
+                          ) : (
+                            <Text style={{ fontSize: 12, fontWeight: "800", color: "#FFFFFF" }}>
+                              {filledCount}/{FIELDS[k].length}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                    {/* Jauge segmentée : un segment par info du palier. */}
+                    <View className="flex-row" style={{ gap: 4, marginTop: 13 }}>
+                      {FIELDS[k].map((f) => {
+                        const on =
+                          !hidden &&
+                          row[f.key] != null &&
+                          String(row[f.key]).trim() !== "";
+                        return (
+                          <View
+                            key={f.key}
+                            style={{
+                              flex: 1,
+                              height: 5,
+                              borderRadius: 3,
+                              backgroundColor: on ? "#FFFFFF" : "rgba(255,255,255,0.25)",
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                  </LinearGradient>
 
                   {showIncomplete ? (
                     <IncompleteTierBanner
