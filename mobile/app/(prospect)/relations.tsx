@@ -37,6 +37,8 @@ import {
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
+import { shade, withAlpha } from "../../lib/color";
+import { Motif } from "../../components/motif";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 
 // ── Filtre cyclique historique ──────────────────────────────────────
@@ -173,16 +175,32 @@ function HistoryRow({
           overflow: "hidden",
           backgroundColor: R.surface,
           borderWidth: focused ? 2 : 1,
-          borderColor: focused ? R.DV : R.DLINE,
-          shadowColor: "#000000",
-          shadowOpacity: 0.05,
+          borderColor: focused ? R.DV : withAlpha(accent, "40"),
+          shadowColor: accent,
+          shadowOpacity: 0.12,
           shadowRadius: 10,
           shadowOffset: { width: 0, height: 4 },
           elevation: 2,
         }}
       >
-        {/* Barre d'accent colorée selon la décision */}
-        <View style={{ height: 4, backgroundColor: accent }} />
+        {/* Fond teinté de la couleur de la décision + motif + filigrane */}
+        <LinearGradient
+          colors={[withAlpha(accent, "24"), withAlpha(R.surface, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Motif variant="dots" color={withAlpha(accent, "66")} style={{ top: 10, right: 10 }} />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -16, bottom: -20, opacity: 0.07, transform: [{ rotate: "-14deg" }] }}
+        >
+          <Ionicons
+            name={isAccepted ? "checkmark-circle" : isRefused ? "close-circle" : "hourglass"}
+            size={110}
+            color={accent}
+          />
+        </View>
         <View style={{ padding: 14 }}>
           {/* Avatar + nom/secteur + date */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -356,7 +374,7 @@ function RelationStat({
   sub?: string;
 }) {
   const R = useRel();
-  const { isDark } = useTheme();
+  const { c, isDark } = useTheme();
   const tones = {
     good: { bg: isDark ? "rgba(22,163,74,0.18)" : "#ECFDF5", fg: isDark ? "#4ADE80" : "#15803D" },
     danger: { bg: isDark ? "rgba(220,38,38,0.18)" : "#FDECEC", fg: isDark ? "#F87171" : "#DC2626" },
@@ -412,17 +430,37 @@ function RelationStat({
     padding: 15,
     borderWidth: 1,
   } as const;
+  // Filigrane : l'icône de la stat en grand, dans le coin bas-droit.
+  const watermark = (
+    <View
+      pointerEvents="none"
+      style={{ position: "absolute", right: -12, bottom: -14, opacity: primary ? 0.14 : 0.1, transform: [{ rotate: "-12deg" }] }}
+    >
+      <Ionicons name={icon} size={78} color={primary ? "#FFFFFF" : t.fg} />
+    </View>
+  );
   return primary ? (
+    // Carte primaire aux couleurs du thème (était indigo fixe) + cercles.
     <LinearGradient
-      colors={["#6366F1", "#4F46E5"]}
+      colors={[shade(c.violet, isDark ? -0.25 : 0.05), shade(c.violet, isDark ? -0.6 : -0.35)]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ ...box, borderColor: "transparent" }}
+      style={{ ...box, borderColor: "transparent", overflow: "hidden" }}
     >
+      <Motif variant="rings" color="rgba(255,255,255,0.14)" style={{ top: -110, right: -110 }} />
+      {watermark}
       {inner}
     </LinearGradient>
   ) : (
-    <View style={{ ...box, backgroundColor: R.surface, borderColor: R.DLINE }}>{inner}</View>
+    <LinearGradient
+      colors={[t.bg, R.surface]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ ...box, borderColor: withAlpha(t.fg, "33"), overflow: "hidden" }}
+    >
+      {watermark}
+      {inner}
+    </LinearGradient>
   );
 }
 
@@ -481,6 +519,20 @@ function SollicitationCard({
         elevation: 3,
       }}
     >
+      {/* Voile violet en haut + confettis + filigrane mégaphone */}
+      <LinearGradient
+        colors={[R.DVXL, withAlpha(R.surface, "00")]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 0.7 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 220 }}
+      />
+      <Motif variant="confetti" color={withAlpha(R.DV, "99")} style={{ top: 40 }} />
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", right: -18, top: 70, opacity: 0.06, transform: [{ rotate: "-16deg" }] }}
+      >
+        <Ionicons name="megaphone" size={130} color={R.DV} />
+      </View>
       <LinearGradient
         colors={[R.DV, R.DVD]}
         start={{ x: 0, y: 0 }}
