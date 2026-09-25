@@ -8,8 +8,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
-import { Pressable, Text, View, type ViewStyle } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { Motif, type MotifVariant } from "../../components/motif";
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import { withAlpha } from "../../lib/color";
 import { getDrawerOrigin } from "../../lib/drawer-origin";
@@ -37,78 +38,6 @@ function getTier(score: number) {
 const SCORE_RANGES = ["1M", "3M", "6M", "12M"] as const;
 type Range = (typeof SCORE_RANGES)[number];
 
-// ── Motifs de fond (décor des cartes) ────────────────────────────────────────
-function Motif({
-  variant,
-  color,
-  style,
-}: {
-  variant: "dots" | "stripes" | "rings";
-  color: string;
-  style?: ViewStyle;
-}) {
-  if (variant === "dots") {
-    return (
-      <View pointerEvents="none" style={[{ position: "absolute", top: 14, right: 14 }, style]}>
-        {Array.from({ length: 5 }).map((_, r) => (
-          <View key={r} style={{ flexDirection: "row", gap: 9, marginBottom: 9 }}>
-            {Array.from({ length: 7 }).map((__, k) => (
-              <View
-                key={k}
-                style={{
-                  width: 3.5,
-                  height: 3.5,
-                  borderRadius: 2,
-                  backgroundColor: color,
-                  // fondu vers le bas-gauche
-                  opacity: Math.max(0.12, 1 - (r * 0.18 + (6 - k) * 0.12)),
-                }}
-              />
-            ))}
-          </View>
-        ))}
-      </View>
-    );
-  }
-  if (variant === "stripes") {
-    return (
-      <View
-        pointerEvents="none"
-        style={[
-          { position: "absolute", top: -40, right: -30, width: 180, height: 180, transform: [{ rotate: "35deg" }] },
-          style,
-        ]}
-      >
-        {Array.from({ length: 12 }).map((_, i) => (
-          <View
-            key={i}
-            style={{ height: 2, marginBottom: 12, borderRadius: 1, backgroundColor: color }}
-          />
-        ))}
-      </View>
-    );
-  }
-  return (
-    <View pointerEvents="none" style={[{ position: "absolute", top: -70, right: -70 }, style]}>
-      {[220, 170, 120].map((d) => (
-        <View
-          key={d}
-          style={{
-            position: "absolute",
-            top: (220 - d) / 2,
-            left: (220 - d) / 2,
-            width: d,
-            height: d,
-            borderRadius: d / 2,
-            borderWidth: 1,
-            borderColor: color,
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 // Carte claire épurée : fond surface, filet, ombre douce, motif optionnel.
 function ChicCard({
   children,
@@ -116,7 +45,7 @@ function ChicCard({
   motifColor,
 }: {
   children: ReactNode;
-  motif?: "dots" | "stripes" | "rings";
+  motif?: MotifVariant;
   motifColor?: string;
 }) {
   const { c, isDark } = useTheme();

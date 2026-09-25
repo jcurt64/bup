@@ -640,7 +640,7 @@ export default function Portefeuille() {
         accessibilityLabel="Taux de fiabilité — voir le BUUPP Score"
         className="active:opacity-90"
       >
-        <Card tone="teal">
+        <Card tone="teal" motif="rings" watermark="shield-checkmark">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-2">
               <View
@@ -768,7 +768,7 @@ export default function Portefeuille() {
       <QueryGate query={w}>
         {(d) => (
           <>
-            <Card tone="violet">
+            <Card tone="violet" motif="stripes" watermark="wallet">
               {/* Header : label + tuile icône carte (carré arrondi blanc,
                   parité redesign.png). */}
               <View className="mb-3 flex-row items-center justify-between">
@@ -912,7 +912,7 @@ export default function Portefeuille() {
               />
             </View>
 
-            <Card tone="amber">
+            <Card tone="amber" motif="confetti" watermark="trophy">
               {/* Tuile icône (carré arrondi blanc) au-dessus du label,
                   même style que les cards Portefeuille / Mouvements. */}
               <View
@@ -947,7 +947,7 @@ export default function Portefeuille() {
                 conditions et leur état, et le bouton de déblocage dès
                 qu'elles sont réunies (parité web FounderBonusLockCard). */}
             {bonus?.locked && (
-              <Card>
+              <Card motif="confetti" watermark="gift">
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="flex-1 flex-row items-start gap-2.5">
                     <Ionicons name="gift" size={18} color={c.ink} />
@@ -1034,7 +1034,7 @@ export default function Portefeuille() {
         )}
       </QueryGate>
 
-      <Card tone="sky">
+      <Card tone="sky" motif="waves" watermark="swap-vertical">
         {/* En-tête raffiné : tuile icône (swap-vertical miroité = flèches
             gauche ↓ / droite ↑, faute de lucide/SVG côté mobile) + eyebrow
             « Activité » et titre serif « Mouvements ». */}

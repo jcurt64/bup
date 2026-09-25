@@ -20,6 +20,8 @@ import { router } from "expo-router";
 
 import { AppHeader } from "./app-header";
 import { AppBackdrop } from "./app-backdrop";
+import { Motif, type MotifVariant } from "./motif";
+import { withAlpha } from "../lib/color";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
@@ -362,6 +364,8 @@ export function Card({
   badge,
   tone,
   gradient,
+  motif,
+  watermark,
 }: {
   children: ReactNode;
   dark?: boolean;
@@ -380,6 +384,11 @@ export function Card({
   /** Dégradé de fond custom — surcharge TONE_GRADIENT quand `tone` est
    *  défini (ex. card Portefeuille éclaircie sur la home). */
   gradient?: [string, string];
+  /** Motif décoratif de fond (points, rayures, cercles, vagues, confettis),
+   *  teinté de la couleur de la carte. */
+  motif?: MotifVariant;
+  /** Grand pictogramme en filigrane (coin bas-droit). */
+  watermark?: keyof typeof Ionicons.glyphMap;
 }) {
   const { c, isDark } = useTheme();
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
@@ -422,6 +431,64 @@ export function Card({
       {children}
     </>
   );
+  // Décor (motif + filigrane) : couleur propre de la carte, translucide.
+  const decoColor = TONE_FG[tone ?? badge?.tone ?? "violet"];
+  const deco =
+    motif || watermark ? (
+      <>
+        {motif ? (
+          <Motif variant={motif} color={withAlpha(dark ? "#FFFFFF" : decoColor, isDark || dark ? "40" : "38")} />
+        ) : null}
+        {watermark ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              right: -14,
+              bottom: -18,
+              opacity: isDark || dark ? 0.1 : 0.08,
+              transform: [{ rotate: "-14deg" }],
+            }}
+          >
+            <Ionicons name={watermark} size={120} color={dark ? "#FFFFFF" : decoColor} />
+          </View>
+        ) : null}
+      </>
+    ) : null;
+  // Avec décor : l'ombre reste sur un conteneur externe (overflow:hidden
+  // l'effacerait sur iOS) et le fond est rogné dans un conteneur interne.
+  if (deco) {
+    const radius = 24;
+    return (
+      <View
+        style={[
+          { borderRadius: radius, borderWidth: 0.7, borderColor: c.borderSoft },
+          dark ? null : shadow,
+          dark ? null : { shadowOpacity: isDark ? 0.3 : 0.09, shadowColor: isDark ? "#000000" : decoColor },
+        ]}
+      >
+        <View style={{ borderRadius: radius, overflow: "hidden" }}>
+          {!dark && tone ? (
+            <LinearGradient
+              colors={gradient ?? (isDark ? [TONE_TINT_DARK[tone], c.surface] : TONE_GRADIENT[tone])}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
+          ) : (
+            <View
+              className={dark ? "bg-ink" : "bg-paper"}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
+          )}
+          {deco}
+          <View className={className} style={{ padding: 20 }}>
+            {inner}
+          </View>
+        </View>
+      </View>
+    );
+  }
   if (!dark && tone) {
     return (
       <LinearGradient
