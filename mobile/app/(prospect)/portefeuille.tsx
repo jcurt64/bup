@@ -48,7 +48,8 @@ import {
 import { ReferralBadge } from "../../components/referral-badge";
 import { ApiError } from "../../lib/api";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
-import { useTheme, type ThemeMode } from "../../lib/theme";
+import { HOME_HERO } from "../../lib/hero-palette";
+import { useTheme } from "../../lib/theme";
 import { WithdrawSheet } from "../../components/withdraw-sheet";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
@@ -285,20 +286,6 @@ function BonusCondition({ done, children }: { done: boolean; children: React.Rea
     </View>
   );
 }
-
-// Carte d'accueil : base très sombre + halo diagonal, déclinés par thème
-// (indigo pour BUUPP/Sombre, vert profond Forest, prune Fushia).
-// `pastel` / `pastelRgb` / `pastelText` : teinte claire des détails
-// (barre du score, pastilles) posés sur la carte.
-const HOME_HERO: Record<
-  ThemeMode,
-  { base: [string, string]; glow: string; pastel: string; pastelRgb: string; pastelText: string }
-> = {
-  light: { base: ["#1E1646", "#0A0820"], glow: "124,92,252", pastel: "#C4B5FD", pastelRgb: "196,181,253", pastelText: "#DDD6FE" },
-  dark: { base: ["#1E1646", "#0A0820"], glow: "124,92,252", pastel: "#C4B5FD", pastelRgb: "196,181,253", pastelText: "#DDD6FE" },
-  forest: { base: ["#14452D", "#06170E"], glow: "52,168,106", pastel: "#A7E8C3", pastelRgb: "167,232,195", pastelText: "#D1F5E0" },
-  fushia: { base: ["#4E1535", "#1A0511"], glow: "232,79,152", pastel: "#F9A8D4", pastelRgb: "249,168,212", pastelText: "#FCE7F3" },
-};
 
 export default function Portefeuille() {
   const { isDark, c, mode } = useTheme();

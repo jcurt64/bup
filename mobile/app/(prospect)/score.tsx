@@ -1,16 +1,26 @@
 // BUUPP Score — /api/prospect/score (indice de désirabilité /1000 :
-// complétude + fraîcheur + fiabilité).
+// complétude + fraîcheur + fiabilité). Présentation « épurée / mode » :
+// carte score sombre à motifs, échelle des paliers, 3 anneaux crantés pour
+// les pourcentages, mini-graphe d'évolution, cartes claires à motifs.
+// Toutes les couleurs viennent du thème (4 coloris) ; la logique de calcul
+// (paliers, pts, wording des conseils) est inchangée (parité web).
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { useState, type ReactNode } from "react";
+import { Pressable, Text, View, type ViewStyle } from "react-native";
 
-import { Card, QueryGate, ScrollScreen } from "../../components/screen";
+import { QueryGate, ScrollScreen } from "../../components/screen";
+import { withAlpha } from "../../lib/color";
+import { getDrawerOrigin } from "../../lib/drawer-origin";
+import { HOME_HERO } from "../../lib/hero-palette";
 import { useProspectScore, useProspectScoreHistory } from "../../lib/queries";
+import { useTheme } from "../../lib/theme";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
 // ── Paliers (alignés sur le web ScorePanel) ──────────────────────────────────
 const TIER_THRESHOLDS = [
-  { min: 0,   label: "Découverte" },
+  { min: 0, label: "Découverte" },
   { min: 400, label: "Solide" },
   { min: 700, label: "Recherchée" },
   { min: 900, label: "Prestige" },
@@ -24,102 +34,255 @@ function getTier(score: number) {
   return { ...TIER_THRESHOLDS[idx], idx };
 }
 
-// ── Sélecteur de plage ────────────────────────────────────────────────────────
 const SCORE_RANGES = ["1M", "3M", "6M", "12M"] as const;
 type Range = (typeof SCORE_RANGES)[number];
 
-function RangeSelector({
-  range,
-  setRange,
+// ── Motifs de fond (décor des cartes) ────────────────────────────────────────
+function Motif({
+  variant,
+  color,
+  style,
 }: {
-  range: Range;
-  setRange: (r: Range) => void;
+  variant: "dots" | "stripes" | "rings";
+  color: string;
+  style?: ViewStyle;
 }) {
+  if (variant === "dots") {
+    return (
+      <View pointerEvents="none" style={[{ position: "absolute", top: 14, right: 14 }, style]}>
+        {Array.from({ length: 5 }).map((_, r) => (
+          <View key={r} style={{ flexDirection: "row", gap: 9, marginBottom: 9 }}>
+            {Array.from({ length: 7 }).map((__, k) => (
+              <View
+                key={k}
+                style={{
+                  width: 3.5,
+                  height: 3.5,
+                  borderRadius: 2,
+                  backgroundColor: color,
+                  // fondu vers le bas-gauche
+                  opacity: Math.max(0.12, 1 - (r * 0.18 + (6 - k) * 0.12)),
+                }}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+    );
+  }
+  if (variant === "stripes") {
+    return (
+      <View
+        pointerEvents="none"
+        style={[
+          { position: "absolute", top: -40, right: -30, width: 180, height: 180, transform: [{ rotate: "35deg" }] },
+          style,
+        ]}
+      >
+        {Array.from({ length: 12 }).map((_, i) => (
+          <View
+            key={i}
+            style={{ height: 2, marginBottom: 12, borderRadius: 1, backgroundColor: color }}
+          />
+        ))}
+      </View>
+    );
+  }
   return (
-    <View className="flex-row gap-2">
-      {SCORE_RANGES.map((r) => {
-        const active = range === r;
-        return (
-          <Pressable
-            key={r}
-            onPress={() => setRange(r)}
-            className={`rounded-full px-3 py-1 ${
-              active ? "bg-ink" : "bg-ivory-2"
-            }`}
-          >
-            <Text
-              className={`font-mono text-xs ${
-                active ? "font-semibold text-paper" : "text-ink-3"
-              }`}
-            >
-              {r}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View pointerEvents="none" style={[{ position: "absolute", top: -70, right: -70 }, style]}>
+      {[220, 170, 120].map((d) => (
+        <View
+          key={d}
+          style={{
+            position: "absolute",
+            top: (220 - d) / 2,
+            left: (220 - d) / 2,
+            width: d,
+            height: d,
+            borderRadius: d / 2,
+            borderWidth: 1,
+            borderColor: color,
+          }}
+        />
+      ))}
     </View>
   );
 }
 
-// ── Barre de progression ──────────────────────────────────────────────────────
-function Bar({ label, pct, hint }: { label: string; pct: number; hint: string }) {
+// Carte claire épurée : fond surface, filet, ombre douce, motif optionnel.
+function ChicCard({
+  children,
+  motif,
+  motifColor,
+}: {
+  children: ReactNode;
+  motif?: "dots" | "stripes" | "rings";
+  motifColor?: string;
+}) {
+  const { c, isDark } = useTheme();
   return (
-    <View className="gap-1.5">
-      <View className="flex-row justify-between">
-        <Text className="text-sm text-ink-2">{label}</Text>
-        <Text className="font-mono text-xs text-ink-4">{Math.round(pct)}%</Text>
+    <View
+      style={{
+        borderRadius: 26,
+        backgroundColor: c.surface,
+        borderWidth: 1,
+        borderColor: c.borderSoft,
+        shadowColor: isDark ? "#000000" : c.navyDeep,
+        shadowOpacity: isDark ? 0.35 : 0.07,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 3,
+      }}
+    >
+      <View style={{ borderRadius: 25, overflow: "hidden", padding: 20 }}>
+        {motif ? <Motif variant={motif} color={motifColor ?? withAlpha(c.violet, "55")} /> : null}
+        {children}
       </View>
-      <View className="h-2 overflow-hidden rounded-full bg-ivory-2">
+    </View>
+  );
+}
+
+function Eyebrow({ children, color }: { children: ReactNode; color?: string }) {
+  const { c } = useTheme();
+  return (
+    <Text
+      style={{
+        fontSize: 10.5,
+        fontWeight: "800",
+        letterSpacing: 2,
+        textTransform: "uppercase",
+        color: color ?? c.textSub,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+// ── Anneau cranté (pourcentage) — 48 crans répartis en cercle, les crans
+// « atteints » à la couleur de la dimension. Pas de react-native-svg.
+function TickRing({
+  pct,
+  color,
+  track,
+  size = 94,
+  children,
+}: {
+  pct: number;
+  color: string;
+  track: string;
+  size?: number;
+  children?: ReactNode;
+}) {
+  const N = 48;
+  const on = Math.round((Math.max(0, Math.min(100, pct)) / 100) * N);
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      {Array.from({ length: N }).map((_, i) => (
         <View
-          className="h-2 rounded-full bg-violet"
-          style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
-        />
-      </View>
-      <Text className="text-[11px] text-ink-4">{hint}</Text>
+          key={i}
+          style={{
+            position: "absolute",
+            width: size,
+            height: size,
+            alignItems: "center",
+            transform: [{ rotate: `${(i * 360) / N}deg` }],
+          }}
+        >
+          <View
+            style={{
+              width: 3,
+              height: i % 4 === 0 ? 10 : 7,
+              borderRadius: 2,
+              backgroundColor: i < on ? color : track,
+            }}
+          />
+        </View>
+      ))}
+      {children}
+    </View>
+  );
+}
+
+function Pct({ value, color, size = 26 }: { value: number; color: string; size?: number }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+      <Text className="font-serif" style={{ fontSize: size, lineHeight: size * 1.1, color }}>
+        {Math.round(value)}
+      </Text>
+      <Text style={{ fontSize: size * 0.42, fontWeight: "700", color, marginTop: 3, marginLeft: 1 }}>
+        %
+      </Text>
     </View>
   );
 }
 
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function ScoreScreen() {
-  // Web default range is "6M" (from ScoreEvolution useState('6M'))
+  const { c, mode, isDark } = useTheme();
+  const hero = HOME_HERO[mode];
   const [range, setRange] = useState<Range>("6M");
 
   const q = useProspectScore();
   const h = useProspectScoreHistory(range);
   useRefetchOnFocus(q, h);
 
+  // Retour : réouvre le menu sur la page d'origine (page issue du drawer).
+  const goBack = () => {
+    const o = getDrawerOrigin();
+    if (o) {
+      router.replace(o.path as never);
+      router.push(o.drawer as never);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace("/(prospect)/portefeuille");
+  };
+
   return (
     <ScrollScreen
       onRefresh={() => Promise.all([q.refetch(), h.refetch()])}
-      hero={{
-        eyebrow: "BUUPP Score",
-        title: "Votre indice de désirabilité",
-        desc: "Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre fiabilité (la note des professionnels).",
-        nav: "drawer",
-      }}
     >
+      {/* En-tête épuré (pas de carte) : retour vers le menu + titre. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Pressable
+          onPress={goBack}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
+          className="active:opacity-70"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.borderSoft,
+          }}
+        >
+          <Ionicons name="chevron-back" size={20} color={c.text} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Eyebrow color={c.violet}>BUUPP Score</Eyebrow>
+          <Text className="font-serif" style={{ fontSize: 26, lineHeight: 30, color: c.text }}>
+            Indice de <Text className="font-serif-italic" style={{ color: c.violet }}>désirabilité</Text>
+          </Text>
+        </View>
+      </View>
+      <Text style={{ fontSize: 13.5, lineHeight: 20, color: c.textSub, marginTop: -4 }}>
+        Un score sur 1000 : complétude de vos paliers, fraîcheur de vos données et fiabilité
+        (la note des professionnels).
+      </Text>
+
       <QueryGate query={q}>
         {(d) => {
           const value = d.score;
           const tier = getTier(value);
           const nextTier =
-            tier.idx + 1 < TIER_THRESHOLDS.length
-              ? TIER_THRESHOLDS[tier.idx + 1]
-              : null;
+            tier.idx + 1 < TIER_THRESHOLDS.length ? TIER_THRESHOLDS[tier.idx + 1] : null;
           const ptsToNextTier = nextTier ? Math.max(0, nextTier.min - value) : 0;
-          const segMin = TIER_THRESHOLDS[tier.idx].min;
-          const segMax = nextTier?.min ?? 1000;
-          const segPct =
-            segMax === segMin
-              ? 100
-              : Math.max(
-                  0,
-                  Math.min(
-                    100,
-                    Math.round(((value - segMin) / (segMax - segMin)) * 100),
-                  ),
-                );
 
           // ── Formule pts (web : ptsPerPct = 10/3) ────────────────────────
           const ptsPerPct = 10 / 3;
@@ -128,15 +291,12 @@ export default function ScoreScreen() {
 
           const completeness = d.breakdown.completeness;
           const freshness = d.breakdown.freshness;
-          // Fiabilité = note moyenne des pros (remplace l'ancien taux
-          // d'acceptation). Absente d'une vieille réponse API → neutre.
           const fiabilite = d.breakdown.fiabilite ?? null;
           const fiabPct = fiabilite?.pct ?? 60;
           const fiabCount = fiabilite?.count ?? 0;
 
           const completenessGap = ptsToFull(completeness.pct);
           const freshnessGap = ptsToFull(freshness.pct);
-          // Pas de gain « à débloquer » tant qu'aucun pro n'a noté (parité web).
           const fiabiliteGap = fiabCount === 0 ? 0 : ptsToFull(fiabPct);
 
           // ── Hints (wording identique au web) ────────────────────────────
@@ -148,389 +308,460 @@ export default function ScoreScreen() {
                     ? "votre dernier palier"
                     : `les ${completeness.total - completeness.filled} paliers manquants`
                 } dans Mes données pour gagner ${completenessGap} pts.`;
-
-          // freshness.lastUpdate n'est pas exposé dans le type mobile :
-          // on utilise ageDays > 0 comme proxy (ageDays > 0 ⟹ il y a eu
-          // au moins une mise à jour, donc on peut "ré-éditer").
           const freshnessHint =
             freshness.pct >= 100
               ? "Vos données sont à jour (moins d’un an)."
               : freshness.lastUpdate || (freshness.ageDays ?? 0) > 0
-              ? `Ré-éditez un champ dans Mes données pour repasser à 100 % et gagner ${freshnessGap} pts.`
-              : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`;
-
+                ? `Ré-éditez un champ dans Mes données pour repasser à 100 % et gagner ${freshnessGap} pts.`
+                : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`;
           const fiabiliteHint =
             fiabCount === 0
               ? "Vous partez d'une fiabilité neutre (60). Les notes des professionnels la feront monter (Haute) ou baisser (Basse)."
               : fiabPct >= 100
-              ? "Note maximale des professionnels — au top."
-              : `Honorez vos mises en relation : une note « Haute » des professionnels fait grimper votre fiabilité (jusqu'à ${fiabiliteGap} pts).`;
+                ? "Note maximale des professionnels — au top."
+                : `Honorez vos mises en relation : une note « Haute » des professionnels fait grimper votre fiabilité (jusqu'à ${fiabiliteGap} pts).`;
+
+          const DIMS = [
+            {
+              key: "completeness",
+              label: "Complétude",
+              pct: completeness.pct,
+              sub: `${completeness.filled}/${completeness.total} paliers`,
+              color: c.violet,
+              icon: "layers-outline" as const,
+              gap: completenessGap,
+              hint: completenessHint,
+            },
+            {
+              key: "freshness",
+              label: "Fraîcheur",
+              pct: freshness.pct,
+              sub:
+                freshness.ageDays != null ? `MAJ il y a ${freshness.ageDays} j` : "Aucune MAJ",
+              color: c.accBlue,
+              icon: "leaf-outline" as const,
+              gap: freshnessGap,
+              hint: freshnessHint,
+            },
+            {
+              key: "fiabilite",
+              label: "Fiabilité",
+              pct: fiabPct,
+              sub: fiabCount > 0 ? `${fiabCount} note${fiabCount > 1 ? "s" : ""} pro` : "Valeur neutre",
+              color: c.good,
+              icon: "shield-checkmark-outline" as const,
+              gap: fiabiliteGap,
+              hint: fiabiliteHint,
+            },
+          ];
+
+          // Fiabilité détaillée
+          const levels = fiabilite?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
+          const totalNotes = fiabilite?.count ?? levels.haute + levels.moyenne + levels.basse;
+          const fTier =
+            fiabPct >= 80
+              ? { label: "Excellente", color: c.good }
+              : fiabPct >= 65
+                ? { label: "Bonne", color: c.good }
+                : fiabPct >= 45
+                  ? { label: "Valeur neutre", color: c.warn }
+                  : { label: "Vigilance", color: c.bad };
+          const LEVELS: {
+            key: string;
+            label: string;
+            color: string;
+            icon: keyof typeof Ionicons.glyphMap;
+            n: number;
+          }[] = [
+            { key: "haute", label: "Haute", color: c.good, icon: "shield-checkmark", n: levels.haute },
+            { key: "moyenne", label: "Moyenne", color: c.warn, icon: "shield-half", n: levels.moyenne },
+            { key: "basse", label: "Basse", color: c.bad, icon: "alert-circle", n: levels.basse },
+          ];
+
+          const points = h.data?.points ?? [];
+          const maxPts = Math.max(1000, ...points.map((p) => p.score));
 
           return (
             <>
-              {/* ── Carte score principal ────────────────────────────── */}
-              <Card dark>
-                <Text className="font-mono text-[11px] uppercase text-white/60">
-                  Score actuel
-                </Text>
-                <Text className="mt-1 font-serif text-5xl text-paper">
-                  {value}
-                  <Text className="text-xl text-white/60"> / 1000</Text>
-                </Text>
-                {/* Palier qualitatif */}
-                <Text className="mt-2 font-serif italic text-violet">
-                  {tier.label}
-                </Text>
-              </Card>
+              {/* ── 1. Carte score : sombre, motifs, échelle des paliers ── */}
+              <View
+                style={{
+                  borderRadius: 28,
+                  overflow: "hidden",
+                  shadowColor: `rgb(${hero.glow})`,
+                  shadowOpacity: isDark ? 0 : 0.3,
+                  shadowRadius: 22,
+                  shadowOffset: { width: 0, height: 10 },
+                }}
+              >
+                <LinearGradient
+                  colors={hero.base}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0.6, y: 1 }}
+                  style={{ padding: 22 }}
+                >
+                  <LinearGradient
+                    colors={[`rgba(${hero.glow},0.55)`, `rgba(${hero.glow},0)`]}
+                    start={{ x: 1, y: 0 }}
+                    end={{ x: 0.2, y: 0.9 }}
+                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
+                  <Motif variant="rings" color="rgba(255,255,255,0.10)" />
+                  <Motif
+                    variant="stripes"
+                    color="rgba(255,255,255,0.05)"
+                    style={{ top: 90, right: undefined, left: -60 }}
+                  />
 
-              {/* ── Barres par dimension ────────────────────────────── */}
-              <Card className="gap-5" badge={{ icon: "speedometer-outline", tone: "violet" }}>
-                <Bar
-                  label="Complétude des paliers"
-                  pct={completeness.pct}
-                  hint={`${completeness.filled}/${completeness.total} paliers validés`}
-                />
-                <Bar
-                  label="Fraîcheur des données"
-                  pct={freshness.pct}
-                  hint={
-                    freshness.ageDays != null
-                      ? `Dernière MAJ il y a ${freshness.ageDays} j`
-                      : "Aucune mise à jour"
-                  }
-                />
-                <Bar
-                  label="Fiabilité"
-                  pct={fiabPct}
-                  hint={
-                    fiabCount > 0
-                      ? `${fiabCount} note${fiabCount > 1 ? "s" : ""} pro`
-                      : "Aucune note — valeur neutre"
-                  }
-                />
-              </Card>
-
-              {/* ── Historique avec sélecteur de plage ──────────────── */}
-              <Card badge={{ icon: "trending-up-outline", tone: "sky" }}>
-                <View className="flex-row items-center justify-between">
-                  <Text className="font-serif text-lg text-ink">
-                    Évolution sur {range}
-                  </Text>
-                  <RangeSelector range={range} setRange={setRange} />
-                </View>
-                {h.data && h.data.points.length > 0 ? (
-                  <View className="mt-2 gap-1">
-                    {h.data.points.map((p) => (
-                      <View key={p.date} className="flex-row justify-between">
-                        <Text className="font-mono text-xs text-ink-4">
-                          {p.date}
-                        </Text>
-                        <Text className="text-xs text-ink-2">
-                          {p.score} / 1000
-                        </Text>
-                      </View>
-                    ))}
+                  <Eyebrow color="rgba(255,255,255,0.65)">Score actuel</Eyebrow>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: 6 }}>
+                    <Text
+                      className="font-serif"
+                      style={{ fontSize: 76, lineHeight: 80, color: "#FFFFFF", letterSpacing: -2 }}
+                    >
+                      {value}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        color: "rgba(255,255,255,0.55)",
+                        marginBottom: 14,
+                        marginLeft: 6,
+                        fontWeight: "600",
+                      }}
+                    >
+                      / 1000
+                    </Text>
                   </View>
-                ) : (
-                  <Text className="mt-1 text-xs text-ink-4">
-                    Pas encore d&apos;historique sur {range}. Votre score sera
-                    enregistré à chaque consultation de cet onglet.
-                  </Text>
-                )}
-              </Card>
+                  <View
+                    style={{
+                      alignSelf: "flex-start",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginTop: 4,
+                      paddingHorizontal: 12,
+                      paddingVertical: 5,
+                      borderRadius: 999,
+                      backgroundColor: "rgba(255,255,255,0.12)",
+                      borderWidth: 1,
+                      borderColor: `rgba(${hero.pastelRgb},0.45)`,
+                    }}
+                  >
+                    <Ionicons name="sparkles" size={13} color={hero.pastel} />
+                    <Text className="font-serif-italic" style={{ fontSize: 16, color: hero.pastelText }}>
+                      {tier.label}
+                    </Text>
+                  </View>
 
-              {/* ── Mon taux de fiabilité (parité web : avant les Conseils) ── */}
-              {(() => {
-                const fiab = d.breakdown.fiabilite;
-                const levels = fiab?.levels ?? { haute: 0, moyenne: 0, basse: 0 };
-                const total =
-                  fiab?.count ?? levels.haute + levels.moyenne + levels.basse;
-                const pct = fiab ? fiab.pct : 60;
-                const fTier =
-                  pct >= 80
-                    ? { label: "Excellente", color: "#16A34A" }
-                    : pct >= 65
-                      ? { label: "Bonne", color: "#16A34A" }
-                      : pct >= 45
-                        ? { label: "Valeur neutre", color: "#D97706" }
-                        : { label: "Vigilance", color: "#DC2626" };
-                const TILES: {
-                  key: string;
-                  label: string;
-                  color: string;
-                  icon: keyof typeof Ionicons.glyphMap;
-                  n: number;
-                }[] = [
-                  { key: "haute", label: "Haute", color: "#16A34A", icon: "shield-checkmark", n: levels.haute },
-                  { key: "moyenne", label: "Moyenne", color: "#D97706", icon: "shield-half", n: levels.moyenne },
-                  { key: "basse", label: "Basse", color: "#DC2626", icon: "alert-circle", n: levels.basse },
-                ];
-                return (
-                  <Card badge={{ icon: "shield-checkmark-outline", tone: "teal" }}>
-                    <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text className="font-mono text-[11px] uppercase text-ink-3">
-                          Indice cross-pro
-                        </Text>
-                        <Text className="font-serif text-xl text-ink">
-                          Mon taux de fiabilité
-                        </Text>
-                      </View>
-                      <View className="items-end">
-                        <Text className="font-serif text-3xl text-ink">
-                          {pct}
-                          <Text className="text-base text-ink-4">/100</Text>
-                        </Text>
-                        <View
-                          className="mt-1 flex-row items-center rounded-full px-2 py-0.5"
-                          style={{
-                            backgroundColor: fTier.color + "1F",
-                            borderWidth: 1,
-                            borderColor: fTier.color + "4D",
-                          }}
-                        >
+                  {/* Échelle des paliers : 4 segments égaux, remplis selon le score */}
+                  <View style={{ marginTop: 22, flexDirection: "row", gap: 5 }}>
+                    {TIER_THRESHOLDS.map((t, i) => {
+                      const max = TIER_THRESHOLDS[i + 1]?.min ?? 1000;
+                      const fill =
+                        value >= max ? 1 : value <= t.min ? 0 : (value - t.min) / (max - t.min);
+                      return (
+                        <View key={t.label} style={{ flex: 1 }}>
                           <View
                             style={{
-                              width: 6,
                               height: 6,
                               borderRadius: 3,
-                              backgroundColor: fTier.color,
-                              marginRight: 5,
+                              backgroundColor: "rgba(255,255,255,0.14)",
+                              overflow: "hidden",
                             }}
-                          />
-                          <Text
-                            className="font-mono text-[10px]"
-                            style={{ color: fTier.color, fontWeight: "700" }}
                           >
-                            {fTier.label.toUpperCase()}
-                          </Text>
-                        </View>
-                        <Text className="mt-1 text-[11px] text-ink-4">
-                          {total} note{total > 1 ? "s" : ""} pro
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text className="mt-3 text-xs leading-5 text-ink-3">
-                      Votre fiabilité reflète les notes des professionnels après
-                      vos mises en relation — leur identité reste anonyme. Honorez
-                      vos rendez-vous pour la faire monter.
-                    </Text>
-
-                    <Text className="mt-4 font-mono text-[10px] uppercase text-ink-4">
-                      Répartition des notes reçues
-                    </Text>
-                    <View className="mt-2 flex-row" style={{ gap: 8 }}>
-                      {TILES.map((t) => (
-                        <View
-                          key={t.key}
-                          className="flex-1 rounded-xl p-3"
-                          style={{
-                            backgroundColor: t.color + "14",
-                            borderWidth: 1,
-                            borderColor: t.color + "33",
-                          }}
-                        >
-                          <View className="flex-row items-center" style={{ gap: 5 }}>
-                            <Ionicons name={t.icon} size={14} color={t.color} />
-                            <Text
-                              className="text-[12.5px]"
-                              style={{ color: t.color, fontWeight: "700" }}
-                            >
-                              {t.label}
-                            </Text>
+                            <View
+                              style={{
+                                width: `${fill * 100}%`,
+                                height: 6,
+                                borderRadius: 3,
+                                backgroundColor: hero.pastel,
+                              }}
+                            />
                           </View>
-                          <Text className="mt-1 font-serif text-xl text-ink">
-                            {t.n}
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              marginTop: 6,
+                              fontSize: 10,
+                              fontWeight: i === tier.idx ? "800" : "500",
+                              color: i === tier.idx ? "#FFFFFF" : "rgba(255,255,255,0.5)",
+                            }}
+                          >
+                            {t.label}
                           </Text>
                         </View>
-                      ))}
-                    </View>
-                  </Card>
-                );
-              })()}
-
-              {/* ── Conseils pour améliorer votre score ─────────────── */}
-              <Card badge={{ icon: "bulb-outline", tone: "amber" }}>
-                <View className="mb-3 flex-row items-baseline justify-between">
-                  <Text className="font-serif text-lg text-ink">
-                    Conseils pour améliorer votre score
-                  </Text>
-                  <Text className="font-mono text-[11px] text-ink-4">
-                    1&nbsp;%&nbsp;=&nbsp;~{ptsPerPct.toFixed(1).replace(".", ",")} pts
-                  </Text>
-                </View>
-
-                {/* Bandeau palier + progression ──────────────────────── */}
-                <View className="mb-4 rounded-xl border border-line bg-ivory p-3">
-                  <View className="flex-row items-baseline justify-between">
-                    <View className="flex-row items-baseline gap-2">
-                      <Text className="font-serif text-2xl text-ink">
-                        {value}
-                      </Text>
-                      <Text className="font-mono text-xs text-ink-4">
-                        / 1000 pts
-                      </Text>
-                      <Text className="rounded-full bg-ivory-2 px-2 py-0.5 font-mono text-[11px] text-ink-3">
-                        {tier.label}
-                      </Text>
-                    </View>
+                      );
+                    })}
                   </View>
-                  {nextTier ? (
-                    <>
-                      <Text className="mt-1 text-xs text-ink-3">
-                        Encore{" "}
-                        <Text className="font-semibold text-ink">
-                          {ptsToNextTier} pts
-                        </Text>{" "}
+                  <Text style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
+                    {nextTier ? (
+                      <>
+                        Encore <Text style={{ fontWeight: "800", color: "#FFFFFF" }}>{ptsToNextTier} pts</Text>{" "}
                         pour atteindre{" "}
-                        <Text className="font-semibold text-ink">
+                        <Text className="font-serif-italic" style={{ color: "#FFFFFF" }}>
                           {nextTier.label}
                         </Text>
+                      </>
+                    ) : (
+                      "Palier maximal atteint — bravo !"
+                    )}
+                  </Text>
+                </LinearGradient>
+              </View>
+
+              {/* ── 2. Les 3 piliers en anneaux crantés ─────────────────── */}
+              <ChicCard motif="dots">
+                <Eyebrow>Vos 3 piliers</Eyebrow>
+                <Text className="font-serif" style={{ fontSize: 22, color: c.text, marginTop: 2 }}>
+                  Ce qui compose votre score
+                </Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 18 }}>
+                  {DIMS.map((dim) => (
+                    <View key={dim.key} style={{ alignItems: "center", width: "32%" }}>
+                      <TickRing pct={dim.pct} color={dim.color} track={c.track}>
+                        <Pct value={dim.pct} color={c.text} />
+                      </TickRing>
+                      <Text style={{ marginTop: 10, fontSize: 13, fontWeight: "700", color: c.text }}>
+                        {dim.label}
                       </Text>
-                      {/* Barre de progression dans le segment courant */}
-                      <View className="mt-2 h-2 overflow-hidden rounded-full bg-ivory-2">
+                      <Text style={{ fontSize: 11, color: c.textSub, marginTop: 1 }} numberOfLines={1}>
+                        {dim.sub}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ChicCard>
+
+              {/* ── 3. Évolution : mini-graphe en barres ─────────────────── */}
+              <ChicCard motif="stripes" motifColor={withAlpha(c.accBlue, "14")}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View>
+                    <Eyebrow>Évolution</Eyebrow>
+                    <Text className="font-serif" style={{ fontSize: 22, color: c.text, marginTop: 2 }}>
+                      Sur {range}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      padding: 3,
+                      borderRadius: 999,
+                      backgroundColor: c.surface2,
+                      borderWidth: 1,
+                      borderColor: c.borderSoft,
+                    }}
+                  >
+                    {SCORE_RANGES.map((r) => {
+                      const active = range === r;
+                      return (
+                        <Pressable
+                          key={r}
+                          onPress={() => setRange(r)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            backgroundColor: active ? c.btnBg : "transparent",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: "700",
+                              color: active ? c.btnText : c.textSub,
+                            }}
+                          >
+                            {r}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+                {points.length > 0 ? (
+                  <View style={{ marginTop: 18 }}>
+                    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 110, gap: 6 }}>
+                      {points.slice(-12).map((p, i, arr) => {
+                        const last = i === arr.length - 1;
+                        return (
+                          <View key={p.date} style={{ flex: 1, alignItems: "center" }}>
+                            {last ? (
+                              <Text style={{ fontSize: 10.5, fontWeight: "800", color: c.violet, marginBottom: 4 }}>
+                                {p.score}
+                              </Text>
+                            ) : null}
+                            <LinearGradient
+                              colors={
+                                last
+                                  ? [c.violet, withAlpha(c.violet, "99")]
+                                  : [withAlpha(c.violet, "55"), withAlpha(c.violet, "22")]
+                              }
+                              style={{
+                                width: "100%",
+                                maxWidth: 22,
+                                height: Math.max(6, (p.score / maxPts) * 90),
+                                borderRadius: 7,
+                              }}
+                            />
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+                      <Text style={{ fontSize: 10.5, color: c.textMuted }}>
+                        {points.slice(-12)[0]?.date}
+                      </Text>
+                      <Text style={{ fontSize: 10.5, color: c.textMuted }}>
+                        {points[points.length - 1]?.date}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View
+                    style={{
+                      marginTop: 16,
+                      padding: 14,
+                      borderRadius: 16,
+                      backgroundColor: c.surface2,
+                      flexDirection: "row",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons name="analytics-outline" size={20} color={c.textSub} />
+                    <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 18, color: c.textSub }}>
+                      Pas encore d&apos;historique sur {range}. Votre score est enregistré à chaque
+                      consultation de cet onglet.
+                    </Text>
+                  </View>
+                )}
+              </ChicCard>
+
+              {/* ── 4. Fiabilité : note des pros ─────────────────────────── */}
+              <ChicCard motif="rings" motifColor={withAlpha(c.good, "22")}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Eyebrow>Indice cross-pro</Eyebrow>
+                    <Text className="font-serif" style={{ fontSize: 22, color: c.text, marginTop: 2 }}>
+                      Mon taux de fiabilité
+                    </Text>
+                    <View
+                      style={{
+                        alignSelf: "flex-start",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                        marginTop: 8,
+                        paddingHorizontal: 9,
+                        paddingVertical: 3,
+                        borderRadius: 999,
+                        backgroundColor: withAlpha(fTier.color, "1F"),
+                      }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: fTier.color }} />
+                      <Text style={{ fontSize: 10.5, fontWeight: "800", letterSpacing: 1, color: fTier.color }}>
+                        {fTier.label.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  <TickRing pct={fiabPct} color={fTier.color} track={c.track} size={84}>
+                    <Pct value={fiabPct} color={c.text} size={22} />
+                  </TickRing>
+                </View>
+                <Text style={{ marginTop: 14, fontSize: 12.5, lineHeight: 19, color: c.textSub }}>
+                  Reflète les notes des professionnels après vos mises en relation — leur identité
+                  reste anonyme. Honorez vos rendez-vous pour la faire monter.
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+                  {LEVELS.map((t) => (
+                    <View
+                      key={t.key}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 12,
+                        borderRadius: 18,
+                        alignItems: "center",
+                        backgroundColor: withAlpha(t.color, isDark ? "1F" : "12"),
+                      }}
+                    >
+                      <Ionicons name={t.icon} size={16} color={t.color} />
+                      <Text className="font-serif" style={{ fontSize: 24, color: c.text, marginTop: 2 }}>
+                        {t.n}
+                      </Text>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: t.color }}>{t.label}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={{ marginTop: 10, fontSize: 11, color: c.textMuted, textAlign: "center" }}>
+                  {totalNotes} note{totalNotes > 1 ? "s" : ""} reçue{totalNotes > 1 ? "s" : ""}
+                </Text>
+              </ChicCard>
+
+              {/* ── 5. Conseils ─────────────────────────────────────────── */}
+              <ChicCard motif="dots" motifColor={withAlpha(c.accAmber, "66")}>
+                <Eyebrow>Conseils</Eyebrow>
+                <Text className="font-serif" style={{ fontSize: 22, color: c.text, marginTop: 2 }}>
+                  Faire grimper votre score
+                </Text>
+                <Text style={{ fontSize: 11.5, color: c.textMuted, marginTop: 3 }}>
+                  1 % ≈ {ptsPerPct.toFixed(1).replace(".", ",")} pts
+                </Text>
+                <View style={{ marginTop: 14, gap: 10 }}>
+                  {DIMS.map((dim) => {
+                    const done = dim.gap === 0;
+                    return (
+                      <View
+                        key={dim.key}
+                        style={{
+                          flexDirection: "row",
+                          gap: 12,
+                          padding: 14,
+                          borderRadius: 18,
+                          backgroundColor: c.surface2,
+                        }}
+                      >
                         <View
-                          className="h-2 rounded-full bg-violet"
-                          style={{ width: `${segPct}%` }}
-                        />
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 12,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: withAlpha(dim.color, "1F"),
+                          }}
+                        >
+                          <Ionicons name={dim.icon} size={19} color={dim.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: c.text }}>{dim.label}</Text>
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                backgroundColor: done ? withAlpha(c.good, "1F") : withAlpha(c.violet, "1F"),
+                              }}
+                            >
+                              <Text
+                                style={{ fontSize: 11, fontWeight: "800", color: done ? c.good : c.violet }}
+                              >
+                                {done ? "✓ Optimal" : `+${dim.gap} pts`}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 12.5, lineHeight: 18, color: c.textSub, marginTop: 4 }}>
+                            {dim.hint}
+                          </Text>
+                        </View>
                       </View>
-                      <View className="mt-1 flex-row justify-between">
-                        <Text className="font-mono text-[10px] text-ink-4">
-                          {segMin}
-                        </Text>
-                        <Text className="font-mono text-[10px] text-ink-4">
-                          {segMax}
-                        </Text>
-                      </View>
-                    </>
-                  ) : (
-                    <Text className="mt-1 text-xs text-ink-3">
-                      Vous avez atteint le palier maximal — bravo&nbsp;!
-                    </Text>
-                  )}
+                    );
+                  })}
                 </View>
-
-                {/* 3 blocs dimension ──────────────────────────────────── */}
-                <View className="gap-3">
-                  {/* Complétude */}
-                  <View className="rounded-xl border border-line bg-ivory p-3">
-                    <View className="mb-1 flex-row items-center justify-between">
-                      <Text className="font-serif text-base text-ink">
-                        Complétude des paliers
-                      </Text>
-                      <Text
-                        className={`font-mono text-[11px] ${
-                          completenessGap === 0 ? "text-good" : "text-violet"
-                        }`}
-                      >
-                        {completenessGap === 0
-                          ? "✓ optimal"
-                          : `+${completenessGap} pts max`}
-                      </Text>
-                    </View>
-                    <Text className="font-mono text-lg text-ink">
-                      {completeness.pct}%
-                      <Text className="font-mono text-[11px] text-ink-4">
-                        {" "}
-                        · {completeness.filled}/{completeness.total} paliers
-                        validés
-                      </Text>
-                    </Text>
-                    <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-ivory-2">
-                      <View
-                        className={`h-1.5 rounded-full ${
-                          completenessGap === 0 ? "bg-good" : "bg-violet"
-                        }`}
-                        style={{
-                          width: `${Math.max(0, Math.min(100, completeness.pct))}%`,
-                        }}
-                      />
-                    </View>
-                    <Text className="mt-2 text-[11px] leading-4 text-ink-4">
-                      {completenessHint}
-                    </Text>
-                  </View>
-
-                  {/* Fraîcheur */}
-                  <View className="rounded-xl border border-line bg-ivory p-3">
-                    <View className="mb-1 flex-row items-center justify-between">
-                      <Text className="font-serif text-base text-ink">
-                        Fraîcheur des données
-                      </Text>
-                      <Text
-                        className={`font-mono text-[11px] ${
-                          freshnessGap === 0 ? "text-good" : "text-violet"
-                        }`}
-                      >
-                        {freshnessGap === 0
-                          ? "✓ optimal"
-                          : `+${freshnessGap} pts max`}
-                      </Text>
-                    </View>
-                    <Text className="font-mono text-lg text-ink">
-                      {freshness.pct}%
-                      <Text className="font-mono text-[11px] text-ink-4">
-                        {freshness.ageDays != null
-                          ? ` · Dernière MAJ il y a ${freshness.ageDays} j`
-                          : ""}
-                      </Text>
-                    </Text>
-                    <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-ivory-2">
-                      <View
-                        className={`h-1.5 rounded-full ${
-                          freshnessGap === 0 ? "bg-good" : "bg-violet"
-                        }`}
-                        style={{
-                          width: `${Math.max(0, Math.min(100, freshness.pct))}%`,
-                        }}
-                      />
-                    </View>
-                    <Text className="mt-2 text-[11px] leading-4 text-ink-4">
-                      {freshnessHint}
-                    </Text>
-                  </View>
-
-                  {/* Fiabilité */}
-                  <View className="rounded-xl border border-line bg-ivory p-3">
-                    <View className="mb-1 flex-row items-center justify-between">
-                      <Text className="font-serif text-base text-ink">
-                        Fiabilité
-                      </Text>
-                      <Text
-                        className={`font-mono text-[11px] ${
-                          fiabiliteGap === 0 ? "text-good" : "text-violet"
-                        }`}
-                      >
-                        {fiabiliteGap === 0
-                          ? "✓ optimal"
-                          : `+${fiabiliteGap} pts max`}
-                      </Text>
-                    </View>
-                    <Text className="font-mono text-lg text-ink">
-                      {fiabPct}%
-                      <Text className="font-mono text-[11px] text-ink-4">
-                        {fiabCount > 0
-                          ? ` · ${fiabCount} note${fiabCount > 1 ? "s" : ""} pro`
-                          : " · Aucune note — valeur neutre"}
-                      </Text>
-                    </Text>
-                    <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-ivory-2">
-                      <View
-                        className={`h-1.5 rounded-full ${
-                          fiabiliteGap === 0 ? "bg-good" : "bg-violet"
-                        }`}
-                        style={{
-                          width: `${Math.max(0, Math.min(100, fiabPct))}%`,
-                        }}
-                      />
-                    </View>
-                    <Text className="mt-2 text-[11px] leading-4 text-ink-4">
-                      {fiabiliteHint}
-                    </Text>
-                  </View>
-                </View>
-              </Card>
+              </ChicCard>
             </>
           );
         }}
