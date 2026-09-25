@@ -279,6 +279,7 @@ export function ContactDetailSheet({
                 shadowOpacity: 0.27,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 6 },
+                elevation: 5,
               }}
             >
               <Text
@@ -567,6 +568,7 @@ export function ContactDetailSheet({
                   shadowOpacity: 0.22,
                   shadowRadius: 20,
                   shadowOffset: { width: 0, height: 8 },
+                  elevation: 5,
                 }}
               >
                 <Text style={{ fontSize: 14, fontWeight: "600", color: p.ctaText }}>

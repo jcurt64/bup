@@ -223,6 +223,7 @@ function DarkButton({
         shadowOpacity: 0.2,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 8 },
+        elevation: 5,
         opacity: disabled ? 0.5 : 1,
       }}
     >

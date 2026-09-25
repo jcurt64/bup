@@ -135,90 +135,92 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
     <View
       style={{
         position: "relative", backgroundColor: LC.card, borderRadius: 20, borderWidth: 1, borderColor: LC.line,
-        padding: 18, overflow: "hidden",
         shadowColor: "#161a1d", shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 2,
       }}
     >
-      {/* Barre d'accent + halo (couleur du type) */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: tc.c }} />
-      <View pointerEvents="none" style={{ position: "absolute", top: -40, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: tc.c, opacity: 0.05 }} />
+      {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+      <View style={{ borderRadius: 19, overflow: "hidden", padding: 18 }}>
+        {/* Barre d'accent + halo (couleur du type) */}
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: tc.c }} />
+        <View pointerEvents="none" style={{ position: "absolute", top: -40, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: tc.c, opacity: 0.05 }} />
 
-      {/* En-tête : tuile d'icône + nom + statut + code */}
-      <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: tc.soft }}>
-          <Ionicons name={TYPE_ION[sty.icon] ?? "ellipse-outline"} size={23} color={tc.c} />
+        {/* En-tête : tuile d'icône + nom + statut + code */}
+        <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+          <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: tc.soft }}>
+            <Ionicons name={TYPE_ION[sty.icon] ?? "ellipse-outline"} size={23} color={tc.c} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <Text className="font-serif" style={{ fontSize: 19, color: LC.ink, flexShrink: 1 }} numberOfLines={1}>{camp.name}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: st.bg }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: st.dot }} />
+                <Text style={{ fontSize: 11, fontWeight: "700", color: st.color }}>{st.label}</Text>
+              </View>
+            </View>
+
+          </View>
         </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-            <Text className="font-serif" style={{ fontSize: 19, color: LC.ink, flexShrink: 1 }} numberOfLines={1}>{camp.name}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: st.bg }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: st.dot }} />
-              <Text style={{ fontSize: 11, fontWeight: "700", color: st.color }}>{st.label}</Text>
+
+        {/* Code buupp, infos et brief : pleine largeur, centrés dans la carte
+            (hors de la colonne décalée par la tuile d'icône). */}
+        {code ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "center", marginTop: 14, paddingLeft: 10, paddingRight: 6, paddingVertical: 5, borderRadius: 10, backgroundColor: LC.amberXsoft, borderWidth: 1, borderColor: LC.codeBorder }}>
+            <Ionicons name="lock-closed" size={11} color={LC.ck} />
+            <Text style={{ fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ck, fontWeight: "600" }}>Code buupp</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: "700", letterSpacing: 1, color: LC.cv }}>{code}</Text>
+            <Pressable
+              onPress={() => Clipboard.setStringAsync(String(code))}
+              hitSlop={6}
+              style={{ width: 24, height: 24, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: LC.codeBorder }}
+            >
+              <Ionicons name="copy-outline" size={12} color={LC.ck} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <Text style={{ marginTop: 10, fontSize: 12.5, lineHeight: 18, color: LC.ink3, textAlign: "center" }} numberOfLines={2}>
+          {camp.objectiveLabel} · créée le <Text style={{ color: LC.ink2, fontWeight: "600" }}>{dateShort(camp.createdAt)}</Text> · coût moyen <Text style={{ color: LC.ink2, fontWeight: "600" }}>{eur(camp.avgCostEur)}</Text>
+        </Text>
+
+        {camp.brief ? (
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 }}>
+            <Ionicons name="pricetag-outline" size={13} color={tc.c} />
+            <Text className="font-serif-italic" style={{ fontSize: 14, color: tc.c, flexShrink: 1 }} numberOfLines={1}>« {camp.brief} »</Text>
+          </View>
+        ) : null}
+
+        {/* Séparateur */}
+        <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: LC.line }} />
+
+        {/* Tuiles de stats */}
+        <View style={{ marginTop: 16, gap: 10 }}>
+          <LcStatTile icon="cash-outline" color={tc.c} soft={tc.soft} label="Budget" value={`${eur(spentTotal)} / ${eur(budgetTotal)}`} />
+          <LcStatTile icon="people-outline" color="#2f72c4" soft="#dbe9f8" label="Touchés" value={String(reached)} />
+          <LcStatTile icon="checkmark-circle-outline" color="#2e9e5b" soft="#dcf0e3" label="Contacts" value={`${Number(camp.contactsCount ?? 0)} · ${ar}%`} />
+        </View>
+
+        {/* Barre budget consommé — dégradée par couleur du type */}
+        <View style={{ marginTop: 16 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+            <Text style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ink3 }}>Budget consommé</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: "700", color: LC.ink }}>{pct}%</Text>
+          </View>
+          <View style={{ height: 8, borderRadius: 999, backgroundColor: LC.paperWarm, overflow: "hidden" }}>
+            <View style={{ width: `${Math.max(pct, 3)}%`, height: "100%" }}>
+              <LinearGradient colors={[tc.c, tc.light]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, borderRadius: 999 }} />
             </View>
           </View>
-
+          <Text style={{ marginTop: 7, fontSize: 11, color: LC.ink4 }}>
+            Commission incluse · acquise sur les acceptations · {eur(spentTotal)} engagés sur {eur(budgetTotal)}
+          </Text>
         </View>
-      </View>
 
-      {/* Code buupp, infos et brief : pleine largeur, centrés dans la carte
-          (hors de la colonne décalée par la tuile d'icône). */}
-      {code ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "center", marginTop: 14, paddingLeft: 10, paddingRight: 6, paddingVertical: 5, borderRadius: 10, backgroundColor: LC.amberXsoft, borderWidth: 1, borderColor: LC.codeBorder }}>
-          <Ionicons name="lock-closed" size={11} color={LC.ck} />
-          <Text style={{ fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ck, fontWeight: "600" }}>Code buupp</Text>
-          <Text style={{ fontSize: 12.5, fontWeight: "700", letterSpacing: 1, color: LC.cv }}>{code}</Text>
-          <Pressable
-            onPress={() => Clipboard.setStringAsync(String(code))}
-            hitSlop={6}
-            style={{ width: 24, height: 24, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: LC.codeBorder }}
-          >
-            <Ionicons name="copy-outline" size={12} color={LC.ck} />
-          </Pressable>
+        {/* Actions */}
+        <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {editable ? <LcAct icon="create-outline" label="Modifier" onPress={() => onEdit(camp.id)} /> : null}
+          <LcAct icon="copy-outline" label="Dupliquer" onPress={() => router.push(`/(pro)/objectif?duplicate=${camp.id}` as never)} />
+          <LcAct icon="arrow-forward" label="Détails" primary onPress={() => router.push(`/(pro)/campagne?id=${camp.id}` as never)} />
         </View>
-      ) : null}
-
-      <Text style={{ marginTop: 10, fontSize: 12.5, lineHeight: 18, color: LC.ink3, textAlign: "center" }} numberOfLines={2}>
-        {camp.objectiveLabel} · créée le <Text style={{ color: LC.ink2, fontWeight: "600" }}>{dateShort(camp.createdAt)}</Text> · coût moyen <Text style={{ color: LC.ink2, fontWeight: "600" }}>{eur(camp.avgCostEur)}</Text>
-      </Text>
-
-      {camp.brief ? (
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 }}>
-          <Ionicons name="pricetag-outline" size={13} color={tc.c} />
-          <Text className="font-serif-italic" style={{ fontSize: 14, color: tc.c, flexShrink: 1 }} numberOfLines={1}>« {camp.brief} »</Text>
-        </View>
-      ) : null}
-
-      {/* Séparateur */}
-      <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: LC.line }} />
-
-      {/* Tuiles de stats */}
-      <View style={{ marginTop: 16, gap: 10 }}>
-        <LcStatTile icon="cash-outline" color={tc.c} soft={tc.soft} label="Budget" value={`${eur(spentTotal)} / ${eur(budgetTotal)}`} />
-        <LcStatTile icon="people-outline" color="#2f72c4" soft="#dbe9f8" label="Touchés" value={String(reached)} />
-        <LcStatTile icon="checkmark-circle-outline" color="#2e9e5b" soft="#dcf0e3" label="Contacts" value={`${Number(camp.contactsCount ?? 0)} · ${ar}%`} />
-      </View>
-
-      {/* Barre budget consommé — dégradée par couleur du type */}
-      <View style={{ marginTop: 16 }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-          <Text style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: LC.ink3 }}>Budget consommé</Text>
-          <Text style={{ fontSize: 12.5, fontWeight: "700", color: LC.ink }}>{pct}%</Text>
-        </View>
-        <View style={{ height: 8, borderRadius: 999, backgroundColor: LC.paperWarm, overflow: "hidden" }}>
-          <View style={{ width: `${Math.max(pct, 3)}%`, height: "100%" }}>
-            <LinearGradient colors={[tc.c, tc.light]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, borderRadius: 999 }} />
-          </View>
-        </View>
-        <Text style={{ marginTop: 7, fontSize: 11, color: LC.ink4 }}>
-          Commission incluse · acquise sur les acceptations · {eur(spentTotal)} engagés sur {eur(budgetTotal)}
-        </Text>
-      </View>
-
-      {/* Actions */}
-      <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {editable ? <LcAct icon="create-outline" label="Modifier" onPress={() => onEdit(camp.id)} /> : null}
-        <LcAct icon="copy-outline" label="Dupliquer" onPress={() => router.push(`/(pro)/objectif?duplicate=${camp.id}` as never)} />
-        <LcAct icon="arrow-forward" label="Détails" primary onPress={() => router.push(`/(pro)/campagne?id=${camp.id}` as never)} />
       </View>
     </View>
   );

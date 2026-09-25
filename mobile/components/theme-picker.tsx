@@ -45,7 +45,6 @@ function ThemeSwatch({
       <View
         style={{
           borderRadius: 16,
-          overflow: "hidden",
           borderWidth: 1.5,
           borderColor: selected ? c.accent : c.borderSoft,
           ...(selected
@@ -65,37 +64,40 @@ function ThemeSwatch({
               }),
         }}
       >
-        <LinearGradient
-          colors={colors}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          style={{ height: 64 }}
-        />
-        <View
-          className="flex-row items-center justify-between"
-          style={{ paddingHorizontal: 12, paddingVertical: 9, backgroundColor: c.surface }}
-        >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
-            {label}
-          </Text>
-          {selected ? (
-            <View
-              className="items-center justify-center"
-              style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: c.accent }}
-            >
-              <Ionicons name="checkmark" size={13} color={c.btnText} />
-            </View>
-          ) : (
-            <View
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 999,
-                borderWidth: 1.5,
-                borderColor: c.ink5,
-              }}
-            />
-          )}
+        {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+        <View style={{ borderRadius: 15, overflow: "hidden" }}>
+          <LinearGradient
+            colors={colors}
+            start={{ x: 0.15, y: 0 }}
+            end={{ x: 0.85, y: 1 }}
+            style={{ height: 64 }}
+          />
+          <View
+            className="flex-row items-center justify-between"
+            style={{ paddingHorizontal: 12, paddingVertical: 9, backgroundColor: c.surface }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
+              {label}
+            </Text>
+            {selected ? (
+              <View
+                className="items-center justify-center"
+                style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: c.accent }}
+              >
+                <Ionicons name="checkmark" size={13} color={c.btnText} />
+              </View>
+            ) : (
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  borderColor: c.ink5,
+                }}
+              />
+            )}
+          </View>
         </View>
       </View>
     </Pressable>

@@ -1315,6 +1315,7 @@ export default function Portefeuille() {
                     shadowOpacity: 0.04,
                     shadowRadius: 10,
                     shadowOffset: { width: 0, height: 4 },
+                    elevation: 1,
                   }}
                 >
                   {/* Avatar de direction. */}

@@ -604,7 +604,6 @@ export function ContactCard({
         borderRadius: 18,
         borderWidth: 1,
         borderColor: checked ? p.accent : p.border,
-        overflow: "hidden",
         shadowColor: "#0A1628",
         shadowOpacity: 0.05,
         shadowRadius: 14,
@@ -612,250 +611,253 @@ export function ContactCard({
         elevation: 3,
       }}
     >
-      <View style={{ paddingVertical: 15, paddingHorizontal: 16 }}>
-        {/* (Case à cocher) + Avatar + identité + reçu */}
-        <View className="flex-row items-center" style={{ gap: 12 }}>
-          {selectable && !locked ? (
-            <Pressable
-              onPress={canSelect ? onToggleSelect : undefined}
-              disabled={!canSelect}
-              accessibilityLabel={`Sélectionner ${contact.name}`}
-              hitSlop={8}
-              className="active:opacity-70"
-              style={{ opacity: canSelect ? 1 : 0.35 }}
-            >
-              <Ionicons
-                name={checked ? "checkbox" : "square-outline"}
-                size={22}
-                color={checked ? p.accent : p.muted}
-              />
-            </Pressable>
-          ) : null}
-          <LinearGradient
-            colors={avatarGradient(contact.name)}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: p.accent,
-              shadowOpacity: 0.25,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 4,
-            }}
-          >
-            <Text
-              className="font-serif-bold"
-              style={{ fontSize: 15, color: "#FFFFFF", letterSpacing: 0.3 }}
-            >
-              {initials(contact.name)}
-            </Text>
-          </LinearGradient>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              className="font-serif-bold"
-              style={{ fontSize: 17, color: p.text, lineHeight: 19 }}
-              numberOfLines={1}
-            >
-              {contact.name}
-            </Text>
-            <View className="flex-row items-center" style={{ gap: 7, marginTop: 4 }}>
-              <View
-                className="flex-row items-center"
-                style={{
-                  gap: 4,
-                  backgroundColor: p.accentSoft,
-                  borderRadius: 6,
-                  paddingVertical: 2,
-                  paddingHorizontal: 7,
-                }}
+      {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+      <View style={{ borderRadius: 17, overflow: "hidden" }}>
+        <View style={{ paddingVertical: 15, paddingHorizontal: 16 }}>
+          {/* (Case à cocher) + Avatar + identité + reçu */}
+          <View className="flex-row items-center" style={{ gap: 12 }}>
+            {selectable && !locked ? (
+              <Pressable
+                onPress={canSelect ? onToggleSelect : undefined}
+                disabled={!canSelect}
+                accessibilityLabel={`Sélectionner ${contact.name}`}
+                hitSlop={8}
+                className="active:opacity-70"
+                style={{ opacity: canSelect ? 1 : 0.35 }}
               >
-                <Ionicons name="star" size={11} color={p.accent} />
-                <Text style={{ fontSize: 11.5, fontWeight: "700", color: p.accentInk }}>
-                  {contact.score}
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: "600",
-                  color: p.sub,
-                  backgroundColor: p.palier,
-                  borderWidth: 1,
-                  borderColor: p.border,
-                  borderRadius: 6,
-                  paddingVertical: 2,
-                  paddingHorizontal: 7,
-                  overflow: "hidden",
-                }}
-              >
-                P{contact.tier}
-              </Text>
-            </View>
-          </View>
-          <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
-            <Text
+                <Ionicons
+                  name={checked ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={checked ? p.accent : p.muted}
+                />
+              </Pressable>
+            ) : null}
+            <LinearGradient
+              colors={avatarGradient(contact.name)}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.9, y: 1 }}
               style={{
-                fontSize: 9.5,
-                fontWeight: "700",
-                letterSpacing: 0.6,
-                color: p.muted,
+                width: 44,
+                height: 44,
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: p.accent,
+                shadowOpacity: 0.25,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 4,
               }}
             >
-              REÇU
-            </Text>
-            <Text style={{ fontSize: 11.5, color: p.sub, marginTop: 3 }}>
-              {receivedLabel(contact.receivedAt)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Encart coordonnées (watermark) */}
-        <View
-          style={{
-            marginTop: 13,
-            paddingVertical: 11,
-            paddingHorizontal: 13,
-            borderRadius: 12,
-            backgroundColor: p.field,
-            borderWidth: 1,
-            borderColor: p.border,
-          }}
-        >
-          <View className="flex-row items-center" style={{ gap: 9 }}>
-            <Ionicons name="mail-outline" size={16} color={p.accent} />
-            <Text
-              className="font-mono"
-              style={{ fontSize: 12, color: p.text, flex: 1 }}
-              numberOfLines={1}
-            >
-              {locked ? "🔒 Disponible à la clôture" : (contact.email ?? "—")}
-            </Text>
-          </View>
-          <View className="flex-row items-center" style={{ gap: 9, marginTop: 8 }}>
-            <Ionicons name="call-outline" size={16} color={p.muted} />
-            <Text style={{ fontSize: 12.5, color: p.muted }}>
-              {locked ? "🔒 Disponible à la clôture" : (contact.telephone ?? "—")}
-            </Text>
-          </View>
-        </View>
-
-        {/* État d'évaluation */}
-        <View className="flex-row items-center" style={{ gap: 9, marginTop: 13 }}>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: "700",
-              letterSpacing: 0.6,
-              color: p.muted,
-            }}
-          >
-            ÉVAL.
-          </Text>
-          {locked ? (
-            <Text style={{ fontSize: 12, color: p.muted }}>—</Text>
-          ) : (
-            <EvaluationControl
-              value={contact.evaluation}
-              busy={evaluating}
-              onChange={onEvaluate}
-            />
-          )}
-        </View>
-
-        {/* Fiabilité — un badge par niveau noté (compte de pros cross-pro,
-            identique à la fiche). Parité web. */}
-        {(() => {
-          const agg = contact.fiabiliteAgg || {};
-          const items = PRIO_FILTER.map((o) => ({
-            o,
-            n: Number(agg[String(o.v)] || 0),
-          })).filter((x) => x.n > 0);
-          if (items.length === 0) return null;
-          return (
-            <View
-              className="flex-row items-center"
-              style={{ gap: 8, marginTop: 11, flexWrap: "wrap" }}
-            >
+              <Text
+                className="font-serif-bold"
+                style={{ fontSize: 15, color: "#FFFFFF", letterSpacing: 0.3 }}
+              >
+                {initials(contact.name)}
+              </Text>
+            </LinearGradient>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                className="font-serif-bold"
+                style={{ fontSize: 17, color: p.text, lineHeight: 19 }}
+                numberOfLines={1}
+              >
+                {contact.name}
+              </Text>
+              <View className="flex-row items-center" style={{ gap: 7, marginTop: 4 }}>
+                <View
+                  className="flex-row items-center"
+                  style={{
+                    gap: 4,
+                    backgroundColor: p.accentSoft,
+                    borderRadius: 6,
+                    paddingVertical: 2,
+                    paddingHorizontal: 7,
+                  }}
+                >
+                  <Ionicons name="star" size={11} color={p.accent} />
+                  <Text style={{ fontSize: 11.5, fontWeight: "700", color: p.accentInk }}>
+                    {contact.score}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "600",
+                    color: p.sub,
+                    backgroundColor: p.palier,
+                    borderWidth: 1,
+                    borderColor: p.border,
+                    borderRadius: 6,
+                    paddingVertical: 2,
+                    paddingHorizontal: 7,
+                    overflow: "hidden",
+                  }}
+                >
+                  P{contact.tier}
+                </Text>
+              </View>
+            </View>
+            <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
               <Text
                 style={{
-                  fontSize: 11,
+                  fontSize: 9.5,
                   fontWeight: "700",
                   letterSpacing: 0.6,
                   color: p.muted,
                 }}
               >
-                FIAB.
+                REÇU
               </Text>
-              {items.map(({ o, n }) => (
-                <View
-                  key={o.v}
-                  className="flex-row items-center"
+              <Text style={{ fontSize: 11.5, color: p.sub, marginTop: 3 }}>
+                {receivedLabel(contact.receivedAt)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Encart coordonnées (watermark) */}
+          <View
+            style={{
+              marginTop: 13,
+              paddingVertical: 11,
+              paddingHorizontal: 13,
+              borderRadius: 12,
+              backgroundColor: p.field,
+              borderWidth: 1,
+              borderColor: p.border,
+            }}
+          >
+            <View className="flex-row items-center" style={{ gap: 9 }}>
+              <Ionicons name="mail-outline" size={16} color={p.accent} />
+              <Text
+                className="font-mono"
+                style={{ fontSize: 12, color: p.text, flex: 1 }}
+                numberOfLines={1}
+              >
+                {locked ? "🔒 Disponible à la clôture" : (contact.email ?? "—")}
+              </Text>
+            </View>
+            <View className="flex-row items-center" style={{ gap: 9, marginTop: 8 }}>
+              <Ionicons name="call-outline" size={16} color={p.muted} />
+              <Text style={{ fontSize: 12.5, color: p.muted }}>
+                {locked ? "🔒 Disponible à la clôture" : (contact.telephone ?? "—")}
+              </Text>
+            </View>
+          </View>
+
+          {/* État d'évaluation */}
+          <View className="flex-row items-center" style={{ gap: 9, marginTop: 13 }}>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "700",
+                letterSpacing: 0.6,
+                color: p.muted,
+              }}
+            >
+              ÉVAL.
+            </Text>
+            {locked ? (
+              <Text style={{ fontSize: 12, color: p.muted }}>—</Text>
+            ) : (
+              <EvaluationControl
+                value={contact.evaluation}
+                busy={evaluating}
+                onChange={onEvaluate}
+              />
+            )}
+          </View>
+
+          {/* Fiabilité — un badge par niveau noté (compte de pros cross-pro,
+              identique à la fiche). Parité web. */}
+          {(() => {
+            const agg = contact.fiabiliteAgg || {};
+            const items = PRIO_FILTER.map((o) => ({
+              o,
+              n: Number(agg[String(o.v)] || 0),
+            })).filter((x) => x.n > 0);
+            if (items.length === 0) return null;
+            return (
+              <View
+                className="flex-row items-center"
+                style={{ gap: 8, marginTop: 11, flexWrap: "wrap" }}
+              >
+                <Text
                   style={{
-                    gap: 4,
-                    paddingVertical: 3,
-                    paddingHorizontal: 8,
-                    borderRadius: 999,
-                    backgroundColor: o.color + "1F",
-                    borderWidth: 1,
-                    borderColor: o.color + "59",
+                    fontSize: 11,
+                    fontWeight: "700",
+                    letterSpacing: 0.6,
+                    color: p.muted,
                   }}
                 >
-                  <Ionicons name="star" size={11} color={o.color} />
-                  <Text style={{ fontSize: 11.5, fontWeight: "700", color: o.color }}>
-                    {n}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
-      </View>
+                  FIAB.
+                </Text>
+                {items.map(({ o, n }) => (
+                  <View
+                    key={o.v}
+                    className="flex-row items-center"
+                    style={{
+                      gap: 4,
+                      paddingVertical: 3,
+                      paddingHorizontal: 8,
+                      borderRadius: 999,
+                      backgroundColor: o.color + "1F",
+                      borderWidth: 1,
+                      borderColor: o.color + "59",
+                    }}
+                  >
+                    <Ionicons name="star" size={11} color={o.color} />
+                    <Text style={{ fontSize: 11.5, fontWeight: "700", color: o.color }}>
+                      {n}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+        </View>
 
-      {/* Footer : actions + Voir détails */}
-      <View
-        className="flex-row items-center justify-between"
-        style={{
-          gap: 10,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          backgroundColor: p.accentSoft,
-          borderTopWidth: 1,
-          borderTopColor: p.line,
-        }}
-      >
-        {locked ? (
-          <View className="flex-row items-center" style={{ gap: 5 }}>
-            <Ionicons name="lock-closed" size={12} color={p.muted} />
-            <Text style={{ fontSize: 11.5, color: p.muted }}>Disponible à la clôture</Text>
-          </View>
-        ) : (
-          <>
-        <ContactActions contact={contact} />
-        <Pressable
-          onPress={onDetails}
-          accessibilityLabel="Voir les détails du prospect"
-          className="flex-row items-center active:opacity-80"
+        {/* Footer : actions + Voir détails */}
+        <View
+          className="flex-row items-center justify-between"
           style={{
-            gap: 6,
-            paddingVertical: 9,
-            paddingHorizontal: 14,
-            borderRadius: 999,
-            backgroundColor: p.ctaBg,
-            flexShrink: 0,
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            backgroundColor: p.accentSoft,
+            borderTopWidth: 1,
+            borderTopColor: p.line,
           }}
         >
-          <Ionicons name="copy-outline" size={15} color={p.ctaText} />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: p.ctaText }}>
-            Voir détails
-          </Text>
-        </Pressable>
-          </>
-        )}
+          {locked ? (
+            <View className="flex-row items-center" style={{ gap: 5 }}>
+              <Ionicons name="lock-closed" size={12} color={p.muted} />
+              <Text style={{ fontSize: 11.5, color: p.muted }}>Disponible à la clôture</Text>
+            </View>
+          ) : (
+            <>
+          <ContactActions contact={contact} />
+          <Pressable
+            onPress={onDetails}
+            accessibilityLabel="Voir les détails du prospect"
+            className="flex-row items-center active:opacity-80"
+            style={{
+              gap: 6,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: p.ctaBg,
+              flexShrink: 0,
+            }}
+          >
+            <Ionicons name="copy-outline" size={15} color={p.ctaText} />
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: p.ctaText }}>
+              Voir détails
+            </Text>
+          </Pressable>
+            </>
+          )}
+        </View>
       </View>
     </View>
   );

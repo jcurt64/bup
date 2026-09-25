@@ -286,7 +286,6 @@ function FlashDealCard({
           borderRadius: 22,
         borderWidth: 1,
         borderColor: c.borderSoft,
-        overflow: "hidden",
         shadowColor: B.navy,
         shadowOpacity: 0.07,
         shadowRadius: 11,
@@ -294,6 +293,8 @@ function FlashDealCard({
         elevation: 3,
       }}
     >
+      {/* Rognage des coins sur une vue interne : l'ombre reste visible sur iOS, comme sur Android. */}
+      <View style={{ borderRadius: 21, overflow: "hidden" }}>
       <LinearGradient
         colors={tint.accent}
         start={{ x: 0, y: 0 }}
@@ -409,6 +410,7 @@ function FlashDealCard({
           <Ionicons name="chevron-forward" size={16} color={c.btnText} />
         </Pressable>
         </View>
+      </View>
       </View>
     </Animated.View>
   );

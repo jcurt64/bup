@@ -43,7 +43,6 @@ function MessageCard({
     <View
       style={{
         borderRadius: 18,
-        overflow: "hidden",
         backgroundColor: c.surface,
         borderWidth: 1,
         borderColor: c.borderSoft,
@@ -54,116 +53,119 @@ function MessageCard({
         elevation: 2,
       }}
     >
-      {/* Barre d'accent gauche colorée selon la catégorie. */}
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          backgroundColor: cat.color,
-        }}
-      />
-      <Pressable onPress={onOpen} style={{ padding: 14, paddingLeft: 18 }}>
-        <View style={{ flexDirection: "row", gap: 11 }}>
-          <View
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 11,
-              backgroundColor: cat.bg,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name={cat.icon} size={17} color={cat.color} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
+      {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+      <View style={{ borderRadius: 17, overflow: "hidden" }}>
+        {/* Barre d'accent gauche colorée selon la catégorie. */}
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            backgroundColor: cat.color,
+          }}
+        />
+        <Pressable onPress={onOpen} style={{ padding: 14, paddingLeft: 18 }}>
+          <View style={{ flexDirection: "row", gap: 11 }}>
             <View
               style={{
-                flexDirection: "row",
+                width: 34,
+                height: 34,
+                borderRadius: 11,
+                backgroundColor: cat.bg,
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "center",
               }}
             >
-              <Text
+              <Ionicons name={cat.icon} size={17} color={cat.color} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View
                 style={{
-                  fontSize: 10.5,
-                  fontWeight: "700",
-                  letterSpacing: 0.8,
-                  color: cat.color,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
-                {cat.label}
-              </Text>
-              <Text style={{ fontSize: 11.5, color: c.textMuted }}>
-                {fmtMessageDate(n.createdAt)}
-              </Text>
-            </View>
-            <Text
-              className="font-serif"
-              numberOfLines={2}
-              style={{
-                fontSize: 16.5,
-                color: n.unread ? c.text : c.textSub,
-                marginTop: 3,
-              }}
-            >
-              {n.unread ? <Text style={{ color: cat.color }}>• </Text> : null}
-              {n.title}
-            </Text>
-            {n.body ? (
+                <Text
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: "700",
+                    letterSpacing: 0.8,
+                    color: cat.color,
+                  }}
+                >
+                  {cat.label}
+                </Text>
+                <Text style={{ fontSize: 11.5, color: c.textMuted }}>
+                  {fmtMessageDate(n.createdAt)}
+                </Text>
+              </View>
               <Text
+                className="font-serif"
                 numberOfLines={2}
-                style={{ fontSize: 13.5, lineHeight: 19, color: c.textSub, marginTop: 4 }}
+                style={{
+                  fontSize: 16.5,
+                  color: n.unread ? c.text : c.textSub,
+                  marginTop: 3,
+                }}
               >
-                {n.body}
+                {n.unread ? <Text style={{ color: cat.color }}>• </Text> : null}
+                {n.title}
               </Text>
-            ) : null}
+              {n.body ? (
+                <Text
+                  numberOfLines={2}
+                  style={{ fontSize: 13.5, lineHeight: 19, color: c.textSub, marginTop: 4 }}
+                >
+                  {n.body}
+                </Text>
+              ) : null}
+            </View>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
 
-      {/* Pied de card : Lire le message · Supprimer. */}
-      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: c.borderSoft }}>
-        <Pressable
-          onPress={onOpen}
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingVertical: 12,
-            paddingLeft: 18,
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Lire le message"
-        >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
-            Lire le message
-          </Text>
-          <Ionicons name="chevron-forward" size={15} color={c.text} />
-        </Pressable>
-        <Pressable
-          onPress={onDelete}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderLeftWidth: 1,
-            borderLeftColor: c.borderSoft,
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Supprimer ce message"
-        >
-          <Ionicons name="trash-outline" size={15} color={c.bad} />
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.bad }}>
-            Supprimer
-          </Text>
-        </Pressable>
+        {/* Pied de card : Lire le message · Supprimer. */}
+        <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: c.borderSoft }}>
+          <Pressable
+            onPress={onOpen}
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingVertical: 12,
+              paddingLeft: 18,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Lire le message"
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.text }}>
+              Lire le message
+            </Text>
+            <Ionicons name="chevron-forward" size={15} color={c.text} />
+          </Pressable>
+          <Pressable
+            onPress={onDelete}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderLeftWidth: 1,
+              borderLeftColor: c.borderSoft,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Supprimer ce message"
+          >
+            <Ionicons name="trash-outline" size={15} color={c.bad} />
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: c.bad }}>
+              Supprimer
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );

@@ -172,7 +172,6 @@ function HistoryRow({
       <View
         style={{
           borderRadius: 18,
-          overflow: "hidden",
           backgroundColor: R.surface,
           borderWidth: focused ? 2 : 1,
           borderColor: focused ? R.DV : withAlpha(accent, "40"),
@@ -183,147 +182,150 @@ function HistoryRow({
           elevation: 2,
         }}
       >
-        {/* Fond teinté de la couleur de la décision + motif + filigrane */}
-        <LinearGradient
-          colors={[withAlpha(accent, "24"), withAlpha(R.surface, "00")]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-        <Motif variant="dots" color={withAlpha(accent, "66")} style={{ top: 10, right: 10 }} />
-        <View
-          pointerEvents="none"
-          style={{ position: "absolute", right: -16, bottom: -20, opacity: 0.07, transform: [{ rotate: "-14deg" }] }}
-        >
-          <Ionicons
-            name={isAccepted ? "checkmark-circle" : isRefused ? "close-circle" : "hourglass"}
-            size={110}
-            color={accent}
+        {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+        <View style={{ borderRadius: 17, overflow: "hidden" }}>
+          {/* Fond teinté de la couleur de la décision + motif + filigrane */}
+          <LinearGradient
+            colors={[withAlpha(accent, "24"), withAlpha(R.surface, "00")]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.8, y: 1 }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
           />
-        </View>
-        <View style={{ padding: 14 }}>
-          {/* Avatar + nom/secteur + date */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <LinearGradient
-              colors={[R.DV, R.DVD]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text className="font-serif-bold" style={{ fontSize: 15, color: "#fff" }}>
-                {initials(r.pro)}
-              </Text>
-            </LinearGradient>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text
-                className="font-serif"
-                style={{ fontSize: 17, color: R.DNAVY }}
-                numberOfLines={1}
+          <Motif variant="dots" color={withAlpha(accent, "66")} style={{ top: 10, right: 10 }} />
+          <View
+            pointerEvents="none"
+            style={{ position: "absolute", right: -16, bottom: -20, opacity: 0.07, transform: [{ rotate: "-14deg" }] }}
+          >
+            <Ionicons
+              name={isAccepted ? "checkmark-circle" : isRefused ? "close-circle" : "hourglass"}
+              size={110}
+              color={accent}
+            />
+          </View>
+          <View style={{ padding: 14 }}>
+            {/* Avatar + nom/secteur + date */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <LinearGradient
+                colors={[R.DV, R.DVD]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                {r.pro}
-              </Text>
-              {r.sector ? (
+                <Text className="font-serif-bold" style={{ fontSize: 15, color: "#fff" }}>
+                  {initials(r.pro)}
+                </Text>
+              </LinearGradient>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text
-                  style={{ fontSize: 13, color: R.DMUTED, marginTop: 1 }}
+                  className="font-serif"
+                  style={{ fontSize: 17, color: R.DNAVY }}
                   numberOfLines={1}
                 >
-                  {r.sector}
+                  {r.pro}
                 </Text>
-              ) : null}
-              {r.isFlashDeal ? <FlashBadge /> : null}
-            </View>
-            <Text
-              style={{ fontSize: 12.5, color: R.DMUTEDL, fontStyle: "italic" }}
-              numberOfLines={1}
-            >
-              {dateFr(r.date)}
-            </Text>
-          </View>
-
-          {/* Séparateur */}
-          <View
-            style={{ height: 1, backgroundColor: R.DLINE, marginTop: 12, marginBottom: 12 }}
-          />
-
-          {/* Palier · statut · gain */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                paddingVertical: 5,
-                paddingHorizontal: 9,
-                borderRadius: 999,
-                backgroundColor: R.DAMBERL,
-                borderWidth: 1,
-                borderColor: R.DAMBER_BD,
-              }}
-            >
-              <Ionicons name="trending-up" size={12} color={R.DAMBER_TXT} />
+                {r.sector ? (
+                  <Text
+                    style={{ fontSize: 13, color: R.DMUTED, marginTop: 1 }}
+                    numberOfLines={1}
+                  >
+                    {r.sector}
+                  </Text>
+                ) : null}
+                {r.isFlashDeal ? <FlashBadge /> : null}
+              </View>
               <Text
+                style={{ fontSize: 12.5, color: R.DMUTEDL, fontStyle: "italic" }}
                 numberOfLines={1}
-                style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}
               >
-                {tierListLabel(r)}
+                {dateFr(r.date)}
               </Text>
             </View>
+
+            {/* Séparateur */}
             <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                paddingVertical: 5,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                backgroundColor: isRefused ? R.DCORALL : R.DGREENL,
-              }}
-            >
+              style={{ height: 1, backgroundColor: R.DLINE, marginTop: 12, marginBottom: 12 }}
+            />
+
+            {/* Palier · statut · gain */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <View
                 style={{
-                  width: 6,
-                  height: 6,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingVertical: 5,
+                  paddingHorizontal: 9,
                   borderRadius: 999,
-                  backgroundColor: isRefused ? R.DCORAL : R.DGREEN,
-                }}
-              />
-              <Text
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: "600",
-                  color: isRefused ? R.DCORAL : R.DGREEN_TXT,
+                  backgroundColor: R.DAMBERL,
+                  borderWidth: 1,
+                  borderColor: R.DAMBER_BD,
                 }}
               >
-                {r.decision || "—"}
+                <Ionicons name="trending-up" size={12} color={R.DAMBER_TXT} />
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}
+                >
+                  {tierListLabel(r)}
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: isRefused ? R.DCORALL : R.DGREENL,
+                }}
+              >
+                <View
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    backgroundColor: isRefused ? R.DCORAL : R.DGREEN,
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: "600",
+                    color: isRefused ? R.DCORAL : R.DGREEN_TXT,
+                  }}
+                >
+                  {r.decision || "—"}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }} />
+              <Text
+                className="font-serif-bold"
+                style={{ fontSize: 17, color: gainPositive ? R.DVD : R.DMUTEDL }}
+              >
+                {gainStr}
               </Text>
             </View>
-            <View style={{ flex: 1 }} />
-            <Text
-              className="font-serif-bold"
-              style={{ fontSize: 17, color: gainPositive ? R.DVD : R.DMUTEDL }}
-            >
-              {gainStr}
-            </Text>
-          </View>
 
-          {/* Statut des fonds : séquestre (cadenas ambre) ou crédité. */}
-          {isAccepted && isEscrow ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
-              <Ionicons name="lock-closed-outline" size={13} color="#B45309" />
-              <Text style={{ fontSize: 13, color: R.DMUTED }}>En séquestre</Text>
-            </View>
-          ) : r.status && r.status !== "—" ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
-              <Ionicons name="checkmark-circle-outline" size={13} color={R.DGREEN_TXT} />
-              <Text style={{ fontSize: 13, color: R.DMUTED }}>{r.status}</Text>
-            </View>
-          ) : null}
+            {/* Statut des fonds : séquestre (cadenas ambre) ou crédité. */}
+            {isAccepted && isEscrow ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+                <Ionicons name="lock-closed-outline" size={13} color="#B45309" />
+                <Text style={{ fontSize: 13, color: R.DMUTED }}>En séquestre</Text>
+              </View>
+            ) : r.status && r.status !== "—" ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+                <Ionicons name="checkmark-circle-outline" size={13} color={R.DGREEN_TXT} />
+                <Text style={{ fontSize: 13, color: R.DMUTED }}>{r.status}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
     </Pressable>
@@ -511,7 +513,6 @@ function SollicitationCard({
         borderRadius: 22,
         borderWidth: 1,
         borderColor: R.DLINE,
-        overflow: "hidden",
         shadowColor: R.DNAVY,
         shadowOpacity: 0.07,
         shadowRadius: 11,
@@ -519,140 +520,29 @@ function SollicitationCard({
         elevation: 3,
       }}
     >
-      {/* Voile violet en haut + confettis + filigrane mégaphone */}
-      <LinearGradient
-        colors={[R.DVXL, withAlpha(R.surface, "00")]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.3, y: 0.7 }}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 220 }}
-      />
-      <Motif variant="confetti" color={withAlpha(R.DV, "99")} style={{ top: 40 }} />
-      <View
-        pointerEvents="none"
-        style={{ position: "absolute", right: -18, top: 70, opacity: 0.06, transform: [{ rotate: "-16deg" }] }}
-      >
-        <Ionicons name="megaphone" size={130} color={R.DV} />
-      </View>
-      <LinearGradient
-        colors={[R.DV, R.DVD]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{ height: 4 }}
-      />
-      <View style={{ padding: 17 }}>
+      {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
+      <View style={{ borderRadius: 21, overflow: "hidden" }}>
+        {/* Voile violet en haut + confettis + filigrane mégaphone */}
+        <LinearGradient
+          colors={[R.DVXL, withAlpha(R.surface, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.3, y: 0.7 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, height: 220 }}
+        />
+        <Motif variant="confetti" color={withAlpha(R.DV, "99")} style={{ top: 40 }} />
         <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+          pointerEvents="none"
+          style={{ position: "absolute", right: -18, top: 70, opacity: 0.06, transform: [{ rotate: "-16deg" }] }}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingVertical: 5,
-              paddingHorizontal: 11,
-              borderRadius: 999,
-              backgroundColor: R.btnBg,
-            }}
-          >
-            <Ionicons name="sparkles" size={12} color={R.btnText} />
-            <Text style={{ fontSize: 11.5, fontWeight: "600", color: R.btnText }}>
-              Nouvelle demande
-            </Text>
-          </View>
-          {accepted ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                paddingVertical: 5,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                backgroundColor: R.DGREENL,
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={14} color={R.DGREEN_TXT} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DGREEN_TXT }}>
-                Acceptée
-              </Text>
-            </View>
-          ) : refused ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                paddingVertical: 5,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                backgroundColor: R.DCORALL,
-              }}
-            >
-              <Ionicons name="close-circle" size={14} color={R.DCORAL} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: R.DCORAL }}>
-                Refusée
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={{
-                paddingVertical: 5,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                backgroundColor: R.DVXL,
-                borderWidth: 1,
-                borderColor: R.DVL,
-              }}
-            >
-              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
-                {tierListLabel(r)}
-              </Text>
-            </View>
-          )}
+          <Ionicons name="megaphone" size={130} color={R.DV} />
         </View>
-
-        <View style={{ marginTop: 14 }}>
-          <Text
-            className="font-serif"
-            numberOfLines={1}
-            style={{ fontSize: 20, color: R.DNAVY }}
-          >
-            {r.pro}
-          </Text>
-          {r.sector ? (
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: 12.5, color: R.DMUTED, marginTop: 3 }}
-            >
-              {r.sector}
-            </Text>
-          ) : null}
-          {/* Motif de la campagne (parité web). */}
-          {r.motif ? (
-            <Text
-              numberOfLines={4}
-              style={{ fontSize: 13, lineHeight: 19, color: R.DMUTED, marginTop: 10 }}
-            >
-              {r.motif}
-            </Text>
-          ) : null}
-        </View>
-
-        <View
-          style={{
-            marginTop: 14,
-            paddingVertical: 13,
-            paddingHorizontal: 15,
-            borderRadius: 16,
-            backgroundColor: R.track,
-            borderWidth: 1,
-            borderColor: R.DLINE,
-          }}
-        >
+        <LinearGradient
+          colors={[R.DV, R.DVD]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ height: 4 }}
+        />
+        <View style={{ padding: 17 }}>
           <View
             style={{
               flexDirection: "row",
@@ -660,153 +550,267 @@ function SollicitationCard({
               justifyContent: "space-between",
             }}
           >
-            <Text style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: R.DMUTED }}>
-              RÉCOMPENSE
-            </Text>
-            <Text style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: R.DV }}>
-              À ACCEPTER
-            </Text>
-          </View>
-          <Text className="font-serif" style={{ fontSize: 30, color: R.DNAVY, marginTop: 5 }}>
-            {eur(r.reward)}
-          </Text>
-          <Text style={{ fontSize: 11.5, color: R.DMUTED, marginTop: 5 }}>
-            En séquestre, créditée à la clôture de la campagne
-          </Text>
-        </View>
-
-        <View style={{ marginTop: 14 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-              <Ionicons name="time-outline" size={15} color={R.DCORAL} />
-              <Text
-                className="font-mono"
-                style={{
-                  fontSize: 15.5,
-                  fontWeight: "600",
-                  color: expired ? R.DCORAL : R.DNAVY,
-                  fontVariant: ["tabular-nums"],
-                }}
-              >
-                {expired ? "Expirée" : r.timer}
-              </Text>
-            </View>
-            <Text
+            <View
               style={{
-                fontSize: 11,
-                fontWeight: "600",
-                letterSpacing: 0.4,
-                color: R.DCORAL,
-                textTransform: "uppercase",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingVertical: 5,
+                paddingHorizontal: 11,
+                borderRadius: 999,
+                backgroundColor: R.btnBg,
               }}
             >
-              Restant
-            </Text>
-          </View>
-          <View
-            style={{
-              height: 5,
-              borderRadius: 3,
-              backgroundColor: R.track,
-              overflow: "hidden",
-              marginTop: 7,
-            }}
-          >
-            <LinearGradient
-              colors={["#e0972f", R.DCORAL]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ width: `${Math.round(left * 100)}%`, height: "100%", borderRadius: 3 }}
-            />
-          </View>
-        </View>
-
-        {/* « La Vitrine » — miniature du site du pro (capture
-            /api/campaign/[id]/preview) ; au tap → interstitiel de sortie.
-            Affichée seulement si l'option a été prise (r.websiteUrl). */}
-        {r.websiteUrl ? (
-          <View style={{ marginTop: 14 }}>
-            <VitrinePreview campaignId={r.campaignId} proName={r.pro} onVisit={() => onVitrine(r)} />
-          </View>
-        ) : null}
-
-        {/* Accepter / Refuser directs (même flux que le détail). */}
-        {!accepted && !refused && !expired ? (
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
-            <Pressable
-              disabled={disabled}
-              onPress={() => onDecide("accept", r)}
-              accessibilityRole="button"
-              accessibilityLabel={`Accepter la sollicitation de ${r.pro}`}
-              className="active:opacity-85"
-              style={{ flex: 1, borderRadius: 13, overflow: "hidden", opacity: disabled && !busyAction ? 0.6 : 1 }}
-            >
-              <LinearGradient
-                colors={["#22C55E", "#16A34A"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <Ionicons name="sparkles" size={12} color={R.btnText} />
+              <Text style={{ fontSize: 11.5, fontWeight: "600", color: R.btnText }}>
+                Nouvelle demande
+              </Text>
+            </View>
+            {accepted ? (
+              <View
                 style={{
-                  paddingVertical: 13,
                   flexDirection: "row",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
+                  gap: 5,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: R.DGREENL,
                 }}
               >
-                <Ionicons name="checkmark" size={15} color="#fff" />
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
-                  {busyAction === "accept" ? "…" : "Accepter"}
+                <Ionicons name="checkmark-circle" size={14} color={R.DGREEN_TXT} />
+                <Text style={{ fontSize: 12, fontWeight: "700", color: R.DGREEN_TXT }}>
+                  Acceptée
                 </Text>
-              </LinearGradient>
-            </Pressable>
-            <Pressable
-              disabled={disabled}
-              onPress={() => onDecide("refuse", r)}
-              accessibilityRole="button"
-              accessibilityLabel={`Refuser la sollicitation de ${r.pro}`}
-              className="active:opacity-70"
+              </View>
+            ) : refused ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: R.DCORALL,
+                }}
+              >
+                <Ionicons name="close-circle" size={14} color={R.DCORAL} />
+                <Text style={{ fontSize: 12, fontWeight: "700", color: R.DCORAL }}>
+                  Refusée
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: R.DVXL,
+                  borderWidth: 1,
+                  borderColor: R.DVL,
+                }}
+              >
+                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
+                  {tierListLabel(r)}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={{ marginTop: 14 }}>
+            <Text
+              className="font-serif"
+              numberOfLines={1}
+              style={{ fontSize: 20, color: R.DNAVY }}
+            >
+              {r.pro}
+            </Text>
+            {r.sector ? (
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 12.5, color: R.DMUTED, marginTop: 3 }}
+              >
+                {r.sector}
+              </Text>
+            ) : null}
+            {/* Motif de la campagne (parité web). */}
+            {r.motif ? (
+              <Text
+                numberOfLines={4}
+                style={{ fontSize: 13, lineHeight: 19, color: R.DMUTED, marginTop: 10 }}
+              >
+                {r.motif}
+              </Text>
+            ) : null}
+          </View>
+
+          <View
+            style={{
+              marginTop: 14,
+              paddingVertical: 13,
+              paddingHorizontal: 15,
+              borderRadius: 16,
+              backgroundColor: R.track,
+              borderWidth: 1,
+              borderColor: R.DLINE,
+            }}
+          >
+            <View
               style={{
-                flex: 1,
-                paddingVertical: 13,
-                borderRadius: 13,
-                borderWidth: 1,
-                borderColor: R.DLINE,
-                backgroundColor: R.surface,
+                flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
-                opacity: disabled && !busyAction ? 0.6 : 1,
+                justifyContent: "space-between",
               }}
             >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: R.DNAVY }}>
-                {busyAction === "refuse" ? "…" : "Refuser"}
+              <Text style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, color: R.DMUTED }}>
+                RÉCOMPENSE
               </Text>
-            </Pressable>
+              <Text style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.5, color: R.DV }}>
+                À ACCEPTER
+              </Text>
+            </View>
+            <Text className="font-serif" style={{ fontSize: 30, color: R.DNAVY, marginTop: 5 }}>
+              {eur(r.reward)}
+            </Text>
+            <Text style={{ fontSize: 11.5, color: R.DMUTED, marginTop: 5 }}>
+              En séquestre, créditée à la clôture de la campagne
+            </Text>
           </View>
-        ) : null}
 
-        <Pressable
-          onPress={() => onOpen(r)}
-          className="active:opacity-70"
-          style={{
-            marginTop: 10,
-            paddingVertical: 8,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-          }}
-        >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: R.DV }}>
-            Voir le détail de l’offre
-          </Text>
-          <Ionicons name="chevron-forward" size={15} color={R.DV} />
-        </Pressable>
+          <View style={{ marginTop: 14 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <Ionicons name="time-outline" size={15} color={R.DCORAL} />
+                <Text
+                  className="font-mono"
+                  style={{
+                    fontSize: 15.5,
+                    fontWeight: "600",
+                    color: expired ? R.DCORAL : R.DNAVY,
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  {expired ? "Expirée" : r.timer}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.4,
+                  color: R.DCORAL,
+                  textTransform: "uppercase",
+                }}
+              >
+                Restant
+              </Text>
+            </View>
+            <View
+              style={{
+                height: 5,
+                borderRadius: 3,
+                backgroundColor: R.track,
+                overflow: "hidden",
+                marginTop: 7,
+              }}
+            >
+              <LinearGradient
+                colors={["#e0972f", R.DCORAL]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ width: `${Math.round(left * 100)}%`, height: "100%", borderRadius: 3 }}
+              />
+            </View>
+          </View>
+
+          {/* « La Vitrine » — miniature du site du pro (capture
+              /api/campaign/[id]/preview) ; au tap → interstitiel de sortie.
+              Affichée seulement si l'option a été prise (r.websiteUrl). */}
+          {r.websiteUrl ? (
+            <View style={{ marginTop: 14 }}>
+              <VitrinePreview campaignId={r.campaignId} proName={r.pro} onVisit={() => onVitrine(r)} />
+            </View>
+          ) : null}
+
+          {/* Accepter / Refuser directs (même flux que le détail). */}
+          {!accepted && !refused && !expired ? (
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 15 }}>
+              <Pressable
+                disabled={disabled}
+                onPress={() => onDecide("accept", r)}
+                accessibilityRole="button"
+                accessibilityLabel={`Accepter la sollicitation de ${r.pro}`}
+                className="active:opacity-85"
+                style={{ flex: 1, borderRadius: 13, overflow: "hidden", opacity: disabled && !busyAction ? 0.6 : 1 }}
+              >
+                <LinearGradient
+                  colors={["#22C55E", "#16A34A"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    paddingVertical: 13,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Ionicons name="checkmark" size={15} color="#fff" />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                    {busyAction === "accept" ? "…" : "Accepter"}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                disabled={disabled}
+                onPress={() => onDecide("refuse", r)}
+                accessibilityRole="button"
+                accessibilityLabel={`Refuser la sollicitation de ${r.pro}`}
+                className="active:opacity-70"
+                style={{
+                  flex: 1,
+                  paddingVertical: 13,
+                  borderRadius: 13,
+                  borderWidth: 1,
+                  borderColor: R.DLINE,
+                  backgroundColor: R.surface,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: disabled && !busyAction ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "600", color: R.DNAVY }}>
+                  {busyAction === "refuse" ? "…" : "Refuser"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <Pressable
+            onPress={() => onOpen(r)}
+            className="active:opacity-70"
+            style={{
+              marginTop: 10,
+              paddingVertical: 8,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: R.DV }}>
+              Voir le détail de l’offre
+            </Text>
+            <Ionicons name="chevron-forward" size={15} color={R.DV} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );

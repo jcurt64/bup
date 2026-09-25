@@ -399,6 +399,8 @@ export function Card({
         shadowOpacity: 0.05,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
+        // Android : sans elevation, aucune ombre (parité iOS).
+        elevation: 2,
       };
   const badgeColor = badge ? badge.color ?? TONE_FG[badge.tone ?? "violet"] : undefined;
   const inner = (
@@ -462,7 +464,8 @@ export function Card({
     return (
       <View
         style={[
-          { borderRadius: radius, borderWidth: 0.7, borderColor: c.borderSoft },
+          // Fond requis sur Android pour que l'elevation dessine l'ombre.
+          { borderRadius: radius, borderWidth: 0.7, borderColor: c.borderSoft, backgroundColor: c.surface },
           dark ? null : shadow,
           dark ? null : { shadowOpacity: isDark ? 0.3 : 0.09, shadowColor: isDark ? "#000000" : decoColor },
         ]}
@@ -501,7 +504,8 @@ export function Card({
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
-          { borderRadius: 24, padding: 20, borderWidth: 0.7, borderColor: c.borderSoft },
+          // backgroundColor : support de l'ombre Android (elevation).
+          { borderRadius: 24, padding: 20, borderWidth: 0.7, borderColor: c.borderSoft, backgroundColor: c.surface },
           shadow,
         ]}
       >
@@ -630,6 +634,7 @@ export function Stat({
           padding: 16,
           borderWidth: 0.7,
           borderColor: c.borderSoft,
+          // Pas d'ombre : overflow:hidden l'efface sur iOS → idem Android.
           overflow: "hidden",
         }}
       >

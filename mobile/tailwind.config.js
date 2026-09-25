@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+const { platformSelect } = require("nativewind/theme");
 // Tokens repris du prototype web (public/prototype/styles.css) pour une
 // cohérence visuelle web ⇄ mobile. Ajuster au fil de l'intégration UI.
 module.exports = {
@@ -81,7 +82,11 @@ module.exports = {
         // Police script Google « Dancing Script » — utilisée pour le mot
         // « buupp » signature dans le footer de la modale détail mouvement.
         script: ["DancingScript_700Bold"],
-        mono: ["monospace"],
+        // « monospace » n'existe pas sur iOS : l'iPhone retombait sur la
+        // police système alors qu'Android affichait une vraie chasse fixe →
+        // rendus différents. On aligne Android sur le rendu iOS validé
+        // (police système des deux côtés).
+        mono: platformSelect({ ios: "System", android: "sans-serif", default: "System" }),
       },
     },
   },
