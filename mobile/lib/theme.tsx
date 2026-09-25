@@ -22,6 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import { View } from "react-native";
+import * as Linking from "expo-linking";
 
 export type ThemeMode = "light" | "dark" | "forest" | "fushia";
 
@@ -463,6 +464,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, []);
+
+  // DEV uniquement : `buupp:///?theme=dark` (ou light/forest/fushia) bascule
+  // le thème — sert aux captures d'écran des 4 coloris depuis le terminal
+  // (xcrun simctl openurl / adb am start), sans toucher l'écran.
+  const devUrl = Linking.useURL();
+  useEffect(() => {
+    if (!__DEV__ || !devUrl) return;
+    const m = Linking.parse(devUrl).queryParams?.theme;
+    if (typeof m === "string" && MODES.includes(m as ThemeMode)) {
+      setModeState(m as ThemeMode);
+      SecureStore.setItemAsync(STORAGE_KEY, m).catch(() => {});
+    }
+  }, [devUrl]);
 
   // Synchronise NativeWind colorScheme (StatusBar / variantes dark:).
   useEffect(() => {

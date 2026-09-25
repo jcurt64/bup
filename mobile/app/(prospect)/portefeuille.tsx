@@ -48,7 +48,7 @@ import {
 import { ReferralBadge } from "../../components/referral-badge";
 import { ApiError } from "../../lib/api";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
-import { useTheme } from "../../lib/theme";
+import { useTheme, type ThemeMode } from "../../lib/theme";
 import { WithdrawSheet } from "../../components/withdraw-sheet";
 
 // Illustration 3D thiings.co (Empty Wallet) — empty state mouvements.
@@ -286,8 +286,23 @@ function BonusCondition({ done, children }: { done: boolean; children: React.Rea
   );
 }
 
+// Carte d'accueil : base très sombre + halo diagonal, déclinés par thème
+// (indigo pour BUUPP/Sombre, vert profond Forest, prune Fushia).
+// `pastel` / `pastelRgb` / `pastelText` : teinte claire des détails
+// (barre du score, pastilles) posés sur la carte.
+const HOME_HERO: Record<
+  ThemeMode,
+  { base: [string, string]; glow: string; pastel: string; pastelRgb: string; pastelText: string }
+> = {
+  light: { base: ["#1E1646", "#0A0820"], glow: "124,92,252", pastel: "#C4B5FD", pastelRgb: "196,181,253", pastelText: "#DDD6FE" },
+  dark: { base: ["#1E1646", "#0A0820"], glow: "124,92,252", pastel: "#C4B5FD", pastelRgb: "196,181,253", pastelText: "#DDD6FE" },
+  forest: { base: ["#14452D", "#06170E"], glow: "52,168,106", pastel: "#A7E8C3", pastelRgb: "167,232,195", pastelText: "#D1F5E0" },
+  fushia: { base: ["#4E1535", "#1A0511"], glow: "232,79,152", pastel: "#F9A8D4", pastelRgb: "249,168,212", pastelText: "#FCE7F3" },
+};
+
 export default function Portefeuille() {
-  const { isDark, c } = useTheme();
+  const { isDark, c, mode } = useTheme();
+  const hero = HOME_HERO[mode];
   // Tuile icône blanche : givrée (translucide) en sombre pour ressortir sur
   // la carte teintée foncée.
   const tileBg = isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF";
@@ -476,16 +491,44 @@ export default function Portefeuille() {
           violet semi-transparent du coin haut-droit. */}
       <View style={{ borderRadius: 28, overflow: "hidden" }}>
         <LinearGradient
-          colors={["#1E1646", "#0A0820"]}
+          colors={hero.base}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
-          colors={["rgba(124,92,252,0.45)", "rgba(124,92,252,0)"]}
+          colors={[`rgba(${hero.glow},0.5)`, `rgba(${hero.glow},0)`]}
           start={{ x: 1, y: 0 }}
           end={{ x: 0.1, y: 0.95 }}
           style={StyleSheet.absoluteFill}
+        />
+        {/* Décor : deux orbites fines qui débordent du coin haut-droit. */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -90,
+            right: -70,
+            width: 240,
+            height: 240,
+            borderRadius: 120,
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor: `rgba(${hero.glow},0.45)`,
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -40,
+            right: -20,
+            width: 140,
+            height: 140,
+            borderRadius: 70,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.08)",
+          }}
         />
         <View style={{ padding: 20, paddingTop: 22 }}>
         {/* Ligne haute : salutation (+ prénom) à gauche ; badge parrainage
@@ -526,7 +569,7 @@ export default function Portefeuille() {
               />
             ) : null}
             <View className="flex-row items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5">
-              <Ionicons name="shield-checkmark" size={13} color="#C4B5FD" />
+              <Ionicons name="shield-checkmark" size={13} color={hero.pastel} />
               <Text
                 className="text-[12px] font-semibold text-white"
                 numberOfLines={1}
@@ -561,7 +604,7 @@ export default function Portefeuille() {
         <View className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
           <View
             className="h-full rounded-full"
-            style={{ width: `${scorePct * 100}%`, backgroundColor: "#C4B5FD" }}
+            style={{ width: `${scorePct * 100}%`, backgroundColor: hero.pastel }}
           />
         </View>
         {/* Indice de désirabilité + variation du mois (parité web). */}
@@ -572,12 +615,12 @@ export default function Portefeuille() {
           <View
             className="rounded-full px-2.5 py-1"
             style={{
-              backgroundColor: "rgba(196,181,253,0.16)",
+              backgroundColor: `rgba(${hero.pastelRgb},0.16)`,
               borderWidth: 1,
-              borderColor: "rgba(196,181,253,0.4)",
+              borderColor: `rgba(${hero.pastelRgb},0.4)`,
             }}
           >
-            <Text className="text-[12px] font-semibold" style={{ color: "#DDD6FE" }}>
+            <Text className="text-[12px] font-semibold" style={{ color: hero.pastelText }}>
               {desirabiliteLabel(scoreNum)}
             </Text>
           </View>

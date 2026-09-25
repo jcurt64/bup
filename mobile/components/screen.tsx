@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { AppHeader } from "./app-header";
-import { GridBg } from "./grid-bg";
+import { AppBackdrop } from "./app-backdrop";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
@@ -218,7 +218,7 @@ export function ScrollScreen({
   return (
     <HeaderScrollContext.Provider value={{ scrollY, compactExtras }}>
       <SafeAreaView className="flex-1 bg-ivory" edges={["bottom"]}>
-        <GridBg />
+        <AppBackdrop />
         <Animated.ScrollView
           ref={scrollRef}
           className="flex-1"

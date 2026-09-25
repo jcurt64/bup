@@ -20,8 +20,6 @@ import { Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
-  interpolate,
-  interpolateColor,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -40,7 +38,7 @@ import {
   HEADER_SCROLL_THRESHOLD,
   useHeaderScroll,
 } from "../lib/header-scroll";
-import { useFlashDeals, useNotifications } from "../lib/queries";
+import { useFlashDeals, useMeTyped, useNotifications } from "../lib/queries";
 import { useTheme } from "../lib/theme";
 import { PURCHASES_ENABLED } from "../lib/purchases";
 
@@ -169,81 +167,251 @@ const LIGHT_BTN_SHADOW = {
   elevation: 3,
 } as const;
 
-function FlashHeaderButton({
-  onPress,
-  active,
-}: {
-  onPress: () => void;
-  active: boolean;
-}) {
-  // Anneau pulsant quand un flash deal est lancé (active). Reproduit le
-  // pulse de la bannière flash de l'app web (page d'accueil) : anneau qui
-  // s'étend puis s'estompe, cycle 2,4 s. Le disque coloré est masqué en son
-  // centre par le bouton blanc → seule la couronne en expansion reste
-  // visible (effet radar, comme le box-shadow animé du web). Une SEULE
-  // progression 0→1 pilote l'échelle, l'opacité ET la couleur, qui passe
-  // du violet (départ) à l'orange puis au jaune doré (fin de cycle).
-  const { c, mode, isDark } = useTheme();
-  // Éclair teinté à l'accent du thème en forest/fushia, violet buupp sinon.
-  const flashColor =
-    mode === "forest" || mode === "fushia" ? c.accent : "#7C5CFC";
-  const progress = useSharedValue(0);
+// ── Header étendu : bouton menu « squircle » + capsule d'actions ─────────
 
-  useEffect(() => {
-    if (!active) {
-      cancelAnimation(progress);
-      progress.value = 0;
-      return;
-    }
-    progress.value = 0;
-    progress.value = withRepeat(
-      withTiming(1, { duration: 2400, easing: Easing.out(Easing.ease) }),
-      -1,
-      false,
-    );
-    return () => cancelAnimation(progress);
-  }, [active, progress]);
+function headerShadow(isDark: boolean, navyDeep: string) {
+  return {
+    shadowColor: isDark ? "#000000" : navyDeep,
+    shadowOpacity: isDark ? 0.4 : 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  } as const;
+}
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(progress.value, [0, 1], [0.9, 2.1]) }],
-    opacity: interpolate(progress.value, [0, 1], [0.5, 0]),
-    // Violet → orange → jaune doré au fil de l'expansion de l'anneau. La
-    // transition est avancée (doré dès ~65 %) car l'opacité tombe à 0 au
-    // bord : sinon le doré arriverait quand l'anneau est déjà invisible.
-    // Au-delà du dernier point, interpolateColor reste sur le doré.
-    backgroundColor: interpolateColor(
-      progress.value,
-      [0, 0.35, 0.65],
-      ["#7C3AED", "#FB923C", "#FFC53D"],
-    ),
-  }));
-
+// Menu : carré arrondi + trois traits de longueurs différentes, celui du
+// milieu à la couleur d'accent du thème.
+function MenuButton({ onPress }: { onPress: () => void }) {
+  const { c, isDark } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
-      accessibilityLabel="Flash deals"
-      className="h-10 w-10 items-center justify-center active:opacity-70"
+      accessibilityRole="button"
+      accessibilityLabel="Ouvrir le menu"
+      className="active:opacity-70"
+      style={[
+        {
+          width: 44,
+          height: 44,
+          borderRadius: 15,
+          backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.borderSoft,
+          alignItems: "flex-start",
+          justifyContent: "center",
+          paddingLeft: 12,
+          gap: 4,
+        },
+        headerShadow(isDark, c.navyDeep),
+      ]}
+    >
+      <View style={{ width: 19, height: 2.5, borderRadius: 2, backgroundColor: c.text }} />
+      <View style={{ width: 12, height: 2.5, borderRadius: 2, backgroundColor: c.violet }} />
+      <View style={{ width: 16, height: 2.5, borderRadius: 2, backgroundColor: c.text }} />
+    </Pressable>
+  );
+}
+
+function Badge({ count, ring }: { count: number; ring: string }) {
+  if (count <= 0) return null;
+  return (
+    <View
+      pointerEvents="none"
+      accessible={false}
+      style={{
+        position: "absolute",
+        top: -2,
+        right: -2,
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: 4,
+        borderRadius: 9,
+        backgroundColor: "#DC2626",
+        borderWidth: 2,
+        borderColor: ring,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ fontSize: 9, fontWeight: "800", color: "#FFFFFF" }}>
+        {count > 99 ? "99+" : count}
+      </Text>
+    </View>
+  );
+}
+
+function CapsuleSlot({
+  icon,
+  color,
+  label,
+  onPress,
+  badgeCount = 0,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  label: string;
+  onPress: () => void;
+  badgeCount?: number;
+}) {
+  const { c } = useTheme();
+  const a11y =
+    badgeCount > 0
+      ? `${label} (${badgeCount} non lu${badgeCount > 1 ? "s" : ""})`
+      : label;
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      style={({ pressed }) => ({
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: pressed ? c.surface2 : "transparent",
+      })}
+    >
+      <Ionicons name={icon} size={21} color={color} />
+      <Badge count={badgeCount} ring={c.surface} />
+    </Pressable>
+  );
+}
+
+// Flash deals : pastille dégradée ambre → corail qui « respire » quand un
+// flash deal est en cours (lent, sans onde qui s'étend) ; icône simple sinon.
+function FlashSlot({
+  onPress,
+  active,
+  count,
+}: {
+  onPress: () => void;
+  active: boolean;
+  count: number;
+}) {
+  const { c } = useTheme();
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (!active) {
+      cancelAnimation(glow);
+      glow.value = 0;
+      return;
+    }
+    glow.value = withRepeat(
+      withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(glow);
+  }, [active, glow]);
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.25 + glow.value * 0.45,
+    transform: [{ scale: 1 + glow.value * 0.05 }],
+  }));
+  if (!active) {
+    return (
+      <CapsuleSlot
+        icon="flash-outline"
+        color={c.textSub}
+        label="Flash deals"
+        onPress={onPress}
+      />
+    );
+  }
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={`Flash deals (${count} en cours)`}
+      style={{ width: 38, height: 38, alignItems: "center", justifyContent: "center" }}
     >
       <Animated.View
-        pointerEvents="none"
         style={[
           {
-            position: "absolute",
-            width: 40,
-            height: 40,
-            borderRadius: 999,
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            shadowColor: "#FB923C",
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 5,
           },
-          ringStyle,
+          glowStyle,
         ]}
-      />
-      <View
-        className={`h-10 w-10 items-center justify-center rounded-full ${isDark ? "" : "bg-paper"}`}
-        style={[LIGHT_BTN_SHADOW, isDark ? { backgroundColor: "rgba(255,255,255,0.13)" } : null]}
       >
-        <Ionicons name="flash" size={22} color={flashColor} />
-      </View>
+        <LinearGradient
+          colors={["#FFC53D", "#FB923C", "#F4577A"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ flex: 1, borderRadius: 17, alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="flash" size={19} color="#FFFFFF" />
+        </LinearGradient>
+      </Animated.View>
+      <Badge count={count} ring={c.surface} />
     </Pressable>
+  );
+}
+
+// Compte : avatar rond aux initiales, dégradé de l'accent du thème.
+function AvatarSlot({ initials, onPress }: { initials: string; onPress: () => void }) {
+  const { c } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel="Mon compte"
+      className="active:opacity-80"
+      style={{ width: 38, height: 38, alignItems: "center", justifyContent: "center" }}
+    >
+      <LinearGradient
+        colors={[c.violet, c.violetDeep]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {initials ? (
+          <Text style={{ fontSize: 13, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.5 }}>
+            {initials}
+          </Text>
+        ) : (
+          <Ionicons name="person" size={17} color="#FFFFFF" />
+        )}
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+function ActionCapsule({ children }: { children: React.ReactNode }) {
+  const { c, isDark } = useTheme();
+  return (
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 2,
+          padding: 3,
+          borderRadius: 999,
+          backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.borderSoft,
+        },
+        headerShadow(isDark, c.navyDeep),
+      ]}
+    >
+      {children}
+    </View>
   );
 }
 
@@ -298,6 +466,7 @@ export function AppHeader({
   const notif = useNotifications();
   const unread = notif.data?.unreadCount ?? 0;
   const flashCount = useFlashDeals().data?.deals.length ?? 0;
+  const initials = (useMeTyped().data?.initials ?? "").slice(0, 2).toUpperCase();
   const glass = isLiquidGlassAvailable();
   const pageName = pageNameFromPathname(pathname);
   const { c, mode, isDark } = useTheme();
@@ -358,7 +527,7 @@ export function AppHeader({
           <GlassView
             glassEffectStyle={isDark ? "clear" : "regular"}
             tintColor={
-              isDark ? "rgba(14, 18, 31, 0.45)" : "rgba(247, 244, 236, 0.34)"
+              `${c.bg}${isDark ? "73" : "57"}`
             }
             style={{ position: "absolute", inset: 0 } as never}
           />
@@ -371,9 +540,7 @@ export function AppHeader({
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: isDark
-                ? "rgba(14, 18, 31, 0.82)"
-                : "rgba(247, 244, 236, 0.78)",
+              backgroundColor: `${c.bg}${isDark ? "D1" : "C7"}`,
             }}
           />
         )}
@@ -408,11 +575,7 @@ export function AppHeader({
               expandedPointerStyle,
             ]}
           >
-            <IconButton
-              icon="menu"
-              bg="bg-paper"
-              color={iconColor}
-              label="Ouvrir le menu"
+            <MenuButton
               onPress={() => {
                 const drawer = variant === "pro" ? "/pro-drawer" : "/drawer";
                 setDrawerOrigin(pathname, drawer);
@@ -425,58 +588,32 @@ export function AppHeader({
               <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
             </View>
 
-            {variant === "pro" ? (
-              // Header étendu : pas de « + » création ici (il apparaît dans le
-              // header compact au scroll). Recharge + notifs + compte.
-              <View className="flex-row items-center" style={{ gap: 8 }}>
-                {PURCHASES_ENABLED ? (
-                  <IconButton
-                    icon="add"
-                    bg="bg-paper"
+            <ActionCapsule>
+              {variant === "pro" ? (
+                PURCHASES_ENABLED ? (
+                  <CapsuleSlot
+                    icon="add-circle-outline"
                     color={iconColor}
                     label="Recharger mon compte"
                     onPress={() => setShowRecharge(true)}
                   />
-                ) : null}
-                <IconButton
-                  icon="notifications-outline"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Messages"
-                  onPress={() => setShowMessages(true)}
-                  badgeCount={unread}
-                />
-                <IconButton
-                  icon="person-outline"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Mon compte"
-                  onPress={() => router.push("/account")}
-                />
-              </View>
-            ) : (
-              <View className="flex-row items-center gap-3">
-                <FlashHeaderButton
+                ) : null
+              ) : (
+                <FlashSlot
                   onPress={() => flashSheet.open()}
                   active={flashCount > 0}
+                  count={flashCount}
                 />
-                <IconButton
-                  icon="notifications-outline"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Messages"
-                  onPress={() => setShowMessages(true)}
-                  badgeCount={unread}
-                />
-                <IconButton
-                  icon="person-outline"
-                  bg="bg-paper"
-                  color={iconColor}
-                  label="Mon compte"
-                  onPress={() => router.push("/account")}
-                />
-              </View>
-            )}
+              )}
+              <CapsuleSlot
+                icon="notifications-outline"
+                color={iconColor}
+                label="Messages"
+                onPress={() => setShowMessages(true)}
+                badgeCount={unread}
+              />
+              <AvatarSlot initials={initials} onPress={() => router.push("/account")} />
+            </ActionCapsule>
           </Animated.View>
 
           {/* Layout compact — apparaît quand on a scrollé : logo « b »

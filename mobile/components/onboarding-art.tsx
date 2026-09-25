@@ -610,7 +610,18 @@ export function NotificationsArt({ active }: { active: boolean }) {
 
 // Halo lumineux doux (faux dégradé radial par cercles concentriques —
 // expo-linear-gradient n'a pas de radial et on évite une dépendance).
-export function Glow({ size, color, style }: { size: number; color: string; style?: ViewStyle }) {
+export function Glow({
+  size,
+  color,
+  style,
+  strength = 0.022,
+}: {
+  size: number;
+  color: string;
+  style?: ViewStyle;
+  /** Opacité de chaque anneau (cumulée au centre). */
+  strength?: number;
+}) {
   const steps = 16;
   return (
     <View pointerEvents="none" style={[{ position: "absolute", width: size, height: size }, style]}>
@@ -627,7 +638,7 @@ export function Glow({ size, color, style }: { size: number; color: string; styl
               height: s,
               borderRadius: s / 2,
               backgroundColor: color,
-              opacity: 0.022,
+              opacity: strength,
             }}
           />
         );
