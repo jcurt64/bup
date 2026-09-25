@@ -7,7 +7,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import { BottomSheet } from "./bottom-sheet";
+import { Motif } from "./motif";
+import { withAlpha } from "../lib/color";
 import { BuuppFooter } from "./buupp-footer";
 import { EmptyInboxArt } from "./empty-inbox-art";
 import { PushStatusBadge } from "./push-settings";
@@ -55,6 +59,20 @@ function MessageCard({
     >
       {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
       <View style={{ borderRadius: 17, overflow: "hidden" }}>
+        {/* Décor : voile de la couleur de la catégorie, points, filigrane. */}
+        <LinearGradient
+          colors={[withAlpha(cat.color, "1C"), withAlpha(c.surface, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.8, y: 0.8 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Motif variant="dots" color={withAlpha(cat.color, "55")} style={{ top: 8, right: 8 }} />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -12, bottom: -16, opacity: 0.07, transform: [{ rotate: "-12deg" }] }}
+        >
+          <Ionicons name={cat.icon as keyof typeof Ionicons.glyphMap} size={96} color={cat.color} />
+        </View>
         {/* Barre d'accent gauche colorée selon la catégorie. */}
         <View
           style={{

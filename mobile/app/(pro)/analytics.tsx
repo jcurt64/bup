@@ -3,12 +3,14 @@
 // l'historique), taux de lecture des messages, paliers, heatmap
 // « Meilleurs créneaux », géo, âge, sexe.
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "../../components/bottom-sheet";
 import { Card, QueryGate, ScrollScreen } from "../../components/screen";
 import { useProAnalytics, type ProAnalytics as ProAnalyticsData } from "../../lib/queries";
+import { shade } from "../../lib/color";
 import { useTheme } from "../../lib/theme";
 
 type Period = "all" | "7d" | "30d" | "90d";
@@ -34,31 +36,43 @@ function Bars({
   if (rows.length === 0) {
     return <Text className="text-sm text-ink-4">Données insuffisantes.</Text>;
   }
+  // Une couleur par ligne (palette du thème), barres en dégradé.
+  const palette = [c.accViolet, c.accBlue, c.accGreen, c.accAmber, c.accCoral];
   return (
-    <View className="gap-2.5">
-      {rows.map((r, i) => (
-        <View key={i}>
-          <View className="flex-row justify-between">
-            <Text className="text-[13px] text-ink-2">{r.label}</Text>
-            <Text className="font-mono text-[12px] text-ink-3">
-              {r.hint ?? `${r.pct}%`}
-            </Text>
-          </View>
-          <View
-            className="mt-1 h-2 overflow-hidden rounded-full"
-            style={{ backgroundColor: c.track }}
-          >
+    <View className="gap-3">
+      {rows.map((r, i) => {
+        const col = palette[i % palette.length];
+        return (
+          <View key={i}>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center" style={{ gap: 7, flexShrink: 1 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: col }} />
+                <Text className="text-[13px] text-ink-2" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {r.label}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 12.5, fontWeight: "800", color: col }}>
+                {r.hint ?? `${r.pct}%`}
+              </Text>
+            </View>
             <View
-              style={{
-                width: `${Math.max(0, Math.min(100, r.pct))}%`,
-                height: "100%",
-                borderRadius: 999,
-                backgroundColor: c.accent,
-              }}
-            />
+              className="mt-1.5 overflow-hidden rounded-full"
+              style={{ height: 10, backgroundColor: c.track }}
+            >
+              <LinearGradient
+                colors={[shade(col, 0.25), col]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  width: `${Math.max(r.pct > 0 ? 3 : 0, Math.min(100, r.pct))}%`,
+                  height: "100%",
+                  borderRadius: 999,
+                }}
+              />
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -246,7 +260,7 @@ function Heatmap({ h }: { h: ProAnalyticsData["creneauHeatmap"] | null | undefin
                 style={{
                   flex: 1,
                   aspectRatio: 1,
-                  borderRadius: 4,
+                  borderRadius: 7,
                   overflow: "hidden",
                   backgroundColor: c.track,
                   borderWidth: n > 0 && intensity < 0.1 ? 1 : 0,
