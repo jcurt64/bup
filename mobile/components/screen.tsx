@@ -2,7 +2,7 @@
 // (fraîcheur active §6.2), porte d'état React Query (loading/erreur 401/
 // vide), carte et ligne de stat. Évite la répétition sur tous les
 // onglets prospect/pro.
-import { type ReactNode, type Ref, useCallback, useState } from "react";
+import { Children, type ReactNode, type Ref, useCallback, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  FadeInDown,
   useAnimatedScrollHandler,
   useSharedValue,
 } from "react-native-reanimated";
@@ -96,8 +97,12 @@ export function GradientHero({ title, eyebrow, desc, nav, topRight, gradient, ch
         paddingHorizontal: 20,
         paddingBottom: 20,
         paddingTop: 22,
+        overflow: "hidden",
       }}
     >
+      {/* Motifs décoratifs (cohérents sur toutes les pages) */}
+      <Motif variant="rings" color="rgba(255,255,255,0.12)" />
+      <Motif variant="stripes" color="rgba(255,255,255,0.05)" style={{ top: 70, right: undefined, left: -80 }} />
       {nav === "menu" ? (
         <View className="mb-3 flex-row items-center justify-between gap-3">
           <Text
@@ -242,8 +247,23 @@ export function ScrollScreen({
             ) : undefined
           }
         >
-          {hero ? <GradientHero {...hero} /> : null}
-          {children}
+          {hero ? (
+            <Animated.View entering={FadeInDown.duration(420).springify().damping(16)}>
+              <GradientHero {...hero} />
+            </Animated.View>
+          ) : null}
+          {/* Apparition en cascade des blocs de la page (glissé + fondu). */}
+          {Children.toArray(children).map((child, i) => (
+            <Animated.View
+              key={i}
+              entering={FadeInDown.delay(80 + Math.min(i, 8) * 70)
+                .duration(420)
+                .springify()
+                .damping(16)}
+            >
+              {child}
+            </Animated.View>
+          ))}
         </Animated.ScrollView>
         <AppHeader variant={headerVariant} />
       </SafeAreaView>
@@ -357,6 +377,20 @@ const TONE_TINT_DARK: Record<Tone, string> = {
   sky: "#284468",
 };
 
+// Motif par défaut selon la teinte de la carte (décor automatique).
+const TONE_MOTIF: Record<Tone, MotifVariant> = {
+  violet: "stripes",
+  coral: "dots",
+  teal: "rings",
+  amber: "confetti",
+  sky: "waves",
+};
+// Version pleine d'une icône « -outline » (filigrane plus lisible).
+const solidIcon = (name: keyof typeof Ionicons.glyphMap) =>
+  (String(name).endsWith("-outline")
+    ? String(name).slice(0, -"-outline".length)
+    : name) as keyof typeof Ionicons.glyphMap;
+
 export function Card({
   children,
   dark = false,
@@ -366,6 +400,7 @@ export function Card({
   gradient,
   motif,
   watermark,
+  plain = false,
 }: {
   children: ReactNode;
   dark?: boolean;
@@ -389,8 +424,17 @@ export function Card({
   motif?: MotifVariant;
   /** Grand pictogramme en filigrane (coin bas-droit). */
   watermark?: keyof typeof Ionicons.glyphMap;
+  /** Désactive le décor automatique (motif + filigrane). */
+  plain?: boolean;
 }) {
   const { c, isDark } = useTheme();
+  // Décor automatique (cohérence de toutes les pages) : motif choisi selon
+  // la teinte de la carte, filigrane = icône du badge (version pleine).
+  const motifEff: MotifVariant | undefined =
+    motif ?? (plain ? undefined : tone ? TONE_MOTIF[tone] : "dots");
+  const watermarkEff =
+    watermark ?? (plain || !badge?.icon ? undefined : solidIcon(badge.icon));
+  const fill = /\bflex-1\b/.test(className);
   const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
     ? undefined
@@ -436,12 +480,12 @@ export function Card({
   // Décor (motif + filigrane) : couleur propre de la carte, translucide.
   const decoColor = TONE_FG[tone ?? badge?.tone ?? "violet"];
   const deco =
-    motif || watermark ? (
+    motifEff || watermarkEff ? (
       <>
-        {motif ? (
-          <Motif variant={motif} color={withAlpha(dark ? "#FFFFFF" : decoColor, isDark || dark ? "40" : "38")} />
+        {motifEff ? (
+          <Motif variant={motifEff} color={withAlpha(dark ? "#FFFFFF" : decoColor, isDark || dark ? "40" : "38")} />
         ) : null}
-        {watermark ? (
+        {watermarkEff ? (
           <View
             pointerEvents="none"
             style={{
@@ -452,7 +496,7 @@ export function Card({
               transform: [{ rotate: "-14deg" }],
             }}
           >
-            <Ionicons name={watermark} size={120} color={dark ? "#FFFFFF" : decoColor} />
+            <Ionicons name={watermarkEff} size={120} color={dark ? "#FFFFFF" : decoColor} />
           </View>
         ) : null}
       </>
@@ -466,11 +510,12 @@ export function Card({
         style={[
           // Fond requis sur Android pour que l'elevation dessine l'ombre.
           { borderRadius: radius, borderWidth: 0.7, borderColor: c.borderSoft, backgroundColor: c.surface },
+          fill ? { flex: 1 } : null,
           dark ? null : shadow,
           dark ? null : { shadowOpacity: isDark ? 0.3 : 0.09, shadowColor: isDark ? "#000000" : decoColor },
         ]}
       >
-        <View style={{ borderRadius: radius, overflow: "hidden" }}>
+        <View style={{ borderRadius: radius, overflow: "hidden", flex: fill ? 1 : undefined }}>
           {!dark && tone ? (
             <LinearGradient
               colors={gradient ?? (isDark ? [TONE_TINT_DARK[tone], c.surface] : TONE_GRADIENT[tone])}
@@ -485,7 +530,7 @@ export function Card({
             />
           )}
           {deco}
-          <View className={className} style={{ padding: 20 }}>
+          <View className={className} style={{ padding: 20, flex: fill ? 1 : undefined }}>
             {inner}
           </View>
         </View>
@@ -606,7 +651,9 @@ export function Stat({
       {footer ? <View style={{ marginTop: "auto", paddingTop: 12 }}>{footer}</View> : null}
     </>
   );
-  const mark = watermark ? (
+  // Filigrane par défaut = icône de la tuile (cohérence de toutes les pages).
+  const markIcon = watermark ?? (icon ? solidIcon(icon) : undefined);
+  const mark = markIcon && tone ? (
     <View
       pointerEvents="none"
       style={{
@@ -617,7 +664,7 @@ export function Stat({
         transform: [{ rotate: "-12deg" }],
       }}
     >
-      <Ionicons name={watermark} size={84} color={fg} />
+      <Ionicons name={markIcon} size={84} color={fg} />
     </View>
   ) : null;
   if (tone) {

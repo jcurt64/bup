@@ -11,6 +11,8 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "../../components/bottom-sheet";
+import { Motif, type MotifVariant } from "../../components/motif";
+import { shade, withAlpha } from "../../lib/color";
 import { eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/screen";
 import { useProOverview, useProTimeseries, type ProOverview } from "../../lib/queries";
 import { ALL_ACCEPTANCES_MAX, useProAcceptances } from "../../lib/queries-pro-analytics";
@@ -50,35 +52,63 @@ function IndicatorCell({
   label: string;
   value: string;
 }) {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
   return (
     <View
       style={{
         width: "48%",
         marginBottom: 10,
-        borderRadius: 18,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: c.borderSoft,
+        borderColor: withAlpha(iconColor, "33"),
         backgroundColor: c.surface,
-        padding: 14,
+        shadowColor: isDark ? "#000000" : iconColor,
+        shadowOpacity: isDark ? 0.3 : 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 5 },
+        elevation: 3,
       }}
     >
-      <View
-        className="items-center justify-center"
-        style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: tintBg }}
-      >
-        <Ionicons name={icon} size={18} color={iconColor} />
+      <View style={{ borderRadius: 19, overflow: "hidden", padding: 14 }}>
+        {/* Dégradé teinté + pictogramme géant en filigrane */}
+        <LinearGradient
+          colors={[tintBg, withAlpha(c.surface, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -14, bottom: -16, opacity: 0.1, transform: [{ rotate: "-14deg" }] }}
+        >
+          <Ionicons name={icon} size={80} color={iconColor} />
+        </View>
+        <LinearGradient
+          colors={[shade(iconColor, 0.1), shade(iconColor, -0.25)]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            transform: [{ rotate: "-6deg" }],
+          }}
+        >
+          <Ionicons name={icon} size={18} color="#FFFFFF" />
+        </LinearGradient>
+        <Text
+          className="mt-3 uppercase"
+          style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.6, color: c.textSub }}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+        <Text className="mt-1 font-serif" style={{ fontSize: 28, lineHeight: 32, color: c.text }}>
+          {value}
+        </Text>
       </View>
-      <Text
-        className="mt-2.5 font-mono uppercase"
-        style={{ fontSize: 10.5, fontWeight: "700", letterSpacing: 0.6, color: c.textSub }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-      <Text className="mt-1 font-serif" style={{ fontSize: 24, color: c.text }}>
-        {value}
-      </Text>
     </View>
   );
 }
@@ -88,71 +118,127 @@ function IndicatorCell({
 function RoiHero({ d, colors, onInfo }: { d: ProOverview; colors: readonly [string, string]; onInfo: () => void }) {
   const invested = (d.roi?.spentCents ?? d.spent30dCents ?? 0) / 100;
   const estValue = (d.roi?.potentialRevenueCents ?? 0) / 100;
+  const pct = d.roi?.pct ?? null;
+  const positive = pct != null && pct >= 0;
+  // Barre comparative Investi / Valeur (part de chacun dans le total).
+  const tot = invested + estValue;
+  const investedShare = tot > 0 ? invested / tot : 0.5;
   return (
-    <LinearGradient
-      colors={colors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ borderRadius: 24, padding: 20, overflow: "hidden" }}
+    <View
+      style={{
+        borderRadius: 26,
+        shadowColor: colors[0],
+        shadowOpacity: 0.35,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 6,
+        backgroundColor: colors[0],
+      }}
     >
-      <View
-        pointerEvents="none"
-        style={{ position: "absolute", right: 24, bottom: -30, width: 90, height: 90, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" }}
-      />
-      <View className="flex-row items-center" style={{ gap: 10 }}>
-        <View
-          className="items-center justify-center"
-          style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.16)" }}
-        >
-          <Ionicons name="trending-up" size={16} color="#FFFFFF" />
-        </View>
-        <Text
-          className="font-mono uppercase"
-          style={{ fontSize: 11, fontWeight: "700", letterSpacing: 1.4, color: "rgba(255,255,255,0.78)" }}
-        >
-          ROI estimé · 30 jours
-        </Text>
-      </View>
-      <Text className="mt-3 font-serif" style={{ fontSize: 44, lineHeight: 48, color: "#FFFFFF" }}>
-        {fmtPct(d.roi?.pct)}
-      </Text>
-      <View className="mt-3 flex-row" style={{ gap: 28 }}>
-        <View>
-          <Text className="font-mono uppercase" style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.8, color: "rgba(255,255,255,0.7)" }}>
-            Investi
-          </Text>
-          <Text className="mt-0.5 font-mono" style={{ fontSize: 15, color: "#FFFFFF" }}>
-            {eur(invested)}
-          </Text>
-        </View>
-        <View>
-          <Text className="font-mono uppercase" style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.8, color: "rgba(255,255,255,0.7)" }}>
-            Valeur estimée
-          </Text>
-          <Text className="mt-0.5 font-mono" style={{ fontSize: 15, color: "#FFFFFF" }}>
-            {eur(estValue)}
-          </Text>
-        </View>
-      </View>
-      {/* Icône info — rendue en DERNIER (donc au-dessus pour le tactile) ;
-          wrapper plein-hauteur à droite qui centre verticalement le bouton
-          par rapport à l'ensemble des éléments de la carte. */}
-      <View
-        pointerEvents="box-none"
-        style={{ position: "absolute", top: 0, bottom: 0, right: 22, justifyContent: "center", zIndex: 2 }}
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ borderRadius: 26, padding: 20, overflow: "hidden" }}
       >
-        <Pressable
-          onPress={onInfo}
-          accessibilityRole="button"
-          accessibilityLabel="Comment ce ROI est-il calculé ?"
-          hitSlop={12}
-          className="items-center justify-center active:opacity-70"
-          style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.16)" }}
+        <Motif variant="rings" color="rgba(255,255,255,0.12)" />
+        <Motif variant="stripes" color="rgba(255,255,255,0.05)" style={{ top: 110, right: undefined, left: -70 }} />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -10, bottom: -16, opacity: 0.12, transform: [{ rotate: "-18deg" }] }}
         >
-          <Ionicons name="information-circle-outline" size={20} color="#FFFFFF" />
-        </Pressable>
-      </View>
-    </LinearGradient>
+          <Ionicons name="rocket" size={120} color="#FFFFFF" />
+        </View>
+
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center" style={{ gap: 10 }}>
+            <View
+              className="items-center justify-center"
+              style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.18)" }}
+            >
+              <Ionicons name="trending-up" size={17} color="#FFFFFF" />
+            </View>
+            <Text
+              className="uppercase"
+              style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.6, color: "rgba(255,255,255,0.8)" }}
+            >
+              ROI estimé · 30 jours
+            </Text>
+          </View>
+          <Pressable
+            onPress={onInfo}
+            accessibilityRole="button"
+            accessibilityLabel="Comment ce ROI est-il calculé ?"
+            hitSlop={12}
+            className="items-center justify-center active:opacity-70"
+            style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.18)" }}
+          >
+            <Ionicons name="information-circle-outline" size={20} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        <View className="flex-row items-center" style={{ gap: 12, marginTop: 12 }}>
+          <Text className="font-serif" style={{ fontSize: 52, lineHeight: 58, color: "#FFFFFF", letterSpacing: -1 }}>
+            {fmtPct(pct)}
+          </Text>
+          {pct != null ? (
+            <View
+              className="flex-row items-center"
+              style={{
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+                backgroundColor: positive ? "rgba(74,222,128,0.22)" : "rgba(251,191,36,0.25)",
+                borderWidth: 1,
+                borderColor: positive ? "rgba(134,239,172,0.55)" : "rgba(253,230,138,0.6)",
+              }}
+            >
+              <Ionicons name={positive ? "sparkles" : "construct-outline"} size={12} color="#FFFFFF" />
+              <Text style={{ fontSize: 11.5, fontWeight: "800", color: "#FFFFFF" }}>
+                {positive ? "Rentable" : "À optimiser"}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Flux Investi → Valeur estimée */}
+        <View className="flex-row items-center" style={{ gap: 10, marginTop: 16 }}>
+          <View style={{ flex: 1, padding: 12, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.12)" }}>
+            <View className="flex-row items-center" style={{ gap: 5 }}>
+              <Ionicons name="wallet-outline" size={13} color="rgba(255,255,255,0.8)" />
+              <Text className="uppercase" style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: "rgba(255,255,255,0.75)" }}>
+                Investi
+              </Text>
+            </View>
+            <Text className="font-serif" style={{ fontSize: 20, color: "#FFFFFF", marginTop: 3 }}>
+              {eur(invested)}
+            </Text>
+          </View>
+          <View
+            className="items-center justify-center"
+            style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#FFFFFF" }}
+          >
+            <Ionicons name="arrow-forward" size={15} color={colors[0]} />
+          </View>
+          <View style={{ flex: 1, padding: 12, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.2)" }}>
+            <View className="flex-row items-center" style={{ gap: 5 }}>
+              <Ionicons name="diamond-outline" size={13} color="rgba(255,255,255,0.9)" />
+              <Text className="uppercase" style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: "rgba(255,255,255,0.85)" }}>
+                Valeur estimée
+              </Text>
+            </View>
+            <Text className="font-serif" style={{ fontSize: 20, color: "#FFFFFF", marginTop: 3 }}>
+              {eur(estValue)}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row" style={{ height: 6, borderRadius: 3, overflow: "hidden", marginTop: 12, gap: 3 }}>
+          <View style={{ flex: Math.max(0.05, investedShare), backgroundColor: "rgba(255,255,255,0.35)", borderRadius: 3 }} />
+          <View style={{ flex: Math.max(0.05, 1 - investedShare), backgroundColor: "#FFFFFF", borderRadius: 3 }} />
+        </View>
+      </LinearGradient>
+    </View>
   );
 }
 
@@ -298,10 +384,14 @@ function EmptyHero({ colors }: { colors: readonly [string, string] }) {
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: 24, padding: 22, overflow: "hidden" }}
     >
+      <Motif variant="rings" color="rgba(255,255,255,0.12)" />
+      <Motif variant="confetti" color="rgba(255,255,255,0.7)" style={{ top: 18, right: 90 }} />
       <View
         pointerEvents="none"
-        style={{ position: "absolute", right: -20, top: -20, width: 120, height: 120, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.08)" }}
-      />
+        style={{ position: "absolute", right: -16, bottom: -20, opacity: 0.12, transform: [{ rotate: "-16deg" }] }}
+      >
+        <Ionicons name="megaphone" size={130} color="#FFFFFF" />
+      </View>
       <View
         className="items-center justify-center"
         style={{ width: 54, height: 54, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.16)" }}
@@ -581,20 +671,68 @@ function FiabiliteBadge({ priority }: { priority?: number | null }) {
 }
 
 // Carte générique de la Vue d'ensemble (titre serif + sous-titre).
-function OvCard({ title, sub, right, children }: { title: string; sub?: string; right?: React.ReactNode; children: React.ReactNode }) {
-  const { c } = useTheme();
+function OvCard({
+  title,
+  sub,
+  right,
+  children,
+  icon,
+  color,
+  motif,
+}: {
+  title: string;
+  sub?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  icon?: keyof typeof Ionicons.glyphMap;
+  color?: string;
+  motif?: MotifVariant;
+}) {
+  const { c, isDark } = useTheme();
+  const col = color ?? c.violet;
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.borderSoft, padding: 18 }}>
-      <View className="flex-row items-start justify-between" style={{ gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Text className="font-serif" style={{ fontSize: 20, color: c.text }}>
-            {title}
-          </Text>
-          {sub ? <Text style={{ fontSize: 12, color: c.textSub, marginTop: 3 }}>{sub}</Text> : null}
+    <View
+      style={{
+        backgroundColor: c.surface,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: c.borderSoft,
+        shadowColor: isDark ? "#000000" : col,
+        shadowOpacity: isDark ? 0.3 : 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 3,
+      }}
+    >
+      <View style={{ borderRadius: 23, overflow: "hidden", padding: 18 }}>
+        <LinearGradient
+          colors={[withAlpha(col, isDark ? "26" : "14"), withAlpha(c.surface, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.6, y: 0.6 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        {motif ? <Motif variant={motif} color={withAlpha(col, "55")} /> : null}
+        <View className="flex-row items-start justify-between" style={{ gap: 10 }}>
+          {icon ? (
+            <LinearGradient
+              colors={[shade(col, 0.1), shade(col, -0.25)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}
+            >
+              <Ionicons name={icon} size={19} color="#FFFFFF" />
+            </LinearGradient>
+          ) : null}
+          <View style={{ flex: 1 }}>
+            <Text className="font-serif" style={{ fontSize: 20, color: c.text }}>
+              {title}
+            </Text>
+            {sub ? <Text style={{ fontSize: 12, color: c.textSub, marginTop: 3 }}>{sub}</Text> : null}
+          </View>
+          {right}
         </View>
-        {right}
+        <View style={{ marginTop: 14 }}>{children}</View>
       </View>
-      <View style={{ marginTop: 14 }}>{children}</View>
     </View>
   );
 }
@@ -655,6 +793,9 @@ function PerformanceCard() {
 
   return (
     <OvCard
+      icon="bar-chart"
+      color={c.accBlue}
+      motif="dots"
       title="Performance des campagnes"
       sub={`Contacts obtenus, ${RANGE_LABELS[range]}${series ? ` · ${total} acceptation${total === 1 ? "" : "s"}` : ""}`}
     >
@@ -696,6 +837,33 @@ function PerformanceCard() {
                 }}
               />
             ))}
+            {/* Ligne de moyenne */}
+            {total > 0 ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: (total / Math.max(1, counts.length) / max) * (H - 14),
+                  borderTopWidth: 1.5,
+                  borderColor: withAlpha(c.violet, "88"),
+                }}
+              >
+                <Text
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: -16,
+                    fontSize: 9.5,
+                    fontWeight: "800",
+                    color: c.violet,
+                  }}
+                >
+                  moy. {(total / Math.max(1, counts.length)).toFixed(1).replace(".", ",")}
+                </Text>
+              </View>
+            ) : null}
             {counts.map((v, i) => (
               <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
                 {v > 0 ? (
@@ -703,13 +871,17 @@ function PerformanceCard() {
                     {v}
                   </Text>
                 ) : null}
-                <View
+                <LinearGradient
+                  colors={
+                    i === counts.length - 1
+                      ? [shade(c.violet, 0.15), shade(c.violet, -0.2)]
+                      : [withAlpha(c.accBlue, "CC"), withAlpha(c.accBlue, "55")]
+                  }
                   style={{
                     width: "100%",
-                    height: Math.max(v > 0 ? 3 : 0, (v / max) * (H - 14)),
-                    borderTopLeftRadius: 3,
-                    borderTopRightRadius: 3,
-                    backgroundColor: i === counts.length - 1 ? c.accent : c.ink2,
+                    maxWidth: 26,
+                    height: Math.max(v > 0 ? 4 : 0, (v / max) * (H - 14)),
+                    borderRadius: 6,
                   }}
                 />
               </View>
@@ -739,7 +911,13 @@ function TierBreakdownCard({ tiers }: { tiers: ProOverview["tierBreakdown"] }) {
   const { c } = useTheme();
   const empty = tiers.every((t) => t.contacts === 0);
   return (
-    <OvCard title="Répartition par palier" sub="Coût et volume cumulés depuis l'ouverture">
+    <OvCard
+      icon="layers"
+      color={c.accViolet}
+      motif="stripes"
+      title="Répartition par palier"
+      sub="Coût et volume cumulés depuis l'ouverture"
+    >
       {empty ? (
         <View className="items-center" style={{ paddingVertical: 16 }}>
           <Ionicons name="layers-outline" size={26} color={c.ink4} />
@@ -751,27 +929,22 @@ function TierBreakdownCard({ tiers }: { tiers: ProOverview["tierBreakdown"] }) {
           </Text>
         </View>
       ) : (
-        tiers.map((r, i) => (
+        tiers.map((r, i) => {
+          const tc = TIER_COLORS(c)[(r.tier - 1) % 5];
+          return (
           <View
             key={r.tier}
             style={{ paddingVertical: 10, borderBottomWidth: i < tiers.length - 1 ? 1 : 0, borderBottomColor: c.borderSoft }}
           >
             <View className="flex-row items-center justify-between" style={{ gap: 8, marginBottom: 6 }}>
               <View className="flex-row items-center" style={{ gap: 6, flexShrink: 1 }}>
-                <Text
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: "600",
-                    color: c.accVioletDeep,
-                    backgroundColor: c.tintViolet,
-                    borderRadius: 6,
-                    paddingHorizontal: 6,
-                    paddingVertical: 1,
-                    overflow: "hidden",
-                  }}
+                <View
+                  className="flex-row items-center"
+                  style={{ gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: withAlpha(tc.color, "1F") }}
                 >
-                  P{r.tier}
-                </Text>
+                  <Ionicons name={tc.icon} size={11} color={tc.color} />
+                  <Text style={{ fontSize: 10.5, fontWeight: "800", color: tc.color }}>P{r.tier}</Text>
+                </View>
                 <Text numberOfLines={1} style={{ fontSize: 13, color: c.text, flexShrink: 1 }}>
                   {r.label}
                 </Text>
@@ -780,22 +953,36 @@ function TierBreakdownCard({ tiers }: { tiers: ProOverview["tierBreakdown"] }) {
                 {r.contacts} contact{r.contacts > 1 ? "s" : ""} · {eur(r.totalCents / 100)}
               </Text>
             </View>
-            <View style={{ height: 6, borderRadius: 999, overflow: "hidden", backgroundColor: c.track }}>
-              <View
+            <View style={{ height: 8, borderRadius: 999, overflow: "hidden", backgroundColor: c.track }}>
+              <LinearGradient
+                colors={[shade(tc.color, 0.2), tc.color]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={{
-                  width: `${Math.round(Math.min(1, r.contacts / 40) * 100)}%`,
+                  width: `${Math.max(r.contacts > 0 ? 4 : 0, Math.round(Math.min(1, r.contacts / 40) * 100))}%`,
                   height: "100%",
                   borderRadius: 999,
-                  backgroundColor: c.accent,
                 }}
               />
             </View>
           </View>
-        ))
+          );
+        })
       )}
     </OvCard>
   );
 }
+
+// Couleur + icône par palier (mêmes familles que « Mes données » prospect).
+const TIER_COLORS = (
+  c: ReturnType<typeof useTheme>["c"],
+): { color: string; icon: keyof typeof Ionicons.glyphMap }[] => [
+  { color: c.accViolet, icon: "finger-print" },
+  { color: c.accBlue, icon: "map" },
+  { color: c.accGreen, icon: "heart" },
+  { color: c.accAmber, icon: "briefcase" },
+  { color: c.accCoral, icon: "diamond" },
+];
 
 // ── Modale « Toutes les acceptations » — port de AllAcceptancesModal
 // (web) : 50 plus récentes via GET /api/pro/acceptances. ─────────────────

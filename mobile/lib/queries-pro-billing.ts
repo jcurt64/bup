@@ -14,7 +14,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, useApi } from "./api";
 
@@ -175,16 +175,23 @@ export function useCompanyVerification(siren: string, siret: string): VerifyStat
       ? `siren=${cleanSiren}`
       : null;
 
+  // `api` peut changer d'identité à chaque rendu : on le lit via une ref
+  // pour que l'effet ne dépende que de `target` (sinon boucle infinie
+  // « Maximum update depth exceeded » sur Informations / Création).
+  const apiRef = useRef(api);
+  apiRef.current = api;
+
   useEffect(() => {
     if (!target) {
-      setState({ status: "idle", data: null });
+      // Mise à jour conditionnelle : pas de nouveau rendu si déjà « idle ».
+      setState((s) => (s.status === "idle" && s.data === null ? s : { status: "idle", data: null }));
       return;
     }
     setState({ status: "loading", data: null });
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const j = await api<{ found: boolean } & Partial<CompanyRecord>>(
+        const j = await apiRef.current<{ found: boolean } & Partial<CompanyRecord>>(
           `/api/pro/info/verify-company?${target}`,
         );
         if (cancelled) return;
@@ -198,7 +205,7 @@ export function useCompanyVerification(siren: string, siret: string): VerifyStat
       cancelled = true;
       clearTimeout(t);
     };
-  }, [target, api]);
+  }, [target]);
 
   return state;
 }
