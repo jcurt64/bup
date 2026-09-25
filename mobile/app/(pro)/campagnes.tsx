@@ -3,6 +3,8 @@
 // puis cartes campagne (statut, chips CODE🔒 / date📅, stats budget/touchés/
 // contacts, barre budget consommé, Dupliquer / Voir le détail).
 import { Ionicons } from "@expo/vector-icons";
+import { Motif } from "../../components/motif";
+import { shade, withAlpha } from "../../lib/color";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -92,8 +94,8 @@ function lcStatus(status: string) {
 
 function LcStatTile({ icon, color, soft, label, value }: { icon: IonName; color: string; soft: string; label: string; value: string }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 13, backgroundColor: LC.paper, borderWidth: 1, borderColor: LC.lineSoft }}>
-      <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: soft }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 14, backgroundColor: soft, borderWidth: 1, borderColor: LC.lineSoft }}>
+      <View style={{ width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: LC.card }}>
         <Ionicons name={icon} size={17} color={color} />
       </View>
       <View style={{ flex: 1 }}>
@@ -140,15 +142,32 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
     >
       {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
       <View style={{ borderRadius: 19, overflow: "hidden", padding: 18 }}>
-        {/* Barre d'accent + halo (couleur du type) */}
+        {/* Fond teinté de la couleur du type, motif, pictogramme en filigrane */}
+        <LinearGradient
+          colors={[withAlpha(tc.c, "1C"), withAlpha(LC.card, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.7, y: 0.6 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Motif variant="dots" color={withAlpha(tc.c, "66")} />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -20, top: 70, opacity: 0.06, transform: [{ rotate: "-14deg" }] }}
+        >
+          <Ionicons name={TYPE_ION[sty.icon] ?? "megaphone"} size={150} color={tc.c} />
+        </View>
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: tc.c }} />
-        <View pointerEvents="none" style={{ position: "absolute", top: -40, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: tc.c, opacity: 0.05 }} />
 
         {/* En-tête : tuile d'icône + nom + statut + code */}
         <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-          <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: tc.soft }}>
-            <Ionicons name={TYPE_ION[sty.icon] ?? "ellipse-outline"} size={23} color={tc.c} />
-          </View>
+          <LinearGradient
+            colors={[shade(tc.c, 0.1), shade(tc.c, -0.25)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}
+          >
+            <Ionicons name={TYPE_ION[sty.icon] ?? "ellipse-outline"} size={23} color="#FFFFFF" />
+          </LinearGradient>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <Text className="font-serif" style={{ fontSize: 19, color: LC.ink, flexShrink: 1 }} numberOfLines={1}>{camp.name}</Text>
