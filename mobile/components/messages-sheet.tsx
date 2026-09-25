@@ -9,6 +9,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
+import { EmptyInboxArt } from "./empty-inbox-art";
 import { BuuppLoader } from "./loader";
 import { MessageDetailModal } from "./message-detail";
 import { useTheme } from "../lib/theme";
@@ -298,42 +299,10 @@ export function MessagesSheet({
           </Text>
         </View>
       ) : notifs.length === 0 ? (
-        // État vide (cf. mes1.html) — illustration vectorielle : cercle
-        // violet + anneau pointillé + enveloppe + étincelle orange.
+        // État vide — illustration animée (components/empty-inbox-art).
         <View className="flex-1 items-center justify-center px-6">
-          <View
-            className="mb-3 items-center justify-center"
-            style={{ width: 176, height: 176 }}
-            accessibilityLabel="Boîte de réception vide"
-          >
-            {/* Cercle violet doux */}
-            <View
-              style={{
-                position: "absolute",
-                width: 176,
-                height: 176,
-                borderRadius: 999,
-                backgroundColor: "rgba(124, 92, 252, 0.10)",
-              }}
-            />
-            {/* Anneau pointillé */}
-            <View
-              style={{
-                position: "absolute",
-                width: 132,
-                height: 132,
-                borderRadius: 999,
-                borderWidth: 1.5,
-                borderStyle: "dotted",
-                borderColor: "rgba(124, 92, 252, 0.35)",
-              }}
-            />
-            {/* Enveloppe */}
-            <Ionicons name="mail" size={62} color="#7C5CFC" />
-            {/* Étincelle orange (coin haut-droit de l'enveloppe) */}
-            <View style={{ position: "absolute", top: 50, right: 50 }}>
-              <Ionicons name="sparkles" size={20} color="#E0972F" />
-            </View>
+          <View className="mb-3">
+            <EmptyInboxArt />
           </View>
           <Text className="font-serif text-xl text-ink">Votre boîte est vide</Text>
           <Text className="mt-1.5 text-center text-[13px] leading-5 text-ink-4">
