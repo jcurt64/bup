@@ -56,7 +56,9 @@ function Tear({ left, delay }: { left: number; delay: number }) {
           height: 11,
           borderRadius: 5,
           borderTopLeftRadius: 1,
-          backgroundColor: "#7CC8FF",
+          backgroundColor: "#8FD8FF",
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.85)",
         },
         style,
       ]}
@@ -99,7 +101,12 @@ function FloatingHeart({
 }
 
 export function DontLeaveArt({ compact = false }: { compact?: boolean }) {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
+  // En Sombre, c.violet est un violet clair : on fonce la bouille pour que
+  // les yeux blancs et les joues ressortent.
+  const face: [string, string] = isDark
+    ? [shade(c.violet, -0.15), shade(c.violet, -0.5)]
+    : [shade(c.violet, 0.12), shade(c.violet, -0.3)];
   const sway = useSharedValue(0);
   useEffect(() => {
     sway.value = withRepeat(
@@ -180,13 +187,14 @@ export function DontLeaveArt({ compact = false }: { compact?: boolean }) {
   return (
     <View style={{ alignItems: "center", marginTop: compact ? 4 : 10 }}>
       <View style={{ width: 150, height: compact ? 108 : 118, alignItems: "center" }}>
-        <FloatingHeart delay={0} x={18} color={c.coral} size={16} />
-        <FloatingHeart delay={900} x={116} color={c.violet} size={13} />
-        <FloatingHeart delay={1700} x={104} color={c.coral} size={11} />
+        {/* Cœurs rose vif : lisibles sur fond clair comme foncé. */}
+        <FloatingHeart delay={0} x={16} color="#FF5C8A" size={18} />
+        <FloatingHeart delay={900} x={114} color={isDark ? "#FF8FB0" : c.violet} size={15} />
+        <FloatingHeart delay={1700} x={102} color="#FF5C8A" size={12} />
 
         <Animated.View style={[{ marginTop: 8 }, bodyStyle]}>
           <LinearGradient
-            colors={[shade(c.violet, 0.12), shade(c.violet, -0.3)]}
+            colors={face}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -213,7 +221,7 @@ export function DontLeaveArt({ compact = false }: { compact?: boolean }) {
                 width: 14,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: "rgba(255,138,160,0.55)",
+                backgroundColor: "rgba(255,190,205,0.75)",
               }}
             />
             <View
@@ -224,7 +232,7 @@ export function DontLeaveArt({ compact = false }: { compact?: boolean }) {
                 width: 14,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: "rgba(255,138,160,0.55)",
+                backgroundColor: "rgba(255,190,205,0.75)",
               }}
             />
             {/* Petite moue */}
