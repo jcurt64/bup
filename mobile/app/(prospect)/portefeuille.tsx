@@ -318,6 +318,44 @@ export default function Portefeuille() {
   const bonusNote = bonus?.note ?? null;
   const claimBonus = useClaimFounderBonus();
 
+  // Infos des tuiles « En séquestre » / « Ce mois », dérivées des mouvements :
+  //   - séquestre : nb de gains bloqués + prochaine date de déblocage ;
+  //   - ce mois : gains par semaine (mini-graphe) + total du mois dernier.
+  const tileInfo = useMemo(() => {
+    const mvs = m.data?.movements ?? [];
+    const now = new Date();
+    const y = now.getFullYear();
+    const mo = now.getMonth();
+    const escrow = mvs.filter((mv) => /séquestre/i.test(mv.statusLabel));
+    const nextUnlock = escrow
+      .map((mv) => (mv.availableAt ? new Date(mv.availableAt).getTime() : NaN))
+      .filter((t) => Number.isFinite(t) && t > Date.now())
+      .sort((a, b) => a - b)[0];
+    const isGain = (mv: (typeof mvs)[number]) =>
+      mv.sign === "+" && (mv.statusLabel === "Crédité" || /séquestre/i.test(mv.statusLabel));
+    const weeks = [0, 0, 0, 0, 0];
+    let prevMonth = 0;
+    for (const mv of mvs) {
+      if (!isGain(mv)) continue;
+      const d = new Date(mv.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d.getFullYear() === y && d.getMonth() === mo) {
+        weeks[Math.min(4, Math.floor((d.getDate() - 1) / 7))] += mv.amountEur;
+      } else {
+        const pm = mo === 0 ? 11 : mo - 1;
+        const py = mo === 0 ? y - 1 : y;
+        if (d.getFullYear() === py && d.getMonth() === pm) prevMonth += mv.amountEur;
+      }
+    }
+    return {
+      escrowCount: escrow.length,
+      nextUnlock: nextUnlock ? new Date(nextUnlock) : null,
+      weeks,
+      currentWeek: Math.min(4, Math.floor((now.getDate() - 1) / 7)),
+      prevMonth,
+    };
+  }, [m.data?.movements]);
+
   // « Solde après opération » affiché dans la modale détail. L'API prod
   // (bup-rouge) ne renvoie pas encore ce champ : on le calcule ici à partir
   // des données déjà chargées (liste des mouvements + solde disponible du
@@ -901,14 +939,88 @@ export default function Portefeuille() {
                 tone="amber"
                 squareIcon
                 iconColor="#F2B65A"
+                watermark="lock-closed"
+                footer={
+                  <View
+                    style={{
+                      borderRadius: 12,
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.75)",
+                      gap: 3,
+                    }}
+                  >
+                    <View className="flex-row items-center" style={{ gap: 5 }}>
+                      <Ionicons name="hourglass-outline" size={12} color="#B45309" />
+                      <Text style={{ fontSize: 11.5, fontWeight: "700", color: c.text }}>
+                        {tileInfo.escrowCount} gain{tileInfo.escrowCount > 1 ? "s" : ""} en attente
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: c.textSub }}>
+                      {tileInfo.nextUnlock
+                        ? `Prochain déblocage le ${tileInfo.nextUnlock.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}`
+                        : "Aucun déblocage prévu"}
+                    </Text>
+                  </View>
+                }
               />
               <Stat
                 label="Ce mois"
                 value={eur(d.monthGainsEur)}
+                coins={coins(d.monthGainsCents)}
                 icon="trending-up"
                 tone="teal"
                 squareIcon
                 iconColor="#5AA86A"
+                watermark="trending-up"
+                footer={
+                  <View>
+                    {/* Mini-graphe : gains par semaine du mois en cours. */}
+                    <View className="flex-row items-end" style={{ gap: 5, height: 34 }}>
+                      {tileInfo.weeks.map((v, i) => {
+                        const max = Math.max(...tileInfo.weeks, 0.01);
+                        const current = i === tileInfo.currentWeek;
+                        return (
+                          <View
+                            key={i}
+                            style={{
+                              flex: 1,
+                              height: Math.max(4, (v / max) * 34),
+                              borderRadius: 4,
+                              backgroundColor: current
+                                ? "#2EA15C"
+                                : i > tileInfo.currentWeek
+                                  ? isDark
+                                    ? "rgba(255,255,255,0.08)"
+                                    : "rgba(46,161,92,0.12)"
+                                  : "rgba(46,161,92,0.4)",
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                    <View className="mt-1 flex-row justify-between">
+                      {["S1", "S2", "S3", "S4", "S5"].map((l, i) => (
+                        <Text
+                          key={l}
+                          style={{
+                            flex: 1,
+                            textAlign: "center",
+                            fontSize: 9,
+                            fontWeight: i === tileInfo.currentWeek ? "800" : "500",
+                            color: i === tileInfo.currentWeek ? c.text : c.textMuted,
+                          }}
+                        >
+                          {l}
+                        </Text>
+                      ))}
+                    </View>
+                    <Text style={{ marginTop: 6, fontSize: 11, color: c.textSub }}>
+                      Mois dernier :{" "}
+                      <Text style={{ fontWeight: "700", color: c.text }}>{eur(tileInfo.prevMonth)}</Text>
+                    </Text>
+                  </View>
+                }
               />
             </View>
 

@@ -532,10 +532,16 @@ export function Stat({
   coins,
   squareIcon = false,
   iconColor,
+  footer,
+  watermark,
 }: {
   label: string;
   value: string;
   hint?: string;
+  /** Contenu libre calé en bas de la tuile (mini-graphe, infos…). */
+  footer?: ReactNode;
+  /** Pictogramme géant en filigrane (coin bas-droit). */
+  watermark?: keyof typeof Ionicons.glyphMap;
   accent?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   /** Teinte pastel du fond + de l'icône. */
@@ -593,8 +599,23 @@ export function Stat({
       {hint ? (
         <Text className="mt-0.5 text-[11px] text-ink-4">{hint}</Text>
       ) : null}
+      {footer ? <View style={{ marginTop: "auto", paddingTop: 12 }}>{footer}</View> : null}
     </>
   );
+  const mark = watermark ? (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        right: -12,
+        top: 6,
+        opacity: isDark ? 0.1 : 0.09,
+        transform: [{ rotate: "-12deg" }],
+      }}
+    >
+      <Ionicons name={watermark} size={84} color={fg} />
+    </View>
+  ) : null;
   if (tone) {
     return (
       <LinearGradient
@@ -609,8 +630,10 @@ export function Stat({
           padding: 16,
           borderWidth: 0.7,
           borderColor: c.borderSoft,
+          overflow: "hidden",
         }}
       >
+        {mark}
         {inner}
       </LinearGradient>
     );
