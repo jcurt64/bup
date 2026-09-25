@@ -20,6 +20,7 @@ import { Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
+  interpolateColor,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -67,7 +68,8 @@ function pageNameFromPathname(pathname: string): string {
   const segs = pathname.split("/").filter(Boolean);
   const last = segs[segs.length - 1] ?? "";
   return (
-    PAGE_LABELS[last] ?? (last ? last.charAt(0).toUpperCase() + last.slice(1) : "")
+    PAGE_LABELS[last] ??
+    (last ? last.charAt(0).toUpperCase() + last.slice(1) : "")
   );
 }
 
@@ -169,6 +171,11 @@ const LIGHT_BTN_SHADOW = {
 
 // ── Header étendu : bouton menu « squircle » + capsule d'actions ─────────
 
+// Hauteur commune des éléments du header étendu (menu, flash, capsule).
+const HEADER_BTN = 46;
+const SLOT = 36;
+const CAPSULE_PAD = 4;
+
 function headerShadow(isDark: boolean, navyDeep: string) {
   return {
     shadowColor: isDark ? "#000000" : navyDeep,
@@ -192,23 +199,44 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       className="active:opacity-70"
       style={[
         {
-          width: 44,
-          height: 44,
-          borderRadius: 15,
+          width: HEADER_BTN,
+          height: HEADER_BTN,
+          borderRadius: 16,
           backgroundColor: c.surface,
           borderWidth: 1,
           borderColor: c.borderSoft,
           alignItems: "flex-start",
           justifyContent: "center",
-          paddingLeft: 12,
+          paddingLeft: 13,
           gap: 4,
         },
         headerShadow(isDark, c.navyDeep),
       ]}
     >
-      <View style={{ width: 19, height: 2.5, borderRadius: 2, backgroundColor: c.text }} />
-      <View style={{ width: 12, height: 2.5, borderRadius: 2, backgroundColor: c.violet }} />
-      <View style={{ width: 16, height: 2.5, borderRadius: 2, backgroundColor: c.text }} />
+      <View
+        style={{
+          width: 19,
+          height: 2.5,
+          borderRadius: 2,
+          backgroundColor: c.text,
+        }}
+      />
+      <View
+        style={{
+          width: 12,
+          height: 2.5,
+          borderRadius: 2,
+          backgroundColor: c.violet,
+        }}
+      />
+      <View
+        style={{
+          width: 16,
+          height: 2.5,
+          borderRadius: 2,
+          backgroundColor: c.text,
+        }}
+      />
     </Pressable>
   );
 }
@@ -266,9 +294,9 @@ function CapsuleSlot({
       accessibilityRole="button"
       accessibilityLabel={a11y}
       style={({ pressed }) => ({
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: SLOT,
+        height: SLOT,
+        borderRadius: SLOT / 2,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: pressed ? c.surface2 : "transparent",
@@ -280,9 +308,11 @@ function CapsuleSlot({
   );
 }
 
-// Flash deals : pastille dégradée ambre → corail qui « respire » quand un
-// flash deal est en cours (lent, sans onde qui s'étend) ; icône simple sinon.
-function FlashSlot({
+// Flash deals : bouton rond autonome, à côté de la capsule, pour que son
+// onde reste bien visible. Quand un flash deal est en cours, un anneau
+// s'étend puis s'estompe (cycle 2,4 s) en passant du violet à l'orange
+// puis au doré — même effet que la bannière flash du web.
+function FlashButton({
   onPress,
   active,
   count,
@@ -291,74 +321,95 @@ function FlashSlot({
   active: boolean;
   count: number;
 }) {
-  const { c } = useTheme();
-  const glow = useSharedValue(0);
+  const { c, mode, isDark } = useTheme();
+  const flashColor =
+    mode === "forest" || mode === "fushia" ? c.accent : "#7C5CFC";
+  const progress = useSharedValue(0);
   useEffect(() => {
     if (!active) {
-      cancelAnimation(glow);
-      glow.value = 0;
+      cancelAnimation(progress);
+      progress.value = 0;
       return;
     }
-    glow.value = withRepeat(
-      withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+    progress.value = 0;
+    progress.value = withRepeat(
+      withTiming(1, { duration: 2400, easing: Easing.out(Easing.ease) }),
       -1,
-      true,
+      false,
     );
-    return () => cancelAnimation(glow);
-  }, [active, glow]);
-  const glowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: 0.25 + glow.value * 0.45,
-    transform: [{ scale: 1 + glow.value * 0.05 }],
+    return () => cancelAnimation(progress);
+  }, [active, progress]);
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: active ? 0.55 * (1 - progress.value) : 0,
+    transform: [{ scale: 0.95 + progress.value * 0.9 }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 0.35, 0.65],
+      ["#7C3AED", "#FB923C", "#FFC53D"],
+    ),
   }));
-  if (!active) {
-    return (
-      <CapsuleSlot
-        icon="flash-outline"
-        color={c.textSub}
-        label="Flash deals"
-        onPress={onPress}
-      />
-    );
-  }
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={4}
+      hitSlop={6}
       accessibilityRole="button"
-      accessibilityLabel={`Flash deals (${count} en cours)`}
-      style={{ width: 38, height: 38, alignItems: "center", justifyContent: "center" }}
+      accessibilityLabel={
+        active ? `Flash deals (${count} en cours)` : "Flash deals"
+      }
+      style={{
+        width: HEADER_BTN,
+        height: HEADER_BTN,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
       <Animated.View
+        pointerEvents="none"
         style={[
           {
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            shadowColor: "#FB923C",
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: 5,
+            position: "absolute",
+            width: HEADER_BTN,
+            height: HEADER_BTN,
+            borderRadius: HEADER_BTN / 2,
           },
-          glowStyle,
+          ringStyle,
+        ]}
+      />
+      <View
+        style={[
+          {
+            width: HEADER_BTN,
+            height: HEADER_BTN,
+            borderRadius: HEADER_BTN / 2,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.borderSoft,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          headerShadow(isDark, c.navyDeep),
         ]}
       >
-        <LinearGradient
-          colors={["#FFC53D", "#FB923C", "#F4577A"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ flex: 1, borderRadius: 17, alignItems: "center", justifyContent: "center" }}
-        >
-          <Ionicons name="flash" size={19} color="#FFFFFF" />
-        </LinearGradient>
-      </Animated.View>
-      <Badge count={count} ring={c.surface} />
+        <Ionicons
+          name={active ? "flash" : "flash-outline"}
+          size={21}
+          color={flashColor}
+        />
+      </View>
+      <Badge count={active ? count : 0} ring={c.surface} />
     </Pressable>
   );
 }
 
 // Compte : avatar rond aux initiales, dégradé de l'accent du thème.
-function AvatarSlot({ initials, onPress }: { initials: string; onPress: () => void }) {
-  const { c } = useTheme();
+function AvatarSlot({
+  initials,
+  onPress,
+}: {
+  initials: string;
+  onPress: () => void;
+}) {
+  const { c, isDark } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -366,22 +417,35 @@ function AvatarSlot({ initials, onPress }: { initials: string; onPress: () => vo
       accessibilityRole="button"
       accessibilityLabel="Mon compte"
       className="active:opacity-80"
-      style={{ width: 38, height: 38, alignItems: "center", justifyContent: "center" }}
+      style={{
+        width: SLOT,
+        height: SLOT,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
       <LinearGradient
-        colors={[c.violet, c.violetDeep]}
+        // En Sombre, violetDeep est clair → blanc peu lisible : dégradé foncé.
+        colors={isDark ? ["#7C5CFC", "#4F3BC4"] : [c.violet, c.violetDeep]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          width: 34,
-          height: 34,
-          borderRadius: 17,
+          width: SLOT,
+          height: SLOT,
+          borderRadius: SLOT / 2,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
         {initials ? (
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.5 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "800",
+              color: "#FFFFFF",
+              letterSpacing: 0.5,
+            }}
+          >
             {initials}
           </Text>
         ) : (
@@ -400,8 +464,9 @@ function ActionCapsule({ children }: { children: React.ReactNode }) {
         {
           flexDirection: "row",
           alignItems: "center",
-          gap: 2,
-          padding: 3,
+          gap: 10,
+          padding: CAPSULE_PAD,
+          paddingHorizontal: CAPSULE_PAD + 2,
           borderRadius: 999,
           backgroundColor: c.surface,
           borderWidth: 1,
@@ -466,14 +531,15 @@ export function AppHeader({
   const notif = useNotifications();
   const unread = notif.data?.unreadCount ?? 0;
   const flashCount = useFlashDeals().data?.deals.length ?? 0;
-  const initials = (useMeTyped().data?.initials ?? "").slice(0, 2).toUpperCase();
+  const initials = (useMeTyped().data?.initials ?? "")
+    .slice(0, 2)
+    .toUpperCase();
   const glass = isLiquidGlassAvailable();
   const pageName = pageNameFromPathname(pathname);
   const { c, mode, isDark } = useTheme();
   // Icônes des boutons du header : teinte de l'accent du thème en
   // forest/fushia, ink (navy sombre) en buupp et sombre — inchangés.
-  const iconColor =
-    mode === "forest" || mode === "fushia" ? c.accent : c.ink;
+  const iconColor = mode === "forest" || mode === "fushia" ? c.accent : c.ink;
 
   // Transition smooth entre expanded et compact via `withTiming` (300 ms,
   // easing cubique in-out) plutôt qu'une interpolation linéaire 1-pour-1
@@ -526,9 +592,7 @@ export function AppHeader({
         {glass ? (
           <GlassView
             glassEffectStyle={isDark ? "clear" : "regular"}
-            tintColor={
-              `${c.bg}${isDark ? "73" : "57"}`
-            }
+            tintColor={`${c.bg}${isDark ? "73" : "57"}`}
             style={{ position: "absolute", inset: 0 } as never}
           />
         ) : (
@@ -588,32 +652,36 @@ export function AppHeader({
               <Text className="font-serif-bold text-2xl text-ink">buupp</Text>
             </View>
 
-            <ActionCapsule>
-              {variant === "pro" ? (
-                PURCHASES_ENABLED ? (
+            <View className="flex-row items-center" style={{ gap: 10 }}>
+              {variant === "prospect" ? (
+                <FlashButton
+                  onPress={() => flashSheet.open()}
+                  active={flashCount > 0}
+                  count={flashCount}
+                />
+              ) : null}
+              <ActionCapsule>
+                {variant === "pro" && PURCHASES_ENABLED ? (
                   <CapsuleSlot
                     icon="add-circle-outline"
                     color={iconColor}
                     label="Recharger mon compte"
                     onPress={() => setShowRecharge(true)}
                   />
-                ) : null
-              ) : (
-                <FlashSlot
-                  onPress={() => flashSheet.open()}
-                  active={flashCount > 0}
-                  count={flashCount}
+                ) : null}
+                <CapsuleSlot
+                  icon="notifications-outline"
+                  color={iconColor}
+                  label="Messages"
+                  onPress={() => setShowMessages(true)}
+                  badgeCount={unread}
                 />
-              )}
-              <CapsuleSlot
-                icon="notifications-outline"
-                color={iconColor}
-                label="Messages"
-                onPress={() => setShowMessages(true)}
-                badgeCount={unread}
-              />
-              <AvatarSlot initials={initials} onPress={() => router.push("/account")} />
-            </ActionCapsule>
+                <AvatarSlot
+                  initials={initials}
+                  onPress={() => router.push("/account")}
+                />
+              </ActionCapsule>
+            </View>
           </Animated.View>
 
           {/* Layout compact — apparaît quand on a scrollé : logo « b »
@@ -639,10 +707,7 @@ export function AppHeader({
           >
             <View className="flex-row items-center gap-2.5">
               <BrandMark />
-              <Text
-                className="font-serif text-xl text-ink"
-                numberOfLines={1}
-              >
+              <Text className="font-serif text-xl text-ink" numberOfLines={1}>
                 {pageName}
               </Text>
             </View>
@@ -671,57 +736,59 @@ export function AppHeader({
               {ctx?.compactExtras?.length ? (
                 <View className="flex-row items-center gap-2">
                   {ctx.compactExtras.map((e, i) => {
-                  const content = (
-                    <>
-                      {e.iconLib === "material" ? (
-                        <MaterialCommunityIcons
-                          name={e.icon}
-                          size={18}
-                          color={e.color ?? c.ink}
-                        />
-                      ) : (
-                        <Ionicons
-                          name={e.icon}
-                          size={18}
-                          color={e.color ?? c.ink}
-                        />
-                      )}
-                      {e.value ? (
-                        <Text
-                          className="font-mono text-[14px] font-semibold"
-                          style={{ color: e.color ?? c.ink }}
-                        >
-                          {e.value}
-                        </Text>
-                      ) : null}
-                    </>
-                  );
-                  // padding réduit pour un extra icône-seul (bouton œil)
-                  const padCls = e.value ? "px-2.5 py-1" : "h-8 w-8 justify-center";
-                  // Extra interactif (onPress défini) → Pressable bouton ;
-                  // sinon simple pilule décorative (comportement historique).
-                  return e.onPress ? (
-                    <Pressable
-                      key={i}
-                      onPress={e.onPress}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={e.accessibilityLabel ?? e.value}
-                      className={`flex-row items-center gap-1.5 rounded-full active:opacity-70 ${padCls}`}
-                      style={e.bg ? { backgroundColor: e.bg } : undefined}
-                    >
-                      {content}
-                    </Pressable>
-                  ) : (
-                    <View
-                      key={i}
-                      className={`flex-row items-center gap-1.5 rounded-full ${padCls}`}
-                      style={e.bg ? { backgroundColor: e.bg } : undefined}
-                    >
-                      {content}
-                    </View>
-                  );
-                })}
+                    const content = (
+                      <>
+                        {e.iconLib === "material" ? (
+                          <MaterialCommunityIcons
+                            name={e.icon}
+                            size={18}
+                            color={e.color ?? c.ink}
+                          />
+                        ) : (
+                          <Ionicons
+                            name={e.icon}
+                            size={18}
+                            color={e.color ?? c.ink}
+                          />
+                        )}
+                        {e.value ? (
+                          <Text
+                            className="font-mono text-[14px] font-semibold"
+                            style={{ color: e.color ?? c.ink }}
+                          >
+                            {e.value}
+                          </Text>
+                        ) : null}
+                      </>
+                    );
+                    // padding réduit pour un extra icône-seul (bouton œil)
+                    const padCls = e.value
+                      ? "px-2.5 py-1"
+                      : "h-8 w-8 justify-center";
+                    // Extra interactif (onPress défini) → Pressable bouton ;
+                    // sinon simple pilule décorative (comportement historique).
+                    return e.onPress ? (
+                      <Pressable
+                        key={i}
+                        onPress={e.onPress}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={e.accessibilityLabel ?? e.value}
+                        className={`flex-row items-center gap-1.5 rounded-full active:opacity-70 ${padCls}`}
+                        style={e.bg ? { backgroundColor: e.bg } : undefined}
+                      >
+                        {content}
+                      </Pressable>
+                    ) : (
+                      <View
+                        key={i}
+                        className={`flex-row items-center gap-1.5 rounded-full ${padCls}`}
+                        style={e.bg ? { backgroundColor: e.bg } : undefined}
+                      >
+                        {content}
+                      </View>
+                    );
+                  })}
                 </View>
               ) : null}
             </View>
@@ -739,10 +806,7 @@ export function AppHeader({
           onClose={() => setShowRecharge(false)}
         />
       ) : null}
-      <FlashDealsSheet
-        visible={flashSheet.isOpen}
-        onClose={flashSheet.close}
-      />
+      <FlashDealsSheet visible={flashSheet.isOpen} onClose={flashSheet.close} />
     </>
   );
 }
