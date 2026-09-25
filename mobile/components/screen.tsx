@@ -23,6 +23,7 @@ import { AppHeader } from "./app-header";
 import { AppBackdrop } from "./app-backdrop";
 import { Motif, type MotifVariant } from "./motif";
 import { withAlpha } from "../lib/color";
+import { HOME_HERO } from "../lib/hero-palette";
 import { BuuppLoader } from "./loader";
 import { ApiError } from "../lib/api";
 import { useTheme } from "../lib/theme";
@@ -427,7 +428,7 @@ export function Card({
   /** Désactive le décor automatique (motif + filigrane). */
   plain?: boolean;
 }) {
-  const { c, isDark } = useTheme();
+  const { c, isDark, mode } = useTheme();
   // Décor automatique (cohérence de toutes les pages) : motif choisi selon
   // la teinte de la carte, filigrane = icône du badge (version pleine).
   const motifEff: MotifVariant | undefined =
@@ -435,7 +436,7 @@ export function Card({
   const watermarkEff =
     watermark ?? (plain || !badge?.icon ? undefined : solidIcon(badge.icon));
   const fill = /\bflex-1\b/.test(className);
-  const bg = dark ? "bg-ink" : tone ? TONE_BG[tone] : "bg-paper";
+  const bg = dark ? "" : tone ? TONE_BG[tone] : "bg-paper";
   const shadow = dark
     ? undefined
     : {
@@ -523,9 +524,22 @@ export function Card({
               end={{ x: 1, y: 1 }}
               style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
             />
+          ) : dark ? (
+            // Carte « dark » : TOUJOURS foncée (bg-ink devenait clair en
+            // thème Sombre), dégradé profond décliné par thème.
+            <LinearGradient
+              colors={HOME_HERO[mode].base}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
           ) : (
-            <View
-              className={dark ? "bg-ink" : "bg-paper"}
+            // Carte neutre : léger voile de la couleur du thème (plus de
+            // fond tout blanc), cohérent sur toutes les pages.
+            <LinearGradient
+              colors={[withAlpha(c.violet, isDark ? "22" : "14"), c.surface]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.8, y: 0.8 }}
               style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
             />
           )}
@@ -562,6 +576,7 @@ export function Card({
     <View
       className={`rounded-3xl p-5 ${bg} ${className}`}
       style={[
+        dark ? { backgroundColor: HOME_HERO[mode].base[0] } : null,
         shadow,
         dark ? null : { borderWidth: 0.7, borderColor: c.borderSoft },
       ]}
@@ -604,7 +619,6 @@ export function Stat({
   iconColor?: string;
 }) {
   const { c, isDark } = useTheme();
-  const bg = tone ? TONE_BG[tone] : "bg-paper";
   const fg = iconColor ?? (tone ? TONE_FG[tone] : c.violet);
   const inner = (
     <>
@@ -690,13 +704,25 @@ export function Stat({
       </LinearGradient>
     );
   }
+  // Tuile neutre : léger voile de la couleur du thème + motif de points.
   return (
-    <View
-      className={`flex-1 rounded-3xl p-4 ${bg}`}
-      style={{ borderWidth: 0.7, borderColor: c.borderSoft }}
+    <LinearGradient
+      colors={[withAlpha(c.violet, isDark ? "22" : "14"), c.surface]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0.9, y: 0.9 }}
+      style={{
+        flex: 1,
+        borderRadius: 24,
+        padding: 16,
+        borderWidth: 0.7,
+        borderColor: c.borderSoft,
+        overflow: "hidden",
+        backgroundColor: c.surface,
+      }}
     >
+      <Motif variant="dots" color={withAlpha(c.violet, "4D")} style={{ top: 10, right: 10 }} />
       {inner}
-    </View>
+    </LinearGradient>
   );
 }
 

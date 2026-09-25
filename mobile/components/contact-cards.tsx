@@ -4,6 +4,8 @@
 // réel + preview). Couleurs « forest » de la maquette → tokens du thème via
 // useContactPalette (s'adapte buupp / sombre / fushia).
 import { Ionicons } from "@expo/vector-icons";
+import { Motif } from "./motif";
+import { withAlpha } from "../lib/color";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, Text, View } from "react-native";
 
@@ -613,6 +615,20 @@ export function ContactCard({
     >
       {/* Rognage des coins sur une vue interne : l'ombre de la vue externe reste visible sur iOS (overflow:hidden l'efface), comme sur Android. */}
       <View style={{ borderRadius: 17, overflow: "hidden" }}>
+        {/* Décor : voile teinté de la couleur de l'avatar, points, filigrane */}
+        <LinearGradient
+          colors={[withAlpha(avatarGradient(contact.name)[0], "1F"), withAlpha(p.card, "00")]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.7, y: 0.7 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Motif variant="dots" color={withAlpha(avatarGradient(contact.name)[0], "59")} />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", right: -14, bottom: -18, opacity: 0.06, transform: [{ rotate: "-12deg" }] }}
+        >
+          <Ionicons name="person" size={110} color={avatarGradient(contact.name)[0]} />
+        </View>
         <View style={{ paddingVertical: 15, paddingHorizontal: 16 }}>
           {/* (Case à cocher) + Avatar + identité + reçu */}
           <View className="flex-row items-center" style={{ gap: 12 }}>

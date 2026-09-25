@@ -153,7 +153,7 @@ export default function ParrainageScreen() {
                   buupp.com/ref/{d.refCode}
                 </Text>
                 <Text
-                  className="mt-1 font-serif text-3xl tracking-widest text-paper"
+                  className="mt-1 font-serif text-3xl tracking-widest text-white"
                   style={
                     expired
                       ? {
@@ -167,7 +167,7 @@ export default function ParrainageScreen() {
                 </Text>
                 <View className="mt-3 flex-row gap-3">
                   <Pressable
-                    className="flex-1 items-center rounded-full bg-paper py-2.5"
+                    className="flex-1 items-center rounded-full bg-white py-2.5"
                     disabled={linkDisabled}
                     style={linkDisabled ? { opacity: 0.5 } : undefined}
                     onPress={async () => {
@@ -177,12 +177,12 @@ export default function ParrainageScreen() {
                       setTimeout(() => setCopied(false), 2000);
                     }}
                   >
-                    <Text className="text-sm font-semibold text-ink">
+                    <Text className="text-sm font-semibold" style={{ color: "#0F1629" }}>
                       {capReached ? "Plafond atteint" : expired ? "Lien expiré" : copied ? "Copié !" : "Copier"}
                     </Text>
                   </Pressable>
                   <Pressable
-                    className="flex-1 items-center rounded-full border border-paper/30 py-2.5"
+                    className="flex-1 items-center rounded-full border border-white/30 py-2.5"
                     disabled={linkDisabled}
                     style={linkDisabled ? { opacity: 0.5 } : undefined}
                     onPress={() => {
@@ -192,13 +192,13 @@ export default function ParrainageScreen() {
                       });
                     }}
                   >
-                    <Text className="text-sm font-semibold text-paper">
+                    <Text className="text-sm font-semibold text-white">
                       Partager
                     </Text>
                   </Pressable>
                 </View>
                 {capReached ? (
-                  <Text className="mt-3 text-[12.5px] leading-5 text-paper/80">
+                  <Text className="mt-3 text-[12.5px] leading-5 text-white/80">
                     Plafond de {d.cap} filleuls atteint — votre lien est désormais désactivé. Bravo !
                   </Text>
                 ) : null}

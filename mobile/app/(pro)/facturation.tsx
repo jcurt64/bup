@@ -500,7 +500,7 @@ export default function Facturation() {
               <Text className="font-mono text-[11px] uppercase text-white/60">
                 Crédit disponible
               </Text>
-              <Text className="mt-1 font-serif text-4xl text-paper">
+              <Text className="mt-1 font-serif text-4xl text-white">
                 {eur(d.walletAvailableEur)}
               </Text>
             </Card>
