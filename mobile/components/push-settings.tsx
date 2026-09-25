@@ -10,7 +10,7 @@ import { AppState, Linking, Platform, Pressable, Text, View } from "react-native
 import { registerForPushNotifications, type PushStatus } from "../lib/push";
 import { useTheme } from "../lib/theme";
 
-function usePushPermission() {
+export function usePushPermission() {
   const [status, setStatus] = useState<PushStatus | null>(null);
   const refresh = useCallback(async () => {
     if (Platform.OS === "web") return setStatus("denied");
@@ -96,5 +96,60 @@ export function PushSettings() {
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+// Badge d'état compact (boîte de messages vide) : reflète la VRAIE
+// permission OS. Activées → pastille verte ; sinon pastille ambre
+// cliquable qui demande la permission (1re fois) ou ouvre les réglages.
+export function PushStatusBadge() {
+  const { c } = useTheme();
+  const { getToken } = useAuth();
+  const { status, refresh } = usePushPermission();
+  if (status === null) return null;
+  const on = status === "granted";
+
+  async function onPress() {
+    if (status === "undetermined") {
+      await registerForPushNotifications(getToken);
+      await refresh();
+      return;
+    }
+    await Linking.openSettings();
+  }
+
+  const color = on ? c.good : c.warn;
+  const content = (
+    <>
+      <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color }} />
+      <Text style={{ fontSize: 12.5, fontWeight: "600", color }}>
+        {on ? "Notifications activées" : "Notifications désactivées · Activer"}
+      </Text>
+    </>
+  );
+  const style = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 7,
+    marginTop: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: on ? c.goodSoft : c.tintAmber,
+  };
+  return on ? (
+    <View style={style}>{content}</View>
+  ) : (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Notifications désactivées — les activer"
+      className="active:opacity-70"
+      style={style}
+    >
+      {content}
+    </Pressable>
   );
 }

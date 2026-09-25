@@ -20,6 +20,7 @@ import {
 } from "react-native";
 
 import { router, useLocalSearchParams } from "expo-router";
+import { PushStatusBadge } from "../../components/push-settings";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import { RelationFilterBar } from "../../components/relation-filter-bar";
 import { useRelationDecision, type DecisionAction } from "../../components/relation-decision";
@@ -1037,25 +1038,8 @@ export default function Relations() {
                 Mais ça ne saurait tarder… On vous prévient dès qu’une
                 sollicitation arrive.
               </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 7,
-                  marginTop: 16,
-                  paddingVertical: 7,
-                  paddingHorizontal: 14,
-                  borderRadius: 999,
-                  backgroundColor: R.DVXL,
-                }}
-              >
-                <View
-                  style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: R.DV }}
-                />
-                <Text style={{ fontSize: 12.5, fontWeight: "600", color: R.DVD }}>
-                  Notifications activées
-                </Text>
-              </View>
+              {/* État réel de la permission du téléphone. */}
+              <PushStatusBadge />
             </View>
           ) : (
             <View style={{ gap: 12 }}>

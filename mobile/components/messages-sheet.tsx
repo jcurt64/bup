@@ -10,6 +10,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { BottomSheet } from "./bottom-sheet";
 import { BuuppFooter } from "./buupp-footer";
 import { EmptyInboxArt } from "./empty-inbox-art";
+import { PushStatusBadge } from "./push-settings";
 import { BuuppLoader } from "./loader";
 import { MessageDetailModal } from "./message-detail";
 import { useTheme } from "../lib/theme";
@@ -308,27 +309,8 @@ export function MessagesSheet({
           <Text className="mt-1.5 text-center text-[13px] leading-5 text-ink-4">
             Les annonces, alertes et communications BUUPP{"\n"}s&apos;afficheront ici dès qu&apos;elles arriveront.
           </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 7,
-              marginTop: 16,
-              paddingVertical: 7,
-              paddingHorizontal: 14,
-              borderRadius: 999,
-              backgroundColor: c.surface,
-              borderWidth: 1,
-              borderColor: c.goodSoft,
-            }}
-          >
-            <View
-              style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: c.good }}
-            />
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: c.good }}>
-              Notifications activées
-            </Text>
-          </View>
+          {/* État réel de la permission du téléphone (pas codé en dur). */}
+          <PushStatusBadge />
         </View>
       ) : (
         <ScrollView
