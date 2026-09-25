@@ -14,6 +14,7 @@ import { dcolors, Row, SOCIAL } from "./drawer-panel";
 import { eur } from "./screen";
 import { resetOnboardingSeen } from "../lib/onboarding";
 import { unregisterPushToken } from "../lib/push";
+import { DontLeaveArt } from "./dont-leave-art";
 import { useTheme } from "../lib/theme";
 import { useDeleteAccount, useMeTyped, useProWallet } from "../lib/queries";
 
@@ -263,6 +264,7 @@ export default function ProDrawerPanel() {
                 </Text>
               </Pressable>
             </View>
+            {confirm === "delete" ? <DontLeaveArt compact /> : null}
           </View>
         </View>
       </Modal>

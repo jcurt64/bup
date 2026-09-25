@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomSheet } from "../components/bottom-sheet";
+import { DontLeaveArt } from "../components/dont-leave-art";
 import { GridBg } from "../components/grid-bg";
 import { BuuppLoader } from "../components/loader";
 import { unregisterPushToken } from "../lib/push";
@@ -536,6 +537,9 @@ export default function AccountPage() {
               </Text>
             </Pressable>
           </View>
+
+          {/* Clin d'œil : mascotte « Ne nous quitte pas ». */}
+          <DontLeaveArt />
         </ScrollView>
       </BottomSheet>
     </SafeAreaView>

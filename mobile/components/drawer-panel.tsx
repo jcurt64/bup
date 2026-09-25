@@ -9,6 +9,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { DontLeaveArt } from "./dont-leave-art";
 import { unregisterPushToken } from "../lib/push";
 import { resetOnboardingSeen } from "../lib/onboarding";
 import { useTheme, type ThemeMode } from "../lib/theme";
@@ -488,6 +489,7 @@ export default function DrawerPanel() {
                 </Text>
               </Pressable>
             </View>
+            {confirm === "delete" ? <DontLeaveArt compact /> : null}
           </View>
         </View>
       </Modal>
