@@ -142,11 +142,11 @@ export default function ParrainageScreen() {
               ) : null}
 
               <Card dark badge={{ icon: "gift-outline", tone: "violet" }}>
-                <Text className="font-mono text-[11px] uppercase text-ink-5">
+                <Text className="font-mono text-[11px] uppercase text-white/60">
                   Votre lien unique
                 </Text>
                 <Text
-                  className="mt-1 font-mono text-[13px] text-ink-5"
+                  className="mt-1 font-mono text-[13px] text-white/70"
                   numberOfLines={1}
                   style={linkDisabled ? { opacity: 0.45 } : undefined}
                 >

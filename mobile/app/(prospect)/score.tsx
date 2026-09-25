@@ -170,12 +170,12 @@ export default function ScoreScreen() {
             <>
               {/* ── Carte score principal ────────────────────────────── */}
               <Card dark>
-                <Text className="font-mono text-[11px] uppercase text-ink-5">
+                <Text className="font-mono text-[11px] uppercase text-white/60">
                   Score actuel
                 </Text>
                 <Text className="mt-1 font-serif text-5xl text-paper">
                   {value}
-                  <Text className="text-xl text-ink-5"> / 1000</Text>
+                  <Text className="text-xl text-white/60"> / 1000</Text>
                 </Text>
                 {/* Palier qualitatif */}
                 <Text className="mt-2 font-serif italic text-violet">
@@ -269,7 +269,7 @@ export default function ScoreScreen() {
                   <Card badge={{ icon: "shield-checkmark-outline", tone: "teal" }}>
                     <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
                       <View style={{ flex: 1 }}>
-                        <Text className="font-mono text-[11px] uppercase text-ink-5">
+                        <Text className="font-mono text-[11px] uppercase text-ink-3">
                           Indice cross-pro
                         </Text>
                         <Text className="font-serif text-xl text-ink">

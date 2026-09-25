@@ -927,7 +927,7 @@ export default function Portefeuille() {
                         Bonus fondateur — {eur(bonus.amountEur)}
                       </Text>
                       <Text
-                        className="mt-0.5 font-mono text-[11px] uppercase text-ink-5"
+                        className="mt-0.5 font-mono text-[11px] uppercase text-ink-3"
                         style={{ letterSpacing: 1 }}
                       >
                         {bonus.claimable ? "Prêt à être débloqué" : "En attente de déblocage"}
@@ -956,7 +956,7 @@ export default function Portefeuille() {
                     <View className="items-end">
                       <Text className="font-serif text-2xl text-ink">J-{bonus.daysLeft}</Text>
                       <Text
-                        className="font-mono text-[10px] uppercase text-ink-5"
+                        className="font-mono text-[10px] uppercase text-ink-3"
                         style={{ letterSpacing: 1 }}
                       >
                         {(bonus.daysLeft ?? 0) > 1 ? "jours restants" : "jour restant"}
@@ -1218,7 +1218,7 @@ export default function Portefeuille() {
                     {/* Nom de la campagne sous l'origine (parité web). */}
                     {mv.relation?.campaignName ? (
                       <Text
-                        className="mt-0.5 font-mono text-[10.5px] uppercase text-ink-5"
+                        className="mt-0.5 font-mono text-[10.5px] uppercase text-ink-3"
                         style={{ letterSpacing: 0.8 }}
                         numberOfLines={1}
                       >

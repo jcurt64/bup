@@ -497,7 +497,7 @@ export default function Facturation() {
         {(d) => (
           <>
             <Card dark>
-              <Text className="font-mono text-[11px] uppercase text-ink-5">
+              <Text className="font-mono text-[11px] uppercase text-white/60">
                 Crédit disponible
               </Text>
               <Text className="mt-1 font-serif text-4xl text-paper">
