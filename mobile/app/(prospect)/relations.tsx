@@ -20,7 +20,7 @@ import {
 } from "react-native";
 
 import { router, useLocalSearchParams } from "expo-router";
-import { PushStatusBadge } from "../../components/push-settings";
+import { EmptyRequestsCard } from "../../components/empty-requests-card";
 import { MovementDetailSheet } from "../../components/movement-detail-sheet";
 import { RelationFilterBar } from "../../components/relation-filter-bar";
 import { useRelationDecision, type DecisionAction } from "../../components/relation-decision";
@@ -1023,76 +1023,8 @@ export default function Relations() {
       <QueryGate query={q}>
         {(d) =>
           (d.pending?.length ?? 0) === 0 ? (
-            // Empty state (cf. det.html) : radar violet + texte + pill.
-            <View
-              style={{
-                borderRadius: 22,
-                backgroundColor: R.surface,
-                borderWidth: 1,
-                borderColor: R.DLINE,
-                paddingVertical: 28,
-                paddingHorizontal: 20,
-                alignItems: "center",
-              }}
-            >
-              <View
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: 999,
-                  backgroundColor: R.DVXL,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 14,
-                }}
-              >
-                <View
-                  style={{
-                    position: "absolute",
-                    width: 50,
-                    height: 50,
-                    borderRadius: 999,
-                    borderWidth: 1.5,
-                    borderColor: R.DVL,
-                  }}
-                />
-                <View
-                  style={{
-                    position: "absolute",
-                    width: 30,
-                    height: 30,
-                    borderRadius: 999,
-                    borderWidth: 1.5,
-                    borderColor: R.DV,
-                    opacity: 0.55,
-                  }}
-                />
-                <View
-                  style={{ width: 12, height: 12, borderRadius: 999, backgroundColor: R.DV }}
-                />
-              </View>
-              <Text
-                className="font-serif"
-                style={{ fontSize: 21, color: R.DNAVY, textAlign: "center" }}
-              >
-                Aucune demande pour l’instant
-              </Text>
-              <Text
-                style={{
-                  fontSize: 13.5,
-                  color: R.DMUTED,
-                  textAlign: "center",
-                  lineHeight: 20,
-                  marginTop: 6,
-                  maxWidth: 300,
-                }}
-              >
-                Mais ça ne saurait tarder… On vous prévient dès qu’une
-                sollicitation arrive.
-              </Text>
-              {/* État réel de la permission du téléphone. */}
-              <PushStatusBadge />
-            </View>
+            // État vide : radar animé + raccourcis (components/empty-requests-card).
+            <EmptyRequestsCard />
           ) : (
             <View style={{ gap: 12 }}>
               <RelationFilterBar
