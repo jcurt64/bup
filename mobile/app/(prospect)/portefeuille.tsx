@@ -669,7 +669,49 @@ export default function Portefeuille() {
                 Taux de fiabilité
               </Text>
             </View>
-            <Ionicons name="information-circle-outline" size={18} color={c.ink4} />
+            {/* Vrai bouton (pastille) : ouvre le détail du BUUPP Score. */}
+            <Pressable
+              onPress={() => router.push("/(prospect)/score")}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="En savoir plus sur le taux de fiabilité"
+              className="flex-row items-center active:opacity-70"
+              style={{
+                gap: 4,
+                paddingVertical: 6,
+                paddingLeft: 9,
+                paddingRight: 7,
+                borderRadius: 999,
+                backgroundColor: tileBg,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(52,211,153,0.35)" : "rgba(22,163,74,0.3)",
+                shadowColor: "#16A34A",
+                shadowOpacity: isDark ? 0 : 0.12,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 1,
+              }}
+            >
+              <Ionicons
+                name="information-circle"
+                size={15}
+                color={isDark ? c.good : "#15803D"}
+              />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "700",
+                  color: isDark ? c.good : "#15803D",
+                }}
+              >
+                En savoir plus
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={13}
+                color={isDark ? c.good : "#15803D"}
+              />
+            </Pressable>
           </View>
           <View className="mt-3 flex-row items-baseline gap-0.5">
             <Text className="font-serif-bold text-[38px] leading-[42px] text-ink">
