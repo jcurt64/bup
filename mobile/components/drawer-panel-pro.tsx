@@ -10,7 +10,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { dcolors, Row, SOCIAL } from "./drawer-panel";
+import { dcolors, DrawerThemeSwitcher, Row, SOCIAL } from "./drawer-panel";
 import { eur } from "./screen";
 import { resetOnboardingSeen } from "../lib/onboarding";
 import { unregisterPushToken } from "../lib/push";
@@ -172,6 +172,8 @@ export default function ProDrawerPanel() {
               onPress={() => go(n.route)}
             />
           ))}
+
+          <DrawerThemeSwitcher />
 
           <Text
             className="mt-5 px-3 text-[13px] font-bold uppercase"

@@ -67,6 +67,87 @@ export function dcolors(mode: ThemeMode) {
       };
 }
 
+// Sélecteur de coloris du menu : 4 pastilles dégradées (mêmes teintes que
+// Réglages) + libellé ; la pastille active est cerclée de blanc avec une
+// coche. Contenu clair sur le dégradé du drawer (tous thèmes).
+const DRAWER_THEMES: { mode: ThemeMode; label: string; colors: [string, string] }[] = [
+  { mode: "light", label: "BUUPP", colors: ["#7C5CFF", "#5B3FE0"] },
+  { mode: "dark", label: "Sombre", colors: ["#2A3150", "#0A1628"] },
+  { mode: "forest", label: "Forest", colors: ["#34A86A", "#1D6B42"] },
+  { mode: "fushia", label: "Fushia", colors: ["#F25AA0", "#D63B80"] },
+];
+
+export function DrawerThemeSwitcher() {
+  const { mode, setMode } = useTheme();
+  const d = dcolors(mode);
+  return (
+    <>
+      <Text
+        className="mt-5 px-3 text-[13px] font-bold uppercase"
+        style={{ letterSpacing: 1.2, color: d.muted }}
+      >
+        Mode d&apos;affichage
+      </Text>
+      <View
+        className="mx-1 mt-2 flex-row justify-between rounded-2xl px-2 py-3"
+        style={{ backgroundColor: d.tile }}
+      >
+        {DRAWER_THEMES.map((t) => {
+          const on = t.mode === mode;
+          return (
+            <Pressable
+              key={t.mode}
+              onPress={() => setMode(t.mode)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`Thème ${t.label}`}
+              className="items-center active:opacity-70"
+              style={{ width: 62, gap: 6 }}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  padding: 3,
+                  borderWidth: 2,
+                  borderColor: on ? "#FFFFFF" : "transparent",
+                }}
+              >
+                <LinearGradient
+                  colors={t.colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.35)",
+                  }}
+                >
+                  {on ? <Ionicons name="checkmark" size={17} color="#FFFFFF" /> : null}
+                </LinearGradient>
+              </View>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: on ? "700" : "500",
+                  color: on ? d.text : d.sub,
+                }}
+              >
+                {t.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
 // Libellés + position 1-based des paliers de vérification (parité
 // Prospect.jsx / portefeuille.tsx — affichés dans la carte de statut).
 const VERIF_LABELS: Record<string, string> = {
@@ -390,6 +471,8 @@ export default function DrawerPanel() {
               onPress={() => go(n.route)}
             />
           ))}
+
+          <DrawerThemeSwitcher />
 
           <Text
             className="mt-5 px-3 text-[13px] font-bold uppercase"
