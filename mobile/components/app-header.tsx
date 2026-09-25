@@ -604,7 +604,7 @@ export function AppHeader({
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: `${c.bg}${isDark ? "D1" : "C7"}`,
+              backgroundColor: `${c.bg}${isDark ? "EB" : "E6"}`,
             }}
           />
         )}

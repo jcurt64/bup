@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "../../components/bottom-sheet";
 import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
 import { QueryGate, ScrollScreen } from "../../components/screen";
+import { TierQuest } from "../../components/tier-quest";
 import { HEADER_BASE_HEIGHT, type CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
@@ -823,6 +824,15 @@ const TIER_META: Record<TierKey, TierMeta> = {
   },
 };
 
+// Libellés courts (chemin des paliers de la card TierQuest).
+const TIER_SHORT: Record<TierKey, string> = {
+  identity: "Identité",
+  localisation: "Lieu",
+  vie: "Vie",
+  pro: "Pro",
+  patrimoine: "Patrimoine",
+};
+
 const TIERS: TierKey[] = ["identity", "localisation", "vie", "pro", "patrimoine"];
 
 // Variante sombre des couleurs par palier (fusionnée sur TIER_META quand le
@@ -878,118 +888,6 @@ function computeStats(d: NonNullable<DonneesData>) {
     totalFields,
     filledFields,
   };
-}
-
-// Anneau de progression circulaire SANS react-native-svg (exclu du
-// projet). Technique : deux demi-disques colorés pivotant autour du
-// centre, clippés à gauche/droite, + un trou central qui transforme le
-// disque plein en anneau. Couvre correctement 0–100 %.
-function ProgressRing({
-  size = 60,
-  stroke = 6,
-  pct,
-  color,
-  track,
-  hole,
-  children,
-}: {
-  size?: number;
-  stroke?: number;
-  pct: number;
-  color?: string;
-  track?: string;
-  hole?: string;
-  children?: React.ReactNode;
-}) {
-  const { c } = useTheme();
-  const ringColor = color ?? c.violet;
-  const trackColor = track ?? c.track;
-  const holeColor = hole ?? c.surface;
-  const p = Math.max(0, Math.min(100, pct));
-  const half = size / 2;
-  const rightDeg = p <= 50 ? (p / 50) * 180 : 180; // 0..180
-  const leftDeg = p > 50 ? ((p - 50) / 50) * 180 : 0; // 0..180
-
-  // Demi-disque coloré bulgeant d'un côté, pivotant autour du centre du
-  // conteneur, clippé sur une moitié verticale. À 0° il est hors-clip
-  // (invisible) ; à 180° il remplit la moitié visible.
-  const Sweep = ({
-    clip,
-    rotate,
-  }: {
-    clip: "right" | "left";
-    rotate: number;
-  }) => (
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: clip === "right" ? half : 0,
-        width: half,
-        height: size,
-        overflow: "hidden",
-      }}
-    >
-      <View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: clip === "right" ? -half : 0,
-          width: size,
-          height: size,
-          transform: [{ rotate: `${rotate}deg` }],
-        }}
-      >
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: clip === "right" ? 0 : half,
-            width: half,
-            height: size,
-            backgroundColor: ringColor,
-            borderTopLeftRadius: clip === "right" ? half : 0,
-            borderBottomLeftRadius: clip === "right" ? half : 0,
-            borderTopRightRadius: clip === "left" ? half : 0,
-            borderBottomRightRadius: clip === "left" ? half : 0,
-          }}
-        />
-      </View>
-    </View>
-  );
-
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{
-          position: "absolute",
-          width: size,
-          height: size,
-          borderRadius: half,
-          backgroundColor: trackColor,
-        }}
-      />
-      <Sweep clip="right" rotate={rightDeg} />
-      {p > 50 ? <Sweep clip="left" rotate={leftDeg} /> : null}
-      <View
-        style={{
-          position: "absolute",
-          width: size - 2 * stroke,
-          height: size - 2 * stroke,
-          borderRadius: (size - 2 * stroke) / 2,
-          backgroundColor: holeColor,
-        }}
-      />
-      {children}
-    </View>
-  );
 }
 
 // Pastille icône d'une ligne en mode lecture (do.html) : tuile arrondie
@@ -1751,7 +1649,7 @@ export default function Donnees() {
 
       <QueryGate query={q}>
         {(d) => {
-          const { tierStats, reachedTiers, visibleCount, completeness, totalFields, filledFields } =
+          const { tierStats, reachedTiers, visibleCount, totalFields, filledFields } =
             computeStats(d);
           return (
           <View
@@ -1761,139 +1659,40 @@ export default function Donnees() {
               setLayoutTick((t) => t + 1);
             }}
           >
-            {/* Card « Niveau de palier » (do.html) — anneau circulaire +
-                récap, puis une barre de progression par palier dans la
-                couleur d'accent du palier. */}
-            <View
-              className="rounded-[20px] bg-paper"
-              style={{
-                padding: 18,
-                borderWidth: 1,
-                borderColor: c.borderSoft,
-                shadowColor: "#000000",
-                shadowOpacity: 0.05,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 5 },
-                elevation: 2,
-              }}
-            >
-              <View className="flex-row items-center" style={{ gap: 14 }}>
-                <ProgressRing pct={completeness} size={60} stroke={6}>
-                  <Text
-                    className="font-serif"
-                    style={{ fontSize: 16, color: c.text }}
-                  >
-                    {completeness}
-                    <Text style={{ fontSize: 11 }}>%</Text>
-                  </Text>
-                </ProgressRing>
-                <View className="flex-1">
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: 1.6,
-                      fontWeight: "600",
-                      color: c.textSub,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Niveau de palier
-                  </Text>
-                  <View
-                    className="flex-row flex-wrap items-baseline"
-                    style={{ gap: 8, marginTop: 3 }}
-                  >
-                    <Text
-                      style={{ fontSize: 13, fontWeight: "600", color: c.text }}
-                    >
-                      {reachedTiers}/{visibleCount} paliers
-                    </Text>
-                    <Text style={{ fontSize: 12.5, color: c.textMuted }}>
-                      · {filledFields}/{totalFields} champs renseignés
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <Text
-                style={{
-                  marginTop: 13,
-                  fontSize: 12.5,
-                  lineHeight: 19,
-                  color: c.textSub,
-                }}
-              >
-                Un palier est atteint dès qu&apos;au moins une donnée y est
-                renseignée. Plus vous remplissez de champs, plus votre BUUPP
-                Score augmente.
-              </Text>
-              <View style={{ marginTop: 16, gap: 13 }}>
-                {tierStats.map((s) => {
-                  const m = isDark
-                    ? { ...TIER_META[s.key], ...TIER_DARK[s.key] }
-                    : TIER_META[s.key];
-                  const pct =
-                    s.total === 0 ? 0 : Math.round((s.filled / s.total) * 100);
-                  return (
-                    <View key={s.key}>
-                      <View
-                        className="flex-row items-center justify-between"
-                        style={{ marginBottom: 6 }}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={{
-                            fontSize: 13,
-                            fontWeight: "500",
-                            color: c.text,
-                            flexShrink: 1,
-                          }}
-                        >
-                          Palier {m.n} · {m.label}
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 12.5,
-                            fontWeight: "600",
-                            color: s.filled > 0 ? m.accent : c.textMuted,
-                            marginLeft: 10,
-                          }}
-                        >
-                          {s.filled}/{s.total}
-                        </Text>
-                      </View>
-                      {/* Barre — couleur d'accent du palier (do.html), grise
-                          si le palier est masqué. */}
-                      <View
-                        style={{
-                          height: 6,
-                          borderRadius: 3,
-                          backgroundColor: c.track,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: `${pct}%`,
-                            height: "100%",
-                            borderRadius: 3,
-                            backgroundColor: s.isHidden ? c.textMuted : m.accent,
-                          }}
-                        />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
+            {/* Card « Niveau de palier » — version ludique (rang, XP,
+                chemin des paliers) ; tap sur une étape → ouvre le palier. */}
+            <TierQuest
+              steps={tierStats.map((s) => {
+                const m = isDark
+                  ? { ...TIER_META[s.key], ...TIER_DARK[s.key] }
+                  : TIER_META[s.key];
+                return {
+                  key: s.key,
+                  short: TIER_SHORT[s.key],
+                  icon: m.icon,
+                  accent: m.accent,
+                  tint: m.headerBg,
+                  filled: s.filled,
+                  total: s.total,
+                  reached: s.reached,
+                  isHidden: s.isHidden,
+                };
+              })}
+              reached={reachedTiers}
+              visibleCount={visibleCount}
+              filledFields={filledFields}
+              totalFields={totalFields}
+              onPressStep={(k) => setScrollTarget(k as TierKey)}
+            />
 
-            {/* Card « Pseudonymiser vos données » (do.html) — fond violet
+            {/* Card « Cacher vos données » (do.html) — fond violet
                 pâle, tuile icône blanche, libellé + sous-texte, switch pill
                 à droite. Synchronisé avec l'œil du header compact. */}
             <Pressable
               onPress={() => setPseudonymized((v) => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: pseudonymized }}
-              accessibilityLabel="Pseudonymiser vos données"
+              accessibilityLabel="Cacher vos données"
               className="active:opacity-80"
               style={{
                 flexDirection: "row",
@@ -1930,7 +1729,7 @@ export default function Donnees() {
                   className="font-serif"
                   style={{ fontSize: 16.5, color: c.text }}
                 >
-                  Pseudonymiser vos données
+                  Cacher vos données
                 </Text>
                 <Text style={{ fontSize: 12.5, color: c.textSub, marginTop: 2 }}>
                   {pseudonymized
