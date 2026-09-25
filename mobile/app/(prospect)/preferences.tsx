@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
+import { FunCard as PrefCard } from "../../components/fun-card";
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
 import { useTheme } from "../../lib/theme";
@@ -31,8 +32,6 @@ import {
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
 
-// Accent violet global (pre.html)
-const VIOLET = "#7C5CFF";
 
 // Listes source-of-truth alignées sur Prospect.jsx (web)
 const CAMPAIGN_TYPE_LIST = [
@@ -88,60 +87,6 @@ function resolveGeoExtension(loc: Record<string, unknown>): GeoLevel {
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
 
-// Carte blanche standard : rounded 20, bordure thème, padding 20, ombre.
-function PrefCard({
-  iconBg,
-  icon,
-  iconColor,
-  right,
-  children,
-}: {
-  iconBg: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  /** Slot à droite de l'en-tête (badge « Verrouillé », toggle…). */
-  right?: ReactNode;
-  children: ReactNode;
-}) {
-  const { c } = useTheme();
-  return (
-    <View
-      className="bg-paper"
-      style={{
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: c.borderSoft,
-        padding: 20,
-        shadowColor: "#000000",
-        shadowOpacity: 0.05,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 5 },
-        elevation: 2,
-      }}
-    >
-      <View
-        className="flex-row items-center justify-between"
-        style={{ gap: 12 }}
-      >
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 13,
-            backgroundColor: iconBg,
-            flexShrink: 0,
-          }}
-        >
-          <Ionicons name={icon} size={21} color={iconColor} />
-        </View>
-        {right ?? null}
-      </View>
-      {children}
-    </View>
-  );
-}
-
 // Bouton « Tous / Toutes » (parité web Prospect.jsx) — bascule le mode
 // « tout sélectionné ». Violet plein quand actif, contour sinon.
 function AllButton({
@@ -165,9 +110,9 @@ function AllButton({
         paddingVertical: 8,
         paddingHorizontal: 14,
         borderRadius: 999,
-        backgroundColor: active ? VIOLET : c.surface,
+        backgroundColor: active ? c.violet : c.surface,
         borderWidth: 1.5,
-        borderColor: active ? VIOLET : c.borderSoft,
+        borderColor: active ? c.violet : c.borderSoft,
       }}
     >
       <Ionicons
@@ -314,9 +259,9 @@ function CheckBox({ checked }: { checked: boolean }) {
         height: 22,
         borderRadius: 7,
         flexShrink: 0,
-        backgroundColor: checked ? VIOLET : c.surface,
+        backgroundColor: checked ? c.violet : c.surface,
         borderWidth: 1.5,
-        borderColor: checked ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
+        borderColor: checked ? c.violet : isDark ? c.ink5 : "#D8D1C0",
       }}
     >
       {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
@@ -348,7 +293,7 @@ function PrefToggle({
         width: 48,
         height: 28,
         borderRadius: 999,
-        backgroundColor: value ? VIOLET : isDark ? c.ink5 : "#D8D1C0",
+        backgroundColor: value ? c.violet : isDark ? c.ink5 : "#D8D1C0",
         flexShrink: 0,
         justifyContent: "center",
       }}
@@ -751,7 +696,7 @@ export default function Preferences() {
                           paddingHorizontal: 12,
                           borderRadius: 12,
                           borderWidth: 1.5,
-                          borderColor: on ? VIOLET : c.borderSoft,
+                          borderColor: on ? c.violet : c.borderSoft,
                           backgroundColor: on ? c.tintViolet : c.surface,
                           opacity: zoneLocked ? 0.5 : 1,
                         }}
@@ -1124,70 +1069,31 @@ export default function Preferences() {
       </PrefCard>
 
       {/* ── 8. Suivi des emails BUUPP (CNIL n° 2026-042) ───────────────── */}
-      <View
-        className="bg-paper flex-row"
-        style={{
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: c.borderSoft,
-          padding: 20,
-          gap: 14,
-          shadowColor: "#000000",
-          shadowOpacity: 0.05,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 5 },
-          elevation: 2,
-        }}
+      <PrefCard
+        iconBg={c.tintAmber}
+        icon="mail-outline"
+        iconColor={c.accAmber}
+        right={
+          <QueryGate query={mail}>
+            {(m) => (
+              <PrefToggle
+                value={m.consent}
+                disabled={setMail.isPending}
+                label="Suivi des emails BUUPP"
+                onPress={() => setMail.mutate({ consent: !m.consent })}
+              />
+            )}
+          </QueryGate>
+        }
       >
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 13,
-            backgroundColor: c.tintAmber,
-            flexShrink: 0,
-          }}
-        >
-          <Ionicons name="mail-outline" size={21} color={c.accAmber} />
-        </View>
-        <View className="flex-1">
-          <View
-            className="flex-row items-start justify-between"
-            style={{ gap: 12 }}
-          >
-            <Text
-              className="flex-1 font-serif"
-              style={{ fontSize: 19, color: c.text }}
-            >
-              Suivi des emails BUUPP
-            </Text>
-            <QueryGate query={mail}>
-              {(m) => (
-                <PrefToggle
-                  value={m.consent}
-                  disabled={setMail.isPending}
-                  label="Suivi des emails BUUPP"
-                  onPress={() => setMail.mutate({ consent: !m.consent })}
-                />
-              )}
-            </QueryGate>
-          </View>
-          <Text
-            style={{
-              marginTop: 8,
-              fontSize: 12.5,
-              lineHeight: 19,
-              color: c.textSub,
-            }}
-          >
-            Les communications BUUPP peuvent inclure un pixel transparent pour
-            mesurer le taux d&apos;ouverture de façon agrégée. Aucune IP, aucun
-            fingerprint stocké.{"\n"}
-            Recommandation CNIL n° 2026-042 — modifiable à tout moment.
-          </Text>
-        </View>
-      </View>
+        <H3>Suivi des emails BUUPP</H3>
+        <Desc>
+          Les communications BUUPP peuvent inclure un pixel transparent pour
+          mesurer le taux d&apos;ouverture de façon agrégée. Aucune IP, aucun
+          fingerprint stocké.{"\n"}
+          Recommandation CNIL n° 2026-042 — modifiable à tout moment.
+        </Desc>
+      </PrefCard>
     </ScrollScreen>
   );
 }
