@@ -588,7 +588,13 @@ export function MovementDetailSheet({
   function act(action: "accept" | "refuse") {
     decision.request(
       action,
-      { id: r.id, tier: r.tier, tiers: r.tiers, relationStatus: r.relationStatus },
+      {
+        id: r.id,
+        tier: r.tier,
+        tiers: r.tiers,
+        relationStatus: r.relationStatus,
+        objectiveId: r.objectiveId,
+      },
       onClose,
     );
   }

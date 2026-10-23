@@ -74,6 +74,12 @@ type AcceptGateCtx = {
 
 const Ctx = createContext<AcceptGateCtx | null>(null);
 
+/** Variante tolérante : `null` hors AcceptGateProvider (ex. feuille flash
+ *  deals montée par le header, aussi présent côté pro). */
+export function useAcceptGateOptional(): AcceptGateCtx | null {
+  return useContext(Ctx);
+}
+
 export function useAcceptGate(): AcceptGateCtx {
   const v = useContext(Ctx);
   if (!v) throw new Error("useAcceptGate must be used within AcceptGateProvider");

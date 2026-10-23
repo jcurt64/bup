@@ -9,6 +9,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { Platform } from "react-native";
+
 import { ApiError, useApi } from "./api";
 
 export type Role = "prospect" | "pro" | null;
@@ -133,6 +135,9 @@ export type Relation = {
    *  au garde-fou « données complètes » à l'acceptation (cf. lib/completeness).
    *  Peut être absente/null pour d'anciennes campagnes → repli sur `tier`. */
   tiers?: number[] | null;
+  /** Objectif de la campagne (ex. "addigital" = Publicité digitale, soumis à
+   *  l'autorisation de suivi ATT sur iOS). null/absent si inconnu. */
+  objectiveId?: string | null;
   timer: string;
   startDate: string;
   endDate: string;
@@ -234,6 +239,10 @@ export function useClaimFounderBonus() {
 }
 
 /** Accepter / refuser une mise en relation (body réel : { action }). */
+function decisionPlatform(): "ios" | "android" | "web" {
+  return Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "web";
+}
+
 export function useDecideRelation() {
   const api = useApi();
   const qc = useQueryClient();
@@ -244,12 +253,21 @@ export function useDecideRelation() {
       // Consentement préalable au canal téléphonique (opt-in), recueilli par
       // la popup à l'acceptation. Tracé côté serveur dans admin_events.
       phoneConsent?: boolean;
+      // App Tracking Transparency (iOS) : statut ATT au moment de
+      // l'acceptation. Exigé par le serveur pour les campagnes « Publicité
+      // digitale » (403 tracking_not_authorized sinon). Absent hors iOS.
+      trackingAuthorized?: boolean;
     }) =>
       api(`/api/prospect/relations/${v.id}/decision`, {
         method: "POST",
         body: JSON.stringify({
           action: v.action,
+          // Plateforme émettrice : le serveur n'applique la règle ATT qu'à iOS.
+          platform: decisionPlatform(),
           ...(v.phoneConsent ? { phoneConsent: true } : {}),
+          ...(typeof v.trackingAuthorized === "boolean"
+            ? { trackingAuthorized: v.trackingAuthorized }
+            : {}),
         }),
       }),
     onSuccess: () => {
@@ -318,6 +336,9 @@ export type MovementRelation = {
   reward: number;
   tier: number;
   tiers?: number[] | null;
+  /** Objectif de la campagne (cf. Relation.objectiveId). Optionnel : pas
+   *  forcément exposé par toutes les routes (mouvements). */
+  objectiveId?: string | null;
   timer: string;
   startDate: string | null;
   endDate: string | null;
@@ -742,6 +763,8 @@ export type FlashDeal = {
   relationId: string | null;
   relationStatus: string | null;
   missingTierKeys: string[];
+  /** Objectif de la campagne (cf. Relation.objectiveId — ATT sur iOS). */
+  objectiveId?: string | null;
 };
 type FlashDealsResponse = {
   deals: FlashDeal[];

@@ -114,6 +114,8 @@ function toMovementRelation(r: Relation): MovementRelation {
     // Propage les vrais paliers exigés par la campagne (pour le garde-fou
     // « données complètes » à l'acceptation) ; repli sur [r.tier] si absent.
     tiers: r.tiers && r.tiers.length > 0 ? r.tiers : [r.tier],
+    // Objectif (ATT iOS pour « Publicité digitale ») — cf. relation-decision.
+    objectiveId: r.objectiveId ?? null,
     timer: r.timer,
     startDate: r.startDate ?? null,
     endDate: r.endDate ?? null,
@@ -1112,6 +1114,7 @@ export default function Relations() {
                             tier: rel.tier,
                             tiers: rel.tiers,
                             relationStatus: rel.relationStatus,
+                            objectiveId: rel.objectiveId,
                           })
                         }
                         busyAction={decision.busyFor(r.id)}

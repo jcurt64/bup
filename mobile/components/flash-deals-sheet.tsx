@@ -8,7 +8,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Dimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -33,10 +32,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BottomSheet } from "./bottom-sheet";
 import { DecisionFeedback } from "./decision-feedback";
 import { BuuppLoader } from "./loader";
-import { ApiError } from "../lib/api";
+import { useRelationDecision } from "./relation-decision";
 import { useTheme } from "../lib/theme";
 import {
-  useDecideRelation,
   useFlashDeals,
   useProspectScore,
   type FlashDeal,
@@ -433,14 +431,12 @@ function FlashDealDetailSheet({
   nowTs: number;
 }) {
   const { c, isDark } = useTheme();
-  const decide = useDecideRelation();
+  const decision = useRelationDecision();
   const qc = useQueryClient();
-  const [busy, setBusy] = useState<"accept" | "refuse" | null>(null);
   const [showFillData, setShowFillData] = useState(false);
   const [justDecided, setJustDecided] = useState<"accept" | "refuse" | null>(null);
   // Réinitialise l'état transitoire à chaque nouveau deal ouvert.
   useEffect(() => {
-    setBusy(null);
     setShowFillData(false);
     setJustDecided(null);
   }, [deal?.id]);
@@ -453,167 +449,46 @@ function FlashDealDetailSheet({
   const m = d ? dealMultNum(d) : 3;
   const canDecide =
     !!d && d.relationStatus === "pending" && !!d.relationId && !expired;
+  const busy = d?.relationId ? decision.busyFor(d.relationId) : null;
 
-  async function decideRelation(action: "accept" | "refuse") {
+  // Décision via le flux PARTAGÉ avec l'écran Relations (relation-decision) :
+  // consentement téléphone, autorisation de suivi iOS (Publicité digitale),
+  // undo → accept depuis « refusé », messages d'erreur 429/403/402/410/409.
+  // Le pré-check « données manquantes » reste celui, inline, du flash deal.
+  function decideRelation(action: "accept" | "refuse") {
     if (!d?.relationId || busy) return;
     if (action === "accept" && hasMissing) {
       setShowFillData(true);
       return;
     }
-    setBusy(action);
-    try {
-      await decide.mutateAsync({ id: d.relationId, action });
-      setJustDecided(action);
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-      }, 2500);
-    } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0;
-      let serverMsg: string | null = null;
-      if (e instanceof ApiError) {
-        try {
-          const j = JSON.parse(e.body) as { message?: string };
-          if (typeof j.message === "string") serverMsg = j.message;
-        } catch {}
-      }
-      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
-      // acceptées sans réponse) — le serveur fournit un message courtois.
-      const msg =
-        (status === 429 || status === 403) && serverMsg
-          ? serverMsg
-          : status === 402
-            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-            : status === 410
-              ? "Cette campagne a expiré."
-              : status === 409
-                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-                : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(
-        status === 429
-          ? "Patientez un instant"
-          : status === 403 && serverMsg
-            ? "Acceptation en pause"
-            : "Action impossible",
-        msg,
-      );
-    } finally {
-      setBusy(null);
-    }
+    decision.request(
+      action,
+      {
+        id: d.relationId,
+        tier: Math.max(1, ...(d.requiredTiers ?? [])),
+        tiers: d.requiredTiers,
+        relationStatus: d.relationStatus,
+        objectiveId: d.objectiveId,
+      },
+      // Fin de flux sans succès confirmé (ex. refus annulé puis 429) :
+      // resynchronise la liste pour refléter le nouvel état.
+      () => qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] }),
+      {
+        skipGate: true,
+        onSuccess: (a) => {
+          setJustDecided(a);
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
+          }, 2500);
+        },
+      },
+    );
   }
 
-  // Bascule refused → accepted via undo puis accept enchaînés (cf. logique
-  // web : le serveur rate-limite la clé relation, l'undo consomme le slot).
-  async function acceptAfterRefused() {
-    if (!d?.relationId || busy) return;
-    if (hasMissing) {
-      setShowFillData(true);
-      return;
-    }
-    setBusy("accept");
-    try {
-      await decide.mutateAsync({ id: d.relationId, action: "undo" });
-      try {
-        await decide.mutateAsync({ id: d.relationId, action: "accept" });
-      } catch (acceptErr) {
-        if (acceptErr instanceof ApiError && acceptErr.status === 429) {
-          let waitMsg = "Réessayez dans quelques minutes";
-          try {
-            const j = JSON.parse(acceptErr.body) as { retryAfterSec?: number };
-            if (typeof j.retryAfterSec === "number" && j.retryAfterSec > 0) {
-              const mins = Math.ceil(j.retryAfterSec / 60);
-              waitMsg = `Réessayez dans ${mins} min`;
-            }
-          } catch {}
-          qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-          Alert.alert(
-            "Refus annulé",
-            `Votre refus a été annulé — cette sollicitation est de nouveau en attente. Pour confirmer votre acceptation, ${waitMsg}.`,
-          );
-          return;
-        }
-        throw acceptErr;
-      }
-      setJustDecided("accept");
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-      }, 2500);
-    } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0;
-      let serverMsg: string | null = null;
-      if (e instanceof ApiError) {
-        try {
-          const j = JSON.parse(e.body) as { message?: string };
-          if (typeof j.message === "string") serverMsg = j.message;
-        } catch {}
-      }
-      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
-      // acceptées sans réponse) — le serveur fournit un message courtois.
-      const msg =
-        (status === 429 || status === 403) && serverMsg
-          ? serverMsg
-          : status === 402
-            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-            : status === 410
-              ? "Cette campagne a expiré."
-              : status === 409
-                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-                : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(
-        status === 429
-          ? "Patientez un instant"
-          : status === 403 && serverMsg
-            ? "Acceptation en pause"
-            : "Action impossible",
-        msg,
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  // accepted → refused : direct via /decision action=refuse.
-  async function refuseAfterAccepted() {
-    if (!d?.relationId || busy) return;
-    setBusy("refuse");
-    try {
-      await decide.mutateAsync({ id: d.relationId, action: "refuse" });
-      setJustDecided("refuse");
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["landing", "flash-deals"] });
-      }, 2500);
-    } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0;
-      let serverMsg: string | null = null;
-      if (e instanceof ApiError) {
-        try {
-          const j = JSON.parse(e.body) as { message?: string };
-          if (typeof j.message === "string") serverMsg = j.message;
-        } catch {}
-      }
-      // 403 accept_restricted : compte en pause 2 mois (4 sollicitations
-      // acceptées sans réponse) — le serveur fournit un message courtois.
-      const msg =
-        (status === 429 || status === 403) && serverMsg
-          ? serverMsg
-          : status === 402
-            ? "Le professionnel n'a plus assez de budget sur sa campagne. Réessayez plus tard."
-            : status === 410
-              ? "Cette campagne a expiré."
-              : status === 409
-                ? "Cette sollicitation n'est plus dans un état modifiable. Rafraîchissez la liste."
-                : "Action impossible. Réessayez dans un instant.";
-      Alert.alert(
-        status === 429
-          ? "Patientez un instant"
-          : status === 403 && serverMsg
-            ? "Acceptation en pause"
-            : "Action impossible",
-        msg,
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
+  // Bascules refused → accepted et accepted → refused : même flux partagé
+  // (l'undo préalable est géré par relation-decision via relationStatus).
+  const acceptAfterRefused = () => decideRelation("accept");
+  const refuseAfterAccepted = () => decideRelation("refuse");
 
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPct={86} topRadius={28}>
@@ -936,6 +811,8 @@ function FlashDealDetailSheet({
           </View>
         </ScrollView>
       )}
+      {/* Popup de consentement téléphone du flux partagé. */}
+      {decision.sheet}
     </BottomSheet>
   );
 }
