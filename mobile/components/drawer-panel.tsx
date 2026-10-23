@@ -538,7 +538,16 @@ export default function DrawerPanel() {
         </ScrollView>
       </Animated.View>
 
-      <Modal transparent visible={confirm !== null} animationType="fade">
+      <Modal
+        transparent
+        visible={confirm !== null}
+        animationType="fade"
+        // Bouton retour Android : ferme la confirmation (sauf pendant
+        // l'opération en cours, pour ne pas masquer son issue).
+        onRequestClose={() => {
+          if (!busy && !del.isPending) setConfirm(null);
+        }}
+      >
         <View className="flex-1 items-center justify-center bg-black/50 px-8">
           <View className="w-full gap-4 rounded-2xl bg-paper p-6">
             <Text className="font-serif text-xl text-ink">
