@@ -934,6 +934,15 @@ function FlashDealModal({
   );
   const [switchingAccount, setSwitchingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Consentement préalable spécifique au canal TÉLÉPHONE (réforme française
+  // du démarchage téléphonique = opt-in) — même étape que l'onglet « Mises
+  // en relation » du dashboard (cf. PhoneConsentModal dans Prospect.jsx).
+  // Mémorise l'acceptation à finaliser une fois la popup confirmée :
+  //   - "decide"       : acceptation d'une sollicitation en attente ;
+  //   - "afterRefused" : acceptation finale après un refus (undo + accept).
+  const [phoneConsentFor, setPhoneConsentFor] = useState<
+    "decide" | "afterRefused" | null
+  >(null);
 
   // Côté pro (lecture seule) : déconnexion puis retour au login pour se
   // reconnecter avec un compte prospect — seul rôle habilité à accepter.
@@ -1025,7 +1034,10 @@ function FlashDealModal({
       ? (e as Error & { serverMessage?: string }).serverMessage
       : undefined;
 
-  const decide = async (action: "accept" | "refuse") => {
+  const decide = async (
+    action: "accept" | "refuse",
+    opts?: { phoneConsent?: boolean },
+  ) => {
     // Pré-check du rate-limit serveur : 1 décision / 5 min. Évite un
     // aller-retour réseau et affiche directement le countdown.
     const left = decisionCooldownLeftMs(deal.id);
@@ -1042,7 +1054,13 @@ function FlashDealModal({
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action }),
+          // phoneConsent: true — le prospect a confirmé la popup de
+          // consentement au canal téléphonique (tracé côté serveur).
+          body: JSON.stringify(
+            action === "accept"
+              ? { action, phoneConsent: opts?.phoneConsent === true }
+              : { action },
+          ),
         },
       );
       if (!r.ok) await throwApiError(r);
@@ -1115,7 +1133,9 @@ function FlashDealModal({
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "accept" }),
+          // Acceptation finale : le consentement téléphone a été donné
+          // via la popup juste avant (cf. phoneConsentFor).
+          body: JSON.stringify({ action: "accept", phoneConsent: true }),
         },
       );
       if (!acc.ok) await throwApiError(acc);
@@ -1455,7 +1475,7 @@ function FlashDealModal({
                 {submitting === "refuse" ? "Refus en cours…" : "Refuser"}
               </button>
               <button
-                onClick={() => decide("accept")}
+                onClick={() => setPhoneConsentFor("decide")}
                 disabled={!!submitting}
                 className="btn"
                 style={{
@@ -1608,7 +1628,7 @@ function FlashDealModal({
               </div>
             </div>
             <button
-              onClick={acceptAfterRefused}
+              onClick={() => setPhoneConsentFor("afterRefused")}
               disabled={!!submitting}
               className="btn btn-lg"
               style={{
@@ -1724,6 +1744,142 @@ function FlashDealModal({
               "✓ Sollicitation déjà acceptée — gains crédités."}
           </div>
         )}
+      </div>
+      {phoneConsentFor && (
+        <PhoneConsentDialog
+          onAccept={() => {
+            const which = phoneConsentFor;
+            setPhoneConsentFor(null);
+            if (which === "afterRefused") void acceptAfterRefused();
+            else void decide("accept", { phoneConsent: true });
+          }}
+          onRefuse={() => setPhoneConsentFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Popup de consentement préalable au canal TÉLÉPHONE, affichée à
+// l'acceptation d'un flash deal depuis la page d'accueil. Réplique fidèle
+// (texte + boutons) de PhoneConsentModal dans Prospect.jsx : « OK,
+// j'accepte » finalise l'acceptation ; « Non, je refuse » l'annule.
+// Superposée à la modale flash deal : les clics ne doivent pas remonter
+// jusqu'au fond de celle-ci (qui la fermerait).
+function PhoneConsentDialog({
+  onAccept,
+  onRefuse,
+}: {
+  onAccept: () => void;
+  onRefuse: () => void;
+}) {
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onRefuse();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contact par téléphone"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,22,41,.55)",
+        zIndex: 1001,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: "var(--paper)",
+          borderRadius: 14,
+          padding: "clamp(18px, 4vw, 24px)",
+          boxShadow:
+            "0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)",
+        }}
+      >
+        <div
+          className="serif"
+          style={{ fontSize: 20, marginBottom: 14, color: "var(--ink)" }}
+        >
+          Contact par téléphone
+        </div>
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 10,
+            marginBottom: 18,
+            background: "color-mix(in oklab, var(--accent) 8%, var(--paper))",
+            border:
+              "1.5px solid color-mix(in oklab, var(--accent) 40%, var(--line))",
+            color: "var(--ink-2)",
+            display: "flex",
+            gap: 14,
+            alignItems: "flex-start",
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              minWidth: 36,
+              borderRadius: "50%",
+              background: "var(--accent)",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="phone" size={16} stroke={2} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--ink)",
+                marginBottom: 4,
+              }}
+            >
+              En acceptant cette sollicitation
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              vous êtes susceptible d&apos;être{" "}
+              <strong>contacté(e) par téléphone</strong> par ce professionnel,
+              en plus des autres canaux. En cliquant sur « OK, j&apos;accepte »,
+              vous donnez votre{" "}
+              <strong>
+                consentement préalable et spécifique au démarchage
+                téléphonique
+              </strong>{" "}
+              pour cette mise en relation, conformément à la réglementation.
+              Vous pourrez le retirer à tout moment.
+            </div>
+          </div>
+        </div>
+        <div
+          className="row gap-2"
+          style={{ justifyContent: "flex-end", flexWrap: "wrap" }}
+        >
+          <button onClick={onRefuse} className="btn btn-ghost btn-sm">
+            Non, je refuse
+          </button>
+          <button
+            onClick={onAccept}
+            className="btn btn-sm"
+            style={{ background: "var(--ink)", color: "var(--paper)" }}
+          >
+            <Icon name="check" size={12} /> OK, j&apos;accepte
+          </button>
+        </div>
       </div>
     </div>
   );

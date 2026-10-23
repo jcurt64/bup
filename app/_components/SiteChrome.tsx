@@ -40,7 +40,8 @@ export type IconName =
   | "briefcase"
   | "info"
   | "gear"
-  | "video";
+  | "video"
+  | "phone";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
@@ -111,6 +112,8 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M12 2.2l1.6 2.5 2.9-.7.4 3 2.8 1.1-1.3 2.7 1.3 2.7-2.8 1.1-.4 3-2.9-.7L12 21.8l-1.6-2.5-2.9.7-.4-3-2.8-1.1 1.3-2.7-1.3-2.7 2.8-1.1.4-3 2.9.7z" />
     </>
   ),
+  // Combiné téléphonique (même tracé que le prototype, cf. Shell.jsx).
+  phone: <path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z" />,
   // Caméra : corps rectangulaire + objectif en biseau. Lisible dès 14px,
   // contrairement à une pellicule dont les perforations se bouchent.
   video: (
