@@ -17,6 +17,7 @@ import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
 import { getFounderContext } from "@/lib/founders";
+import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,7 @@ export async function GET() {
     targeting: {
       durationKey?: string;
       durationMultiplier?: number;
+      objectiveId?: string;
       requiredTiers?: number[];
       requiredTierKeys?: string[];
     } | null;
@@ -219,6 +221,8 @@ export async function GET() {
       relationId: rel?.id ?? null,
       relationStatus: rel?.status ?? null,
       missingTierKeys,
+      // Objectif de la campagne (`addigital` → l'app iOS demande l'ATT).
+      objectiveId: objectiveIdOf(r.targeting as Record<string, unknown> | null),
     };
   });
 

@@ -15,6 +15,7 @@ import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { reportedRelationIds } from "@/lib/prospect/reports";
 import { haversineMeters, type LatLng } from "@/lib/geo/geocode";
+import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 
 export const runtime = "nodejs";
 
@@ -203,6 +204,9 @@ export async function GET() {
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
+        // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
+        objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
         // Distance domicile prospect ↔ établissement pro (km), pour le filtre
         // « Autour de moi ». null si coordonnées indisponibles.
         distanceKm: distanceKmTo(r.pro_accounts),
@@ -282,6 +286,9 @@ export async function GET() {
         campaignOpen,
         campaignActive,
         isFlashDeal: isFlashDealTargeting(r.campaigns?.targeting ?? null),
+        // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
+        // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
+        objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
         distanceKm: distanceKmTo(r.pro_accounts),
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (cf. pending).

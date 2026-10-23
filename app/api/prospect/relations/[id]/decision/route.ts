@@ -1,6 +1,7 @@
 /**
  * POST /api/prospect/relations/[id]/decision
- * Body : { action: 'accept' | 'refuse' | 'undo' }
+ * Body : { action: 'accept' | 'refuse' | 'undo', phoneConsent?: boolean,
+ *          platform?: 'ios' | 'android' | 'web', trackingAuthorized?: boolean }
  *
  * Transitions autorisées :
  *   accept : pending  → accepted   (RPC accept_relation_tx, atomique)
@@ -32,6 +33,12 @@ import {
   liftExpiredNonResponseRestriction,
 } from "@/lib/prospect/non-response";
 import { recordEvent } from "@/lib/admin/events/record";
+import {
+  TRACKING_NOT_AUTHORIZED_MESSAGE,
+  objectiveIdOf,
+  parseDecisionPlatform,
+  requiresTrackingConsent,
+} from "@/lib/prospect/tracking-consent";
 
 // Anti-spam / anti-DDoS : un utilisateur ne peut prendre qu'une seule
 // décision (accept/refuse/undo) toutes les 5 minutes — fenêtre glissante
@@ -77,9 +84,15 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  let body: { action?: Action; phoneConsent?: boolean };
+  type DecisionBody = {
+    action?: Action;
+    phoneConsent?: boolean;
+    platform?: unknown;
+    trackingAuthorized?: unknown;
+  };
+  let body: DecisionBody;
   try {
-    body = (await req.json()) as { action?: Action; phoneConsent?: boolean };
+    body = (await req.json()) as DecisionBody;
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
@@ -113,6 +126,31 @@ export async function POST(req: Request, ctx: RouteContext) {
   const ownerClerkId = prospectRow?.clerk_user_id;
   if (ownerClerkId !== userId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // Garde ATT (App Tracking Transparency) — cf. lib/prospect/tracking-consent.ts.
+  // Une campagne « Publicité digitale » (objectiveId `addigital`) acceptée
+  // depuis l'app iOS exige l'autorisation de suivi Apple. Placé AVANT le
+  // rate-limit : un refus ATT ne doit pas consommer le quota de 5 min (le
+  // prospect peut activer le suivi dans Réglages puis réessayer aussitôt).
+  // Le web n'envoie jamais `platform: "ios"` → comportement inchangé.
+  if (action === "accept") {
+    const campForAtt = Array.isArray(rel.campaigns) ? rel.campaigns[0] : rel.campaigns;
+    const objectiveId = objectiveIdOf(
+      (campForAtt?.targeting ?? null) as Record<string, unknown> | null,
+    );
+    if (
+      requiresTrackingConsent(
+        objectiveId,
+        parseDecisionPlatform(body.platform),
+        body.trackingAuthorized === true,
+      )
+    ) {
+      return NextResponse.json(
+        { error: "tracking_not_authorized", message: TRACKING_NOT_AUTHORIZED_MESSAGE },
+        { status: 403 },
+      );
+    }
   }
 
   // Restriction « non-réponse » (cf. lib/prospect/non-response.ts) : un prospect
