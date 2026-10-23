@@ -89,9 +89,12 @@ function PushBridge() {
   const { getToken, isSignedIn } = useAuth();
   const qc = useQueryClient();
 
-  // Setup Android channels une seule fois au mount.
+  // Setup Android channels une seule fois au mount (registerForPushNotifications
+  // attend aussi cette même promesse avant de demander la permission).
   useEffect(() => {
-    void ensurePushChannelsAndroid();
+    ensurePushChannelsAndroid().catch((e) =>
+      console.warn("[push] channels setup failed", e),
+    );
   }, []);
 
   // Au cold start signed-in : refresh silencieux du token (last_seen_at).

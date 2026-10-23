@@ -29,6 +29,15 @@ export async function registerForPushNotifications(
   // ce qui bloquerait la suite de l'onboarding. On n'essaie donc pas.
   if (Platform.OS === "web") return { status: "denied" };
 
+  // Android 13+ : la demande de permission POST_NOTIFICATIONS n'est
+  // affichée que si au moins un channel existe déjà — on attend donc leur
+  // création avant toute demande (no-op iOS, mémoïsé : un seul appel natif).
+  try {
+    await ensurePushChannelsAndroid();
+  } catch (e) {
+    console.warn("[push] channels setup failed", e);
+  }
+
   const current = await Notifications.getPermissionsAsync();
   let status: PushStatus = current.granted
     ? "granted"
@@ -123,10 +132,25 @@ export async function unregisterPushToken(
 }
 
 /**
- * Crée les channels Android (no-op iOS). À appeler au mount du root.
+ * Crée les channels Android (no-op iOS). Appelée au mount du root ET
+ * attendue par registerForPushNotifications avant la demande de
+ * permission. Mémoïsée : la promesse est partagée entre les appelants
+ * (réinitialisée en cas d'échec pour pouvoir retenter).
  */
-export async function ensurePushChannelsAndroid(): Promise<void> {
-  if (Platform.OS !== "android") return;
+let channelsPromise: Promise<void> | null = null;
+
+export function ensurePushChannelsAndroid(): Promise<void> {
+  if (Platform.OS !== "android") return Promise.resolve();
+  if (!channelsPromise) {
+    channelsPromise = createChannelsAndroid().catch((e) => {
+      channelsPromise = null;
+      throw e;
+    });
+  }
+  return channelsPromise;
+}
+
+async function createChannelsAndroid(): Promise<void> {
   await Notifications.setNotificationChannelAsync("solicitations-classic", {
     name: "Sollicitations",
     importance: Notifications.AndroidImportance.DEFAULT,
