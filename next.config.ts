@@ -42,16 +42,15 @@ const nextConfig: NextConfig = {
   // une CSP cassée bloquerait le rendu en prod. À implémenter avec un
   // mode `report-only` d'abord (suivi sur 1-2 semaines via /api/csp-report)
   // avant passage en `enforce`.
-  // Lien de parrainage partagé par les prospects (web + mobile) :
-  // buupp.com/ref/CODE. Le code est lu par la pré-inscription via `?ref=`
-  // (waitlist.html). Hors période de pré-inscription, /liste-attente
-  // renvoie lui-même à l'accueil (proxy) : jamais de 404. Passe avant le
-  // proxy Clerk, donc accessible sans compte.
+  // Ancien lien de parrainage buupp.com/ref/CODE : le parrainage était
+  // réservé à la pré-inscription (fondateurs) et il est fermé depuis le
+  // lancement. Les liens déjà partagés mènent à l'accueil, jamais en 404.
+  // Passe avant le proxy Clerk, donc accessible sans compte.
   async redirects() {
     return [
       {
         source: "/ref/:code",
-        destination: "/liste-attente?ref=:code",
+        destination: "/",
         permanent: false,
       },
     ];
