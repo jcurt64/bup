@@ -128,9 +128,11 @@ export default function AuthScreen() {
     setBusy(true);
     setErr(null);
     try {
-      // L'intention de rôle ne vaut que pour une INSCRIPTION : à la
-      // connexion, le rôle réel vient du serveur (/api/me/role).
-      if (tab !== "login") await setRoleIntent(role);
+      // Intention enregistrée aussi à la CONNEXION : un compte créé sans
+      // rôle (ex. depuis le dashboard Clerk) doit suivre le rôle choisi ici,
+      // pas l'intention restée du compte précédent. Sans effet sur un compte
+      // qui a déjà un rôle : /api/me/role reste prioritaire.
+      await setRoleIntent(role);
       if (tab === "login") {
         if (!signIn) return;
         const r = await signIn.attemptFirstFactor({
