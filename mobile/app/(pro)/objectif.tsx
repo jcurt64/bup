@@ -841,6 +841,8 @@ export default function ProWizard() {
     }
     try {
       const res = await create.mutateAsync({
+        // Parité web (Pro.jsx) : le nom de campagne = libellé de l'objectif.
+        name: obj.name,
         objectiveId: obj.id,
         subTypes: [...subTypes],
         requiredTiers: tiers,

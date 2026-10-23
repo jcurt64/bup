@@ -1292,6 +1292,8 @@ export const useProAnalytics = (
 
 // — Création de campagne — POST /api/pro/campaigns
 export type CreateCampaignInput = {
+  /** Nom de la campagne = libellé de l'objectif (parité web : `obj?.name`). */
+  name: string;
   objectiveId: string;
   subTypes: string[];
   requiredTiers: number[];
