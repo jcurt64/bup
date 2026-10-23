@@ -2554,44 +2554,51 @@ export default function Donnees() {
                                 Modifier
                               </Text>
                             </Pressable>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={hidden ? "Réafficher" : "Masquer"}
-                              disabled={tierAction.isPending}
-                              onPress={() => {
-                                // Réafficher = non destructif → mutate direct.
-                                // Masquer = impact visible → confirmation.
-                                if (hidden) {
-                                  void runTierAction(k, "restore");
-                                } else {
-                                  setConfirmHide(k);
-                                }
-                              }}
-                              className="flex-1 flex-row items-center justify-center active:opacity-70"
-                              style={{
-                                gap: 7,
-                                height: 40,
-                                borderRadius: 12,
-                                backgroundColor: c.surface,
-                                borderWidth: 1,
-                                borderColor: c.borderSoft,
-                              }}
-                            >
-                              <Ionicons
-                                name={hidden ? "eye-outline" : "eye-off-outline"}
-                                size={16}
-                                color={c.textSub}
-                              />
-                              <Text
+                            {/* Le palier Identification ne peut pas être
+                                masqué : l'API le refuse (400
+                                identity_tier_required) — parité web, seule la
+                                suppression RGPD reste proposée. Réafficher
+                                reste possible s'il était déjà masqué. */}
+                            {k !== "identity" || hidden ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={hidden ? "Réafficher" : "Masquer"}
+                                disabled={tierAction.isPending}
+                                onPress={() => {
+                                  // Réafficher = non destructif → mutate direct.
+                                  // Masquer = impact visible → confirmation.
+                                  if (hidden) {
+                                    void runTierAction(k, "restore");
+                                  } else {
+                                    setConfirmHide(k);
+                                  }
+                                }}
+                                className="flex-1 flex-row items-center justify-center active:opacity-70"
                                 style={{
-                                  fontSize: 12.5,
-                                  fontWeight: "600",
-                                  color: c.textSub,
+                                  gap: 7,
+                                  height: 40,
+                                  borderRadius: 12,
+                                  backgroundColor: c.surface,
+                                  borderWidth: 1,
+                                  borderColor: c.borderSoft,
                                 }}
                               >
-                                {hidden ? "Réafficher" : "Masquer"}
-                              </Text>
-                            </Pressable>
+                                <Ionicons
+                                  name={hidden ? "eye-outline" : "eye-off-outline"}
+                                  size={16}
+                                  color={c.textSub}
+                                />
+                                <Text
+                                  style={{
+                                    fontSize: 12.5,
+                                    fontWeight: "600",
+                                    color: c.textSub,
+                                  }}
+                                >
+                                  {hidden ? "Réafficher" : "Masquer"}
+                                </Text>
+                              </Pressable>
+                            ) : null}
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel="Supprimer"
