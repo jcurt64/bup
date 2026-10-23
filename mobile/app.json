@@ -13,6 +13,9 @@
       "bundleIdentifier": "com.buupp.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": true
       }
     },
     "android": {
@@ -24,7 +27,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "com.google.android.gms.permission.AD_ID"
+      ]
     },
     "web": {
       "output": "static",
@@ -50,7 +59,13 @@
           "faceIDPermission": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "BUUPP partage vos coordonnées, uniquement avec votre accord, avec les professionnels dont vous acceptez les campagnes de publicité digitale. Ils peuvent s'en servir pour vous montrer leurs publicités sur d'autres applis et sites."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,
