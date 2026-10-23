@@ -374,6 +374,9 @@ function ProspectProvider({ children }) {
     persistFieldsUpdate(category, fields);
   };
   const suppressTemp = (category) => {
+    // Garde-fou : le palier Identification ne se masque pas (refusé par
+    // l'API en 400 identity_tier_required) — pas d'état optimiste trompeur.
+    if (category === 'identity') return;
     setDeleted(d => ({ ...d, [category]: true }));
     persistTierAction(category, 'hide');
   };
@@ -4156,9 +4159,16 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
                       <button className="btn btn-primary btn-sm" onClick={() => setAdding(cat.key)}>
                         <Icon name="plus" size={12}/> Ajouter
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmHide(cat.key)}>
-                        <Icon name="eyeSlash" size={12}/> Masquer temporairement
-                      </button>
+                      {/* Le palier Identification (tier 1) ne peut pas être
+                          masqué : l'API le refuse (400 identity_tier_required,
+                          cf. /api/prospect/tier) — sans nom + e-mail +
+                          téléphone aucun contact n'aboutit. On n'offre donc
+                          pas l'action (seule la suppression RGPD reste). */}
+                      {cat.key !== 'identity' && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmHide(cat.key)}>
+                          <Icon name="eyeSlash" size={12}/> Masquer temporairement
+                        </button>
+                      )}
                       <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)}
                         style={{ color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 30%, var(--line))' }}>
                         <Icon name="trash" size={12}/> Supprimer
