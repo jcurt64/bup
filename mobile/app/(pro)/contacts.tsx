@@ -902,12 +902,15 @@ export default function Contacts() {
           "Rédigez votre message au-dessus de cette ligne.\n",
       );
       const url = `mailto:${to}?bcc=${bcc}&subject=${subject}&body=${body}`;
-      const ok = await Linking.canOpenURL(url).catch(() => false);
-      if (!ok) {
+      // Pas de canOpenURL : sur Android 11+ il renvoie false pour mailto:
+      // sans entrée <queries> dans le manifeste, même si une app e-mail
+      // est installée. On tente directement et on n'alerte qu'en cas d'échec.
+      try {
+        await Linking.openURL(url);
+      } catch {
         Alert.alert("Message groupé", "Aucune application e-mail disponible sur cet appareil.");
         return;
       }
-      await Linking.openURL(url);
       if (skipped > 0) {
         Alert.alert(
           "Message groupé",
