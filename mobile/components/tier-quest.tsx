@@ -136,9 +136,11 @@ export function TierQuest({
                 style={{ width: `${Math.max(xpPct, 4)}%`, height: "100%", borderRadius: 6 }}
               />
             </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.violet }}>{xpPct} % XP</Text>
-              <Text style={{ fontSize: 12, color: c.textSub }}>
+            {/* Pourcentage à gauche, message à droite, centrés verticalement :
+                le message passe à la ligne sans décaler le pourcentage. */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.violet, flexShrink: 0 }}>{xpPct} % XP</Text>
+              <Text style={{ flex: 1, fontSize: 12, color: c.textSub, textAlign: "right" }}>
                 {allDone ? "Tous les paliers débloqués 🎉" : "Plus vous remplissez, plus votre score monte"}
               </Text>
             </View>
