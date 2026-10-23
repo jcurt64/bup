@@ -28,6 +28,15 @@ import { useTheme } from "../../lib/theme";
 
 type OAuthStrategy = "oauth_apple" | "oauth_google" | "oauth_facebook";
 
+// Un code faux lève une erreur Clerk (gérée par clerkErr) : un statut
+// non « complete » sans erreur signifie que la vérification a réussi mais
+// que Clerk attend encore une étape (ex. missing_requirements).
+function incompleteMsg(status: string | null): string {
+  if (status === "missing_requirements" || status === "needs_second_factor")
+    return "Votre compte nécessite une étape supplémentaire que l'application ne prend pas encore en charge. Connectez-vous depuis buupp.com ou contactez le support.";
+  return "La connexion n'a pas pu être finalisée. Réessayez dans un instant.";
+}
+
 WebBrowser.maybeCompleteAuthSession();
 
 type Tab = "login" | "signup";
@@ -131,7 +140,7 @@ export default function AuthScreen() {
         if (r.status === "complete") {
           await setSignInActive!({ session: r.createdSessionId });
           router.replace("/");
-        } else setErr("Code incorrect ou expiré.");
+        } else setErr(incompleteMsg(r.status));
       } else {
         if (!signUp) return;
         const r = await signUp.attemptEmailAddressVerification({
@@ -140,7 +149,7 @@ export default function AuthScreen() {
         if (r.status === "complete") {
           await setSignUpActive!({ session: r.createdSessionId });
           router.replace("/");
-        } else setErr("Code incorrect ou expiré.");
+        } else setErr(incompleteMsg(r.status));
       }
     } catch (e) {
       setErr(clerkErr(e, "Code invalide."));
@@ -156,14 +165,26 @@ export default function AuthScreen() {
     setErr(null);
     try {
       const redirectUrl = Linking.createURL("/", { scheme: "buupp" });
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy,
-        redirectUrl,
-      });
+      const { createdSessionId, setActive, authSessionResult } =
+        await startSSOFlow({
+          strategy,
+          redirectUrl,
+        });
       if (createdSessionId && setActive) {
         await setRoleIntent(role);
         await setActive({ session: createdSessionId });
         router.replace("/");
+      } else if (
+        authSessionResult?.type === "cancel" ||
+        authSessionResult?.type === "dismiss"
+      ) {
+        setErr("Connexion annulée.");
+      } else {
+        // Pas de session créée (compte à compléter, fournisseur qui n'a
+        // pas renvoyé d'e-mail…) : on le dit plutôt que de ne rien faire.
+        setErr(
+          "La connexion n'a pas pu être finalisée. Réessayez ou utilisez votre adresse e-mail.",
+        );
       }
     } catch (e) {
       setErr(clerkErr(e, "Connexion sociale indisponible."));
