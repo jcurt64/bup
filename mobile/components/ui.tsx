@@ -239,14 +239,23 @@ export function LegalFooter() {
   );
 }
 
-/** 3 boutons de connexion sociale (cf. buupp-onboarding/4.png). */
+/**
+ * Connexion Facebook désactivée : l'app Meta n'est pas encore publiée
+ * (vérification d'entreprise + App Review Meta à faire). Tant que c'est le
+ * cas, le bouton mène à une erreur côté Meta — inacceptable pour les
+ * relecteurs App Store / Play Store. Le code reste en place : repasser à
+ * `true` une fois l'app Meta publiée.
+ */
+export const FACEBOOK_LOGIN_ENABLED = false;
+
+/** Boutons de connexion sociale (cf. buupp-onboarding/4.png). */
 export function SocialButtons({
   onPress,
 }: {
   onPress: (p: "apple" | "google" | "facebook") => void;
 }) {
   const { c } = useTheme();
-  const items: {
+  const allItems: {
     key: "apple" | "google" | "facebook";
     icon: keyof typeof Ionicons.glyphMap;
     color: string;
@@ -255,6 +264,9 @@ export function SocialButtons({
     { key: "google", icon: "logo-google", color: "#EA4335" },
     { key: "facebook", icon: "logo-facebook", color: "#1877F2" },
   ];
+  const items = allItems.filter(
+    (it) => it.key !== "facebook" || FACEBOOK_LOGIN_ENABLED,
+  );
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-3">
