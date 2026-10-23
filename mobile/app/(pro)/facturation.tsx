@@ -555,7 +555,7 @@ export default function Facturation() {
       <QueryGate
         query={inv}
         isEmpty={(d) => (d.invoices?.length ?? 0) === 0}
-        emptyLabel="Aucune facture pour le moment. Effectuez une recharge pour générer votre première facture."
+        emptyLabel="Aucune facture pour le moment."
       >
         {(d) => (
           <View className="gap-2">
