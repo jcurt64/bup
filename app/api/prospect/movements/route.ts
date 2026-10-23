@@ -28,6 +28,7 @@ import {
   statusChip,
   SIGNUP_BONUS_ORIGIN,
 } from "@/lib/prospect/transactions";
+import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 
 export const runtime = "nodejs";
 
@@ -248,6 +249,7 @@ export async function GET() {
       sector: sectorParts.join(" · "),
       motif: rel.motif ?? "",
       brief: rel.campaigns?.brief ?? null,
+      objectiveId: objectiveIdOf(rel.campaigns?.targeting ?? null),
       // Titre de la campagne (campaigns.name) — « objet de la demande »
       // distinct du brief (« le mot du professionnel »).
       campaignName: rel.campaigns?.name ?? null,
