@@ -37,6 +37,7 @@ import {
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
 import { PURCHASES_ENABLED } from "../../lib/purchases";
+import { BalanceSourceNote } from "../../components/balance-source-note";
 
 function Eyebrow({ children }: { children: string }) {
   return (
@@ -512,6 +513,8 @@ export default function Facturation() {
                 hint="campagnes actives"
               />
             </View>
+            {/* Achats masqués : mention neutre, sans lien ni bouton. */}
+            {PURCHASES_ENABLED ? null : <BalanceSourceNote />}
           </>
         )}
       </QueryGate>

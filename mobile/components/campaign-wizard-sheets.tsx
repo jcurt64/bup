@@ -4,6 +4,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 
+import { BalanceSourceNote } from "./balance-source-note";
 import { BottomSheet } from "./bottom-sheet";
 import { eur } from "./screen";
 import { useTheme } from "../lib/theme";
@@ -92,6 +93,9 @@ export function InsufficientBalanceSheet({
           </Text>
         </View>
       </View>
+
+      {/* Achats masqués : mention neutre à la place du bouton de recharge. */}
+      {onRecharge ? null : <BalanceSourceNote style={{ marginTop: 12 }} />}
 
       <View className="mt-5 flex-row" style={{ gap: 10 }}>
         <Pressable

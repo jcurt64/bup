@@ -20,3 +20,9 @@ export const PURCHASES_ENABLED =
     : Platform.OS === "android"
       ? ANDROID_PURCHASES_ALLOWED
       : true;
+
+// Texte informatif affiché À LA PLACE des boutons de recharge quand les
+// achats sont masqués. Volontairement neutre (App Store 3.1.1 / Play) :
+// aucun lien, aucun bouton, aucun prix, aucune incitation à acheter ailleurs.
+export const BALANCE_SOURCE_NOTE =
+  "Votre solde s'approvisionne depuis votre espace professionnel sur le web.";

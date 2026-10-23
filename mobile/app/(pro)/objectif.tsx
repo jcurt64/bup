@@ -56,6 +56,7 @@ import { RechargeSheet } from "../../components/recharge-sheet";
 import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
 import { PURCHASES_ENABLED } from "../../lib/purchases";
+import { BalanceSourceNote } from "../../components/balance-source-note";
 
 // Dégradé violet de l'en-tête/succès (115deg du design), thémé.
 const HERO_GRADIENT: Record<ThemeMode, readonly [string, string, string]> = {
@@ -1574,6 +1575,8 @@ export default function ProWizard() {
                 <Ionicons name="add" size={15} color="#FFFFFF" />
                 <Text className="text-[13px] font-semibold text-white">Recharger votre crédit</Text>
               </Pressable>
+            ) : !fundsOk ? (
+              <BalanceSourceNote style={{ marginTop: 8 }} />
             ) : null}
           </Card>
 
@@ -1959,7 +1962,9 @@ export default function ProWizard() {
                   <Ionicons name="add" size={15} color="#FFFFFF" />
                   <Text className="text-[13px] font-semibold text-white">Recharger votre crédit</Text>
                 </Pressable>
-              ) : null}
+              ) : (
+                <BalanceSourceNote color={c.bad} style={{ marginTop: 8 }} />
+              )}
             </View>
           ) : null}
 
