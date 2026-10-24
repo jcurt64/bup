@@ -1480,9 +1480,13 @@ export default function ProWizard() {
               onPress={() => (excludeCertified ? setExcludeCertified(false) : setConfirmExclude(true))}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: excludeCertified }}
-              className="mt-2.5 flex-row items-center justify-center rounded-full px-3 py-2.5 active:opacity-80"
+              className="mt-2.5 flex-row items-center justify-center rounded-full active:opacity-80"
               style={{
                 gap: 8,
+                // Padding en style (et non en classe) : appliqué de façon
+                // identique sur iOS et Android, avec un texte sur 2 lignes.
+                paddingVertical: 12,
+                paddingHorizontal: 14,
                 borderWidth: 1.5,
                 borderColor: c.accVioletDeep,
                 backgroundColor: excludeCertified ? c.accVioletDeep : c.surface,
@@ -1493,7 +1497,10 @@ export default function ProWizard() {
                 size={16}
                 color={excludeCertified ? "#FFFFFF" : c.accVioletDeep}
               />
-              <Text className="text-[12.5px] font-semibold" style={{ color: excludeCertified ? "#FFFFFF" : c.text }}>
+              <Text
+                className="text-[12.5px] font-semibold"
+                style={{ flexShrink: 1, textAlign: "center", color: excludeCertified ? "#FFFFFF" : c.text }}
+              >
                 Retirer les « certifié confiance » de ma cible
               </Text>
             </Pressable>

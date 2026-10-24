@@ -253,10 +253,14 @@ export function ScrollScreen({
               <GradientHero {...hero} />
             </Animated.View>
           ) : null}
-          {/* Apparition en cascade des blocs de la page (glissé + fondu). */}
+          {/* Apparition en cascade des blocs de la page (glissé + fondu).
+              `gap` répété sur l'enveloppe : un bloc qui rend plusieurs
+              cartes d'un coup (ex. QueryGate → fragment) garde l'espacement
+              de 16 px entre elles, comme le contentContainer. */}
           {Children.toArray(children).map((child, i) => (
             <Animated.View
               key={i}
+              style={{ gap: 16 }}
               entering={FadeInDown.delay(80 + Math.min(i, 8) * 70)
                 .duration(420)
                 .springify()
