@@ -33,6 +33,10 @@ export type CampaignDraft = {
   vitrineUrl?: string;
   vitrineAdded?: boolean;
   vitrineModalSeen?: boolean;
+  /** « Exclure les prospects ayant déjà accepté une de mes campagnes ». */
+  excludePastAcceptors?: boolean;
+  /** Le pro a modifié l'option lui-même (sinon défaut selon l'objectif). */
+  excludePastAcceptorsTouched?: boolean;
   updatedAt: number;
 };
 

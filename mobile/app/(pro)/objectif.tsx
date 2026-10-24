@@ -31,6 +31,7 @@ import {
   type VerifLevel,
 } from "../../lib/pro-pricing";
 import {
+  campaignExcludesPastAcceptors,
   useCreateCampaign,
   useProCampaign,
   useProCampaigns,
@@ -107,6 +108,12 @@ function fmtDayLong(ts: number): string {
   return new Date(ts).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 /** Relit une liste de mots-clés (tableau, ou ancienne chaîne « a, b »). */
+// Défaut de l'option « exclure les anciens acceptants » : cochée pour les
+// objectifs où l'on paie un contact (contact, rdv), décochée sinon.
+function excludePastDefault(objectiveId: string | undefined | null): boolean {
+  return objectiveId === "contact" || objectiveId === "rdv";
+}
+
 function readKeywords(v: unknown): string[] {
   if (Array.isArray(v)) return v.filter((k): k is string => typeof k === "string" && !!k.trim());
   if (typeof v === "string") {
@@ -353,6 +360,12 @@ export default function ProWizard() {
   const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
   const [excludeCertified, setExcludeCertified] = useState(false);
   const [confirmExclude, setConfirmExclude] = useState(false);
+  // « Exclure les prospects ayant déjà accepté une de mes campagnes » (12
+  // derniers mois) — cochée par défaut pour contact/rdv (on ne paie pas deux
+  // fois le même contact), décochée sinon. Le défaut est ré-appliqué quand
+  // l'objectif change, sauf si le pro a touché l'option lui-même.
+  const [excludePast, setExcludePast] = useState(false);
+  const [excludePastTouched, setExcludePastTouched] = useState(false);
   const [cpcCents, setCpcCents] = useState(100);
   const [contacts, setContacts] = useState("50");
   // Mode de campagne — le web envoie `standard` (mise en relation
@@ -393,6 +406,10 @@ export default function ProWizard() {
   const [rechargeSuggestEur, setRechargeSuggestEur] = useState<number | undefined>(undefined);
   const [showRecharge, setShowRecharge] = useState(false);
 
+  useEffect(() => {
+    if (!excludePastTouched) setExcludePast(excludePastDefault(id));
+  }, [id, excludePastTouched]);
+
   // Message « palier 1 obligatoire » transitoire (4 s, comme le web).
   useEffect(() => {
     if (!tier1Notice) return;
@@ -420,6 +437,10 @@ export default function ProWizard() {
         setVerif(d.verif as VerifLevel);
         setMinFiab(d.minFiab ?? 0);
         setExcludeCertified(d.excludeCertified);
+        if (d.excludePastAcceptorsTouched === true && typeof d.excludePastAcceptors === "boolean") {
+          setExcludePast(d.excludePastAcceptors);
+          setExcludePastTouched(true);
+        }
         setCpcCents(d.cpcCents);
         setContacts(d.contacts);
         setPoolMode(d.poolMode === "pool" ? "pool" : "standard");
@@ -481,6 +502,9 @@ export default function ProWizard() {
     setKeywords(readKeywords(tg.keywords));
     setKwFilter(!!tg.kwFilter && (tg.keywords ?? []).length > 0);
     setExcludeCertified(!!tg.excludeCertified);
+    // Option reprise telle quelle de la campagne source (serveur antérieur → false).
+    setExcludePast(campaignExcludesPastAcceptors(d));
+    setExcludePastTouched(true);
     if (d.plannedContacts > 0) setContacts(String(d.plannedContacts));
     if (d.costPerContactEur > 0) setCpcCents(Math.round(d.costPerContactEur * 100));
     setBrief((d.brief ?? "").slice(0, BRIEF_MAX_LENGTH));
@@ -507,6 +531,8 @@ export default function ProWizard() {
       verif,
       minFiab,
       excludeCertified,
+      excludePastAcceptors: excludePast,
+      excludePastAcceptorsTouched: excludePastTouched,
       cpcCents,
       contacts,
       poolMode,
@@ -519,7 +545,7 @@ export default function ProWizard() {
       vitrineModalSeen,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, tiers, geo, geoTarget, radiusKm, startDay, ages, verif, minFiab, excludeCertified, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
+  }, [hydrated, id, step, subTypes, duration, tiers, geo, geoTarget, radiusKm, startDay, ages, verif, minFiab, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
   // RGPD + plan : on ne garde que les paliers autorisés ; le palier 1
   // (identification) est toujours présent (miroir de l'effet web).
@@ -865,6 +891,7 @@ export default function ProWizard() {
         kwFilter: kwFilter && keywords.length > 0,
         poolMode,
         excludeCertified,
+        excludePastAcceptors: excludePast,
         minFiabilite: minFiab,
         founder_bonus_enabled: founderBonus,
         // « La Vitrine » — URL https du site (le serveur re-valide et recalcule
@@ -1458,6 +1485,44 @@ export default function ProWizard() {
               </Text>
             ) : null}
           </View>
+          {/* Exclusion des prospects ayant déjà accepté une autre campagne de
+              ce pro (12 derniers mois) — même rendu que « Retirer les
+              certifié confiance » (étape 5). */}
+          <View>
+            <Pressable
+              onPress={() => {
+                setExcludePast((v) => !v);
+                setExcludePastTouched(true);
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: excludePast }}
+              className="flex-row items-center justify-center rounded-full active:opacity-80"
+              style={{
+                gap: 8,
+                // Padding en style (et non en classe) : identique iOS/Android.
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                borderWidth: 1.5,
+                borderColor: c.accVioletDeep,
+                backgroundColor: excludePast ? c.accVioletDeep : c.surface,
+              }}
+            >
+              <Ionicons
+                name={excludePast ? "checkbox" : "square-outline"}
+                size={16}
+                color={excludePast ? "#FFFFFF" : c.accVioletDeep}
+              />
+              <Text
+                className="text-[12.5px] font-semibold"
+                style={{ flexShrink: 1, textAlign: "center", color: excludePast ? "#FFFFFF" : c.text }}
+              >
+                Exclure les prospects ayant déjà accepté une de mes campagnes (12 derniers mois)
+              </Text>
+            </Pressable>
+            <Text className="mt-1.5 text-center text-[11.5px] text-ink-4">
+              Vous ne payez pas deux fois le même contact.
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -1848,6 +1913,7 @@ export default function ProWizard() {
               ["Tranches d'âge", ages.size === 0 ? "Toutes" : [...ages].filter((a) => a !== "Tous").join(", ") || "Toutes"],
               ["Vérification", VERIF_LEVELS.find((v) => v.key === verif)?.label ?? verif],
               ["Certifiés confiance", excludeCertified ? "Exclus" : "Inclus (gains ×2)"],
+              ["Anciens acceptants", excludePast ? "Exclus (12 derniers mois)" : "Inclus"],
               ["Fiabilité minimum", minFiab === 0 ? "Toutes (aucun filtre)" : `≥ ${minFiab} / 100`],
               ["Mode", poolMode === "pool" ? "BUUPP Pool — enchère groupée" : "Mise en relation individuelle"],
               ["Mots-clés", keywords.length ? `${keywords.join(", ")}${kwFilter ? " (filtre strict)" : ""}` : "Aucun"],

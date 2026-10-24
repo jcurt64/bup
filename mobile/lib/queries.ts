@@ -868,11 +868,21 @@ export type Campaign = {
   endsAt?: string | null;
   /** Description courte (« brief ») — affichée en tagline dans la liste premium. */
   brief?: string | null;
+  /** « Exclure les anciens acceptants » (absent sur un serveur antérieur). */
+  excludePastAcceptors?: boolean;
 };
 export const useProCampaigns = () =>
   useGet<{ campaigns: Campaign[] }>(["pro", "campaigns"], "/api/pro/campaigns", 30_000);
 
 // — Détail d'une campagne — GET /api/pro/campaigns/[id]
+/** Option « exclure les anciens acceptants » d'une campagne détaillée : lue à
+ *  la racine ou dans `targeting` ; absente (serveur antérieur) → false. */
+export function campaignExcludesPastAcceptors(d: {
+  excludePastAcceptors?: boolean;
+  targeting?: { excludePastAcceptors?: boolean } | null;
+}): boolean {
+  return d.excludePastAcceptors === true || d.targeting?.excludePastAcceptors === true;
+}
 export type CampaignFunnel = {
   matched: number;
   sent: number;
@@ -927,7 +937,13 @@ export type ProCampaignDetail = {
     days: number | null;
     durationKey: string | null;
     excludeCertified: boolean;
+    /** « Exclure les prospects ayant déjà accepté une de mes campagnes
+     *  (12 derniers mois) » — lu aussi à la racine (cf. `excludePastAcceptors`). */
+    excludePastAcceptors?: boolean;
   };
+  /** Option « exclure les anciens acceptants » (absente sur un serveur
+   *  antérieur → traiter comme false). */
+  excludePastAcceptors?: boolean;
   plannedContacts: number;
   funnel: CampaignFunnel;
   acceptanceRate: number | null;
@@ -975,6 +991,9 @@ export type EditCampaignBody = {
   verifLevel?: string;
   /** Seuil de fiabilité minimum — baisser seulement (80 → 60 → 0). */
   minFiabilite?: number;
+  /** Exclusion des anciens acceptants — désactivable seulement (false) ;
+   *  l'activer en cours de campagne est refusé (400 élargir-seulement). */
+  excludePastAcceptors?: false;
 };
 export type EditCampaignResult = {
   ok: true;
@@ -1339,6 +1358,9 @@ export type CreateCampaignInput = {
   kwFilter: boolean;
   poolMode: string;
   excludeCertified: boolean;
+  /** Exclure les prospects ayant déjà accepté (accepted/settled) une autre
+   *  campagne de ce pro sur les 12 derniers mois (exclus au matching). */
+  excludePastAcceptors?: boolean;
   /** Seuil de fiabilité minimum (0 = aucun filtre, 60 = bonne, 80 = excellente).
    *  Le serveur ne retient que les prospects dont `fiabilite_pct >= seuil`. */
   minFiabilite?: number;

@@ -7,7 +7,8 @@
 // exclu du projet) ; titre en Fraunces (font-serif).
 //
 // Règle métier inchangée : on ne peut qu'ÉLARGIR (jamais restreindre) — lien
-// Vitrine, zone géo, tranche d'âge, niveau de vérification, fiabilité minimum. Le
+// Vitrine, zone géo, tranche d'âge, niveau de vérification, fiabilité minimum,
+// exclusion des anciens acceptants (retirable seulement). Le
 // serveur applique le garde-fou (cf. lib/campaigns/edit-targeting.ts côté web).
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ import {
 import { ApiError, useApi } from "../lib/api";
 import { AGE_RANGES_NO_TOUS } from "../lib/pro-pricing";
 import {
+  campaignExcludesPastAcceptors,
   useEditCampaign,
   type EditCampaignBody,
   type EditCampaignGeo,
@@ -66,6 +68,8 @@ const ERR_LABELS: Record<string, string> = {
   verif_invalid: "Niveau de vérification invalide.",
   fiabilite_not_widening: "Le seuil de fiabilité ne peut être que baissé, pas relevé.",
   fiabilite_invalid: "Seuil de fiabilité invalide.",
+  exclude_past_acceptors_not_widening:
+    "L'exclusion des prospects ayant déjà accepté une de vos campagnes ne peut être que retirée, pas activée.",
 };
 
 // Niveaux de vérification (du plus large au plus strict) — libellés web.
@@ -116,16 +120,19 @@ function geoPayloadForStep(step: GeoStep): EditCampaignGeo {
   return { mode: "zone", level: step.level as "dept" | "region" };
 }
 
-function parseErrCode(e: unknown): string {
+function parseErr(e: unknown): { code: string; message: string | null } {
   if (e instanceof ApiError) {
     try {
-      const j = JSON.parse(e.body) as { error?: string };
-      if (j?.error) return j.error;
+      const j = JSON.parse(e.body) as { error?: unknown; message?: unknown };
+      return {
+        code: typeof j?.error === "string" ? j.error : "",
+        message: typeof j?.message === "string" ? j.message : null,
+      };
     } catch {
       /* corps non JSON */
     }
   }
-  return "";
+  return { code: "", message: null };
 }
 
 // Libellé « mono » de la maquette (capitales + interlettrage).
@@ -222,6 +229,8 @@ export function EditCampaignSheet({
   const [locked, setLocked] = useState<Set<string>>(() => new Set());
   const [verif, setVerif] = useState("p0");
   const [minFiab, setMinFiab] = useState(0);
+  // Exclusion des anciens acceptants : décochable seulement (élargir).
+  const [excludePast, setExcludePast] = useState(false);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -241,6 +250,7 @@ export function EditCampaignSheet({
     setChosenIndex(gm.currentIndex);
     setVerif(d.targeting?.verifLevel || "p0");
     setMinFiab(Number(d.targeting?.minFiabilite ?? 0));
+    setExcludePast(campaignExcludesPastAcceptors(d));
     setErr(null);
     setLoadedId(d.id);
   }, [d, loadedId]);
@@ -272,8 +282,11 @@ export function EditCampaignSheet({
   const baseFiab = Number(d?.targeting?.minFiabilite ?? 0);
   const verifChanged = verif !== baseVerif;
   const fiabChanged = minFiab !== baseFiab;
+  const baseExcludePast = d ? campaignExcludesPastAcceptors(d) : false;
+  const excludePastChanged = baseExcludePast && !excludePast;
   const canSubmit =
-    !edit.isPending && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged);
+    !edit.isPending &&
+    (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged || excludePastChanged);
 
   const geoHelp = geoChanged
     ? `Cible élargie à « ${geoModel!.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
@@ -288,6 +301,7 @@ export function EditCampaignSheet({
     if (geoChanged) body.geo = geoPayloadForStep(geoModel!.steps[chosenIndex]);
     if (verifChanged) body.verifLevel = verif;
     if (fiabChanged) body.minFiabilite = minFiab;
+    if (excludePastChanged) body.excludePastAcceptors = false;
     if (Object.keys(body).length === 0) {
       setErr(ERR_LABELS.nothing_to_update);
       return;
@@ -297,8 +311,8 @@ export function EditCampaignSheet({
       await edit.mutateAsync(body);
       onClose();
     } catch (e) {
-      const code = parseErrCode(e);
-      setErr(ERR_LABELS[code] || "Échec de l'enregistrement. Réessayez.");
+      const { code, message } = parseErr(e);
+      setErr(ERR_LABELS[code] || message || "Échec de l'enregistrement. Réessayez.");
     }
   };
 
@@ -522,6 +536,43 @@ export function EditCampaignSheet({
                     }))}
                     help="Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé."
                   />
+
+                  {/* 6) Anciens acceptants — l'exclusion peut être retirée
+                      (élargissement), jamais activée en cours de campagne. */}
+                  <View style={{ marginTop: 22 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                      <Text style={{ fontSize: 11, color: C.ink3, ...MONO }}>Anciens acceptants</Text>
+                      <View style={{ marginLeft: "auto", backgroundColor: C.indigoSoft, borderWidth: 1, borderColor: "rgba(90,87,214,0.22)", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 }}>
+                        <Text style={{ fontSize: 10, color: C.indigoD, ...MONO }}>Actuel · {baseExcludePast ? "Exclus" : "Inclus"}</Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      disabled={!baseExcludePast}
+                      onPress={() => setExcludePast((v) => !v)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: excludePast, disabled: !baseExcludePast }}
+                      style={{
+                        flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1.5,
+                        borderColor: excludePastChanged ? C.indigo : !baseExcludePast ? C.lineSoft : C.ink,
+                        backgroundColor: excludePastChanged ? C.indigoXsoft : !baseExcludePast ? C.paper : "#fff",
+                      }}
+                    >
+                      <Ionicons
+                        name={excludePast ? "checkbox" : "square-outline"}
+                        size={16}
+                        color={!baseExcludePast ? C.ink4 : excludePastChanged ? C.indigo : C.ink}
+                      />
+                      <Text style={{ flex: 1, fontSize: 13.5, fontWeight: "600", color: !baseExcludePast ? C.ink4 : excludePastChanged ? C.indigoD : C.ink }}>
+                        Exclure les prospects ayant déjà accepté une de mes campagnes (12 derniers mois)
+                      </Text>
+                      {!baseExcludePast ? <Ionicons name="lock-closed" size={12} color={C.ink4} /> : null}
+                    </Pressable>
+                    <Text style={{ fontSize: 12, color: C.ink3, marginTop: 9, lineHeight: 17 }}>
+                      {baseExcludePast
+                        ? "Décochez pour solliciter aussi les prospects ayant déjà accepté une de vos campagnes."
+                        : "Option non activée : elle ne peut pas être ajoutée à une campagne en cours."}
+                    </Text>
+                  </View>
 
                   {err ? (
                     <View style={{ marginTop: 16, padding: 11, borderRadius: 12, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}>
