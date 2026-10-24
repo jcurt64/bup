@@ -53,6 +53,9 @@ const isPublicRoute = createRouteMatcher([
   "/contact",
   "/contact-dpo",
   "/contact-dpo/formulaire",
+  // /suppression-compte : procédure de suppression du compte, lien exigé
+  // par Google Play (Sécurité des données) — doit rester accessible sans compte.
+  "/suppression-compte",
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
