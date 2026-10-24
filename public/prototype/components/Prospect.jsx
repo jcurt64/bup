@@ -227,6 +227,10 @@ function ProspectProvider({ children }) {
     return `Pas trop vite 😊 vous pouvez accepter ou refuser cette sollicitation qu'une fois toutes les 5 minutes. Réessayez dans ${label}.`;
   };
 
+  // Popup d'information renvoyée par la route de décision (ex. 409
+  // `already_accepted_pro`). Forme : { title, message } | null.
+  const [decisionNotice, setDecisionNotice] = useState(null);
+
   const postDecision = async (id, action, extra) => {
     // Pré-check local (per-relation) — évite un aller-retour réseau et
     // déclenche l'alerte avec un countdown précis.
@@ -249,6 +253,17 @@ function ProspectProvider({ children }) {
         // remonte le message serveur via une alerte native — sinon l'utilisateur
         // enchaîne les clics sans comprendre pourquoi l'optimistic UI revient
         // en arrière à chaque fois.
+        // Campagne réservée aux nouveaux contacts du pro (option « exclure
+        // les anciens acceptants ») : popup dédiée avec le message serveur.
+        if (j?.error === 'already_accepted_pro') {
+          setDecisionNotice({
+            title: 'Offre non disponible',
+            message: typeof j?.message === 'string'
+              ? j.message
+              : 'Vous avez déjà accepté une campagne de ce professionnel : cette offre ne vous est pas destinée.',
+          });
+          return false;
+        }
         if (
           (j?.error === 'rate_limited' || j?.error === 'accept_restricted') &&
           typeof j?.message === 'string'
@@ -482,6 +497,7 @@ function ProspectProvider({ children }) {
       pendingRelationsCount, relationsHydrated,
       acceptGate, setAcceptGate, pendingAccept, setPendingAccept, acceptReady, setAcceptReady,
       phoneConsent, setPhoneConsent, finalizeAccept,
+      decisionNotice, setDecisionNotice,
       isFounder,
     }}>
       {children}
@@ -525,6 +541,7 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     pendingAccept, setPendingAccept,
     acceptReady, setAcceptReady,
     phoneConsent, setPhoneConsent, finalizeAccept,
+    decisionNotice, setDecisionNotice,
   } = useProspect();
 
   // Surveille le palier que le prospect est parti compléter après un clic
@@ -641,6 +658,13 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
           finalizeAccept(id);
         }}
         onRefuse={() => setPhoneConsent(null)}
+      />
+    )}
+    {decisionNotice && (
+      <DecisionNoticeModal
+        title={decisionNotice.title}
+        message={decisionNotice.message}
+        onClose={() => setDecisionNotice(null)}
       />
     )}
     </>
@@ -5533,6 +5557,34 @@ function AcceptReadyModal({ onBack, onClose }) {
         <button onClick={onBack} className="btn btn-primary btn-sm">
           <Icon name="handshake" size={12}/> Retourner à la sollicitation
         </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Popup d'information après un refus d'acceptation côté serveur (ex. 409
+// `already_accepted_pro` : campagne réservée aux nouveaux contacts du pro).
+function DecisionNoticeModal({ title, message, onClose }) {
+  return (
+    <ModalShell title={title} onClose={onClose}>
+      <div className="alert-block" style={{
+        padding: 16, borderRadius: 10, marginBottom: 18,
+        background: 'color-mix(in oklab, var(--accent) 7%, var(--paper))',
+        border: '1.5px solid color-mix(in oklab, var(--accent) 35%, var(--line))',
+        color: 'var(--ink-2)',
+        display: 'flex', gap: 14, alignItems: 'flex-start'
+      }}>
+        <div style={{
+          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
+          background: 'var(--accent)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="alert" size={18} stroke={2.25}/>
+        </div>
+        <div style={{ flex: 1, fontSize: 13.5, lineHeight: 1.6 }}>{message}</div>
+      </div>
+      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose} className="btn btn-primary btn-sm">J'ai compris</button>
       </div>
     </ModalShell>
   );

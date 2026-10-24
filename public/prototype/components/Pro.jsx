@@ -1653,6 +1653,8 @@ const EDIT_ERR_LABELS = {
   verif_invalid: "Niveau de vérification invalide.",
   fiabilite_not_widening: "Le seuil de fiabilité ne peut être que baissé, pas relevé.",
   fiabilite_invalid: "Seuil de fiabilité invalide.",
+  exclude_past_acceptors_not_widening: "L'exclusion des anciens acceptants ne peut être que désactivée en cours de campagne.",
+  exclude_past_acceptors_invalid: "Valeur invalide pour l'exclusion des anciens acceptants.",
 };
 
 // Seuils de fiabilité minimum proposés dans la popup d'édition (du plus large
@@ -1727,6 +1729,9 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
   const [baseVerif, setBaseVerif] = useState('p0');   // niveau courant (plafond)
   const [minFiab, setMinFiab] = useState(0);          // seuil de fiabilité retenu (<= courant)
   const [baseFiab, setBaseFiab] = useState(0);        // seuil courant (plafond)
+  // Exclusion des anciens acceptants : désactivable seulement (true → false).
+  const [excludePast, setExcludePast] = useState(false);
+  const [baseExcludePast, setBaseExcludePast] = useState(false);
 
   const BUCKETS = AGE_RANGES.filter(a => a !== 'Tous');
 
@@ -1750,6 +1755,8 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
         setVerif(curVerif); setBaseVerif(curVerif);
         const curFiab = Number(j.targeting?.minFiabilite ?? 0);
         setMinFiab(curFiab); setBaseFiab(curFiab);
+        const curExcl = j.targeting?.excludePastAcceptors === true;
+        setExcludePast(curExcl); setBaseExcludePast(curExcl);
       })
       .catch(e => { if (!cancelled) setLoadError(e.message || 'load_failed'); });
     return () => { cancelled = true; };
@@ -1779,7 +1786,8 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
   const baseVerifRank = verifRank(baseVerif);
   const verifChanged = verif !== baseVerif;
   const fiabChanged = minFiab !== baseFiab;
-  const canSubmit = !submitting && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged);
+  const excludePastChanged = baseExcludePast && !excludePast;
+  const canSubmit = !submitting && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged || excludePastChanged);
 
   const geoHelp = geoChanged
     ? `Cible élargie à « ${geoModel.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
@@ -1794,6 +1802,7 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
     if (geoChanged) payload.geo = geoPayloadForStep(geoModel.steps[chosenIndex]);
     if (verifChanged) payload.verifLevel = verif;
     if (fiabChanged) payload.minFiabilite = minFiab;
+    if (excludePastChanged) payload.excludePastAcceptors = false;
     if (Object.keys(payload).length === 0) { setErr(EDIT_ERR_LABELS.nothing_to_update); return; }
     setSubmitting(true); setErr(null);
     try {
@@ -1999,6 +2008,38 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
                   })}
                 </div>
                 <p className="ecm-geohelp">Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé.</p>
+              </div>
+
+              {/* 6) Exclusion des anciens acceptants — DÉSACTIVER seulement.
+                  Case grisée quand l'option est déjà inactive (l'activer
+                  restreindrait la cible). */}
+              <div className="ecm-field">
+                <div className="ecm-flabel">
+                  <span className="k">Anciens acceptants</span>
+                  <span className="cur">Actuel · {baseExcludePast ? 'Exclus' : 'Inclus'}</span>
+                </div>
+                <label style={{
+                  display: 'flex', gap: 10, alignItems: 'flex-start',
+                  padding: '12px 14px', borderRadius: 13,
+                  border: '1px solid var(--ecm-line)', background: baseExcludePast ? 'var(--ecm-card)' : 'var(--ecm-paper)',
+                  cursor: baseExcludePast ? 'pointer' : 'not-allowed', opacity: baseExcludePast ? 1 : 0.6,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={excludePast}
+                    disabled={!baseExcludePast}
+                    onChange={(e) => { if (baseExcludePast) setExcludePast(e.target.checked); }}
+                    style={{ width: 15, height: 15, accentColor: 'var(--ecm-indigo)', flexShrink: 0, marginTop: 2 }}
+                  />
+                  <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--ecm-ink-2)' }}>
+                    Exclure les prospects ayant déjà accepté une de mes campagnes (12 derniers mois)
+                  </span>
+                </label>
+                <p className="ecm-geohelp">
+                  {baseExcludePast
+                    ? 'Décochez pour solliciter aussi vos anciens acceptants ; l\'option ne pourra pas être réactivée.'
+                    : 'Option inactive sur cette campagne — elle ne peut pas être activée en cours de diffusion.'}
+                </p>
               </div>
 
               {err && <div className="ecm-state ecm-error">{err}</div>}
@@ -3433,6 +3474,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         verif, contacts, durationKey, poolMode,
         keywords, kwInput, kwFilter,
         startDate, endDate, brief,
+        excludePastAcceptors, excludePastTouched,
       };
       safeTopLocal().setItem(k, JSON.stringify(draft));
     } catch (e) { console.warn('saveDraft failed', e); }
@@ -3502,6 +3544,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       setKeywords(d.keywords || []);
       setKwInput(d.kwInput || '');
       setKwFilter(Boolean(d.kwFilter));
+      if (typeof d.excludePastAcceptors === 'boolean') {
+        setExcludePastAcceptors(d.excludePastAcceptors);
+        setExcludePastTouched(Boolean(d.excludePastTouched));
+      }
       setStartDate(todayIso());
       setEndDate(d.endDate || isoPlusDays(8));
       setBrief(d.brief || '');
@@ -3637,6 +3683,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         if (Array.isArray(tg.keywords)) setKeywords(tg.keywords);
         if (typeof tg.kwFilter === 'boolean') setKwFilter(tg.kwFilter);
         if (typeof tg.excludeCertified === 'boolean') setExcludeCertified(tg.excludeCertified);
+        // Option « anciens acceptants » : valeur de la campagne d'origine,
+        // verrouillée contre le défaut par objectif (touched = true).
+        if (typeof tg.excludePastAcceptors === 'boolean') {
+          setExcludePastAcceptors(tg.excludePastAcceptors);
+          setExcludePastTouched(true);
+        }
         if (typeof d.plannedContacts === 'number' && d.plannedContacts > 0) setContacts(d.plannedContacts);
         if (typeof d.brief === 'string') setBrief(d.brief);
         if (d.name) setDupSourceName(d.name);
@@ -3715,6 +3767,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const [excludeCertified, setExcludeCertified] = useState(false);
   // Affiche la confirmation quand le pro coche la case (false → true).
   const [confirmExcludeCertified, setConfirmExcludeCertified] = useState(false);
+  // Étape 4 : exclure les prospects ayant déjà accepté une campagne de ce pro
+  // (12 derniers mois — cf. lib/campaigns/past-acceptors.ts). Coché par défaut
+  // pour les objectifs « contact » et « rdv » ; le défaut est ré-appliqué au
+  // changement d'objectif TANT QUE le pro n'a pas touché la case
+  // (`excludePastTouched`). Duplication / brouillon = valeur explicite.
+  const [excludePastAcceptors, setExcludePastAcceptors] = useState(false);
+  const [excludePastTouched, setExcludePastTouched] = useState(false);
+  useEffect(() => {
+    // `selectedObj == null` (montage / reset) : rien à appliquer — évite
+    // d'écraser une valeur restaurée (brouillon) dans le même commit.
+    if (excludePastTouched || selectedObj == null) return;
+    setExcludePastAcceptors(selectedObj === 'contact' || selectedObj === 'rdv');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedObj]);
   // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
   // acceptation par un fondateur coûte 2× le tarif palier choisi.
   // Désactivé par défaut — opt-in volontaire.
@@ -3768,6 +3834,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     step, plan, selectedObj, selectedSubs, selectedTiers,
     geo, geoTarget, radiusKm, ages, verif, minFiab, contacts, durationKey, poolMode,
     keywords, kwInput, kwFilter, startDate, endDate, brief,
+    excludePastAcceptors, excludePastTouched,
   ]);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
@@ -3886,6 +3953,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     setPoolMode('standard');
     setExcludeCertified(false);
     setConfirmExcludeCertified(false);
+    setExcludePastAcceptors(false);
+    setExcludePastTouched(false);
     setFounderBonusEnabled(false);
     setKeywords([]);
     setKwInput('');
@@ -4701,6 +4770,39 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 </div>
               )}
             </div>
+
+            {/* Exclusion des anciens acceptants — même pro, 12 derniers mois.
+                Coché par défaut pour « contact » / « rdv » (cf. état plus haut). */}
+            <div style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+              <label
+                className="row gap-2"
+                style={{
+                  alignItems: 'flex-start',
+                  padding: '10px 14px', borderRadius: 12,
+                  background: excludePastAcceptors ? 'color-mix(in oklab, var(--accent) 10%, var(--paper))' : 'var(--paper)',
+                  border: '1.5px solid ' + (excludePastAcceptors ? 'var(--accent)' : 'var(--line-2)'),
+                  cursor: 'pointer', maxWidth: '100%', boxSizing: 'border-box',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={excludePastAcceptors}
+                  onChange={(e) => {
+                    setExcludePastAcceptors(e.target.checked);
+                    setExcludePastTouched(true);
+                  }}
+                  style={{ width: 15, height: 15, accentColor: 'var(--accent)', flexShrink: 0, marginTop: 2 }}
+                />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500, color: 'var(--ink)' }}>
+                    Exclure les prospects ayant déjà accepté une de mes campagnes (12 derniers mois)
+                  </span>
+                  <span className="muted" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
+                    Vous ne payez pas deux fois le même contact.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
         )}
 
@@ -5266,6 +5368,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 ["Tranches d'âge", ages.size === 0 ? 'Toutes (aucune restriction)' : Array.from(ages).join(', ')],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
                 ['Fiabilité minimum', minFiab === 0 ? 'Toutes (aucun filtre)' : `≥ ${minFiab} / 100`],
+                ['Anciens acceptants', excludePastAcceptors ? 'Exclus (12 derniers mois)' : 'Inclus'],
                 ['Mode', poolMode === 'pool' ? 'BUUPP Pool — enchère groupée' : 'Mise en relation individuelle'],
                 ['Contacts', contacts + ' contacts'],
                 ['Le mot du pro', brief ? '« ' + brief + ' »' : '—'],
@@ -5530,6 +5633,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                         budgetCents: Math.round(total * 100),
                         keywords, kwFilter, poolMode,
                         excludeCertified,
+                        excludePastAcceptors,
                         founder_bonus_enabled: founderBonusEnabled,
                         // « La Vitrine » — URL https du site (le serveur
                         // re-valide et recalcule le tarif : offert à la 1re

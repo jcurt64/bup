@@ -934,6 +934,9 @@ function FlashDealModal({
   );
   const [switchingAccount, setSwitchingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Popup d'information (ex. 409 `already_accepted_pro` : campagne réservée
+  // aux nouveaux contacts du pro). Message serveur affiché tel quel.
+  const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
   // Consentement préalable spécifique au canal TÉLÉPHONE (réforme française
   // du démarchage téléphonique = opt-in) — même étape que l'onglet « Mises
   // en relation » du dashboard (cf. PhoneConsentModal dans Prospect.jsx).
@@ -1034,6 +1037,20 @@ function FlashDealModal({
       ? (e as Error & { serverMessage?: string }).serverMessage
       : undefined;
 
+  // Erreur de décision → popup dédiée pour `already_accepted_pro`, sinon
+  // message inline habituel.
+  const reportDecisionError = (e: unknown) => {
+    const code = e instanceof Error ? e.message : "";
+    if (code === "already_accepted_pro") {
+      setDecisionNotice(
+        extractServerMessage(e) ??
+          "Vous avez déjà accepté une campagne de ce professionnel : cette offre ne vous est pas destinée.",
+      );
+      return;
+    }
+    setError(friendlyDecisionError(code, extractServerMessage(e)));
+  };
+
   const decide = async (
     action: "accept" | "refuse",
     opts?: { phoneConsent?: boolean },
@@ -1067,8 +1084,7 @@ function FlashDealModal({
       setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
-      const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code, extractServerMessage(e)));
+      reportDecisionError(e);
     } finally {
       setSubmitting(null);
     }
@@ -1099,8 +1115,7 @@ function FlashDealModal({
       setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
-      const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code, extractServerMessage(e)));
+      reportDecisionError(e);
     } finally {
       setSubmitting(null);
     }
@@ -1142,8 +1157,7 @@ function FlashDealModal({
       setLastDecisionAtFor(deal.id, Date.now());
       await onAfterDecision();
     } catch (e) {
-      const code = e instanceof Error ? e.message : "";
-      setError(friendlyDecisionError(code, extractServerMessage(e)));
+      reportDecisionError(e);
     } finally {
       setSubmitting(null);
     }
@@ -1756,6 +1770,107 @@ function FlashDealModal({
           onRefuse={() => setPhoneConsentFor(null)}
         />
       )}
+      {decisionNotice && (
+        <DecisionNoticeDialog
+          message={decisionNotice}
+          onClose={() => setDecisionNotice(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Popup d'information superposée à la modale flash deal après un refus
+// d'acceptation côté serveur (ex. `already_accepted_pro`). Même habillage
+// que PhoneConsentDialog ; les clics ne remontent pas jusqu'au fond.
+function DecisionNoticeDialog({
+  message,
+  onClose,
+}: {
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Offre non disponible"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,22,41,.55)",
+        zIndex: 1001,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 440,
+          background: "var(--paper)",
+          borderRadius: 14,
+          padding: "clamp(18px, 4vw, 24px)",
+          boxShadow:
+            "0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)",
+        }}
+      >
+        <div
+          className="serif"
+          style={{ fontSize: 20, marginBottom: 14, color: "var(--ink)" }}
+        >
+          Offre non disponible
+        </div>
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 10,
+            marginBottom: 18,
+            background: "color-mix(in oklab, var(--accent) 8%, var(--paper))",
+            border:
+              "1.5px solid color-mix(in oklab, var(--accent) 40%, var(--line))",
+            color: "var(--ink-2)",
+            display: "flex",
+            gap: 14,
+            alignItems: "flex-start",
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              minWidth: 36,
+              borderRadius: "50%",
+              background: "var(--accent)",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="info" size={16} stroke={2} />
+          </div>
+          <div style={{ flex: 1, fontSize: 13.5, lineHeight: 1.6 }}>
+            {message}
+          </div>
+        </div>
+        <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
+          <button
+            onClick={onClose}
+            className="btn btn-sm"
+            style={{ background: "var(--ink)", color: "var(--paper)" }}
+          >
+            J&apos;ai compris
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
