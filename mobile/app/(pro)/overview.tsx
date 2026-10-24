@@ -17,6 +17,8 @@ import { eur, QueryGate, ScrollScreen, SectionTitle } from "../../components/scr
 import { useProOverview, useProTimeseries, type ProOverview } from "../../lib/queries";
 import { ALL_ACCEPTANCES_MAX, useProAcceptances } from "../../lib/queries-pro-analytics";
 import { useTheme, type ThemeMode } from "../../lib/theme";
+import { RechargeFab } from "../../components/recharge-fab";
+import { WEB_RECHARGE_LINK_ENABLED } from "../../lib/purchases";
 
 // Dégradé de la carte héros par thème (buupp = violet de l'image proto).
 const HERO_GRADIENT: Record<ThemeMode, readonly [string, string]> = {
@@ -1060,6 +1062,7 @@ export default function ProOverviewScreen() {
   const [allAccOpen, setAllAccOpen] = useState(false);
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollScreen onRefresh={q.refetch} headerVariant="pro">
       <SectionTitle
         eyebrow="Vue d'ensemble"
@@ -1212,5 +1215,8 @@ export default function ProOverviewScreen() {
       </QueryGate>
       <AllAcceptancesSheet visible={allAccOpen} onClose={() => setAllAccOpen(false)} colors={heroColors} />
     </ScrollScreen>
+      {/* Bouton flottant « crédit » → solde + recharge sur le site. */}
+      {WEB_RECHARGE_LINK_ENABLED ? <RechargeFab /> : null}
+    </View>
   );
 }
