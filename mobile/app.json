@@ -14,9 +14,6 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "privacyManifests": {
-        "NSPrivacyTracking": true
-      },
       "entitlements": {
         "com.apple.developer.applesignin": [
           "Default"
