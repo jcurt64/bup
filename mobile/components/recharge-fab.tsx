@@ -33,7 +33,7 @@ export function RechargeFab() {
           void wallet.refetch();
         }}
         accessibilityRole="button"
-        accessibilityLabel="Mon crédit"
+        accessibilityLabel={wallet.data ? `Mon crédit : ${eur(wallet.data.walletAvailableEur)}` : "Mon crédit"}
         className="active:opacity-85"
         style={{
           position: "absolute",
@@ -47,13 +47,29 @@ export function RechargeFab() {
           elevation: 8,
         }}
       >
+        {/* Pastille : icône + solde disponible (icône seule tant que le
+            solde n'est pas chargé). */}
         <LinearGradient
           colors={[c.accViolet, c.accVioletDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" }}
+          style={{
+            height: 56,
+            minWidth: 56,
+            borderRadius: 28,
+            paddingHorizontal: wallet.data ? 18 : 0,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
         >
-          <Ionicons name="wallet" size={24} color="#FFFFFF" />
+          <Ionicons name="wallet" size={22} color="#FFFFFF" />
+          {wallet.data ? (
+            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>
+              {eur(wallet.data.walletAvailableEur)}
+            </Text>
+          ) : null}
         </LinearGradient>
       </Pressable>
 
