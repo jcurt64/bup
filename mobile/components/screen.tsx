@@ -17,7 +17,7 @@ import Animated, {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 
 import { AppHeader } from "./app-header";
 import { AppBackdrop } from "./app-backdrop";
@@ -35,6 +35,7 @@ import {
   HeaderScrollContext,
 } from "../lib/header-scroll";
 import { useMeTyped, useProspectVerification } from "../lib/queries";
+import { useEntranceOnce } from "../lib/entrance";
 
 // Palier "certifié confiance" → trophée coloré (ordre demandé :
 // argent → bronze → or).
@@ -199,6 +200,9 @@ export function ScrollScreen({
   scrollRef?: Ref<Animated.ScrollView>;
 }) {
   const insets = useSafeAreaInsets();
+  // Apparition en cascade jouée une seule fois par page et par ouverture
+  // de l'appli (pas à chaque retour via la barre d'onglets).
+  const animate = useEntranceOnce(`screen:${usePathname()}`);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useCallback(async () => {
     if (!onRefresh) return;
@@ -249,7 +253,7 @@ export function ScrollScreen({
           }
         >
           {hero ? (
-            <Animated.View entering={FadeInDown.duration(420).springify().damping(16)}>
+            <Animated.View entering={animate ? FadeInDown.duration(320) : undefined}>
               <GradientHero {...hero} />
             </Animated.View>
           ) : null}
@@ -261,10 +265,11 @@ export function ScrollScreen({
             <Animated.View
               key={i}
               style={{ gap: 16 }}
-              entering={FadeInDown.delay(80 + Math.min(i, 8) * 70)
-                .duration(420)
-                .springify()
-                .damping(16)}
+              entering={
+                animate
+                  ? FadeInDown.delay(60 + Math.min(i, 8) * 50).duration(320)
+                  : undefined
+              }
             >
               {child}
             </Animated.View>

@@ -5,12 +5,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { ZoomIn } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BuuppLoader } from "../../components/loader";
 import { Card, eur, QueryGate, ScrollScreen } from "../../components/screen";
 import { loadDraft } from "../../lib/campaign-draft";
+import { useEntranceOnce } from "../../lib/entrance";
 import { shade, withAlpha } from "../../lib/color";
 import { OBJECTIVES } from "../../lib/pro-objectives";
 import { useProPlan, useProWallet } from "../../lib/queries";
@@ -25,11 +26,14 @@ export default function ProCreation() {
   // `checking` : on attend la lecture du brouillon avant de décider quoi
   // afficher (évite un flash de la grille avant la redirection).
   const [checking, setChecking] = useState(true);
+  // Tuiles animées une seule fois par ouverture de l'appli.
+  const animateTiles = useEntranceOnce("creation:tiles");
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      setChecking(true);
+      // Pas de retour au loader à chaque focus : la grille resterait
+      // démontée/remontée (et ses animations rejouées) à chaque visite.
       loadDraft().then((d) => {
         if (!alive) return;
         if (d) {
@@ -105,7 +109,7 @@ export default function ProCreation() {
           return (
             <Animated.View
               key={o.id}
-              entering={ZoomIn.delay(120 + i * 60).springify().damping(14)}
+              entering={animateTiles ? FadeInDown.delay(80 + i * 40).duration(300) : undefined}
               style={{ width: "48%", marginBottom: 12 }}
             >
               <Pressable
