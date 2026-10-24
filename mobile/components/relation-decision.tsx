@@ -7,7 +7,8 @@
 //     digitale » (pré-check client + backstop 403 tracking_not_authorized),
 //   · consentement préalable au canal téléphonique (PhoneConsentSheet),
 //   · refused → accepted via undo puis accept (429 rate-limit géré),
-//   · messages d'erreur 429 / 403 accept_restricted / 402 / 410 / 409.
+//   · messages d'erreur 429 / 403 accept_restricted / 402 / 410 / 409
+//     (dont 409 already_accepted_pro : pro excluant ses anciens acceptants).
 // Le consommateur rend `sheet` (popup de consentement) dans son arbre.
 import { useState } from "react";
 import { Alert, Linking } from "react-native";
@@ -175,6 +176,19 @@ export function useRelationDecision() {
       // autorisation de suivi → message serveur + accès aux Réglages.
       if (status === 403 && body.error === "tracking_not_authorized") {
         showTrackingRequired(body.message);
+        return;
+      }
+      // 409 already_accepted_pro : le pro a activé « Exclure les prospects
+      // ayant déjà accepté une de mes campagnes » et le prospect a déjà
+      // accepté une autre de ses campagnes (12 derniers mois). Ce n'est pas
+      // une panne : on affiche le message serveur tel quel, puis on rafraîchit.
+      if (status === 409 && body.error === "already_accepted_pro") {
+        Alert.alert(
+          "Offre non disponible",
+          body.message ??
+            "Vous avez déjà accepté une campagne de ce professionnel : cette offre ne vous est pas destinée.",
+        );
+        onDone?.();
         return;
       }
       const serverMsg = body.message ?? null;
