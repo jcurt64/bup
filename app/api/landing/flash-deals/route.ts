@@ -18,6 +18,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
 import { getFounderContext } from "@/lib/founders";
 import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
+import {
+  excludesPastAcceptors,
+  PAST_ACCEPTOR_STATUSES,
+  pastAcceptorCutoffIso,
+} from "@/lib/campaigns/past-acceptors";
 
 export const runtime = "nodejs";
 
@@ -82,7 +87,7 @@ export async function GET() {
     .from("campaigns")
     .select(
       `id, name, ends_at, brief, cost_per_contact_cents, targeting,
-       founder_bonus_enabled, budget_cents, created_at,
+       founder_bonus_enabled, budget_cents, created_at, pro_account_id,
        pro_accounts ( raison_sociale, secteur )`,
     )
     .eq("status", "active")
@@ -113,10 +118,12 @@ export async function GET() {
     founder_bonus_enabled: boolean;
     budget_cents: number;
     created_at: string;
+    pro_account_id: string;
     targeting: {
       durationKey?: string;
       durationMultiplier?: number;
       objectiveId?: string;
+      excludePastAcceptors?: boolean;
       requiredTiers?: number[];
       requiredTierKeys?: string[];
     } | null;
@@ -124,7 +131,7 @@ export async function GET() {
       | { raison_sociale: string | null; secteur: string | null }[]
       | null;
   };
-  const flashes = ((data ?? []) as unknown as CampaignRow[]).filter(
+  let flashes = ((data ?? []) as unknown as CampaignRow[]).filter(
     (r) => r.targeting?.durationKey === "1h",
   );
 
@@ -185,6 +192,40 @@ export async function GET() {
         status: r.status as string,
       });
     });
+  }
+
+  // Option « exclure les anciens acceptants » : un prospect qui a déjà
+  // accepté une campagne de ce pro (12 derniers mois) ne voit pas son
+  // flash deal — il ne pourrait pas l'accepter (409 already_accepted_pro).
+  // Une relation déjà existante sur CE flash reste affichée (historique).
+  if (prospect && flashes.length > 0) {
+    const proIds = [
+      ...new Set(
+        flashes
+          .filter((f) => excludesPastAcceptors(f.targeting) && !relationsByCampaign?.has(f.id))
+          .map((f) => f.pro_account_id),
+      ),
+    ];
+    if (proIds.length > 0) {
+      const { data: accepted, error: accErr } = await admin
+        .from("relations")
+        .select("pro_account_id, campaign_id, status, decided_at")
+        .eq("prospect_id", prospect.id)
+        .in("pro_account_id", proIds)
+        .in("status", [...PAST_ACCEPTOR_STATUSES])
+        .gte("decided_at", pastAcceptorCutoffIso());
+      if (accErr) {
+        console.warn("[/api/landing/flash-deals] past acceptors lookup failed", accErr);
+      } else {
+        const rows = accepted ?? [];
+        flashes = flashes.filter(
+          (f) =>
+            !excludesPastAcceptors(f.targeting) ||
+            relationsByCampaign?.has(f.id) ||
+            !rows.some((r) => r.pro_account_id === f.pro_account_id && r.campaign_id !== f.id),
+        );
+      }
+    }
   }
 
   const deals = flashes.map((r) => {
