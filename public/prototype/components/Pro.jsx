@@ -14,6 +14,21 @@ const PRO_SECTIONS = [
 function ProDashboard({ go }) {
   const [sec, setSec] = useState('overview');
   const [recharge, setRecharge] = useState(false);
+  // Lien « Recharger mon crédit » de l'app mobile : /pro?recharge=1 ouvre
+  // directement Facturation + la modale de recharge. Le paramètre est lu
+  // sur la page parente (même origine que l'iframe) puis retiré de l'URL.
+  useEffect(() => {
+    try {
+      const top = window.parent || window;
+      const params = new URLSearchParams(top.location.search);
+      if (params.get('recharge') !== '1') return;
+      setSec('facturation');
+      setRecharge(true);
+      params.delete('recharge');
+      const qs = params.toString();
+      top.history.replaceState({}, '', top.location.pathname + (qs ? '?' + qs : ''));
+    } catch {}
+  }, []);
   const [campDetail, setCampDetail] = useState(null);
   // Source de duplication pour le wizard "Nouvelle campagne". Null pour
   // une création vierge ; sinon contient l'`id` de la campagne à dupliquer.
