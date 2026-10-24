@@ -39,6 +39,12 @@ import {
   parseDecisionPlatform,
   requiresTrackingConsent,
 } from "@/lib/prospect/tracking-consent";
+import {
+  ALREADY_ACCEPTED_PRO_ERROR,
+  ALREADY_ACCEPTED_PRO_MESSAGE,
+  excludesPastAcceptors,
+  hasAcceptedProRecently,
+} from "@/lib/campaigns/past-acceptors";
 
 // Anti-spam / anti-DDoS : un utilisateur ne peut prendre qu'une seule
 // décision (accept/refuse/undo) toutes les 5 minutes — fenêtre glissante
@@ -113,7 +119,7 @@ export async function POST(req: Request, ctx: RouteContext) {
   const { data: rel, error: relErr } = await admin
     .from("relations")
     .select(
-      "id, status, prospect_id, prospects:prospect_id(clerk_user_id, accept_restricted_until), campaigns(targeting)",
+      "id, status, prospect_id, campaign_id, pro_account_id, prospects:prospect_id(clerk_user_id, accept_restricted_until), campaigns(targeting)",
     )
     .eq("id", id)
     .single();
@@ -150,6 +156,34 @@ export async function POST(req: Request, ctx: RouteContext) {
         { error: "tracking_not_authorized", message: TRACKING_NOT_AUTHORIZED_MESSAGE },
         { status: 403 },
       );
+    }
+  }
+
+  // Backstop « exclure les anciens acceptants » (cf. lib/campaigns/past-acceptors.ts).
+  // Le matching n'a normalement pas sollicité ce prospect ; on bloque quand
+  // même une acceptation résiduelle (course, relation créée avant l'option,
+  // acceptation d'une autre campagne du pro entre-temps). Placé AVANT le
+  // rate-limit : ce refus ne doit consommer aucun quota.
+  if (action === "accept") {
+    const campForPast = Array.isArray(rel.campaigns) ? rel.campaigns[0] : rel.campaigns;
+    const targetingForPast = (campForPast?.targeting ?? null) as Record<string, unknown> | null;
+    if (excludesPastAcceptors(targetingForPast) && rel.pro_account_id && rel.campaign_id) {
+      let already = false;
+      try {
+        already = await hasAcceptedProRecently(admin, {
+          prospectId: rel.prospect_id,
+          proAccountId: rel.pro_account_id,
+          campaignId: rel.campaign_id,
+        });
+      } catch (err) {
+        console.error("[decision] past-acceptor check failed", err);
+      }
+      if (already) {
+        return NextResponse.json(
+          { error: ALREADY_ACCEPTED_PRO_ERROR, message: ALREADY_ACCEPTED_PRO_MESSAGE },
+          { status: 409 },
+        );
+      }
     }
   }
 

@@ -31,6 +31,7 @@ import {
   classifyGeoWiden,
   classifyVerifWiden,
   classifyFiabiliteWiden,
+  classifyExcludePastAcceptorsWiden,
   type GeoWidenRequest,
 } from "@/lib/campaigns/edit-targeting";
 import { buildWidenedGeoTarget } from "@/lib/geo/france-admin";
@@ -68,6 +69,8 @@ type Targeting = {
   days?: number;
   durationKey?: string;
   excludeCertified?: boolean;
+  /** Option « exclure les anciens acceptants » (absent ⇒ false). */
+  excludePastAcceptors?: boolean;
 };
 
 const TIER_NUM_TO_LABEL: Record<number, string> = {
@@ -367,6 +370,9 @@ export async function GET(req: Request, ctx: RouteContext) {
       // du wizard) : durée originale + flag exclusion certifié confiance.
       durationKey: targeting?.durationKey ?? null,
       excludeCertified: !!targeting?.excludeCertified,
+      // Option « exclure les prospects ayant déjà accepté une de mes
+      // campagnes » — duplication + popup d'édition (désactivable seulement).
+      excludePastAcceptors: targeting?.excludePastAcceptors === true,
     },
     // Contacts cible originaux (= budget/cpc, arrondi à l'entier).
     // Distinct de `contacts` (liste des prospects acceptés ci-dessous).
@@ -429,6 +435,8 @@ type PatchBody = {
   verifLevel?: string;
   /** Seuil de fiabilité minimum (0/60/80) — BAISSER seulement. */
   minFiabilite?: number;
+  /** Exclusion des anciens acceptants — DÉSACTIVER seulement (false). */
+  excludePastAcceptors?: boolean;
 };
 
 /** Validation/normalisation de l'URL Vitrine — https UNIQUEMENT.
@@ -580,6 +588,21 @@ async function handleCampaignEdit(
     touched = true;
   }
 
+  // 6) Exclusion des anciens acceptants — désactiver seulement (l'activer
+  //    restreindrait la cible d'une campagne en cours).
+  if (Object.prototype.hasOwnProperty.call(body, "excludePastAcceptors")) {
+    const cls = classifyExcludePastAcceptorsWiden(
+      targeting.excludePastAcceptors === true,
+      body.excludePastAcceptors,
+    );
+    if (!cls.ok) {
+      return NextResponse.json({ error: cls.error }, { status: 409 });
+    }
+    nextTargeting.excludePastAcceptors = cls.value;
+    touchedTargeting = true;
+    touched = true;
+  }
+
   if (!touched) {
     return NextResponse.json({ error: "nothing_to_update" }, { status: 400 });
   }
@@ -620,6 +643,7 @@ async function handleCampaignEdit(
     ages: nextTargeting.ages ?? [],
     verifLevel: nextTargeting.verifLevel ?? null,
     minFiabilite: typeof nextTargeting.minFiabilite === "number" ? nextTargeting.minFiabilite : 0,
+    excludePastAcceptors: nextTargeting.excludePastAcceptors === true,
     // Nombre de prospects nouvellement sollicités suite à l'élargissement.
     resolicited,
   });

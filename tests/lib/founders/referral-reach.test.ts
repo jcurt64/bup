@@ -73,6 +73,16 @@ describe("computeReferralReach", () => {
     expect(filleuls).toHaveLength(1);
   });
 
+  it("n'ajoute pas les prospects explicitement exclus (anciens acceptants)", async () => {
+    const admin = makeAdmin(responses);
+    const { filleuls } = await computeReferralReach(admin, {
+      matched,
+      maxExtra: 10,
+      excludeProspectIds: new Set(["F1"]),
+    });
+    expect(filleuls.map((f) => f.prospectId)).toEqual(["F2"]);
+  });
+
   it("ne fait rien sans parrain en waitlist", async () => {
     const admin = makeAdmin({ ...responses, wlParrains: [] });
     const { filleuls, parrainProspectIds } = await computeReferralReach(admin, { matched, maxExtra: 10 });

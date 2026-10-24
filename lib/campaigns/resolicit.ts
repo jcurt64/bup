@@ -16,6 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { findMatchingProspects, type MatchingInput } from "./matching";
 import { sendRelationInvitation } from "@/lib/email/relation";
+import { excludesPastAcceptors, pastAcceptorProspectIds } from "./past-acceptors";
 import {
   buildClassicPayload,
   buildFlashPayload,
@@ -36,6 +37,7 @@ type Targeting = {
   ages?: string[];
   verifLevel?: string;
   excludeCertified?: boolean;
+  excludePastAcceptors?: boolean;
   durationKey?: string | null;
   minFiabilite?: number | null;
 };
@@ -114,6 +116,14 @@ export async function resolicitNewlyEligible(
 
   let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
   try {
+    // Option « exclure les anciens acceptants » : on ajoute à l'exclusion les
+    // prospects ayant accepté une AUTRE campagne de ce pro (12 mois).
+    const excludeIds = new Set(existingIds);
+    if (excludesPastAcceptors(t as Record<string, unknown>)) {
+      for (const pid of await pastAcceptorProspectIds(admin, proId, campaignId)) {
+        excludeIds.add(pid);
+      }
+    }
     matched = await findMatchingProspects(admin, {
       objectiveId: t.objectiveId ?? "",
       requiredTiers: t.requiredTiers ?? [],
@@ -128,7 +138,7 @@ export async function resolicitNewlyEligible(
       verifLevel: t.verifLevel ?? "p0",
       contacts: remaining,
       excludeCertified: t.excludeCertified === true,
-      excludeProspectIds: existingIds,
+      excludeProspectIds: [...excludeIds],
       minFiabilitePct: t.minFiabilite ?? null,
     });
   } catch (e) {

@@ -42,9 +42,16 @@ function emailVariants(emails: string[]): string[] {
 
 export async function computeReferralReach(
   admin: SupabaseClient<Database>,
-  opts: { matched: MatchedLite[]; maxExtra: number },
+  opts: {
+    matched: MatchedLite[];
+    maxExtra: number;
+    /** Prospects à ne jamais solliciter (ex. anciens acceptants du pro quand
+     *  l'option `excludePastAcceptors` est active — cf. past-acceptors.ts). */
+    excludeProspectIds?: ReadonlySet<string>;
+  },
 ): Promise<{ filleuls: ReferralFilleul[]; parrainProspectIds: string[] }> {
   const { matched, maxExtra } = opts;
+  const excluded = opts.excludeProspectIds ?? new Set<string>();
   if (maxExtra <= 0) return { filleuls: [], parrainProspectIds: [] };
 
   // emailLower → prospectId du parrain matché.
@@ -116,6 +123,8 @@ export async function computeReferralReach(
     if (!prospectId) continue;
     // Dédup : déjà ciblé (matché) ou déjà ajouté.
     if (matchedProspectIds.has(prospectId) || seen.has(prospectId)) continue;
+    // Exclusion explicite (anciens acceptants du pro).
+    if (excluded.has(prospectId)) continue;
     // Un filleul ne peut pas être son propre parrain.
     if (prospectId === parrainId) continue;
     const p = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;

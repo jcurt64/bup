@@ -30,6 +30,7 @@ import {
 import { sendRelationInvitation } from "@/lib/email/relation";
 import { sendReferralInvitation } from "@/lib/email/referral-invitation";
 import { computeReferralReach } from "@/lib/founders/referral-reach";
+import { pastAcceptorProspectIds } from "@/lib/campaigns/past-acceptors";
 import { buildClassicPayload, buildFlashPayload, sendBatch, type ExpoPushMessage } from "@/lib/push/expo";
 import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
 
@@ -65,6 +66,11 @@ type Body = {
   /** Optionnel : quand true, exclut les prospects `certifie_confiance`
    *  du pool de matching. Coché par le pro dans le wizard, étape Budget. */
   excludeCertified?: boolean;
+  /** Optionnel (défaut false) : quand true, exclut du matching les prospects
+   *  ayant déjà accepté une campagne de ce pro dans les 12 derniers mois
+   *  (cf. lib/campaigns/past-acceptors.ts). Coché par défaut côté wizard
+   *  pour les objectifs `contact` et `rdv`. */
+  excludePastAcceptors?: boolean;
   /** Bonus fondateur : quand true (défaut), les acceptations par un fondateur
    *  coûtent 2× le tarif palier pendant le 1er mois post-lancement. */
   founder_bonus_enabled?: boolean;
@@ -433,6 +439,9 @@ export async function POST(req: Request) {
     );
   }
 
+  // Option « exclure les anciens acceptants » — seul `true` l'active.
+  const excludePastAcceptors = body.excludePastAcceptors === true;
+
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: validSubTypes,
@@ -444,6 +453,7 @@ export async function POST(req: Request) {
     ages: body.ages,
     verifLevel: body.verifLevel,
     excludeCertified: body.excludeCertified === true,
+    excludePastAcceptors,
     minFiabilite,
     keywords: body.keywords,
     kwFilter: body.kwFilter,
@@ -550,7 +560,13 @@ export async function POST(req: Request) {
   })();
 
   let matched: Awaited<ReturnType<typeof findMatchingProspects>>;
+  // Prospects ayant déjà accepté une campagne de ce pro (12 mois) — exclus
+  // du matching ET du reach filleuls quand l'option est active.
+  let pastAcceptors = new Set<string>();
   try {
+    if (excludePastAcceptors) {
+      pastAcceptors = await pastAcceptorProspectIds(admin, proId, campaign.id);
+    }
     matched = await findMatchingProspects(admin, {
       objectiveId: body.objectiveId,
       requiredTiers: body.requiredTiers,
@@ -564,6 +580,7 @@ export async function POST(req: Request) {
       verifLevel: body.verifLevel,
       contacts: body.contacts,
       excludeCertified: body.excludeCertified === true,
+      excludeProspectIds: [...pastAcceptors],
       minFiabilitePct: minFiabilite,
     });
   } catch (err) {
@@ -649,6 +666,7 @@ export async function POST(req: Request) {
         // Borne la CRÉATION de relations extra (les acceptations sont de toute
         // façon plafonnées au quota par la RPC). Total relations ≤ ~2× contacts.
         maxExtra: body.contacts,
+        excludeProspectIds: pastAcceptors,
       });
       if (filleuls.length > 0) {
         const filleulRows = filleuls.map((f) => ({
@@ -892,7 +910,7 @@ export async function GET() {
     contactsByCampaign.set(r.campaign_id, (contactsByCampaign.get(r.campaign_id) ?? 0) + 1);
   }
 
-  type Targeting = { objectiveId?: string; durationKey?: string };
+  type Targeting = { objectiveId?: string; durationKey?: string; excludePastAcceptors?: boolean };
   const campaigns = (camps ?? []).map((c) => {
     const targeting = (c.targeting as Targeting | null) ?? null;
     const durationKey = targeting?.durationKey ?? null;
@@ -903,6 +921,8 @@ export async function GET() {
       status: c.status,
       objectiveLabel: objectiveLabel(targeting?.objectiveId),
       objectiveId: targeting?.objectiveId ?? null,
+      // Option « exclure les anciens acceptants » (absent ⇒ false).
+      excludePastAcceptors: targeting?.excludePastAcceptors === true,
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
       contactsCount: contactsByCampaign.get(c.id) ?? 0,

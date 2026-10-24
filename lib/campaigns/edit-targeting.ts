@@ -61,6 +61,26 @@ export function classifyFiabiliteWiden(
   return { ok: true, value: nextMin };
 }
 
+/* ──────────── EXCLUSION DES ANCIENS ACCEPTANTS ──────────── */
+
+export type ExcludePastAcceptorsWidenResult =
+  | { ok: true; value: boolean }
+  | { ok: false; error: "exclude_past_acceptors_not_widening" | "exclude_past_acceptors_invalid" };
+
+/** L'option « exclure les prospects ayant déjà accepté une de mes campagnes »
+ *  RESTREINT la cible : on peut la DÉSACTIVER en cours de campagne (élargir),
+ *  jamais l'activer. true → false ✓ ; false → false ✓ (no-op) ; false → true ✗. */
+export function classifyExcludePastAcceptorsWiden(
+  current: boolean | null | undefined,
+  next: unknown,
+): ExcludePastAcceptorsWidenResult {
+  if (typeof next !== "boolean") return { ok: false, error: "exclude_past_acceptors_invalid" };
+  if (next && current !== true) {
+    return { ok: false, error: "exclude_past_acceptors_not_widening" };
+  }
+  return { ok: true, value: next };
+}
+
 /* ─────────────────────────── ÂGE ─────────────────────────── */
 
 /** Tranches canoniques (miroir de `AGE_RANGES` du wizard, hors « Tous »).

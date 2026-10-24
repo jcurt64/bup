@@ -54,7 +54,8 @@ export type MatchingInput = {
   excludeCertified?: boolean;
   /** Prospects à NE PAS resélectionner (déjà sollicités sur la campagne).
    *  Utilisé par la re-sollicitation après élargissement (cf. resolicit.ts)
-   *  pour ne ramener que des prospects nouvellement éligibles. */
+   *  pour ne ramener que des prospects nouvellement éligibles, et par l'option
+   *  « exclure les anciens acceptants » (cf. past-acceptors.ts). */
   excludeProspectIds?: string[];
   /** Fiabilité minimum (0-100) exigée par le pro (étape 4 ciblage). Quand > 0,
    *  ne retient que les prospects dont `prospects.fiabilite_pct >= seuil`
@@ -70,6 +71,9 @@ export type MatchedProspect = {
    *  bonus ×2 sur la récompense quand le prospect est `certifie_confiance`. */
   verification: "basique" | "verifie" | "certifie_confiance";
 };
+
+/** Taille max de la liste d'exclusion passée en filtre PostgREST `not.in`. */
+const MAX_SQL_EXCLUDE_IDS = 300;
 
 export async function findMatchingProspects(
   admin: SupabaseClient<Database>,
@@ -145,7 +149,11 @@ export async function findMatchingProspects(
   // Quand cette marge ne suffit pas, l'appelant doit accepter un résultat
   // plus court que `contacts` sans considérer ça comme une erreur.
   const oversampleFactor = ageBounds && wantsTier1 ? 3 : 1;
-  const selectLimit = input.contacts * oversampleFactor;
+  // Au-delà de ce seuil, la liste d'exclusion n'est plus envoyée à PostgREST
+  // (URL trop longue) : on filtre en JS et on sur-fetch d'autant de lignes.
+  const sqlExclude = excludeSet.size > 0 && excludeSet.size <= MAX_SQL_EXCLUDE_IDS;
+  const selectLimit =
+    input.contacts * oversampleFactor + (sqlExclude ? 0 : excludeSet.size);
 
   let query = admin
     .from("prospects")
@@ -166,7 +174,7 @@ export async function findMatchingProspects(
 
   // Exclut les prospects déjà sollicités (re-sollicitation post-élargissement).
   // Les UUID n'ont pas besoin d'être quotés dans le filtre `in` de PostgREST.
-  if (excludeSet.size > 0) {
+  if (sqlExclude) {
     query = query.not("id", "in", `(${[...excludeSet].join(",")})`);
   }
 
