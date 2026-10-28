@@ -4424,17 +4424,20 @@ function AppPhone({ width, transform, z, delay, margin, children }: { width: str
   );
 }
 
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.buupp.app";
+
 function AppStore({ kind }: { kind: "apple" | "android" }) {
   const apple = kind === "apple";
+  const Tag = apple ? "div" : "a";
   return (
-    <div className="m-store">
+    <Tag className="m-store" {...(apple ? {} : { href: PLAY_STORE_URL, target: "_blank", rel: "noopener noreferrer" })}>
       {apple ? (
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3c0 1.5-1.2 3-2.7 3 0-1.5 1.3-3 2.7-3zM18 16.5c-.5 1.2-1.7 3.3-3 3.3-.9 0-1.2-.6-2.3-.6s-1.4.6-2.3.6c-1.4 0-2.7-2.3-3.2-3.5C5.4 13.5 6 9 9 9c1 0 1.8.6 2.5.6S13 9 14.2 9c1 0 2 .5 2.6 1.4-2.3 1.3-1.9 4.6 1.2 6.1z" fill="currentColor" stroke="none" /></svg>
       ) : (
         <svg width="22" height="24" viewBox="0 0 24 26" aria-hidden="true"><path d="M3 2l13 11L3 24z" fill="#34d399" /><path d="M3 2l13 11-3 3z" fill="#60a5fa" /><path d="M3 24l13-11-3-3z" fill="#fbbf24" /><path d="M16 13l5-3-5-3z" fill="#f87171" /></svg>
       )}
-      <span className="m-store-txt"><small>Bientôt sur</small><strong>{apple ? "App Store" : "Google Play"}</strong></span>
-    </div>
+      <span className="m-store-txt"><small>{apple ? "Bientôt sur" : "Disponible sur"}</small><strong>{apple ? "App Store" : "Google Play"}</strong></span>
+    </Tag>
   );
 }
 
@@ -4477,8 +4480,8 @@ function MobileAppSection() {
       </div>
 
       <div className="m-inner">
-        <span className="m-badge"><span className="m-badge-dot" /> Au lancement officiel · iOS &amp; Android</span>
-        <h2 className="m-headline">L’app BUUPP arrive <em>sur mobile.</em></h2>
+        <span className="m-badge"><span className="m-badge-dot" /> Disponible sur Android · bientôt sur iOS</span>
+        <h2 className="m-headline">L’app BUUPP <em>sur mobile.</em></h2>
         <p className="m-sub">Il y en aura pour tous les goûts et toutes les couleurs.</p>
 
         <div className="m-phones">
@@ -4503,7 +4506,7 @@ function MobileAppSection() {
           <AppStore kind="apple" />
           <AppStore kind="android" />
         </div>
-        <p className="m-foot">Disponible au lancement officiel de BUUPP.</p>
+        <p className="m-foot">Disponible dès maintenant sur Google Play · bientôt sur l’App Store.</p>
       </div>
     </section>
   );

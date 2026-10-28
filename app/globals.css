@@ -1117,6 +1117,8 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 #app-mobile .m-theme-btn.on .m-theme-label { color: var(--hero-ink); font-weight: 600; }
 #app-mobile .m-stores { display: flex; gap: 16px; margin-top: 36px; justify-content: center; flex-wrap: wrap; }
 #app-mobile .m-store { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; padding: 12px 22px; border-radius: 16px; background: #0d1322; color: #fff; cursor: default; }
+#app-mobile a.m-store { cursor: pointer; transition: transform .15s ease; }
+#app-mobile a.m-store:hover { transform: translateY(-2px); }
 #app-mobile .m-store-txt { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
 #app-mobile .m-store small { font-size: 11px; opacity: 0.78; }
 #app-mobile .m-store strong { font-size: 17px; font-weight: 700; }

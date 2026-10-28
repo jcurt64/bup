@@ -1462,10 +1462,11 @@ function AppPhone({ n, theme, width, rotate, lift, z, margin }) {
 
 function AppStoreBadge({ kind }) {
   const apple = kind === 'apple';
+  const Tag = apple ? 'div' : 'a';
   return (
-    <div style={{
+    <Tag {...(apple ? {} : { href: 'https://play.google.com/store/apps/details?id=com.buupp.app', target: '_blank', rel: 'noopener noreferrer' })} style={{
       display: 'inline-flex', alignItems: 'center', gap: 11, padding: '11px 18px', borderRadius: 13,
-      background: 'var(--ink)', color: '#FFFFFF', cursor: 'default', userSelect: 'none',
+      background: 'var(--ink)', color: '#FFFFFF', cursor: apple ? 'default' : 'pointer', userSelect: 'none', textDecoration: 'none',
       boxShadow: '0 10px 22px -10px rgba(15,22,41,.45)',
     }}>
       {apple ? (
@@ -1481,10 +1482,10 @@ function AppStoreBadge({ kind }) {
         </svg>
       )}
       <div style={{ textAlign: 'left', lineHeight: 1.15 }}>
-        <div style={{ fontSize: 10, opacity: .82, fontFamily: 'var(--sans)' }}>Bientôt sur</div>
+        <div style={{ fontSize: 10, opacity: .82, fontFamily: 'var(--sans)' }}>{apple ? 'Bientôt sur' : 'Disponible sur'}</div>
         <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--sans)' }}>{apple ? 'App Store' : 'Google Play'}</div>
       </div>
-    </div>
+    </Tag>
   );
 }
 
@@ -1524,10 +1525,10 @@ function MobileAppSection({ go }) {
       }}/>
       <div style={{ position: 'relative', maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
         <div className="badge" style={{ marginBottom: 22 }}>
-          <span className="dot" style={{ background: active.accent, transition: 'background .4s' }}/> Au lancement officiel · iOS &amp; Android
+          <span className="dot" style={{ background: active.accent, transition: 'background .4s' }}/> Disponible sur Android · bientôt sur iOS
         </div>
         <h2 className="serif" style={{ fontSize: 'clamp(34px,4.6vw,58px)', lineHeight: 1.05 }}>
-          L’app BUUPP arrive <em style={{ color: active.accent, transition: 'color .4s' }}>sur mobile.</em>
+          L’app BUUPP <em style={{ color: active.accent, transition: 'color .4s' }}>sur mobile.</em>
         </h2>
 
         {/* slogans en rotation */}
@@ -1568,12 +1569,12 @@ function MobileAppSection({ go }) {
           })}
         </div>
 
-        {/* badges store (décoratifs) */}
+        {/* badges store (Google Play cliquable, App Store à venir) */}
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 14, marginTop: 44 }}>
           <AppStoreBadge kind="apple" />
           <AppStoreBadge kind="android" />
         </div>
-        <div className="muted" style={{ fontSize: 13, marginTop: 14 }}>Disponible au lancement officiel de BUUPP.</div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 14 }}>Disponible dès maintenant sur Google Play · bientôt sur l’App Store.</div>
       </div>
     </section>
   );
