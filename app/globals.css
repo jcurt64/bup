@@ -1466,7 +1466,7 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 /* ── Pastille « Nouveau » du hero (module Tests & Études) ── */
 .hero-new-pill {
   position: relative; display: inline-flex; align-items: center; gap: 12px;
-  margin: 0 0 28px; padding: 6px 6px 6px 6px; border-radius: 999px; text-decoration: none;
+  margin: 0; padding: 6px 6px 6px 6px; border-radius: 999px; text-decoration: none;
   color: #F7F4EC; font-size: 14px; overflow: hidden; isolation: isolate;
   background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18);
   box-shadow: 0 10px 30px -12px rgba(168,85,247,.55);
@@ -1503,3 +1503,19 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 @keyframes hero-new-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (max-width: 520px) { .hero-new-pill { gap: 8px; font-size: 13px; } .hero-new-cta { padding: 6px 10px; } }
 @media (prefers-reduced-motion: reduce) { .hero-new-pill, .hero-new-pill::before, .hero-new-pill::after, .hero-new-dot { animation: none; } }
+
+/* Placement : à droite de la 1re ligne du titre (« Le marketing ») sur grand
+   écran ; au-dessus du titre ailleurs (centré quand le hero est centré). */
+.hero-headline { position: relative; }
+.hero-new-slot { display: flex; margin-top: 22px; }
+.hero-new-tag, .hero-new-cta, .hero-new-text { white-space: nowrap; }
+@media (min-width: 1280px) {
+  .hero-new-slot {
+    position: absolute; top: 0; right: 0; margin: 0;
+    height: clamp(40px, 7vw, 104px); /* = hauteur de la 1re ligne du h1 (line-height: 1) */
+    align-items: center;
+  }
+}
+@media (max-width: 1024px) { .hero-new-slot { justify-content: center; } }
+@media (min-width: 1280px) and (max-width: 1439px) { .hero-new-long { display: none; } }
+@media (max-width: 640px) { .hero-new-long { display: none; } }

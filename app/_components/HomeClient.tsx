@@ -214,29 +214,32 @@ function Hero({
           </div>
         </div>
 
-        {/* Lancement du module Tests & Études : pastille « Nouveau »
-            cliquable (affichée seulement quand le module est activé). */}
-        {studiesOpen && (
-          <Link href="/tests-etudes" className="hero-new-pill" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
-            <span className="hero-new-tag">
-              <span className="hero-new-dot" aria-hidden />
-              Nouveau
-            </span>
-            <span className="hero-new-text">
-              <strong>Tests &amp; Études</strong>
-              <span className="hide-sm"> — donnez votre avis, soyez rémunéré</span>
-            </span>
-            <span className="hero-new-cta">
-              Découvrir <Icon name="arrow" size={14} />
-            </span>
-          </Link>
-        )}
-
-        <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
-          Le marketing
-          <br />
-          <RotatingHeadlineWord />
-        </h1>
+        <div className="hero-headline">
+          <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
+            Le marketing
+            <br />
+            <RotatingHeadlineWord />
+          </h1>
+          {/* Lancement du module Tests & Études : pastille « Nouveau »
+              cliquable (affichée seulement quand le module est activé). */}
+          {studiesOpen && (
+            <div className="hero-new-slot">
+              <Link href="/tests-etudes" className="hero-new-pill" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
+              <span className="hero-new-tag">
+                <span className="hero-new-dot" aria-hidden />
+                Nouveau
+              </span>
+              <span className="hero-new-text">
+                <strong>Tests &amp; Études</strong>
+                <span className="hide-sm hero-new-long"> — donnez votre avis, soyez rémunéré</span>
+              </span>
+              <span className="hero-new-cta">
+                J&apos;en profite <Icon name="arrow" size={14} />
+              </span>
+              </Link>
+            </div>
+          )}
+        </div>
 
         <div
           className="hero-cta-row"
