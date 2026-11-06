@@ -57,9 +57,9 @@ function fmtLeft(ms: number): string {
 export function Countdown({ to, label }: { to: string; label: string }) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
-    setNow(Date.now());
+    const first = setTimeout(() => setNow(Date.now()), 0);
     const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
+    return () => { clearTimeout(first); clearInterval(t); };
   }, []);
   return (
     <span style={{ fontSize: 13, color: "var(--ink-3, #334155)" }}>

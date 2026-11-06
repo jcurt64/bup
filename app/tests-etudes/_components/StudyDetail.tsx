@@ -58,6 +58,7 @@ export default function StudyDetail({ initial }: { initial: PublicStudy }) {
     setS(d.study);
     setMe(d.me);
   }, [initial.id]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement asynchrone (setState après await)
   useEffect(() => { void load(); }, [load]);
 
   async function act(path: string, body: Record<string, unknown> = {}, okText = "C'est fait.") {
