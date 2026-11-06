@@ -25,128 +25,21 @@ const EMPTY_VIDEOS: VideoDraft[] = [
   { url: "", thumbnailUrl: "", label: "" },
 ];
 
-/* ─── Modèle « Lancement officiel » ──────────────────────────────────
-   Message prêt à l'envoi pour l'audience liste d'attente, à lire AVANT
-   l'ouverture : au moment de la lecture, la pré-inscription officielle
-   n'est pas encore ouverte. Le mail annonce donc l'heure d'ouverture et
-   ne renvoie pas vers le formulaire (qui serait un cul-de-sac) mais vers
-   les vidéos, à regarder en attendant.
-
-   Le corps NOMME le jour et l'heure (« mercredi 5 août à 14h00 ») au
-   lieu de dire « demain » : l'envoi n'est donc plus contraint à J-1, il
-   reste juste à n'importe quelle date antérieure à l'ouverture.
-
-   Les liens pointent en dur sur www.buupp.com : le back-office peut
-   tourner en local, le mail doit toujours viser la prod (et l'API
-   refuse les URL non https). */
-const SITE = "https://www.buupp.com";
-
-/** Marqueur laissé dans le corps quand la date d'ouverture n'est pas
- *  renseignée. L'envoi est bloqué tant qu'il est présent. */
-const DATE_PLACEHOLDER = "[[DATE D'OUVERTURE À COMPLÉTER]]";
-
-/** Date d'ouverture officielle arrêtée le 02/08/2026 : mercredi 5 août, 14h00.
- *  Pré-remplie pour que le composer soit prêt à relire sans ressaisie — le
- *  champ reste modifiable, et changer la date suppose de recharger le modèle. */
-const DEFAULT_LAUNCH_AT = "2026-08-05T14:00";
-
-/** « 2026-08-05T14:00 » → { jour: "mercredi", date: "mercredi 5 août", heure: "14h00" } */
-function formatLaunchMoment(value: string): { jour: string; date: string; heure: string } | null {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  const jour = new Intl.DateTimeFormat("fr-FR", { weekday: "long" }).format(d);
-  const date = new Intl.DateTimeFormat("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(d);
-  const heure = `${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`;
-  return { jour, date, heure };
-}
-
-/** « mercredi 5 août » → « Mercredi 5 août » (début de phrase / d'objet). */
-function capitalize(s: string): string {
-  return `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
-}
-
-/** Objet du mail. Nomme le jour, comme le corps — pas de « Demain ». */
-function buildLaunchTitle(launchAt: string): string {
-  const moment = formatLaunchMoment(launchAt);
-  const quand = moment ? capitalize(moment.date) : DATE_PLACEHOLDER;
-  return `🚀 ${quand}, BUUPP ouvre officiellement — soyez prêt·e`;
-}
-
-function buildLaunchBody(launchAt: string): string {
-  const moment = formatLaunchMoment(launchAt);
-  // Sans date saisie, on laisse un marqueur voyant plutôt qu'une phrase
-  // vaguement fausse — l'envoi refusera de partir tant qu'il est là.
-  const quand = moment ? `${moment.date} à ${moment.heure}` : DATE_PLACEHOLDER;
-  const jour = moment ? moment.jour : DATE_PLACEHOLDER;
-  return [
-    "Vous faites partie des tout premiers à avoir réservé votre place sur BUUPP. Merci, sincèrement. 🙌",
-    "",
-    "Cette première vague était une répétition générale : vérifier que le formulaire tenait la route, que les parrainages se comptaient correctement, que les compteurs disaient vrai. Vous nous avez servi de banc d'essai, et ça a fonctionné. ✅",
-    "",
-    `🚀 ${capitalize(quand)}, place au lancement officiel.`,
-    "",
-    "✨ Ce qui change : la pré-inscription officielle s'ouvre, avec les vraies places, les vrais compteurs et les avantages fondateur qui vont avec. Ce qui ne change pas : vous. Vous avez déjà vu comment BUUPP fonctionne — le double consentement, les paliers de données, la rémunération au moment où vous acceptez. Pendant que les autres découvriront, vous saurez déjà quoi faire.",
-    "",
-    "Concrètement, vous partez avec trois longueurs d'avance :",
-    "⚡ vous connaissez le parcours d'inscription, vous irez plus vite ;",
-    "🤝 vous savez à quoi sert le parrainage — et les places de fondateur se prennent tôt ;",
-    "💬 vous pouvez expliquer BUUPP autour de vous sans avoir à le réapprendre.",
-    "",
-    `📝 Ce qu'il y aura à faire : refaire la pré-inscription. Vous connaissez déjà le parcours, il n'a pas changé — la différence, c'est qu'elle est officielle, c'est celle qui compte pour votre place et vos avantages fondateur. 🕑 Le formulaire ouvre ${quand} sur www.buupp.com.`,
-    "",
-    "🎬 En attendant, les deux vidéos ci-dessous montrent le parcours de bout en bout : une depuis un ordinateur, une depuis un téléphone. Deux minutes pour être prêt·e — et de quoi expliquer BUUPP autour de vous sans avoir à le réapprendre.",
-    "",
-    "ℹ️ Une précision : c'est bien la pré-inscription qui ouvre, pas encore les comptes. La création de compte prospect ou professionnel viendra à la fin de la période de pré-inscription (1 mois après). Une chose à la fois, proprement.",
-    "",
-    `À ${jour}, 🎉`,
-    "— L'équipe BUUPP",
-  ].join("\n");
-}
-
-const LAUNCH_TEMPLATE = {
-  videos: [
-    {
-      url: `${SITE}/tutoriels#video-1`,
-      thumbnailUrl: `${SITE}/videos/pre-inscription-ordinateur.jpg`,
-      label: "S'inscrire depuis un ordinateur (1 min 15)",
-    },
-    {
-      url: `${SITE}/tutoriels#video-2`,
-      thumbnailUrl: `${SITE}/videos/pre-inscription-mobile.jpg`,
-      label: "S'inscrire depuis un téléphone (1 min 30)",
-    },
-  ] as VideoDraft[],
-  // Le formulaire n'est pas encore ouvert au moment de la lecture : le
-  // bouton mène aux vidéos, seule destination utile avant l'ouverture.
-  ctaLabel: "Voir les 2 vidéos →",
-  ctaUrl: `${SITE}/tutoriels`,
-};
-
 export default function BroadcastComposer() {
   const router = useRouter();
-  // Le formulaire s'ouvre PRÉ-REMPLI avec l'annonce de lancement : c'est le
-  // seul message à envoyer d'ici l'ouverture, et l'état React ne survit
-  // pas à un rechargement — le pré-remplir à la main à chaque visite était
-  // une source d'erreur. « Vider le formulaire » rend la page à son état
-  // neutre pour les autres diffusions.
-  const [title, setTitle] = useState(() => buildLaunchTitle(DEFAULT_LAUNCH_AT));
-  const [body, setBody] = useState(() => buildLaunchBody(DEFAULT_LAUNCH_AT));
-  const [audience, setAudience] = useState<Audience>("waitlist");
+  // Le modèle « Lancement officiel » (annonce aux inscrits de la liste
+  // d'attente, avec les vidéos de pré-inscription) a été retiré le
+  // 06/11/2026 : le lancement a eu lieu le 05/09 et les vidéos sont
+  // supprimées. Texte d'origine conservé dans l'historique git.
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [audience, setAudience] = useState<Audience>("prospects");
   const [attachment, setAttachment] = useState<File | null>(null);
   // Blocs vidéo (2 max) + CTA personnalisé — pris en compte par l'audience
   // « liste d'attente » uniquement (cf. template waitlist-broadcast.ts).
-  const [videos, setVideos] = useState<VideoDraft[]>(() =>
-    LAUNCH_TEMPLATE.videos.map((v) => ({ ...v })),
-  );
-  // Date+heure d'ouverture officielle, injectée dans le corps du modèle.
-  const [launchAt, setLaunchAt] = useState(DEFAULT_LAUNCH_AT);
-  const [ctaLabel, setCtaLabel] = useState(LAUNCH_TEMPLATE.ctaLabel);
-  const [ctaUrl, setCtaUrl] = useState(LAUNCH_TEMPLATE.ctaUrl);
+  const [videos, setVideos] = useState<VideoDraft[]>(EMPTY_VIDEOS);
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -167,21 +60,6 @@ export default function BroadcastComposer() {
     setCtaLabel("");
     setCtaUrl("");
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  /** Remplit le formulaire avec le message de lancement prêt à relire.
-   *  La date d'ouverture saisie est injectée dans le corps ; la modifier
-   *  ensuite suppose de recharger le modèle (le corps est éditable à la
-   *  main, on ne le réécrit pas dans le dos de l'admin). */
-  function loadLaunchTemplate() {
-    setError(null);
-    setSuccess(null);
-    setAudience("waitlist");
-    setTitle(buildLaunchTitle(launchAt));
-    setBody(buildLaunchBody(launchAt));
-    setVideos(LAUNCH_TEMPLATE.videos.map((v) => ({ ...v })));
-    setCtaLabel(LAUNCH_TEMPLATE.ctaLabel);
-    setCtaUrl(LAUNCH_TEMPLATE.ctaUrl);
   }
 
   function patchVideo(index: number, patch: Partial<VideoDraft>) {
@@ -214,16 +92,6 @@ export default function BroadcastComposer() {
       setError("Titre et contenu requis.");
       return;
     }
-    // Garde-fou : le modèle laisse un marqueur voyant tant que la date
-    // d'ouverture n'a pas été renseignée. Mieux vaut refuser l'envoi que
-    // d'annoncer un lancement « [[DATE À COMPLÉTER]] » à toute la liste.
-    if (b.includes(DATE_PLACEHOLDER) || t.includes(DATE_PLACEHOLDER)) {
-      setError(
-        "Renseigne la date d'ouverture officielle puis recharge le modèle — le corps du message contient encore un marqueur.",
-      );
-      return;
-    }
-
     // Bascule sur la modale custom — l'envoi effectif se fait dans
     // `doSend()` après confirmation utilisateur.
     setConfirmOpen(true);
@@ -300,71 +168,6 @@ export default function BroadcastComposer() {
   return (
     <>
     <form className="space-y-4" onSubmit={onSubmit}>
-      {/* Raccourci : charge le message d'annonce du lancement officiel
-          (audience liste d'attente + 2 vidéos + CTA). Tout reste éditable
-          avant l'envoi. */}
-      <div
-        className="space-y-2.5 rounded-md px-3 py-2.5"
-        style={{ background: "var(--ivory-2)", border: "1px dashed var(--line-2)" }}
-      >
-        <span className="block text-xs" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
-          Formulaire <strong>déjà pré-rempli</strong> avec l&apos;annonce du lancement
-          officiel — liste d&apos;attente, 2 vidéos, bouton « Voir les 2 vidéos ». À
-          envoyer <strong>avant</strong> l&apos;ouverture&nbsp;: l&apos;objet et le corps
-          nomment le jour et l&apos;heure saisis ci-dessous. Pour une diffusion
-          ordinaire, « Vider le formulaire ».
-        </span>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex-1 min-w-52">
-            <span
-              className="block text-[11px] font-bold uppercase mb-1"
-              style={{ color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.06em" }}
-            >
-              Ouverture officielle
-            </span>
-            <input
-              type="datetime-local"
-              value={launchAt}
-              onChange={(e) => setLaunchAt(e.target.value)}
-              disabled={submitting}
-              className="w-full rounded-md text-sm px-3 py-2"
-              style={{
-                background: "var(--paper)",
-                border: "1px solid var(--line)",
-                color: "var(--ink)",
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={loadLaunchTemplate}
-            disabled={submitting}
-            className="rounded-md text-xs font-semibold h-9 px-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: "var(--paper)", color: "var(--ink-2)", border: "1px solid var(--line)" }}
-          >
-            Recharger le modèle
-          </button>
-          {/* Le formulaire s'ouvrant pré-rempli, il faut une sortie explicite
-              pour écrire une diffusion ordinaire. */}
-          <button
-            type="button"
-            onClick={reset}
-            disabled={submitting}
-            className="rounded-md text-xs font-semibold h-9 px-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: "transparent", color: "var(--ink-4)", border: "1px solid var(--line-2)" }}
-          >
-            Vider le formulaire
-          </button>
-        </div>
-        {launchAt && formatLaunchMoment(launchAt) && (
-          <p className="text-[11px]" style={{ color: "var(--ink-4)" }}>
-            Le message annoncera « {formatLaunchMoment(launchAt)!.date} à{" "}
-            {formatLaunchMoment(launchAt)!.heure} » — à envoyer avant cette date. Changer
-            la date après coup suppose de recharger le modèle.
-          </p>
-        )}
-      </div>
-
       <Field label="Titre" hint={`${titleLen} / ${MAX_TITLE}`}>
         <input
           type="text"
@@ -474,7 +277,7 @@ export default function BroadcastComposer() {
                   type="url"
                   value={video.url}
                   onChange={(e) => patchVideo(i, { url: e.target.value })}
-                  placeholder={`https://www.buupp.com/tutoriels#video-${i + 1}`}
+                  placeholder="https://www.buupp.com/…"
                   disabled={submitting}
                   className="w-full rounded-md text-sm px-3 py-2"
                   style={inputStyle}
@@ -485,7 +288,7 @@ export default function BroadcastComposer() {
                   type="url"
                   value={video.thumbnailUrl}
                   onChange={(e) => patchVideo(i, { thumbnailUrl: e.target.value })}
-                  placeholder={`https://www.buupp.com/videos/pre-inscription-${i + 1}.jpg`}
+                  placeholder="https://www.buupp.com/…/miniature.jpg"
                   disabled={submitting}
                   className="w-full rounded-md text-sm px-3 py-2"
                   style={inputStyle}
@@ -866,7 +669,7 @@ function ConfirmSendModal({
           className="mt-3 text-xs"
           style={{ color: "var(--ink-4)", lineHeight: 1.5 }}
         >
-          L'envoi est irréversible — une fois lancé, les destinataires recevront le
+          L&apos;envoi est irréversible — une fois lancé, les destinataires recevront le
           mail dans les minutes qui suivent.
         </p>
 
