@@ -94,6 +94,9 @@ const isPublicRoute = createRouteMatcher([
   // prospect. Pas de session Clerk : le Worker authentifie via le header
   // `x-inbound-secret` (vérifié dans le handler).
   "/api/inbound/relation/(.*)",
+  // Webhook Brevo (inbound parsing des alias mail.buupp.com) — jeton
+  // `?token=` vérifié dans le handler.
+  "/api/inbound/brevo",
   // ─── API admin : pas de session Clerk requise. Chaque handler
   // valide lui-même un secret via le header `x-admin-secret`
   // (cf. app/api/admin/waitlist/launch-email/route.ts).
