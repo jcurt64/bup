@@ -92,7 +92,11 @@ export default function StudyDetail({ initial, autoJoin = false }: { initial: Pu
       });
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) { window.location.href = loginUrl; return; }
-      setMsg(r.ok ? { ok: true, text: okText } : { ok: false, text: ERRORS[d.error] ?? "Une erreur est survenue, réessayez." });
+      // Inscription qui atteint le maximum : la campagne est lancée tout de suite.
+      const text = d.result === "joined_validated"
+        ? "Inscription enregistrée et campagne lancée ! Voici votre code personnel."
+        : okText;
+      setMsg(r.ok ? { ok: true, text } : { ok: false, text: ERRORS[d.error] ?? "Une erreur est survenue, réessayez." });
       if (r.ok) { setShowJoin(false); setShowReport(false); }
       await load();
     } finally {
@@ -237,7 +241,7 @@ export default function StudyDetail({ initial, autoJoin = false }: { initial: Pu
                   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5 }}>
                     <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 3 }} />
                     <span>
-                      J&apos;accepte de participer. Si la campagne est lancée, BUUPP transmettra à {s.proName} uniquement mon prénom et un
+                      J&apos;accepte de participer. Si la campagne est lancée, BUUPP transmettra à {s.proName}{" "}uniquement mon prénom et un
                       alias e-mail, et je m&apos;engage à réaliser la tâche avant la date limite. Je peux me retirer tant qu&apos;elle n&apos;est pas lancée.
                     </span>
                   </label>

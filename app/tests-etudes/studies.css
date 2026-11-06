@@ -123,3 +123,5 @@
 .sd-code { font-family: var(--font-mono); font-size: 28px; font-weight: 700; letter-spacing: .18em; text-align: center; padding: 14px; border-radius: 14px; background: #0F1629; color: #fff; }
 .sd-row-btns { display: flex; gap: 10px; }
 @media (max-width: 900px) { .sd-body { grid-template-columns: 1fr; } .sd-side { position: static; } }
+
+.st-cta:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.3); transform: none; box-shadow: none; }

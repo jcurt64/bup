@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 
@@ -107,11 +107,22 @@ export default function PrototypeFrame({
   // naturellement ; les changements d'onglet se font dans l'iframe
   // (hash interne) sans re-rendu du parent.
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  // Si l'iframe a fini de charger AVANT l'hydratation de React, l'événement
+  // `onLoad` est perdu et le loader resterait affiché par-dessus un
+  // tableau de bord pourtant prêt. On vérifie donc l'état réel au montage.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (doc && doc.readyState === "complete" && doc.URL !== "about:blank") {
+      setIframeLoaded(true);
+    }
+  }, []);
 
   return (
     <>
       <iframe
         key={version}
+        ref={iframeRef}
         src={src}
         title={`BUUPP — ${route}`}
         onLoad={() => setIframeLoaded(true)}

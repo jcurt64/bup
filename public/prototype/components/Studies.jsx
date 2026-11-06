@@ -247,8 +247,8 @@ const isoDay = (d) => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.g
 
 function ProStudiesPanel() {
   const [view, setView] = React.useState({ kind: 'list' });
-  if (view.kind === 'create') return <ProStudyCreate onDone={(id) => setView(id ? { kind: 'detail', id } : { kind: 'list' })}/>;
-  if (view.kind === 'detail') return <ProStudyDetail id={view.id} onBack={() => setView({ kind: 'list' })}/>;
+  if (view.kind === 'create') return <ProStudyCreate onDone={(id, notice) => setView(id ? { kind: 'detail', id, notice } : { kind: 'list' })}/>;
+  if (view.kind === 'detail') return <ProStudyDetail id={view.id} notice={view.notice} onBack={() => setView({ kind: 'list' })}/>;
   return <ProStudyList onCreate={() => setView({ kind: 'create' })} onOpen={(id) => setView({ kind: 'detail', id })}/>;
 }
 
@@ -339,7 +339,9 @@ function ProStudyCreate({ onDone }) {
     setBusy(false);
     if (r.ok) { onDone(r.data.id); return; }
     if (r.data.error === 'insufficient_funds') {
-      setError(`Solde disponible insuffisant : il manque ${studiesEur(r.data.missingCents)}. La campagne est enregistrée en brouillon ; rechargez votre portefeuille (onglet Facturation) puis publiez-la.`);
+      // Le brouillon est déjà créé : on bascule sur sa fiche (un nouveau clic
+      // « Publier » ici créerait un second brouillon).
+      onDone(r.data.id, `Solde disponible insuffisant : il manque ${studiesEur(r.data.missingCents)}. La campagne est enregistrée en brouillon ; rechargez votre portefeuille (onglet Facturation) puis publiez-la ici.`);
       return;
     }
     setError(STUDY_ERRORS[r.data.error] || 'Erreur : ' + (r.data.error || r.status));
@@ -429,12 +431,12 @@ function ProStudyCreate({ onDone }) {
   );
 }
 
-function ProStudyDetail({ id, onBack }) {
+function ProStudyDetail({ id, onBack, notice }) {
   const [d, setD] = React.useState(null);
   const [sel, setSel] = React.useState({});
   const [reason, setReason] = React.useState('code_missing');
   const [note, setNote] = React.useState('');
-  const [msg, setMsg] = React.useState(null);
+  const [msg, setMsg] = React.useState(notice ? { ok: false, text: notice } : null);
   const [busy, setBusy] = React.useState(false);
   const [terms, setTerms] = React.useState(false);
 
@@ -459,10 +461,11 @@ function ProStudyDetail({ id, onBack }) {
     setSel({}); load();
   };
   const campaignAction = async (action) => {
+    const wasDraft = d && d.study && d.study.status === 'draft';
     setBusy(true); setMsg(null);
     const r = await studiesPost(`/api/pro/studies/${id}`, { action, fraudTermsAccepted: terms });
     setBusy(false);
-    if (r.ok) setMsg({ ok: true, text: action === 'publish' ? 'Campagne publiée.' : 'Campagne annulée, budget libéré.' });
+    if (r.ok) setMsg({ ok: true, text: action === 'publish' ? 'Campagne publiée.' : wasDraft ? 'Brouillon supprimé.' : 'Campagne annulée, budget libéré.' });
     else if (r.data.error === 'insufficient_funds') setMsg({ ok: false, text: `Solde disponible insuffisant : il manque ${studiesEur(r.data.missingCents)}.` });
     else setMsg({ ok: false, text: STUDY_ERRORS[r.data.error] || 'Erreur : ' + (r.data.error || r.status) });
     load();

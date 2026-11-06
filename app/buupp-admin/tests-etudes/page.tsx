@@ -41,7 +41,6 @@ export default async function TestsEtudesAdminPage() {
   const cardStyle = { background: "var(--paper)", border: "1px solid var(--line)" };
   return (
     <div className="max-w-6xl">
-      <h1 className="text-2xl font-semibold mb-1">Tests &amp; Études</h1>
       <p className="text-sm mb-6" style={{ color: "var(--ink-4)" }}>
         Module {flag?.studies_enabled ? "ACTIVÉ" : "désactivé"} (app_config.studies_enabled).
       </p>
