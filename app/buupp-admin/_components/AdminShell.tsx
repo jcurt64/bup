@@ -42,6 +42,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/buupp-admin/pros", label: "Professionnels", icon: "briefcase", accent: "#14B8A6" },
       { href: "/buupp-admin/campagnes", label: "Campagnes", icon: "megaphone", accent: "#6366F1", badge: "campaigns" },
+      { href: "/buupp-admin/tests-etudes", label: "Tests & Études", icon: "lightbulb", accent: "#0EA5E9" },
       { href: "/buupp-admin/transactions", label: "Transactions", icon: "exchange", accent: "#F97316" },
       { href: "/buupp-admin/waitlist", label: "Waitlist", icon: "hourglass", accent: "#3B82F6", badge: "waitlist" },
       { href: "/buupp-admin/notifications", label: "Notifications", icon: "bell", accent: "#EC4899" },
