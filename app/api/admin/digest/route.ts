@@ -33,6 +33,7 @@ import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { purgeOldContactReveals } from "@/lib/pro/reveals-retention";
 import { sendLaunchEmailsIfDue } from "@/lib/waitlist/launch-email";
 
+import { runStudiesDaily } from "@/lib/studies/daily";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,7 @@ async function runDigest(req: Request) {
   // et elle ne s'applique qu'une seule fois ensuite. Cf. lib/cnil/bascule.ts.
   let bascule: Awaited<ReturnType<typeof applyCnilBasculeIfDue>> | null = null;
   let restrictionsLifted = 0;
+  let studies: Awaited<ReturnType<typeof runStudiesDaily>> | null = null;
   let revealsPurged = 0;
   let founderBonus: Awaited<
     ReturnType<typeof syncFounderBonusesAndNotify>
@@ -169,6 +171,13 @@ async function runDigest(req: Request) {
     } catch (err) {
       console.error("[/api/admin/digest] waitlist launch email failed", err);
     }
+    // Piggyback : module Tests & Études (échéances, rappels J-2,
+    // récapitulatifs e-mail). Inerte tant que studies_enabled = false.
+    try {
+      studies = await runStudiesDaily(admin, now);
+    } catch (err) {
+      console.error("[/api/admin/digest] studies daily failed", err);
+    }
   }
 
   return NextResponse.json({
@@ -179,5 +188,6 @@ async function runDigest(req: Request) {
     founderBonus: founderBonus ?? null,
     revealsPurged,
     launchEmails,
+    studies,
   });
 }
