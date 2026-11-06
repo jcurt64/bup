@@ -602,9 +602,9 @@ function FraicheurBody() {
   const C = SCORE_C;
   // Trois jalons de la courbe : position x (sur 320), y (sur 160), valeur, couleur.
   const pts: { x: number; y: number; n: string; color: string; soft: string; label: string; sub: string; hero?: boolean }[] = [
-    { x: 54, y: 52, n: "100", color: C.green, soft: C.greenSoft, label: "Récentes", sub: "≤ 3 mois", hero: true },
-    { x: 160, y: 92, n: "60", color: C.amber, soft: C.amberSoft, label: "À rafraîchir", sub: "3 – 12 mois" },
-    { x: 266, y: 126, n: "20", color: C.rose, soft: C.roseSoft, label: "Périmées", sub: "> 12 mois" },
+    { x: 54, y: 52, n: "100", color: C.green, soft: C.greenSoft, label: "Récentes", sub: "≤ 1 an", hero: true },
+    { x: 160, y: 92, n: "50", color: C.amber, soft: C.amberSoft, label: "À rafraîchir", sub: "1 – 2 ans" },
+    { x: 266, y: 126, n: "25", color: C.rose, soft: C.roseSoft, label: "Périmées", sub: "> 2 ans" },
   ];
   return (
     <>
@@ -733,9 +733,9 @@ function FraicheurBody() {
           <Icon name="trend" size={15} />
         </span>
         <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
-          La fraîcheur se recalcule en continu&nbsp;: un simple passage pour{" "}
-          <strong style={{ color: C.indigoD }}>confirmer vos données</strong> suffit à la
-          faire remonter au maximum.
+          La fraîcheur se recalcule en continu, d&apos;après votre dernière
+          modification&nbsp;: <strong style={{ color: C.indigoD }}>mettre à jour un champ
+          dans Mes données</strong> suffit à la faire remonter au maximum.
         </p>
       </div>
       <div

@@ -38,6 +38,7 @@ import {
   COMMISSION_FLOOR_CENTS,
   COMMISSION_RATE_BP,
 } from "@/lib/pricing/commission";
+import { MAX_PROSPECTS_PER_CAMPAIGN } from "@/lib/pricing/single-plan";
 
 export const runtime = "nodejs";
 
@@ -189,6 +190,19 @@ export async function POST(req: Request) {
     !body.budgetCents || body.budgetCents < 1
   ) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+  }
+
+  // Formule unique : 500 contacts max par campagne (borne affichée sur le
+  // site et appliquée par les wizards web + mobile).
+  if (body.contacts > MAX_PROSPECTS_PER_CAMPAIGN) {
+    return NextResponse.json(
+      {
+        error: "too_many_contacts",
+        max: MAX_PROSPECTS_PER_CAMPAIGN,
+        message: `Une campagne est limitée à ${MAX_PROSPECTS_PER_CAMPAIGN} contacts.`,
+      },
+      { status: 400 },
+    );
   }
 
   if (!SUB_TYPES_BY_OBJECTIVE[body.objectiveId]) {
