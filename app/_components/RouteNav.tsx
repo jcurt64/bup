@@ -334,11 +334,15 @@ export default function RouteNav({
   // flag à true via useEffect, le prochain render saute juste le JSX.
   if (inMobileApp) return null;
 
+  const anyTabActive = visibleIds.some((id) => pathname === TAB_DEFS[id].href);
+
   return (
     <div ref={navRef} className="route-nav" style={containerStyle(overDark)}>
       {visibleIds.map((id) => {
         const t = TAB_DEFS[id];
-        const active = pathname === t.href;
+        // Sur une page sans onglet dédié (ex. /tests-etudes/…), « Accueil »
+        // garde le style actif (dégradé bleu) pour rester repérable.
+        const active = pathname === t.href || (!anyTabActive && id === "accueil");
         return (
           <Link
             key={id}
