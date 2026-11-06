@@ -1499,7 +1499,37 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   transform: skewX(-18deg); animation: hero-new-shine 4.2s ease-in-out infinite 1.2s;
 }
 .hero-new-card > * { flex-shrink: 0; }
-.hero-new-card:hover { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 30px 70px -24px rgba(236,72,153,.65); }
+/* ── Survol : inclinaison 3D vers le curseur, zoom, halo lumineux qui suit
+   la souris, liseré accéléré, étiquette et bouton qui s'animent. */
+.hero-new-card {
+  --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%;
+  transform: perspective(800px) rotateX(var(--rx)) rotateY(var(--ry));
+  transform-style: preserve-3d;
+}
+.hero-new-card:hover {
+  transform: perspective(800px) rotateX(var(--rx)) rotateY(var(--ry)) scale(1.05);
+  box-shadow: 0 40px 80px -24px rgba(236,72,153,.7), 0 0 0 1px rgba(255,255,255,.08);
+  transition: transform .08s linear, box-shadow .3s ease;
+}
+.hero-new-glow {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(220px circle at var(--mx) var(--my), rgba(255,255,255,.22), rgba(236,72,153,.16) 35%, transparent 65%);
+  opacity: 0; transition: opacity .3s ease;
+}
+.hero-new-card:hover .hero-new-glow { opacity: 1; }
+.hero-new-card:hover::before { animation-duration: 1.6s; }
+.hero-new-card:hover::after { animation: hero-new-shine 1.1s ease-out 1; }
+.hero-new-tag, .hero-new-title, .hero-new-sub, .hero-new-cta { transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s ease, background .3s ease, color .3s ease; }
+.hero-new-card:hover .hero-new-tag { transform: translateZ(40px) scale(1.06); box-shadow: 0 0 22px rgba(236,72,153,.75); }
+.hero-new-card:hover .hero-new-title { transform: translateZ(30px); }
+.hero-new-card:hover .hero-new-sub { transform: translateZ(18px); }
+.hero-new-card:hover .hero-new-cta {
+  transform: translateZ(36px);
+  background: linear-gradient(110deg, #F97316, #EC4899 55%, #8B5CF6); color: #fff;
+  box-shadow: 0 12px 26px -10px rgba(236,72,153,.9);
+}
+.hero-new-cta svg { transition: transform .3s ease; }
+.hero-new-card:hover .hero-new-cta svg { transform: translateX(4px); }
 .hero-new-tag {
   display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; white-space: nowrap;
   font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff;
@@ -1519,14 +1549,17 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   0%, 100% { translate: 0 0; rotate: 0deg; box-shadow: 0 24px 60px -24px rgba(168,85,247,.6); }
   50% { translate: 0 -12px; rotate: .6deg; box-shadow: 0 40px 70px -28px rgba(236,72,153,.55); }
 }
-@keyframes hero-new-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* Apparition via `opacity` + `scale` (propriété individuelle) : un
+   `transform` animé avec fill-mode figerait la transformation et
+   neutraliserait l'inclinaison 3D du survol. */
+@keyframes hero-new-in { from { opacity: 0; scale: .94; } to { opacity: 1; scale: 1; } }
 @media (min-width: 1100px) {
   .hero-new-slot { position: absolute; top: var(--hero-new-top, 50%); right: 0; margin: 0; transform: translateY(-50%); }
   /* La carte (carrée) garde ≥ 20 px de marge de chaque côté, flottement compris. */
   .hero-new-slot .hero-new-card { width: min(264px, calc(var(--hero-new-space, 304px) - 40px)); }
 }
 @media (min-width: 1100px) and (max-width: 1279px) { .hero-new-slot .hero-new-card { width: min(236px, calc(var(--hero-new-space, 276px) - 40px)); gap: 9px; padding: 16px 14px; } .hero-new-title { font-size: 22px; } }
-@media (prefers-reduced-motion: reduce) { .hero-new-card, .hero-new-card::before, .hero-new-card::after, .hero-new-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .hero-new-card, .hero-new-card::before, .hero-new-card::after, .hero-new-dot { animation: none; } .hero-new-card, .hero-new-card:hover { transform: none; } }
 
 /* Bouton « S'inscrire en tant que pro » : bleu du logo au lieu du noir. */
 .btn.btn-brand {

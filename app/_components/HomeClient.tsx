@@ -127,6 +127,24 @@ function Hero({
   const heroTopRowRef = useRef<HTMLDivElement>(null);
   const heroHeadlineRef = useRef<HTMLDivElement>(null);
   const heroButtonsRef = useRef<HTMLDivElement>(null);
+  // Survol de la carte « Nouveau » : inclinaison 3D et halo qui suivent le
+  // curseur. Variables CSS posées directement sur l'élément (pas d'état
+  // React → aucun re-rendu à chaque mouvement de souris).
+  const onNewCardMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    el.style.setProperty("--mx", `${x * 100}%`);
+    el.style.setProperty("--my", `${y * 100}%`);
+    el.style.setProperty("--ry", `${(x - 0.5) * 16}deg`);
+    el.style.setProperty("--rx", `${(0.5 - y) * 16}deg`);
+  };
+  const onNewCardLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const el = e.currentTarget;
+    el.style.setProperty("--rx", "0deg");
+    el.style.setProperty("--ry", "0deg");
+  };
   const [newCardPos, setNewCardPos] = useState<{ top: number; space: number } | null>(null);
   useEffect(() => {
     if (!studiesOpen) return;
@@ -258,7 +276,14 @@ function Hero({
               className="hero-new-slot"
               style={newCardPos ? ({ "--hero-new-top": `${newCardPos.top}px`, "--hero-new-space": `${newCardPos.space}px` } as CSSProperties) : undefined}
             >
-              <Link href="/tests-etudes" className="hero-new-card" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
+              <Link
+                href="/tests-etudes"
+                className="hero-new-card"
+                aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré"
+                onMouseMove={onNewCardMove}
+                onMouseLeave={onNewCardLeave}
+              >
+                <span className="hero-new-glow" aria-hidden />
                 <span className="hero-new-tag">
                   <span className="hero-new-dot" aria-hidden />
                   Nouveau
