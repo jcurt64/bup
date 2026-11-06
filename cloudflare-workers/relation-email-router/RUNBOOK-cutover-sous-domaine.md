@@ -1,3 +1,16 @@
+> ✅ **RÉSOLU le 06/11/2026 — sans Cloudflare.** La méthode ci-dessous est
+> inapplicable : une zone séparée pour un sous-domaine est réservée aux offres
+> Enterprise, et Email Routing exige l'apex (casserait IONOS). Les alias passent
+> désormais par l'**inbound parsing Brevo** :
+> - DNS `mail.buupp.com` : MX 10 `inbound1.sendinblue.com`, MX 20 `inbound2.sendinblue.com`,
+>   CNAME `brevo1/2._domainkey.mail` → `b1/b2.mail-buupp-com.dkim.brevo.com`, TXT `mail` brevo-code ;
+>   domaine `mail.buupp.com` authentifié chez Brevo.
+> - Webhook Brevo inbound (id 2662029) → `https://www.buupp.com/api/inbound/brevo?token=…`
+>   (jeton = `BREVO_INBOUND_TOKEN` Vercel prod, copie locale `~/.buupp/brevo-inbound-token`).
+> - Vercel prod : `BUUPP_INBOUND_DOMAIN=mail.buupp.com`.
+> - Code : `app/api/inbound/brevo/route.ts` (résolution d'alias + réexpédition, pro en Reply-To).
+> Le worker Cloudflare de ce dossier n'est plus utilisé.
+
 # Runbook — Rétablir les alias de mise en relation sur `mail.buupp.com`
 
 ## Contexte (à jour 05/06/2026)
