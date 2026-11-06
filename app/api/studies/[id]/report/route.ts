@@ -13,7 +13,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const body = await readJson(req);
   const reason = String(body.reason ?? "");
-  if (!(reason in REPORT_REASONS)) return err("reason_invalid", 400);
+  if (!Object.hasOwn(REPORT_REASONS, reason)) return err("reason_invalid", 400);
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) || null : null;
   const { data: c } = await g.admin.from("study_campaigns").select("id, title").eq("id", id).maybeSingle();
   if (!c) return err("not_found", 404);

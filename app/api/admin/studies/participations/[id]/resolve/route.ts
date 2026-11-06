@@ -28,8 +28,12 @@ export async function POST(req: Request, ctx: Ctx) {
     if (error || !data) return NextResponse.json({ error: error?.message ?? "approve_failed" }, { status: 409 });
     if (p.status === "disputed") await notifyDispute(admin, id, "approved");
   } else if (body.decision === "reject_final") {
-    await admin.from("study_participations")
-      .update({ status: "rejected_final", resolved_at: new Date().toISOString() }).eq("id", id);
+    // Garde de statut dans l'UPDATE : si la participation a été payée entre-temps
+    // (auto-validation), on ne la repasse pas en refusée.
+    const { data: upd } = await admin.from("study_participations")
+      .update({ status: "rejected_final", resolved_at: new Date().toISOString() })
+      .eq("id", id).in("status", ["disputed", "done", "rejected"]).select("id");
+    if (!upd?.length) return NextResponse.json({ error: "not_resolvable" }, { status: 409 });
     if (p.status === "disputed") await notifyDispute(admin, id, "rejected");
   } else {
     return NextResponse.json({ error: "decision_invalid" }, { status: 400 });

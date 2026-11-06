@@ -19,10 +19,12 @@
  *   Copier le Signing Secret → STRIPE_WEBHOOK_SECRET.
  */
 
+import { adjustProWallet } from "@/lib/pro/wallet-adjust";
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -173,14 +175,10 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          await admin
-            .from("pro_accounts")
-            .update({
-              wallet_balance_cents:
-                Number(pro.wallet_balance_cents ?? 0) + amountCents,
-              ...autoFields,
-            })
-            .eq("id", proAccountId);
+          await adjustProWallet(admin, proAccountId, { balanceDelta: amountCents });
+          if (Object.keys(autoFields).length) {
+            await admin.from("pro_accounts").update(autoFields as Database["public"]["Tables"]["pro_accounts"]["Update"]).eq("id", proAccountId);
+          }
         }
 
         void (async () => {
@@ -234,13 +232,7 @@ export async function POST(request: NextRequest) {
           .eq("id", proAccountId)
           .single();
         if (pro) {
-          await admin
-            .from("pro_accounts")
-            .update({
-              wallet_balance_cents:
-                Number(pro.wallet_balance_cents ?? 0) + amountCents,
-            })
-            .eq("id", proAccountId);
+          await adjustProWallet(admin, proAccountId, { balanceDelta: amountCents });
         }
 
         void (async () => {

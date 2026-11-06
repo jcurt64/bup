@@ -44,15 +44,16 @@ export async function POST(req: Request, ctx: Ctx) {
 
   if (body.action === "reject") {
     const reason = String(body.reason ?? "");
-    if (!(reason in REJECT_REASONS)) return err("reason_invalid", 400);
+    if (!Object.hasOwn(REJECT_REASONS, reason)) return err("reason_invalid", 400);
     const note = typeof body.note === "string" ? body.note.trim().slice(0, REJECT_NOTE_MAX) : "";
     if (reason === "other" && note.length < 3) return err("note_required", 400);
     for (const p of parts ?? []) {
       if (!canProReject(c, p, now)) { skipped.push(p.id); continue; }
-      const { error } = await g.admin.from("study_participations").update({
+      const { data: updated, error } = await g.admin.from("study_participations").update({
         status: "rejected", rejected_at: now.toISOString(), reject_reason: reason, reject_note: note || null,
-      }).eq("id", p.id).eq("status", "done");
-      if (error) { skipped.push(p.id); continue; }
+      }).eq("id", p.id).eq("status", "done").select("id");
+      // 0 ligne = course perdue (auto-validée entre-temps) : ni refus ni e-mail.
+      if (error || !updated?.length) { skipped.push(p.id); continue; }
       done.push(p.id);
     }
     after(async () => { for (const pid of done) await notifyRejected(g.admin, pid); });

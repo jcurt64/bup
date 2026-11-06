@@ -133,6 +133,18 @@ begin
   return v_out;
 end $$;
 
+-- ── Ajustement atomique du portefeuille pro (deltas relatifs) ────────
+-- Utilisé par les routes Node (création/prolongation de campagne, recharges)
+-- à la place des écritures « valeur absolue » qui écrasaient les mouvements
+-- concurrents des RPC Tests & Études.
+create or replace function public.pro_wallet_adjust(p_pro uuid, p_balance_delta bigint, p_reserved_delta bigint)
+returns void language sql security definer set search_path to 'public' as $$
+  update public.pro_accounts
+     set wallet_balance_cents  = wallet_balance_cents + p_balance_delta,
+         wallet_reserved_cents = greatest(0, wallet_reserved_cents + p_reserved_delta)
+   where id = p_pro;
+$$;
+
 -- ── Publication : réserve le budget max ──────────────────────────────
 create or replace function public.publish_study_tx(p_id uuid)
 returns bigint language plpgsql security definer set search_path to 'public' as $$
@@ -175,6 +187,10 @@ declare
 begin
   select * into c from public.study_campaigns where id = p_id for update;
   if not found or c.status <> 'published' then return false; end if;
+  -- Garde : seuil atteint, recompté sous verrou (jamais sur la foi de l'appelant).
+  if (select count(*) from public.study_participations where campaign_id = p_id) < c.min_participants then
+    return false;
+  end if;
 
   for r in select id from public.study_participations where campaign_id = p_id and status = 'joined' loop
     loop
@@ -232,8 +248,21 @@ declare
 begin
   select * into c from public.study_campaigns where id = p_id for update;
   if not found then raise exception 'not_found'; end if;
-  if c.status in ('canceled','closed') then return 0; end if;
+  -- NULL = rien n'a changé (déjà annulée/clôturée) : l'appelant ne notifie pas.
+  if c.status in ('canceled','closed') then return null; end if;
   if c.status = 'validated' and p_reason <> 'admin_suspended' then raise exception 'already_validated'; end if;
+  if p_reason = 'threshold_not_met' then
+    -- Garde : on ne supprime jamais les inscriptions d'une campagne qui a
+    -- atteint son seuil, même si l'appelant a lu un décompte tronqué.
+    if c.signup_deadline > now() then return null; end if;
+    if (select count(*) from public.study_participations where campaign_id = p_id) >= c.min_participants then
+      return null;
+    end if;
+  end if;
+  -- Le pro ne peut annuler qu'avant la fin des inscriptions (avant validation).
+  if p_reason = 'pro_canceled' and c.status = 'published' and c.signup_deadline <= now() then
+    raise exception 'signup_closed';
+  end if;
 
   if c.status = 'validated' then
     delete from public.study_participations
@@ -340,3 +369,4 @@ revoke all on function public.join_study_tx(uuid, uuid) from public, anon, authe
 revoke all on function public.cancel_study_tx(uuid, text) from public, anon, authenticated;
 revoke all on function public.approve_study_participation_tx(uuid, text) from public, anon, authenticated;
 revoke all on function public.close_study_tx(uuid) from public, anon, authenticated;
+revoke all on function public.pro_wallet_adjust(uuid, bigint, bigint) from public, anon, authenticated;

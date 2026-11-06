@@ -48,9 +48,13 @@ export async function runStudiesDaily(admin: Admin, now = new Date()) {
 
   // 3. Récapitulatif e-mail (opt-in)
   const since = new Date(now.getTime() - 20 * 3600 * 1000).toISOString();
-  const { data: subs } = await admin.from("prospects").select("id, studies_digest_sent_at")
-    .eq("studies_email_digest", true).limit(5000);
-  const due = (subs ?? []).filter((s) => !s.studies_digest_sent_at || s.studies_digest_sent_at < since).map((s) => s.id);
+  // Filtre côté SQL : au plus 1000 abonnés par passage (max_rows) ; ceux
+  // traités sortent du filtre, les suivants passent au tour d'après.
+  const { data: subs } = await admin.from("prospects").select("id")
+    .eq("studies_email_digest", true)
+    .or(`studies_digest_sent_at.is.null,studies_digest_sent_at.lt.${since}`)
+    .limit(1000);
+  const due = (subs ?? []).map((s) => s.id);
   if (due.length) {
     const idents = await prospectIdentities(admin, due);
     for (const pid of due) {

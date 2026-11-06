@@ -13,6 +13,7 @@ export type SweepCampaign = {
   signup_deadline: string;
   completion_deadline: string;
   closed_at: string | null;
+  canceled_at?: string | null;
   purged_at: string | null;
   budget_reserved_cents: number;
 };
@@ -51,8 +52,12 @@ export function planTransitions(c: SweepCampaign, parts: SweepParticipation[], n
   if (c.status !== "validated" && c.status !== "canceled") return out;
 
   // Statut de chaque participation après les transitions de ce tour.
+  // Campagne suspendue (annulée après validation) : les participations
+  // conservées attendent l'arbitrage admin — aucune transition automatique.
+  const auto = c.status === "validated";
   const after = parts.map((p) => {
-    if (c.status === "validated" && p.status === "confirmed" && n >= ms(c.completion_deadline)) {
+    if (!auto) return p.status;
+    if (p.status === "confirmed" && n >= ms(c.completion_deadline)) {
       out.push({ kind: "not_done", id: p.id });
       return "not_done";
     }
@@ -74,6 +79,11 @@ export function planTransitions(c: SweepCampaign, parts: SweepParticipation[], n
     }
   } else if (nothingPending && c.budget_reserved_cents > 0) {
     out.push({ kind: "close", id: c.id });
+  } else if (
+    nothingPending && !c.purged_at && c.canceled_at &&
+    n >= ms(c.canceled_at) + PURGE_DAYS * DAY_MS
+  ) {
+    out.push({ kind: "purge", id: c.id });
   }
   return out;
 }

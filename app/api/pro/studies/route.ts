@@ -25,17 +25,12 @@ export async function GET() {
   const { data } = await g.admin.from("study_campaigns").select("*")
     .eq("pro_account_id", g.proId).order("created_at", { ascending: false }).limit(200);
   const rows = data ?? [];
-  const counts = await countJoined(g.admin, rows.map((r) => r.id));
-  const { data: spent } = rows.length
-    ? await g.admin.from("study_participations").select("campaign_id").in("campaign_id", rows.map((r) => r.id)).eq("status", "approved")
-    : { data: [] };
-  const approved = new Map<string, number>();
-  for (const s of spent ?? []) approved.set(s.campaign_id, (approved.get(s.campaign_id) ?? 0) + 1);
-  const { data: pending } = rows.length
-    ? await g.admin.from("study_participations").select("campaign_id").in("campaign_id", rows.map((r) => r.id)).eq("status", "done")
-    : { data: [] };
-  const toReview = new Map<string, number>();
-  for (const s of pending ?? []) toReview.set(s.campaign_id, (toReview.get(s.campaign_id) ?? 0) + 1);
+  const ids = rows.map((r) => r.id);
+  const [counts, approved, toReview] = await Promise.all([
+    countJoined(g.admin, ids),
+    countJoined(g.admin, ids, "approved"),
+    countJoined(g.admin, ids, "done"),
+  ]);
 
   return NextResponse.json({
     items: rows.map((r) => {

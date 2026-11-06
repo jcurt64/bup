@@ -14,6 +14,7 @@
  * prospects (RLS bloquerait la lecture).
  */
 
+import { adjustProWallet } from "@/lib/pro/wallet-adjust";
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -493,19 +494,14 @@ export async function POST(req: Request) {
 
   // Incrémente la réservation du pro (budget + commission max). Le
   // wallet "disponible" affiché côté UI = wallet_balance - wallet_reserved.
-  const newReserved =
-    Number(pro.wallet_reserved_cents ?? 0) + reservedCents;
   // Débit immédiat (non remboursable) : option Vitrine — paiement effectif
-  // au moment de l'achat, pas une réservation.
-  const newBalance =
-    Number(pro.wallet_balance_cents) - websiteAddonCents;
-  const { error: reserveErr } = await admin
-    .from("pro_accounts")
-    .update({
-      wallet_reserved_cents: newReserved,
-      wallet_balance_cents: newBalance,
-    })
-    .eq("id", proId);
+  // au moment de l'achat, pas une réservation. Deltas relatifs atomiques
+  // (cf. lib/pro/wallet-adjust.ts) : une lecture puis réécriture absolue
+  // écraserait les mouvements concurrents (Tests & Études, recharges).
+  const reserveErr = await adjustProWallet(admin, proId, {
+    reservedDelta: reservedCents,
+    balanceDelta: -websiteAddonCents,
+  }).then(() => null, (e: unknown) => e);
   if (reserveErr) {
     console.error("[/api/pro/campaigns] reservation update failed", reserveErr);
   }

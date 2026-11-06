@@ -38,14 +38,19 @@ export type PublicStudy = {
   paidMention: string;
 };
 
-export async function countJoined(admin: Admin, ids: string[]): Promise<Map<string, number>> {
+/**
+ * Nombre de participations par campagne (et, optionnellement, filtré par
+ * statut). Décompte exact côté serveur (`count: exact, head: true`) : un
+ * décompte client serait tronqué au plafond `max_rows` (1000) de PostgREST.
+ */
+export async function countJoined(admin: Admin, ids: string[], status?: string): Promise<Map<string, number>> {
   const out = new Map<string, number>(ids.map((id) => [id, 0]));
-  if (!ids.length) return out;
-  const { data } = await admin
-    .from("study_participations")
-    .select("campaign_id")
-    .in("campaign_id", ids);
-  for (const r of data ?? []) out.set(r.campaign_id, (out.get(r.campaign_id) ?? 0) + 1);
+  await Promise.all(ids.map(async (id) => {
+    let q = admin.from("study_participations").select("id", { count: "exact", head: true }).eq("campaign_id", id);
+    if (status) q = q.eq("status", status);
+    const { count } = await q;
+    out.set(id, count ?? 0);
+  }));
   return out;
 }
 

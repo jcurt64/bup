@@ -20,6 +20,7 @@
  * Auth : session Clerk (le user doit être le propriétaire du proAccount).
  */
 
+import { adjustProWallet } from "@/lib/pro/wallet-adjust";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { getStripe } from "@/lib/stripe/server";
@@ -107,20 +108,7 @@ export async function POST(request: NextRequest) {
     description: `Recharge BUUPP via Stripe (${(amountCents / 100).toFixed(2)} € crédités)`,
   });
 
-  const { data: pro } = await admin
-    .from("pro_accounts")
-    .select("wallet_balance_cents")
-    .eq("id", proAccountId)
-    .single();
-  if (pro) {
-    await admin
-      .from("pro_accounts")
-      .update({
-        wallet_balance_cents:
-          Number(pro.wallet_balance_cents ?? 0) + amountCents,
-      })
-      .eq("id", proAccountId);
-  }
+  await adjustProWallet(admin, proAccountId, { balanceDelta: amountCents });
 
   return NextResponse.json({ ok: true, alreadyCredited: false, amountCents });
 }

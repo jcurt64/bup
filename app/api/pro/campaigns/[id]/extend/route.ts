@@ -16,6 +16,7 @@
  *     `buupp_commission` (revenu BUUPP non remboursable).
  */
 
+import { adjustProWallet } from "@/lib/pro/wallet-adjust";
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -135,10 +136,8 @@ export async function POST(_req: Request, ctx: RouteContext) {
   }
 
   // Débit wallet pro + transaction (revenu BUUPP, non lié aux acceptations).
-  const { error: walletErr } = await admin
-    .from("pro_accounts")
-    .update({ wallet_balance_cents: balance - EXTENSION_FEE_CENTS })
-    .eq("id", proId);
+  const walletErr = await adjustProWallet(admin, proId, { balanceDelta: -EXTENSION_FEE_CENTS })
+    .then(() => null, (e: unknown) => e);
   if (walletErr) {
     console.error("[/api/pro/campaigns/extend] wallet debit failed", walletErr);
     // Best-effort rollback du flag (sans la durée, le pro pourrait

@@ -1,5 +1,5 @@
 /** POST /api/studies/:id/join — inscription avec consentement explicite. */
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireProspect, readJson, err, rpcErrorCode } from "@/lib/studies/http";
 import { sweepStudy } from "@/lib/studies/sweep";
 import { notifyValidated } from "@/lib/studies/notify";
@@ -25,6 +25,6 @@ export async function POST(req: Request, ctx: Ctx) {
     const code = rpcErrorCode(error);
     return err(code, code === "not_found" ? 404 : 409);
   }
-  if (data === "joined_validated") await notifyValidated(g.admin, id);
+  if (data === "joined_validated") after(() => notifyValidated(g.admin, id));
   return NextResponse.json({ ok: true, result: data });
 }

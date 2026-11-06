@@ -1,5 +1,5 @@
 /** POST /api/admin/studies/:id/suspend — suspension admin (spec §8). */
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireAdminRequest } from "@/lib/admin/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { notifyCanceled } from "@/lib/studies/notify";
@@ -19,6 +19,7 @@ export async function POST(req: Request, ctx: Ctx) {
     .eq("campaign_id", id).in("status", ["joined", "confirmed", "not_done"]);
   const { data: released, error } = await admin.rpc("cancel_study_tx", { p_id: id, p_reason: "admin_suspended" });
   if (error) return NextResponse.json({ error: error.message }, { status: 409 });
-  await notifyCanceled(admin, c, (parts ?? []).map((p) => p.prospect_id), "admin_suspended");
+  if (released === null) return NextResponse.json({ error: "already_canceled" }, { status: 409 });
+  after(() => notifyCanceled(admin, c, (parts ?? []).map((p) => p.prospect_id), "admin_suspended"));
   return NextResponse.json({ ok: true, releasedCents: Number(released ?? 0) });
 }

@@ -7,7 +7,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const camp = (o: Partial<SweepCampaign> = {}): SweepCampaign => ({
   id: "c", status: "published", min_participants: 2, max_participants: 10,
   signup_deadline: iso(T0), completion_deadline: iso(T0 + 10 * D),
-  closed_at: null, purged_at: null, budget_reserved_cents: 1000, ...o,
+  closed_at: null, purged_at: null, canceled_at: null, budget_reserved_cents: 1000, ...o,
 });
 const part = (id: string, status: string, o: Partial<SweepParticipation> = {}): SweepParticipation =>
   ({ id, status, review_due_at: null, rejected_at: null, ...o });
@@ -57,5 +57,17 @@ describe("planTransitions", () => {
     const c = camp({ status: "closed", closed_at: iso(T0) });
     expect(kinds(planTransitions(c, [], new Date(T0 + 30 * D)))).toEqual(["purge:c"]);
     expect(planTransitions({ ...c, purged_at: iso(T0 + 30 * D) }, [], new Date(T0 + 31 * D))).toEqual([]);
+  });
+
+  it("campagne suspendue : pas d'auto-validation ni de refus définitif automatique (arbitrage admin)", () => {
+    const c = camp({ status: "canceled", budget_reserved_cents: 460 });
+    const ps = [part("a", "done", { review_due_at: iso(T0) }), part("b", "rejected", { rejected_at: iso(T0) })];
+    expect(planTransitions(c, ps, new Date(T0 + 30 * D))).toEqual([]);
+  });
+  it("campagne annulée : purge 30 j après l'annulation quand plus rien n'est en attente", () => {
+    const c = camp({ status: "canceled", budget_reserved_cents: 0, canceled_at: iso(T0) });
+    expect(kinds(planTransitions(c, [part("a", "approved")], new Date(T0 + 30 * D)))).toEqual(["purge:c"]);
+    expect(planTransitions(c, [part("a", "approved")], new Date(T0 + 29 * D))).toEqual([]);
+    expect(planTransitions({ ...c, purged_at: iso(T0) }, [], new Date(T0 + 40 * D))).toEqual([]);
   });
 });

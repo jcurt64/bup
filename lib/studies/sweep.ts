@@ -11,7 +11,7 @@ import { notifyApproved, notifyCanceled, notifyValidated } from "./notify";
 type Admin = SupabaseClient<Database>;
 
 const SWEEP_COLS =
-  "id, title, pro_account_id, status, min_participants, max_participants, signup_deadline, completion_deadline, closed_at, purged_at, budget_reserved_cents";
+  "id, title, pro_account_id, status, min_participants, max_participants, signup_deadline, completion_deadline, closed_at, canceled_at, purged_at, budget_reserved_cents";
 
 async function apply(admin: Admin, c: { id: string; title: string; pro_account_id: string }, t: Transition): Promise<void> {
   switch (t.kind) {
@@ -22,8 +22,9 @@ async function apply(admin: Admin, c: { id: string; title: string; pro_account_i
     }
     case "cancel": {
       const { data: parts } = await admin.from("study_participations").select("prospect_id").eq("campaign_id", c.id);
-      const { error } = await admin.rpc("cancel_study_tx", { p_id: c.id, p_reason: "threshold_not_met" });
-      if (!error) await notifyCanceled(admin, c, (parts ?? []).map((p) => p.prospect_id), "threshold_not_met");
+      const { data, error } = await admin.rpc("cancel_study_tx", { p_id: c.id, p_reason: "threshold_not_met" });
+      // data NULL = no-op (déjà annulée par un balayage concurrent, ou seuil atteint) → pas de mail.
+      if (!error && data !== null) await notifyCanceled(admin, c, (parts ?? []).map((p) => p.prospect_id), "threshold_not_met");
       return;
     }
     case "not_done":
@@ -57,13 +58,21 @@ async function apply(admin: Admin, c: { id: string; title: string; pro_account_i
 
 async function sweepRows(admin: Admin, rows: Array<Parameters<typeof planTransitions>[0] & { title: string; pro_account_id: string }>, now: Date) {
   if (!rows.length) return 0;
-  const { data: parts } = await admin
-    .from("study_participations")
-    .select("id, campaign_id, status, review_due_at, rejected_at")
-    .in("campaign_id", rows.map((r) => r.id));
   let n = 0;
   for (const c of rows) {
-    const ts = planTransitions(c, (parts ?? []).filter((p) => p.campaign_id === c.id), now);
+    // Une requête par campagne (≤ 500 lignes, sous le plafond max_rows de
+    // PostgREST). En cas d'erreur, on ne planifie RIEN pour cette campagne :
+    // un décompte vide ferait croire à un seuil non atteint.
+    const { data: parts, error } = await admin
+      .from("study_participations")
+      .select("id, campaign_id, status, review_due_at, rejected_at")
+      .eq("campaign_id", c.id)
+      .limit(1000);
+    if (error || !parts) {
+      console.error("[studies/sweep] participations read failed", c.id, error);
+      continue;
+    }
+    const ts = planTransitions(c, parts, now);
     for (const t of ts) {
       try {
         await apply(admin, c, t);
@@ -94,7 +103,7 @@ export async function sweepAllStudies(admin: Admin, now = new Date()): Promise<n
   const { data } = await admin
     .from("study_campaigns")
     .select(SWEEP_COLS)
-    .or("status.in.(published,validated),and(status.eq.canceled,budget_reserved_cents.gt.0),and(status.eq.closed,purged_at.is.null)")
+    .or("status.in.(published,validated),and(status.eq.canceled,purged_at.is.null),and(status.eq.closed,purged_at.is.null)")
     .limit(1000);
   return sweepRows(admin, data ?? [], now);
 }

@@ -5,6 +5,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { REJECT_REASONS, REPORT_REASONS, STUDY_TYPE_LABELS, type RejectReason, type ReportReason, type StudyType } from "@/lib/studies/constants";
 import StudyAdminButton from "./_components/StudyAdminButton";
+import { countJoined } from "@/lib/studies/repo";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,7 @@ export default async function TestsEtudesAdminPage() {
     admin.from("app_config").select("studies_enabled").maybeSingle(),
   ]);
   const ids = (camps ?? []).map((c) => c.id);
-  const { data: parts } = ids.length ? await admin.from("study_participations").select("campaign_id, status").in("campaign_id", ids) : { data: [] };
-  const joined = new Map<string, number>();
-  for (const p of parts ?? []) joined.set(p.campaign_id, (joined.get(p.campaign_id) ?? 0) + 1);
+  const joined = await countJoined(admin, ids);
   const reportCount = new Map<string, number>();
   for (const r of reports ?? []) reportCount.set(r.campaign_id, (reportCount.get(r.campaign_id) ?? 0) + 1);
   // Participations conservées après suspension (travail déclaré fait) → à arbitrer.

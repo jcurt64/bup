@@ -1788,10 +1788,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      pro_wallet_adjust: { Args: { p_pro: string; p_balance_delta: number; p_reserved_delta: number }; Returns: undefined }
       publish_study_tx: { Args: { p_id: string }; Returns: number }
       validate_study_tx: { Args: { p_id: string }; Returns: boolean }
       join_study_tx: { Args: { p_campaign: string; p_prospect: string }; Returns: string }
-      cancel_study_tx: { Args: { p_id: string; p_reason: string }; Returns: number }
+      cancel_study_tx: { Args: { p_id: string; p_reason: string }; Returns: number | null }
       approve_study_participation_tx: { Args: { p_participation: string; p_by: string }; Returns: boolean }
       close_study_tx: { Args: { p_id: string }; Returns: number }
       accept_relation_tx: {

@@ -117,10 +117,15 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   if (body.action === "cancel") {
-    if (c.status !== "draft" && c.status !== "published") return err("not_cancelable", 409);
+    // Applique d'abord les échéances : une campagne arrivée à sa date limite
+    // avec assez d'inscrits doit être validée, pas annulable.
+    await sweepStudy(g.admin, id);
+    const fresh = await own(g, id);
+    if (!fresh || (fresh.status !== "draft" && fresh.status !== "published")) return err("not_cancelable", 409);
     const { data: parts } = await g.admin.from("study_participations").select("prospect_id").eq("campaign_id", id);
     const { data: released, error } = await g.admin.rpc("cancel_study_tx", { p_id: id, p_reason: "pro_canceled" });
     if (error) return err(rpcErrorCode(error), 409);
+    if (released === null) return err("not_cancelable", 409);
     const pids = (parts ?? []).map((p) => p.prospect_id);
     if (pids.length) after(() => notifyCanceled(g.admin, c, pids, "pro_canceled"));
     return NextResponse.json({ ok: true, releasedCents: Number(released ?? 0) });

@@ -23,16 +23,29 @@ async function proName(admin: Admin, proId: string): Promise<string> {
 /** Publication : notification in-app aux prospects éligibles (palier 1 complet + zone). */
 export async function notifyPublished(admin: Admin, c: Pick<StudyRow, "id" | "scope" | "department">): Promise<number> {
   try {
-    const { data: idents } = await admin
-      .from("prospect_identity")
-      .select("prospect_id, prenom, email")
-      .not("prenom", "is", null)
-      .not("email", "is", null)
-      .limit(20000);
-    let ids = (idents ?? []).filter((r) => r.prenom?.trim() && r.email?.trim()).map((r) => r.prospect_id);
+    // Pagination par tranches de 1000 (plafond max_rows de PostgREST).
+    let ids: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error } = await admin
+        .from("prospect_identity")
+        .select("prospect_id, prenom, email")
+        .not("prenom", "is", null)
+        .not("email", "is", null)
+        .order("prospect_id")
+        .range(from, from + 999);
+      if (error) throw error;
+      ids.push(...(page ?? []).filter((r) => r.prenom?.trim() && r.email?.trim()).map((r) => r.prospect_id));
+      if (!page || page.length < 1000) break;
+    }
     if (c.scope === "department" && c.department) {
-      const { data: locs } = await admin.from("prospect_localisation").select("prospect_id, code_postal").in("prospect_id", ids);
-      const ok = new Set((locs ?? []).filter((l) => departmentFromPostalCode(l.code_postal) === c.department).map((l) => l.prospect_id));
+      // Filtre par lots de 200 identifiants (URL GET bornée).
+      const ok = new Set<string>();
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: locs, error } = await admin.from("prospect_localisation")
+          .select("prospect_id, code_postal").in("prospect_id", ids.slice(i, i + 200));
+        if (error) throw error;
+        for (const l of locs ?? []) if (departmentFromPostalCode(l.code_postal) === c.department) ok.add(l.prospect_id);
+      }
       ids = ids.filter((id) => ok.has(id));
     }
     for (let i = 0; i < ids.length; i += 500) {
