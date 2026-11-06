@@ -317,21 +317,6 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
             >
               Buupp &amp;<br />vos données
             </Link>
-            <Link
-              className="nav-link"
-              href="/contact"
-              style={{
-                fontFamily: "var(--font-josefin), sans-serif",
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: 0,
-                color: "#C2410B",
-                lineHeight: 1,
-                display: "inline-block",
-              }}
-            >
-              Contact
-            </Link>
           </nav>
 
           <div className="row center gap-3 nav-desktop">
@@ -427,20 +412,6 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
           >
             <span style={{ display: "inline-block", textAlign: "center", lineHeight: 0.95 }}>
               Buupp &amp;<br />vos données
-            </span>
-          </button>
-          <button
-            className="drawer-link"
-            style={{
-              fontFamily: "var(--font-josefin), sans-serif",
-              fontSize: 18,
-              fontWeight: 700,
-              color: "#C2410B",
-            }}
-            onClick={() => go("/contact")}
-          >
-            <span style={{ display: "inline-block" }}>
-              Contact
             </span>
           </button>
           <div className="drawer-ctas">
