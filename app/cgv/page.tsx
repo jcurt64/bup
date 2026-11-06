@@ -680,6 +680,63 @@ export default function CgvPage() {
           </p>
         </Section>
 
+        <Section title="Tests &amp; Études — Conditions applicables au Professionnel">
+          <p>
+            <strong>Principe.</strong> Le module « Tests &amp; Études » permet au
+            Professionnel de proposer des campagnes rémunérées de sondage en
+            ligne, de test d&apos;un site ou d&apos;une application, ou de visite en
+            magasin / rendez-vous d&apos;échange. La tâche est réalisée chez le
+            Professionnel ; BUUPP assure la publication, les inscriptions, la
+            preuve de réalisation par code individuel, la validation et le
+            paiement. Seuls le prénom et un alias e-mail du participant sont
+            transmis au Professionnel.
+          </p>
+          <p>
+            <strong>Tout ou rien et réservation.</strong> Le Professionnel fixe
+            un nombre minimum et maximum de participants (5 à 500). À la
+            publication, le budget maximum (nombre maximum × (rémunération +
+            commission)) est <strong>réservé</strong> sur son portefeuille, sans
+            être débité. Si le minimum n&apos;est pas atteint à la date limite
+            d&apos;inscription, la campagne est annulée, aucune somme n&apos;est
+            débitée et aucune donnée n&apos;est transmise. Le Professionnel peut
+            annuler sans frais tant que la campagne n&apos;est pas validée.
+          </p>
+          <p>
+            <strong>Paiement.</strong> Seules les participations validées sont
+            débitées : rémunération du participant + commission BUUPP de 10 %
+            de cette rémunération, avec un minimum de 0,30 € HT par participant.
+            Le solde réservé non utilisé est libéré à la clôture.
+          </p>
+          <p>
+            <strong>Validation.</strong> Le Professionnel valide ou refuse chaque
+            participation déclarée réalisée dans un délai de{" "}
+            <strong>sept (7) jours</strong> ; à défaut, elle est{" "}
+            <strong>validée tacitement</strong> et débitée. Tout refus doit être
+            motivé (motif choisi dans une liste). Le participant peut contester
+            un refus sous sept jours ; BUUPP tranche au vu du code, du
+            commentaire et du motif, et sa décision s&apos;impose aux parties.
+          </p>
+          <p>
+            <strong>Engagements et interdictions.</strong> Le Professionnel
+            s&apos;engage à ce que sa campagne ne soit ni frauduleuse ni
+            trompeuse, à n&apos;exiger des participants aucun paiement ni aucune
+            donnée personnelle au-delà de ce qu&apos;exige la tâche, et à ne pas
+            proposer de test avec livraison de produit ni portant sur des
+            produits de santé, cosmétiques ou compléments alimentaires. Ces
+            engagements sont acceptés expressément avant chaque publication.
+            Toute infraction entraîne la suspension de la campagne par BUUPP,
+            la libération du budget non engagé et peut entraîner la fermeture
+            du compte (article 14). Les participations déjà déclarées réalisées
+            restent soumises à l&apos;arbitrage de BUUPP.
+          </p>
+          <p>
+            <strong>Mention obligatoire.</strong> Chaque campagne porte la
+            mention « Participation rémunérée via BUUPP ». Le Professionnel qui
+            publie, cite ou exploite publiquement les avis ou retours obtenus
+            s&apos;engage à reprendre cette mention de manière lisible.
+          </p>
+        </Section>
+
         <Section title="Bonus Parrain / Fondateur·ice — Conséquence pour le Professionnel">
           <p>
             Les termes <strong>«&nbsp;parrain·e&nbsp;»</strong> et{" "}

@@ -162,6 +162,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Accès Pro sans abonnement : fin des formules Starter / Pro ; le Pro finance les rémunérations et une commission BUUPP par acceptation (10 %, minimum 0,30 €).",
       },
+      {
+        version: "1.6",
+        date: "2026-11-07",
+        summary:
+          "Ajout de la participation aux campagnes « Tests & Études » : consentement explicite, retrait avant validation, code personnel, paiement après validation ou à 7 jours, contestation, signalement.",
+      },
     ],
   },
   {
@@ -201,6 +207,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Formule unique sans abonnement (fin des formules Starter et Pro, des frais de cycle et des quotas) ; commission BUUPP de 10 % de la rémunération du prospect par acceptation, avec un minimum de 0,30 € HT, remboursée si le prospect revient sur son acceptation (articles 1, 3 à 6 et 14).",
       },
+      {
+        version: "2.1",
+        date: "2026-11-07",
+        summary:
+          "Ajout des conditions « Tests & Études » : campagnes tout ou rien avec budget réservé, débit des seules participations validées (commission 10 %, min. 0,30 €), validation tacite à 7 jours, arbitrage BUUPP, engagements anti-fraude et produits interdits, mention « Participation rémunérée via BUUPP ».",
+      },
     ],
   },
   {
@@ -233,6 +245,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         date: "2026-05-25",
         summary:
           "Palier 2 (Localisation) enrichi avec la « région » administrative : déduite côté UI au moment où le prospect/pro sélectionne sa ville dans l'autocomplétion geo.api.gouv.fr et persistée en base. Aucune nouvelle donnée tierce : la région est déjà publique et liée au code postal.",
+      },
+      {
+        version: "1.5",
+        date: "2026-11-07",
+        summary:
+          "Nouveau traitement « Tests & Études » : finalité, base légale, données (département utilisé comme filtre uniquement), destinataire limité au prénom + alias e-mail, durées de conservation.",
       },
     ],
   },

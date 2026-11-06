@@ -565,6 +565,44 @@ export default function RgpdPage() {
           </ul>
         </Section>
 
+        <Section title="Traitement « Tests &amp; Études »">
+          <p>
+            <strong>Finalité :</strong> permettre aux prospects de participer à
+            des campagnes rémunérées de sondage, de test ou de visite proposées
+            par des Professionnels, prouver la réalisation (code individuel),
+            valider et payer les participations, traiter les contestations et
+            les signalements.
+          </p>
+          <p>
+            <strong>Base légale :</strong> exécution du contrat (CGU) après
+            consentement explicite du prospect à chaque inscription.
+          </p>
+          <p>
+            <strong>Données :</strong> inscription et statut de participation,
+            code individuel, commentaire facultatif, motifs de refus ou de
+            contestation, signalements. Le département, déduit du code postal,
+            sert uniquement de filtre d&apos;éligibilité et n&apos;est jamais
+            transmis au Professionnel.
+          </p>
+          <p>
+            <strong>Destinataire :</strong> le Professionnel organisateur reçoit
+            uniquement le <strong>prénom</strong> et un{" "}
+            <strong>alias e-mail</strong> BUUPP (les messages envoyés à cet
+            alias sont réacheminés vers le prospect), et seulement si la
+            campagne atteint son seuil.
+          </p>
+          <p>
+            <strong>Durées de conservation :</strong> inscriptions aux campagnes
+            annulées supprimées immédiatement à l&apos;annulation ; codes,
+            commentaires et motifs effacés 30 jours après la clôture de la
+            campagne (fin de la période de contestation) et alias révoqués ;
+            signalements conservés un an ; écritures du portefeuille conservées
+            selon les obligations comptables. Le récapitulatif e-mail des
+            nouvelles campagnes est facultatif (désactivé par défaut) et
+            résiliable en un clic.
+          </p>
+        </Section>
+
         <Section title="10. Modifications">
           <p>
             La présente politique peut être mise à jour pour refléter une

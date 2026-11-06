@@ -694,6 +694,40 @@ export default function CguPage() {
           </p>
         </Section>
 
+        <Section title="Tests &amp; Études — Participation des prospects">
+          <p>
+            Le prospect peut consulter les campagnes « Tests &amp; Études »
+            (sondage en ligne, test d&apos;un site ou d&apos;une application, visite
+            en magasin ou rendez-vous) et s&apos;y inscrire par un{" "}
+            <strong>consentement explicite</strong>. Il doit avoir renseigné
+            son prénom et son e-mail ; une campagne départementale est réservée
+            aux prospects dont le code postal relève de ce département (le
+            département n&apos;est jamais transmis au Professionnel).
+          </p>
+          <p>
+            Le prospect peut se retirer tant que la campagne n&apos;est pas
+            validée. Si le nombre minimum de participants est atteint, il
+            reçoit un <strong>code personnel</strong> à transmettre au
+            Professionnel en réalisant la tâche, puis déclare la tâche
+            terminée dans BUUPP avant la date limite. Seuls son prénom et un
+            alias e-mail sont alors communiqués au Professionnel.
+          </p>
+          <p>
+            La rémunération est créditée sur le portefeuille BUUPP après
+            validation par le Professionnel, ou automatiquement sept (7) jours
+            après la déclaration de réalisation. En cas de refus motivé, le
+            prospect peut le contester sous sept jours ; BUUPP tranche. Toute
+            fausse déclaration de réalisation peut entraîner l&apos;exclusion du
+            module, voire la suspension du compte (article 13).
+          </p>
+          <p>
+            Chaque fiche de campagne permet de la <strong>signaler</strong>{" "}
+            (arnaque, demande de paiement ou de données personnelles, produit
+            interdit, description trompeuse). BUUPP examine les signalements
+            et peut suspendre la campagne.
+          </p>
+        </Section>
+
         <Section title="Programme Parrain — Fondateur·ice">
           <p>
             Les termes <strong>«&nbsp;parrain·e&nbsp;»</strong> et{" "}
