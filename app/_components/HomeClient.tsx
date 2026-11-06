@@ -1867,7 +1867,7 @@ function HowItWorks() {
     },
     {
       n: "02",
-      title: "Choisissez vos contacts",
+      title: "Choisissez qui vous contacte",
       body: "Vous recevez des demandes ciblées et vérifiées. Acceptez ou refusez la sollicitation. Les données vous appartiennent.",
     },
     {

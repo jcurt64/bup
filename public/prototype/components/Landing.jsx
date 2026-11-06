@@ -672,7 +672,7 @@ function FlashDealModal({ deal, remainingHms, go, onClose, onAfterDecision }) {
 function HowItWorks() {
   const steps = [
     { n: '01', title: 'Créez votre profil', body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUUPP Score et vos gains potentiels." },
-    { n: '02', title: 'Choisissez vos contacts', body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire." },
+    { n: '02', title: 'Choisissez qui vous contacte', body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire." },
     { n: '03', title: 'Encaissez vos gains', body: "Chaque mise en relation acceptée crédite votre portefeuille en BUUPP Coins. Retrait par IBAN, carte cadeau ou don associatif." },
   ];
   return (
