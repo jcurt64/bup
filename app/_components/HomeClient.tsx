@@ -229,9 +229,6 @@ function Hero({
                   <span className="hero-new-dot" aria-hidden />
                   Nouveau
                 </span>
-                <span className="hero-new-icon" aria-hidden>
-                  <Icon name="sparkle" size={24} />
-                </span>
                 <span className="hero-new-title">Tests &amp; Études</span>
                 <span className="hero-new-sub">Donnez votre avis,<br />soyez rémunéré.</span>
                 <span className="hero-new-cta">
