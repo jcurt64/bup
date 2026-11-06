@@ -1992,36 +1992,6 @@ function ProsSection() {
     },
   ];
 
-  const useCases: [string, string, string, string, string][] = [
-    [
-      "Artisan",
-      "Menuisier, plombier, cuisiniste",
-      "Rayon 30 km",
-      "+ devis/mois",
-      "4,20 €/contact",
-    ],
-    [
-      "Professions libérales",
-      "Kiné, dentiste, coach",
-      "Rayon 15 km",
-      "+ RDV/mois",
-      "5,80 €/contact",
-    ],
-    [
-      "Agences immobilières",
-      "Vente, location, gestion",
-      "Rayon 20 km",
-      "+ leads/mois",
-      "7,40 €/contact",
-    ],
-    [
-      "SaaS & B2B",
-      "Éditeurs, cabinets conseil",
-      "National",
-      "+ DL/mois",
-      "2,90 €/contact",
-    ],
-  ];
 
   // Valeurs exprimées en emojis « ressenti » plutôt qu'en chiffres :
   // 📉 très faible (acceptation), 🤨 douteux (conformité), 💸 cher (coût).
@@ -2035,7 +2005,7 @@ function ProsSection() {
   const bupp: [string, string][] = [
     ["90%", "Taux d'acceptation moyen"],
     ["100%", "Double consentement horodaté"],
-    ["à partir de 5 €", "Coût moyen d'un contact qualifié"],
+    ["à partir de 1 €", "Coût moyen d'un prospect"],
     ["✓", "Watermarking + piste d'audit complète"],
   ];
 
@@ -2194,7 +2164,7 @@ function ProsSection() {
           ))}
         </div>
 
-        <div className="grid grid-2" data-reveal-group style={{ gap: 20, marginBottom: 64 }}>
+        <div className="grid grid-2" data-reveal-group style={{ gap: 20 }}>
           <div
             style={{
               padding: "clamp(24px, 3vw, 36px)",
@@ -2307,116 +2277,6 @@ function ProsSection() {
           </div>
         </div>
 
-        <div>
-          <div
-            className="mono caps"
-            style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,.4)",
-              letterSpacing: ".18em",
-              marginBottom: 24,
-            }}
-          >
-            — Ils pourraient prospecter mieux{" "}
-            <p className="inline text-[#4596EC] font-extrabold">avec BUUPP</p>
-          </div>
-          <div className="grid grid-4" data-reveal-group style={{ gap: 12 }}>
-            {useCases.map((u, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: 24,
-                  border: "1px solid rgba(255,255,255,.1)",
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,.02)",
-                }}
-              >
-                <div
-                  className="serif"
-                  style={{ fontSize: 22, color: "var(--paper)" }}
-                >
-                  {u[0]}
-                </div>
-                <div
-                  className="muted"
-                  style={{
-                    fontSize: 12,
-                    color: "rgba(255,255,255,.5)",
-                    marginTop: 4,
-                    marginBottom: 20,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {u[1]}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "rgba(255,255,255,.5)",
-                    marginBottom: 6,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {u[2]}
-                </div>
-                <div
-                  className="serif tnum"
-                  style={{
-                    fontSize: 18,
-                    letterSpacing: "0.08em",
-                    color: "var(--paper)",
-                  }}
-                >
-                  {u[3]}
-                </div>
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: "0.08em",
-                    color: "#A5B4FC",
-                    marginTop: 4,
-                  }}
-                >
-                  {u[4]}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: 20,
-              display: "flex",
-              gap: 8,
-              alignItems: "flex-start",
-              maxWidth: 760,
-            }}
-          >
-            <span
-              style={{
-                color: "rgba(255,255,255,.45)",
-                flexShrink: 0,
-                marginTop: 1,
-                display: "inline-flex",
-              }}
-              aria-hidden
-            >
-              <Icon name="info" size={14} />
-            </span>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                lineHeight: 1.6,
-                color: "rgba(255,255,255,.45)",
-                fontStyle: "italic",
-              }}
-            >
-              Coûts donnés à titre indicatif : ils varient selon les paliers de
-              données sollicités et la rémunération reversée aux prospects.
-            </p>
-          </div>
-        </div>
       </div>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
       {roleModal}
