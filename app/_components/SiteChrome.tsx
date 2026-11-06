@@ -547,9 +547,10 @@ export function Footer() {
   return (
     <footer
       data-nav-theme="dark"
+      className="motif-rings"
       style={{
         padding: "56px 20px 96px",
-        background: "var(--ink)",
+        backgroundColor: "var(--ink)",
         color: "rgba(255,255,255,.6)",
         fontSize: 13,
       }}

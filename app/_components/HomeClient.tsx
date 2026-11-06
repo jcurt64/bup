@@ -2012,9 +2012,9 @@ function ProsSection() {
   return (
     <section
       id="pros"
-      className="section"
+      className="section motif-dots"
       data-nav-theme="dark"
-      style={{ background: "var(--ink)", color: "var(--paper)" }}
+      style={{ backgroundColor: "var(--ink)", color: "var(--paper)" }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div
@@ -2303,13 +2303,13 @@ function PricingCard({
 }) {
   const cardStyle: CSSProperties = {
     padding: "clamp(24px, 4vw, 40px)",
-    background: featured ? "var(--ink)" : "var(--paper)",
+    backgroundColor: featured ? "var(--ink)" : "var(--paper)",
     color: featured ? "var(--paper)" : "var(--ink)",
     borderColor: featured ? "var(--ink)" : "var(--line)",
     position: "relative",
   };
   return (
-    <div className="card" style={cardStyle}>
+    <div className={featured ? "card motif-diagonal" : "card"} style={cardStyle}>
       <div
         className="serif"
         style={{
