@@ -125,3 +125,27 @@
 @media (max-width: 900px) { .sd-body { grid-template-columns: 1fr; } .sd-side { position: static; } }
 
 .st-cta:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.3); transform: none; box-shadow: none; }
+
+/* ── État « bientôt » : illustration animée ── */
+.cs-art { width: min(320px, 100%); height: auto; display: block; margin: 0 auto 8px; overflow: visible; }
+.cs-card { animation: cs-float 5s ease-in-out infinite; transform-origin: 160px 105px; }
+.cs-shadow { animation: cs-shadow 5s ease-in-out infinite; transform-origin: 160px 196px; }
+.cs-check { stroke-dasharray: 16; stroke-dashoffset: 16; animation: cs-draw 4.8s ease-out infinite; }
+.cs-line { transform-box: fill-box; transform-origin: left center; transform: scaleX(0); animation: cs-grow 4.8s ease-out infinite; }
+.cs-star { fill: rgba(255,255,255,.25); transform-box: fill-box; transform-origin: center; animation: cs-star 4.8s ease-out infinite; }
+.cs-coin { animation: cs-coin 4.2s ease-in-out infinite; }
+.cs-spark { transform-box: fill-box; transform-origin: center; opacity: 0; animation: cs-spark 3s ease-in-out infinite; }
+@keyframes cs-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(1.5deg); } }
+@keyframes cs-shadow { 0%, 100% { transform: scaleX(1); opacity: .08; } 50% { transform: scaleX(.82); opacity: .05; } }
+@keyframes cs-draw { 0%, 8% { stroke-dashoffset: 16; } 22%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 16; } }
+@keyframes cs-grow { 0%, 6% { transform: scaleX(0); } 20%, 85% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+@keyframes cs-star { 0%, 45% { fill: rgba(255,255,255,.25); transform: scale(1); } 52% { fill: #FDE047; transform: scale(1.35); } 58%, 88% { fill: #FDE047; transform: scale(1); } 100% { fill: rgba(255,255,255,.25); } }
+@keyframes cs-coin { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-14px) rotate(12deg); } }
+@keyframes cs-spark { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); } 40%, 60% { opacity: 1; transform: scale(1) rotate(45deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .cs-card, .cs-shadow, .cs-coin, .cs-spark { animation: none; }
+  .cs-check { animation: none; stroke-dashoffset: 0; }
+  .cs-line { animation: none; transform: none; }
+  .cs-star { animation: none; fill: #FDE047; }
+  .cs-spark { opacity: 1; }
+}

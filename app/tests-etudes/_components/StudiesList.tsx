@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Gauge, LiveCountdown, euro, useNow } from "./StudyBits";
 import { StudyIcon, TYPE_THEME, type StudyIconName } from "./StudyIcons";
+import ComingSoonArt from "./ComingSoonArt";
 
 type Item = {
   id: string; type: string; typeLabel: string; title: string; rewardCents: number; zone: string; proName: string;
@@ -184,11 +185,20 @@ export default function StudiesList() {
           <div className="st-grid">{[0, 1, 2].map((k) => <div key={k} className="st-skel" />)}</div>
         ) : items.length === 0 ? (
           <div className="st-empty">
-            <div style={{ display: "inline-grid", placeItems: "center", width: 64, height: 64, borderRadius: 20, background: "linear-gradient(135deg, #6366F1, #A855F7)", color: "#fff", marginBottom: 16 }}>
-              <StudyIcon name="search" size={28} />
-            </div>
-            <div className="serif" style={{ fontSize: 24, marginBottom: 6 }}>Aucune campagne pour ces critères</div>
-            <p style={{ color: "var(--ink-4)", maxWidth: 440, margin: "0 auto" }}>Élargissez vos filtres ou revenez bientôt : de nouvelles campagnes sont publiées régulièrement.</p>
+            <ComingSoonArt />
+            {department || type || minReward || deadline ? (
+              <>
+                <div className="serif" style={{ fontSize: 26, marginBottom: 6 }}>Aucune campagne pour ces critères</div>
+                <p style={{ color: "var(--ink-4)", maxWidth: 460, margin: "0 auto" }}>Élargissez vos filtres : de nouvelles campagnes sont publiées régulièrement.</p>
+              </>
+            ) : (
+              <>
+                <div className="serif" style={{ fontSize: 28, marginBottom: 6 }}>Les premières campagnes arrivent bientôt</div>
+                <p style={{ color: "var(--ink-4)", maxWidth: 460, margin: "0 auto" }}>
+                  Des professionnels préparent leurs sondages, tests et visites. Revenez très vite : les places sont limitées et partent aux premiers inscrits.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
