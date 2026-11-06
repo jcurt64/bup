@@ -1,6 +1,7 @@
 import HomeClient from "./_components/HomeClient";
 import RoleConflictToast from "./_components/RoleConflictToast";
 import { getAccessButtonsEnabled, getWaitlistOpen } from "@/lib/app-config/access";
+import { getStudiesEnabled } from "@/lib/studies/flag";
 
 type Role = "prospect" | "pro";
 
@@ -60,9 +61,10 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
   const sp = await props.searchParams;
   const raw = Array.isArray(sp.role_conflict) ? sp.role_conflict[0] : sp.role_conflict;
   const conflictRole: Role | null = raw === "prospect" || raw === "pro" ? raw : null;
-  const [accessOpen, waitlistOpen] = await Promise.all([
+  const [accessOpen, waitlistOpen, studiesOpen] = await Promise.all([
     getAccessButtonsEnabled(),
     getWaitlistOpen(),
+    getStudiesEnabled(),
   ]);
 
   return (
@@ -72,7 +74,7 @@ export default async function HomePage(props: { searchParams: SearchParams }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {conflictRole && <RoleConflictToast existingRole={conflictRole} />}
-      <HomeClient accessOpen={accessOpen} waitlistOpen={waitlistOpen} />
+      <HomeClient accessOpen={accessOpen} waitlistOpen={waitlistOpen} studiesOpen={studiesOpen} />
     </>
   );
 }

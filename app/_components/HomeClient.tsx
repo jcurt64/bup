@@ -2804,13 +2804,15 @@ function StickyPreinscription() {
 export default function HomeClient({
   accessOpen = true,
   waitlistOpen = true,
+  studiesOpen = false,
 }: {
   accessOpen?: boolean;
   waitlistOpen?: boolean;
+  studiesOpen?: boolean;
 }) {
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} />
+      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
       <Hero accessOpen={accessOpen} waitlistOpen={waitlistOpen} />
       <FlashDeal />
       <HowItWorks />
@@ -2818,7 +2820,7 @@ export default function HomeClient({
       <Pricing />
       <MobileAppSection />
       <FinalCTA />
-      <Footer />
+      <Footer studiesOpen={studiesOpen} />
       {waitlistOpen && <StickyPreinscription />}
     </div>
   );

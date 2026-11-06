@@ -43,6 +43,8 @@ const isPublicRoute = createRouteMatcher([
   "/accessibilite",
   "/minimisation",
   "/indice-desirabilite",
+  // Tests & Études : rubrique publique (participer exige un compte).
+  "/tests-etudes(.*)",
   "/cgu",
   "/cgv",
   "/rgpd",
@@ -71,6 +73,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/clerk/webhook",
   "/api/stripe/webhook",
   "/api/waitlist",
+  // Tests & Études : lecture publique + désabonnement e-mail (lien signé).
+  "/api/studies",
+  "/api/studies/unsubscribe",
+  "/api/studies/:id",
   "/api/waitlist/stats",
   // Statut ASSAINI : version publique sans aucun détail interne
   // (cf. app/api/status/public/route.ts). `/api/status` (détaillé)

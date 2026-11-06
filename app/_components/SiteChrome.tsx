@@ -190,7 +190,10 @@ export function Logo({
  * réversible sans redéploiement. Par défaut ouvert, pour que tout appelant
  * qui ne passe pas la prop reste fonctionnel.
  */
-export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
+export function Navbar({
+  accessOpen = true,
+  studiesOpen = false,
+}: { accessOpen?: boolean; studiesOpen?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoaded, isSignedIn } = useUser();
@@ -301,6 +304,24 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
               gap: 28,
             }}
           >
+            {studiesOpen && (
+              <Link
+                className="nav-link"
+                href="/tests-etudes"
+                style={{
+                  fontFamily: "var(--font-josefin), sans-serif",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: 0,
+                  color: "var(--ink)",
+                  lineHeight: 0.95,
+                  display: "inline-block",
+                  textAlign: "center",
+                }}
+              >
+                Tests &amp;<br />Études
+              </Link>
+            )}
             <Link
               className="nav-link"
               href="/about"
@@ -443,6 +464,11 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
               Contact
             </span>
           </button>
+          {studiesOpen && (
+            <button className="drawer-link" onClick={() => go("/tests-etudes")}>
+              Tests &amp; Études
+            </button>
+          )}
           <div className="drawer-ctas">
             {showLogout ? (
               <button
@@ -503,7 +529,7 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
   );
 }
 
-export function Footer() {
+export function Footer({ studiesOpen = false }: { studiesOpen?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   type Item = { label: string; href?: string };
@@ -514,6 +540,7 @@ export function Footer() {
         { label: "Prospects", href: "/#prospects" },
         { label: "Professionnels", href: "/#pros" },
         { label: "Tarifs", href: "/#tarifs" },
+        ...(studiesOpen ? [{ label: "Tests & Études", href: "/tests-etudes" }] : []),
         { label: "Buupp & vos données", href: "/about" },
         { label: "Contact", href: "/contact" },
       ],

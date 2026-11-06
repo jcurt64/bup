@@ -3,6 +3,7 @@ import { Navbar, Footer } from "../_components/SiteChrome";
 import HomeContactSection from "../_components/HomeContactSection";
 import RequestDemoSection from "../_components/RequestDemoSection";
 import { getAccessButtonsEnabled } from "@/lib/app-config/access";
+import { getStudiesEnabled } from "@/lib/studies/flag";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -12,13 +13,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ContactPage() {
-  const accessOpen = await getAccessButtonsEnabled();
+  const [accessOpen, studiesOpen] = await Promise.all([getAccessButtonsEnabled(), getStudiesEnabled()]);
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} />
+      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
       <HomeContactSection />
       <RequestDemoSection />
-      <Footer />
+      <Footer studiesOpen={studiesOpen} />
     </div>
   );
 }

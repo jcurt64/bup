@@ -4,6 +4,7 @@ import { Navbar, Footer, Icon, type IconName } from "../_components/SiteChrome";
 import PrivacyByDesignTable from "../_components/PrivacyByDesignTable";
 import InfraSouverainete from "../_components/InfraSouverainete";
 import { getAccessButtonsEnabled } from "@/lib/app-config/access";
+import { getStudiesEnabled } from "@/lib/studies/flag";
 
 export const metadata: Metadata = {
   title: "Buupp & vos données",
@@ -96,10 +97,10 @@ const SECURITY: { t: string; d: string }[] = [
 ];
 
 export default async function AboutPage() {
-  const accessOpen = await getAccessButtonsEnabled();
+  const [accessOpen, studiesOpen] = await Promise.all([getAccessButtonsEnabled(), getStudiesEnabled()]);
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} />
+      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
 
       {/* 1 · À propos de BUUPP — introduction pleine largeur */}
       <section
@@ -541,7 +542,7 @@ export default async function AboutPage() {
       {/* 6 · Infrastructure & souveraineté (reproduction maquette sec.html) */}
       <InfraSouverainete />
 
-      <Footer />
+      <Footer studiesOpen={studiesOpen} />
     </div>
   );
 }
