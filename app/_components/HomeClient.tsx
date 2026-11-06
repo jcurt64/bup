@@ -2995,9 +2995,11 @@ const APP_THEMES: AppTheme[] = [
   { key: "fushia", label: "Fushia", g1: "#e9559b", g2: "#9c1f57" },
 ];
 
-/* Vraies captures de l'app mobile (iOS, thème sombre — données de
-   démonstration des fiches stores), réduites à 720 px dans
-   public/app-screens. Remplacent les écrans redessinés en CSS. */
+/* Vraies captures de l'app mobile (iOS, compte fictif « Camille », 32 € au
+   portefeuille), une série par thème de l'app : public/app-screens/<thème>/
+   (buupp = clair, sombre, forest, fushia), réduites à 720 px. Les boutons
+   de thème de la section basculent les écrans. Originaux :
+   ~/Desktop/buupp-captures/site-4-themes. */
 function AppScreenshot({ src, alt }: { src: string; alt: string }) {
   return (
     <Image
@@ -3064,11 +3066,11 @@ function MobileAppSection() {
   // Éventail : pivot bas (transform-origin: bottom center sur AppPhone), les
   // latéraux s'écartent vers le haut, bords inférieurs ~alignés, fort recouvrement.
   const phones = narrow
-    ? [{ scr: <AppScreenshot src="/app-screens/flash-deals.jpg" alt="Écran Flash deals de l’app BUUPP" />, transform: "none", z: 3, delay: 0, margin: "0" }]
+    ? [{ scr: <AppScreenshot src={`/app-screens/${theme}/flash-deals.jpg`} alt="Écran Flash deals de l’app BUUPP" />, transform: "none", z: 3, delay: 0, margin: "0" }]
     : [
-        { scr: <AppScreenshot src="/app-screens/accueil.jpg" alt="Écran d’accueil de l’app BUUPP : BUUPP Score et taux de fiabilité" />, transform: "rotate(-15deg)", z: 1, delay: 0.8, margin: "0 -72px 0 0" },
-        { scr: <AppScreenshot src="/app-screens/flash-deals.jpg" alt="Écran Flash deals de l’app BUUPP" />, transform: "translateY(-14px) scale(1.06)", z: 3, delay: 0, margin: "0" },
-        { scr: <AppScreenshot src="/app-screens/mises-en-relation.jpg" alt="Écran des mises en relation de l’app BUUPP" />, transform: "rotate(15deg)", z: 1, delay: 1.4, margin: "0 0 0 -72px" },
+        { scr: <AppScreenshot src={`/app-screens/${theme}/accueil.jpg`} alt="Écran d’accueil de l’app BUUPP : taux de fiabilité et portefeuille" />, transform: "rotate(-15deg)", z: 1, delay: 0.8, margin: "0 -72px 0 0" },
+        { scr: <AppScreenshot src={`/app-screens/${theme}/flash-deals.jpg`} alt="Écran Flash deals de l’app BUUPP" />, transform: "translateY(-14px) scale(1.06)", z: 3, delay: 0, margin: "0" },
+        { scr: <AppScreenshot src={`/app-screens/${theme}/mises-en-relation.jpg`} alt="Écran des mises en relation de l’app BUUPP" />, transform: "rotate(15deg)", z: 1, delay: 1.4, margin: "0 0 0 -72px" },
       ];
 
   return (
