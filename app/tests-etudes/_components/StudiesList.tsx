@@ -109,7 +109,7 @@ export default function StudiesList() {
         <div className="st-hero-glow" aria-hidden />
         <div className="st-hero-inner">
           <span className="st-eyebrow"><span className="dot" />Tests &amp; Études · participations rémunérées</span>
-          <h1 className="serif st-title">Votre avis vaut de l&apos;or.<br /><em>Faites-le payer.</em></h1>
+          <h1 className="serif st-title">Votre avis compte pour les professionnels.<br /><em>Ils vous payent.</em></h1>
           <p className="st-lead">
             Des professionnels cherchent des participants pour un sondage, le test de leur site ou de leur appli, ou une visite
             en magasin. Inscrivez-vous, réalisez la tâche, encaissez dans votre portefeuille BUUPP.
