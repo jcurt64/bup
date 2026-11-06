@@ -147,7 +147,7 @@ export async function POST(req: Request) {
       const banner =
         `<p style="font:13px/1.5 sans-serif;color:#555;margin:0 0 16px">` +
         `Message de <strong>${escapeHtml(senderName)}</strong> transmis par BUUPP ` +
-        `(mise en relation que vous avez acceptée). Répondez directement à cet e-mail pour lui écrire.</p>`;
+        `(mise en relation ou campagne Tests &amp; Études que vous avez acceptée). Répondez directement à cet e-mail pour lui écrire.</p>`;
       const html = item.RawHtmlBody
         ? banner + item.RawHtmlBody
         : banner + `<pre style="font:14px/1.5 sans-serif;white-space:pre-wrap">${escapeHtml(item.RawTextBody ?? "")}</pre>`;
@@ -157,7 +157,9 @@ export async function POST(req: Request) {
         replyTo: { email: sender, name: senderName },
         subject: item.Subject?.trim() || "(sans objet)",
         htmlContent: html,
-        headers: { "X-BUUPP-Relation": resolved.relationId },
+        headers: resolved.relationId
+          ? { "X-BUUPP-Relation": resolved.relationId }
+          : { "X-BUUPP-Study": resolved.studyParticipationId ?? "" },
       };
       if (item.RawTextBody) body.textContent = item.RawTextBody;
       if (attachments.length) body.attachment = attachments;

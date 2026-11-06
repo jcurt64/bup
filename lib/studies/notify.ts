@@ -80,7 +80,7 @@ export async function notifyCanceled(
   admin: Admin,
   c: Pick<StudyRow, "id" | "title" | "pro_account_id">,
   prospectIds: string[],
-  reason: "threshold_not_met" | "admin_suspended",
+  reason: "threshold_not_met" | "pro_canceled" | "admin_suspended",
 ): Promise<void> {
   try {
     const [idents, others, pEmail] = await Promise.all([
@@ -92,9 +92,11 @@ export async function notifyCanceled(
       .map((o) => ({ id: o.id, title: o.title, rewardCents: o.rewardCents }));
     await Promise.allSettled(prospectIds.map((pid) => {
       const id = idents.get(pid);
-      return id?.email ? sendStudyCanceledToProspect(id.email, id.prenom, c.title, suggestions) : Promise.resolve();
+      const why = reason === "pro_canceled" ? "Le professionnel a annulé la campagne avant son lancement."
+        : reason === "admin_suspended" ? "BUUPP a suspendu la campagne suite à des signalements." : undefined;
+      return id?.email ? sendStudyCanceledToProspect(id.email, id.prenom, c.title, suggestions, why) : Promise.resolve();
     }));
-    if (pEmail) await sendStudyStatusToPro(pEmail, c.title, reason === "admin_suspended" ? "suspended" : "canceled", prospectIds.length);
+    if (pEmail && reason !== "pro_canceled") await sendStudyStatusToPro(pEmail, c.title, reason === "admin_suspended" ? "suspended" : "canceled", prospectIds.length);
   } catch (err) {
     console.error("[studies/notify] canceled", err);
   }

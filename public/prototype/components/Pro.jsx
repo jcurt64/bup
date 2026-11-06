@@ -11,8 +11,8 @@ const PRO_SECTIONS = [
   { id: 'messages',     icon: 'inbox',     label: 'Mes messages' },
 ];
 
-function ProDashboard({ go }) {
-  const [sec, setSec] = useState('overview');
+function ProDashboard({ go, initialTab }) {
+  const [sec, setSec] = useState(initialTab === 'etudes' ? 'etudes' : 'overview');
   const [recharge, setRecharge] = useState(false);
   // Lien « Recharger mon crédit » de l'app mobile : /pro?recharge=1 ouvre
   // directement Facturation + la modale de recharge. Le paramètre est lu
@@ -189,11 +189,18 @@ function ProDashboard({ go }) {
     return () => window.removeEventListener('bupp:open-message', onOpenMsg);
   }, []);
 
+  // Onglet Tests & Études visible seulement si le module est activé.
+  const studiesOn = useStudiesEnabled();
+  const proSections = studiesOn
+    ? PRO_SECTIONS.flatMap(s => s.id === 'campagnes' ? [s, { id: 'etudes', icon: 'bulb', label: 'Tests & Études' }] : [s])
+    : PRO_SECTIONS;
+
   return (
     <>
-    <DashShell role="pro" go={go} sections={PRO_SECTIONS} current={sec} onNav={navTo}
+    <DashShell role="pro" go={go} sections={proSections} current={sec} onNav={navTo}
       overrideName={companyInfo?.raisonSociale || ''}
       header={<ProHeader companyInfo={companyInfo} onCreate={() => { setDuplicateSourceId(null); setSec('create'); }} onRecharge={() => setRecharge(true)}/>}>
+      {sec === 'etudes' && <ProStudiesPanel />}
       {sec === 'overview' && <Overview onCreate={() => { setDuplicateSourceId(null); setSec('create'); }}/>}
       {sec === 'campagnes' && !campDetail && (
         <Campagnes

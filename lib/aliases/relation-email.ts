@@ -83,6 +83,38 @@ export async function getOrCreateRelationAlias(
 }
 
 /**
+ * Même mécanique pour une participation Tests & Études : un alias par
+ * participation, résolu vers l'e-mail réel du prospect par la route
+ * d'inbound Brevo. Idempotent (UNIQUE sur `study_participation_id`).
+ */
+export async function getOrCreateStudyAlias(
+  admin: SupabaseClient<Database>,
+  participationId: string,
+): Promise<string> {
+  const read = async () =>
+    (await admin
+      .from("relation_email_aliases")
+      .select("alias_short")
+      .eq("study_participation_id", participationId)
+      .maybeSingle()).data?.alias_short ?? null;
+  const existing = await read();
+  if (existing) return existing;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error } = await admin
+      .from("relation_email_aliases")
+      .insert({ alias_short: generateSlug(), study_participation_id: participationId });
+    if (!error) return (await read())!;
+    if (error.code === "23505") {
+      const again = await read();
+      if (again) return again;
+      continue;
+    }
+    throw new Error(`study alias insert failed: ${error.message}`);
+  }
+  throw new Error("study alias: could not generate unique alias after 3 attempts");
+}
+
+/**
  * Inverse : à partir d'un slug reçu par le Cloudflare Worker, retourne
  * la relation et le vrai email du prospect. Renvoie `null` si l'alias
  * n'existe pas, est révoqué (`revoked_at != null`), ou si le prospect
@@ -91,12 +123,18 @@ export async function getOrCreateRelationAlias(
 export async function resolveAlias(
   admin: SupabaseClient<Database>,
   aliasShort: string,
-): Promise<{ relationId: string; prospectEmail: string } | null> {
+): Promise<{ relationId: string | null; studyParticipationId?: string | null; prospectEmail: string } | null> {
   const { data, error } = await admin
     .from("relation_email_aliases")
     .select(
       `relation_id,
+       study_participation_id,
        relations:relation_id (
+         prospects:prospect_id (
+           prospect_identity ( email )
+         )
+       ),
+       study_participations:study_participation_id (
          prospects:prospect_id (
            prospect_identity ( email )
          )
@@ -109,20 +147,23 @@ export async function resolveAlias(
   if (error || !data) return null;
 
   type IdentRow = { email: string | null };
-  type Row = {
-    relation_id: string;
-    relations: {
-      prospects: {
-        prospect_identity: IdentRow | IdentRow[] | null;
-      } | null;
+  type Owner = {
+    prospects: {
+      prospect_identity: IdentRow | IdentRow[] | null;
     } | null;
+  } | null;
+  type Row = {
+    relation_id: string | null;
+    study_participation_id: string | null;
+    relations: Owner;
+    study_participations: Owner;
   };
   const row = data as unknown as Row;
-  const prospects = row.relations?.prospects ?? null;
+  const prospects = (row.relations ?? row.study_participations)?.prospects ?? null;
   const identRaw = prospects?.prospect_identity ?? null;
   const ident = Array.isArray(identRaw) ? identRaw[0] ?? null : identRaw;
   const email = ident?.email ?? null;
   if (!email) return null;
 
-  return { relationId: row.relation_id, prospectEmail: email };
+  return { relationId: row.relation_id, studyParticipationId: row.study_participation_id, prospectEmail: email };
 }

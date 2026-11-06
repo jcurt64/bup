@@ -608,9 +608,12 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
   // Inject dynamic badges (e.g. number of pending relations) into the static
   // section descriptors. Keeping the merge here avoids leaking prospect-specific
   // logic into the generic DashShell.
+  const studiesOn = useStudiesEnabled();
   const sections = PROSPECT_SECTIONS.map(s =>
     s.id === 'relations' ? { ...s, badge: pendingRelationsCount } : s
-  );
+  ).flatMap(s => s.id === 'relations' && studiesOn
+    ? [s, { id: 'etudes', icon: 'bulb', label: 'Tests & Études' }]
+    : [s]);
   // Override live du nom dans le header : reflète instantanément les
   // modifications de l'onglet "Mes données" (palier identification).
   const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
@@ -621,6 +624,7 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
       {sec === 'portefeuille' && <Portefeuille pendingDetail={pendingDetail} onPendingConsumed={() => setPendingDetail(null)}/>}
       {sec === 'donnees' && <MesDonnees onGoPrefs={() => setSec('prefs')} scrollTier={donneesScrollTier} onScrollConsumed={() => setDonneesScrollTier(null)}/>}
       {sec === 'relations' && <Relations />}
+      {sec === 'etudes' && <ProspectStudiesPanel />}
       {sec === 'verif' && <VerifTiers />}
       {sec === 'score' && <ScorePanel />}
       {sec === 'prefs' && <Prefs />}

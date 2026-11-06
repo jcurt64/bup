@@ -66,8 +66,8 @@
       var byRoute = {
         landing:  ['Shell', 'Landing'],
         auth:     ['Shell', 'Auth'],
-        prospect: ['Shell', 'Objectives', 'Prospect'],
-        pro:      ['Shell', 'Objectives', 'Prospect', 'Pro'],
+        prospect: ['Shell', 'Objectives', 'Studies', 'Prospect'],
+        pro:      ['Shell', 'Objectives', 'Studies', 'Prospect', 'Pro'],
         waitlist: []
       };
       var files = byRoute[route] || [];
@@ -131,7 +131,7 @@
           {route === 'landing' && <Landing go={go}/>}
           {route === 'auth' && <Auth go={go}/>}
           {route === 'prospect' && <ProspectDashboard go={go} initialTab={initialTab} initialScrollTier={initialScrollTier}/>}
-          {route === 'pro' && <ProDashboard go={go}/>}
+          {route === 'pro' && <ProDashboard go={go} initialTab={initialTab}/>}
           {route === 'waitlist' && (
             <div style={{ position:'fixed', inset:0, background:'#080808', zIndex: 1 }}>
               <iframe src="/prototype/waitlist.html" title="Wait List" style={{ width:'100%', height:'100%', border:0, display:'block' }}/>

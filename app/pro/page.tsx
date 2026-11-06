@@ -11,7 +11,9 @@ export const metadata = {
   title: "BUUPP — Espace Pro",
 };
 
-export default async function ProPage() {
+type SearchParams = Promise<{ tab?: string }>;
+
+export default async function ProPage({ searchParams }: { searchParams: SearchParams }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Auth required");
 
@@ -50,11 +52,14 @@ export default async function ProPage() {
     throw err;
   }
 
+  const sp = await searchParams;
+  const proTab = sp.tab === "etudes" ? "etudes" : null;
+
   return (
     <>
       <TopupReconciler />
       <CardSetupReconciler />
-      <PrototypeFrame route="pro" version={PROTOTYPE_VERSION} />
+      <PrototypeFrame route="pro" tab={proTab} version={PROTOTYPE_VERSION} />
     </>
   );
 }

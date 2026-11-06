@@ -10,7 +10,7 @@ export const metadata = { title: "BUUPP — Espace Prospect" };
 
 const VALID_TABS = new Set([
   "portefeuille", "donnees", "relations", "verif", "score",
-  "prefs", "parrainage", "fiscal",
+  "prefs", "parrainage", "fiscal", "etudes",
 ]);
 
 type SearchParams = Promise<{ tab?: string; scrollTier?: string }>;

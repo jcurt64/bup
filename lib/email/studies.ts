@@ -86,11 +86,11 @@ export async function sendStudyValidatedToProspect(to: string, prenom: string | 
   }));
 }
 
-export async function sendStudyCanceledToProspect(to: string, prenom: string | null, title: string, others: { id: string; title: string; rewardCents: number }[]) {
+export async function sendStudyCanceledToProspect(to: string, prenom: string | null, title: string, others: { id: string; title: string; rewardCents: number }[], why = "Le nombre minimum de participants n'a pas été atteint à temps.") {
   await send(to, `Campagne annulée : « ${title} »`, renderStudyMail({
     title: `${prenom ? prenom + ", la" : "La"} campagne « ${title} » est annulée`,
     blocks: [
-      { kind: "p", text: "Le nombre minimum de participants n'a pas été atteint à temps. Votre inscription a été supprimée ; aucune donnée n'a été transmise au professionnel." },
+      { kind: "p", text: `${why} Votre inscription a été supprimée ; aucune donnée n'a été transmise au professionnel.` },
       ...(others.length
         ? [{ kind: "p" as const, text: "D'autres campagnes sont ouvertes :" },
            { kind: "list" as const, items: others.map((o) => `${o.title} — ${eur(o.rewardCents)} : ${STUDIES_APP_URL}/tests-etudes/${o.id}`) }]
