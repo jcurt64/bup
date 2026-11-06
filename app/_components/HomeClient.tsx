@@ -224,18 +224,19 @@ function Hero({
               cliquable (affichée seulement quand le module est activé). */}
           {studiesOpen && (
             <div className="hero-new-slot">
-              <Link href="/tests-etudes" className="hero-new-pill" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
-              <span className="hero-new-tag">
-                <span className="hero-new-dot" aria-hidden />
-                Nouveau
-              </span>
-              <span className="hero-new-text">
-                <strong>Tests &amp; Études</strong>
-                <span className="hide-sm hero-new-long"> — donnez votre avis, soyez rémunéré</span>
-              </span>
-              <span className="hero-new-cta">
-                J&apos;en profite <Icon name="arrow" size={14} />
-              </span>
+              <Link href="/tests-etudes" className="hero-new-card" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
+                <span className="hero-new-tag">
+                  <span className="hero-new-dot" aria-hidden />
+                  Nouveau
+                </span>
+                <span className="hero-new-icon" aria-hidden>
+                  <Icon name="sparkle" size={24} />
+                </span>
+                <span className="hero-new-title">Tests &amp; Études</span>
+                <span className="hero-new-sub">Donnez votre avis,<br />soyez rémunéré.</span>
+                <span className="hero-new-cta">
+                  J&apos;en profite <Icon name="arrow" size={14} />
+                </span>
               </Link>
             </div>
           )}

@@ -1463,59 +1463,62 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
   background-size: 88px 88px, 88px 88px, auto;
 }
 
-/* ── Pastille « Nouveau » du hero (module Tests & Études) ── */
-.hero-new-pill {
-  position: relative; display: inline-flex; align-items: center; gap: 12px;
-  margin: 0; padding: 6px 6px 6px 6px; border-radius: 999px; text-decoration: none;
-  color: #F7F4EC; font-size: 14px; overflow: hidden; isolation: isolate;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18);
-  box-shadow: 0 10px 30px -12px rgba(168,85,247,.55);
-  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+/* ── Carte « Nouveau » du hero (module Tests & Études) ──
+   Carte carrée, éléments empilés et centrés. À droite du titre sur grand
+   écran (centrée verticalement sur ses deux lignes), sous le titre ailleurs. */
+.hero-headline { position: relative; }
+.hero-new-slot { display: flex; justify-content: center; margin-top: 28px; }
+.hero-new-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  width: 264px; aspect-ratio: 1 / 1; padding: 20px 18px; border-radius: 26px; text-align: center;
+  text-decoration: none; color: #F7F4EC;
+  background:
+    radial-gradient(rgba(255,255,255,.10) 1px, transparent 1.4px) 0 0 / 14px 14px,
+    radial-gradient(120% 90% at 100% 0%, rgba(139,92,246,.35), transparent 60%),
+    radial-gradient(110% 90% at 0% 100%, rgba(249,115,22,.28), transparent 60%),
+    rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 24px 60px -24px rgba(168,85,247,.6);
+  backdrop-filter: blur(6px);
+  transition: transform .25s ease, box-shadow .25s ease;
   animation: hero-new-in .7s cubic-bezier(.2,.8,.2,1) both .3s;
 }
-.hero-new-pill::before { /* liseré dégradé animé */
-  content: ""; position: absolute; inset: -1px; z-index: -2; border-radius: inherit; padding: 1px;
+.hero-new-card::before { /* liseré dégradé animé */
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 1.5px;
   background: linear-gradient(90deg, #F97316, #EC4899, #8B5CF6, #0EA5E9, #F97316); background-size: 300% 100%;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   animation: hero-new-border 6s linear infinite;
 }
-.hero-new-pill::after { /* reflet qui balaie la pastille */
-  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; z-index: -1;
-  background: linear-gradient(100deg, transparent, rgba(255,255,255,.18), transparent);
-  transform: skewX(-20deg); animation: hero-new-shine 3.8s ease-in-out infinite 1.2s;
+.hero-new-card::after { /* reflet qui balaie la carte */
+  content: ""; position: absolute; top: -20%; bottom: -20%; left: -60%; width: 40%; z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent);
+  transform: skewX(-18deg); animation: hero-new-shine 4.2s ease-in-out infinite 1.2s;
 }
-.hero-new-pill:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.35); box-shadow: 0 16px 36px -12px rgba(236,72,153,.6); }
+.hero-new-card > * { flex-shrink: 0; }
+.hero-new-card:hover { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 30px 70px -24px rgba(236,72,153,.65); }
 .hero-new-tag {
-  display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
-  font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #fff;
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff;
   background: linear-gradient(110deg, #F97316, #EC4899 55%, #8B5CF6);
 }
 .hero-new-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: hero-new-ping 1.8s ease-out infinite; }
-.hero-new-text { color: rgba(255,255,255,.88); }
-.hero-new-text strong { color: #fff; }
+.hero-new-icon {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; color: #fff;
+  background: linear-gradient(135deg, #6366F1, #A855F7); box-shadow: 0 10px 24px -10px rgba(139,92,246,.9);
+}
+.hero-new-title { font-family: var(--serif); font-size: 26px; line-height: 1.05; color: #fff; letter-spacing: -.01em; }
+.hero-new-sub { font-size: 13.5px; line-height: 1.45; color: rgba(255,255,255,.78); }
 .hero-new-cta {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
-  background: #F7F4EC; color: #0F1629; font-weight: 700; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
+  padding: 9px 18px; border-radius: 999px; background: #F7F4EC; color: #0F1629; font-weight: 700; font-size: 14px;
 }
 @keyframes hero-new-border { to { background-position: 300% 0; } }
-@keyframes hero-new-shine { 0%, 60% { left: -40%; } 100% { left: 130%; } }
+@keyframes hero-new-shine { 0%, 60% { left: -60%; } 100% { left: 140%; } }
 @keyframes hero-new-ping { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.7); } 80%, 100% { box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
-@keyframes hero-new-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@media (max-width: 520px) { .hero-new-pill { gap: 8px; font-size: 13px; } .hero-new-cta { padding: 6px 10px; } }
-@media (prefers-reduced-motion: reduce) { .hero-new-pill, .hero-new-pill::before, .hero-new-pill::after, .hero-new-dot { animation: none; } }
-
-/* Placement : à droite de la 1re ligne du titre (« Le marketing ») sur grand
-   écran ; au-dessus du titre ailleurs (centré quand le hero est centré). */
-.hero-headline { position: relative; }
-.hero-new-slot { display: flex; margin-top: 22px; }
-.hero-new-tag, .hero-new-cta, .hero-new-text { white-space: nowrap; }
-@media (min-width: 1280px) {
-  .hero-new-slot {
-    position: absolute; top: 0; right: 0; margin: 0;
-    height: clamp(40px, 7vw, 104px); /* = hauteur de la 1re ligne du h1 (line-height: 1) */
-    align-items: center;
-  }
+@keyframes hero-new-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (min-width: 1100px) {
+  .hero-new-slot { position: absolute; top: 50%; right: 0; margin: 0; transform: translateY(-50%); }
 }
-@media (max-width: 1024px) { .hero-new-slot { justify-content: center; } }
-@media (min-width: 1280px) and (max-width: 1439px) { .hero-new-long { display: none; } }
-@media (max-width: 640px) { .hero-new-long { display: none; } }
+@media (min-width: 1100px) and (max-width: 1279px) { .hero-new-card { width: 236px; gap: 9px; padding: 16px 14px; } .hero-new-title { font-size: 22px; } .hero-new-icon { width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .hero-new-card, .hero-new-card::before, .hero-new-card::after, .hero-new-dot { animation: none; } }
