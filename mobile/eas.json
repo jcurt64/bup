@@ -34,6 +34,11 @@
       "ios": {
         "ascAppId": "6826391639",
         "appleTeamId": "DZB827W2WJ"
+      },
+      "android": {
+        "serviceAccountKeyPath": "/Users/mjlk_blockchain/.buupp/google-play-sa.json",
+        "track": "production",
+        "releaseStatus": "completed"
       }
     }
   }
