@@ -12,6 +12,11 @@ type Item = {
   estimatedMinutes: number;
 };
 
+/** Cartes de chiffres du héros (campagnes ouvertes, places, meilleure
+ *  rémunération) : masquées tant que le catalogue est encore peu fourni.
+ *  Passer à `true` pour les réafficher. */
+const SHOW_HERO_STATS = false;
+
 const TYPES: { v: string; l: string; icon: StudyIconName }[] = [
   { v: "", l: "Toutes", icon: "sparkles" },
   { v: "survey", l: "Sondages", icon: "survey" },
@@ -114,11 +119,13 @@ export default function StudiesList() {
             Des professionnels cherchent des participants pour un sondage, le test de leur site ou de leur appli, ou une visite
             en magasin. Inscrivez-vous, réalisez la tâche, encaissez dans votre portefeuille BUUPP.
           </p>
+          {SHOW_HERO_STATS && (
           <div className="st-stats">
             <div className="st-stat"><div className="st-stat-v">{items ? stats.open : "–"}</div><div className="st-stat-l">campagnes ouvertes</div></div>
             <div className="st-stat"><div className="st-stat-v">{items ? stats.places : "–"}</div><div className="st-stat-l">places disponibles</div></div>
             <div className="st-stat"><div className="st-stat-v">{items && stats.best ? euro(stats.best) : "–"}</div><div className="st-stat-l">meilleure rémunération</div></div>
           </div>
+          )}
           <div className="st-steps">
             {([
               ["target", "Choisissez une campagne et inscrivez-vous en un clic.", "#6366F1", "#A855F7"],
