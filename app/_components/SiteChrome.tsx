@@ -522,6 +522,7 @@ export function Footer() {
       "Ressources",
       [
         { label: "Barème des paliers", href: "/bareme" },
+        { label: "Indice de désirabilité", href: "/indice-desirabilite" },
         { label: "Documentation", href: "/aide" },
         { label: "Status", href: "/status" },
         { label: "Accessibilité", href: "/accessibilite" },

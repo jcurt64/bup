@@ -15,6 +15,7 @@ export type PageSlug =
   | "status"
   | "accessibilite"
   | "minimisation"
+  | "indice-desirabilite"
   | "cgu"
   | "cgv"
   | "rgpd"
@@ -108,6 +109,20 @@ export const PAGE_VERSIONS: PageMeta[] = [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
     ],
   },
+  {
+    slug: "indice-desirabilite",
+    href: "/indice-desirabilite",
+    title: "Indice de désirabilité",
+    section: "ressources",
+    history: [
+      {
+        version: "1.0",
+        date: "2026-11-06",
+        summary:
+          "Page dédiée au BUUPP Score : complétude des paliers, fraîcheur des données et taux de fiabilité (auparavant présentés sur l'accueil).",
+      },
+    ],
+  },
 
   // — Légal —
   {
@@ -141,6 +156,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Conséquences de la non-réponse aux sollicitations acceptées précisées (articles 5 et 13) : escalade graduée et réversible — rappel, ajustement du BUUPP Score (−100 pts), puis mise en pause de l'acceptation pendant 2 mois, remise à zéro à l'échéance ; la suspension reste réservée à la persistance avérée.",
       },
+      {
+        version: "1.5",
+        date: "2026-11-06",
+        summary:
+          "Accès Pro sans abonnement : fin des formules Starter / Pro ; le Pro finance les rémunérations et une commission BUUPP par acceptation (10 %, minimum 0,30 €).",
+      },
     ],
   },
   {
@@ -173,6 +194,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         date: "2026-05-18",
         summary:
           "Envoi des e-mails aux prospects : « serveurs SMTP de BUUPP » précisé en infrastructure d'envoi via le prestataire Brevo (Union européenne).",
+      },
+      {
+        version: "2.0",
+        date: "2026-11-06",
+        summary:
+          "Formule unique sans abonnement (fin des formules Starter et Pro, des frais de cycle et des quotas) ; commission BUUPP de 10 % de la rémunération du prospect par acceptation, avec un minimum de 0,30 € HT, remboursée si le prospect revient sur son acceptation (articles 1, 3 à 6 et 14).",
       },
     ],
   },

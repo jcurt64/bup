@@ -42,6 +42,7 @@ const isPublicRoute = createRouteMatcher([
   "/status",
   "/accessibilite",
   "/minimisation",
+  "/indice-desirabilite",
   "/cgu",
   "/cgv",
   "/rgpd",
