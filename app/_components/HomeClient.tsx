@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   useState,
   useEffect,
+  useRef,
   Fragment,
   type CSSProperties,
   type ReactNode,
@@ -119,6 +120,29 @@ function Hero({
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
   const [heroPeriod, setHeroPeriod] = useState(currentPeriodFr);
+  // Carte « Nouveau » (≥ 1100 px) : centrée verticalement entre la ligne
+  // « Be used · Paid & Proud » et les boutons « Je suis prospect / pro ».
+  // Les deux repères dépendent de la largeur (titre et texte qui passent à
+  // la ligne), d'où la mesure en direct, recalculée au redimensionnement.
+  const heroTopRowRef = useRef<HTMLDivElement>(null);
+  const heroHeadlineRef = useRef<HTMLDivElement>(null);
+  const heroButtonsRef = useRef<HTMLDivElement>(null);
+  const [newCardPos, setNewCardPos] = useState<{ top: number; space: number } | null>(null);
+  useEffect(() => {
+    if (!studiesOpen) return;
+    const measure = () => {
+      const row = heroTopRowRef.current?.getBoundingClientRect();
+      const head = heroHeadlineRef.current?.getBoundingClientRect();
+      const btns = heroButtonsRef.current?.getBoundingClientRect();
+      if (!row || !head || !btns) return;
+      setNewCardPos({ top: (row.bottom + btns.top) / 2 - head.top, space: btns.top - row.bottom });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [heroTopRowRef.current, heroHeadlineRef.current, heroButtonsRef.current]) if (el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, [studiesOpen]);
   useEffect(() => {
     // Resync one-shot au montage pour couvrir le cas limite d'un
     // changement de mois pile entre rendu serveur et hydratation.
@@ -180,6 +204,7 @@ function Hero({
       />
       <div className="container" style={{ position: "relative" }}>
         <div
+          ref={heroTopRowRef}
           className="row between wrap"
           style={{ alignItems: "baseline", marginBottom: 40, gap: 16 }}
         >
@@ -214,7 +239,7 @@ function Hero({
           </div>
         </div>
 
-        <div className="hero-headline">
+        <div className="hero-headline" ref={heroHeadlineRef}>
           <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
             Le marketing
             <br />
@@ -223,7 +248,10 @@ function Hero({
           {/* Lancement du module Tests & Études : pastille « Nouveau »
               cliquable (affichée seulement quand le module est activé). */}
           {studiesOpen && (
-            <div className="hero-new-slot">
+            <div
+              className="hero-new-slot"
+              style={newCardPos ? ({ "--hero-new-top": `${newCardPos.top}px`, "--hero-new-space": `${newCardPos.space}px` } as CSSProperties) : undefined}
+            >
               <Link href="/tests-etudes" className="hero-new-card" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
                 <span className="hero-new-tag">
                   <span className="hero-new-dot" aria-hidden />
@@ -274,6 +302,7 @@ function Hero({
             </p>
           </h2>
           <div
+            ref={heroButtonsRef}
             className="hero-buttons"
             style={{
               display: "flex",

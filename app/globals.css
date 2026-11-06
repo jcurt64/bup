@@ -1521,7 +1521,9 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 }
 @keyframes hero-new-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (min-width: 1100px) {
-  .hero-new-slot { position: absolute; top: 50%; right: 0; margin: 0; transform: translateY(-50%); }
+  .hero-new-slot { position: absolute; top: var(--hero-new-top, 50%); right: 0; margin: 0; transform: translateY(-50%); }
+  /* La carte (carrée) garde ≥ 20 px de marge de chaque côté, flottement compris. */
+  .hero-new-slot .hero-new-card { width: min(264px, calc(var(--hero-new-space, 304px) - 40px)); }
 }
-@media (min-width: 1100px) and (max-width: 1279px) { .hero-new-card { width: 236px; gap: 9px; padding: 16px 14px; } .hero-new-title { font-size: 22px; } }
+@media (min-width: 1100px) and (max-width: 1279px) { .hero-new-slot .hero-new-card { width: min(236px, calc(var(--hero-new-space, 276px) - 40px)); gap: 9px; padding: 16px 14px; } .hero-new-title { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .hero-new-card, .hero-new-card::before, .hero-new-card::after, .hero-new-dot { animation: none; } }
