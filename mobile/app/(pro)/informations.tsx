@@ -5,18 +5,15 @@
 // registre SIRENE, suppression d'un champ / de toutes les informations.
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { CityPostalAutocomplete } from "../../components/city-postal-autocomplete";
 import { CompanyVerifyBanner } from "../../components/company-verify-banner";
 import { Card, QueryGate, ScrollScreen } from "../../components/screen";
-import { setPlanAck } from "../../lib/plan-ack";
-import { PLAN_DEFS, type PlanId } from "../../lib/pro-plans";
+import { MAX_PROSPECTS_PER_CAMPAIGN } from "../../lib/commission";
 import {
   useProInfo,
   usePatchProInfo,
-  useProPlan,
-  useSetProPlan,
   type ProInfo,
 } from "../../lib/queries";
 import {
@@ -28,139 +25,47 @@ import { useTheme } from "../../lib/theme";
 
 type FormKey = Exclude<keyof ProInfo, "capitalSocialEur">;
 
-// Section « Formule d'abonnement » — choix Starter / Pro (POST /api/pro/plan).
-// Porté du web (Mes informations). Choisir une formule (ré)initialise le cycle.
-function PlanSection() {
+// Section « Tarification » — formule unique (plus de Starter / Pro) : aucun
+// frais d'accès, campagnes illimitées, 5 paliers ouverts, jusqu'à 500
+// contacts par campagne ; seule la commission BUUPP par acceptation.
+const PRICING_FEATURES = [
+  "Aucun frais d'accès ni abonnement",
+  "Campagnes illimitées",
+  "Les 5 paliers de données accessibles",
+  `Jusqu'à ${MAX_PROSPECTS_PER_CAMPAIGN} contacts par campagne`,
+];
+
+function PricingSection() {
   const { c } = useTheme();
-  const plan = useProPlan();
-  const setPlan = useSetProPlan();
-  const [choosing, setChoosing] = useState<PlanId | null>(null);
-  const current = plan.data?.plan;
-
-  async function choose(id: PlanId) {
-    setChoosing(id);
-    try {
-      await setPlan.mutateAsync({ plan: id });
-      await setPlanAck();
-    } catch {
-      Alert.alert("Erreur", "Impossible de changer de formule. Réessayez.");
-    } finally {
-      setChoosing(null);
-    }
-  }
-
   return (
     <Card>
-      <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
-        <View className="flex-1">
-          <Text className="font-serif text-lg text-ink">Formule d&apos;abonnement</Text>
-          <Text className="mt-1 text-[12.5px] leading-5 text-ink-4">
-            Détermine le nombre de prospects par campagne, de campagnes par cycle
-            et les paliers accessibles.
-          </Text>
-        </View>
-        {current ? (
-          <View
-            className="rounded-full px-2.5 py-1"
-            style={{ backgroundColor: current === "pro" ? c.accentSoft : c.surface2, borderWidth: 1, borderColor: current === "pro" ? c.accent : c.borderSoft }}
-          >
-            <Text className="text-[11px] font-semibold" style={{ color: current === "pro" ? c.accentInk : c.ink2 }}>
-              {current === "pro" ? "Pro" : "Starter"}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View className="mt-4 gap-3">
-        {PLAN_DEFS.map((p) => {
-          const spec = plan.data?.specs?.[p.id];
-          const isCurrent = current === p.id;
-          const isPro = p.id === "pro";
-          const accent = isPro ? c.accent : c.ink;
-          const busy = choosing === p.id;
-          return (
+      <Text className="font-serif text-lg text-ink">Tarification</Text>
+      <Text className="mt-1 text-[12.5px] leading-5 text-ink-4">
+        Formule unique : vous ne payez que les contacts qui acceptent.
+      </Text>
+      {/* Transparence prix (parité page d'accueil) : coût d'acquisition
+          prospect à part (bleu accent), puis commission BUUPP (vert). */}
+      <Text className="mt-3 text-[12px] font-semibold" style={{ color: c.accent }}>
+        Coût d&apos;acquisition prospect fixé par vous
+      </Text>
+      <Text className="mt-0.5 text-[12px] font-semibold" style={{ color: "#22C55E" }}>
+        + commission BUUPP : 10 % par acceptation (min. 0,30 €)
+      </Text>
+      <View className="mt-3 gap-2">
+        {PRICING_FEATURES.map((f, i) => (
+          <View key={i} className="flex-row items-start" style={{ gap: 8 }}>
             <View
-              key={p.id}
               style={{
-                position: "relative",
-                borderRadius: 14,
-                borderWidth: 1.5,
-                borderColor: isCurrent ? accent : c.borderSoft,
-                backgroundColor: isCurrent ? c.accentSoft : c.surface,
-                padding: 16,
-                gap: 10,
+                width: 20, height: 20, borderRadius: 999, marginTop: 1,
+                alignItems: "center", justifyContent: "center",
+                backgroundColor: c.accent + "26",
               }}
             >
-              {p.badge ? (
-                <View style={{ position: "absolute", top: -10, right: 12, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, backgroundColor: accent }}>
-                  <Text className="font-mono" style={{ fontSize: 10, letterSpacing: 1, color: "#FFFFFF" }}>
-                    {p.badge}
-                  </Text>
-                </View>
-              ) : null}
-              <View className="flex-row items-baseline justify-between" style={{ gap: 8 }}>
-                <Text className="font-serif text-2xl" style={{ color: accent }}>
-                  {p.label}
-                </Text>
-                <Text className="text-[13px] text-ink-3">
-                  <Text className="font-serif text-xl text-ink">{spec?.monthlyEur ?? 0} €</Text>
-                  {`  / ${spec?.maxCampaigns ?? (isPro ? 10 : 2)} campagnes`}
-                </Text>
-              </View>
-              {/* Transparence prix (parité page d'accueil) : coût d'acquisition
-                  prospect à part (bleu accent), puis commission BUUPP sur le
-                  budget de campagne (vert). */}
-              <Text
-                className="text-right text-[12px] font-semibold"
-                style={{ color: c.accent, marginTop: -4 }}
-              >
-                hors coût d&apos;acquisition prospect
-              </Text>
-              <Text
-                className="text-right text-[12px] font-semibold"
-                style={{ color: "#22C55E", marginTop: 1 }}
-              >
-                +10% commission buupp / budget de campagne
-              </Text>
-              <View className="gap-2">
-                {p.features.map((f, i) => (
-                  <View key={i} className="flex-row items-start" style={{ gap: 8 }}>
-                    <View
-                      style={{
-                        width: 20, height: 20, borderRadius: 999, marginTop: 1,
-                        alignItems: "center", justifyContent: "center",
-                        backgroundColor: accent + "26",
-                      }}
-                    >
-                      <Ionicons name="checkmark" size={12} color={accent} />
-                    </View>
-                    <Text className="flex-1 text-[13px] leading-4 text-ink-2">{f}</Text>
-                  </View>
-                ))}
-              </View>
-              <Pressable
-                disabled={isCurrent || choosing !== null}
-                onPress={() => choose(p.id)}
-                accessibilityRole="button"
-                className="mt-1 flex-row items-center justify-center gap-2 rounded-full py-3 active:opacity-80"
-                style={{
-                  backgroundColor: isCurrent ? "#16A34A1F" : isPro ? c.accent : c.btnBg,
-                  borderWidth: isCurrent ? 1.5 : 0,
-                  borderColor: isCurrent ? "#16A34A" : "transparent",
-                  opacity: choosing !== null && !busy ? 0.5 : 1,
-                }}
-              >
-                {busy ? (
-                  <ActivityIndicator color={isPro ? "#FFFFFF" : c.btnText} />
-                ) : (
-                  <Text className="text-[14px] font-semibold" style={{ color: isCurrent ? "#16A34A" : isPro ? "#FFFFFF" : c.btnText }}>
-                    {isCurrent ? "✓ Formule actuelle" : `Passer en ${p.label}`}
-                  </Text>
-                )}
-              </Pressable>
+              <Ionicons name="checkmark" size={12} color={c.accent} />
             </View>
-          );
-        })}
+            <Text className="flex-1 text-[13px] leading-4 text-ink-2">{f}</Text>
+          </View>
+        ))}
       </View>
     </Card>
   );
@@ -540,7 +445,7 @@ export default function ProInformations() {
         </View>
       </View>
 
-      <PlanSection />
+      <PricingSection />
 
       {/* Complétude du profil — badge circulaire + checklist à coches vertes */}
       <Card>

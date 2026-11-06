@@ -6,7 +6,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
 
 import { Card, eur, ScrollScreen } from "../../components/screen";
@@ -36,13 +36,11 @@ import {
   useProCampaign,
   useProCampaigns,
   useProInfo,
-  useProPlan,
   useProWallet,
   type CreateCampaignResult,
 } from "../../lib/queries";
 import { ApiError } from "../../lib/api";
 import { clearDraft, loadDraft, saveDraft } from "../../lib/campaign-draft";
-import { clearPlanAck, getPlanAck } from "../../lib/plan-ack";
 import { BottomSheet } from "../../components/bottom-sheet";
 import {
   ExcludeCertifiedSheet,
@@ -52,11 +50,11 @@ import {
 } from "../../components/campaign-wizard-sheets";
 import { Confetti } from "../../components/confetti";
 import { GeoTargetAutocomplete } from "../../components/geo-target-autocomplete";
-import { PlanSelectorSheet } from "../../components/plan-selector-sheet";
 import { RechargeSheet } from "../../components/recharge-sheet";
 import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
 import { PURCHASES_ENABLED } from "../../lib/purchases";
+import { campaignCommissionMaxCents, MAX_PROSPECTS_PER_CAMPAIGN } from "../../lib/commission";
 import { BalanceSourceNote } from "../../components/balance-source-note";
 
 // Dégradé violet de l'en-tête/succès (115deg du design), thémé.
@@ -308,7 +306,6 @@ export default function ProWizard() {
   const id = idParam ?? dupSource.data?.objectiveId ?? undefined;
   const obj = OBJECTIVES.find((o) => o.id === id) ?? null;
 
-  const plan = useProPlan();
   const wallet = useProWallet();
   const info = useProInfo();
   const create = useCreateCampaign();
@@ -326,18 +323,10 @@ export default function ProWizard() {
   const rawRaison = info.data?.raisonSociale?.trim() ?? "";
   const infoComplete = rawRaison.length > 0 && !rawRaison.includes("@") && !!info.data?.ville?.trim();
 
-  const planTierCap = plan.data?.plan === "pro" ? 5 : 3;
-  // Paliers accessibles = ceux autorisés par la finalité (minimisation RGPD)
-  // ∩ plafond du plan (Starter 1-3, Pro 1-5) — miroir de `allowedTiers` web.
-  const objAllowedTiers = useMemo(() => obj?.allowedTiers ?? [1, 2, 3, 4, 5], [obj]);
-  const allowedTiers = useMemo(
-    () => objAllowedTiers.filter((t) => t <= planTierCap),
-    [objAllowedTiers, planTierCap],
-  );
-  const planMaxProspects = plan.data?.maxProspects ?? (plan.data?.plan === "pro" ? 500 : 50);
-  const cycleCount = plan.data?.cycleCount ?? 0;
-  const capReached = plan.data?.capReached ?? false;
-  const planFeeCents = cycleCount === 0 ? plan.data?.monthlyCents ?? 0 : 0;
+  // Paliers accessibles = ceux autorisés par la finalité (minimisation RGPD).
+  // Formule unique : les 5 paliers sont ouverts à tous les pros.
+  const allowedTiers = useMemo(() => obj?.allowedTiers ?? [1, 2, 3, 4, 5], [obj]);
+  const maxProspects = MAX_PROSPECTS_PER_CAMPAIGN;
   const availableCents = Math.round((wallet.data?.walletAvailableEur ?? 0) * 100);
   // Adresse de l'établissement — requise par le ciblage « Autour de moi ».
   const proAddress = info.data?.adresse?.trim() ?? "";
@@ -393,13 +382,6 @@ export default function ProWizard() {
   const [vitrineModalOpen, setVitrineModalOpen] = useState(false);
   const [vitrineModalSeen, setVitrineModalSeen] = useState(false);
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
-  // Formule : la popup de choix s'ouvre avant lancement à la 1re campagne du
-  // cycle ou si le quota est atteint ; sinon elle ne réapparaît pas.
-  const [planChosen, setPlanChosen] = useState(false);
-  const [showPlanSheet, setShowPlanSheet] = useState(false);
-  // Quota refusé par le serveur (403 mode_cap_reached) alors que le plan
-  // local le croyait disponible → on force l'écran « quota atteint ».
-  const [capForced, setCapForced] = useState(false);
   // Solde insuffisant (pré-contrôle local ou 402 serveur) + recharge.
   const [insufficient, setInsufficient] = useState<InsufficientDetails | null>(null);
   // Montant suggéré à l'ouverture de la recharge (manque à combler, en €).
@@ -467,8 +449,7 @@ export default function ProWizard() {
   }, [id, duplicate]);
 
   // Duplication — hydrate tous les paramètres depuis GET /api/pro/campaigns/:id
-  // puis saute au récap (web : duplicateSourceId). Le contrôle quota reste
-  // actif (popup formule si le cycle est plein).
+  // puis saute au récap (web : duplicateSourceId).
   useEffect(() => {
     if (!duplicate || dupApplied) return;
     if (dupSource.isError) {
@@ -547,12 +528,10 @@ export default function ProWizard() {
     });
   }, [hydrated, id, step, subTypes, duration, tiers, geo, geoTarget, radiusKm, startDay, ages, verif, minFiab, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
-  // RGPD + plan : on ne garde que les paliers autorisés ; le palier 1
+  // RGPD : on ne garde que les paliers autorisés par la finalité ; le palier 1
   // (identification) est toujours présent (miroir de l'effet web).
-  // Attend le plan réel : sinon le plafond Starter par défaut (3) purgerait
-  // les paliers 4-5 d'un brouillon Pro avant la réponse de /api/pro/plan.
   useEffect(() => {
-    if (!hydrated || !plan.isSuccess) return;
+    if (!hydrated) return;
     setTiers((prev) => {
       const next = prev.filter((t) => allowedTiers.includes(t));
       if (allowedTiers.includes(1) && !next.includes(1)) next.unshift(1);
@@ -560,7 +539,7 @@ export default function ProWizard() {
       const sorted = [...new Set(next)].sort((a, b) => a - b);
       return sorted.length === prev.length && sorted.every((t, i) => t === prev[i]) ? prev : sorted;
     });
-  }, [allowedTiers, hydrated, plan.isSuccess]);
+  }, [allowedTiers, hydrated]);
 
   const range = useMemo(() => cpcRange(tiers, duration, verif), [tiers, duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -573,50 +552,12 @@ export default function ProWizard() {
     });
   }, [range]);
 
-  // Décision d'ouverture de la popup formule (miroir web) : quota atteint →
-  // forcée ; 1re campagne du cycle sans brouillon ni acquittement → ouverte ;
-  // sinon → formule déjà active, on ne montre rien.
-  useEffect(() => {
-    if (!plan.isSuccess || !hydrated) return;
-    let alive = true;
-    (async () => {
-      if (capReached) {
-        await clearPlanAck();
-        if (!alive) return;
-        setShowPlanSheet(true);
-        setPlanChosen(false);
-        return;
-      }
-      const ack = await getPlanAck();
-      if (!alive) return;
-      if (cycleCount === 0 && !restored && !duplicate && !ack) {
-        setShowPlanSheet(true);
-        setPlanChosen(false);
-      } else {
-        setPlanChosen(true);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [plan.isSuccess, hydrated, restored, duplicate, capReached, cycleCount]);
-
-  // Valeur PAR DÉFAUT du slider selon la formule (Starter → 25, Pro → 50),
-  // appliquée une fois sur un wizard frais (pas de brouillon restauré).
-  const defaultApplied = useRef(false);
-  useEffect(() => {
-    if (!plan.isSuccess || !hydrated || defaultApplied.current) return;
-    defaultApplied.current = true;
-    if (restored || duplicate) return; // on garde la valeur du brouillon / de la source
-    setContacts(String(plan.data?.plan === "pro" ? 50 : 25));
-  }, [plan.isSuccess, hydrated, restored, duplicate, plan.data?.plan]);
-
-  // Plafonne le nombre de contacts au max de la formule (50 Starter / 500 Pro)
-  // — ex. après un passage Pro → Starter.
+  // Plafonne le nombre de contacts au max par campagne (500) — ex. brouillon
+  // ou duplication d'une ancienne campagne.
   useEffect(() => {
     const n = Math.floor(Number(contacts) || 0);
-    if (n > planMaxProspects) setContacts(String(planMaxProspects));
-  }, [planMaxProspects, contacts]);
+    if (n > maxProspects) setContacts(String(maxProspects));
+  }, [maxProspects, contacts]);
 
   // « La Vitrine » — popup d'offre : s'ouvre UNE fois à l'arrivée sur le récap
   // (étape 8), tant que l'option n'a pas déjà été retenue et que le nombre de
@@ -630,12 +571,14 @@ export default function ProWizard() {
 
   const contactsNum = Math.max(0, Math.floor(Number(contacts) || 0));
   const budgetCents = contactsNum * cpcCents;
-  const commissionCents = Math.round(budgetCents * 0.1);
+  // Commission BUUPP MAX réservée au lancement : 10 % de la rémunération par
+  // acceptation, plancher 0,30 € (miroir web lib/pricing/commission.ts).
+  const commissionCents = campaignCommissionMaxCents(contactsNum, cpcCents);
   // « La Vitrine » : offerte à la 1re campagne du pro (0 campagne antérieure),
   // 2 € ensuite. Le coût s'ajoute au total seulement si l'option est retenue.
   const vitrineFree = (campaigns.data?.campaigns.length ?? 0) === 0;
   const vitrineFeeCents = vitrineAdded ? (vitrineFree ? 0 : 200) : 0;
-  const neededCents = budgetCents + commissionCents + planFeeCents + vitrineFeeCents;
+  const neededCents = budgetCents + commissionCents + vitrineFeeCents;
   const fundsOk = availableCents >= neededCents;
 
   const toggleSet = (set: Set<string>, k: string) => {
@@ -689,12 +632,15 @@ export default function ProWizard() {
     setInsufficient(null);
     setTimeout(() => setShowRecharge(true), 350);
   };
-  const insufficientDetails = (balanceCents: number, needed: number): InsufficientDetails => ({
+  const insufficientDetails = (
+    balanceCents: number,
+    needed: number,
+    serverCommissionCents?: number,
+  ): InsufficientDetails => ({
     balanceCents,
     budgetCents,
-    commissionCents,
-    planFeeCents,
-    planLabel: plan.data?.label ?? (plan.data?.plan === "pro" ? "Pro" : "Starter"),
+    // Commission max. calculée par le serveur (402) si disponible.
+    commissionCents: serverCommissionCents ?? commissionCents,
     vitrineFeeCents,
     neededCents: needed,
   });
@@ -834,12 +780,6 @@ export default function ProWizard() {
 
   async function launch() {
     if (!obj || !cgu || !infoComplete) return;
-    // Formule non choisie pour ce cycle (ou quota atteint) → on (ré)ouvre la
-    // popup au lieu de lancer.
-    if (!planChosen) {
-      setShowPlanSheet(true);
-      return;
-    }
     // Garde-fou (notamment après restauration d'un brouillon qui aurait sauté
     // à l'étape 8) : on vérifie chaque étape requise et on y renvoie si vide.
     const firstInvalid =
@@ -902,7 +842,6 @@ export default function ProWizard() {
             : undefined,
       });
       void clearDraft(); // campagne lancée → on jette le brouillon
-      void clearPlanAck(); // nouveau cycle possible → popup formule normale ensuite
       setResult(res); // affiche l'écran de succès dédié
     } catch (e) {
       let msg = "Réessayez dans un instant.";
@@ -913,7 +852,7 @@ export default function ProWizard() {
           walletCents?: number;
           walletAvailableCents?: number;
           neededCents?: number;
-          planTierCap?: number;
+          commissionCents?: number;
         } = {};
         try {
           b = JSON.parse(e.body) as typeof b;
@@ -930,23 +869,12 @@ export default function ProWizard() {
                   ? b.walletCents
                   : availableCents,
               typeof b.neededCents === "number" ? b.neededCents : neededCents,
+              typeof b.commissionCents === "number" ? b.commissionCents : undefined,
             ),
           );
           return;
         }
-        if (b.error === "mode_cap_reached") {
-          // Quota du cycle atteint côté serveur → on rouvre le sélecteur de
-          // formule pour démarrer un nouveau cycle (web : setPlanModalOpen).
-          void clearPlanAck();
-          setCapForced(true);
-          setPlanChosen(false);
-          setShowPlanSheet(true);
-          void plan.refetch();
-          return;
-        }
         if (b.message) msg = b.message;
-        else if (b.error === "tiers_above_plan_cap")
-          msg = `Votre formule ne donne pas accès à ce palier (max. ${b.planTierCap ?? "?"}). Passez en Pro pour le débloquer.`;
         else if (b.error === "budget_mismatch") msg = "Le budget ne correspond pas au coût × nombre de contacts.";
         else if (b.error === "invalid_dates") msg = "Les dates choisies sont invalides.";
         else if (b.error === "invalid_body") msg = "Certains champs sont invalides ou manquants.";
@@ -1169,7 +1097,7 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 3 — Données / paliers requis (finalité RGPD ∩ plafond du plan). */}
+      {/* ÉTAPE 3 — Données / paliers requis (finalité RGPD). */}
       {step === 3 ? (
         <View className="gap-2">
           <Text className="text-[13px] text-ink-3">
@@ -1203,31 +1131,9 @@ export default function ProWizard() {
             </View>
           </View>
 
-          {plan.data?.plan !== "pro" ? (
-            <View
-              className="flex-row rounded-2xl p-3"
-              style={{ gap: 10, borderWidth: 1, borderColor: c.amber, backgroundColor: c.amberSoft }}
-            >
-              <Ionicons name="lock-closed-outline" size={15} color={c.accAmber} />
-              <Text className="flex-1 text-[12px] leading-[18px]" style={{ color: c.accAmber }}>
-                La formule <Text style={{ fontWeight: "700" }}>Starter</Text> ne vous autorise
-                qu&apos;à obtenir les informations des paliers 1 à 3. Pour accéder aux paliers 4 et 5,
-                passez en formule{" "}
-                <Text
-                  onPress={() => router.push("/(pro)/informations")}
-                  style={{ fontWeight: "700", textDecorationLine: "underline" }}
-                >
-                  Pro
-                </Text>
-                .
-              </Text>
-            </View>
-          ) : null}
-
           <View className="gap-2">
             {([1, 2, 3, 4, 5] as const).map((t: TierNum) => {
               const allowed = allowedTiers.includes(t);
-              const blockedByPlan = !allowed && t > planTierCap && objAllowedTiers.includes(t);
               const on = tiers.includes(t) && allowed;
               const r = TIER_REWARDS[t];
               return (
@@ -1267,14 +1173,12 @@ export default function ProWizard() {
                       ) : null}
                     </View>
                     <Text className="text-[11px] text-ink-4">{TIER_SUBS[t]}</Text>
-                    <Text className="text-[11px]" style={{ color: allowed ? c.accentInk : blockedByPlan ? c.accAmber : c.textMuted }}>
+                    <Text className="text-[11px]" style={{ color: allowed ? c.accentInk : c.textMuted }}>
                       {allowed
                         ? r.minCents === r.maxCents
                           ? `dès ${(r.minCents / 100).toFixed(2)} € / contact`
                           : `${(r.minCents / 100).toFixed(2)} – ${(r.maxCents / 100).toFixed(2)} € / contact`
-                        : blockedByPlan
-                          ? "Réservé à la formule Pro"
-                          : "Non autorisé pour cette finalité (RGPD)"}
+                        : "Non autorisé pour cette finalité (RGPD)"}
                     </Text>
                   </View>
                 </Pressable>
@@ -1599,20 +1503,20 @@ export default function ProWizard() {
               <Text className="font-serif text-2xl text-ink">{contactsNum}</Text>
             </View>
             <Text className="text-[11px] text-ink-4">
-              Maximum {planMaxProspects} ({plan.data?.label ?? "Starter"})
+              Maximum {maxProspects} contacts par campagne
             </Text>
             <View className="mt-3">
               <Slider
                 value={contactsNum}
                 min={1}
-                max={planMaxProspects}
+                max={maxProspects}
                 step={1}
                 onChange={(v) => setContacts(String(v))}
               />
             </View>
             <View className="mt-1 flex-row justify-between">
               <Text className="font-mono text-[11px] text-ink-4">1</Text>
-              <Text className="font-mono text-[11px] text-ink-4">{planMaxProspects}</Text>
+              <Text className="font-mono text-[11px] text-ink-4">{maxProspects}</Text>
             </View>
           </Card>
           <Card>
@@ -1621,15 +1525,11 @@ export default function ProWizard() {
               <Text className="font-mono text-[13px] text-ink">{eur(budgetCents / 100)}</Text>
             </View>
             <View className="mt-1 flex-row justify-between">
-              <Text className="text-[12px] text-ink-4">Commission BUUPP (10 %)</Text>
+              <Text className="flex-1 pr-2 text-[12px] text-ink-4">
+                Commission BUUPP max. (10 %, min. 0,30 €/acceptation)
+              </Text>
               <Text className="font-mono text-[12px] text-ink-4">{eur(commissionCents / 100)}</Text>
             </View>
-            {planFeeCents > 0 ? (
-              <View className="mt-1 flex-row justify-between">
-                <Text className="text-[12px] text-ink-4">Accès cycle ({plan.data?.label})</Text>
-                <Text className="font-mono text-[12px] text-ink-4">{eur(planFeeCents / 100)}</Text>
-              </View>
-            ) : null}
             <View className="mt-2 flex-row justify-between border-t border-line pt-2">
               <Text className="text-[13px] font-semibold text-ink">Total requis</Text>
               <Text className="font-mono text-[13px] font-semibold text-ink">{eur(neededCents / 100)}</Text>
@@ -2096,20 +1996,6 @@ export default function ProWizard() {
           </Pressable>
         ) : null}
       </View>
-
-      <PlanSelectorSheet
-        visible={showPlanSheet}
-        capReached={capReached || capForced}
-        onClose={() => setShowPlanSheet(false)}
-        onChosen={(chosen) => {
-          setPlanChosen(true);
-          setCapForced(false);
-          setShowPlanSheet(false);
-          // Curseur par défaut selon la formule choisie : Starter → 25, Pro → 50.
-          setContacts(String(chosen === "pro" ? 50 : 25));
-          void plan.refetch();
-        }}
-      />
 
       <InsufficientBalanceSheet
         details={insufficient}

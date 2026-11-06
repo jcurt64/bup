@@ -870,6 +870,10 @@ export type Campaign = {
   brief?: string | null;
   /** « Exclure les anciens acceptants » (absent sur un serveur antérieur). */
   excludePastAcceptors?: boolean;
+  /** Commission BUUPP max. réservée (10 %, min. 0,30 €/acceptation) et
+   *  commission réellement débitée à ce jour (absentes sur un serveur antérieur). */
+  commissionMaxEur?: number;
+  commissionSpentEur?: number;
 };
 export const useProCampaigns = () =>
   useGet<{ campaigns: Campaign[] }>(["pro", "campaigns"], "/api/pro/campaigns", 30_000);
@@ -917,6 +921,14 @@ export type ProCampaignDetail = {
   remainingEur: number;
   costPerContactEur: number;
   avgCostEur: number;
+  /** Commission BUUPP (tarif figé sur la campagne : 10 %, min. 0,30 € par
+   *  acceptation) — max. réservée, réellement débitée, taux (pb), plancher et
+   *  commission par acceptation. Absents sur un serveur antérieur. */
+  commissionMaxEur?: number;
+  commissionSpentEur?: number;
+  commissionRateBp?: number;
+  commissionFloorEur?: number;
+  commissionPerContactEur?: number;
   targeting: {
     subTypes: string[];
     requiredTiers: number[];
@@ -1233,35 +1245,6 @@ export type Invoice = {
 };
 export const useProInvoices = () =>
   useGet<{ invoices: Invoice[] }>(["pro", "invoices"], "/api/pro/invoices", 60_000);
-
-// — Plan tarifaire — GET/POST /api/pro/plan
-export type ProPlan = {
-  plan: "starter" | "pro";
-  label: string;
-  monthlyEur: number;
-  monthlyCents: number;
-  maxProspects: number;
-  maxCampaigns: number;
-  specs: Record<
-    string,
-    { label: string; monthlyEur: number; monthlyCents: number; maxProspects: number; maxCampaigns: number }
-  >;
-  cycleCount: number;
-  cap: number;
-  capReached: boolean;
-};
-export const useProPlan = () =>
-  useGet<ProPlan>(["pro", "plan"], "/api/pro/plan", 60_000);
-
-export function useSetProPlan() {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { plan: "starter" | "pro" }) =>
-      api<ProPlan>("/api/pro/plan", { method: "POST", body: JSON.stringify(v) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pro", "plan"] }),
-  });
-}
 
 // — Informations société — GET/PATCH /api/pro/info
 export type ProInfo = {

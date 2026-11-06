@@ -14,7 +14,7 @@ import { loadDraft } from "../../lib/campaign-draft";
 import { useEntranceOnce } from "../../lib/entrance";
 import { shade, withAlpha } from "../../lib/color";
 import { OBJECTIVES } from "../../lib/pro-objectives";
-import { useProPlan, useProWallet } from "../../lib/queries";
+import { useProWallet } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
 
 export default function ProCreation() {
@@ -22,7 +22,6 @@ export default function ProCreation() {
   // Une couleur par objectif (familles de la palette du thème).
   const palette = [c.accViolet, c.accBlue, c.accCoral, c.accGreen, c.accAmber, c.accVioletDeep, c.accBlue];
   const wallet = useProWallet();
-  const plan = useProPlan();
   // `checking` : on attend la lecture du brouillon avant de décider quoi
   // afficher (évite un flash de la grille avant la redirection).
   const [checking, setChecking] = useState(true);
@@ -68,7 +67,7 @@ export default function ProCreation() {
         desc: "Ciblez des prospects qualifiés — vous ne payez que les acceptations.",
       }}
     >
-      {/* Contexte réel : crédit + plan. */}
+      {/* Contexte réel : crédit + tarification (formule unique). */}
       <View className="flex-row gap-3">
         <QueryGate query={wallet}>
           {(w) => (
@@ -82,19 +81,13 @@ export default function ProCreation() {
             </Card>
           )}
         </QueryGate>
-        <QueryGate query={plan}>
-          {(p) => (
-            <Card className="flex-1">
-              <Text className="font-mono text-[11px] uppercase text-ink-4" style={{ letterSpacing: 1 }}>
-                Plan {p.label}
-              </Text>
-              <Text className="mt-1 font-serif text-2xl text-ink">
-                {p.cycleCount}/{p.cap}
-              </Text>
-              <Text className="text-[11px] text-ink-4">campagnes ce cycle</Text>
-            </Card>
-          )}
-        </QueryGate>
+        <Card className="flex-1">
+          <Text className="font-mono text-[11px] uppercase text-ink-4" style={{ letterSpacing: 1 }}>
+            Commission BUUPP
+          </Text>
+          <Text className="mt-1 font-serif text-2xl text-ink">10 %</Text>
+          <Text className="text-[11px] text-ink-4">par acceptation, min. 0,30 €</Text>
+        </Card>
       </View>
 
       <Text className="mt-2 text-[11px] font-bold uppercase text-ink-4" style={{ letterSpacing: 1.2 }}>

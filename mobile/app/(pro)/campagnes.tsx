@@ -125,9 +125,11 @@ function CampaignCard({ camp, onEdit }: { camp: Campaign; onEdit: (id: string) =
   const tc = TYPE_COLORS[sty.color];
   const st = lcStatus(camp.status);
   const editable = camp.status === "active" || camp.status === "paused";
-  // Budget effectif = budget + 10 % commission BUUPP (parité web).
-  const budgetTotal = camp.budgetEur * 1.1;
-  const spentTotal = camp.spentEur * 1.1;
+  // Budget effectif = budget + commission BUUPP (10 %, min. 0,30 € par
+  // acceptation) : max. réservée / réellement débitée, fournies par l'API.
+  // Repli (serveur antérieur sans ces champs) : 10 % du montant.
+  const budgetTotal = camp.budgetEur + (camp.commissionMaxEur ?? camp.budgetEur * 0.1);
+  const spentTotal = camp.spentEur + (camp.commissionSpentEur ?? camp.spentEur * 0.1);
   const pct = budgetTotal > 0 ? Math.min(100, Math.round((spentTotal / budgetTotal) * 100)) : 0;
   const reached = Number(camp.reachedCount ?? 0);
   const ar = reached > 0 ? Math.round((Number(camp.contactsCount ?? 0) / reached) * 100) : 0;

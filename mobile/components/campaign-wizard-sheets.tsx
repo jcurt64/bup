@@ -12,9 +12,9 @@ import { useTheme } from "../lib/theme";
 export type InsufficientDetails = {
   balanceCents: number;
   budgetCents: number;
+  /** Commission BUUPP MAX (10 % par acceptation, min. 0,30 €) — valeur du
+   *  serveur (402) quand elle est connue. */
   commissionCents: number;
-  planFeeCents: number;
-  planLabel: string;
   vitrineFeeCents: number;
   neededCents: number;
 };
@@ -37,10 +37,7 @@ export function InsufficientBalanceSheet({
     ? [
         ["Solde disponible", d.balanceCents],
         ["Budget de la campagne", d.budgetCents],
-        ["Commission BUUPP max. (10 %)", d.commissionCents],
-        ...(d.planFeeCents > 0
-          ? [[`Frais cycle ${d.planLabel} (1ʳᵉ campagne)`, d.planFeeCents] as [string, number]]
-          : []),
+        ["Commission BUUPP max. (10 %, min. 0,30 €/acceptation)", d.commissionCents],
         ...(d.vitrineFeeCents > 0 ? [["Option La Vitrine", d.vitrineFeeCents] as [string, number]] : []),
       ]
     : [];
@@ -58,7 +55,8 @@ export function InsufficientBalanceSheet({
         </Text>
         <Text className="mt-1.5 text-center text-[13px] leading-5 text-ink-3">
           Pour lancer cette campagne, votre solde doit couvrir le budget plus la commission BUUPP{" "}
-          <Text style={{ fontWeight: "700" }}>maximale</Text> (10 %) — celle-ci n&apos;est facturée
+          <Text style={{ fontWeight: "700" }}>maximale</Text> (10 % de la rémunération, min. 0,30 € par
+          acceptation) — celle-ci n&apos;est facturée
           qu&apos;aux acceptations effectives.
         </Text>
       </View>

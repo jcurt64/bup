@@ -30,6 +30,7 @@ import {
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
 import { BALANCE_SOURCE_NOTE, PURCHASES_ENABLED } from "../../lib/purchases";
+import { commissionCents } from "../../lib/commission";
 
 type Tab = "overview" | "contacts" | "config" | "activity" | "billing";
 
@@ -381,12 +382,31 @@ function slug(s: string): string {
   );
 }
 
+// Commission BUUPP d'une campagne (10 % de la rémunération, min. 0,30 € par
+// acceptation, tarif figé sur la campagne) : valeurs de l'API, avec repli
+// sur le calcul local pour un serveur antérieur qui ne les renvoie pas.
+function campaignCommission(d: ProCampaignDetail) {
+  const cpcCents = Math.round(d.costPerContactEur * 100);
+  const perContactEur =
+    d.commissionPerContactEur ??
+    commissionCents(
+      cpcCents,
+      d.commissionRateBp,
+      d.commissionFloorEur != null ? Math.round(d.commissionFloorEur * 100) : undefined,
+    ) / 100;
+  const planned = d.costPerContactEur > 0 ? Math.round(d.budgetEur / d.costPerContactEur) : 0;
+  return {
+    maxEur: d.commissionMaxEur ?? planned * perContactEur,
+    spentEur: d.commissionSpentEur ?? d.winCount * perContactEur,
+  };
+}
+
 // Onglet « Facturation » — débits de la campagne + relevé PDF complet.
 function BillingTab({ d }: { d: ProCampaignDetailFull }) {
   const { c } = useTheme();
   const download = useAuthedDownload();
   const [loading, setLoading] = useState(false);
-  const commissionSpent = d.spentEur * 0.1;
+  const commissionSpent = campaignCommission(d).spentEur;
   const totalDebited = d.spentEur + commissionSpent;
   const planned = d.costPerContactEur > 0 ? Math.round(d.budgetEur / d.costPerContactEur) : 0;
   const getStatement = async () => {
@@ -419,7 +439,7 @@ function BillingTab({ d }: { d: ProCampaignDetailFull }) {
       </View>
       <View className="mt-4 flex-row" style={{ gap: 8 }}>
         {[
-          ["Total débité", eur(totalDebited), "commission 10 % incluse"],
+          ["Total débité", eur(totalDebited), "commission BUUPP incluse"],
           ["Contacts facturés", `${d.winCount} / ${planned || "—"}`, ""],
           ["Moyenne / contact", eur(d.avgCostEur), ""],
         ].map(([l, v, sub]) => (
@@ -432,7 +452,7 @@ function BillingTab({ d }: { d: ProCampaignDetailFull }) {
       </View>
       <View className="mt-3 gap-1 rounded-xl border px-3 py-2.5" style={{ borderColor: c.accent + "38", backgroundColor: c.accentSoft }}>
         <Text className="text-[12.5px] text-ink-2">Budget campagne consommé : <Text className="font-mono font-bold text-ink">{eur(d.spentEur)}</Text></Text>
-        <Text className="text-[12.5px] text-ink-2">Commission BUUPP acquise (10 %) : <Text className="font-mono font-bold" style={{ color: c.accent }}>{eur(commissionSpent)}</Text></Text>
+        <Text className="text-[12.5px] text-ink-2">Commission BUUPP acquise (10 %, min. 0,30 €/acceptation) : <Text className="font-mono font-bold" style={{ color: c.accent }}>{eur(commissionSpent)}</Text></Text>
         <Text className="text-[12.5px] text-ink-2">Total débité du solde : <Text className="font-mono font-bold text-ink">{eur(totalDebited)}</Text></Text>
       </View>
       <View className="mt-3 flex-row items-start gap-2 rounded-xl px-3 py-2.5" style={{ backgroundColor: c.goodSoft }}>
@@ -441,7 +461,7 @@ function BillingTab({ d }: { d: ProCampaignDetailFull }) {
           <Text style={{ fontWeight: "700" }}>Aucune commission n&apos;est due si aucun prospect n&apos;accepte. </Text>
           {d.winCount === 0
             ? "Cette campagne n'a encore aucune acceptation enregistrée — aucune commission BUUPP n'a été facturée."
-            : `La commission est facturée à hauteur de 10 % du gain de chaque prospect ayant accepté (${d.winCount} acceptation${d.winCount > 1 ? "s" : ""} à ce jour).`}
+            : `La commission est facturée à hauteur de 10 % du gain de chaque prospect ayant accepté, avec un minimum de 0,30 € par acceptation (${d.winCount} acceptation${d.winCount > 1 ? "s" : ""} à ce jour).`}
         </Text>
       </View>
       {d.contacts.length === 0 ? (
@@ -757,7 +777,7 @@ export default function ProCampaignDetailScreen() {
                     ["Exclure certifiés", d.targeting.excludeCertified ? "Oui" : "Non"],
                     ["Contacts souhaités", planned ? String(planned) : "—"],
                     ["Budget campagne", eur(d.budgetEur)],
-                    ["Commission max. (10 %)", eur(d.budgetEur * 0.1)],
+                    ["Commission max. (10 %, min. 0,30 €/accept.)", eur(campaignCommission(d).maxEur)],
                     ["Coût max / contact", eur(d.costPerContactEur)],
                   ].map(([k, v], i) => (
                     <View key={i} className={`flex-row justify-between ${i > 0 ? "mt-2" : ""}`} style={{ gap: 12 }}>
@@ -809,7 +829,7 @@ export default function ProCampaignDetailScreen() {
                   <View className="mt-3 flex-row items-start gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: c.accentSoft }}>
                     <Ionicons name="information-circle-outline" size={16} color={c.accentInk} style={{ marginTop: 1 }} />
                     <Text className="flex-1 text-[12px] leading-4" style={{ color: c.accentInk }}>
-                      La commission BUUPP n&apos;est due qu&apos;à l&apos;acceptation d&apos;un prospect, au prorata des acceptations.
+                      La commission BUUPP n&apos;est due qu&apos;à l&apos;acceptation d&apos;un prospect : 10 % de son gain, avec un minimum de 0,30 € par acceptation.
                     </Text>
                   </View>
                 </Card>

@@ -1,11 +1,10 @@
-// Facturation — crédit (/api/pro/wallet), abonnement (/api/pro/plan), carte
+// Facturation — crédit (/api/pro/wallet), tarification (formule unique), carte
 // enregistrée (/api/pro/wallet/payment-method + /api/stripe/setup), recharge
 // automatique (/api/pro/wallet/auto-recharge) et factures (/api/pro/invoices,
 // PDF unitaire /api/pro/invoices/:id/pdf, groupé /api/pro/invoices/download-all).
 // Parité web : Pro.jsx fn Facturation + InvoiceFieldsModal (mentions légales
 // obligatoires complétées avant chaque téléchargement).
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
@@ -21,7 +20,7 @@ import {
   Stat,
 } from "../../components/screen";
 import { ApiError } from "../../lib/api";
-import { useProInvoices, useProPlan, useProWallet, type Invoice } from "../../lib/queries";
+import { useProInvoices, useProWallet, type Invoice } from "../../lib/queries";
 import {
   apiErrorMessage,
   AUTO_AMOUNT_MIN_EUR,
@@ -47,16 +46,10 @@ function Eyebrow({ children }: { children: string }) {
   );
 }
 
-// — Abonnement actuel (parité web : label + campagnes utilisées/restantes).
-// Le changement de formule se fait dans Mes informations (PlanSection).
-function PlanCard() {
+// — Tarification (formule unique) : plus d'abonnement Starter / Pro ni de
+// frais d'accès ; seule la commission BUUPP par acceptation est facturée.
+function PricingCard() {
   const { c } = useTheme();
-  const plan = useProPlan();
-  const d = plan.data;
-  const cycle = Number(d?.cycleCount);
-  const cap = Number(d?.cap);
-  const hasUsage = d && Number.isFinite(cycle) && Number.isFinite(cap);
-  const left = hasUsage ? Math.max(0, cap - cycle) : 0;
   return (
     <Card>
       <View className="flex-row items-center" style={{ gap: 14 }}>
@@ -64,34 +57,19 @@ function PlanCard() {
           className="h-12 w-12 items-center justify-center rounded-full"
           style={{ backgroundColor: c.tintAmber }}
         >
-          <Ionicons name="ribbon-outline" size={22} color={c.accAmber} />
+          <Ionicons name="pricetag-outline" size={22} color={c.accAmber} />
         </View>
         <View className="flex-1">
-          <Eyebrow>Abonnement actuel</Eyebrow>
-          <Text className="mt-1 font-serif text-[22px] text-ink">{d ? d.label : "…"}</Text>
-          {hasUsage ? (
-            <Text className="mt-1 text-[12px]">
-              <Text style={{ color: c.accent, fontWeight: "600" }}>
-                {cycle}/{cap} utilisées
-              </Text>
-              <Text className="text-ink-4"> · </Text>
-              <Text style={{ color: c.good, fontWeight: "600" }}>
-                {left} restante{left > 1 ? "s" : ""}
-              </Text>
+          <Eyebrow>Tarification</Eyebrow>
+          <Text className="mt-1 font-serif text-[22px] text-ink">Formule unique</Text>
+          <Text className="mt-1 text-[12px] text-ink-4">
+            Sans frais d&apos;accès · campagnes illimitées ·{" "}
+            <Text style={{ color: c.good, fontWeight: "600" }}>
+              commission 10 % par acceptation (min. 0,30 €)
             </Text>
-          ) : (
-            <Text className="mt-1 text-[12px] text-ink-4">—</Text>
-          )}
+          </Text>
         </View>
       </View>
-      <Pressable
-        onPress={() => router.push("/(pro)/informations")}
-        accessibilityRole="button"
-        className="mt-3 self-start rounded-full px-3 py-1.5 active:opacity-70"
-        style={{ borderWidth: 1, borderColor: c.borderSoft }}
-      >
-        <Text className="text-[12px] font-semibold text-ink-2">Changer de formule</Text>
-      </Pressable>
     </Card>
   );
 }
@@ -443,7 +421,6 @@ export default function Facturation() {
   const { c } = useTheme();
   const w = useProWallet();
   const inv = useProInvoices();
-  const plan = useProPlan();
   const pm = useProPaymentMethod();
   const auto = useAutoRecharge();
   const download = useAuthedDownload();
@@ -491,7 +468,7 @@ export default function Facturation() {
       headerVariant="pro"
       hero={{ nav: "drawer", eyebrow: "Facturation", title: "Paiements & factures" }}
       onRefresh={async () => {
-        await Promise.all([w.refetch(), inv.refetch(), plan.refetch(), pm.refetch(), auto.refetch()]);
+        await Promise.all([w.refetch(), inv.refetch(), pm.refetch(), auto.refetch()]);
       }}
     >
       <QueryGate query={w}>
@@ -519,7 +496,7 @@ export default function Facturation() {
         )}
       </QueryGate>
 
-      <PlanCard />
+      <PricingCard />
       {/* Achats masqués sur iOS (App Store 3.1.1 / 3.1.3(g)) — lib/purchases. */}
       {PURCHASES_ENABLED ? (
         <>
