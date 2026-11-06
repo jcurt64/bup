@@ -226,6 +226,7 @@ export type Database = {
       }
       app_config: {
         Row: {
+          studies_enabled: boolean
           access_buttons_enabled: boolean
           id: boolean
           launch_at: string
@@ -234,6 +235,7 @@ export type Database = {
           waitlist_open: boolean
         }
         Insert: {
+          studies_enabled?: boolean
           access_buttons_enabled?: boolean
           id?: boolean
           launch_at: string
@@ -242,6 +244,7 @@ export type Database = {
           waitlist_open?: boolean
         }
         Update: {
+          studies_enabled?: boolean
           access_buttons_enabled?: boolean
           id?: boolean
           launch_at?: string
@@ -1046,6 +1049,8 @@ export type Database = {
       }
       prospects: {
         Row: {
+          studies_email_digest: boolean
+          studies_digest_sent_at: string | null
           accept_restricted_until: string | null
           all_campaign_types: boolean
           all_categories: boolean
@@ -1071,6 +1076,8 @@ export type Database = {
           verification: Database["public"]["Enums"]["verification_level"]
         }
         Insert: {
+          studies_email_digest?: boolean
+          studies_digest_sent_at?: string | null
           accept_restricted_until?: string | null
           all_campaign_types?: boolean
           all_categories?: boolean
@@ -1096,6 +1103,8 @@ export type Database = {
           verification?: Database["public"]["Enums"]["verification_level"]
         }
         Update: {
+          studies_email_digest?: boolean
+          studies_digest_sent_at?: string | null
           accept_restricted_until?: string | null
           all_campaign_types?: boolean
           all_categories?: boolean
@@ -1175,18 +1184,21 @@ export type Database = {
       }
       relation_email_aliases: {
         Row: {
+          study_participation_id: string | null
           alias_short: string
           created_at: string
-          relation_id: string
+          relation_id: string | null
           revoked_at: string | null
         }
         Insert: {
+          study_participation_id?: string | null
           alias_short: string
           created_at?: string
-          relation_id: string
+          relation_id?: string | null
           revoked_at?: string | null
         }
         Update: {
+          study_participation_id?: string | null
           alias_short?: string
           created_at?: string
           relation_id?: string
@@ -1402,6 +1414,219 @@ export type Database = {
           },
         ]
       }
+      study_campaigns: {
+        Row: {
+          address: string | null
+          budget_reserved_cents: number
+          cancel_reason: string | null
+          canceled_at: string | null
+          closed_at: string | null
+          commission_cents: number
+          completion_deadline: string
+          created_at: string
+          department: string | null
+          description: string
+          estimated_minutes: number
+          external_url: string | null
+          fraud_terms_accepted_at: string | null
+          id: string
+          max_participants: number
+          min_participants: number
+          pro_account_id: string
+          published_at: string | null
+          purged_at: string | null
+          reward_cents: number
+          scope: string
+          signup_deadline: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          validated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          budget_reserved_cents?: number
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          commission_cents: number
+          completion_deadline: string
+          created_at?: string
+          department?: string | null
+          description: string
+          estimated_minutes: number
+          external_url?: string | null
+          fraud_terms_accepted_at?: string | null
+          id?: string
+          max_participants: number
+          min_participants: number
+          pro_account_id: string
+          published_at?: string | null
+          purged_at?: string | null
+          reward_cents: number
+          scope: string
+          signup_deadline: string
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          budget_reserved_cents?: number
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          commission_cents?: number
+          completion_deadline?: string
+          created_at?: string
+          department?: string | null
+          description?: string
+          estimated_minutes?: number
+          external_url?: string | null
+          fraud_terms_accepted_at?: string | null
+          id?: string
+          max_participants?: number
+          min_participants?: number
+          pro_account_id?: string
+          published_at?: string | null
+          purged_at?: string | null
+          reward_cents?: number
+          scope?: string
+          signup_deadline?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Relationships: []
+      }
+      study_notifications: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          emailed_at: string | null
+          id: string
+          kind: string
+          prospect_id: string
+          read_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          emailed_at?: string | null
+          id?: string
+          kind: string
+          prospect_id: string
+          read_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          emailed_at?: string | null
+          id?: string
+          kind?: string
+          prospect_id?: string
+          read_at?: string | null
+        }
+        Relationships: []
+      }
+      study_participations: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          campaign_id: string
+          code: string | null
+          consent_at: string
+          created_at: string
+          dispute_note: string | null
+          disputed_at: string | null
+          done_at: string | null
+          done_comment: string | null
+          id: string
+          prospect_id: string
+          reject_note: string | null
+          reject_reason: string | null
+          rejected_at: string | null
+          reminder_sent_at: string | null
+          resolved_at: string | null
+          review_due_at: string | null
+          status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id: string
+          code?: string | null
+          consent_at?: string
+          created_at?: string
+          dispute_note?: string | null
+          disputed_at?: string | null
+          done_at?: string | null
+          done_comment?: string | null
+          id?: string
+          prospect_id: string
+          reject_note?: string | null
+          reject_reason?: string | null
+          rejected_at?: string | null
+          reminder_sent_at?: string | null
+          resolved_at?: string | null
+          review_due_at?: string | null
+          status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id?: string
+          code?: string | null
+          consent_at?: string
+          created_at?: string
+          dispute_note?: string | null
+          disputed_at?: string | null
+          done_at?: string | null
+          done_comment?: string | null
+          id?: string
+          prospect_id?: string
+          reject_note?: string | null
+          reject_reason?: string | null
+          rejected_at?: string | null
+          reminder_sent_at?: string | null
+          resolved_at?: string | null
+          review_due_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      study_reports: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          note: string | null
+          prospect_id: string
+          reason: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          prospect_id: string
+          reason: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          prospect_id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       suggestions: {
         Row: {
           created_at: string
@@ -1455,6 +1680,7 @@ export type Database = {
       }
       transactions: {
         Row: {
+          study_participation_id: string | null
           account_id: string
           account_kind: Database["public"]["Enums"]["account_kind"]
           amount_cents: number
@@ -1468,6 +1694,7 @@ export type Database = {
           type: Database["public"]["Enums"]["transaction_type"]
         }
         Insert: {
+          study_participation_id?: string | null
           account_id: string
           account_kind: Database["public"]["Enums"]["account_kind"]
           amount_cents: number
@@ -1481,6 +1708,7 @@ export type Database = {
           type: Database["public"]["Enums"]["transaction_type"]
         }
         Update: {
+          study_participation_id?: string | null
           account_id?: string
           account_kind?: Database["public"]["Enums"]["account_kind"]
           amount_cents?: number
@@ -1560,6 +1788,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      publish_study_tx: { Args: { p_id: string }; Returns: number }
+      validate_study_tx: { Args: { p_id: string }; Returns: boolean }
+      join_study_tx: { Args: { p_campaign: string; p_prospect: string }; Returns: string }
+      cancel_study_tx: { Args: { p_id: string; p_reason: string }; Returns: number }
+      approve_study_participation_tx: { Args: { p_participation: string; p_by: string }; Returns: boolean }
+      close_study_tx: { Args: { p_id: string }; Returns: number }
       accept_relation_tx: {
         Args: { p_relation_id: string }
         Returns: undefined
