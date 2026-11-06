@@ -950,13 +950,6 @@ function PricingCard({ name, price, priceSuffix = '€ / campagne', features, ct
       borderColor: featured ? 'var(--ink)' : 'var(--line)',
       position: 'relative'
     }}>
-      {featured && (
-        <div className="mono" style={{
-          position: 'absolute', top: 24, right: 24,
-          fontSize: 10, padding: '4px 10px', borderRadius: 999,
-          background: '#A5B4FC', color: 'var(--ink)', letterSpacing: '.1em'
-        }}>RECOMMANDÉ</div>
-      )}
       <div className="serif" style={{ fontSize: 36, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{name}</div>
       <div className="row" style={{ alignItems: 'baseline', marginTop: 24, gap: 8 }}>
         <span className="serif tnum" style={{ fontSize: 80, lineHeight: 1, color: featured ? 'var(--paper)' : 'var(--ink)' }}>{price}</span>

@@ -2310,24 +2310,6 @@ function PricingCard({
   };
   return (
     <div className="card" style={cardStyle}>
-      {featured && (
-        <div
-          className="mono"
-          style={{
-            position: "absolute",
-            top: 24,
-            right: 24,
-            fontSize: 10,
-            padding: "4px 10px",
-            borderRadius: 999,
-            background: "#A5B4FC",
-            color: "var(--ink)",
-            letterSpacing: ".1em",
-          }}
-        >
-          RECOMMANDÉ
-        </div>
-      )}
       <div
         className="serif"
         style={{
