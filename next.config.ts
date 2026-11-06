@@ -53,6 +53,18 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: false,
       },
+      // Ancienne page /tutoriels (vidéos de pré-inscription, supprimées le
+      // 06/11/2026) : liens du mail d'annonce → accueil, jamais en 404.
+      {
+        source: "/tutoriels",
+        destination: "/",
+        permanent: false,
+      },
+      {
+        source: "/videos/:file*",
+        destination: "/",
+        permanent: false,
+      },
     ];
   },
   async headers() {

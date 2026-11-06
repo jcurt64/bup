@@ -40,7 +40,6 @@ export type IconName =
   | "briefcase"
   | "info"
   | "gear"
-  | "video"
   | "phone";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
@@ -114,14 +113,6 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   ),
   // Combiné téléphonique (même tracé que le prototype, cf. Shell.jsx).
   phone: <path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z" />,
-  // Caméra : corps rectangulaire + objectif en biseau. Lisible dès 14px,
-  // contrairement à une pellicule dont les perforations se bouchent.
-  video: (
-    <>
-      <rect x="2.5" y="6" width="13" height="12" rx="3" />
-      <path d="M15.5 11l6-3.2v8.4l-6-3.2z" />
-    </>
-  ),
 };
 
 export function Icon({
@@ -341,11 +332,6 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
             >
               Contact
             </Link>
-            {/* Vidéos : entre les liens accentués et les CTA de compte —
-                on regarde avant de s'engager. */}
-            <Link className="btn-videos" href="/tutoriels">
-              <Icon name="video" size={15} /> Vidéos
-            </Link>
           </nav>
 
           <div className="row center gap-3 nav-desktop">
@@ -389,16 +375,10 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
             )}
           </div>
 
-          {/* Sous 880px la nav centrée disparaît : le bouton Vidéos reste
-              néanmoins dans l'en-tête, à gauche du hamburger. Le conteneur
-              est masqué au-dessus du seuil pour ne pas peser comme un
-              troisième élément flex et déséquilibrer le header desktop. */}
+          {/* Sous 880px la nav centrée disparaît : le hamburger prend le
+              relais. Le conteneur est masqué au-dessus du seuil pour ne pas
+              peser comme un troisième élément flex dans le header desktop. */}
           <div className="nav-mobile-actions">
-            <Link className="btn-videos btn-videos-mobile" href="/tutoriels">
-              <Icon name="video" size={15} />{" "}
-              <span className="btn-videos-label">Vidéos</span>
-            </Link>
-
             <button
               className="hamburger"
               aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
@@ -461,11 +441,6 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
           >
             <span style={{ display: "inline-block" }}>
               Contact
-            </span>
-          </button>
-          <button className="drawer-link" onClick={() => go("/tutoriels")}>
-            <span className="row center" style={{ gap: 8 }}>
-              <Icon name="video" size={16} /> Vidéos
             </span>
           </button>
           <div className="drawer-ctas">

@@ -59,11 +59,6 @@ const isPublicRoute = createRouteMatcher([
   // /feedback : atterrissage des liens dans les e-mails de relation
   // refusée — explicitement public (cf. app/feedback/page.tsx).
   "/feedback",
-  // /tutoriels : bibliothèque de vidéos, cible du bouton « Vidéos » du
-  // header ET des vignettes du mail d'annonce envoyé à la liste d'attente.
-  // Ses destinataires n'ont pas de compte : sans cette entrée, ils
-  // tombent sur /connexion et la vidéo devient inatteignable.
-  "/tutoriels",
   // ─── SEO : robots.txt et sitemap.xml DOIVENT être publics (sinon les
   // moteurs de recherche reçoivent une 307 vers /connexion et ne peuvent
   // pas crawler le site). Générés dynamiquement par app/robots.ts et

@@ -13,7 +13,6 @@ import { useClerk } from "@clerk/nextjs";
 import { useRoleGuard, useCurrentRole } from "./RoleGuard";
 import DemoModal from "./DemoModal";
 import { Icon, Navbar, Footer, type IconName } from "./SiteChrome";
-import VideoLearnSection from "./VideoLearnSection";
 import { ACCESS_FROZEN_TOOLTIP } from "@/lib/app-config/access-ui";
 
 type Router = ReturnType<typeof useRouter>;
@@ -4698,7 +4697,6 @@ export default function HomeClient({
       <Pricing />
       <MobileAppSection />
       <FinalCTA />
-      <VideoLearnSection />
       <Footer />
       {waitlistOpen && <StickyPreinscription />}
     </div>
