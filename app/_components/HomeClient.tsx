@@ -133,9 +133,15 @@ function Hero({
     const measure = () => {
       const row = heroTopRowRef.current?.getBoundingClientRect();
       const head = heroHeadlineRef.current?.getBoundingClientRect();
-      const btns = heroButtonsRef.current?.getBoundingClientRect();
-      if (!row || !head || !btns) return;
-      setNewCardPos({ top: (row.bottom + btns.top) / 2 - head.top, space: btns.top - row.bottom });
+      // Haut réel des boutons : le conteneur `.hero-buttons` s'étire sur la
+      // hauteur du texte voisin (boutons alignés en bas), on mesure donc ses
+      // enfants visibles, pas le conteneur.
+      const kids = Array.from(heroButtonsRef.current?.children ?? [])
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.height > 0);
+      if (!row || !head || !kids.length) return;
+      const btnTop = Math.min(...kids.map((r) => r.top));
+      setNewCardPos({ top: (row.bottom + btnTop) / 2 - head.top, space: btnTop - row.bottom });
     };
     measure();
     const ro = new ResizeObserver(measure);
