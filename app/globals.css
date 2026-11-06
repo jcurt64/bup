@@ -1441,7 +1441,8 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 }
 
 /* ---------- Motifs de fond des sections sombres ----------
-   Un motif différent par surface foncée (le hero garde sa grille propre).
+   Points pour « Pour les professionnels » ; grille du hero (motif-grid)
+   pour le footer et la carte Formule unique.
    Uniquement des couches de background-image : aucun élément en plus, la
    couleur de fond reste posée en ligne via `backgroundColor`. Opacités
    basses pour ne pas gêner la lecture du texte clair. */
@@ -1452,13 +1453,12 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
     radial-gradient(700px 420px at 0% 100%, rgba(249, 115, 22, .07), transparent 70%);
   background-size: 22px 22px, auto, auto;
 }
-.motif-diagonal {
+/* Footer + carte Formule unique : même motif que le hero (grille 88 px,
+   traits blancs 5,5 %) avec son halo orangé en haut à gauche. */
+.motif-grid {
   background-image:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 14px),
-    radial-gradient(520px 320px at 100% 0%, rgba(165, 180, 252, .2), transparent 70%);
-}
-.motif-rings {
-  background-image:
-    repeating-radial-gradient(circle at 0% 100%, rgba(255, 255, 255, .045) 0 1px, transparent 1px 36px),
-    radial-gradient(900px 480px at 100% 0%, rgba(90, 87, 214, .16), transparent 70%);
+    linear-gradient(rgba(255, 255, 255, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .055) 1px, transparent 1px),
+    radial-gradient(700px 600px at 0% 0%, rgba(249, 115, 22, .16), rgba(249, 115, 22, .05) 40%, transparent 70%);
+  background-size: 88px 88px, 88px 88px, auto;
 }

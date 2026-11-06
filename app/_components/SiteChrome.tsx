@@ -547,7 +547,7 @@ export function Footer() {
   return (
     <footer
       data-nav-theme="dark"
-      className="motif-rings"
+      className="motif-grid"
       style={{
         padding: "56px 20px 96px",
         backgroundColor: "var(--ink)",

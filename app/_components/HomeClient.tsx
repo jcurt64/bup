@@ -2309,7 +2309,7 @@ function PricingCard({
     position: "relative",
   };
   return (
-    <div className={featured ? "card motif-diagonal" : "card"} style={cardStyle}>
+    <div className={featured ? "card motif-grid" : "card"} style={cardStyle}>
       <div
         className="serif"
         style={{
