@@ -9,7 +9,7 @@ export default async function TestsEtudesLayout({ children }: { children: React.
   if (!studiesOpen) notFound();
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} studiesOpen />
+      <Navbar accessOpen={accessOpen} />
       <main>{children}</main>
       <Footer studiesOpen />
     </div>

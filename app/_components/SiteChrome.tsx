@@ -190,10 +190,7 @@ export function Logo({
  * réversible sans redéploiement. Par défaut ouvert, pour que tout appelant
  * qui ne passe pas la prop reste fonctionnel.
  */
-export function Navbar({
-  accessOpen = true,
-  studiesOpen = false,
-}: { accessOpen?: boolean; studiesOpen?: boolean } = {}) {
+export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoaded, isSignedIn } = useUser();
@@ -304,24 +301,6 @@ export function Navbar({
               gap: 28,
             }}
           >
-            {studiesOpen && (
-              <Link
-                className="nav-link"
-                href="/tests-etudes"
-                style={{
-                  fontFamily: "var(--font-josefin), sans-serif",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  letterSpacing: 0,
-                  color: "var(--ink)",
-                  lineHeight: 0.95,
-                  display: "inline-block",
-                  textAlign: "center",
-                }}
-              >
-                Tests &amp;<br />Études
-              </Link>
-            )}
             <Link
               className="nav-link"
               href="/about"
@@ -464,11 +443,6 @@ export function Navbar({
               Contact
             </span>
           </button>
-          {studiesOpen && (
-            <button className="drawer-link" onClick={() => go("/tests-etudes")}>
-              Tests &amp; Études
-            </button>
-          )}
           <div className="drawer-ctas">
             {showLogout ? (
               <button

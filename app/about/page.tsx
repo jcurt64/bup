@@ -100,7 +100,7 @@ export default async function AboutPage() {
   const [accessOpen, studiesOpen] = await Promise.all([getAccessButtonsEnabled(), getStudiesEnabled()]);
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
+      <Navbar accessOpen={accessOpen} />
 
       {/* 1 · À propos de BUUPP — introduction pleine largeur */}
       <section

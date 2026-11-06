@@ -1462,3 +1462,44 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
     radial-gradient(700px 600px at 0% 0%, rgba(249, 115, 22, .16), rgba(249, 115, 22, .05) 40%, transparent 70%);
   background-size: 88px 88px, 88px 88px, auto;
 }
+
+/* ── Pastille « Nouveau » du hero (module Tests & Études) ── */
+.hero-new-pill {
+  position: relative; display: inline-flex; align-items: center; gap: 12px;
+  margin: 0 0 28px; padding: 6px 6px 6px 6px; border-radius: 999px; text-decoration: none;
+  color: #F7F4EC; font-size: 14px; overflow: hidden; isolation: isolate;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 10px 30px -12px rgba(168,85,247,.55);
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  animation: hero-new-in .7s cubic-bezier(.2,.8,.2,1) both .3s;
+}
+.hero-new-pill::before { /* liseré dégradé animé */
+  content: ""; position: absolute; inset: -1px; z-index: -2; border-radius: inherit; padding: 1px;
+  background: linear-gradient(90deg, #F97316, #EC4899, #8B5CF6, #0EA5E9, #F97316); background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: hero-new-border 6s linear infinite;
+}
+.hero-new-pill::after { /* reflet qui balaie la pastille */
+  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.18), transparent);
+  transform: skewX(-20deg); animation: hero-new-shine 3.8s ease-in-out infinite 1.2s;
+}
+.hero-new-pill:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.35); box-shadow: 0 16px 36px -12px rgba(236,72,153,.6); }
+.hero-new-tag {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
+  font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(110deg, #F97316, #EC4899 55%, #8B5CF6);
+}
+.hero-new-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: hero-new-ping 1.8s ease-out infinite; }
+.hero-new-text { color: rgba(255,255,255,.88); }
+.hero-new-text strong { color: #fff; }
+.hero-new-cta {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: #F7F4EC; color: #0F1629; font-weight: 700; font-size: 13px;
+}
+@keyframes hero-new-border { to { background-position: 300% 0; } }
+@keyframes hero-new-shine { 0%, 60% { left: -40%; } 100% { left: 130%; } }
+@keyframes hero-new-ping { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.7); } 80%, 100% { box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
+@keyframes hero-new-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 520px) { .hero-new-pill { gap: 8px; font-size: 13px; } .hero-new-cta { padding: 6px 10px; } }
+@media (prefers-reduced-motion: reduce) { .hero-new-pill, .hero-new-pill::before, .hero-new-pill::after, .hero-new-dot { animation: none; } }

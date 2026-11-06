@@ -16,7 +16,7 @@ export default async function ContactPage() {
   const [accessOpen, studiesOpen] = await Promise.all([getAccessButtonsEnabled(), getStudiesEnabled()]);
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
+      <Navbar accessOpen={accessOpen} />
       <HomeContactSection />
       <RequestDemoSection />
       <Footer studiesOpen={studiesOpen} />

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useState,
   useEffect,
@@ -108,9 +110,11 @@ function currentPeriodFr(): string {
 function Hero({
   accessOpen,
   waitlistOpen,
+  studiesOpen = false,
 }: {
   accessOpen: boolean;
   waitlistOpen: boolean;
+  studiesOpen?: boolean;
 }) {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
@@ -209,6 +213,24 @@ function Hero({
             — France, {heroPeriod}
           </div>
         </div>
+
+        {/* Lancement du module Tests & Études : pastille « Nouveau »
+            cliquable (affichée seulement quand le module est activé). */}
+        {studiesOpen && (
+          <Link href="/tests-etudes" className="hero-new-pill" aria-label="Nouveau : Tests & Études, donnez votre avis et soyez rémunéré">
+            <span className="hero-new-tag">
+              <span className="hero-new-dot" aria-hidden />
+              Nouveau
+            </span>
+            <span className="hero-new-text">
+              <strong>Tests &amp; Études</strong>
+              <span className="hide-sm"> — donnez votre avis, soyez rémunéré</span>
+            </span>
+            <span className="hero-new-cta">
+              Découvrir <Icon name="arrow" size={14} />
+            </span>
+          </Link>
+        )}
 
         <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
           Le marketing
@@ -2812,8 +2834,8 @@ export default function HomeClient({
 }) {
   return (
     <div className="page" style={{ background: "var(--ivory)" }}>
-      <Navbar accessOpen={accessOpen} studiesOpen={studiesOpen} />
-      <Hero accessOpen={accessOpen} waitlistOpen={waitlistOpen} />
+      <Navbar accessOpen={accessOpen} />
+      <Hero accessOpen={accessOpen} waitlistOpen={waitlistOpen} studiesOpen={studiesOpen} />
       <FlashDeal />
       <HowItWorks />
       <ProsSection />
