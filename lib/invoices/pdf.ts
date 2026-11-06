@@ -349,7 +349,7 @@ export type CampaignStatementData = {
   budgetEur: number;
   /** Budget campagne consommé (hors commission). */
   spentEur: number;
-  /** Commission BUUPP acquise (10 % du consommé). */
+  /** Commission BUUPP acquise (10 % par acceptation, min. 0,30 €). */
   commissionSpentEur: number;
   /** Total réellement débité du solde (consommé + commission). */
   totalDebitedEur: number;
@@ -437,7 +437,7 @@ export async function buildCampaignStatementPdf(
   const amountW = 160;
   const rows: Array<[string, string, boolean]> = [
     ["Budget campagne consommé", eur(data.spentEur), false],
-    ["Commission BUUPP (10 %)", eur(data.commissionSpentEur), false],
+    ["Commission BUUPP (10 %, min. 0,30 €/acceptation)", eur(data.commissionSpentEur), false],
     [
       "Contacts facturés",
       `${data.winCount}${data.plannedContacts > 0 ? ` / ${data.plannedContacts}` : ""}`,
@@ -468,7 +468,7 @@ export async function buildCampaignStatementPdf(
   doc.fontSize(8).fillColor(COLOR_SUBTLE).text(
     data.winCount === 0
       ? "Aucune commission n'est due tant qu'aucun prospect n'a accepté."
-      : "La commission BUUPP correspond à 10 % du gain de chaque prospect ayant accepté.",
+      : "La commission BUUPP correspond à 10 % du gain de chaque prospect ayant accepté, avec un minimum de 0,30 € par acceptation.",
     labelX,
     doc.y,
     { width: doc.page.width - 56 * 2 },

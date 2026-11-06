@@ -4082,7 +4082,7 @@ function PricingCard({
       >
         hors coût d&apos;acquisition prospect
       </div>
-      {/* La commission BUUPP s'ajoute au budget de campagne. */}
+      {/* Commission BUUPP par acceptation (10 %, plancher 0,30 €). */}
       <div
         style={{
           marginTop: 4,
@@ -4091,7 +4091,7 @@ function PricingCard({
           color: featured ? "#4ADE80" : "#16A34A",
         }}
       >
-        +10% commission buupp / budget de campagne
+        + commission BUUPP : 10 % par acceptation (min. 0,30 €)
       </div>
       <div
         style={{
@@ -4134,6 +4134,56 @@ function PricingCard({
   );
 }
 
+/* Exemples chiffrés de la commission BUUPP (10 %, plancher 0,30 €). Miroir
+   de lib/pricing/commission.ts. */
+const COMMISSION_EXAMPLES: Array<[string, string, string, string]> = [
+  ["1,00 €", "0,10 €", "0,30 € (plancher)", "1,30 €"],
+  ["2,00 €", "0,20 €", "0,30 € (plancher)", "2,30 €"],
+  ["3,00 €", "0,30 €", "0,30 €", "3,30 €"],
+  ["5,00 €", "0,50 €", "0,50 €", "5,50 €"],
+  ["10,00 €", "1,00 €", "1,00 €", "11,00 €"],
+];
+
+function CommissionExamplesCard() {
+  const cell: CSSProperties = { padding: "10px 8px", fontSize: 14 };
+  return (
+    <div className="card" style={{ padding: "clamp(24px, 4vw, 40px)" }}>
+      <div
+        className="serif"
+        style={{ fontSize: "clamp(24px, 2.6vw, 30px)", color: "var(--ink)" }}
+      >
+        Combien coûte une acceptation&nbsp;?
+      </div>
+      <p className="muted" style={{ fontSize: 14, marginTop: 10, lineHeight: 1.55 }}>
+        On calcule 10 % de la rémunération du prospect et on retient le plus
+        élevé entre ce montant et 0,30 €.
+      </p>
+      <div style={{ overflowX: "auto", marginTop: 20 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr className="mono caps muted" style={{ fontSize: 10, textAlign: "left" }}>
+              <th style={cell}>Prospect</th>
+              <th style={cell}>10 %</th>
+              <th style={cell}>Commission</th>
+              <th style={{ ...cell, textAlign: "right" }}>Vous payez</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COMMISSION_EXAMPLES.map(([reward, pct, com, total]) => (
+              <tr key={reward} style={{ borderTop: "1px solid var(--line)" }}>
+                <td className="tnum" style={cell}>{reward}</td>
+                <td className="tnum muted" style={cell}>{pct}</td>
+                <td className="tnum" style={{ ...cell, color: "#16A34A", fontWeight: 600 }}>{com}</td>
+                <td className="tnum" style={{ ...cell, textAlign: "right", fontWeight: 600 }}>{total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Pricing() {
   const router = useRouter();
   const { guard, modal: roleModal } = useRoleGuard();
@@ -4168,14 +4218,15 @@ function Pricing() {
             — Tarifs professionnels
           </div>
           <h2 className="serif" style={{ letterSpacing: "0.06em" }}>
-            Deux plans. <em>Sans engagement.</em>
+            Une formule. <em>Sans abonnement.</em>
           </h2>
           <p
             className="muted"
             style={{ fontSize: "clamp(15px, 1.6vw, 17px)", marginTop: 14 }}
           >
-            Les prospects paient zéro — ils gagnent. Les professionnels paient à
-            la qualité, pas au clic douteux.
+            Les prospects paient zéro — ils gagnent. Les professionnels ne
+            paient que les acceptations : la rémunération du prospect, plus une
+            commission BUUPP de 10 %, avec un minimum de 0,30 €.
           </p>
         </div>
         <div
@@ -4184,31 +4235,20 @@ function Pricing() {
           style={{ gap: 20, letterSpacing: "0.04em" }}
         >
           <PricingCard
-            name="Starter"
-            price="19"
-            priceSuffix="€ / 2 campagnes"
-            features={[
-              "Jusqu'à 50 prospects par campagne",
-              "2 campagnes par cycle",
-              "Ciblage par paliers 1 à 3",
-            ]}
-            cta="Démarrer en Starter"
-            onCta={goToProOrSignup}
-          />
-          <PricingCard
-            name="Pro"
-            price="59"
-            priceSuffix="€ / 10 campagnes"
+            name="Formule unique"
+            price="0"
+            priceSuffix="€ d'abonnement"
             featured
             features={[
+              "Campagnes illimitées",
               "Jusqu'à 500 prospects par campagne",
-              "10 campagnes par cycle",
-              "Tous les paliers 1 à 5",
-              "Accès anticipé aux nouvelles fonctionnalités",
+              "Tous les paliers de données 1 à 5",
+              "Vous ne payez que les acceptations",
             ]}
-            cta="Passer en Pro"
+            cta="Lancer ma première campagne"
             onCta={goToProOrSignup}
           />
+          <CommissionExamplesCard />
         </div>
       </div>
       {roleModal}

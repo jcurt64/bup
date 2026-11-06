@@ -95,9 +95,10 @@ export default function CguPage() {
           </p>
           <p>
             L&apos;accès à BUUPP est <strong>gratuit</strong> pour les
-            Prospects. Les Pros accèdent au Service via un abonnement
-            (formule «&nbsp;Starter&nbsp;» ou «&nbsp;Pro&nbsp;») et financent
-            les rémunérations versées aux Prospects. BUUPP agit comme un{" "}
+            Prospects. Les Pros accèdent au Service sans abonnement&nbsp;: ils
+            financent les rémunérations versées aux Prospects et une
+            commission BUUPP par acceptation (10&nbsp;%, minimum
+            0,30&nbsp;€). BUUPP agit comme un{" "}
             <strong>intermédiaire technique de mise en relation</strong> et
             n&apos;est pas partie aux échanges qui suivent la
             sollicitation.

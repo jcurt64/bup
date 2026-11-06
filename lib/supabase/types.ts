@@ -260,6 +260,8 @@ export type Database = {
           code: string | null
           commission_max_cents: number
           commission_settled_cents: number
+          commission_floor_cents: number
+          commission_rate_bp: number
           contact_quota: number | null
           cost_per_contact_cents: number
           created_at: string
@@ -293,6 +295,8 @@ export type Database = {
           code?: string | null
           commission_max_cents?: number
           commission_settled_cents?: number
+          commission_floor_cents?: number
+          commission_rate_bp?: number
           contact_quota?: number | null
           cost_per_contact_cents: number
           created_at?: string
@@ -326,6 +330,8 @@ export type Database = {
           code?: string | null
           commission_max_cents?: number
           commission_settled_cents?: number
+          commission_floor_cents?: number
+          commission_rate_bp?: number
           contact_quota?: number | null
           cost_per_contact_cents?: number
           created_at?: string

@@ -2,8 +2,8 @@
  * POST /api/pro/campaigns — lance une campagne et notifie les prospects matchants.
  *
  * Algorithme (cf. spec §2 / §3) :
- *  1. ensureProAccount + lecture wallet + frais plan.
- *  2. Vérification solde ≥ budget + plan_fee → sinon 402.
+ *  1. ensureProAccount + lecture wallet (formule unique, sans frais d'accès).
+ *  2. Vérification solde ≥ budget + commission max + Vitrine → sinon 402.
  *  3. INSERT campaigns(active, brief, starts_at, ends_at).
  *  4. findMatchingProspects(LIMIT contacts).
  *  5. Batch INSERT relations(pending, expires_at = now()+durationKey).
@@ -33,6 +33,11 @@ import { computeReferralReach } from "@/lib/founders/referral-reach";
 import { pastAcceptorProspectIds } from "@/lib/campaigns/past-acceptors";
 import { buildClassicPayload, buildFlashPayload, sendBatch, type ExpoPushMessage } from "@/lib/push/expo";
 import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
+import {
+  campaignCommissionMaxCents,
+  COMMISSION_FLOOR_CENTS,
+  COMMISSION_RATE_BP,
+} from "@/lib/pricing/commission";
 
 export const runtime = "nodejs";
 
@@ -211,7 +216,7 @@ export async function POST(req: Request) {
   const { data: pro } = await admin
     .from("pro_accounts")
     .select(
-      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, latitude, longitude, plan, plan_cycle_count",
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, latitude, longitude",
     )
     .eq("id", proId)
     .single();
@@ -244,41 +249,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // Quota par cycle (popup de mode) : 2 campagnes pour Starter, 10 pour Pro.
-  // Le compteur est remis à 0 quand le pro (re)sélectionne un mode dans le
-  // sélecteur. Quand `plan_cycle_count >= max_campaigns`, on bloque côté
-  // serveur et le client ré-ouvre la popup de mode.
-  const { data: planRow } = await admin
-    .from("plan_pricing")
-    .select("monthly_cents, max_campaigns")
-    .eq("plan", pro.plan)
-    .single();
-  const cycleCap = Number(planRow?.max_campaigns ?? (pro.plan === "pro" ? 10 : 2));
-  const cycleCount = Number(pro.plan_cycle_count ?? 0);
-  if (cycleCount >= cycleCap) {
-    return NextResponse.json(
-      {
-        error: "mode_cap_reached",
-        plan: pro.plan,
-        cycleCount,
-        cap: cycleCap,
-      },
-      { status: 403 },
-    );
-  }
-
-  // Commission BUUPP : 10 % du budget de la campagne (worst-case : tous
-  // les prospects acceptent). Le solde DISPONIBLE = wallet_balance -
+  // Formule unique (nov. 2026) : plus de frais d'accès Starter/Pro, plus de
+  // plafond de campagnes par cycle, tous les paliers ouverts.
+  //
+  // Commission BUUPP MAXIMALE réservée au lancement (worst-case : tous les
+  // contacts payés acceptent) = contacts × max(0,30 €, 10 % du coût par
+  // contact). Elle n'est réellement débitée qu'à chaque acceptation
+  // (accept_relation_tx). Le solde DISPONIBLE = wallet_balance -
   // wallet_reserved (les autres campagnes actives ont déjà réservé).
-  const commissionCents = Math.round(body.budgetCents * 0.10);
-
-  // Frais d'accès au cycle (Starter / Pro) : facturé UNE SEULE FOIS au
-  // démarrage d'un cycle (cycleCount === 0). Les campagnes 2..N du cycle
-  // réutilisent le quota déjà payé. Quand le pro (re)choisit un mode
-  // dans la popup, plan_cycle_count est remis à 0 → la prochaine
-  // campagne paye à nouveau les frais d'accès.
-  const isFirstOfCycle = cycleCount === 0;
-  const planFeeCents = isFirstOfCycle ? Number(planRow?.monthly_cents ?? 0) : 0;
+  const commissionCents = campaignCommissionMaxCents(
+    body.contacts,
+    body.costPerContactCents,
+  );
 
   // « La Vitrine » — option lien du site web sur l'annonce. OFFERTE à la 1re
   // campagne du pro (aucune campagne antérieure), 2 € ensuite. Le prix est
@@ -293,7 +275,7 @@ export async function POST(req: Request) {
     websiteAddonCents = (priorCampaigns ?? 0) === 0 ? 0 : VITRINE_FEE_CENTS;
   }
 
-  const neededCents = body.budgetCents + commissionCents + planFeeCents + websiteAddonCents;
+  const neededCents = body.budgetCents + commissionCents + websiteAddonCents;
   const walletAvailableCents =
     Number(pro.wallet_balance_cents) - Number(pro.wallet_reserved_cents ?? 0);
   if (walletAvailableCents < neededCents) {
@@ -305,22 +287,13 @@ export async function POST(req: Request) {
         walletAvailableCents,
         neededCents,
         commissionCents,
-        planFeeCents,
+        // Conservés à 0/false pour les builds mobiles déjà publiés.
+        planFeeCents: 0,
         websiteAddonCents,
-        isFirstOfCycle,
+        isFirstOfCycle: false,
         budgetCents: body.budgetCents,
       },
       { status: 402 },
-    );
-  }
-
-  // Le plan Starter limite l'accès aux paliers 1 à 3 (cf. cards de prix
-  // homepage / modal). Le plan Pro accède à tous les paliers (1 à 5).
-  const planTierCap = pro.plan === "starter" ? 3 : 5;
-  if (body.requiredTiers.some((t) => Number(t) > planTierCap)) {
-    return NextResponse.json(
-      { error: "tiers_above_plan_cap", planTierCap, plan: pro.plan },
-      { status: 403 },
     );
   }
 
@@ -480,6 +453,9 @@ export async function POST(req: Request) {
       budget_cents: body.budgetCents,
       budget_reserved_cents: reservedCents,
       commission_max_cents: commissionCents,
+      // Tarif de commission figé sur la campagne (lu par accept_relation_tx).
+      commission_rate_bp: COMMISSION_RATE_BP,
+      commission_floor_cents: COMMISSION_FLOOR_CENTS,
       brief: body.brief.trim(),
       // « La Vitrine » : lien du site affiché sur l'annonce + tarif réellement
       // débité (0 si offert à la 1re campagne, 200 sinon).
@@ -503,16 +479,12 @@ export async function POST(req: Request) {
 
   // Incrémente la réservation du pro (budget + commission max). Le
   // wallet "disponible" affiché côté UI = wallet_balance - wallet_reserved.
-  // En parallèle, si c'est la 1re campagne du cycle, on débite IMMÉDIAT
-  // les frais d'accès Starter/Pro (one-shot, non remboursables) — pas de
-  // réservation, c'est un paiement effectif au moment de l'achat du cycle.
   const newReserved =
     Number(pro.wallet_reserved_cents ?? 0) + reservedCents;
-  // Débit immédiat (non remboursable) : frais de cycle + option Vitrine.
-  // Comme les frais de cycle, l'option Vitrine est un paiement effectif au
-  // moment de l'achat — pas une réservation.
+  // Débit immédiat (non remboursable) : option Vitrine — paiement effectif
+  // au moment de l'achat, pas une réservation.
   const newBalance =
-    Number(pro.wallet_balance_cents) - planFeeCents - websiteAddonCents;
+    Number(pro.wallet_balance_cents) - websiteAddonCents;
   const { error: reserveErr } = await admin
     .from("pro_accounts")
     .update({
@@ -522,17 +494,6 @@ export async function POST(req: Request) {
     .eq("id", proId);
   if (reserveErr) {
     console.error("[/api/pro/campaigns] reservation update failed", reserveErr);
-  }
-  if (planFeeCents > 0) {
-    await admin.from("transactions").insert({
-      account_id: proId,
-      account_kind: "pro",
-      type: "buupp_commission",
-      status: "completed",
-      amount_cents: -planFeeCents,
-      campaign_id: campaign.id,
-      description: `Frais cycle ${pro.plan === "pro" ? "Pro" : "Starter"} (${cycleCap} campagnes)`,
-    });
   }
   if (websiteAddonCents > 0) {
     await admin.from("transactions").insert({
@@ -547,7 +508,7 @@ export async function POST(req: Request) {
   }
 
   // Auto-recharge : déclenche un PaymentIntent off-session si le solde
-  // est désormais sous le seuil configuré par le pro (frais cycle +
+  // est désormais sous le seuil configuré par le pro (option Vitrine +
   // réservation budget peuvent passer le wallet sous le seuil).
   // Fire-and-forget — n'impacte pas la réponse API.
   void (async () => {
@@ -738,16 +699,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Incrémente le compteur de cycle : à la cap+1-ème tentative, le client
-  // recevra `mode_cap_reached` (403) et ré-ouvrira la popup de mode.
-  const { error: cycleErr } = await admin
-    .from("pro_accounts")
-    .update({ plan_cycle_count: cycleCount + 1 })
-    .eq("id", proId);
-  if (cycleErr) {
-    console.error("[/api/pro/campaigns] cycle increment failed", cycleErr);
-  }
-
   // Mails fire-and-forget — Promise.allSettled non-awaité.
   const proSector = pro.secteur ?? null;
   const proName = pro.raison_sociale;
@@ -885,7 +836,8 @@ export async function GET() {
         `id, name, brief, status, targeting, budget_cents, spent_cents,
          cost_per_contact_cents, created_at, code, matched_count,
          ends_at, paused_at, auto_resume_at, pause_used,
-         extension_used, extended_at`,
+         extension_used, extended_at,
+         commission_max_cents, commission_settled_cents`,
       )
       .eq("pro_account_id", proId)
       .order("created_at", { ascending: false }),
@@ -925,6 +877,10 @@ export async function GET() {
       excludePastAcceptors: targeting?.excludePastAcceptors === true,
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
+      // Commission BUUPP (10 %, min. 0,30 €/acceptation) — calculée serveur :
+      // max réservée au lancement / réellement débitée aux acceptations.
+      commissionMaxEur: Number(c.commission_max_cents ?? 0) / 100,
+      commissionSpentEur: Number(c.commission_settled_cents ?? 0) / 100,
       contactsCount: contactsByCampaign.get(c.id) ?? 0,
       reachedCount: Number(c.matched_count ?? 0),
       createdAt: c.created_at,

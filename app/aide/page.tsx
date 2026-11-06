@@ -302,33 +302,26 @@ const CATEGORIES: Category[] = [
     id: "pro",
     icon: "💼",
     label: "Professionnel — lancer une campagne",
-    desc: "Plans, ciblage, facturation, gestion des contacts révélés.",
+    desc: "Tarifs, ciblage, facturation, gestion des contacts révélés.",
     articles: [
       {
-        q: "Starter ou Pro : lequel choisir ?",
+        q: "Y a-t-il un abonnement ?",
         a: (
           <>
-            <p>Deux plans, sans engagement, payés par cycle :</p>
-            <ul>
-              <li>
-                <strong>Starter — 19 € / 2 campagnes par cycle</strong> — jusqu&apos;à
-                50 prospects par campagne, ciblage paliers 1 à 3.
-              </li>
-              <li>
-                <strong>Pro — 59 € / 10 campagnes par cycle</strong> (recommandé) —
-                jusqu&apos;à 500 prospects par campagne, accès à tous les paliers (1 à
-                5), accès anticipé aux nouveautés.
-              </li>
-            </ul>
             <p>
-              Les frais d&apos;accès au cycle ne sont facturés qu&apos;<strong>une seule
-              fois</strong> au démarrage du cycle. Les campagnes 2 à N réutilisent le
-              quota déjà payé. Vous pouvez basculer Starter ↔ Pro à tout moment depuis
-              la sélection de mode.
+              Non. BUUPP fonctionne avec une <strong>formule unique, sans abonnement
+              ni frais d&apos;accès</strong> : campagnes illimitées, jusqu&apos;à 500
+              prospects par campagne et accès à tous les paliers de données (1 à 5,
+              dans la limite de ce qu&apos;autorise la finalité de votre campagne).
+            </p>
+            <p>
+              Vous ne payez que les <strong>acceptations</strong> : la rémunération du
+              prospect, plus la commission BUUPP (10 %, minimum 0,30 € par
+              acceptation).
             </p>
           </>
         ),
-        tags: ["plan", "starter", "pro", "tarif", "cycle"],
+        tags: ["abonnement", "formule", "starter", "pro", "tarif"],
       },
       {
         q: "Comment lancer ma première campagne ?",
@@ -366,9 +359,11 @@ const CATEGORIES: Category[] = [
               campagne, pas un paramètre de prix.
             </p>
             <p>
-              À cela s&apos;ajoute la <strong>commission BUUPP de 10 %</strong>{" "}
-              calculée sur le budget de la campagne — elle n&apos;est facturée que sur
-              les acceptations effectives.
+              À cela s&apos;ajoute, <strong>pour chaque acceptation</strong>, la{" "}
+              <strong>commission BUUPP : 10 % de la rémunération du prospect, avec un
+              minimum de 0,30 €</strong>. Exemples : prospect à 1 € → vous payez
+              1,30 € ; à 5 € → 5,50 € ; à 10 € → 11,00 €. Sans acceptation, aucune
+              commission n&apos;est facturée.
             </p>
           </>
         ),

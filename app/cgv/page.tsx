@@ -59,7 +59,7 @@ export default function CgvPage() {
           }}
         >
           Les présentes CGV régissent les commandes passées par les
-          professionnels (plans Starter / Pro, lancement de campagnes,
+          professionnels (lancement de campagnes, options payantes,
           recharges de portefeuille) auprès de BUUPP. Elles complètent les
           Conditions Générales d&apos;Utilisation et prévalent en cas de
           contradiction sur le volet commercial.
@@ -81,9 +81,7 @@ export default function CgvPage() {
             Les présentes Conditions Générales de Vente (ci-après
             «&nbsp;CGV&nbsp;») régissent les <strong>commandes passées par
             des professionnels</strong> auprès de la société Majelink dans
-            le cadre du Service BUUPP&nbsp;: souscription à un abonnement
-            (plan «&nbsp;Starter&nbsp;» ou «&nbsp;Pro&nbsp;»),
-            recharge du portefeuille BUUPP, lancement de campagnes,
+            le cadre du Service BUUPP&nbsp;: recharge du portefeuille BUUPP, lancement de campagnes,
             révélation de coordonnées prospects.
           </p>
           <p>
@@ -173,22 +171,12 @@ export default function CgvPage() {
             </li>
           </ul>
           <p>
-            Deux formules d&apos;abonnement&nbsp;:
-          </p>
-          <ul style={{ paddingLeft: 22, marginTop: 8 }}>
-            <li>
-              <strong>Starter</strong>&nbsp;: accès aux paliers 1 à 3, quota
-              de <strong>2&nbsp;campagnes</strong> par cycle d&apos;abonnement.
-            </li>
-            <li>
-              <strong>Pro</strong>&nbsp;: accès aux paliers 1 à 5, quota de{" "}
-              <strong>10&nbsp;campagnes</strong> par cycle.
-            </li>
-          </ul>
-          <p>
-            Les tarifs HT de chaque formule sont indiqués sur la page{" "}
-            «&nbsp;Tarifs&nbsp;» de la plateforme et peuvent évoluer dans
-            les conditions prévues à l&apos;article&nbsp;4.
+            BUUPP propose une <strong>formule unique, sans abonnement ni
+            frais d&apos;accès</strong>&nbsp;: campagnes illimitées, jusqu&apos;à
+            500&nbsp;prospects par campagne et accès aux paliers de données
+            1 à 5 (dans la limite de ce qu&apos;autorise la finalité de la
+            campagne au titre du RGPD). Le Professionnel ne paie que les
+            acceptations effectives, selon les modalités de l&apos;article&nbsp;4.
           </p>
         </Section>
 
@@ -228,13 +216,22 @@ export default function CgvPage() {
             «&nbsp;Bonus Parrain&nbsp;» plus bas.
           </p>
           <p>
-            <strong>Commission BUUPP.</strong> Une commission de{" "}
-            <strong>10&nbsp;% du budget engagé</strong> est facturée par
-            BUUPP au Professionnel sur chaque campagne. Elle est calculée
-            au lancement (réserve provisoire) et débitée définitivement au
-            prorata des acceptations effectives à la clôture de la
-            campagne. Les acceptations nulles ne génèrent aucune
-            commission.
+            <strong>Commission BUUPP.</strong> Pour{" "}
+            <strong>chaque acceptation</strong>, BUUPP facture au
+            Professionnel une commission égale à{" "}
+            <strong>10&nbsp;% de la rémunération versée au prospect</strong>{" "}
+            (bonus «&nbsp;certifié confiance&nbsp;» et coefficient de durée
+            inclus, bonus parrain exclu), avec un{" "}
+            <strong>minimum de 0,30&nbsp;€ HT par acceptation</strong>&nbsp;: le
+            montant retenu est le plus élevé des deux. Exemples&nbsp;: rémunération
+            de 1&nbsp;€ → commission de 0,30&nbsp;€&nbsp;; 3&nbsp;€ → 0,30&nbsp;€&nbsp;;
+            5&nbsp;€ → 0,50&nbsp;€&nbsp;; 10&nbsp;€ → 1,00&nbsp;€. La commission
+            maximale (tous les contacts acceptent) est réservée au lancement
+            de la campagne&nbsp;; la commission est débitée à chaque acceptation
+            et <strong>remboursée</strong> si le prospect revient sur son
+            acceptation. Sans acceptation, aucune commission n&apos;est due.
+            Le tarif applicable est celui en vigueur au lancement de la
+            campagne.
           </p>
         </Section>
 
@@ -257,7 +254,7 @@ export default function CgvPage() {
           <p>
             <strong>Débit au lancement.</strong> Au lancement d&apos;une
             campagne, le montant total prévisionnel (budget cible +
-            commission BUUPP + frais cycle éventuels) est{" "}
+            commission BUUPP maximale) est{" "}
             <strong>réservé</strong> sur le wallet (
             <em>wallet_reserved_cents</em>). Cette réserve n&apos;est pas
             encore débitée&nbsp;: elle apparaît comme «&nbsp;engagée&nbsp;» mais
@@ -269,8 +266,9 @@ export default function CgvPage() {
             éventuels bonus) est{" "}
             <strong>débité réellement</strong> du wallet et placé en
             séquestre interne pour reversement au prospect à la clôture de
-            campagne. La facture pro est éditée à la fin du cycle ou sur
-            demande.
+            campagne&nbsp;; la commission BUUPP de cette acceptation est
+            débitée simultanément. La facture pro est éditée à la clôture
+            de la campagne ou sur demande.
           </p>
           <p>
             <strong>Recharge automatique (option facultative).</strong> Le
@@ -334,29 +332,15 @@ export default function CgvPage() {
           </p>
         </Section>
 
-        <Section title="6. Cycle de campagne et quotas">
+        <Section title="6. Absence d&apos;abonnement et de quotas">
           <p>
-            Le quota de campagnes prévu par la formule (2 pour Starter,
-            10 pour Pro) s&apos;applique à un <strong>cycle</strong>{" "}
-            d&apos;abonnement. Un cycle s&apos;ouvre dès la première
-            campagne lancée après une recharge du portefeuille et dure le
-            temps de consommer l&apos;intégralité du quota.
-          </p>
-          <p>
-            <strong>Frais d&apos;accès cycle.</strong> Un frais de cycle
-            (<strong>19&nbsp;€ HT</strong> pour Starter,{" "}
-            <strong>59&nbsp;€ HT</strong> pour Pro) est facturé{" "}
-            <strong>une seule fois</strong>, en début de cycle, lors du
-            lancement de la 1<sup>re</sup> campagne. Ce frais est prélevé
-            sur le wallet&nbsp;; il n&apos;est pas remboursable une fois
-            le cycle entamé.
-          </p>
-          <p>
-            <strong>Renouvellement.</strong> À la consommation totale du
-            quota, le Professionnel peut ouvrir un nouveau cycle en
-            relançant une campagne (re-paiement du frais d&apos;accès) ou
-            changer de formule depuis l&apos;onglet «&nbsp;Mes
-            informations&nbsp;».
+            Le Service ne comporte <strong>ni abonnement, ni frais
+            d&apos;accès, ni quota de campagnes</strong>. Le Professionnel
+            peut lancer autant de campagnes qu&apos;il le souhaite, sous
+            réserve que son portefeuille couvre le budget et la commission
+            maximale de chaque campagne. Seules les options facultatives
+            (option «&nbsp;La Vitrine&nbsp;», prolongation de campagne) font
+            l&apos;objet d&apos;un prix fixe, indiqué avant leur souscription.
           </p>
         </Section>
 
@@ -663,8 +647,8 @@ export default function CgvPage() {
           </p>
           <p>
             La résiliation pour faute n&apos;ouvre droit à aucun
-            remboursement des frais d&apos;abonnement ou de cycle déjà
-            consommés.
+            remboursement des commissions et options déjà
+            consommées.
           </p>
         </Section>
 

@@ -15,12 +15,29 @@ const counters = {
   campaignChargeCents: 100_00,
 };
 
+// Écritures `buupp_commission` pro : 2 commissions (−0,30 €, −1,00 €),
+// 1 option Vitrine (−2,00 €), 1 contre-passation (+0,30 €) → net 3,00 €.
+const commissionRows = [
+  { amount_cents: -30 },
+  { amount_cents: -100 },
+  { amount_cents: -200 },
+  { amount_cents: 30 },
+];
+
+function txQuery() {
+  const q: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "gte", "lt", "order"]) q[m] = () => q;
+  q.range = async () => ({ data: commissionRows, error: null });
+  return q;
+}
+
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseAdminClient: () => ({
     rpc: vi.fn(async (fn: string) => {
       if (fn === "admin_overview_kpis") return { data: counters, error: null };
       return { data: null, error: { message: "unknown rpc " + fn } };
     }),
+    from: vi.fn(() => txQuery()),
   }),
 }));
 
@@ -28,21 +45,13 @@ import { fetchOverviewKpis } from "@/lib/admin/queries/overview";
 import { rangeFor } from "@/lib/admin/periods";
 
 describe("fetchOverviewKpis", () => {
-  it("agrège la sortie de la RPC + applique le take-rate", async () => {
-    process.env.BUUPP_TAKE_RATE = "0.20";
+  it("agrège la sortie de la RPC + revenu BUUPP réel (écritures buupp_commission)", async () => {
     const r = rangeFor("30d", new Date("2026-05-10T12:00:00Z"));
     const out = await fetchOverviewKpis(r);
     expect(out.waitlist).toBe(124);
     expect(out.prospects).toBe(33);
     expect(out.pros).toBe(5);
     expect(out.acceptanceRatePct).toBe(36);
-    expect(out.estimatedRevenueCents).toBe(2000);
-  });
-
-  it("ne casse pas si BUUPP_TAKE_RATE absent (fallback 0.20)", async () => {
-    delete process.env.BUUPP_TAKE_RATE;
-    const r = rangeFor("30d", new Date("2026-05-10T12:00:00Z"));
-    const out = await fetchOverviewKpis(r);
-    expect(out.estimatedRevenueCents).toBe(2000);
+    expect(out.estimatedRevenueCents).toBe(300);
   });
 });

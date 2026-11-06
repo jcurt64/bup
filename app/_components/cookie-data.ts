@@ -83,15 +83,6 @@ export const COOKIE_CATEGORIES: CookieCategory[] = [
         storage: "localStorage",
       },
       {
-        name: "bupp:plan-acknowledged:{email}",
-        provider: "BUUPP",
-        purpose:
-          "Mémorise qu'un professionnel a déjà choisi sa formule tarifaire (Starter ou Pro) pour le cycle de campagnes en cours, afin de ne pas réafficher la popup de sélection au retour sur l'onglet \"Créer une campagne\". Nettoyé automatiquement au lancement effectif de la campagne (nouveau cycle).",
-        duration: "Jusqu'au lancement d'une campagne",
-        type: "Premier",
-        storage: "localStorage",
-      },
-      {
         name: "bupp:wizard-session-mounted",
         provider: "BUUPP",
         purpose:

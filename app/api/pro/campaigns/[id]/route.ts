@@ -43,6 +43,11 @@ import {
 } from "@/lib/pro/filterCampaignContacts";
 import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
+import {
+  commissionCents,
+  COMMISSION_FLOOR_CENTS,
+  COMMISSION_RATE_BP,
+} from "@/lib/pricing/commission";
 
 export const runtime = "nodejs";
 
@@ -160,7 +165,9 @@ export async function GET(req: Request, ctx: RouteContext) {
        starts_at, ends_at, created_at, pro_account_id,
        extension_used, extended_at,
        pause_used, paused_at, auto_resume_at,
-       website_url, website_addon_paid_cents`,
+       website_url, website_addon_paid_cents,
+       commission_max_cents, commission_settled_cents,
+       commission_rate_bp, commission_floor_cents`,
     )
     .eq("id", id)
     .single();
@@ -344,6 +351,17 @@ export async function GET(req: Request, ctx: RouteContext) {
     budgetEur,
     spentEur,
     remainingEur: Math.max(0, budgetEur - spentEur),
+    // Commission BUUPP (10 %, min. 0,30 €/acceptation, tarif figé campagne).
+    commissionMaxEur: Number(camp.commission_max_cents ?? 0) / 100,
+    commissionSpentEur: Number(camp.commission_settled_cents ?? 0) / 100,
+    commissionRateBp: Number(camp.commission_rate_bp ?? COMMISSION_RATE_BP),
+    commissionFloorEur: Number(camp.commission_floor_cents ?? COMMISSION_FLOOR_CENTS) / 100,
+    commissionPerContactEur:
+      commissionCents(
+        Number(camp.cost_per_contact_cents ?? 0),
+        Number(camp.commission_rate_bp ?? COMMISSION_RATE_BP),
+        Number(camp.commission_floor_cents ?? COMMISSION_FLOOR_CENTS),
+      ) / 100,
     costPerContactEur: cpcEur,
     avgCostEur,
     targeting: {

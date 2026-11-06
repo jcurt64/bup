@@ -64,7 +64,7 @@ export default async function OverviewPage({
         <KpiCard label="Dépensé réel" icon="currency" accent="#EC4899" value={fmtEur(c.spentCents)} current={c.spentCents} previous={p.spentCents} />
         <KpiCard label="Crédité prospects" icon="coins" accent="#10B981" value={fmtEur(c.creditedCents)} current={c.creditedCents} previous={p.creditedCents} />
         <KpiCard label="Recharges Stripe" icon="credit-card" accent="#3B82F6" value={fmtEur(c.topupCents)} current={c.topupCents} previous={p.topupCents} />
-        <KpiCard label="Revenu BUUPP estimé" icon="trending-up" accent="#F59E0B" value={fmtEur(c.estimatedRevenueCents)} current={c.estimatedRevenueCents} previous={p.estimatedRevenueCents} />
+        <KpiCard label="Revenu BUUPP" icon="trending-up" accent="#F59E0B" value={fmtEur(c.estimatedRevenueCents)} current={c.estimatedRevenueCents} previous={p.estimatedRevenueCents} />
       </section>
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <TimeseriesChart

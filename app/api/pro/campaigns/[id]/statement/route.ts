@@ -3,7 +3,8 @@
  *
  * Alimente le bouton « Relevé complet » de l'onglet Facturation du détail
  * de campagne (Pro.jsx). Récapitule les débits de la campagne : budget
- * consommé, commission BUUPP (10 %), total débité, contacts facturés.
+ * consommé, commission BUUPP (10 %, min. 0,30 €/acceptation), total débité,
+ * contacts facturés.
  *
  * Gating séquestre : les identités prospect ne sont incluses dans le PDF
  * que si la campagne est clôturée (status='completed'), en parité avec
@@ -81,7 +82,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
       .from("campaigns")
       .select(
         `id, name, status, targeting, budget_cents, spent_cents,
-         cost_per_contact_cents, starts_at, ends_at, created_at, pro_account_id`,
+         cost_per_contact_cents, starts_at, ends_at, created_at, pro_account_id,
+         commission_settled_cents`,
       )
       .eq("id", id)
       .single(),
@@ -146,8 +148,10 @@ export async function GET(_req: Request, ctx: RouteContext) {
   const spentEur = Number(camp.spent_cents ?? 0) / 100;
   const cpcEur = Number(camp.cost_per_contact_cents ?? 0) / 100;
   const avgCostEur = winCount > 0 ? Math.round((spentEur / winCount) * 100) / 100 : cpcEur;
-  // Commission BUUPP = 10 % du consommé. Aligné sur l'onglet Facturation.
-  const commissionSpentEur = Math.round(spentEur * 0.1 * 100) / 100;
+  // Commission BUUPP réellement débitée aux acceptations (10 % de la
+  // rémunération, min. 0,30 € par acceptation) — cumul tenu par la RPC
+  // accept_relation_tx / refund_relation_tx.
+  const commissionSpentEur = Number(camp.commission_settled_cents ?? 0) / 100;
   const totalDebitedEur = Math.round((spentEur + commissionSpentEur) * 100) / 100;
   const plannedContacts = cpcEur > 0 ? Math.round(budgetEur / cpcEur) : 0;
 

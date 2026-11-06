@@ -7,7 +7,7 @@
 | `ADMIN_EMAILS` | Liste blanche (CSV) des emails ayant accès à `/buupp-admin`. Fail-closed. |
 | `BUUPP_ADMIN_SECRET` | Secret partagé pour les routes machine (`/api/admin/digest`, `/api/admin/waitlist/launch-email`). |
 | `CRON_SECRET` | Même valeur que `BUUPP_ADMIN_SECRET` — Vercel l'injecte en `Authorization: Bearer` sur les requêtes cron. |
-| `BUUPP_TAKE_RATE` | Float, par défaut 0.20. Multiplié par `sum(transactions.campaign_charge)` pour le KPI "Revenu BUUPP". |
+| ~~`BUUPP_TAKE_RATE`~~ | Obsolète (nov. 2026) : le KPI « Revenu BUUPP » est la somme réelle des écritures `buupp_commission`. |
 
 ## 2. Migrations SQL
 

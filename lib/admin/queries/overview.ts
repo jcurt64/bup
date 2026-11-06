@@ -1,7 +1,9 @@
 /**
  * Lit les KPIs de la vue d'ensemble via la RPC `admin_overview_kpis`.
- * Le revenu BUUPP est dérivé en TS à partir d'une env (take-rate
- * configurable sans toucher à la DB).
+ * Le revenu BUUPP est RÉEL : somme nette des écritures `buupp_commission`
+ * côté pro sur la période (commissions d'acceptation 10 %/min. 0,30 €,
+ * option Vitrine, prolongations), contre-passations de remboursement
+ * incluses (écritures positives).
  */
 
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -41,8 +43,7 @@ export async function fetchOverviewKpis(range: DateRange): Promise<OverviewKpis>
   const acceptanceRatePct =
     relationsSent === 0 ? 0 : Math.round((relationsAccepted / relationsSent) * 100);
 
-  const takeRate = Number(process.env.BUUPP_TAKE_RATE ?? "0.20") || 0.2;
-  const estimatedRevenueCents = Math.round((raw.campaignChargeCents ?? 0) * takeRate);
+  const estimatedRevenueCents = await sumBuuppRevenueCents(admin, range);
 
   return {
     waitlist: raw.waitlist ?? 0,
@@ -60,6 +61,36 @@ export async function fetchOverviewKpis(range: DateRange): Promise<OverviewKpis>
     campaignChargeCents: raw.campaignChargeCents ?? 0,
     estimatedRevenueCents,
   };
+}
+
+const PAGE = 1000;
+
+/** Revenu BUUPP net (centimes, positif) sur la période. */
+async function sumBuuppRevenueCents(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  range: DateRange,
+): Promise<number> {
+  let total = 0;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await admin
+      .from("transactions")
+      .select("amount_cents")
+      .eq("account_kind", "pro")
+      .eq("type", "buupp_commission")
+      .eq("status", "completed")
+      .gte("created_at", range.start.toISOString())
+      .lt("created_at", range.end.toISOString())
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error("[admin/queries/overview] revenue read failed", error);
+      return 0;
+    }
+    const rows = (data ?? []) as Array<{ amount_cents: number | null }>;
+    for (const r of rows) total += -Number(r.amount_cents ?? 0);
+    if (rows.length < PAGE) break;
+  }
+  return Math.max(0, total);
 }
 
 // Cache process-local 30 s par fenêtre temporelle. Évite de spammer la

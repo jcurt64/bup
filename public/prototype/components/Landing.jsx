@@ -914,37 +914,25 @@ function Pricing({ go }) {
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div style={{ marginBottom: 56, maxWidth: 640 }}>
           <div className="mono caps muted" style={{ marginBottom: 16 }}>— Tarifs professionnels</div>
-          <h2 className="serif">Deux plans. <em>Sans engagement.</em></h2>
+          <h2 className="serif">Une formule. <em>Sans abonnement.</em></h2>
           <p className="muted" style={{ fontSize: 17, marginTop: 16 }}>
-            Les prospects paient zéro — ils gagnent. Les professionnels paient à la qualité,
-            pas au clic douteux.
+            Les prospects paient zéro — ils gagnent. Les professionnels ne paient que les
+            acceptations : rémunération du prospect + commission BUUPP de 10 %, minimum 0,30 €.
           </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 640 }}>
           <PricingCard
-            name="Starter"
-            price="19"
-            priceSuffix="€ / 2 campagnes"
-            features={[
-              "Jusqu'à 50 prospects par campagne",
-              '2 campagnes par cycle',
-              'Ciblage par paliers 1–3',
-            ]}
-            cta="Démarrer en Starter"
-            go={() => go('auth')}
-          />
-          <PricingCard
-            name="Pro"
-            price="59"
-            priceSuffix="€ / 10 campagnes"
+            name="Formule unique"
+            price="0"
+            priceSuffix="€ d'abonnement"
             featured
             features={[
+              'Campagnes illimitées',
               "Jusqu'à 500 prospects par campagne",
-              '10 campagnes par cycle',
               'Tous les paliers 1–5',
-              'Accès anticipé aux nouvelles fonctionnalités',
+              'Commission BUUPP : 10 % par acceptation, min. 0,30 €',
             ]}
-            cta="Passer en Pro"
+            cta="Lancer ma première campagne"
             go={() => go('auth')}
           />
         </div>

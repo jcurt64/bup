@@ -1410,9 +1410,11 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
           const showPauseAction = isActive && c.pauseEligible;
           const showResumeAction = isPaused;
           const sty = lcStyleFor(c);
-          // Budget effectif = budget + 10 % commission BUUPP (débit wallet intégral).
-          const budgetTotal = c.budgetEur * 1.10;
-          const spentTotal = c.spentEur * 1.10;
+          // Budget effectif = budget + commission BUUPP max (10 %, min. 0,30 €
+          // par acceptation) ; engagé = consommé + commission réellement débitée.
+          // Montants calculés côté serveur (/api/pro/campaigns).
+          const budgetTotal = c.budgetEur + Number(c.commissionMaxEur ?? 0);
+          const spentTotal = c.spentEur + Number(c.commissionSpentEur ?? 0);
           const pct = budgetTotal > 0 ? Math.min(100, Math.round(spentTotal / budgetTotal * 100)) : 0;
           const reached = Number(c.reachedCount ?? 0);
           const acceptRate = reached > 0 ? Math.round(Number(c.contactsCount ?? 0) / reached * 100) : 0;
@@ -2375,250 +2377,29 @@ const avatarColor = (name) => {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 };
 
-/* Popup de sélection de plan affichée à l'ouverture du wizard de
-   création de campagne. Le plan choisi (Starter / Pro) est persisté
-   dans `pro_accounts.plan` via /api/pro/plan et démarre un nouveau
-   cycle de quotas (Starter = 2 campagnes, Pro = 10). La popup
-   réapparaît automatiquement quand le quota du cycle en cours est
-   atteint, pour inviter le pro à choisir / renouveler son mode. */
-/* Les prix et caps des plans sont injectés dynamiquement depuis
-   /api/pro/plan (qui lit `plan_pricing` en base). On garde ici les
-   éléments statiques (features, couleur, badge) qui ne dépendent pas
-   du tarif. */
-const PLAN_DEFS_STATIC = [
-  {
-    id: 'starter',
-    label: 'Starter',
-    color: 'var(--ink)',
-    features: [
-      'Jusqu\'à 50 prospects par campagne',
-      '2 campagnes par cycle',
-      'Ciblage par paliers 1 à 3',
-    ],
-  },
-  {
-    id: 'pro',
-    label: 'Pro',
-    color: 'var(--accent)',
-    badge: 'Recommandé',
-    features: [
-      'Jusqu\'à 500 prospects par campagne',
-      '10 campagnes par cycle',
-      'Tous les paliers 1 à 5',
-      'Accès anticipé aux nouvelles fonctionnalités',
-    ],
-  },
-];
-
-function PlanSelectorModal({
-  currentPlan,
-  specs,
-  onChoose,
-  onClose,
-  capReached = false,
-  cycleCount = null,
-  capPlan = null,
-}) {
-  const [selecting, setSelecting] = useState(null);
-  const [error, setError] = useState(null);
-  // Fusionne les éléments statiques (features, couleurs) avec les
-  // valeurs dynamiques (prix, cap) lues depuis l'API pour rester
-  // alignées avec ce qui sera prélevé en base.
-  const planDefs = PLAN_DEFS_STATIC.map(p => {
-    const s = specs?.[p.id] || {};
-    const max = s.maxCampaigns ?? (p.id === 'pro' ? 10 : 2);
-    return {
-      ...p,
-      monthly: s.monthlyEur != null
-        ? Number(s.monthlyEur).toFixed(0).replace('.', ',') + ' €'
-        : '—',
-      maxProspects: s.maxProspects ?? null,
-      maxCampaigns: max,
-      priceSuffix: `€ / ${max} campagnes`,
-    };
-  });
-
-  const choose = async (planId) => {
-    setSelecting(planId);
-    setError(null);
-    try {
-      const r = await fetch('/api/pro/plan', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ plan: planId }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.message || j?.error || 'Erreur');
-      onChoose(planId);
-    } catch (e) {
-      setError(e.message || 'Impossible de mettre à jour le plan');
-      setSelecting(null);
-    }
-  };
-
-  return (
-    <div role="dialog" aria-modal="true" className="plan-modal-overlay" style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-      background: 'rgba(15, 22, 41, 0.55)', backdropFilter: 'blur(6px)',
-      padding: '24px 16px 80px',
-    }}>
-      <div className="plan-modal-card" style={{
-        position: 'relative', maxWidth: 880, width: '100%',
-        background: 'var(--paper)', borderRadius: 18,
-        padding: 'clamp(20px, 4vw, 36px)',
-        boxShadow: '0 30px 80px -20px rgba(15,22,41,.4), 0 0 0 1px var(--line)',
-        margin: 'auto 0',
-      }}>
-        <button
-          onClick={onClose}
-          aria-label="Fermer"
-          style={{
-            position: 'absolute', top: 14, right: 14,
-            padding: 6, color: 'var(--ink-4)', cursor: 'pointer',
-            background: 'transparent', border: 'none',
-          }}>
-          <Icon name="close" size={18}/>
-        </button>
-
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div className="mono caps muted" style={{ fontSize: 11, letterSpacing: '.16em', marginBottom: 10 }}>
-            {capReached ? '— Quota atteint' : '— Avant de lancer votre campagne'}
-          </div>
-          <div className="serif" style={{ fontSize: 'clamp(22px, 3vw, 28px)', lineHeight: 1.2, marginBottom: 8 }}>
-            {capReached ? 'Quota du cycle atteint' : 'Choisissez votre plan'}
-          </div>
-          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 560, margin: '0 auto' }}>
-            {capReached
-              ? `Vous avez consommé l'intégralité de votre cycle ${capPlan === 'pro' ? 'Pro (10 campagnes)' : 'Starter (2 campagnes)'}. Choisissez un mode pour lancer un nouveau cycle.`
-              : 'Le mode sélectionné détermine le nombre de prospects par campagne et le nombre de campagnes incluses dans votre cycle. Vous pouvez changer à tout moment.'}
-          </div>
-        </div>
-
-        <div className="plan-modal-grid" style={{
-          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16,
-        }}>
-          {planDefs.map(plan => {
-            const isCurrent = plan.id === currentPlan;
-            const isSubmitting = selecting === plan.id;
-            // Les deux modes restent toujours sélectionnables : choisir un
-            // mode (même le mode courant) démarre un nouveau cycle.
-            const isLocked = false;
-            return (
-              <div
-                key={plan.id}
-                className="plan-card"
-                style={{
-                  position: 'relative',
-                  padding: 'clamp(16px, 3vw, 22px)',
-                  borderRadius: 14,
-                  border: '1.5px solid ' + (isCurrent ? plan.color : 'var(--line-2)'),
-                  background: isCurrent
-                    ? `color-mix(in oklab, ${plan.color} 5%, var(--paper))`
-                    : 'var(--paper)',
-                  display: 'flex', flexDirection: 'column', gap: 14,
-                  opacity: isLocked ? 0.55 : 1,
-                }}>
-                {plan.badge && !isLocked && (
-                  <div style={{
-                    position: 'absolute', top: -10, right: 12,
-                    padding: '3px 10px', borderRadius: 999,
-                    background: plan.color, color: 'white',
-                    fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
-                  }}>{plan.badge}</div>
-                )}
-                {isLocked && (
-                  <div style={{
-                    position: 'absolute', top: -10, right: 12,
-                    padding: '3px 10px', borderRadius: 999,
-                    background: 'var(--ink-4)', color: 'white',
-                    fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
-                  }}>Cap atteint</div>
-                )}
-
-                <div>
-                  <div className="serif" style={{ fontSize: 24, color: plan.color, marginBottom: 4 }}>
-                    {plan.label}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-                    <span className="serif tnum" style={{ fontSize: 22, color: 'var(--ink)' }}>{plan.monthly}</span>
-                    <span className="muted"> {plan.priceSuffix.replace('€ ', '')}</span>
-                  </div>
-                </div>
-
-                <div style={{
-                  padding: '10px 12px', borderRadius: 8,
-                  background: 'var(--ivory-2)', fontSize: 13, lineHeight: 1.4,
-                }}>
-                  <span style={{ color: 'var(--ink-3)' }}>Cap par campagne : </span>
-                  <strong>{plan.maxProspects} prospects</strong>
-                </div>
-
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="row" style={{ gap: 8, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
-                      <span style={{ color: plan.color, flexShrink: 0, marginTop: 2 }}>
-                        <Icon name="check" size={13} stroke={2.5}/>
-                      </span>
-                      <span style={{ color: 'var(--ink-2)' }}>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  className="btn"
-                  onClick={() => choose(plan.id)}
-                  disabled={isSubmitting}
-                  style={{
-                    marginTop: 'auto',
-                    background: plan.id === 'pro' ? plan.color : 'var(--ink)',
-                    color: 'white',
-                    borderColor: 'transparent',
-                    width: '100%',
-                    opacity: isSubmitting ? 0.7 : 1,
-                    cursor: 'pointer',
-                  }}>
-                  {isSubmitting
-                    ? 'Activation…'
-                    : capReached
-                      ? `Démarrer un cycle ${plan.label}`
-                      : isCurrent
-                        ? `Continuer en ${plan.label}`
-                        : `Choisir ${plan.label}`}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {error && (
-          <div style={{
-            marginTop: 18, padding: '10px 12px', borderRadius: 8,
-            background: '#fef2f2', border: '1px solid #fca5a5',
-            color: '#991b1b', fontSize: 12.5,
-          }}>
-            {error}
-          </div>
-        )}
-
-        <div className="muted" style={{ fontSize: 11, textAlign: 'center', marginTop: 18 }}>
-          Aucun engagement · Changement de plan possible à tout moment depuis l'onglet Facturation.
-        </div>
-
-        <style>{`
-          @media (max-width: 720px) {
-            .plan-modal-overlay { align-items: stretch !important; padding: 0 !important; }
-            .plan-modal-card { border-radius: 0 !important; min-height: 100vh; max-width: none !important; }
-            .plan-modal-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
-      </div>
-    </div>
-  );
+/* Commission BUUPP — formule unique (nov. 2026) : 10 % de la rémunération
+   du prospect avec un PLANCHER de 0,30 € par acceptation. Miroir exact de
+   lib/pricing/commission.ts (serveur) et de la RPC SQL
+   buupp_commission_cents — c'est le serveur qui fait foi ; ce calcul ne sert
+   qu'à l'affichage du wizard avant envoi. */
+const BUUPP_COMMISSION_RATE_BP = 1000;
+const BUUPP_COMMISSION_FLOOR_CENTS = 30;
+const BUUPP_COMMISSION_LABEL = '10 % par acceptation, min. 0,30 €';
+function buuppCommissionCents(rewardCents) {
+  const reward = Math.round(Number(rewardCents) || 0);
+  if (reward <= 0) return 0;
+  return Math.max(BUUPP_COMMISSION_FLOOR_CENTS, Math.floor((reward * BUUPP_COMMISSION_RATE_BP + 5000) / 10000));
 }
+/* Commission max d'une campagne (€) = contacts × commission unitaire. */
+function buuppCampaignCommissionMaxEur(contacts, costPerContactEur) {
+  const n = Math.max(0, Math.floor(Number(contacts) || 0));
+  return n * buuppCommissionCents(Math.round(Number(costPerContactEur || 0) * 100)) / 100;
+}
+/* Nombre max de contacts par campagne (formule unique). */
+const MAX_PROSPECTS_PER_CAMPAIGN = 500;
 
 /* Modale "Solde insuffisant" affichée à la validation finale d'une
-   campagne quand wallet < (budget + frais plan). Pré-remplit le montant
+   campagne quand wallet < (budget + commission max). Pré-remplit le montant
    de recharge avec le manquant (arrondi au multiple de 50 supérieur).
    Sauvegarde le brouillon de campagne avant la redirection Stripe pour
    que le pro puisse reprendre où il en était au retour de paiement. */
@@ -2681,7 +2462,7 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
             Solde insuffisant
           </div>
           <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 440, margin: '0 auto' }}>
-            Pour lancer cette campagne, votre solde doit couvrir le budget plus la commission BUUPP <strong>maximale</strong> (10 %) — celle-ci n'est facturée qu'aux acceptations effectives.
+            Pour lancer cette campagne, votre solde doit couvrir le budget plus la commission BUUPP <strong>maximale</strong> (10 % par acceptation, min. 0,30 €) — celle-ci n'est facturée qu'aux acceptations effectives.
           </div>
         </div>
 
@@ -2692,9 +2473,9 @@ function InsufficientBalanceModal({ details, onCancel, onTopup }) {
           {[
             ['Solde actuel', fmt(details.balance) + ' €'],
             ['Budget de la campagne', fmt(details.campaignTotal) + ' €'],
-            ['Commission BUUPP max. (10 %)', fmt(details.commission) + ' €'],
-            ...(details.planFee > 0
-              ? [[`Frais cycle ${details.planLabel || 'Starter'} (1ʳᵉ campagne)`, fmt(details.planFee) + ' €']]
+            ['Commission BUUPP max. (10 %, min. 0,30 €/acceptation)', fmt(details.commission) + ' €'],
+            ...(details.vitrineFee > 0
+              ? [['Option La Vitrine', fmt(details.vitrineFee) + ' €']]
               : []),
           ].map(([l, v], i) => (
             <div key={i} className="row between" style={{ padding: '4px 0' }}>
@@ -3179,7 +2960,7 @@ function DraftRestoredToast({ onDismiss }) {
 
 /* Confirmation du bouton "Tout effacer" dans le header du wizard.
    Réinitialise toutes les étapes (l'utilisateur revient à l'étape 1
-   avec les champs vidés). Le plan choisi est PRÉSERVÉ. */
+   avec les champs vidés). */
 function WizardResetConfirmModal({ onCancel, onConfirm }) {
   return (
     <ProInfoModalShell title="Tout effacer ?" onClose={onCancel}>
@@ -3203,9 +2984,6 @@ function WizardResetConfirmModal({ onCancel, onConfirm }) {
             Toutes les étapes en cours (objectif, ciblage, budget, mots-clés,
             description…) seront <strong>effacées</strong>. Vous repartirez
             de l'étape 1 avec un brouillon vierge.
-          </div>
-          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
-            Le plan déjà choisi (Starter / Pro) reste sélectionné.
           </div>
         </div>
       </div>
@@ -3279,7 +3057,7 @@ function VitrineOfferModal({ free, url, onSkip, onConfirm }) {
 function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
-  const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, planFee, needed, missing}
+  const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, commission, vitrineFee, needed, missing}
   // Modale de confirmation du bouton "Tout effacer" (header du wizard).
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   // Erreur de lancement (autre que solde insuffisant) — affichée dans
@@ -3296,79 +3074,15 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const [vitrineModalOpen, setVitrineModalOpen] = useState(false);
   const [vitrineModalSeen, setVitrineModalSeen] = useState(false);
   const [priorCampaignCount, setPriorCampaignCount] = useState(null);
-  // ─── Plan tarifaire ─────────────────────────────────────────────
-  // Au montage du wizard on récupère le plan actuel et on ouvre la
-  // popup de sélection. Tant que `planChosen=false`, on bloque le
-  // wizard (overlay devant le contenu) pour que le pro confirme son
-  // plan avant toute saisie.
-  const [plan, setPlan] = useState(null);
-  const [planSpecs, setPlanSpecs] = useState(null);
-  const [planChosen, setPlanChosen] = useState(false);
-  // `null` tant que plan + cycle ne sont pas chargés — on n'ouvre PAS le
-  // sélecteur tant qu'on ne sait pas s'il est nécessaire. Voir l'effet
-  // ci-dessous : le sélecteur s'ouvre uniquement à la 1re campagne du
-  // cycle (cycleCount === 0) ou quand le quota du cycle est atteint.
-  const [planModalOpen, setPlanModalOpen] = useState(false);
-  // Quota du cycle en cours (Starter = 2, Pro = 10). Quand le compteur
-  // côté serveur atteint le cap, on rouvre la popup pour que le pro
-  // démarre un nouveau cycle.
-  const [cycleCount, setCycleCount] = useState(null);
-  const [cycleCap, setCycleCap] = useState(null);
-  const [capReached, setCapReached] = useState(false);
+  // ─── Formule unique (nov. 2026) ──────────────────────────────────
+  // Plus de choix Starter/Pro ni de cycle : tous les paliers sont ouverts,
+  // campagnes illimitées, 500 contacts max par campagne. Seule la
+  // commission BUUPP (10 % par acceptation, min. 0,30 €) s'applique.
+  const plan = 'pro';
+  const planMaxProspects = MAX_PROSPECTS_PER_CAMPAIGN;
   // Drapeau « un brouillon de campagne a été restauré au mount » — posé
-  // par restoreDraft (cf. plus bas). Le `load()` du plan tourne async et
-  // peut résoudre APRÈS restoreDraft : sans ce drapeau, il écraserait
-  // `planChosen` en rouvrant la popup quand `cycleCount === 0` (cas de
-  // l'utilisateur qui quitte le wizard avant de lancer sa 1re campagne
-  // du cycle et qui y revient).
+  // par restoreDraft (cf. plus bas).
   const draftRestoredRef = React.useRef(false);
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => fetch('/api/pro/plan', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .catch(() => null)
-      .then((p) => {
-      if (cancelled) return;
-      const nextPlan = p?.plan || 'starter';
-      const nextCycle = Number(p?.cycleCount ?? 0);
-      const nextCap = Number(p?.cap ?? (nextPlan === 'pro' ? 10 : 2));
-      setPlan(nextPlan);
-      setPlanSpecs(p?.specs || null);
-      setCycleCount(nextCycle);
-      setCycleCap(nextCap);
-      // NB : la décision d'ouverture/fermeture de la popup plan est
-      // centralisée dans un useEffect dédié (cf. "effet décision popup
-      // plan" plus bas). Ici on se contente de poser les data plan
-      // (capReached, cycleCount, cycleCap, plan). Cela évite le flash :
-      // sans le useEffect, load() — qui résout souvent avant /api/me
-      // et avant restoreDraft — ouvrait la popup quelques ms avant que
-      // les signaux d'acquittement (userEmail, restoreRan) n'arrivent.
-      setCapReached(Boolean(p?.capReached));
-    });
-    load();
-    // Si l'utilisateur change de formule depuis "Mes informations" pendant
-    // que le wizard est ouvert, on resynchronise pour que les paliers et
-    // le cap de prospects reflètent la nouvelle formule en temps réel.
-    const onPlanChanged = (e) => {
-      const next = e?.detail?.plan;
-      if (next === 'starter' || next === 'pro') setPlan(next);
-      load();
-    };
-    window.addEventListener('pro:plan-changed', onPlanChanged);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('pro:plan-changed', onPlanChanged);
-    };
-  }, []);
-  // Cap et frais lus depuis l'API (`plan_pricing` en base) plutôt que
-  // codés en dur ici. Fallback raisonnable si l'API n'a pas (encore)
-  // répondu : le brouillon UI reste utilisable.
-  const planMaxProspects = planSpecs?.[plan]?.maxProspects ?? (plan === 'pro' ? 500 : 50);
-  // Si l'utilisateur passe d'un plan Pro à Starter (ou si la valeur
-  // initiale dépasse le cap), on rabote `contacts` au plafond du plan.
-  useEffect(() => {
-    setContacts(c => Math.min(c, planMaxProspects));
-  }, [planMaxProspects]);
 
   // Solde wallet pro (DISPONIBLE = balance - réservé). Le réservé est
   // la somme des (budget + commission max) des campagnes actives non
@@ -3431,7 +3145,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // automatique des anciens drafts sessionStorage n'est PAS faite : les
   // utilisateurs en cours retomberont une fois sur étape 1 (acceptable).
   const DRAFT_KEY_PREFIX = 'bupp:campaign-draft:';
-  const PLAN_ACK_KEY_PREFIX = 'bupp:plan-acknowledged:';
   const safeTopLocal = () => {
     try { return window.top.localStorage; } catch { return window.localStorage; }
   };
@@ -3445,19 +3158,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     return () => { cancelled = true; };
   }, []);
   const draftKey = () => userEmail ? (DRAFT_KEY_PREFIX + userEmail) : null;
-  const planAckKey = () => userEmail ? (PLAN_ACK_KEY_PREFIX + userEmail) : null;
-  const planAlreadyAck = () => {
-    const k = planAckKey(); if (!k) return false;
-    try { return safeTopLocal().getItem(k) === '1'; } catch { return false; }
-  };
-  const setPlanAck = () => {
-    const k = planAckKey(); if (!k) return;
-    try { safeTopLocal().setItem(k, '1'); } catch {}
-  };
-  const clearPlanAck = () => {
-    const k = planAckKey(); if (!k) return;
-    try { safeTopLocal().removeItem(k); } catch {}
-  };
   const saveDraft = () => {
     const k = draftKey();
     if (!k) return; // userEmail pas encore résolu — on retentera au prochain auto-save tick
@@ -3482,10 +3182,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const clearDraft = () => {
     const k = draftKey();
     if (k) { try { safeTopLocal().removeItem(k); } catch {} }
-    // Lancement réussi = nouveau cycle. On efface aussi l'acquittement
-    // pour que la popup s'affiche normalement à la prochaine 1re
-    // campagne du cycle suivant.
-    clearPlanAck();
   };
   // Restaure le brouillon si présent au montage du wizard. Deux scénarios :
   //   1) retour de Stripe (`?continue_campaign=1` dans le `search` parent)
@@ -3603,40 +3299,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail]);
 
-  // Effet décision popup plan — centralise l'ouverture/fermeture pour
-  // éviter le flash. Conditions PRÉ-REQUISES :
-  //   - userEmail résolu (sinon planAlreadyAck() retourne false à tort)
-  //   - restoreRan vrai (sinon draftRestoredRef pas encore renseigné)
-  //   - cycleCount résolu (sinon on ne sait pas si 1re du cycle)
-  // Tant qu'une de ces conditions manque, on ne touche pas à l'état
-  // popup → état initial `planModalOpen=false, planChosen=false`
-  // affiché tel quel (pas de popup intempestive).
-  React.useEffect(() => {
-    if (!userEmail) return;
-    if (!restoreRan) return;
-    if (cycleCount == null) return;
-    if (capReached) {
-      // Renouvellement obligatoire : on ignore tout acquittement
-      // précédent et on force la popup.
-      clearPlanAck();
-      setPlanModalOpen(true);
-      setPlanChosen(false);
-      return;
-    }
-    if (cycleCount === 0 && !draftRestoredRef.current && !planAlreadyAck()) {
-      // 1re campagne du cycle ET ni brouillon en cours ni popup déjà
-      // acquittée → ouverture normale.
-      setPlanModalOpen(true);
-      setPlanChosen(false);
-      return;
-    }
-    // Brouillon en cours OU popup déjà acquittée OU déjà dans le cycle
-    // → on respecte l'état choisi.
-    setPlanModalOpen(false);
-    setPlanChosen(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail, restoreRan, cycleCount, capReached]);
-
   // À chaque changement d'étape du wizard, on remonte automatiquement en
   // haut de la page : sinon l'utilisateur, qui vient de cliquer "Continuer"
   // en bas, atterrit sur l'étape suivante… toujours en bas. Mauvaise UX.
@@ -3648,9 +3310,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // ─── Duplication ─────────────────────────────────────────────────
   // Quand le wizard est ouvert via "Dupliquer" sur une campagne, on
   // hydrate tous les states depuis /api/pro/campaigns/:id puis on saute
-  // directement à l'étape Récap. Le contrôle quota (cycle Starter/Pro)
-  // reste actif : si le cap est atteint, le sélecteur de mode s'ouvre
-  // par-dessus comme pour une création vierge.
+  // directement à l'étape Récap.
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [dupLoading, setDupLoading] = useState(false);
   const [dupSourceName, setDupSourceName] = useState(null);
@@ -3692,11 +3352,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         if (typeof d.plannedContacts === 'number' && d.plannedContacts > 0) setContacts(d.plannedContacts);
         if (typeof d.brief === 'string') setBrief(d.brief);
         if (d.name) setDupSourceName(d.name);
-        // Le plan a déjà été choisi (la campagne d'origine existe).
-        // L'effet décision popup plan (plus haut) lira `draftRestoredRef`
-        // pour ne pas rouvrir la popup même si `cycleCount === 0`.
-        // Si le quota est atteint (capReached), il l'ouvrira quand même
-        // (renouvellement obligatoire — au-dessus du Récap).
         draftRestoredRef.current = true;
         setRestoreRan(true); // débloque l'effet décision dès la duplication
         setStep(WIZ_TOTAL);
@@ -3839,12 +3494,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
   const objAllowedTiers = obj?.allowedTiers || [1,2,3,4,5];
-  // Starter limite l'accès aux paliers 1 à 3 (cf. cards de prix). On
-  // intersecte avec ce que la finalité autorise au titre du RGPD.
-  const planTierCap = plan === 'starter' ? 3 : 5;
-  const allowedTiers = objAllowedTiers.filter(t => t <= planTierCap);
+  // Formule unique : les 5 paliers sont ouverts ; seule la finalité
+  // (RGPD — minimisation) restreint les paliers autorisés.
+  const allowedTiers = objAllowedTiers;
 
-  // RGPD + plan : prune tiers when objective or plan changes — only keep allowed ones
+  // RGPD : prune tiers when objective changes — only keep allowed ones
   useEffect(() => {
     setSelectedTiers(prev => {
       const next = new Set();
@@ -3853,12 +3507,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       // impossible d'identifier le prospect ni d'établir une mise en
       // relation. Il est donc forcé dans la sélection quoi qu'il arrive
       // (il est aussi toujours dans allowedTiers — toutes les finalités
-      // l'autorisent et planTierCap ≥ 3).
+      // l'autorisent).
       if (allowedTiers.includes(1)) next.add(1);
       if (next.size === 0 && allowedTiers.length > 0) next.add(allowedTiers[0]);
       return next;
     });
-  }, [selectedObj, plan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedObj]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const baseCpc = (() => {
     if (!selectedTiers.size) return 0;
@@ -4028,23 +3682,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     </div>
   );
 
-  // Commission BUUPP = 10 % du budget total. Le wallet doit couvrir
-  // budget + commission au lancement (cf. /api/pro/campaigns).
-  const commission = Math.round(total * 0.10 * 100) / 100;
-  // Frais d'accès au cycle (Starter / Pro) : facturés UNE SEULE FOIS au
-  // démarrage d'un cycle (cycleCount === 0). Tant qu'il reste du quota,
-  // les campagnes suivantes du cycle ne le repayent pas. Au cap+1, le
-  // pro repick un mode → cycleCount remis à 0 → on repaye.
-  const isFirstOfCycle = cycleCount === 0;
-  const cycleStartFee = isFirstOfCycle
-    ? Number(planSpecs?.[plan]?.monthlyEur ?? (plan === "pro" ? 59 : 19))
-    : 0;
-  const planLabel = plan === "pro" ? "Pro" : "Starter";
+  // Commission BUUPP max = contacts × max(0,30 €, 10 % du coût par contact)
+  // (worst-case : tous les contacts acceptent). Le wallet doit couvrir
+  // budget + commission max au lancement (cf. /api/pro/campaigns, qui
+  // recalcule et fait foi). Plus de frais d'accès : formule unique.
+  const commission = Math.round(buuppCampaignCommissionMaxEur(contacts, cpc) * 100) / 100;
   // « La Vitrine » : offerte à la 1re campagne du pro (priorCampaignCount === 0),
   // 2 € ensuite. Coût ajouté au total seulement si l'option est retenue.
   const vitrineFree = priorCampaignCount === 0;
   const vitrineFeeEur = vitrineAdded ? (vitrineFree ? 0 : 2) : 0;
-  const totalToDebit = Math.round((total + commission + cycleStartFee + vitrineFeeEur) * 100) / 100;
+  const totalToDebit = Math.round((total + commission + vitrineFeeEur) * 100) / 100;
   const costPreview = cpc > 0 && (
     <div className="wizard-cost-preview" style={{
       background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
@@ -4074,23 +3721,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               fontSize: 11, padding: '2px 6px', borderRadius: 6,
               background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
               color: 'var(--accent)', fontWeight: 600, marginLeft: 4,
-            }}>10 % = commission BUUPP</span>
+            }}>{BUUPP_COMMISSION_LABEL}</span>
           </div>
           <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--accent)' }}>jusqu'à {fmtEur(commission)}</span>
         </div>
-        {cycleStartFee > 0 && (
-          <div className="row between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 0 }}>
-              <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Frais cycle {planLabel}</span>{' '}
-              <span className="mono" style={{
-                fontSize: 11, padding: '2px 6px', borderRadius: 6,
-                background: 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
-                color: 'var(--ink-2)', fontWeight: 600, marginLeft: 4,
-              }}>1ʳᵉ campagne du cycle</span>
-            </div>
-            <span className="mono tnum" style={{ fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
-          </div>
-        )}
         {vitrineAdded && (
           <div className="row between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
@@ -4107,7 +3741,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         <div className="row between" style={{ alignItems: 'center', gap: 12 }}>
           <span style={{ color: 'var(--ink-3)' }}>
             Total à débiter de votre solde
-            {cycleStartFee > 0 ? ' (budget + commission max. + frais cycle)' : ' (budget + commission max.)'}
+            {' (budget + commission max.)'}
           </span>
           <span className="mono tnum" style={{ fontWeight: 700, color: 'var(--ink)' }}>{fmtEur(totalToDebit)}</span>
         </div>
@@ -4121,7 +3755,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
           <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
           <span>
             Le solde affichera le budget comme <strong>déjà engagé dès le lancement</strong>. Les fonds ne quittent réellement votre compte qu'à la <strong>clôture de la campagne</strong> :
-            seules les acceptations effectives sont alors débitées (récompenses prospects + 10 % commission BUUPP).
+            seules les acceptations effectives sont alors débitées (récompenses prospects + commission BUUPP de 10 %, min. 0,30 € par acceptation).
             Sans acceptation, <strong>aucun centime ne quitte votre wallet</strong>.
           </span>
         </div>
@@ -4401,54 +4035,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               </div>
             </div>
 
-            {plan === 'starter' && (
-              <div style={{
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-                padding: '12px 14px', borderRadius: 10,
-                border: '1px solid color-mix(in oklab, #B45309 30%, var(--line))',
-                background: 'color-mix(in oklab, #B45309 6%, var(--paper))',
-                marginBottom: 20,
-              }}>
-                <span style={{
-                  width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'color-mix(in oklab, #B45309 14%, var(--paper))',
-                  color: '#B45309',
-                }}>
-                  <Icon name="lock" size={12}/>
-                </span>
-                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
-                  La formule <strong style={{ color: '#B45309' }}>Starter</strong> ne vous autorise qu'à obtenir les informations des
-                  <strong style={{ color: 'var(--ink)' }}> paliers 1 à 3</strong>. Pour accéder aux paliers 4 et 5,
-                  passez en formule{' '}
-                  {onGoInformations ? (
-                    <button
-                      type="button"
-                      onClick={onGoInformations}
-                      style={{
-                        background: 'none', border: 'none', padding: 0, margin: 0,
-                        color: 'var(--ink)', fontWeight: 700, textDecoration: 'underline',
-                        cursor: 'pointer', font: 'inherit',
-                      }}
-                    >Pro</button>
-                  ) : (
-                    <strong style={{ color: 'var(--ink)' }}>Pro</strong>
-                  )} depuis vos informations entreprise.
-                </div>
-              </div>
-            )}
 
             {/* Tiers grid */}
             <div className="col gap-2">
               {TIERS_DATA.map(t => {
                 const allowed = allowedTiers.includes(t.id);
-                const blockedByPlan = !allowed && plan === 'starter' && t.id > 3 && objAllowedTiers.includes(t.id);
                 const checked = selectedTiers.has(t.id) && allowed;
                 return (
                   <button key={t.id}
                     onClick={() => allowed && toggleTier(t.id)}
                     disabled={!allowed}
-                    title={allowed ? '' : (blockedByPlan ? 'Palier réservé à la formule Pro' : 'Palier non disponible pour cette finalité (RGPD — minimisation)')}
+                    title={allowed ? '' : 'Palier non disponible pour cette finalité (RGPD — minimisation)'}
                     className="row center wizard-tier-row" style={{ gap: 14, padding: 16, borderRadius: 12, textAlign: 'left',
                       border: '1.5px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
                       background: checked ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))'
@@ -4487,8 +4084,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                           <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>par contact</div>
                         </>
                       ) : (
-                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: blockedByPlan ? '#B45309' : 'var(--ink-4)', letterSpacing: '.08em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Icon name="lock" size={11}/> {blockedByPlan ? 'Plan Pro' : 'Non autorisé'}
+                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '.08em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Icon name="lock" size={11}/> Non autorisé
                         </span>
                       )}
                     </div>
@@ -4914,38 +4511,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                   <span>10</span>
                   <span>{planMaxProspects}</span>
                 </div>
-                {plan === 'starter' && (
-                  <div className="row center upgrade-pro-cta" style={{
-                    marginTop: 12, padding: 12, borderRadius: 10, gap: 12,
-                    background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
-                    border: '1px dashed color-mix(in oklab, var(--accent) 30%, var(--line))',
-                    flexWrap: 'wrap',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45 }}>
-                      <strong>Plan Starter : 50 prospects max.</strong> Passez en mode Pro pour cibler jusqu'à <strong>500 prospects</strong> par campagne.
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={async () => {
-                        try {
-                          const r = await fetch('/api/pro/plan', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ plan: 'pro' }),
-                          });
-                          if (!r.ok) throw new Error();
-                          setPlan('pro');
-                        } catch {
-                          alert('Impossible de passer en mode Pro. Réessayez.');
-                        }
-                      }}
-                      style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }}
-                    >
-                      Passer en mode Pro <Icon name="arrow" size={12}/>
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -5415,23 +4980,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                     fontSize: 10, padding: '2px 6px', borderRadius: 6,
                     background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
                     color: 'var(--accent)', fontWeight: 600,
-                  }}>10 % = commission BUUPP</span>
+                  }}>{BUUPP_COMMISSION_LABEL}</span>
                 </span>
                 <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{total > 0 ? `jusqu'à ${fmtEur(commission)}` : '—'}</span>
               </div>
-              {cycleStartFee > 0 && (
-                <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    Frais cycle {planLabel}
-                    <span className="mono" style={{
-                      fontSize: 10, padding: '2px 6px', borderRadius: 6,
-                      background: 'color-mix(in oklab, var(--ink) 8%, var(--paper))',
-                      color: 'var(--ink-2)', fontWeight: 600,
-                    }}>1ʳᵉ campagne du cycle · prélevé immédiatement</span>
-                  </span>
-                  <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{fmtEur(cycleStartFee)}</span>
-                </div>
-              )}
               {vitrineAdded && (
                 <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span className="muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -5448,7 +5000,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               <div className="row between" style={{ padding: '12px 0 4px' }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>
                   Total à débiter
-                  {cycleStartFee > 0 && <span className="muted" style={{ fontWeight: 400, fontSize: 11 }}> · réserve + frais cycle</span>}
                 </span>
                 <span className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{total > 0 ? fmtEur(totalToDebit) : '—'}</span>
               </div>
@@ -5463,7 +5014,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 <span>
                   Votre solde affichera ce montant comme <strong>déjà engagé dès le lancement</strong>, mais les fonds ne quittent
                   réellement votre compte qu'à la <strong>clôture de la campagne</strong> (dans {durationMeta?.label?.toLowerCase?.() || 'la fenêtre choisie'}).
-                  Seules les <strong>acceptations effectives</strong> sont facturées (rewards + 10 % commission BUUPP) ; sans aucune acceptation,
+                  Seules les <strong>acceptations effectives</strong> sont facturées (rewards + commission BUUPP de 10 %, min. 0,30 € par acceptation) ; sans aucune acceptation,
                   rien n'est prélevé et la réserve vous est restituée.
                 </span>
               </div>
@@ -5598,18 +5149,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                   }
                   await refreshWalletBalance();
                   const balance = Number(walletBalanceEur ?? 0);
-                  // Commission BUUPP = 10 % du budget (cf. backend).
-                  const commission = Math.round(total * 0.10 * 100) / 100;
-                  // Frais cycle facturés une seule fois quand cycleCount=0.
-                  // + option La Vitrine (2 €, offerte à la 1re campagne).
-                  const totalNeeded = total + commission + cycleStartFee + vitrineFeeEur;
+                  // Budget + commission max (10 %, min. 0,30 €/acceptation,
+                  // calculée plus haut) + option La Vitrine (2 €, offerte à
+                  // la 1re campagne). Le serveur recalcule et fait foi.
+                  const totalNeeded = total + commission + vitrineFeeEur;
                   if (balance < totalNeeded) {
                     setInsufficient({
                       balance,
                       campaignTotal: total,
                       commission,
-                      planFee: cycleStartFee,
-                      planLabel,
+                      vitrineFee: vitrineFeeEur,
                       needed: totalNeeded,
                       missing: Math.max(0, totalNeeded - balance),
                     });
@@ -5648,32 +5197,20 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                       if (r.status === 402) {
                         const wallet = (j.walletCents || 0) / 100;
                         const needed = (j.neededCents || 0) / 100;
-                        const commission = j.commissionCents != null
+                        const serverCommission = j.commissionCents != null
                           ? j.commissionCents / 100
-                          : Math.round(total * 0.10 * 100) / 100;
-                        const planFee = j.planFeeCents != null
-                          ? j.planFeeCents / 100
-                          : cycleStartFee;
+                          : commission;
+                        const vitrineFee = j.websiteAddonCents != null
+                          ? j.websiteAddonCents / 100
+                          : vitrineFeeEur;
                         setInsufficient({
                           balance: wallet,
                           campaignTotal: total,
-                          commission,
-                          planFee,
-                          planLabel,
+                          commission: serverCommission,
+                          vitrineFee,
                           needed,
                           missing: Math.max(0, needed - wallet),
                         });
-                        return;
-                      }
-                      if (r.status === 403 && j?.error === 'mode_cap_reached') {
-                        // Le serveur a refusé : le quota du cycle est atteint.
-                        // On ré-ouvre le sélecteur de mode pour démarrer un
-                        // nouveau cycle (Starter : 2 / Pro : 10).
-                        setCycleCount(Number(j.cycleCount ?? cycleCap ?? 2));
-                        setCycleCap(Number(j.cap ?? cycleCap ?? 2));
-                        setCapReached(true);
-                        setPlanChosen(false);
-                        setPlanModalOpen(true);
                         return;
                       }
                       // Le backend renvoie {error: <code>, message: <texte
@@ -5685,7 +5222,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                         invalid_dates: 'Les dates choisies sont invalides.',
                         invalid_json: 'Requête mal formée.',
                         budget_mismatch: 'Le budget ne correspond pas au coût × nombre de contacts.',
-                        tiers_above_plan_cap: `Votre plan ${j?.plan || ''} ne donne pas accès à ce palier (cap : ${j?.planTierCap ?? '?'}). Passez en Pro pour débloquer.`,
                         unauthorized: 'Session expirée — reconnectez-vous.',
                       })[j?.error] || `Erreur (${j?.error || r.status}).`;
                       setLaunchError({ title: 'Lancement impossible', message: friendly });
@@ -5848,36 +5384,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
             setVitrineUrl(host);
             setVitrineAdded(true);
             setVitrineModalOpen(false);
-          }}
-        />
-      )}
-      {planModalOpen && plan && (
-        <PlanSelectorModal
-          currentPlan={plan}
-          specs={planSpecs}
-          capReached={capReached}
-          capPlan={plan}
-          cycleCount={cycleCount}
-          onChoose={(p) => {
-            setPlan(p);
-            setPlanChosen(true);
-            setPlanModalOpen(false);
-            // Mémorise l'acquittement pour la session : tant que la
-            // campagne n'est pas lancée, la popup ne se rouvrira pas
-            // au retour sur l'onglet (cf. load() au mount).
-            setPlanAck();
-            // Choisir un mode (re)démarre un cycle : le compteur côté
-            // serveur a été remis à 0, on resynchronise localement.
-            setCycleCount(0);
-            setCapReached(false);
-            const nextCap = planSpecs?.[p]?.maxCampaigns ?? (p === 'pro' ? 10 : 2);
-            setCycleCap(nextCap);
-          }}
-          onClose={() => {
-            // Refus de choisir → on retourne à l'écran précédent (campagnes)
-            // pour ne pas laisser le pro saisir une campagne sans plan acté.
-            if (!planChosen) onDone();
-            else setPlanModalOpen(false);
           }}
         />
       )}
@@ -9001,9 +8507,6 @@ function Facturation() {
   // sur l'event `pro:wallet-changed` (émis après une recharge réussie)
   // pour intégrer immédiatement la nouvelle facture sans rechargement.
   const [invoices, setInvoices] = useState(null);
-  // Plan actif (label + prix mensuel) lu depuis /api/pro/plan, lui-même
-  // alimenté par la table `plan_pricing`.
-  const [planInfo, setPlanInfo] = useState(null);
   // undefined = chargement, null = aucune carte, objet = carte Stripe.
   const [payCard, setPayCard] = useState(undefined);
   const [cardSetupLoading, setCardSetupLoading] = useState(false);
@@ -9050,10 +8553,6 @@ function Facturation() {
         .then(j => !cancelled && setInvoices(j.invoices || []))
         .catch(() => !cancelled && setInvoices([]));
     refresh();
-    fetch('/api/pro/plan', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled && j) setPlanInfo(j); })
-      .catch(() => {});
     fetch('/api/pro/wallet/payment-method', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : { card: null })
       .then(j => { if (!cancelled) setPayCard(j.card ?? null); })
@@ -9090,8 +8589,8 @@ function Facturation() {
       <SectionTitle eyebrow="Facturation" title="Paiements &amp; factures"/>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
         <div className="card" style={{ padding: 20, display: 'flex', gap: 14, alignItems: 'center' }}>
-          {/* Illustration thiings.co (couronne) — symbolise l'abonnement
-              actif. Taille compacte (44 px dans un cercle 56) pour ne
+          {/* Illustration thiings.co (couronne) — formule unique.
+              Taille compacte (44 px dans un cercle 56) pour ne
               pas déséquilibrer la grille 1/2 largeur. */}
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
@@ -9110,21 +8609,12 @@ function Facturation() {
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Abonnement actuel</div>
-            <div className="serif" style={{ fontSize: 22, lineHeight: 1.15 }}>{planInfo ? planInfo.label : '…'}</div>
-            {(planInfo && Number.isFinite(Number(planInfo.cycleCount)) && Number.isFinite(Number(planInfo.cap))) ? (
-              <div style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
-                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                  {Number(planInfo.cycleCount)}/{Number(planInfo.cap)} utilisées
-                </span>
-                <span className="muted"> · </span>
-                <span style={{ color: 'var(--good)', fontWeight: 600 }}>
-                  {Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount))} restante{Math.max(0, Number(planInfo.cap) - Number(planInfo.cycleCount)) > 1 ? 's' : ''}
-                </span>
-              </div>
-            ) : (
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>—</div>
-            )}
+            <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Tarification</div>
+            <div className="serif" style={{ fontSize: 22, lineHeight: 1.15 }}>Formule unique · sans abonnement</div>
+            <div style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Commission BUUPP : 10 % par acceptation</span>
+              <span className="muted"> · minimum 0,30 € · campagnes illimitées</span>
+            </div>
           </div>
         </div>
         {payCard === null ? (
@@ -9931,12 +9421,11 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
   const budgetEur = Number(data.budgetEur ?? 0);
   const spentEur = Number(data.spentEur ?? 0);
   const remainingEur = Number(data.remainingEur ?? Math.max(0, budgetEur - spentEur));
-  // Commission BUUPP = 10 % du budget. Le solde du pro est débité de
-  // l'intégralité (campagne + commission), donc la consommation du budget
-  // intègre proportionnellement la commission.
-  const COMMISSION_RATE = 0.10;
-  const commissionTotalEur = budgetEur * COMMISSION_RATE;
-  const commissionSpentEur = spentEur * COMMISSION_RATE;
+  // Commission BUUPP (10 % de la rémunération, min. 0,30 € par acceptation)
+  // calculée côté serveur : max réservée au lancement / réellement débitée
+  // aux acceptations (cf. /api/pro/campaigns/[id]).
+  const commissionTotalEur = Number(data.commissionMaxEur ?? 0);
+  const commissionSpentEur = Number(data.commissionSpentEur ?? 0);
   const budgetWithCommissionEur = budgetEur + commissionTotalEur;
   const spentWithCommissionEur = spentEur + commissionSpentEur;
   const remainingWithCommissionEur = Math.max(0, budgetWithCommissionEur - spentWithCommissionEur);
@@ -10053,7 +9542,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
         {[
           ['Budget consommé',
             fmt2(spentWithCommissionEur) + ' € / ' + fmt2(budgetWithCommissionEur) + ' €',
-            (budgetWithCommissionEur > 0 ? Math.round(spentWithCommissionEur / budgetWithCommissionEur * 100) : 0) + '% engagé · commission 10 % incluse',
+            (budgetWithCommissionEur > 0 ? Math.round(spentWithCommissionEur / budgetWithCommissionEur * 100) : 0) + '% engagé · commission BUUPP incluse',
             'wallet'],
           ['Contacts obtenus',
             String(winCount),
@@ -10300,7 +9789,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
                     marginLeft: 8, fontSize: 11, padding: '2px 6px', borderRadius: 6,
                     background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
                     color: 'var(--accent)', fontWeight: 600,
-                  }}>commission 10 % incluse</span>
+                  }}>commission BUUPP incluse</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -10319,7 +9808,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
             }}>
               <div className="row" style={{ flexWrap: 'wrap', gap: 16, justifyContent: 'space-between' }}>
                 <span>Budget campagne : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(budgetEur)} €</strong></span>
-                <span>Commission BUUPP max. (10 %) : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(commissionTotalEur)} €</strong></span>
+                <span>Commission BUUPP max. (10 %, min. 0,30 €/acceptation) : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(commissionTotalEur)} €</strong></span>
                 <span>Commission engagée à ce jour : <strong className="mono tnum" style={{ color: 'var(--accent)' }}>{fmt2(commissionSpentEur)} €</strong></span>
               </div>
               <div className="row" style={{
@@ -10474,7 +9963,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               ['Durée',               tg.days != null ? (tg.days + ' jour' + (tg.days > 1 ? 's' : '')) : '—'],
               ['Mode',                tg.poolLabel || '—'],
               ['Budget campagne',     fmt2(budgetEur) + ' €'],
-              ['Commission BUUPP max. (10 %)', fmt2(commissionTotalEur) + ' € · prélevée uniquement sur acceptations'],
+              ['Commission BUUPP max. (10 %, min. 0,30 €/acceptation)', fmt2(commissionTotalEur) + ' € · prélevée uniquement sur acceptations'],
               ['Réservé sur le solde', fmt2(budgetWithCommissionEur) + ' €'],
               ['Coût max / contact',  fmt2(cpcEur) + ' €'],
             ].map(([l, v], i, arr) => (
@@ -10530,7 +10019,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
             {[
-              ['Total débité',        fmt2(spentWithCommissionEur) + ' €', 'commission 10 % incluse'],
+              ['Total débité',        fmt2(spentWithCommissionEur) + ' €', 'commission BUUPP incluse'],
               ['Contacts facturés',   `${winCount} / ${objectivePlannedContacts || '—'}`, ''],
               ['Moyenne / contact',   fmt2(avgCostEur) + ' €', ''],
             ].map(([l, v, sub], i) => (
@@ -10551,7 +10040,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8,
           }}>
             <div>Budget campagne consommé : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(spentEur)} €</strong></div>
-            <div>Commission BUUPP acquise (10 %) : <strong className="mono tnum" style={{ color: 'var(--accent)' }}>{fmt2(commissionSpentEur)} €</strong></div>
+            <div>Commission BUUPP acquise (10 %, min. 0,30 €/acceptation) : <strong className="mono tnum" style={{ color: 'var(--accent)' }}>{fmt2(commissionSpentEur)} €</strong></div>
             <div>Total débité du solde : <strong className="mono tnum" style={{ color: 'var(--ink)' }}>{fmt2(spentWithCommissionEur)} €</strong></div>
           </div>
           <div className="row" style={{
@@ -10566,7 +10055,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               <strong>Aucune commission n'est due si aucun prospect n'accepte.</strong>{' '}
               {winCount === 0
                 ? 'Cette campagne n\'a encore aucune acceptation enregistrée — aucune commission BUUPP n\'a été facturée.'
-                : `La commission est facturée à hauteur de 10 % du gain de chaque prospect ayant accepté (${winCount} acceptation${winCount > 1 ? 's' : ''} à ce jour).`}
+                : `La commission est facturée à hauteur de 10 % du gain de chaque prospect ayant accepté, avec un minimum de 0,30 € par acceptation (${winCount} acceptation${winCount > 1 ? 's' : ''} à ce jour).`}
             </span>
           </div>
           {(data.contacts?.length || 0) === 0 ? (
@@ -10904,8 +10393,8 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn, scrol
         </div>
       </div>
 
-      {/* Plan switcher */}
-      <PlanSwitcherSection/>
+      {/* Tarification (formule unique) */}
+      <PricingInfoSection/>
 
       {/* Completeness summary — jauge circulaire + checklist (coches vertes) */}
       <div className="card pro-info-completeness" style={{ padding: 24, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'center' }}>
@@ -11136,184 +10625,58 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn, scrol
   );
 }
 
-function PlanSwitcherSection() {
-  const [plan, setPlan] = React.useState(null);
-  const [specs, setSpecs] = React.useState(null);
-  const [submitting, setSubmitting] = React.useState(null); // 'starter' | 'pro' | null
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    fetch('/api/pro/plan', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        if (cancelled || !j) return;
-        setPlan(j.plan || 'starter');
-        setSpecs(j.specs || null);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const choose = async (target) => {
-    if (target === plan || submitting) return;
-    setSubmitting(target);
-    setError(null);
-    try {
-      const r = await fetch('/api/pro/plan', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ plan: target }),
-      });
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new Error(j?.message || j?.error || 'Erreur');
-      }
-      setPlan(target);
-      // Notifie le wizard ouvert (s'il y en a un) pour qu'il re-synchronise
-      // son plan local sans recharger la page.
-      try { window.dispatchEvent(new CustomEvent('pro:plan-changed', { detail: { plan: target } })); } catch {}
-    } catch (e) {
-      setError(e.message || 'Impossible de mettre à jour le plan');
-    } finally {
-      setSubmitting(null);
-    }
-  };
-
-  const PLANS = [
-    {
-      id: 'starter',
-      label: 'Starter',
-      color: 'var(--ink)',
-      maxProspects: specs?.starter?.maxProspects ?? 50,
-      maxCampaigns: specs?.starter?.maxCampaigns ?? 2,
-      monthlyEur: specs?.starter?.monthlyEur ?? 19,
-      features: [
-        "Jusqu'à 50 prospects par campagne",
-        '2 campagnes par cycle',
-        'Ciblage par paliers 1 à 3',
-      ],
-    },
-    {
-      id: 'pro',
-      label: 'Pro',
-      color: 'var(--accent)',
-      badge: 'Recommandé',
-      maxProspects: specs?.pro?.maxProspects ?? 500,
-      maxCampaigns: specs?.pro?.maxCampaigns ?? 10,
-      monthlyEur: specs?.pro?.monthlyEur ?? 59,
-      features: [
-        "Jusqu'à 500 prospects par campagne",
-        '10 campagnes par cycle',
-        'Tous les paliers 1 à 5',
-        'Accès anticipé aux nouvelles fonctionnalités',
-      ],
-    },
+/* Tarification BUUPP — formule unique (nov. 2026). Remplace l'ancien
+   sélecteur Starter / Pro : plus d'abonnement ni de frais d'accès, seule la
+   commission par acceptation s'applique. */
+function PricingInfoSection() {
+  const EXAMPLES = [
+    [1, 0.30, 'le plancher s\'applique'],
+    [3, 0.30, '10 % = plancher'],
+    [5, 0.50, '10 %'],
+    [10, 1.00, '10 %'],
   ];
-
+  const fmt = v => Number(v).toFixed(2).replace('.', ',') + ' €';
   return (
     <div className="card" style={{ padding: 24 }}>
       <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 16, gap: 14, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>Formule d'abonnement</div>
+          <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>Tarification</div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>
-            La formule détermine le nombre de prospects par campagne, le nombre de campagnes incluses dans votre cycle
-            et les paliers de données accessibles dans le wizard de création.
+            Une formule unique, sans abonnement ni frais d'accès : campagnes illimitées, jusqu'à 500 prospects
+            par campagne et les 5 paliers de données accessibles. Vous ne payez que les acceptations.
           </div>
         </div>
-        {plan && (
-          <span className="chip" style={{
-            alignSelf: 'flex-start',
-            background: plan === 'pro' ? 'color-mix(in oklab, var(--accent) 14%, var(--paper))' : 'var(--ivory-2)',
-            color: plan === 'pro' ? 'var(--accent)' : 'var(--ink-2)',
-            border: '1px solid ' + (plan === 'pro' ? 'color-mix(in oklab, var(--accent) 30%, var(--line))' : 'var(--line-2)'),
-          }}>
-            Formule actuelle : {plan === 'pro' ? 'Pro' : 'Starter'}
-          </span>
-        )}
-      </div>
-
-      <div className="plan-switcher-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-        {PLANS.map((p) => {
-          const isCurrent = plan === p.id;
-          const isLoading = submitting === p.id;
-          return (
-            <div key={p.id} style={{
-              position: 'relative',
-              padding: 18, borderRadius: 14,
-              border: '1.5px solid ' + (isCurrent ? p.color : 'var(--line-2)'),
-              background: isCurrent ? `color-mix(in oklab, ${p.color} 5%, var(--paper))` : 'var(--paper)',
-              display: 'flex', flexDirection: 'column', gap: 12,
-            }}>
-              {p.badge && (
-                <div style={{
-                  position: 'absolute', top: -10, right: 12,
-                  padding: '3px 10px', borderRadius: 999,
-                  background: p.color, color: 'white',
-                  fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: '.1em',
-                }}>{p.badge}</div>
-              )}
-              <div className="row between" style={{ alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <div className="serif" style={{ fontSize: 22, color: p.color }}>{p.label}</div>
-                <div style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'right' }}>
-                  <div>
-                    <span className="serif tnum" style={{ fontSize: 20, color: 'var(--ink)' }}>{p.monthlyEur} €</span>
-                    <span className="muted"> / {p.maxCampaigns} campagnes</span>
-                  </div>
-                  {/* Transparence prix (parité page d'accueil) : coût
-                      d'acquisition prospect à part (bleu accent), puis
-                      commission BUUPP sur le budget de campagne (vert). */}
-                  <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 12, marginTop: 2 }}>hors coût d'acquisition prospect</div>
-                  <div style={{ color: '#16A34A', fontWeight: 600, fontSize: 12, marginTop: 1 }}>+10% commission buupp / budget de campagne</div>
-                </div>
-              </div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {p.features.map((f, i) => (
-                  <li key={i} className="row" style={{ gap: 9, fontSize: 13, lineHeight: 1.4, alignItems: 'flex-start' }}>
-                    <span style={{
-                      width: 20, height: 20, borderRadius: 999, flexShrink: 0,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: `color-mix(in oklab, ${p.color} 16%, var(--paper))`,
-                      color: p.color, marginTop: 1,
-                    }}>
-                      <Icon name="check" size={12} stroke={2.5}/>
-                    </span>
-                    <span style={{ color: 'var(--ink-2)' }}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                className="btn"
-                onClick={() => choose(p.id)}
-                disabled={isCurrent || !!submitting}
-                style={{
-                  marginTop: 4,
-                  background: isCurrent ? 'color-mix(in oklab, #16A34A 12%, var(--paper))' : (p.id === 'pro' ? p.color : 'var(--ink)'),
-                  color: isCurrent ? '#16A34A' : 'var(--paper)',
-                  border: '1.5px solid ' + (isCurrent ? '#16A34A' : (p.id === 'pro' ? p.color : 'var(--ink)')),
-                  cursor: isCurrent ? 'default' : 'pointer',
-                  opacity: submitting && !isLoading ? 0.5 : 1,
-                  fontWeight: 600,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-                aria-pressed={isCurrent}
-              >
-                {isLoading ? 'Mise à jour…' : isCurrent ? '✓ Formule actuelle' : `Passer en ${p.label}`}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {error && (
-        <div role="alert" style={{
-          marginTop: 14, padding: '10px 14px', borderRadius: 10,
-          background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
-          fontSize: 13,
+        <span className="chip" style={{
+          alignSelf: 'flex-start',
+          background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
+          color: 'var(--accent)',
+          border: '1px solid color-mix(in oklab, var(--accent) 30%, var(--line))',
         }}>
-          {error}
+          Formule unique
+        </span>
+      </div>
+      <div style={{
+        padding: 16, borderRadius: 12, border: '1px solid var(--line-2)',
+        background: 'var(--paper)', display: 'flex', flexDirection: 'column', gap: 10,
+      }}>
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+          Par acceptation : <strong style={{ color: 'var(--accent)' }}>rémunération du prospect</strong>
+          {' '}+ <strong style={{ color: '#16A34A' }}>commission BUUPP de 10 %</strong>, avec un
+          {' '}<strong>minimum de 0,30 €</strong>.
         </div>
-      )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+          {EXAMPLES.map(([reward, com, note]) => (
+            <div key={reward} style={{
+              padding: '10px 12px', borderRadius: 10, background: 'var(--ivory-2)',
+              border: '1px solid var(--line)', fontSize: 12, lineHeight: 1.45,
+            }}>
+              <div className="muted">Prospect {fmt(reward)}</div>
+              <div><span style={{ color: '#16A34A', fontWeight: 600 }}>+ {fmt(com)}</span> <span className="muted">({note})</span></div>
+              <div style={{ fontWeight: 600 }}>= {fmt(reward + com)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
