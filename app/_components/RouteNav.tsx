@@ -123,7 +123,8 @@ function containerStyle(overDark: boolean): CSSProperties {
     bottom: 20,
     left: "50%",
     transform: "translateX(-50%)",
-    background: overDark ? "#FFFFFF" : "rgba(15, 23, 42, 0.92)",
+    // Fond clair : bleu nuit du logo (plutôt que noir).
+    background: overDark ? "#FFFFFF" : "rgba(12, 32, 72, 0.94)",
     color: overDark ? "#0F172A" : "#FBF9F3",
     padding: "6px 6px",
     borderRadius: 999,
@@ -141,9 +142,12 @@ function containerStyle(overDark: boolean): CSSProperties {
   };
 }
 
+const BRAND_GRADIENT = "linear-gradient(135deg, #143681 0%, #1C4BBA 60%, #2563EB 100%)";
+
 function tabStyle(active: boolean, overDark: boolean): CSSProperties {
-  const activeBg = overDark ? "#0F172A" : "#FBF9F3";
-  const activeFg = overDark ? "#FFFFFF" : "#0F172A";
+  // Onglet actif : dégradé bleu du logo dans les deux thèmes.
+  const activeBg = BRAND_GRADIENT;
+  const activeFg = "#FFFFFF";
   const idleFg = overDark ? "rgba(15,23,42,.62)" : "rgba(255,255,255,.7)";
   return {
     padding: "12px 14px",

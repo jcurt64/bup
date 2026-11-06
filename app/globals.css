@@ -1527,3 +1527,11 @@ html.reveal-ready [data-reveal-group] > .reveal-in {
 }
 @media (min-width: 1100px) and (max-width: 1279px) { .hero-new-slot .hero-new-card { width: min(236px, calc(var(--hero-new-space, 276px) - 40px)); gap: 9px; padding: 16px 14px; } .hero-new-title { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .hero-new-card, .hero-new-card::before, .hero-new-card::after, .hero-new-dot { animation: none; } }
+
+/* Bouton « S'inscrire en tant que pro » : bleu du logo au lieu du noir. */
+.btn.btn-brand {
+  background: linear-gradient(135deg, #143681 0%, #1C4BBA 60%, #2563EB 100%);
+  border-color: transparent; color: #fff;
+  box-shadow: 0 8px 20px -10px rgba(28, 75, 186, .7);
+}
+.btn.btn-brand:hover { filter: brightness(1.08); }

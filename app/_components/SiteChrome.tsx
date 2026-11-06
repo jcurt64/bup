@@ -336,7 +336,7 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
                   S&apos;inscrire en tant que prospect
                 </button>
                 <button
-                  className="btn btn-sm btn-primary"
+                  className="btn btn-sm btn-primary btn-brand"
                   onClick={() => router.push("/inscription/pro")}
                 >
                   S&apos;inscrire en tant que pro{" "}
@@ -351,7 +351,7 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
                   </button>
                 </span>
                 <span className="frozen-cta" data-tip={ACCESS_FROZEN_TOOLTIP}>
-                  <button className="btn btn-sm btn-primary" disabled>
+                  <button className="btn btn-sm btn-primary btn-brand" disabled>
                     S&apos;inscrire en tant que pro{" "}
                     <Icon name="arrow" size={14} />
                   </button>
@@ -433,7 +433,7 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
                   S&apos;inscrire en tant que prospect
                 </button>
                 <button
-                  className="btn btn-lg btn-primary"
+                  className="btn btn-lg btn-primary btn-brand"
                   style={{ justifyContent: "center" }}
                   onClick={() => go("/inscription/pro")}
                 >
@@ -455,7 +455,7 @@ export function Navbar({ accessOpen = true }: { accessOpen?: boolean } = {}) {
                   className="frozen-cta frozen-cta-block"
                   data-tip={ACCESS_FROZEN_TOOLTIP}
                 >
-                  <button className="btn btn-lg btn-primary" disabled>
+                  <button className="btn btn-lg btn-primary btn-brand" disabled>
                     S&apos;inscrire en tant que pro{" "}
                     <Icon name="arrow" size={14} />
                   </button>
