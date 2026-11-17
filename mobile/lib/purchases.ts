@@ -33,7 +33,7 @@ export const BALANCE_SOURCE_NOTE =
 // peut être refusé par Apple (3.1.1, hors exceptions selon le pays) et par
 // Google Play (paiements tiers) : passer le drapeau de la plateforme à
 // false si la relecture le refuse — la mention neutre reprend sa place.
-const IOS_WEB_RECHARGE_LINK = true;
+const IOS_WEB_RECHARGE_LINK = false; // refusé par Apple 3.1.1 le 11/11/2026
 const ANDROID_WEB_RECHARGE_LINK = true;
 
 export const WEB_RECHARGE_LINK_ENABLED =
