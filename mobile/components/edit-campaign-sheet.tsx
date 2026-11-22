@@ -1,13 +1,12 @@
 // Sheet « Modifier une campagne en cours » — design premium repris de la
 // maquette web (public/prototype/mod_files/Modifier la campagne - Modale.html) :
 // barre d'accent indigo, en-tête réf + titre serif, note « élargir uniquement »,
-// champ Vitrine, ÉCHELLE géo à 4 paliers (verrouillé / actuelle / ajouté), pills
-// d'âge + légende, pied Annuler / Enregistrer. Palette indigo fixe (modale
+// champ Vitrine, niveaux de vérification / fiabilité, pied Annuler / Enregistrer. Palette indigo fixe (modale
 // premium, indépendante du thème). Icônes via Ionicons (react-native-svg est
 // exclu du projet) ; titre en Fraunces (font-serif).
 //
 // Règle métier inchangée : on ne peut qu'ÉLARGIR (jamais restreindre) — lien
-// Vitrine, zone géo, tranche d'âge, niveau de vérification, fiabilité minimum,
+// Vitrine, niveau de vérification, fiabilité minimum,
 // exclusion des anciens acceptants (retirable seulement). Le
 // serveur applique le garde-fou (cf. lib/campaigns/edit-targeting.ts côté web).
 import { Ionicons } from "@expo/vector-icons";
@@ -28,12 +27,10 @@ import {
 } from "react-native";
 
 import { ApiError, useApi } from "../lib/api";
-import { AGE_RANGES_NO_TOUS } from "../lib/pro-pricing";
 import {
   campaignExcludesPastAcceptors,
   useEditCampaign,
   type EditCampaignBody,
-  type EditCampaignGeo,
   type ProCampaignDetail,
 } from "../lib/queries";
 
@@ -58,10 +55,6 @@ const C = {
 const ERR_LABELS: Record<string, string> = {
   vitrine_not_subscribed: "L'option Vitrine n'a pas été souscrite pour cette campagne.",
   invalid_website: "Lien de site invalide (https requis).",
-  age_not_widening: "La tranche d'âge ne peut être qu'élargie, pas restreinte.",
-  geo_not_widening: "La zone ne peut être qu'élargie, pas restreinte.",
-  geo_invalid: "Élargissement de zone invalide.",
-  geo_resolve_failed: "Impossible de résoudre la zone élargie. Réessayez.",
   campaign_closed: "Cette campagne est clôturée : elle n'est plus modifiable.",
   nothing_to_update: "Aucune modification à enregistrer.",
   verif_not_widening: "Le niveau de vérification ne peut être qu'abaissé, pas durci.",
@@ -84,41 +77,6 @@ const EDIT_FIAB_OPTS: { v: number; name: string; sub: string }[] = [
   { v: 60, name: "Fiabilité bonne", sub: "≥ 60 / 100" },
   { v: 80, name: "Fiabilité excellente", sub: "≥ 80 / 100" },
 ];
-
-type GeoStep = { lab: string; sub: string; kind: "around" | "zone" | "national"; radiusKm?: number; level?: "dept" | "region" | "ville" };
-type GeoModel = { steps: GeoStep[]; currentIndex: number; curLabel: string };
-
-// Échelle géo à 4 paliers (miroir de la maquette). Le mode « around »
-// (rayon autour de moi) suit la même mécanique d'échelle.
-function buildGeoModel(d: ProCampaignDetail): GeoModel {
-  const geo = d.targeting?.geo || null;
-  const radius = d.targeting?.radiusKm ?? null;
-  if (geo === "around") {
-    const radii = [10, 30, 50];
-    const steps: GeoStep[] = [
-      ...radii.map((r): GeoStep => ({ lab: `${r} km`, sub: "Autour de moi", kind: "around", radiusKm: r })),
-      { lab: "National", sub: "France entière", kind: "national" },
-    ];
-    let ci = radii.indexOf(Number(radius));
-    if (ci < 0) ci = 0;
-    return { steps, currentIndex: ci, curLabel: `${radii[ci]} km` };
-  }
-  const steps: GeoStep[] = [
-    { lab: "Ville", sub: "~20 km", kind: "zone", level: "ville" },
-    { lab: "Département", sub: "~50 km", kind: "zone", level: "dept" },
-    { lab: "Région", sub: "~150 km", kind: "zone", level: "region" },
-    { lab: "National", sub: "France entière", kind: "national" },
-  ];
-  const idx = ({ ville: 0, dept: 1, region: 2, national: 3 } as Record<string, number>)[geo ?? ""];
-  const ci = idx == null ? 3 : idx;
-  return { steps, currentIndex: ci, curLabel: steps[ci].lab };
-}
-
-function geoPayloadForStep(step: GeoStep): EditCampaignGeo {
-  if (step.kind === "national") return { mode: "national" };
-  if (step.kind === "around") return { mode: "around", radiusKm: step.radiusKm as number };
-  return { mode: "zone", level: step.level as "dept" | "region" };
-}
 
 function parseErr(e: unknown): { code: string; message: string | null } {
   if (e instanceof ApiError) {
@@ -224,9 +182,6 @@ export function EditCampaignSheet({
   const d = detailQ.data;
 
   const [site, setSite] = useState("");
-  const [chosenIndex, setChosenIndex] = useState(0);
-  const [ages, setAges] = useState<Set<string>>(() => new Set());
-  const [locked, setLocked] = useState<Set<string>>(() => new Set());
   const [verif, setVerif] = useState("p0");
   const [minFiab, setMinFiab] = useState(0);
   // Exclusion des anciens acceptants : décochable seulement (élargir).
@@ -241,13 +196,6 @@ export function EditCampaignSheet({
   useEffect(() => {
     if (!d || d.id === loadedId) return;
     setSite((d.websiteUrl || "").replace(/^https?:\/\//i, ""));
-    const cur = Array.isArray(d.targeting?.ages) ? d.targeting.ages : [];
-    const isAll = cur.length === 0 || cur.includes("Tous") || AGE_RANGES_NO_TOUS.every((b) => cur.includes(b));
-    const init = new Set(isAll ? AGE_RANGES_NO_TOUS : cur.filter((a) => a !== "Tous"));
-    setAges(new Set(init));
-    setLocked(new Set(init));
-    const gm = buildGeoModel(d);
-    setChosenIndex(gm.currentIndex);
     setVerif(d.targeting?.verifLevel || "p0");
     setMinFiab(Number(d.targeting?.minFiabilite ?? 0));
     setExcludePast(campaignExcludesPastAcceptors(d));
@@ -255,28 +203,12 @@ export function EditCampaignSheet({
     setLoadedId(d.id);
   }, [d, loadedId]);
 
-  const geoModel = d ? buildGeoModel(d) : null;
-  const ci = geoModel ? geoModel.currentIndex : 0;
-  const lastIndex = geoModel ? geoModel.steps.length - 1 : 0;
   const hasVitrine = !!d?.websiteUrl;
   const refLabel = d?.name || campId;
-
-  const toggleAge = (b: string) => {
-    if (locked.has(b)) return;
-    setAges((prev) => {
-      const n = new Set(prev);
-      if (n.has(b)) n.delete(b);
-      else n.add(b);
-      return n;
-    });
-  };
 
   const siteOriginal = (d?.websiteUrl || "").replace(/^https?:\/\//i, "");
   const siteTrim = site.trim().replace(/^https?:\/\//i, "");
   const siteChanged = hasVitrine && !!siteTrim && siteTrim !== siteOriginal;
-  const selectedAges = AGE_RANGES_NO_TOUS.filter((b) => ages.has(b));
-  const agesChanged = selectedAges.length > locked.size;
-  const geoChanged = !!geoModel && chosenIndex > ci;
   const baseVerif = d?.targeting?.verifLevel || "p0";
   const baseVerifRank = Math.max(0, EDIT_VERIF_OPTS.findIndex((v) => v.id === baseVerif));
   const baseFiab = Number(d?.targeting?.minFiabilite ?? 0);
@@ -286,19 +218,11 @@ export function EditCampaignSheet({
   const excludePastChanged = baseExcludePast && !excludePast;
   const canSubmit =
     !edit.isPending &&
-    (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged || excludePastChanged);
-
-  const geoHelp = geoChanged
-    ? `Cible élargie à « ${geoModel!.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
-    : ci >= lastIndex
-      ? "Zone déjà à son maximum — France entière."
-      : "Sélectionnez une zone plus large pour élargir la diffusion.";
+    (siteChanged || verifChanged || fiabChanged || excludePastChanged);
 
   const submit = async () => {
     const body: EditCampaignBody = {};
     if (siteChanged) body.websiteUrl = "https://" + siteTrim;
-    if (agesChanged) body.ages = selectedAges;
-    if (geoChanged) body.geo = geoPayloadForStep(geoModel!.steps[chosenIndex]);
     if (verifChanged) body.verifLevel = verif;
     if (fiabChanged) body.minFiabilite = minFiab;
     if (excludePastChanged) body.excludePastAcceptors = false;
@@ -402,110 +326,7 @@ export function EditCampaignSheet({
                     </View>
                   ) : null}
 
-                  {/* 2) Zone géographique — échelle 4 paliers */}
-                  {geoModel ? (
-                    <View style={{ marginTop: 22 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                        <Text style={{ fontSize: 11, color: C.ink3, ...MONO }}>Zone géographique</Text>
-                        <View style={{ marginLeft: "auto", backgroundColor: C.indigoSoft, borderWidth: 1, borderColor: "rgba(90,87,214,0.22)", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 }}>
-                          <Text style={{ fontSize: 10, color: C.indigoD, ...MONO }}>Actuelle · {geoModel.curLabel}</Text>
-                        </View>
-                      </View>
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        {geoModel.steps.map((s, i) => {
-                          const isLocked = i < ci;
-                          const isCurrent = i === ci;
-                          const isAdded = i > ci && i <= chosenIndex;
-                          const isChosen = i === chosenIndex && i > ci;
-                          const labColor = isLocked ? C.ink4 : isAdded ? C.indigoD : C.ink;
-                          const subColor = isAdded ? C.indigo : C.ink4;
-                          return (
-                            <Pressable
-                              key={i}
-                              onPress={() => { if (i <= ci) return; setChosenIndex(chosenIndex === i ? ci : i); }}
-                              style={{
-                                width: "48%", position: "relative", paddingVertical: 12, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1.5,
-                                borderColor: isCurrent ? C.ink : isAdded ? C.indigo : isLocked ? C.lineSoft : C.line,
-                                backgroundColor: isAdded ? C.indigoXsoft : isLocked ? C.paper : "#fff",
-                              }}
-                            >
-                              {(isCurrent || isChosen) ? (
-                                <View style={{ position: "absolute", top: -8, left: 11, backgroundColor: isChosen ? C.indigo : C.ink, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 }}>
-                                  <Text style={{ fontSize: 8.5, color: "#fff", ...MONO }}>{isChosen ? "Nouvelle cible" : "Actuelle"}</Text>
-                                </View>
-                              ) : null}
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                <Text style={{ fontSize: 13.5, fontWeight: "600", color: labColor }}>{s.lab}</Text>
-                                {isLocked ? <Ionicons name="lock-closed" size={12} color={C.ink4} /> : null}
-                              </View>
-                              <Text style={{ fontSize: 10, color: subColor, marginTop: 4, letterSpacing: 0.2 }}>{s.sub}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      <Text style={{ fontSize: 12, color: C.ink3, marginTop: 9, lineHeight: 17 }}>{geoHelp}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* 3) Tranche d'âge — pills + légende */}
-                  <View style={{ marginTop: 22 }}>
-                    <Text style={{ fontSize: 11, color: C.ink3, marginBottom: 10, ...MONO }}>Tranche d&apos;âge</Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                      {AGE_RANGES_NO_TOUS.map((b) => {
-                        const isBase = locked.has(b);
-                        const isAdded = !isBase && ages.has(b);
-                        return (
-                          <Pressable
-                            key={b}
-                            onPress={() => toggleAge(b)}
-                            style={{
-                              flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5,
-                              borderColor: isAdded ? C.indigo : isBase ? C.lineSoft : C.line,
-                              backgroundColor: isAdded ? C.indigo : isBase ? C.paper : "#fff",
-                            }}
-                          >
-                            <Text style={{ fontSize: 13.5, fontWeight: "600", color: isAdded ? "#fff" : isBase ? C.ink3 : C.ink2 }}>{b}</Text>
-                            {isBase ? (
-                              <Ionicons name="lock-closed" size={12} color={C.ink4} />
-                            ) : isAdded ? (
-                              <Ionicons name="checkmark" size={14} color="#fff" />
-                            ) : (
-                              <Ionicons name="add" size={14} color={C.ink3} />
-                            )}
-                          </Pressable>
-                        );
-                      })}
-                      {/* « Tous » : coche toutes les tranches (élargissement max). */}
-                      {(() => {
-                        const allSel = AGE_RANGES_NO_TOUS.every((b) => ages.has(b));
-                        return (
-                          <Pressable
-                            onPress={() => setAges(new Set(AGE_RANGES_NO_TOUS))}
-                            style={{
-                              flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5,
-                              borderColor: allSel ? C.indigo : C.line,
-                              backgroundColor: allSel ? C.indigo : "#fff",
-                            }}
-                          >
-                            <Text style={{ fontSize: 13.5, fontWeight: "600", color: allSel ? "#fff" : C.ink2 }}>Tous</Text>
-                            <Ionicons name={allSel ? "checkmark" : "add"} size={14} color={allSel ? "#fff" : C.ink3} />
-                          </Pressable>
-                        );
-                      })()}
-                    </View>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 11 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <View style={{ width: 11, height: 11, borderRadius: 4, backgroundColor: C.paper, borderWidth: 1.5, borderColor: C.lineSoft }} />
-                        <Text style={{ fontSize: 11.5, color: C.ink3 }}>Déjà ciblée (verrouillée)</Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <View style={{ width: 11, height: 11, borderRadius: 4, backgroundColor: C.indigo }} />
-                        <Text style={{ fontSize: 11.5, color: C.ink3 }}>Ajoutée</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* 4) Niveau de vérification minimum — abaisser seulement */}
+                  {/* 2) Niveau de vérification minimum — abaisser seulement */}
                   <LevelCards
                     title="Niveau de vérification minimum"
                     current={EDIT_VERIF_OPTS[baseVerifRank]?.name ?? "—"}
@@ -521,7 +342,7 @@ export function EditCampaignSheet({
                     help="Vous pouvez abaisser l'exigence pour élargir la cible, jamais la durcir."
                   />
 
-                  {/* 5) Fiabilité minimum — baisser le seuil seulement */}
+                  {/* 3) Fiabilité minimum — baisser le seuil seulement */}
                   <LevelCards
                     title="Fiabilité minimum"
                     current={EDIT_FIAB_OPTS.find((o) => o.v === baseFiab)?.name ?? `≥ ${baseFiab}`}
@@ -537,7 +358,7 @@ export function EditCampaignSheet({
                     help="Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé."
                   />
 
-                  {/* 6) Anciens acceptants — l'exclusion peut être retirée
+                  {/* 4) Anciens acceptants — l'exclusion peut être retirée
                       (élargissement), jamais activée en cours de campagne. */}
                   <View style={{ marginTop: 22 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>

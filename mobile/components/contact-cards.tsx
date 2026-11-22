@@ -6,6 +6,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Motif } from "./motif";
 import { withAlpha } from "../lib/color";
+import { CHANNEL_ICON, CHANNEL_LABEL, readContactChannels } from "../lib/contact-channels";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, Text, View } from "react-native";
 
@@ -46,8 +47,8 @@ export function closeLabel(iso: string | null | undefined): string | null {
 
 // ── Filtres cumulatifs (AND) appliqués côté client ────────────────────────
 // Parité web (Pro.jsx FILTERS) : F2 = signalement « Atteint » du pro (et non
-// la simple présence d'un e-mail), F3 = palier 2 EXACT.
-export type FilterKey = "score" | "reached" | "tier2";
+// la simple présence d'un e-mail).
+export type FilterKey = "score" | "reached";
 export const FILTERS: {
   key: FilterKey;
   label: string;
@@ -55,7 +56,6 @@ export const FILTERS: {
 }[] = [
   { key: "score", label: "F1 · Score ≥ 720", test: (r) => Number(r.score) >= 720 },
   { key: "reached", label: "F2 · Contact atteint", test: (r) => r.evaluation === "atteint" },
-  { key: "tier2", label: "F3 · Palier 2", test: (r) => Number(r.tier) === 2 },
 ];
 
 /** Ligne « e-mailable » (sélection groupée) : email partagé et campagne clôturée. */
@@ -696,22 +696,6 @@ export function ContactCard({
                     {contact.score}
                   </Text>
                 </View>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "600",
-                    color: p.sub,
-                    backgroundColor: p.palier,
-                    borderWidth: 1,
-                    borderColor: p.border,
-                    borderRadius: 6,
-                    paddingVertical: 2,
-                    paddingHorizontal: 7,
-                    overflow: "hidden",
-                  }}
-                >
-                  P{contact.tier}
-                </Text>
               </View>
             </View>
             <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
@@ -743,22 +727,22 @@ export function ContactCard({
               borderColor: p.border,
             }}
           >
-            <View className="flex-row items-center" style={{ gap: 9 }}>
-              <Ionicons name="mail-outline" size={16} color={p.accent} />
-              <Text
-                className="font-mono"
-                style={{ fontSize: 12, color: p.text, flex: 1 }}
-                numberOfLines={1}
+            {/* Mode de contact (téléphone / e-mail) — toujours via BUUPP :
+                le pro ne voit jamais le numéro ni l'adresse brute. */}
+            {readContactChannels(contact.contactChannels).map((ch, i) => (
+              <View
+                key={ch}
+                className="flex-row items-center"
+                style={{ gap: 9, marginTop: i > 0 ? 8 : 0 }}
               >
-                {locked ? "🔒 Disponible à la clôture" : (contact.email ?? "—")}
-              </Text>
-            </View>
-            <View className="flex-row items-center" style={{ gap: 9, marginTop: 8 }}>
-              <Ionicons name="call-outline" size={16} color={p.muted} />
-              <Text style={{ fontSize: 12.5, color: p.muted }}>
-                {locked ? "🔒 Disponible à la clôture" : (contact.telephone ?? "—")}
-              </Text>
-            </View>
+                <Ionicons name={CHANNEL_ICON[ch]} size={16} color={i === 0 ? p.accent : p.muted} />
+                <Text style={{ fontSize: 12.5, color: p.text, flex: 1 }} numberOfLines={1}>
+                  {locked
+                    ? "🔒 Disponible à la clôture"
+                    : `${CHANNEL_LABEL[ch]} via BUUPP`}
+                </Text>
+              </View>
+            ))}
           </View>
 
           {/* État d'évaluation */}

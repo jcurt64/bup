@@ -15,7 +15,7 @@ import {
 import { useParrainage } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
-// Paliers de parrainage — noms/couleurs/avantages identiques au web
+// Niveaux de parrainage — noms/couleurs/avantages identiques au web
 // (Prospect.jsx REFERRAL_TIERS : Used / Paid / Proud).
 const REFERRAL_TIERS = [
   {
@@ -115,8 +115,8 @@ export default function ParrainageScreen() {
 
           return (
             <>
-              {/* « Palier X atteint » — parité web (carte teintée à la couleur
-                  du palier + avantage débloqué). */}
+              {/* « Niveau X atteint » — parité web (carte teintée à la couleur
+                  du niveau + avantage débloqué). */}
               {currentTier ? (
                 <View
                   className="flex-row items-center gap-3.5 rounded-3xl p-4"
@@ -132,7 +132,7 @@ export default function ParrainageScreen() {
                       className="text-[11px] font-bold uppercase text-ink"
                       style={{ letterSpacing: 1.5 }}
                     >
-                      Palier {currentTier.label} atteint
+                      Niveau {currentTier.label} atteint
                     </Text>
                     <Text className="mt-1 text-[14px] leading-5 text-ink-2">
                       {currentTier.advantage}
@@ -285,7 +285,7 @@ export default function ParrainageScreen() {
               </View>
               <View className="flex-row gap-3">
                 <Stat
-                  label="Votre palier"
+                  label="Votre niveau"
                   value={currentTier?.label ?? "—"}
                   hint={d.count > 0 ? "avantages débloqués" : "invitez pour débloquer"}
                   accent={currentTier != null}
@@ -301,8 +301,8 @@ export default function ParrainageScreen() {
                 />
               </View>
 
-              {/* Prochain palier — message adaptatif (Used 1 / Paid 3 / Proud
-                  10 filleuls ; noms de paliers identiques au web). */}
+              {/* Prochain niveau — message adaptatif (Used 1 / Paid 3 / Proud
+                  10 filleuls ; noms de niveaux identiques au web). */}
               {(() => {
                 const byTier = Object.fromEntries(REFERRAL_TIERS.map((t) => [t.tier, t]));
                 const next =
@@ -316,7 +316,7 @@ export default function ParrainageScreen() {
                 if (!next) {
                   return (
                     <Text className="text-sm text-ink-3">
-                      🏆 Palier{" "}
+                      🏆 Niveau{" "}
                       <Text style={{ color: byTier.or.color, fontWeight: "700" }}>Proud</Text>{" "}
                       atteint — vous êtes au sommet du parrainage !
                     </Text>
@@ -329,7 +329,7 @@ export default function ParrainageScreen() {
                     <Text className="font-semibold text-ink">
                       {left} filleul{left > 1 ? "s" : ""}
                     </Text>{" "}
-                    pour décrocher le palier{" "}
+                    pour décrocher le niveau{" "}
                     <Text style={{ color: next.t.color, fontWeight: "700" }}>{next.t.label}</Text>.
                   </Text>
                 );

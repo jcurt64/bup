@@ -1,4 +1,5 @@
-// Rangée d'actions de contact (appel / e-mail / SMS / WhatsApp) — parité web
+// Rangée d'actions de contact (appel / e-mail, selon les modes de contact
+// cochés sur la campagne — toujours via BUUPP) — parité web
 // ContactActionButtons + RevealContactModal + EmailComposerModal (Pro.jsx).
 //
 //  - Chaque clic est logué (`contact-click` → audit admin + rappel anti-abus
@@ -16,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Alert, Linking, Modal, Pressable, Text, View } from "react-native";
 
 import { useApi } from "../lib/api";
+import { readContactChannels } from "../lib/contact-channels";
 import { useTheme } from "../lib/theme";
 import { useContactReveal, type ProContactRow } from "../lib/queries-pro-contacts";
 import { useContactPalette } from "./contact-style";
@@ -187,14 +189,16 @@ export function ContactActions({ contact }: { contact: ProContactRow | null }) {
   if (!contact || contact.locked) return null;
   const relationId = contact.relationId;
 
-  const channels = Array.isArray(contact.campaignChannels) ? contact.campaignChannels : null;
-  const channelAllowed = (k: string) => channels === null || channels.includes(k);
+  // Pivot mise en relation : seuls les modes de contact cochés par le pro
+  // (téléphone et/ou e-mail, via BUUPP) sont proposés. Absent → les deux.
+  const channels: string[] = readContactChannels(contact.contactChannels);
+  const channelAllowed = (k: string) => channels.includes(k);
   const hasValue = (v: string | null | undefined) => !!v && v !== "—";
   const phoneOk = contact.telephoneAvailable ?? hasValue(contact.telephone);
   const emailOk = contact.emailAvailable ?? hasValue(contact.email);
   const quotaReached = (contact.emailsSent ?? 0) >= 1;
 
-  const buttons: {
+  const allButtons: {
     key: Intent;
     channel: string;
     icon: keyof typeof Ionicons.glyphMap;
@@ -202,24 +206,23 @@ export function ContactActions({ contact }: { contact: ProContactRow | null }) {
     label: string;
     dataOk: boolean;
   }[] = [
-    { key: "call", channel: "phone", icon: "call-outline", color: p.accent, label: "Appeler", dataOk: phoneOk },
+    { key: "call", channel: "phone", icon: "call-outline", color: p.accent, label: "Appeler via BUUPP", dataOk: phoneOk },
     { key: "email", channel: "email", icon: "mail-outline", color: p.coral, label: "Envoyer un e-mail via BUUPP", dataOk: emailOk },
-    { key: "sms", channel: "sms", icon: "chatbox-outline", color: p.blue, label: "SMS", dataOk: phoneOk },
-    { key: "whatsapp", channel: "whatsapp", icon: "logo-whatsapp", color: p.accent, label: "WhatsApp", dataOk: phoneOk },
   ];
+  const buttons = allButtons.filter((b) => channelAllowed(b.channel));
 
   const blockedInfo = (b: (typeof buttons)[number]): [string, string] | null => {
     if (!channelAllowed(b.channel)) {
       return [
         "Canal non activé pour cette campagne",
-        "Ce canal de contact n'a pas été activé lors de la configuration de votre campagne. Pour l'utiliser, créez une nouvelle campagne en cochant ce canal à l'étape « Objectif & canaux ».",
+        "Ce mode de contact n'a pas été coché lors de la configuration de votre campagne. Pour l'utiliser, créez une nouvelle campagne en le cochant à l'étape « Contact ».",
       ];
     }
     if (!b.dataOk) {
       const what = b.channel === "email" ? "son adresse e-mail" : "son numéro de téléphone";
       return [
         "Donnée non partagée par le prospect",
-        `Le prospect n’a pas partagé ${what} pour cette campagne. Vous ne pouvez donc pas le contacter par ce canal. Sur BUUPP, chaque donnée révélée est conditionnée à l’accord explicite du prospect.`,
+        `Le prospect n’a pas renseigné ${what}. Vous ne pouvez donc pas le contacter par ce canal.`,
       ];
     }
     if (b.key === "email" && quotaReached) {

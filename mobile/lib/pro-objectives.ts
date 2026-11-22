@@ -17,9 +17,6 @@ export type CampaignObjective = {
   name: string;
   desc: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /** Paliers autorisés par la finalité (minimisation RGPD, art. 5.1.c) —
-   *  intersectés avec le plafond du plan dans le wizard. */
-  allowedTiers: number[];
   sub: CampaignSubType[];
 };
 
@@ -29,7 +26,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Prise de contact direct",
     desc: "8 opérations — email, SMS, push, appel, WhatsApp",
     icon: "mail-outline",
-    allowedTiers: [1],
     sub: [
       { id: "email", name: "Email marketing", desc: "Newsletter, campagne promotionnelle, séquence de bienvenue", cost: 0.15 },
       { id: "sms", name: "SMS marketing", desc: "Message promotionnel, alerte offre, rappel personnalisé", cost: 0.2 },
@@ -47,7 +43,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Prise de rendez-vous",
     desc: "6 opérations — physique, visio, devis, essai",
     icon: "calendar-outline",
-    allowedTiers: [1],
     sub: [
       { id: "rdvphys", name: "RDV physique commercial", desc: "Rencontre en face-à-face chez le prospect ou en agence", cost: 2.0 },
       { id: "rdvtel", name: "RDV téléphonique", desc: "Appel qualifié planifié avec un conseiller ou commercial", cost: 1.0 },
@@ -63,7 +58,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Événementiel & inscription",
     desc: "8 opérations — webinar, atelier, conférence",
     icon: "flag-outline",
-    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "webinar", name: "Webinar / conférence web", desc: "Événement en ligne éducatif ou commercial", cost: 1.0 },
       { id: "portes", name: "Portes ouvertes", desc: "Visite libre des locaux, découverte de l’offre", cost: 1.2 },
@@ -81,7 +75,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Contenus à télécharger",
     desc: "9 opérations — livre blanc, guide, étude",
     icon: "download-outline",
-    allowedTiers: [1],
     sub: [
       { id: "wb", name: "Livre blanc", desc: "Guide expert sur un sujet thématique avec valeur perçue élevée", cost: 1.0 },
       { id: "etude", name: "Étude de cas", desc: "Résultat client concret présenté sous forme narrative", cost: 1.2 },
@@ -100,7 +93,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Études & collecte d’avis",
     desc: "8 opérations — NPS, sondage, focus group",
     icon: "clipboard-outline",
-    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "csat", name: "Enquête satisfaction (CSAT)", desc: "Score de satisfaction sur une expérience récente", cost: 0.8 },
       { id: "nps", name: "Net Promoter Score (NPS)", desc: "Mesure de la propension à recommander la marque", cost: 0.8 },
@@ -118,7 +110,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Promotions & fidélisation",
     desc: "4 opérations — coupon, flash, concours",
     icon: "pricetags-outline",
-    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "coupon", name: "Offre de réduction ciblée", desc: "Coupon, code promo ou remise envoyé à un segment", cost: 0.3 },
       { id: "welcome", name: "Offre de bienvenue", desc: "Avantage exclusif à la première commande ou inscription", cost: 0.6 },
@@ -132,7 +123,6 @@ export const OBJECTIVES: CampaignObjective[] = [
     name: "Publicité digitale",
     desc: "Adresses réseaux sociaux pour ciblage publicitaire",
     icon: "megaphone-outline",
-    allowedTiers: [1, 2, 3, 4, 5],
     sub: [
       { id: "meta", name: "Audience Meta (Facebook / Instagram)", desc: "Liste d’emails / téléphones hashés pour ciblage publicitaire", cost: 0.2 },
       { id: "google", name: "Google Customer Match", desc: "Audience pour Google Ads, YouTube, Discovery", cost: 0.2 },

@@ -31,7 +31,6 @@ export function useContactPalette() {
     // claire (c.btnBg) pour garder le contraste.
     ctaBg: isDark ? c.btnBg : c.ink,
     ctaText: c.btnText,
-    palier: c.ivory2, // pastille « P1 »
     ink5: c.ink5,
     sheetBg: c.bg, // fond de la sheet (= ivoire du thème, #f4f1e9 en forest)
     avatar: (isDark ? [c.accent, c.violet] : [c.accent, c.accentInk]) as [

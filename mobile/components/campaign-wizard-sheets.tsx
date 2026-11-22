@@ -1,6 +1,6 @@
 // Popups du wizard de création de campagne (répliques des modales web de
 // Pro.jsx) : solde insuffisant, confirmation « retirer les certifiés
-// confiance », et explication « multi-paliers » (matching cumulatif).
+// confiance ».
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 
@@ -174,46 +174,6 @@ export function ExcludeCertifiedSheet({
           <Text className="text-[13px] font-semibold text-white">Oui, je confirme</Text>
         </Pressable>
       </View>
-    </BottomSheet>
-  );
-}
-
-/** Popup pédagogique affichée au 1er ajout d'un 2ᵉ palier (matching cumulatif). */
-export function MultiTierSheet({
-  visible,
-  tiers,
-  onClose,
-}: {
-  visible: boolean;
-  tiers: number[];
-  onClose: () => void;
-}) {
-  const { c } = useTheme();
-  const list = [...tiers].sort((a, b) => a - b).map((t) => `palier ${t}`).join(", ");
-  return (
-    <BottomSheet visible={visible} onClose={onClose}>
-      <Text style={{ fontSize: 40, lineHeight: 46, textAlign: "center" }}>🎯</Text>
-      <Text className="mt-2 text-center font-serif text-ink" style={{ fontSize: 22, lineHeight: 28 }}>
-        Mode chasseur de précision activé !
-      </Text>
-      <Text className="mt-3 text-center text-[14px] leading-5 text-ink-3">
-        Vous demandez {tiers.length} paliers de données (
-        <Text style={{ color: c.text, fontWeight: "700" }}>{list}</Text>).
-        {"\n\n"}⚠️ Seuls les prospects qui ont renseigné{" "}
-        <Text style={{ color: c.text, fontWeight: "700" }}>tous ces paliers</Text> pourront matcher
-        avec votre campagne. Plus vous demandez de données, plus votre cible est qualifiée… mais plus
-        le cercle se resserre 🔍
-      </Text>
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        className="mt-5 items-center rounded-full py-3.5 active:opacity-80"
-        style={{ backgroundColor: c.btnBg }}
-      >
-        <Text className="text-[15px] font-semibold" style={{ color: c.btnText }}>
-          OK, j&apos;ai capté 🚀
-        </Text>
-      </Pressable>
     </BottomSheet>
   );
 }

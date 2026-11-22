@@ -130,11 +130,11 @@ export type Relation = {
   brief: string | null;
   reward: number;
   tier: number;
-  /** Liste triée/unique des paliers (1..5) exigés par la campagne
-   *  (`targeting.requiredTiers`), exposée par /api/prospect/relations. Sert
-   *  au garde-fou « données complètes » à l'acceptation (cf. lib/completeness).
-   *  Peut être absente/null pour d'anciennes campagnes → repli sur `tier`. */
+  /** Héritage (avant le pivot mise en relation) — plus affiché. */
   tiers?: number[] | null;
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
   /** Objectif de la campagne (ex. "addigital" = Publicité digitale, soumis à
    *  l'autorisation de suivi ATT sur iOS). null/absent si inconnu. */
   objectiveId?: string | null;
@@ -143,8 +143,7 @@ export type Relation = {
   endDate: string;
   isFlashDeal: boolean;
   reported: boolean;
-  /** Distance domicile prospect ↔ établissement pro (km, arrondie) — filtre
-   *  « Autour de moi ». null si coordonnées indisponibles. */
+  /** Héritage (avant le pivot) — plus utilisé par l'app. */
   distanceKm?: number | null;
   // Champs spécifiques pending
   expiresAt?: string;
@@ -336,6 +335,9 @@ export type MovementRelation = {
   reward: number;
   tier: number;
   tiers?: number[] | null;
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
   /** Objectif de la campagne (cf. Relation.objectiveId). Optionnel : pas
    *  forcément exposé par toutes les routes (mouvements). */
   objectiveId?: string | null;
@@ -375,11 +377,9 @@ export type Movement = {
   id: string;
   date: string;
   origin: string;
-  /** Palier "principal" rétrocompatible (max de campaigns.targeting.requiredTiers). */
+  /** Héritage (avant le pivot mise en relation) — plus affiché. */
   tier: number | null;
-  /** Optionnel : liste triée des paliers couverts par la campagne (1..5).
-   *  Si fourni et de longueur > 1, l'UI affiche un format groupé
-   *  (« Palier 1-2,5 ») au lieu d'un palier unique. */
+  /** Héritage (avant le pivot mise en relation) — plus affiché. */
   tiers?: number[] | null;
   statusLabel: string;
   statusChip: string;
@@ -569,20 +569,6 @@ export function usePatchPreferences() {
   });
 }
 
-export function useTierAction() {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { tier: TierKey; action: "hide" | "restore" | "delete" }) =>
-      api("/api/prospect/tier", { method: "POST", body: JSON.stringify(v) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["prospect", "donnees"] });
-      qc.invalidateQueries({ queryKey: ["prospect", "score"] });
-      qc.invalidateQueries({ queryKey: ["prospect", "verification"] });
-    },
-  });
-}
-
 export function usePhoneStart() {
   const api = useApi();
   return useMutation({
@@ -763,6 +749,9 @@ export type FlashDeal = {
   relationId: string | null;
   relationStatus: string | null;
   missingTierKeys: string[];
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
   /** Objectif de la campagne (cf. Relation.objectiveId — ATT sur iOS). */
   objectiveId?: string | null;
 };
@@ -846,7 +835,6 @@ export type ProOverview = {
     /** Fiabilité (1 Haute · 2 Moyenne · 3 Basse) résolue par prospect ; null = non notée. */
     priority?: number | null;
   }[];
-  tierBreakdown: { tier: number; label: string; contacts: number; totalCents: number }[];
 };
 export const useProOverview = () =>
   useGet<ProOverview>(["pro", "overview"], "/api/pro/overview", 30_000);
@@ -874,6 +862,9 @@ export type Campaign = {
    *  commission réellement débitée à ce jour (absentes sur un serveur antérieur). */
   commissionMaxEur?: number;
   commissionSpentEur?: number;
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
 };
 export const useProCampaigns = () =>
   useGet<{ campaigns: Campaign[] }>(["pro", "campaigns"], "/api/pro/campaigns", 30_000);
@@ -931,14 +922,9 @@ export type ProCampaignDetail = {
   commissionPerContactEur?: number;
   targeting: {
     subTypes: string[];
-    requiredTiers: number[];
-    tierLabels: string[];
-    geo: string | null;
-    geoLabel: string;
-    /** Rayon « autour de moi » courant (km, null hors mode around) — sert au
-     *  sheet d'édition pour ne proposer que des rayons plus larges. */
-    radiusKm: number | null;
-    ages: string[];
+    /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+     *  Absent → les deux (campagnes antérieures au pivot). */
+    contactChannels?: ("phone" | "email")[] | null;
     verifLevel: string | null;
     verifLabel: string;
     /** Seuil de fiabilité minimum (0 / 60 / 80). */
@@ -975,6 +961,9 @@ export type ProCampaignDetail = {
    *  active uniquement, sinon null). Optionnels : backend déployé requis. */
   contactsLocked?: boolean;
   lockedUntil?: string | null;
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
 };
 export function useProCampaign(id?: string) {
   const api = useApi();
@@ -989,16 +978,10 @@ export function useProCampaign(id?: string) {
 
 // — Édition (élargissement) d'une campagne en cours — PATCH /api/pro/campaigns/[id]
 // (branche « edit » : pas de champ `status`). Seuls 3 points élargissables :
-// lien Vitrine, zone géo, tranche d'âge. Le serveur applique le garde-fou
-// « élargir-seulement » (cf. lib/campaigns/edit-targeting.ts côté web).
-export type EditCampaignGeo =
-  | { mode: "around"; radiusKm: number }
-  | { mode: "national" }
-  | { mode: "zone"; level: "dept" | "region" };
+// lien Vitrine, niveau de vérification, fiabilité. Le serveur applique le
+// garde-fou « élargir-seulement » (cf. lib/campaigns/edit-targeting.ts côté web).
 export type EditCampaignBody = {
   websiteUrl?: string;
-  ages?: string[];
-  geo?: EditCampaignGeo;
   /** Niveau de vérification minimum — abaisser seulement (p2 → p1 → p0). */
   verifLevel?: string;
   /** Seuil de fiabilité minimum — baisser seulement (80 → 60 → 0). */
@@ -1010,10 +993,6 @@ export type EditCampaignBody = {
 export type EditCampaignResult = {
   ok: true;
   websiteUrl: string | null;
-  geo: string | null;
-  geoLabel: string;
-  radiusKm: number | null;
-  ages: string[];
 };
 export function useEditCampaign(id: string) {
   const api = useApi();
@@ -1044,6 +1023,9 @@ export type ProContact = {
   /** Date de clôture de la campagne (ISO) — affichée dans l'en-tête de groupe. */
   campaignClosesAt?: string | null;
   tier: number;
+  /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
+   *  Absent → les deux (campagnes antérieures au pivot). */
+  contactChannels?: ("phone" | "email")[] | null;
   email: string | null;
   telephone: string | null;
   receivedAt: string | null;
@@ -1094,7 +1076,7 @@ export function useProGroupReveal() {
 }
 
 // ── Atelier de segmentation (parité web) ──────────────────────────────────
-// Clés catégorielles présentes uniquement si le palier de données a été acheté.
+// Clés catégorielles héritées (avant le pivot) — plus affichées par l'app.
 type FacetKey =
   | "region"
   | "distance"
@@ -1284,10 +1266,6 @@ export function usePatchProInfo() {
 
 // — Analytics — GET /api/pro/analytics?campaignId&period
 export type ProAnalytics = {
-  acceptanceByTier: { tier: number; label: string; pct: number }[];
-  geoBreakdown: { ville: string; contacts: number; pct: number }[];
-  ageBreakdown: { label: string; pct: number }[];
-  sexBreakdown: { label: string; pct: number }[];
   creneauHeatmap: {
     hourLabels: number[];
     counts: number[][];
@@ -1321,14 +1299,14 @@ export type CreateCampaignInput = {
   name: string;
   objectiveId: string;
   subTypes: string[];
+  /** Toujours [1] depuis le pivot mise en relation (rétrocompat serveur). */
   requiredTiers: number[];
-  geo: string;
-  /** Cible précise ville/dept/région (autocomplete geo.api.gouv.fr) — cf.
-   *  GeoTarget dans lib/pro-pricing.ts. Ignorée hors ville/dept/region. */
-  geoTarget?: unknown;
-  /** Rayon « autour de moi » (10/30/50 km) — utile seulement si geo=around. */
-  radiusKm?: number;
-  ages: string[];
+  /** Modes de contact cochés par le pro (non vide) — téléphone et/ou e-mail,
+   *  toujours via la plateforme BUUPP. */
+  contactChannels: ("phone" | "email")[];
+  /** Ignorés par le serveur depuis le pivot (plus de ciblage géo/âge). */
+  geo?: string;
+  ages?: string[];
   verifLevel: string;
   contacts: number;
   startDate: string;

@@ -16,7 +16,6 @@ import { Alert, Linking } from "react-native";
 import { useAcceptGateOptional } from "./accept-gate";
 import { PhoneConsentSheet } from "./phone-consent-sheet";
 import { ApiError } from "../lib/api";
-import { relationRequiredTierNums } from "../lib/completeness";
 import { useDecideRelation } from "../lib/queries";
 import {
   resolveTrackingAuthorization,
@@ -145,28 +144,30 @@ export function useRelationDecision() {
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
       const body = parseErrorBody(e);
-      // Backstop garde « données complètes » : 422 tiers_incomplete (profil
-      // pas encore chargé côté client) → même modale que le pré-check.
+      // Backstop garde « coordonnées complètes » : 422 (profil pas encore
+      // chargé côté client) → même modale que le pré-check.
       if (status === 422 && action === "accept") {
-        let missingTiers: number[] = [];
+        let missingFields: string[] = [];
         if (e instanceof ApiError) {
           try {
-            const j = JSON.parse(e.body) as { missingTiers?: number[] };
-            if (Array.isArray(j.missingTiers)) {
-              missingTiers = j.missingTiers.filter((n) => Number.isFinite(n));
-            }
+            const j = JSON.parse(e.body) as {
+              missingFields?: unknown;
+              missing?: unknown;
+            };
+            const raw = Array.isArray(j.missingFields)
+              ? j.missingFields
+              : Array.isArray(j.missing)
+                ? j.missing
+                : [];
+            missingFields = raw.filter((v): v is string => typeof v === "string");
           } catch {}
         }
         if (gate) {
-          gate.openIncomplete(
-            target.id,
-            relationRequiredTierNums({ tiers: target.tiers, tier: target.tier }),
-            missingTiers,
-          );
+          gate.openIncomplete(target.id, missingFields);
         } else {
           Alert.alert(
-            "Données incomplètes",
-            "Pour accepter, complétez d'abord les données demandées par cette campagne dans « Mes données ».",
+            "Coordonnées incomplètes",
+            "Pour accepter, renseignez d'abord votre prénom, l'initiale de votre nom, votre téléphone et votre e-mail dans « Mes données ».",
           );
         }
         onDone?.();
@@ -261,7 +262,7 @@ export function useRelationDecision() {
     if (action === "accept") {
       if (
         !opts?.skipGate &&
-        gate?.guardAccept({ id: target.id, tiers: target.tiers, tier: target.tier })
+        gate?.guardAccept({ id: target.id })
       ) {
         onDone?.();
         return;

@@ -35,6 +35,12 @@ import { BuuppLoader } from "./loader";
 import { useRelationDecision } from "./relation-decision";
 import { useTheme } from "../lib/theme";
 import {
+  CHANNEL_ICON,
+  CHANNEL_LABEL,
+  contactChannelsLabel,
+  readContactChannels,
+} from "../lib/contact-channels";
+import {
   useFlashDeals,
   useProspectScore,
   type FlashDeal,
@@ -67,16 +73,6 @@ const B = {
   line: "#e7e1d2",
   lineD: "#d8d1c0",
 } as const;
-
-// Mirror Prospect.jsx/HomeClient.tsx — libellés FR des catégories
-// de données utilisés dans les chips « paliers requis ».
-const TIER_KEY_LABEL_FR: Record<string, string> = {
-  identity: "Identification",
-  localisation: "Localisation",
-  vie: "Style de vie",
-  pro: "Données professionnelles",
-  patrimoine: "Patrimoine & projets",
-};
 
 // "HH:MM:SS" depuis un endsAt ISO et un nowTs courant (passé en arg
 // pour forcer le re-render à chaque tick du parent). "Expirée" si négatif.
@@ -415,7 +411,7 @@ function FlashDealCard({
 }
 
 // Sheet de détail d'un flash deal (cf. d2.html) : pills + nom + objet,
-// encart récompense navy, compte à rebours, mot du pro, données demandées,
+// encart récompense navy, compte à rebours, mot du pro, mode de contact,
 // puis le bloc d'actions (accepter / refuser / états) identique à la logique
 // web (decision + 429/undo). `deal` peut être null tant qu'aucun deal n'est
 // ouvert (le Modal reste monté).
@@ -617,39 +613,39 @@ function FlashDealDetailSheet({
             </View>
           ) : null}
 
-          {/* Données demandées */}
-          {d.requiredTierKeys?.length > 0 ? (
-            <View style={{ marginTop: 16 }}>
-              <Text style={{ fontSize: 13, color: c.textSub, marginBottom: 9 }}>
-                Données demandées
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {d.requiredTierKeys.map((k) => {
-                  const miss = (d.missingTierKeys ?? []).includes(k);
-                  return (
-                    <View
-                      key={k}
-                      style={{
-                        paddingVertical: 7,
-                        paddingHorizontal: 11,
-                        borderRadius: 9,
-                        backgroundColor: miss ? (isDark ? c.tintAmber : "#FEF6E7") : c.surface,
-                        borderWidth: 1,
-                        borderColor: miss ? (isDark ? c.warn : "#F5C57A") : c.borderSoft,
-                      }}
-                    >
-                      <Text
-                        className="font-mono"
-                        style={{ fontSize: 12.5, color: miss ? (isDark ? c.gold : "#92400E") : c.text }}
-                      >
-                        {TIER_KEY_LABEL_FR[k] ?? k}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
+          {/* Mode de contact (téléphone / e-mail, via BUUPP). */}
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ fontSize: 13, color: c.textSub, marginBottom: 9 }}>
+              Mode de contact
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {readContactChannels(d.contactChannels).map((ch) => (
+                <View
+                  key={ch}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingVertical: 7,
+                    paddingHorizontal: 11,
+                    borderRadius: 9,
+                    backgroundColor: c.surface,
+                    borderWidth: 1,
+                    borderColor: c.borderSoft,
+                  }}
+                >
+                  <Ionicons name={CHANNEL_ICON[ch]} size={14} color={c.textSub} />
+                  <Text style={{ fontSize: 12.5, color: c.text }}>
+                    {CHANNEL_LABEL[ch]}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ) : null}
+            <Text style={{ fontSize: 12, color: c.textSub, marginTop: 8 }}>
+              {contactChannelsLabel(d.contactChannels)} — le professionnel ne voit
+              que votre prénom et l’initiale de votre nom.
+            </Text>
+          </View>
 
           {/* Bloc d'actions (mirror web FlashDealModal). */}
           <View style={{ marginTop: 18 }}>
@@ -662,9 +658,9 @@ function FlashDealDetailSheet({
                   style={{ backgroundColor: isDark ? c.tintAmber : "#FEF6E7", borderWidth: 1, borderColor: isDark ? c.warn : "#F5C57A" }}
                 >
                   <Text className="text-[13px] leading-5" style={{ color: isDark ? c.gold : "#92400E" }}>
-                    Pour accepter ce deal, complétez d’abord{" "}
+                    Pour accepter ce deal, renseignez d’abord{" "}
                     <Text className="font-semibold">
-                      {missing.map((k) => TIER_KEY_LABEL_FR[k] ?? k).join(", ")}
+                      vos coordonnées (prénom, initiale du nom, téléphone et e-mail)
                     </Text>
                     .
                   </Text>
@@ -681,7 +677,7 @@ function FlashDealDetailSheet({
                     className="flex-1 flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
                   >
                     <Text className="text-sm font-semibold text-paper">
-                      Compléter mes données
+                      Compléter mes coordonnées
                     </Text>
                     <Ionicons name="arrow-forward" size={14} color={c.btnText} />
                   </Pressable>
@@ -783,7 +779,7 @@ function FlashDealDetailSheet({
                 style={{ backgroundColor: c.amber }}
               >
                 <Ionicons name="document-text-outline" size={16} color="#0F1629" />
-                <Text className="text-sm font-semibold" style={{ color: "#0F1629" }}>Compléter mes données</Text>
+                <Text className="text-sm font-semibold" style={{ color: "#0F1629" }}>Compléter mes coordonnées</Text>
               </Pressable>
             ) : (
               <View className="gap-2">
@@ -792,9 +788,9 @@ function FlashDealDetailSheet({
                   style={{ backgroundColor: c.ivory2, borderWidth: 1, borderColor: c.line }}
                 >
                   <Text className="text-[12.5px] leading-5 text-ink-2">
-                    Cette campagne ne correspond pas à votre profil (zone géographique,
-                    tranche d’âge ou centres d’intérêt). Complétez vos données pour
-                    augmenter vos chances d’être éligible.
+                    Cette campagne ne vous a pas été proposée. Vérifiez que vos
+                    coordonnées (prénom, initiale du nom, téléphone et e-mail) sont
+                    complètes pour être éligible aux prochains deals.
                   </Text>
                 </View>
                 <Pressable
@@ -802,7 +798,7 @@ function FlashDealDetailSheet({
                   className="flex-row items-center justify-center gap-2 rounded-full bg-ink py-3 active:opacity-80"
                 >
                   <Text className="text-sm font-semibold text-paper">
-                    Compléter mes données pour accepter le deal
+                    Compléter mes coordonnées
                   </Text>
                   <Ionicons name="arrow-forward" size={14} color={c.btnText} />
                 </Pressable>
@@ -1332,7 +1328,7 @@ function RadarEmptyState({
         }}
       >
         <Text style={{ fontSize: 15, fontWeight: "600", color: c.btnText }}>
-          Compléter mes données
+          Compléter mes coordonnées
         </Text>
         <Ionicons name="chevron-forward" size={17} color={c.btnText} />
       </Pressable>

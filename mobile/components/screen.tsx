@@ -37,7 +37,7 @@ import {
 import { useMeTyped, useProspectVerification } from "../lib/queries";
 import { useEntranceOnce } from "../lib/entrance";
 
-// Palier "certifié confiance" → trophée coloré (ordre demandé :
+// Niveau "certifié confiance" → trophée coloré (ordre demandé :
 // argent → bronze → or).
 const TIER_META: Record<string, { label: string; color: string }> = {
   basique: { label: "Basique", color: "#D8DBE2" }, // argent

@@ -26,6 +26,7 @@ import { useRelationDecision } from "./relation-decision";
 import { ReportProSheet } from "./report-pro-sheet";
 import { campaignIdFromVisitUrl, VitrinePreview } from "./vitrine-preview";
 import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
+import { contactChannelsShort } from "../lib/contact-channels";
 import { useTheme } from "../lib/theme";
 import type { MovementRelation } from "../lib/queries";
 
@@ -417,15 +418,6 @@ function RewardAmount({ value }: { value: string }) {
   );
 }
 
-// Nom FR du palier (parité preferences.tsx / flash-deals-sheet.tsx).
-const TIER_NAME_FR: Record<number, string> = {
-  1: "Identification",
-  2: "Localisation",
-  3: "Style de vie",
-  4: "Données pro",
-  5: "Patrimoine",
-};
-
 // "BPP-2C8F-7A10" — fallback client (les relations issues de l'écran
 // Relations n'ont pas de `reference` côté API). Même dérivation que la
 // route movements : 8 premiers caractères hex de l'id, groupés 4-4.
@@ -471,35 +463,6 @@ function formatAvailableAt(iso: string | null): string | null {
       year: "numeric",
     })
   );
-}
-
-// Compacte [1,2,5] → "1-2,5" (idem helper Portefeuille). Inline pour
-// éviter une dépendance circulaire écran ⇄ composant.
-function formatPaliers(tiers: number[]): string | null {
-  const uniq = [...new Set(tiers.filter((n) => Number.isFinite(n)))].sort(
-    (a, b) => a - b,
-  );
-  if (uniq.length === 0) return null;
-  const groups: string[] = [];
-  let start = uniq[0];
-  let prev = uniq[0];
-  for (let i = 1; i <= uniq.length; i++) {
-    const cur = uniq[i];
-    if (cur === prev + 1) { prev = cur; continue; }
-    groups.push(start === prev ? `${start}` : `${start}-${prev}`);
-    if (cur !== undefined) { start = cur; prev = cur; }
-  }
-  return groups.join(",");
-}
-
-function tierChipLabel(r: MovementRelation): string {
-  const list = Array.isArray(r.tiers) && r.tiers.length > 0
-    ? r.tiers
-    : (r.tier != null ? [r.tier] : null);
-  if (!list) return "Palier —";
-  const value = formatPaliers(list);
-  if (!value) return "Palier —";
-  return `${list.length > 1 ? "Paliers" : "Palier"} ${value}`;
 }
 
 // Petit composant : libellé en mono caps + valeur.
@@ -630,12 +593,6 @@ export function MovementDetailSheet({
         ? { label: "Refusée", color: c.bad }
         : { label: r.decision || "—", color: c.text };
 
-  const primaryTier =
-    Array.isArray(r.tiers) && r.tiers.length > 0
-      ? Math.max(...r.tiers.filter((n) => Number.isFinite(n)))
-      : r.tier;
-  const tierName = TIER_NAME_FR[primaryTier] ?? null;
-  const palierLabel = tierName ? `${tierChipLabel(r)} · ${tierName}` : tierChipLabel(r);
 
   const reference = r.reference ?? makeReference(r.id);
   const soldeApres = r.balanceAfterEur != null ? fmtEur(r.balanceAfterEur) : "—";
@@ -647,7 +604,7 @@ export function MovementDetailSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ gap: 16, paddingBottom: 18 }}
       >
-        {/* Carte d'en-tête combinée : pro + chip palier · séparateur ·
+        {/* Carte d'en-tête combinée : pro + chip mode de contact · séparateur ·
             récompense + pastille d'état (cf. det.pdf). */}
         <View
           className="rounded-3xl px-4 pb-4 pt-4"
@@ -690,7 +647,7 @@ export function MovementDetailSheet({
               style={{ borderWidth: 1, borderColor: c.violetSoft }}
             >
               <Text className="text-[11px] font-semibold text-violet">
-                {tierChipLabel(r)}
+                {contactChannelsShort(r.contactChannels)}
               </Text>
             </View>
           </View>
@@ -856,7 +813,7 @@ export function MovementDetailSheet({
           </View>
         </View>
 
-        {/* Tableau récapitulatif — statut · palier · référence · solde. */}
+        {/* Tableau récapitulatif — statut · mode de contact · référence · solde. */}
         <View
           className="rounded-2xl bg-paper px-4"
           style={{ borderWidth: 1, borderColor: c.borderSoft }}
@@ -866,8 +823,10 @@ export function MovementDetailSheet({
               {statusCampaign.label}
             </Text>
           </DetailRow>
-          <DetailRow label="Palier partagé">
-            <Text className="text-[14px] font-semibold text-ink">{palierLabel}</Text>
+          <DetailRow label="Mode de contact">
+            <Text className="text-[14px] font-semibold text-ink">
+              {contactChannelsShort(r.contactChannels)} (via BUUPP)
+            </Text>
           </DetailRow>
           <DetailRow label="Référence">
             <Text className="font-mono text-[13px] text-ink-2">{reference}</Text>

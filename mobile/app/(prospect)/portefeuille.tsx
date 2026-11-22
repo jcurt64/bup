@@ -2,7 +2,7 @@
 // Champs & formats alignés sur Prospect.jsx fn Portefeuille (web) :
 // 3 soldes (Disponible / En séquestre / Cumulé depuis ouverture), chacun
 // avec sa ligne "BUUPP Coins" (= Math.round(cents)), sous-titre cumulé
-// "{X} mois · {Y} mise(s) en relation", et colonne Palier sur les
+// "{X} mois · {Y} mise(s) en relation", et mode de contact sur les
 // mouvements. Le mobile omet l'action "Retirer" et l'export CSV (hors
 // périmètre — parité de données uniquement).
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -49,6 +49,7 @@ import { ReferralBadge } from "../../components/referral-badge";
 import { ApiError } from "../../lib/api";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import { HOME_HERO } from "../../lib/hero-palette";
+import { contactChannelsShort } from "../../lib/contact-channels";
 import { useTheme } from "../../lib/theme";
 import { WithdrawSheet } from "../../components/withdraw-sheet";
 
@@ -112,44 +113,6 @@ function verifTierPosition(tier: string | undefined): number {
 // (identique à `coins.toLocaleString('fr-FR')` du web).
 const coins = (cents: unknown) =>
   Math.round(Number(cents ?? 0)).toLocaleString("fr-FR");
-
-// Sérialise un ensemble de paliers en notation compacte :
-//   [3]          → "3"
-//   [1,2,3]      → "1-3"
-//   [1,3,5]      → "1,3,5"
-//   [1,2,5]      → "1-2,5"
-//   [1,2,4,5]    → "1-2,4-5"
-// Renvoie « null » si rien à afficher.
-function formatPaliers(tiers: number[]): string | null {
-  const uniq = [...new Set(tiers.filter((n) => Number.isFinite(n)))].sort(
-    (a, b) => a - b,
-  );
-  if (uniq.length === 0) return null;
-  const groups: string[] = [];
-  let start = uniq[0];
-  let prev = uniq[0];
-  for (let i = 1; i <= uniq.length; i++) {
-    const cur = uniq[i];
-    if (cur === prev + 1) {
-      prev = cur;
-      continue;
-    }
-    groups.push(start === prev ? `${start}` : `${start}-${prev}`);
-    if (cur !== undefined) {
-      start = cur;
-      prev = cur;
-    }
-  }
-  return groups.join(",");
-}
-
-// Tire la liste des paliers depuis un Movement (priorité à `tiers[]`,
-// fallback sur l'unique `tier` rétrocompatible).
-function movementTiers(mv: { tier: number | null; tiers?: number[] | null }) {
-  if (Array.isArray(mv.tiers) && mv.tiers.length > 0) return mv.tiers;
-  if (mv.tier != null) return [mv.tier];
-  return null;
-}
 
 // Sous-titre "Cumulé depuis ouverture" : nombre de mois écoulés depuis la
 // création du compte + nombre réel de mises en relation. Reproduit à
@@ -1271,10 +1234,10 @@ export default function Portefeuille() {
             ) : (
             <View className="mt-4 gap-2.5">
               {d.movements.map((mv) => {
-                const tList = movementTiers(mv);
-                const tStr = tList ? formatPaliers(tList) : null;
-                const tLabel =
-                  tList && tList.length > 1 ? "Paliers" : "Palier";
+                // Mode de contact de la campagne (téléphone / e-mail via BUUPP).
+                const tStr = mv.relation
+                  ? contactChannelsShort(mv.relation.contactChannels)
+                  : null;
                 // Cliquable uniquement quand le mouvement est lié à une
                 // relation (escrow/credit issu d'une mise en relation).
                 // Retraits IBAN / parrainages sans campagne restent
@@ -1383,7 +1346,7 @@ export default function Portefeuille() {
                     })()}
                   </View>
 
-                  {/* Montant (proéminent) + chip palier empilé. */}
+                  {/* Montant (proéminent) + chip mode de contact empilé. */}
                   <View className="items-end gap-1">
                     <Text
                       className={`font-serif text-lg ${
@@ -1408,7 +1371,7 @@ export default function Portefeuille() {
                     ) : tStr ? (
                       <View className="rounded-full border border-line bg-ivory px-2 py-0.5">
                         <Text className="font-mono text-[10.5px] text-ink-3">
-                          {tLabel} {tStr}
+                          {tStr}
                         </Text>
                       </View>
                     ) : null}

@@ -148,7 +148,7 @@ export function DrawerThemeSwitcher() {
   );
 }
 
-// Libellés + position 1-based des paliers de vérification (parité
+// Libellés + position 1-based des niveaux de vérification (parité
 // Prospect.jsx / portefeuille.tsx — affichés dans la carte de statut).
 const VERIF_LABELS: Record<string, string> = {
   basique: "Basique",
@@ -177,7 +177,7 @@ const NAV: {
   /** Sous-titre statique (les entrées dynamiques le calculent au rendu). */
   sub?: string;
 }[] = [
-  { label: "Paliers de vérification", route: "/(prospect)/verification", icon: "shield-checkmark-outline" },
+  { label: "Niveaux de vérification", route: "/(prospect)/verification", icon: "shield-checkmark-outline" },
   { label: "BUUPP Score", route: "/(prospect)/score", icon: "speedometer-outline" },
   { label: "Parrainage", route: "/(prospect)/parrainage", icon: "gift-outline", sub: "Invitez, gagnez" },
   { label: "Informations fiscales", route: "/(prospect)/fiscal", icon: "document-text-outline", sub: "Déclaration & reçus" },
@@ -419,7 +419,7 @@ export default function DrawerPanel() {
             <ScoreRing score={scoreNum} />
           </View>
 
-          {/* Carte de statut : avatar + prénom + palier de vérification,
+          {/* Carte de statut : avatar + prénom + niveau de vérification,
               et pastille « ⚡ {score} » bordée ambre à droite. */}
           <View
             className="mb-3 flex-row items-center gap-3 rounded-2xl px-3 py-3"

@@ -1,14 +1,12 @@
 // Préférences — refonte visuelle alignée pixel sur pre.html (prototype
 // design). Données : /api/prospect/donnees, /api/prospect/verification,
 // /api/prospect/payout/status, /api/me/email-tracking. Actions :
-// phone/rib/payout/email-tracking, zone géographique (rayon + niveau
-// d'extension geoExtension local/départemental/régional/national via
-// patchDonnees), paliers partageables (tierAction hide/restore).
+// phone/rib/payout/email-tracking. Pivot mise en relation : plus de zone
+// géographique ni de paliers partageables.
 // Types de campagne et catégories = hydratés depuis /api/prospect/donnees
 // (bloc preferences) et persistés via /api/prospect/preferences (patchPrefs).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
@@ -20,14 +18,11 @@ import { HERO_GRADIENT } from "../../lib/pro-theme";
 import {
   useDeleteRib,
   useEmailTracking,
-  usePatchDonnees,
   usePatchPreferences,
   useProspectDonnees,
   useProspectVerification,
   useSaveRib,
   useSetEmailTracking,
-  useTierAction,
-  type TierKey,
 } from "../../lib/queries";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
@@ -56,34 +51,6 @@ const CATEGORY_LIST = [
   "Alimentation",
   "Juridique",
 ] as const;
-
-const TIER_ROWS: { n: number; key: TierKey; name: string; range: string }[] = [
-  { n: 1, key: "identity",    name: "Identification", range: "minimum 1,00 €" },
-  { n: 2, key: "localisation",name: "Localisation",   range: "1,00 – 2,00 €" },
-  { n: 3, key: "vie",         name: "Style de vie",   range: "2,00 – 3,50 €" },
-  { n: 4, key: "pro",         name: "Données pro",    range: "3,50 – 5,00 €" },
-  { n: 5, key: "patrimoine",  name: "Patrimoine",     range: "5,00 – 10,00 €" },
-];
-
-// Niveaux d'extension géographique (parité web Prospect.jsx GEO_LEVELS).
-// Persistés dans prospect_localisation.geo_extension ; la route PATCH
-// resynchronise national_opt_in (true ⟺ national).
-type GeoLevel = "local" | "departemental" | "regional" | "national";
-const GEO_LEVELS: { v: GeoLevel; label: string; desc: string }[] = [
-  { v: "local",         label: "Local",         desc: "Selon mon rayon" },
-  { v: "departemental", label: "Départemental", desc: "Tout mon département" },
-  { v: "regional",      label: "Régional",      desc: "Toute ma région" },
-  { v: "national",      label: "National",      desc: "Partout en France" },
-];
-
-// Rétro-compat web : si `geoExtension` n'est pas encore renseigné, on le
-// dérive de `nationalOptIn` (tout sauf "false" → national, sinon local).
-function resolveGeoExtension(loc: Record<string, unknown>): GeoLevel {
-  const raw = loc.geoExtension;
-  const hit = GEO_LEVELS.find((l) => l.v === raw);
-  if (hit) return hit.v;
-  return String(loc.nationalOptIn ?? "true") !== "false" ? "national" : "local";
-}
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
 
@@ -249,27 +216,6 @@ function fieldStyle(c: ReturnType<typeof useTheme>["c"]) {
   } as const;
 }
 
-// Case à cocher carrée arrondie 22×22 (violette une fois cochée).
-function CheckBox({ checked }: { checked: boolean }) {
-  const { c, isDark } = useTheme();
-  return (
-    <View
-      className="items-center justify-center"
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 7,
-        flexShrink: 0,
-        backgroundColor: checked ? c.violet : c.surface,
-        borderWidth: 1.5,
-        borderColor: checked ? c.violet : isDark ? c.ink5 : "#D8D1C0",
-      }}
-    >
-      {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
-    </View>
-  );
-}
-
 // Toggle pill 48×28 (pre.html) — suivi des emails.
 function PrefToggle({
   value,
@@ -329,9 +275,7 @@ export default function Preferences() {
   const saveRib     = useSaveRib();
   const delRib      = useDeleteRib();
   const setMail     = useSetEmailTracking();
-  const patchDon    = usePatchDonnees();
   const patchPrefs  = usePatchPreferences();
-  const tierAction  = useTierAction();
 
   const [phoneSheet, setPhoneSheet] = useState(false);
   const [iban,    setIban]    = useState("");
@@ -403,19 +347,8 @@ export default function Preferences() {
 
   // ── Extras du header compact (au scroll) ───────────────────────────────
   // 1) Téléphone : icône pleine si vérifié, barrée sinon.
-  // 2) Zone géographique renseignée (niveau d'extension ou rayon en km).
   const d0 = don.data;
-  const loc0 = (d0?.localisation ?? {}) as Record<string, unknown>;
   const phoneVerified = Boolean(d0?.identityMeta?.phoneVerifiedAt);
-  const geo0 = resolveGeoExtension(loc0);
-  const radius0 = (() => {
-    const p = parseInt(String(loc0.targetingRadiusKm ?? "25"), 10);
-    return Number.isFinite(p) && p >= 5 && p <= 100 ? p : 25;
-  })();
-  const zoneLabel =
-    geo0 === "local"
-      ? `${radius0} km`
-      : (GEO_LEVELS.find((l) => l.v === geo0)?.label ?? "National");
   const compactExtras: CompactExtra[] | undefined = d0
     ? [
         phoneVerified
@@ -433,13 +366,6 @@ export default function Preferences() {
               bg: c.surface2,
               accessibilityLabel: "Téléphone non vérifié",
             },
-        {
-          iconLib: "ionicons",
-          icon: "location-outline",
-          value: zoneLabel,
-          color: c.accViolet,
-          bg: c.accentSoft,
-        },
       ]
     : undefined;
 
@@ -483,8 +409,8 @@ export default function Preferences() {
           Qui peut vous contacter
         </Text>
         <Text className="mt-2 text-[14px] leading-5 text-white/80">
-          Types de campagne, catégories, zone, paliers de données, téléphone,
-          coordonnées bancaires et communications.
+          Types de campagne, catégories, téléphone, coordonnées bancaires et
+          communications.
         </Text>
       </LinearGradient>
 
@@ -554,368 +480,7 @@ export default function Preferences() {
         </View>
       </PrefCard>
 
-      {/* ── 3. Zone géographique ───────────────────────────────────────── */}
-      <PrefCard iconBg={c.tintCoral} icon="location-outline" iconColor={c.accCoral}>
-        <H3>Zone géographique</H3>
-        <QueryGate query={don}>
-          {(d) => {
-            const loc = (d.localisation ?? {}) as Record<string, unknown>;
-            const ville      = String(loc.ville ?? "").trim();
-            const codePostal = String(loc.codePostal ?? "").trim();
-            const persisted  = parseInt(String(loc.targetingRadiusKm ?? "25"), 10);
-            const radius     = Number.isFinite(persisted) && persisted >= 5 && persisted <= 100
-              ? persisted
-              : 25;
-            const geoExtension = resolveGeoExtension(loc);
-            const radiusActive = geoExtension === "local";
-            const geoLevelLabel =
-              GEO_LEVELS.find((l) => l.v === geoExtension)?.label ?? "National";
-            const zoneLocked = !ville;
-
-            return (
-              <View>
-                {/* Centrée sur / Portée */}
-                <View
-                  className="flex-row items-end justify-between"
-                  style={{ gap: 14, marginTop: 16 }}
-                >
-                  <View style={{ flexShrink: 1 }}>
-                    <Text style={{ fontSize: 12, color: c.textSub }}>
-                      Centrée sur
-                    </Text>
-                    <Text
-                      className={zoneLocked ? "font-serif-italic" : "font-serif"}
-                      style={{
-                        fontSize: 16,
-                        color: zoneLocked ? c.textMuted : c.text,
-                        marginTop: 3,
-                      }}
-                    >
-                      {zoneLocked
-                        ? "Ville non renseignée"
-                        : codePostal
-                          ? `${ville}, ${codePostal}`
-                          : ville}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 12, color: c.textSub }}>Portée</Text>
-                    <Text
-                      className="font-serif"
-                      style={{
-                        fontSize: 17,
-                        color:
-                          zoneLocked || !radiusActive
-                            ? c.textMuted
-                            : c.accVioletDeep,
-                        marginTop: 3,
-                      }}
-                    >
-                      {radiusActive ? `${radius} km` : geoLevelLabel}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Boutons +/- (remplacent le slider — pas de Slider Expo).
-                    Éditables seulement au niveau « Local » (parité web :
-                    slider grisé sur les autres niveaux). */}
-                {!zoneLocked && (
-                  <View
-                    className="flex-row items-center"
-                    style={{
-                      gap: 10,
-                      marginTop: 14,
-                      opacity: radiusActive ? 1 : 0.4,
-                    }}
-                  >
-                    {([-5, 5] as const).map((delta) => {
-                      const next = Math.min(100, Math.max(5, radius + delta));
-                      return (
-                        <Pressable
-                          key={delta}
-                          disabled={
-                            !radiusActive ||
-                            next === radius ||
-                            patchDon.isPending
-                          }
-                          accessibilityRole="button"
-                          accessibilityLabel={
-                            delta < 0 ? "Réduire le rayon" : "Augmenter le rayon"
-                          }
-                          className="flex-1 items-center active:opacity-70"
-                          style={{
-                            paddingVertical: 11,
-                            borderRadius: 13,
-                            backgroundColor: c.surface,
-                            borderWidth: 1,
-                            borderColor: c.borderSoft,
-                          }}
-                          onPress={() =>
-                            patchDon.mutate({
-                              tier: "localisation",
-                              fields: { targetingRadiusKm: String(next) },
-                            })
-                          }
-                        >
-                          <Text
-                            style={{ fontSize: 14.5, fontWeight: "600", color: c.text }}
-                          >
-                            {delta < 0 ? "−5 km" : "+5 km"}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-
-                {/* Sélecteur d'extension géographique : Local (rayon) →
-                    Départemental → Régional → National (parité web). */}
-                <Text style={{ fontSize: 12, color: c.textSub, marginTop: 16 }}>
-                  Jusqu&apos;où acceptez-vous d&apos;être contacté ?
-                </Text>
-                <View
-                  className="flex-row flex-wrap"
-                  style={{ gap: 8, marginTop: 8 }}
-                >
-                  {GEO_LEVELS.map((lvl) => {
-                    const on = geoExtension === lvl.v;
-                    return (
-                      <Pressable
-                        key={lvl.v}
-                        disabled={zoneLocked || patchDon.isPending}
-                        accessibilityRole="radio"
-                        accessibilityState={{
-                          selected: on,
-                          disabled: zoneLocked,
-                        }}
-                        accessibilityLabel={`${lvl.label} — ${lvl.desc}`}
-                        className="active:opacity-80"
-                        style={{
-                          flexBasis: "47%",
-                          flexGrow: 1,
-                          paddingVertical: 10,
-                          paddingHorizontal: 12,
-                          borderRadius: 12,
-                          borderWidth: 1.5,
-                          borderColor: on ? c.violet : c.borderSoft,
-                          backgroundColor: on ? c.tintViolet : c.surface,
-                          opacity: zoneLocked ? 0.5 : 1,
-                        }}
-                        onPress={() => {
-                          if (zoneLocked || on) return;
-                          patchDon.mutate({
-                            tier: "localisation",
-                            fields: { geoExtension: lvl.v },
-                          });
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 13.5,
-                            fontWeight: "600",
-                            color: on ? c.accVioletDeep : c.text,
-                          }}
-                        >
-                          {lvl.label}
-                        </Text>
-                        <Text
-                          style={{ fontSize: 11.5, color: c.textSub, marginTop: 2 }}
-                        >
-                          {lvl.desc}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Verrou — ville manquante → renvoi vers Mes données. */}
-                {zoneLocked && (
-                  <View
-                    className="items-center"
-                    style={{
-                      marginTop: 14,
-                      padding: 16,
-                      gap: 8,
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderStyle: "dashed",
-                      borderColor: c.borderSoft,
-                      backgroundColor: c.surface2,
-                    }}
-                  >
-                    <Ionicons name="location" size={24} color={c.accCoral} />
-                    <Text
-                      className="font-serif"
-                      style={{
-                        fontSize: 16,
-                        lineHeight: 21,
-                        color: c.text,
-                        textAlign: "center",
-                      }}
-                    >
-                      Renseignez votre ville pour activer cette section
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 12.5,
-                        lineHeight: 18,
-                        color: c.textSub,
-                        textAlign: "center",
-                      }}
-                    >
-                      Le rayon de ciblage dépend de votre ville. Allez dans{" "}
-                      <Text style={{ fontWeight: "700", color: c.text }}>
-                        Mes données
-                      </Text>{" "}
-                      → palier Localisation pour la saisir.
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => router.push("/(prospect)/donnees?tier=localisation")}
-                      className="flex-row items-center active:opacity-80"
-                      style={{
-                        gap: 6,
-                        marginTop: 4,
-                        paddingVertical: 9,
-                        paddingHorizontal: 16,
-                        borderRadius: 999,
-                        backgroundColor: c.btnBg,
-                      }}
-                    >
-                      <Text
-                        style={{ fontSize: 13, fontWeight: "600", color: c.btnText }}
-                      >
-                        Ouvrir Mes données
-                      </Text>
-                      <Ionicons name="arrow-forward" size={13} color={c.btnText} />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            );
-          }}
-        </QueryGate>
-        {patchDon.isError && (
-          <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
-            Échec — réessayez.
-          </Text>
-        )}
-      </PrefCard>
-
-      {/* ── 4. Paliers partageables ────────────────────────────────────── */}
-      <PrefCard iconBg={c.tintViolet} icon="layers-outline" iconColor={c.accVioletDeep}>
-        <H3>Paliers partageables</H3>
-        <Desc>
-          Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne
-          souhaitez pas voir transmis (réversible — aucune donnée n&apos;est
-          effacée).
-        </Desc>
-        <QueryGate query={don}>
-          {(d) => {
-            const hiddenSet  = new Set(d.hiddenTiers ?? []);
-            const removedSet = new Set(d.removedTiers ?? []);
-            return (
-              <View style={{ marginTop: 16 }}>
-                {TIER_ROWS.map((row, idx) => {
-                  // Palier 1 (Identification) = obligatoire : forcé coché et
-                  // verrouillé (l'API refuse `hide` → identity_tier_required).
-                  const required = row.n === 1;
-                  const hidden  = hiddenSet.has(row.key);
-                  const removed = removedSet.has(row.key);
-                  const shared  = required || (!hidden && !removed);
-                  const locked  = required || removed;
-                  const isLast  = idx === TIER_ROWS.length - 1;
-                  return (
-                    <Pressable
-                      key={row.key}
-                      disabled={locked || tierAction.isPending}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: shared, disabled: locked }}
-                      accessibilityLabel={`Palier ${row.n} — ${row.name}`}
-                      accessibilityHint={
-                        required
-                          ? "Palier obligatoire : sans données d'identification, aucun professionnel ne peut vous contacter."
-                          : removed
-                            ? "Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données."
-                            : undefined
-                      }
-                      className="flex-row items-center active:opacity-70"
-                      style={{
-                        gap: 12,
-                        paddingVertical: 13,
-                        borderBottomWidth: isLast ? 0 : 1,
-                        borderBottomColor: c.track,
-                        opacity: removed ? 0.5 : 1,
-                      }}
-                      onPress={() => {
-                        if (locked) return;
-                        tierAction.mutate({
-                          tier: row.key,
-                          action: shared ? "hide" : "restore",
-                        });
-                      }}
-                    >
-                      <CheckBox checked={shared} />
-                      <Text
-                        className="font-serif"
-                        style={{ fontSize: 16, color: c.text }}
-                      >
-                        Palier {row.n}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={{ flex: 1, fontSize: 13, color: c.textSub }}
-                      >
-                        {row.name}
-                      </Text>
-                      {required ? (
-                        <View
-                          style={{
-                            borderRadius: 999,
-                            backgroundColor: c.tintViolet,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                          }}
-                        >
-                          <Text style={{ fontSize: 10, color: c.accVioletDeep }}>
-                            obligatoire
-                          </Text>
-                        </View>
-                      ) : removed ? (
-                        <View
-                          style={{
-                            borderRadius: 999,
-                            backgroundColor: c.track,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                          }}
-                        >
-                          <Text style={{ fontSize: 10, color: c.textMuted }}>
-                            supprimé
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text
-                          style={{ fontSize: 12.5, fontWeight: "500", color: c.textMuted }}
-                        >
-                          {row.range}
-                        </Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            );
-          }}
-        </QueryGate>
-        {tierAction.isError && (
-          <Text style={{ marginTop: 10, fontSize: 12.5, color: c.bad }}>
-            Échec — réessayez.
-          </Text>
-        )}
-      </PrefCard>
-
-      {/* ── 5. Téléphone & vérification SMS ────────────────────────────── */}
+      {/* ── 3. Téléphone & vérification SMS ────────────────────────────── */}
       <PrefCard iconBg={c.tintViolet} icon="call-outline" iconColor={c.accVioletDeep}>
         <H3>Téléphone</H3>
         <QueryGate query={don}>
@@ -981,7 +546,7 @@ export default function Preferences() {
         </QueryGate>
       </PrefCard>
 
-      {/* ── 6. Coordonnées bancaires (RIB / IBAN) ──────────────────────── */}
+      {/* ── 4. Coordonnées bancaires (RIB / IBAN) ──────────────────────── */}
       <PrefCard iconBg={c.tintGreen} icon="card-outline" iconColor={c.accGreen}>
         <H3>Coordonnées bancaires</H3>
         <QueryGate query={ver}>
@@ -1069,7 +634,7 @@ export default function Preferences() {
         </QueryGate>
       </PrefCard>
 
-      {/* ── 8. Suivi des emails BUUPP (CNIL n° 2026-042) ───────────────── */}
+      {/* ── 5. Suivi des emails BUUPP (CNIL n° 2026-042) ───────────────── */}
       <PrefCard
         iconBg={c.tintAmber}
         icon="mail-outline"

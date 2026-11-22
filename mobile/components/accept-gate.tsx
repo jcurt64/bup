@@ -1,16 +1,12 @@
-// Garde « données complètes » à l'acceptation d'une sollicitation (miroir
-// mobile de la logique web : Prospect.jsx `acceptGate` / `pendingAccept` /
-// `acceptReady` + AcceptIncompleteModal / AcceptReadyModal).
+// Garde « coordonnées complètes » à l'acceptation d'une sollicitation.
 //
-// Règle métier : un prospect reçoit toutes les sollicitations qui le matchent,
-// mais pour ACCEPTER il doit avoir intégralement renseigné tous les paliers
-// exigés par la campagne (`relation.tiers`). Le serveur applique le même
-// garde-fou (422 `tiers_incomplete`, AVANT le rate-limit).
+// Règle métier (pivot mise en relation) : pour ACCEPTER une sollicitation, le
+// prospect doit avoir renseigné ses 4 coordonnées — prénom, initiale du nom,
+// téléphone et e-mail. Le serveur applique le même garde-fou (422).
 //
-// Le mobile n'a pas de « provider prospect » (tout passe par React Query) :
-// ce provider porte l'état du gate, le rend résilient à la navigation, écoute
-// la complétude du profil (`/api/prospect/donnees`) pour rouvrir une modale
-// quand tout est rempli, et héberge les deux bottom-sheets.
+// Ce provider porte l'état du gate, écoute le profil (`/api/prospect/donnees`)
+// pour rouvrir une modale quand tout est rempli, et héberge les deux
+// bottom-sheets.
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
@@ -26,35 +22,28 @@ import { Pressable, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
 import {
-  missingRequiredTierNums,
-  relationRequiredTierNums,
-  TIER_LABEL,
-  TIER_NUM_TO_KEY,
-} from "../lib/completeness";
+  CONTACT_FIELDS,
+  CONTACT_FIELD_LABEL,
+  missingContactFields,
+  type ContactField,
+} from "../lib/contact-channels";
 import { useProspectDonnees } from "../lib/queries";
 import { useTheme } from "../lib/theme";
 
-// Icône par numéro de palier (parité TIER_META de donnees.tsx).
-const TIER_ICON: Record<number, keyof typeof Ionicons.glyphMap> = {
-  1: "finger-print-outline",
-  2: "map-outline",
-  3: "heart-outline",
-  4: "briefcase-outline",
-  5: "diamond-outline",
+const FIELD_ICON: Record<ContactField, keyof typeof Ionicons.glyphMap> = {
+  prenom: "person-outline",
+  nom: "text-outline",
+  email: "mail-outline",
+  telephone: "call-outline",
 };
 
-type RelationLike = {
-  id: string;
-  tiers?: number[] | null;
-  tier?: number | null;
-};
+type RelationLike = { id: string };
 
 type AcceptGateState = {
   relationId: string;
-  requiredTierNums: number[];
-  missingTierNums: number[];
+  missingFields: ContactField[];
 } | null;
-type PendingAccept = { relationId: string; requiredTierNums: number[] } | null;
+type PendingAccept = { relationId: string } | null;
 type AcceptReady = { relationId: string } | null;
 
 type AcceptGateCtx = {
@@ -63,13 +52,8 @@ type AcceptGateCtx = {
    *  `false` si tout est complet (ou si le profil n'est pas encore chargé : on
    *  laisse alors le backstop serveur 422 jouer). */
   guardAccept: (rel: RelationLike) => boolean;
-  /** Backstop : ouvre la modale d'incomplétude à partir d'une réponse 422
-   *  serveur (`missingTiers`). */
-  openIncomplete: (
-    relationId: string,
-    requiredTierNums: number[],
-    missingTierNums: number[],
-  ) => void;
+  /** Backstop : ouvre la modale d'incomplétude à partir d'une réponse 422. */
+  openIncomplete: (relationId: string, missingFields?: string[]) => void;
 };
 
 const Ctx = createContext<AcceptGateCtx | null>(null);
@@ -95,13 +79,10 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
   const guardAccept = useCallback(
     (rel: RelationLike): boolean => {
       const data = q.data;
-      // Profil pas encore chargé → on ne bloque pas côté client ; le serveur
-      // renverra 422 le cas échéant (backstop géré par l'appelant).
       if (!data) return false;
-      const requiredTierNums = relationRequiredTierNums(rel);
-      const missingTierNums = missingRequiredTierNums(requiredTierNums, data);
-      if (missingTierNums.length > 0) {
-        setAcceptGate({ relationId: rel.id, requiredTierNums, missingTierNums });
+      const missingFields = missingContactFields(data.identity);
+      if (missingFields.length > 0) {
+        setAcceptGate({ relationId: rel.id, missingFields });
         return true;
       }
       return false;
@@ -110,32 +91,31 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
   );
 
   const openIncomplete = useCallback(
-    (
-      relationId: string,
-      requiredTierNums: number[],
-      missingTierNums: number[],
-    ) => {
+    (relationId: string, missingFields?: string[]) => {
+      const known = (missingFields ?? []).filter((f): f is ContactField =>
+        (CONTACT_FIELDS as readonly string[]).includes(f),
+      );
+      const fromProfile = q.data ? missingContactFields(q.data.identity) : [];
       setAcceptGate({
         relationId,
-        requiredTierNums,
-        missingTierNums:
-          missingTierNums.length > 0 ? missingTierNums : requiredTierNums,
+        missingFields:
+          known.length > 0
+            ? known
+            : fromProfile.length > 0
+              ? fromProfile
+              : [...CONTACT_FIELDS],
       });
     },
-    [],
+    [q.data],
   );
 
-  // Watcher : quand le prospect a complété, depuis « Mes données », tous les
-  // paliers requis de la sollicitation qu'il voulait accepter → modale
-  // « vous pouvez retourner accepter ». Miroir web Prospect.jsx (effet sur
-  // `pendingAccept`). La query donnees est invalidée après chaque PATCH, donc
-  // ce provider (même cache React Query) reçoit les données fraîches.
+  // Watcher : quand le prospect a complété ses coordonnées depuis « Mes
+  // données » → modale « vous pouvez retourner accepter ».
   useEffect(() => {
     if (!pendingAccept) return;
     const data = q.data;
     if (!data) return;
-    const missing = missingRequiredTierNums(pendingAccept.requiredTierNums, data);
-    if (missing.length === 0) {
+    if (missingContactFields(data.identity).length === 0) {
       setAcceptReady({ relationId: pendingAccept.relationId });
       setPendingAccept(null);
     }
@@ -151,29 +131,14 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
       {children}
       <AcceptIncompleteSheet
         visible={acceptGate !== null}
-        missingTierNums={acceptGate?.missingTierNums ?? []}
+        missingFields={acceptGate?.missingFields ?? []}
         onClose={() => setAcceptGate(null)}
         onGoToData={() => {
-          // Défilement direct vers le 1er palier manquant (parité web
-          // `setDonneesScrollTier(missingTierNums[0])`) : donnees.tsx lit
-          // le paramètre `?tier=<clé>` puis scrolle et ouvre ce palier.
-          const firstMissing = acceptGate
-            ? [...acceptGate.missingTierNums].sort((a, b) => a - b)[0]
-            : undefined;
-          const tierKey =
-            firstMissing != null ? TIER_NUM_TO_KEY[firstMissing] : undefined;
           if (acceptGate) {
-            setPendingAccept({
-              relationId: acceptGate.relationId,
-              requiredTierNums: acceptGate.requiredTierNums,
-            });
+            setPendingAccept({ relationId: acceptGate.relationId });
           }
           setAcceptGate(null);
-          router.push(
-            tierKey
-              ? { pathname: "/(prospect)/donnees", params: { tier: tierKey } }
-              : "/(prospect)/donnees",
-          );
+          router.push("/(prospect)/donnees");
         }}
       />
       <AcceptReadySheet
@@ -196,19 +161,16 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
 // ── Modale « Informations incomplètes » ─────────────────────────────────────
 function AcceptIncompleteSheet({
   visible,
-  missingTierNums,
+  missingFields,
   onClose,
   onGoToData,
 }: {
   visible: boolean;
-  missingTierNums: number[];
+  missingFields: ContactField[];
   onClose: () => void;
   onGoToData: () => void;
 }) {
   const { c } = useTheme();
-  const tiers = [...missingTierNums]
-    .filter((n) => TIER_NUM_TO_KEY[n])
-    .sort((a, b) => a - b);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <View style={{ gap: 16, paddingBottom: 8 }}>
@@ -247,33 +209,30 @@ function AcceptIncompleteSheet({
             <Text className="mt-1 text-[13px] leading-5 text-ink-2">
               Merci de renseigner{" "}
               <Text className="font-semibold">
-                l&apos;intégralité des informations demandées
+                vos coordonnées complètes
               </Text>{" "}
-              pour accepter cette sollicitation. Tant qu&apos;un palier requis
-              est incomplet, vous ne pouvez pas accepter cette mise en relation.
+              (prénom, initiale du nom, téléphone et e-mail) pour accepter
+              cette mise en relation. Le professionnel ne voit que votre
+              prénom et l&apos;initiale de votre nom.
             </Text>
           </View>
         </View>
 
-        {/* Liste des paliers à compléter */}
-        {tiers.length > 0 ? (
+        {/* Liste des coordonnées à compléter */}
+        {missingFields.length > 0 ? (
           <View className="rounded-xl bg-ivory-2 px-3.5 py-3">
             <Text
               className="font-mono text-[10px] uppercase text-ink-4"
               style={{ letterSpacing: 0.8, marginBottom: 8 }}
             >
-              Paliers à compléter
+              À renseigner
             </Text>
             <View style={{ gap: 6 }}>
-              {tiers.map((n) => (
-                <View key={n} className="flex-row items-center gap-2">
-                  <Ionicons
-                    name={TIER_ICON[n] ?? "ellipse-outline"}
-                    size={14}
-                    color={c.accent}
-                  />
+              {missingFields.map((f) => (
+                <View key={f} className="flex-row items-center gap-2">
+                  <Ionicons name={FIELD_ICON[f]} size={14} color={c.accent} />
                   <Text className="text-[13px] text-ink-2">
-                    Palier {n} · {TIER_LABEL[n] ?? ""}
+                    {CONTACT_FIELD_LABEL[f]}
                   </Text>
                 </View>
               ))}
@@ -358,7 +317,7 @@ function AcceptReadySheet({
               Tout est renseigné
             </Text>
             <Text className="mt-1 text-[13px] leading-5 text-ink-2">
-              Vos paliers requis sont désormais intégralement remplis. Vous
+              Vos coordonnées sont désormais complètes. Vous
               pouvez{" "}
               <Text className="font-semibold">
                 retourner à la sollicitation pour l&apos;accepter

@@ -1,7 +1,7 @@
 // components/referral-badge.tsx
 // Badge couronne de parrainage (pastille LinearGradient cliquable sur le hero)
 // + popup « Programme parrainage » (cf. public/prototype/pa.pdf) :
-// en-tête fondateur + stepper Used/Paid/Proud (ex-Bronze/Argent/Or) + 3 cards paliers (palier
+// en-tête fondateur + stepper Used/Paid/Proud (ex-Bronze/Argent/Or) + 3 cards niveaux (niveau
 // courant mis en avant) + carte CTA + bouton Fermer. Design only — aucune
 // donnée backend changée (réutilise tier / founderNumber / filleulCount).
 import { useState } from "react";
@@ -224,7 +224,7 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
   );
 }
 
-// Médaillon numéroté d'une card palier.
+// Médaillon numéroté d'une card niveau.
 function Medallion({ info }: { info: TierInfo }) {
   return (
     <LinearGradient
@@ -414,7 +414,7 @@ export function ReferralBadge({
                     <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: c.text }}>
                       {isOr ? (
                         <>
-                          Vous avez atteint le palier{" "}
+                          Vous avez atteint le niveau{" "}
                           <Text style={{ fontWeight: "700" }}>Or</Text> — vous êtes{" "}
                           <Text style={{ fontWeight: "700" }}>Governor</Text>.
                         </>
@@ -424,7 +424,7 @@ export function ReferralBadge({
                           <Text style={{ fontWeight: "700", color: VIOLET }}>
                             {remainingToOr} filleuls
                           </Text>{" "}
-                          pour atteindre le palier{" "}
+                          pour atteindre le niveau{" "}
                           <Text style={{ fontWeight: "700" }}>Or</Text> et devenir{" "}
                           <Text style={{ fontWeight: "700" }}>Governor</Text>.
                         </>
@@ -433,7 +433,7 @@ export function ReferralBadge({
                   </View>
                 </View>
 
-                {/* Cards paliers */}
+                {/* Cards niveaux */}
                 {TIER_INFO.map((info) => {
                   const isCurrent = info.tier === tier;
                   return (
@@ -483,7 +483,7 @@ export function ReferralBadge({
                               color: "#fff",
                             }}
                           >
-                            VOTRE PALIER
+                            VOTRE NIVEAU
                           </Text>
                         </View>
                       ) : null}
@@ -540,7 +540,7 @@ export function ReferralBadge({
                   }}
                 >
                   <Text style={{ fontSize: 14, lineHeight: 21, color: c.text }}>
-                    Parrainez des prospects pour monter de palier et devenir un{" "}
+                    Parrainez des prospects pour monter de niveau et devenir un{" "}
                     <Text style={{ fontWeight: "700", color: isDark ? c.gold : GOLD }}>Proud Buupper</Text>.
                     Votre lien se trouve dans l’onglet Parrainage.
                   </Text>

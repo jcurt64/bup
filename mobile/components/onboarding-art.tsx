@@ -301,9 +301,9 @@ export function ProsArt({ active }: { active: boolean }) {
 
       <Pop active={active} delay={420} rotate={3} style={{ right: 2, top: 26 }} float={5}>
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <IconTile name="funnel" bg={c.tintViolet} color={c.accViolet} />
+          <IconTile name="call" bg={c.tintViolet} color={c.accViolet} />
           <View>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: c.text }}>Ciblage par paliers</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: c.text }}>Contact via BUUPP</Text>
             <Text style={{ fontSize: 10, color: c.textSub }}>consentement clair</Text>
           </View>
         </Card>

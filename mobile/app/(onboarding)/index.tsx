@@ -80,7 +80,7 @@ const SLIDES: Slide[] = [
       </>
     ),
     subtitle:
-      "Vous choisissez qui peut vous contacter, à quel prix. Aucune donnée n'est transmise avant votre accord.",
+      "Vous choisissez qui peut vous contacter. Le pro ne voit que votre prénom et l'initiale de votre nom — appels et e-mails passent par BUUPP.",
     Art: BuuppersArt,
   },
   {

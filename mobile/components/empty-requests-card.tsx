@@ -247,13 +247,13 @@ export function EmptyRequestsCard() {
         </Text>
         <View style={{ flexDirection: "row", gap: 10, marginTop: 8, alignSelf: "stretch" }}>
           <Shortcut
-            icon="layers-outline"
-            label="Compléter mes données"
+            icon="id-card-outline"
+            label="Compléter mes coordonnées"
             onPress={() => router.push("/(prospect)/donnees")}
           />
           <Shortcut
-            icon="navigate-circle-outline"
-            label="Élargir ma zone"
+            icon="options-outline"
+            label="Mes préférences"
             onPress={() => router.push("/(prospect)/preferences")}
           />
         </View>

@@ -27,6 +27,7 @@ import {
   type CampaignContactFilters,
   type ProCampaignDetailFull,
 } from "../../lib/queries-pro-contacts";
+import { contactChannelsShort } from "../../lib/contact-channels";
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
 import { BALANCE_SOURCE_NOTE, PURCHASES_ENABLED } from "../../lib/purchases";
@@ -474,7 +475,7 @@ function BillingTab({ d }: { d: ProCampaignDetailFull }) {
             <View key={ct.id} className="flex-row items-center justify-between py-2.5" style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.borderSoft } : undefined}>
               <View className="flex-1 pr-2">
                 <Text className="text-[13.5px] text-ink" numberOfLines={1}>{ct.name}</Text>
-                <Text className="text-[11px] text-ink-4">{dateFr(ct.decidedAt)} · {ct.tierLabel}</Text>
+                <Text className="text-[11px] text-ink-4">{dateFr(ct.decidedAt)} · {contactChannelsShort(d.contactChannels ?? d.targeting.contactChannels)}</Text>
               </View>
               <View className="items-end" style={{ gap: 3 }}>
                 <Text className="font-mono text-[12.5px] text-ink">{eur(d.costPerContactEur)}</Text>
@@ -531,7 +532,7 @@ export default function ProCampaignDetailScreen() {
         {(d) => {
           const sm = statusMeta(d.status, c);
           const budgetPct = d.budgetEur > 0 ? Math.round((d.spentEur / d.budgetEur) * 100) : 0;
-          const ages = d.targeting.ages.length ? d.targeting.ages.join(", ") : "Tous";
+          const channelsLabel = contactChannelsShort(d.contactChannels ?? d.targeting.contactChannels);
           const planned = d.costPerContactEur > 0 ? Math.round(d.budgetEur / d.costPerContactEur) : 0;
           const TABS: { key: Tab; label: string }[] = [
             { key: "overview", label: "Vue d'ensemble" },
@@ -739,7 +740,7 @@ export default function ProCampaignDetailScreen() {
                             <View className="flex-1 pr-3">
                               <Text className="text-[14px] text-ink" numberOfLines={1}>{ct.name}</Text>
                               <Text className="text-[11.5px] text-ink-4">
-                                {ct.score != null ? `Score ${ct.score} · ` : ""}{ct.tierLabel} · {dateFr(ct.decidedAt)}
+                                {ct.score != null ? `Score ${ct.score} · ` : ""}{channelsLabel} · {dateFr(ct.decidedAt)}
                               </Text>
                             </View>
                             <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: ct.statusChip === "good" ? c.goodSoft : c.amberSoft }}>
@@ -764,10 +765,7 @@ export default function ProCampaignDetailScreen() {
                   {[
                     ["Objectif", d.objectiveLabel],
                     ["Sous-types", d.targeting.subTypes.length ? d.targeting.subTypes.join(", ") : "—"],
-                    ["Paliers", d.targeting.tierLabels.join(", ") || "—"],
-                    ["Zone", d.targeting.geoLabel],
-                    ["Rayon", d.targeting.radiusKm != null ? `${d.targeting.radiusKm} km` : "—"],
-                    ["Âges", ages],
+                    ["Mode de contact", `${channelsLabel} (via BUUPP)`],
                     ["Vérification", d.targeting.verifLabel],
                     ["Fiabilité minimum", fiabLabel(d.targeting.minFiabilite)],
                     ["Durée", d.targeting.days != null ? `${d.targeting.days} jour${d.targeting.days > 1 ? "s" : ""}` : (d.targeting.durationKey ?? "—")],

@@ -3,8 +3,8 @@
 // téléphone, erreurs 422/429/403) → invalidation des vues impactées
 // (relations/wallet/score) = synchro web⇄mobile (§6.1). Parité web
 // (Prospect.jsx fn Relations) : 4 cartes de stats, barre de filtres
-// (Montant / Date / Palier / Autour de moi / Flash deals), cartes avec tous
-// les paliers requis + motif + Accepter/Refuser directs, historique avec
+// (Montant / Date / Flash deals), cartes avec le mode de contact (téléphone /
+// e-mail via BUUPP) + motif + Accepter/Refuser directs, historique avec
 // badge FLASH, statut séquestre/crédité et « Total accepté ».
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,9 +31,9 @@ import { useProspectRelations } from "../../lib/queries";
 import {
   applyRelFilters,
   REL_FILTER_DEFAULTS,
-  tierListLabel,
   type RelFilterValues,
 } from "../../lib/relation-filters";
+import { contactChannelsLabel, contactChannelsShort } from "../../lib/contact-channels";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 import type { MovementRelation, Relation } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
@@ -111,9 +111,8 @@ function toMovementRelation(r: Relation): MovementRelation {
     brief: r.brief,
     reward: r.reward,
     tier: r.tier,
-    // Propage les vrais paliers exigés par la campagne (pour le garde-fou
-    // « données complètes » à l'acceptation) ; repli sur [r.tier] si absent.
-    tiers: r.tiers && r.tiers.length > 0 ? r.tiers : [r.tier],
+    tiers: r.tiers ?? null,
+    contactChannels: r.contactChannels ?? null,
     // Objectif (ATT iOS pour « Publicité digitale ») — cf. relation-decision.
     objectiveId: r.objectiveId ?? null,
     timer: r.timer,
@@ -147,7 +146,7 @@ const isAwaitingDecision = (r: Relation) =>
 
 // ── Card historique (cf. det.html) ─────────────────────────────────
 // Barre d'accent (vert accepté / corail refusé), avatar dégradé violet,
-// nom + secteur, date, séparateur, chip palier + chip statut + gain.
+// nom + secteur, date, séparateur, chip mode de contact + chip statut + gain.
 function HistoryRow({
   r,
   onPress,
@@ -254,7 +253,7 @@ function HistoryRow({
               style={{ height: 1, backgroundColor: R.DLINE, marginTop: 12, marginBottom: 12 }}
             />
 
-            {/* Palier · statut · gain */}
+            {/* Mode de contact · statut · gain */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <View
                 style={{
@@ -269,12 +268,12 @@ function HistoryRow({
                   borderColor: R.DAMBER_BD,
                 }}
               >
-                <Ionicons name="trending-up" size={12} color={R.DAMBER_TXT} />
+                <Ionicons name="chatbubbles-outline" size={12} color={R.DAMBER_TXT} />
                 <Text
                   numberOfLines={1}
                   style={{ fontSize: 12.5, fontWeight: "600", color: R.DAMBER_TXT }}
                 >
-                  {tierListLabel(r)}
+                  {contactChannelsShort(r.contactChannels)}
                 </Text>
               </View>
               <View
@@ -473,7 +472,7 @@ const REL_CARD_W = Math.min(300, Dimensions.get("window").width - 72);
 
 // Card d'une sollicitation (demande en attente) dans le carrousel — modèle
 // repris des flash deals, mais SANS les labels « Flash Deal »/« Gains ×N » :
-// pill « Nouvelle demande » + badge palier. « Voir le détail » ouvre le détail
+// pill « Nouvelle demande » + badge mode de contact. « Voir le détail » ouvre le détail
 // (accepter / refuser).
 function SollicitationCard({
   r,
@@ -503,7 +502,7 @@ function SollicitationCard({
   const left = end > start ? Math.max(0, Math.min(1, (end - now) / (end - start))) : 1;
   const expired = end > 0 && end <= now;
   // Sollicitation déjà décidée → pastille « Acceptée » (✓) ou « Refusée »
-  // (cf. mécanisme flash deals), à la place du badge palier.
+  // (cf. mécanisme flash deals), à la place du badge mode de contact.
   const accepted = r.relationStatus === "accepted" || r.decision === "Acceptée";
   const refused = r.relationStatus === "refused" || r.decision === "Refusée";
   return (
@@ -613,8 +612,8 @@ function SollicitationCard({
                   borderColor: R.DVL,
                 }}
               >
-                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
-                  {tierListLabel(r)}
+                <Text numberOfLines={2} style={{ fontSize: 12, fontWeight: "700", color: R.DVD }}>
+                  {contactChannelsLabel(r.contactChannels)}
                 </Text>
               </View>
             )}

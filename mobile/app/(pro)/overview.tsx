@@ -423,7 +423,7 @@ function EmptyHero({ colors }: { colors: readonly [string, string] }) {
 
 // ── Section « Dernières acceptations » — port fidèle de la maquette
 // public/prototype/ok.html (buupp-acceptances.jsx) : bandeau de stats,
-// carte liste (avatar dégradé, campagne + icône, badge palier, date,
+// carte liste (avatar dégradé, campagne + icône, date,
 // coût, jauge de score), légende BUUPP SCORE. ─────────────────────────
 
 // Couleur de la jauge / pastille selon le score (sur 1000). Couleurs
@@ -508,7 +508,7 @@ function ScoreRing({ score }: { score: number }) {
 type Acceptance = ProOverview["lastAcceptances"][number];
 
 // Une ligne d'acceptation : avatar initiales (dégradé thémé), nom,
-// campagne + icône, badge palier + date de réception, coût, jauge.
+// campagne + icône, date de réception, coût, jauge.
 function AccRow({ a, last, colors }: { a: Acceptance; last: boolean; colors: readonly [string, string] }) {
   const { c } = useTheme();
   return (
@@ -543,22 +543,6 @@ function AccRow({ a, last, colors }: { a: Acceptance; last: boolean; colors: rea
           </Text>
         </View>
         <View className="flex-row flex-wrap items-center" style={{ gap: 8, marginTop: 8 }}>
-          <Text
-            style={{
-              fontSize: 10.5,
-              fontWeight: "600",
-              color: c.accVioletDeep,
-              backgroundColor: c.tintViolet,
-              borderWidth: 1,
-              borderColor: c.violetSoft,
-              borderRadius: 6,
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              overflow: "hidden",
-            }}
-          >
-            Palier {a.tier}
-          </Text>
           <FiabiliteBadge priority={a.priority} />
           <View className="flex-row items-center" style={{ gap: 4 }}>
             <Ionicons name="time-outline" size={12} color={c.ink4} />
@@ -620,7 +604,7 @@ function AccSummary({ items, colors }: { items: Acceptance[]; colors: readonly [
   );
 }
 
-// Légende des paliers de score (BUUPP SCORE) — pastilles colorées.
+// Légende des niveaux de score (BUUPP SCORE) — pastilles colorées.
 function ScoreLegend() {
   const { c } = useTheme();
   const items: readonly [string, string][] = [
@@ -907,85 +891,6 @@ function PerformanceCard() {
   );
 }
 
-// ── « Répartition par palier » — port web (tierBreakdown de l'overview) :
-// volume + coût cumulés depuis l'ouverture ; jauge = contacts / 40. ──────
-function TierBreakdownCard({ tiers }: { tiers: ProOverview["tierBreakdown"] }) {
-  const { c } = useTheme();
-  const empty = tiers.every((t) => t.contacts === 0);
-  return (
-    <OvCard
-      icon="layers"
-      color={c.accViolet}
-      motif="stripes"
-      title="Répartition par palier"
-      sub="Coût et volume cumulés depuis l'ouverture"
-    >
-      {empty ? (
-        <View className="items-center" style={{ paddingVertical: 16 }}>
-          <Ionicons name="layers-outline" size={26} color={c.ink4} />
-          <Text className="mt-2 text-center" style={{ fontSize: 14, fontWeight: "500", color: c.text }}>
-            Aucun palier rempli
-          </Text>
-          <Text className="mt-0.5 text-center" style={{ fontSize: 12, color: c.ink4 }}>
-            Dès que des prospects accepteront vos campagnes, ils se répartiront ici par palier.
-          </Text>
-        </View>
-      ) : (
-        tiers.map((r, i) => {
-          const tc = TIER_COLORS(c)[(r.tier - 1) % 5];
-          return (
-          <View
-            key={r.tier}
-            style={{ paddingVertical: 10, borderBottomWidth: i < tiers.length - 1 ? 1 : 0, borderBottomColor: c.borderSoft }}
-          >
-            <View className="flex-row items-center justify-between" style={{ gap: 8, marginBottom: 6 }}>
-              <View className="flex-row items-center" style={{ gap: 6, flexShrink: 1 }}>
-                <View
-                  className="flex-row items-center"
-                  style={{ gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: withAlpha(tc.color, "1F") }}
-                >
-                  <Ionicons name={tc.icon} size={11} color={tc.color} />
-                  <Text style={{ fontSize: 10.5, fontWeight: "800", color: tc.color }}>P{r.tier}</Text>
-                </View>
-                <Text numberOfLines={1} style={{ fontSize: 13, color: c.text, flexShrink: 1 }}>
-                  {r.label}
-                </Text>
-              </View>
-              <Text className="font-mono" style={{ fontSize: 11.5, color: c.textSub }}>
-                {r.contacts} contact{r.contacts > 1 ? "s" : ""} · {eur(r.totalCents / 100)}
-              </Text>
-            </View>
-            <View style={{ height: 8, borderRadius: 999, overflow: "hidden", backgroundColor: c.track }}>
-              <LinearGradient
-                colors={[shade(tc.color, 0.2), tc.color]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  width: `${Math.max(r.contacts > 0 ? 4 : 0, Math.round(Math.min(1, r.contacts / 40) * 100))}%`,
-                  height: "100%",
-                  borderRadius: 999,
-                }}
-              />
-            </View>
-          </View>
-          );
-        })
-      )}
-    </OvCard>
-  );
-}
-
-// Couleur + icône par palier (mêmes familles que « Mes données » prospect).
-const TIER_COLORS = (
-  c: ReturnType<typeof useTheme>["c"],
-): { color: string; icon: keyof typeof Ionicons.glyphMap }[] => [
-  { color: c.accViolet, icon: "finger-print" },
-  { color: c.accBlue, icon: "map" },
-  { color: c.accGreen, icon: "heart" },
-  { color: c.accAmber, icon: "briefcase" },
-  { color: c.accCoral, icon: "diamond" },
-];
-
 // ── Modale « Toutes les acceptations » — port de AllAcceptancesModal
 // (web) : 50 plus récentes via GET /api/pro/acceptances. ─────────────────
 function AllAcceptancesSheet({
@@ -1139,9 +1044,8 @@ export default function ProOverviewScreen() {
                 />
               </View>
 
-              {/* PERFORMANCE + RÉPARTITION PAR PALIER (parité web) */}
+              {/* PERFORMANCE (parité web) */}
               <PerformanceCard />
-              <TierBreakdownCard tiers={d.tierBreakdown ?? []} />
 
               {/* DERNIÈRES ACCEPTATIONS */}
               <SectionTitle

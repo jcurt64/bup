@@ -1,12 +1,12 @@
 // Fiche prospect — bottom-sheet détail d'un contact acquis (maquette co2.html).
 // Overlay scrim foncé + panneau bas arrondi (radius 28) ; en-tête avatar +
-// carte « IDENTIFICATION · PALIER n » (Prénom / Nom / e-mail alias / téléphone
-// / date de naissance), encart RGPD, rangée d'actions + bouton Fermer.
+// carte « Coordonnées » (Prénom / Initiale du nom / mode de contact), encart
+// RGPD, rangée d'actions + bouton Fermer.
 //
 // Le design source est en thème « forest » (verts) : toutes les couleurs vives
 // sont mappées sur l'accent du thème courant (useContactPalette) pour s'adapter
 // aux thèmes buupp / sombre / fushia. Les coordonnées affichées sont MASQUÉES
-// par le serveur (alias watermarqué) — invariant RGPD, cf. contacts.tsx.
+// par le serveur : le pro ne voit que le prénom et l'initiale du nom.
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,8 +17,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../lib/theme";
 import { useApi } from "../lib/api";
 import type { ProContactDetails, ProDetailTier } from "../lib/queries";
+import { contactChannelsShort, nomInitial } from "../lib/contact-channels";
 import type { ProContactRow } from "../lib/queries-pro-contacts";
-import { ContactActions, maskPhoneDisplay } from "./contact-actions";
+import { ContactActions } from "./contact-actions";
 import {
   avatarGradient,
   categoryStyle,
@@ -28,14 +29,6 @@ import {
 
 export { initials, useContactPalette };
 
-// Métadonnées d'affichage par palier (icône Ionicons + couleur + n°).
-const TIER_META: Record<string, { n: number; color: string; ion: keyof typeof Ionicons.glyphMap }> = {
-  identity: { n: 1, color: "#4F46E5", ion: "person-outline" },
-  localisation: { n: 2, color: "#0D9488", ion: "location-outline" },
-  vie: { n: 3, color: "#D97706", ion: "heart-outline" },
-  pro: { n: 4, color: "#1F2937", ion: "briefcase-outline" },
-  patrimoine: { n: 5, color: "#DB2777", ion: "home-outline" },
-};
 // Fiabilité (alignée sur le web) : Haute = vert (prospect fiable),
 // Moyenne = ambre, Basse = rouge.
 const PRIORITY_OPTS: { v: number; label: string; color: string }[] = [
@@ -184,6 +177,17 @@ export function ContactDetailSheet({
   if (!contact) return null;
 
   const NR = "— non renseigné —";
+  // Prénom + initiale du nom : lus dans la réponse détails (items « Prénom » /
+  // « Nom » / « Initiale ») ; repli sur le nom affiché de la liste.
+  const identity = (() => {
+    const items = tiers.flatMap((t) => t.items);
+    const find = (re: RegExp) =>
+      items.find((it) => re.test(it.label) && it.value)?.value?.trim() ?? "";
+    const parts = (contact?.name ?? "").trim().split(/\s+/);
+    const prenom = find(/^pr[ée]nom/i) || parts[0] || "";
+    const initiale = nomInitial(find(/^(nom|initiale)/i) || parts[1] || "");
+    return { prenom, initiale };
+  })();
   const cat = categoryStyle(contact.campaignObjective);
   const list = Array.isArray(siblings) && siblings.length ? siblings : [contact];
   const idx = Math.max(0, list.findIndex((s) => s.relationId === contact.relationId));
@@ -439,7 +443,7 @@ export function ContactDetailSheet({
             </Pressable>
           </View>
 
-          {/* Paliers de données payées (chargés via l'API détails) */}
+          {/* Coordonnées : prénom + initiale du nom + mode de contact (via BUUPP) */}
           {status === "loading" ? (
             <Text style={{ textAlign: "center", color: p.muted, fontSize: 13, paddingVertical: 24 }}>
               Chargement des informations…
@@ -450,52 +454,29 @@ export function ContactDetailSheet({
                 Impossible de charger les détails pour le moment. Réessayez dans un instant.
               </Text>
             </View>
-          ) : tiers.length === 0 ? (
-            <Text style={{ textAlign: "center", color: p.muted, fontSize: 13, paddingVertical: 20 }}>
-              Aucune catégorie de données disponible pour cette campagne.
-            </Text>
           ) : (
-            tiers.map((t) => {
-              const m = TIER_META[t.key] ?? { n: 0, color: p.accent, ion: "document-outline" as const };
-              return (
-                <View
-                  key={t.key}
-                  style={{ marginTop: 14, backgroundColor: p.card, borderRadius: 18, borderWidth: 1, borderColor: p.border, overflow: "hidden" }}
-                >
-                  <View
-                    className="flex-row items-center justify-between"
-                    style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: p.field, borderBottomWidth: 1, borderBottomColor: p.line }}
-                  >
-                    <View className="flex-row items-center" style={{ gap: 9, flex: 1, minWidth: 0 }}>
-                      <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: m.color, alignItems: "center", justifyContent: "center" }}>
-                        <Ionicons name={m.ion} size={15} color="#FFFFFF" />
-                      </View>
-                      <Text className="font-serif-bold" style={{ fontSize: 14, color: p.text }} numberOfLines={1}>
-                        {t.label}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 9, fontWeight: "700", letterSpacing: 0.8, color: p.muted, textAlign: "right" }}>
-                      PALIER {m.n}
-                    </Text>
-                  </View>
-                  {t.items.map((it, i) => (
-                    <InfoRow
-                      key={i}
-                      label={it.label}
-                      value={
-                        it.value
-                          ? it.label === "Téléphone"
-                            ? maskPhoneDisplay(it.value)
-                            : it.value
-                          : NR
-                      }
-                      mono={!!it.value && (it.label.startsWith("E-mail") || it.label === "Téléphone")}
-                      last={i === t.items.length - 1}
-                    />
-                  ))}
+            <View
+              style={{ marginTop: 14, backgroundColor: p.card, borderRadius: 18, borderWidth: 1, borderColor: p.border, overflow: "hidden" }}
+            >
+              <View
+                className="flex-row items-center"
+                style={{ gap: 9, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: p.field, borderBottomWidth: 1, borderBottomColor: p.line }}
+              >
+                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: p.accent, alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="person-outline" size={15} color="#FFFFFF" />
                 </View>
-              );
-            })
+                <Text className="font-serif-bold" style={{ fontSize: 14, color: p.text }} numberOfLines={1}>
+                  Coordonnées
+                </Text>
+              </View>
+              <InfoRow label="Prénom" value={identity.prenom || NR} />
+              <InfoRow label="Initiale du nom" value={identity.initiale ? `${identity.initiale}.` : NR} />
+              <InfoRow
+                label="Mode de contact"
+                value={`${contactChannelsShort(contact.contactChannels)} (via BUUPP)`}
+                last
+              />
+            </View>
           )}
 
           {/* Encart RGPD */}
@@ -531,10 +512,10 @@ export function ContactDetailSheet({
               />
             </View>
             <Text style={{ flex: 1, fontSize: 12, color: p.accentInk, lineHeight: 18 }}>
-              L’e-mail est un{" "}
-              <Text style={{ fontWeight: "600" }}>alias sécurisé watermarqué</Text> :
-              tout message y est routé vers le prospect, et toute fuite reste
-              imputable. Accès journalisé conformément à notre politique RGPD.
+              Le numéro et l’adresse e-mail du prospect{" "}
+              <Text style={{ fontWeight: "600" }}>ne vous sont jamais communiqués</Text> :
+              appels et e-mails passent par la plateforme BUUPP. Accès journalisé
+              conformément à notre politique RGPD.
             </Text>
           </View>
 

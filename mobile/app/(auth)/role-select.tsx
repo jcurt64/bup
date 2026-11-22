@@ -40,7 +40,7 @@ export default function RoleSelect() {
       >
         <Text className="text-lg font-medium text-ink">Particulier</Text>
         <Text className="mt-1 text-sm text-ink-3">
-          Je monétise mes données et accepte des mises en relation.
+          Je suis rémunéré pour accepter des mises en relation.
         </Text>
       </Pressable>
 

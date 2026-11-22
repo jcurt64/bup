@@ -1,7 +1,6 @@
 // Niveaux de vérification — /api/prospect/verification.
-// Parité Prospect.jsx fn VerifTiers (web) : on parle de « niveau » (et non
-// de « palier ») pour éviter la confusion avec les paliers de données 1 à 5
-// de « Mes données ». Bannière du niveau actuel (« X % débloqué »), frise
+// Parité Prospect.jsx fn VerifTiers (web) : on parle de « niveau ».
+// Bannière du niveau actuel (« X % débloqué »), frise
 // 1-2-3, cartes par niveau avec avantages débloqués.
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,7 +21,7 @@ const TIERS = [
     done: "Compte créé",
     icon: "person-outline" as const,
     full: "Compte créé. Niveau attribué automatiquement à l'inscription.",
-    perks: ["Accès aux campagnes standard", "Paliers 1 et 2"],
+    perks: ["Accès aux campagnes standard"],
     soft: "#EEF2FF",
     fg: "#4F46E5",
     dark: ["#334155", "#1E293B"] as const,
@@ -34,7 +33,7 @@ const TIERS = [
     done: "Téléphone vérifié",
     icon: "call-outline" as const,
     full: "Numéro de téléphone vérifié par SMS.",
-    perks: ["Demandes mieux rémunérées", "Paliers 1 à 4"],
+    perks: ["Demandes mieux rémunérées", "Gains ×1,5 sur les campagnes ciblant les vérifiés"],
     soft: "#ECFDF5",
     fg: "#15803D",
     dark: ["#4F46E5", "#4338CA"] as const,
@@ -46,7 +45,7 @@ const TIERS = [
     done: "Rendez-vous physique accepté",
     icon: "shield-checkmark-outline" as const,
     full: "Rendez-vous physique accepté.",
-    perks: ["Toutes les campagnes ouvertes", "Tous les paliers · 1 à 5"],
+    perks: ["Toutes les campagnes ouvertes", "Gains ×2 sur les campagnes ciblant les certifiés"],
     soft: "#EEF2FF",
     fg: "#4F46E5",
     dark: ["#166534", "#143C1E"] as const,
@@ -277,7 +276,7 @@ export default function Verification() {
                         </View>
                       ) : null}
                       {/* CTA niveau Vérifié = vérification du téléphone par SMS,
-                          qui se fait dans « Mes données » (palier Identification),
+                          qui se fait dans « Mes données » (Mes coordonnées),
                           comme sur le web (bupp:goto-tab → donnees). */}
                       {!reached && t.key === "verifie" ? (
                         <Pressable

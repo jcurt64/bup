@@ -1,9 +1,9 @@
 // BUUPP Score — /api/prospect/score (indice de désirabilité /1000 :
 // complétude + fraîcheur + fiabilité). Présentation « épurée / mode » :
-// carte score sombre à motifs, échelle des paliers, 3 anneaux crantés pour
+// carte score sombre à motifs, échelle des niveaux, 3 anneaux crantés pour
 // les pourcentages, mini-graphe d'évolution, cartes claires à motifs.
 // Toutes les couleurs viennent du thème (4 coloris) ; la logique de calcul
-// (paliers, pts, wording des conseils) est inchangée (parité web).
+// (niveaux, pts, wording des conseils) est inchangée (parité web).
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -19,7 +19,7 @@ import { useProspectScore, useProspectScoreHistory } from "../../lib/queries";
 import { useTheme } from "../../lib/theme";
 import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 
-// ── Paliers (alignés sur le web ScorePanel) ──────────────────────────────────
+// ── Niveaux de score (alignés sur le web ScorePanel) ──────────────────────────────────
 const TIER_THRESHOLDS = [
   { min: 0, label: "Découverte" },
   { min: 400, label: "Solide" },
@@ -201,7 +201,7 @@ export default function ScoreScreen() {
         </View>
       </View>
       <Text style={{ fontSize: 13.5, lineHeight: 20, color: c.textSub, marginTop: -4 }}>
-        Un score sur 1000 : complétude de vos paliers, fraîcheur de vos données et fiabilité
+        Un score sur 1000 : complétude de vos coordonnées, fraîcheur de vos données et fiabilité
         (la note des professionnels).
       </Text>
 
@@ -231,11 +231,11 @@ export default function ScoreScreen() {
           // ── Hints (wording identique au web) ────────────────────────────
           const completenessHint =
             completeness.filled >= completeness.total
-              ? "Tous vos paliers sont validés — bravo !"
+              ? "Toutes vos coordonnées sont renseignées — bravo !"
               : `Renseignez ${
                   completeness.total - completeness.filled === 1
-                    ? "votre dernier palier"
-                    : `les ${completeness.total - completeness.filled} paliers manquants`
+                    ? "votre dernière information manquante"
+                    : `les ${completeness.total - completeness.filled} informations manquantes`
                 } dans Mes données pour gagner ${completenessGap} pts.`;
           const freshnessHint =
             freshness.pct >= 100
@@ -255,7 +255,7 @@ export default function ScoreScreen() {
               key: "completeness",
               label: "Complétude",
               pct: completeness.pct,
-              sub: `${completeness.filled}/${completeness.total} paliers`,
+              sub: `${completeness.filled}/${completeness.total} renseignées`,
               color: c.violet,
               icon: "layers-outline" as const,
               gap: completenessGap,
@@ -312,7 +312,7 @@ export default function ScoreScreen() {
 
           return (
             <>
-              {/* ── 1. Carte score : sombre, motifs, échelle des paliers ── */}
+              {/* ── 1. Carte score : sombre, motifs, échelle des niveaux ── */}
               <View
                 style={{
                   borderRadius: 28,
@@ -383,7 +383,7 @@ export default function ScoreScreen() {
                     </Text>
                   </View>
 
-                  {/* Échelle des paliers : 4 segments égaux, remplis selon le score */}
+                  {/* Échelle des niveaux : 4 segments égaux, remplis selon le score */}
                   <View style={{ marginTop: 22, flexDirection: "row", gap: 5 }}>
                     {TIER_THRESHOLDS.map((t, i) => {
                       const max = TIER_THRESHOLDS[i + 1]?.min ?? 1000;
@@ -433,7 +433,7 @@ export default function ScoreScreen() {
                         </Text>
                       </>
                     ) : (
-                      "Palier maximal atteint — bravo !"
+                      "Niveau maximal atteint — bravo !"
                     )}
                   </Text>
                 </LinearGradient>

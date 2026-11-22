@@ -26,12 +26,12 @@ import { useTheme } from "../../lib/theme";
 type FormKey = Exclude<keyof ProInfo, "capitalSocialEur">;
 
 // Section « Tarification » — formule unique (plus de Starter / Pro) : aucun
-// frais d'accès, campagnes illimitées, 5 paliers ouverts, jusqu'à 500
+// frais d'accès, campagnes illimitées, contact via BUUPP, jusqu'à 500
 // contacts par campagne ; seule la commission BUUPP par acceptation.
 const PRICING_FEATURES = [
   "Aucun frais d'accès ni abonnement",
   "Campagnes illimitées",
-  "Les 5 paliers de données accessibles",
+  "Contact par téléphone et/ou e-mail via BUUPP",
   `Jusqu'à ${MAX_PROSPECTS_PER_CAMPAIGN} contacts par campagne`,
 ];
 

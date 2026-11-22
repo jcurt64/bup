@@ -61,8 +61,6 @@ const LINKS: {
   { slug: "cookies", emoji: "🍪", color: "#F2B65A", labelOverride: "Politique des cookies" }, // amber
   { slug: "contact", icon: "chatbubbles-outline", color: "#0EA5E9", labelOverride: "Contacter le support" }, // cyan
   { slug: "contact-dpo", icon: "mail-outline", color: "#5B8DEF", labelOverride: "Contact DPO" }, // sky
-  { slug: "bareme", icon: "bar-chart-outline", color: "#16A34A", labelOverride: "Barème des paliers" }, // good
-  { slug: "minimisation", icon: "funnel-outline", color: "#B45309", labelOverride: "Minimisation" }, // gold
   { slug: "aide", icon: "book-outline", color: "#5B3FD6", labelOverride: "Documentation" }, // violet-deep
 ];
 
@@ -277,7 +275,7 @@ export default function AccountPage() {
   function confirmDelete() {
     Alert.alert(
       "Supprimer définitivement votre compte ?",
-      "Toutes vos données (paliers, mises en relation, gains) seront effacées. Cette action est irréversible.",
+      "Toutes vos données (coordonnées, mises en relation, gains) seront effacées. Cette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
         {

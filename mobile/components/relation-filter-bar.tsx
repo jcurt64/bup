@@ -1,6 +1,6 @@
 // Barre de filtres des sollicitations en attente — réplique mobile de
-// RelFilterBar (Prospect.jsx) : 4 chips déroulants (Montant / Date / Palier /
-// Autour de moi) avec compteur par option, bascule Flash deals, « Sans
+// RelFilterBar (Prospect.jsx) : chips déroulants (Montant / Date)
+// avec compteur par option, bascule Flash deals, « Sans
 // filtre », compteur « X / Y résultats » et bande des filtres actifs.
 // Sur mobile, un chip ouvre une bottom-sheet d'options (au lieu d'un menu).
 import { Ionicons } from "@expo/vector-icons";
@@ -40,7 +40,7 @@ export function RelationFilterBar({
   const active = relFiltersActive(values);
   const set = (id: RelFilterId, v: string) => onChange({ ...values, [id]: v });
   const reset = () =>
-    onChange({ amount: "all", date: "all", tier: "all", distance: "all", flash: false });
+    onChange({ amount: "all", date: "all", flash: false });
   const flashSoft = isDark ? "rgba(214,67,47,0.18)" : "#F7E0DD";
 
   const openDef = REL_FILTERS.find((f) => f.id === open) ?? null;

@@ -3,16 +3,16 @@
 // quand le pro quitte puis revient sur « Créer une campagne ».
 import * as SecureStore from "expo-secure-store";
 
-const KEY = "buupp.campaign.draft.v1";
+// v2 : pivot mise en relation (modes de contact, plus de paliers/géo/âge).
+const KEY = "buupp.campaign.draft.v2";
 
 export type CampaignDraft = {
   objectiveId: string;
   step: number;
   subTypes: string[];
   duration: string;
-  tiers: number[];
-  geo: string;
-  ages: string[];
+  /** Modes de contact cochés par le pro (téléphone / e-mail). */
+  contactChannels: ("phone" | "email")[];
   verif: string;
   minFiab: number;
   excludeCertified: boolean;
@@ -24,8 +24,6 @@ export type CampaignDraft = {
   kwFilter: boolean;
   brief: string;
   // Champs ajoutés pour la parité web (optionnels : brouillons antérieurs).
-  geoTarget?: unknown;
-  radiusKm?: number;
   /** Jour de lancement « AAAA-MM-JJ » (heure locale). */
   startDay?: string;
   poolMode?: string;

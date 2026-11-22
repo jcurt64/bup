@@ -1,6 +1,6 @@
 // Wizard de création de campagne (8 étapes, miroir du dashboard web) :
-// 1 Objectif (sous-types) · 2 Dates (durée) · 3 Données (paliers) ·
-// 4 Ciblage (géo/vérif) · 5 Budget (coût/contacts) · 6 Mots-clés ·
+// 1 Objectif (sous-types) · 2 Dates (durée) · 3 Contact (téléphone/e-mail) ·
+// 4 Ciblage (vérif/fiabilité) · 5 Budget (coût/contacts) · 6 Mots-clés ·
 // 7 Description · 8 Récap (+ lancement réel POST /api/pro/campaigns).
 // L'objectif est passé via ?id= depuis la grille « Créer une campagne ».
 import { Ionicons } from "@expo/vector-icons";
@@ -12,24 +12,22 @@ import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } fr
 import { Card, eur, ScrollScreen } from "../../components/screen";
 import { OBJECTIVES } from "../../lib/pro-objectives";
 import {
-  AGE_RANGES,
-  AGE_RANGES_NO_TOUS,
-  AROUND_RADII,
   BRIEF_MAX_LENGTH,
   cpcRange,
   DURATIONS,
   durMs,
-  GEO_ZONES,
-  geoSummary,
   KW_SUGGESTIONS,
-  TIER_REWARDS,
-  TIER_SUBS,
   VERIF_LEVELS,
   type DurationKey,
-  type GeoTarget,
-  type TierNum,
   type VerifLevel,
 } from "../../lib/pro-pricing";
+import {
+  CHANNEL_ICON,
+  CONTACT_CHANNELS,
+  contactChannelsShort,
+  readContactChannels,
+  type ContactChannel,
+} from "../../lib/contact-channels";
 import {
   campaignExcludesPastAcceptors,
   useCreateCampaign,
@@ -45,11 +43,9 @@ import { BottomSheet } from "../../components/bottom-sheet";
 import {
   ExcludeCertifiedSheet,
   InsufficientBalanceSheet,
-  MultiTierSheet,
   type InsufficientDetails,
 } from "../../components/campaign-wizard-sheets";
 import { Confetti } from "../../components/confetti";
-import { GeoTargetAutocomplete } from "../../components/geo-target-autocomplete";
 import { RechargeSheet } from "../../components/recharge-sheet";
 import { Slider } from "../../components/slider";
 import { useTheme, type ThemeMode } from "../../lib/theme";
@@ -65,7 +61,7 @@ const HERO_GRADIENT: Record<ThemeMode, readonly [string, string, string]> = {
   fushia: ["#E84F98", "#D63B80", "#7A2350"],
 };
 
-const STEPS = ["Objectif", "Dates", "Données", "Ciblage", "Budget", "Mots-clés", "Description", "Récap"];
+const STEPS = ["Objectif", "Dates", "Contact", "Ciblage", "Budget", "Mots-clés", "Description", "Récap"];
 
 const BRIEF_PLACEHOLDER = "Ex : offre de remise de 10% les 10 premiers clients du jour…";
 
@@ -122,19 +118,6 @@ function readKeywords(v: unknown): string[] {
   }
   return [];
 }
-/** Valide grossièrement une cible géo relue (brouillon / duplication). */
-function readGeoTarget(v: unknown): GeoTarget | null {
-  if (!v || typeof v !== "object") return null;
-  const t = v as { type?: unknown; nom?: unknown; code?: unknown };
-  if ((t.type === "ville" || t.type === "dept" || t.type === "region") && typeof t.nom === "string" && typeof t.code === "string") {
-    const g = v as GeoTarget;
-    if (g.type === "ville" && !Array.isArray(g.codesPostaux)) return null;
-    if (g.type === "region" && !Array.isArray(g.deptCodes)) return null;
-    return g;
-  }
-  return null;
-}
-
 // — Petite pastille sélectionnable réutilisée par les étapes (chips). —
 function Chip({
   label,
@@ -323,13 +306,8 @@ export default function ProWizard() {
   const rawRaison = info.data?.raisonSociale?.trim() ?? "";
   const infoComplete = rawRaison.length > 0 && !rawRaison.includes("@") && !!info.data?.ville?.trim();
 
-  // Paliers accessibles = ceux autorisés par la finalité (minimisation RGPD).
-  // Formule unique : les 5 paliers sont ouverts à tous les pros.
-  const allowedTiers = useMemo(() => obj?.allowedTiers ?? [1, 2, 3, 4, 5], [obj]);
   const maxProspects = MAX_PROSPECTS_PER_CAMPAIGN;
   const availableCents = Math.round((wallet.data?.walletAvailableEur ?? 0) * 100);
-  // Adresse de l'établissement — requise par le ciblage « Autour de moi ».
-  const proAddress = info.data?.adresse?.trim() ?? "";
 
   const [step, setStep] = useState(1);
   const [maxStep, setMaxStep] = useState(1);
@@ -337,14 +315,8 @@ export default function ProWizard() {
   // Toujours aujourd'hui : le serveur démarre la campagne à sa validation.
   const [startDay] = useState(() => dayFromOffset(0));
   const [duration, setDuration] = useState<DurationKey>("7d");
-  const [tiers, setTiers] = useState<number[]>([1]);
-  const [tier1Notice, setTier1Notice] = useState(false);
-  const [multiTierOpen, setMultiTierOpen] = useState(false);
-  const [multiTierShown, setMultiTierShown] = useState(false);
-  const [geo, setGeo] = useState("national");
-  const [geoTarget, setGeoTarget] = useState<GeoTarget | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(10);
-  const [ages, setAges] = useState<Set<string>>(new Set());
+  // Modes de contact (téléphone et/ou e-mail, via BUUPP) — non vide.
+  const [channels, setChannels] = useState<ContactChannel[]>(["phone", "email"]);
   const [verif, setVerif] = useState<VerifLevel>("p0");
   const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
   const [excludeCertified, setExcludeCertified] = useState(false);
@@ -392,13 +364,6 @@ export default function ProWizard() {
     if (!excludePastTouched) setExcludePast(excludePastDefault(id));
   }, [id, excludePastTouched]);
 
-  // Message « palier 1 obligatoire » transitoire (4 s, comme le web).
-  useEffect(() => {
-    if (!tier1Notice) return;
-    const t = setTimeout(() => setTier1Notice(false), 4000);
-    return () => clearTimeout(t);
-  }, [tier1Notice]);
-
   // Restaure le brouillon au montage (si c'est le même objectif). Tant que
   // l'hydratation n'est pas finie, on NE sauvegarde PAS (sinon l'état par
   // défaut écraserait le brouillon). En mode duplication, le brouillon est
@@ -411,11 +376,9 @@ export default function ProWizard() {
       if (d && d.objectiveId === id) {
         setSubTypes(new Set(d.subTypes));
         setDuration(d.duration as DurationKey);
-        setTiers(d.tiers);
-        setGeo(d.geo);
-        setGeoTarget(readGeoTarget(d.geoTarget));
-        if (typeof d.radiusKm === "number") setRadiusKm(d.radiusKm);
-        setAges(new Set(d.ages ?? []));
+        if (Array.isArray(d.contactChannels) && d.contactChannels.length > 0) {
+          setChannels(readContactChannels(d.contactChannels));
+        }
         setVerif(d.verif as VerifLevel);
         setMinFiab(d.minFiab ?? 0);
         setExcludeCertified(d.excludeCertified);
@@ -465,13 +428,7 @@ export default function ProWizard() {
       const known = new Set(src.sub.map((s) => s.id));
       setSubTypes(new Set((tg.subTypes ?? []).filter((s) => known.has(s))));
     }
-    const reqTiers = (tg.requiredTiers ?? []).map(Number).filter((n) => n >= 1 && n <= 5);
-    if (reqTiers.length) setTiers([...new Set([1, ...reqTiers])].sort((a, b) => a - b));
-    if (tg.geo) setGeo(tg.geo);
-    // `geoTarget` n'est pas (encore) exposé par l'API détail ; repris s'il l'est.
-    setGeoTarget(readGeoTarget((tg as { geoTarget?: unknown }).geoTarget));
-    if (typeof tg.radiusKm === "number") setRadiusKm(tg.radiusKm);
-    if (Array.isArray(tg.ages) && tg.ages.length) setAges(new Set(tg.ages));
+    setChannels(readContactChannels(d.contactChannels ?? tg.contactChannels));
     if (tg.verifLevel === "p0" || tg.verifLevel === "p1" || tg.verifLevel === "p2") setVerif(tg.verifLevel);
     const fiab = Number((tg as { minFiabilite?: unknown }).minFiabilite ?? 0);
     setMinFiab([0, 60, 80].includes(fiab) ? fiab : 0);
@@ -503,12 +460,8 @@ export default function ProWizard() {
       step,
       subTypes: [...subTypes],
       duration,
-      tiers,
-      geo,
-      geoTarget,
-      radiusKm,
+      contactChannels: channels,
       startDay,
-      ages: [...ages],
       verif,
       minFiab,
       excludeCertified,
@@ -526,24 +479,11 @@ export default function ProWizard() {
       vitrineModalSeen,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, tiers, geo, geoTarget, radiusKm, startDay, ages, verif, minFiab, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
+  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
-  // RGPD : on ne garde que les paliers autorisés par la finalité ; le palier 1
-  // (identification) est toujours présent (miroir de l'effet web).
-  useEffect(() => {
-    if (!hydrated) return;
-    setTiers((prev) => {
-      const next = prev.filter((t) => allowedTiers.includes(t));
-      if (allowedTiers.includes(1) && !next.includes(1)) next.unshift(1);
-      if (next.length === 0 && allowedTiers.length > 0) next.push(allowedTiers[0]);
-      const sorted = [...new Set(next)].sort((a, b) => a - b);
-      return sorted.length === prev.length && sorted.every((t, i) => t === prev[i]) ? prev : sorted;
-    });
-  }, [allowedTiers, hydrated]);
-
-  const range = useMemo(() => cpcRange(tiers, duration, verif), [tiers, duration, verif]);
+  const range = useMemo(() => cpcRange(duration, verif), [duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
-  // changement de paliers / durée / vérification (défaut = minimum garanti).
+  // changement de durée / vérification (défaut = minimum garanti).
   useEffect(() => {
     setCpcCents((cur) => {
       if (range.effMin === 0) return cur;
@@ -587,24 +527,13 @@ export default function ProWizard() {
     else n.add(k);
     return n;
   };
-  // Palier 1 verrouillé (identification = socle de toute mise en relation) :
-  // un tap affiche l'explication au lieu de le décocher. Au 1er ajout d'un
-  // 2ᵉ palier → popup « matching cumulatif » (une fois par campagne).
-  const toggleTier = (t: number) => {
-    if (!allowedTiers.includes(t)) return;
-    if (t === 1) {
-      setTier1Notice(true);
-      return;
-    }
-    const willAdd = !tiers.includes(t);
-    setTiers((cur) =>
-      cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t].sort((a, b) => a - b),
+  // Modes de contact : au moins un reste coché (garde à l'étape 3).
+  const toggleChannel = (ch: ContactChannel) =>
+    setChannels((cur) =>
+      cur.includes(ch)
+        ? cur.filter((x) => x !== ch)
+        : CONTACT_CHANNELS.filter((x) => x === ch || cur.includes(x)),
     );
-    if (willAdd && !multiTierShown && tiers.length + 1 >= 2) {
-      setMultiTierShown(true);
-      setMultiTierOpen(true);
-    }
-  };
   // Mots-clés en puces (miroir web addKw/removeKw).
   const addKw = (val?: string) => {
     const kw = (val ?? kwInput).trim().slice(0, 40);
@@ -615,11 +544,6 @@ export default function ProWizard() {
     const next = keywords.filter((k) => k !== kw);
     setKeywords(next);
     if (!next.length) setKwFilter(false);
-  };
-  // Changement de portée géo : la cible précise n'a plus de sens.
-  const pickGeo = (g: string) => {
-    if (g !== geo) setGeoTarget(null);
-    setGeo(g);
   };
   // Ouvre la recharge après fermeture de la popup « solde insuffisant »
   // (deux Modal RN enchaînés : on laisse l'animation de sortie se finir).
@@ -644,22 +568,6 @@ export default function ProWizard() {
     vitrineFeeCents,
     neededCents: needed,
   });
-  // Tranches d'âge — « Tous » coche/décoche tout ; tout cocher ajoute « Tous »
-  // (logique miroir du wizard web).
-  const toggleAge = (a: string) =>
-    setAges((prev) => {
-      if (a === "Tous") {
-        const allOn = AGE_RANGES_NO_TOUS.every((r) => prev.has(r));
-        return allOn ? new Set() : new Set(AGE_RANGES);
-      }
-      const n = new Set(prev);
-      if (n.has(a)) n.delete(a);
-      else n.add(a);
-      if (AGE_RANGES_NO_TOUS.every((r) => n.has(r))) n.add("Tous");
-      else n.delete("Tous");
-      return n;
-    });
-
   // Duplication en cours de chargement : on attend la campagne source.
   if (!obj && duplicate && !dupSource.isError) {
     return (
@@ -756,7 +664,7 @@ export default function ProWizard() {
       case 2:
         return startValid;
       case 3:
-        return tiers.length >= 1;
+        return channels.length >= 1;
       case 5:
         return contactsNum >= 1 && cpcCents >= range.effMin && cpcCents <= range.effMax;
       default:
@@ -787,7 +695,7 @@ export default function ProWizard() {
         ? 1
         : !startValid
           ? 2
-          : tiers.length < 1
+          : channels.length < 1
             ? 3
             : contactsNum < 1 || cpcCents < range.effMin || cpcCents > range.effMax
               ? 5
@@ -812,13 +720,11 @@ export default function ProWizard() {
         name: obj.name,
         objectiveId: obj.id,
         subTypes: [...subTypes],
-        requiredTiers: tiers,
-        geo,
-        // Cible précise seulement pour ville/dept/région (web : masquée
-        // pour national et « autour de moi »).
-        geoTarget: geo === "ville" || geo === "dept" || geo === "region" ? geoTarget : null,
-        radiusKm,
-        ages: [...ages],
+        // Pivot mise en relation : plus de paliers ni de ciblage géo/âge.
+        requiredTiers: [1],
+        contactChannels: channels,
+        geo: "national",
+        ages: ["Tous"],
         verifLevel: verif,
         contacts: contactsNum,
         startDate: new Date(startTs).toISOString(),
@@ -1097,56 +1003,25 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 3 — Données / paliers requis (finalité RGPD). */}
+      {/* ÉTAPE 3 — Mode de contact (téléphone et/ou e-mail, via BUUPP). */}
       {step === 3 ? (
         <View className="gap-2">
           <Text className="text-[13px] text-ink-3">
-            Sélectionnez un ou plusieurs paliers parmi ceux autorisés pour cette finalité.
+            Comment souhaitez-vous contacter les prospects ? Cochez un ou deux modes de contact.
           </Text>
 
-          {/* Encart minimisation RGPD (art. 5.1.c). */}
-          <View
-            className="flex-row rounded-2xl p-3"
-            style={{ gap: 10, borderWidth: 1, borderColor: c.accentSoft, backgroundColor: c.surface }}
-          >
-            <View
-              className="items-center justify-center"
-              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.accentSoft }}
-            >
-              <Text style={{ color: c.accentInk, fontWeight: "700", fontSize: 13 }}>§</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-[12.5px] font-semibold text-ink">
-                Principe de minimisation — Article 5.1.c du RGPD
-              </Text>
-              <Text className="mt-1 text-[12px] leading-[18px] text-ink-2">
-                Les données accessibles dépendent de la finalité de la campagne. Vous ne recevrez que
-                les données <Text style={{ fontWeight: "700" }}>strictement nécessaires</Text> à
-                l&apos;objectif déclaré.
-              </Text>
-              <Text className="mt-1 text-[11px] leading-4 text-ink-4">
-                Ex. : prise de RDV → identité (Palier 1) · livre blanc → e-mail (Palier 1) · étude
-                rémunérée → Paliers 1 à 5 selon les questions.
-              </Text>
-            </View>
-          </View>
-
           <View className="gap-2">
-            {([1, 2, 3, 4, 5] as const).map((t: TierNum) => {
-              const allowed = allowedTiers.includes(t);
-              const on = tiers.includes(t) && allowed;
-              const r = TIER_REWARDS[t];
+            {CONTACT_CHANNELS.map((ch) => {
+              const on = channels.includes(ch);
               return (
                 <Pressable
-                  key={t}
-                  disabled={!allowed}
-                  onPress={() => toggleTier(t)}
+                  key={ch}
+                  onPress={() => toggleChannel(ch)}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: on, disabled: !allowed }}
+                  accessibilityState={{ checked: on }}
                   className="flex-row items-center rounded-2xl p-3 active:opacity-80"
                   style={{
                     gap: 10,
-                    opacity: allowed ? 1 : 0.5,
                     borderWidth: 1.5,
                     borderColor: on ? c.accent : c.borderSoft,
                     backgroundColor: on ? c.accentSoft : c.surface,
@@ -1157,28 +1032,16 @@ export default function ProWizard() {
                     style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: on ? c.accent : c.ink5, backgroundColor: on ? c.accent : "transparent" }}
                   >
                     {on ? <Ionicons name="checkmark" size={14} color={c.btnText} /> : null}
-                    {!allowed ? <Ionicons name="lock-closed" size={11} color={c.ink5} /> : null}
                   </View>
+                  <Ionicons name={CHANNEL_ICON[ch]} size={18} color={on ? c.accentInk : c.textMuted} />
                   <View className="flex-1">
-                    <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
-                      <Text className="text-[14px] font-semibold text-ink">
-                        Palier {t} · {r.label}
-                      </Text>
-                      {t === 1 ? (
-                        <View className="rounded-full px-1.5 py-0.5" style={{ backgroundColor: c.accentSoft }}>
-                          <Text className="text-[9px] font-bold uppercase" style={{ color: c.accentInk, letterSpacing: 0.6 }}>
-                            Requis
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Text className="text-[11px] text-ink-4">{TIER_SUBS[t]}</Text>
-                    <Text className="text-[11px]" style={{ color: allowed ? c.accentInk : c.textMuted }}>
-                      {allowed
-                        ? r.minCents === r.maxCents
-                          ? `dès ${(r.minCents / 100).toFixed(2)} € / contact`
-                          : `${(r.minCents / 100).toFixed(2)} – ${(r.maxCents / 100).toFixed(2)} € / contact`
-                        : "Non autorisé pour cette finalité (RGPD)"}
+                    <Text className="text-[14px] font-semibold text-ink">
+                      {ch === "phone" ? "Numéro de téléphone" : "Adresse e-mail"}
+                    </Text>
+                    <Text className="text-[11px] text-ink-4">
+                      {ch === "phone"
+                        ? "Vous appelez le prospect depuis BUUPP"
+                        : "Vous écrivez au prospect depuis BUUPP"}
                     </Text>
                   </View>
                 </Pressable>
@@ -1186,19 +1049,10 @@ export default function ProWizard() {
             })}
           </View>
 
-          {tier1Notice ? (
-            <View
-              accessibilityRole="alert"
-              className="flex-row rounded-2xl px-3.5 py-2.5"
-              style={{ gap: 8, backgroundColor: c.amberSoft, borderWidth: 1, borderColor: c.amber }}
-            >
-              <Ionicons name="information-circle-outline" size={16} color={c.accAmber} />
-              <Text className="flex-1 text-[12px] leading-[18px]" style={{ color: c.accAmber }}>
-                Le <Text style={{ fontWeight: "700" }}>palier 1 — Identification</Text> est nécessaire à
-                l&apos;identification du prospect et à toute entrée en relation. Il ne peut pas être
-                décoché ; les autres paliers s&apos;ajoutent par-dessus de façon cumulative.
-              </Text>
-            </View>
+          {channels.length === 0 ? (
+            <Text accessibilityRole="alert" className="text-[12px]" style={{ color: c.bad }}>
+              Sélectionnez au moins un mode de contact.
+            </Text>
           ) : null}
 
           <View
@@ -1206,161 +1060,18 @@ export default function ProWizard() {
             style={{ gap: 8, borderWidth: 1, borderStyle: "dashed", borderColor: c.accent, backgroundColor: c.surface }}
           >
             <Ionicons name="lock-closed-outline" size={14} color={c.accentInk} />
-            <Text className="flex-1 text-[12px] text-ink-2">
-              <Text style={{ fontWeight: "700" }}>{obj.name}</Text> autorise{" "}
-              {allowedTiers.length === 1 ? (
-                <>
-                  uniquement le <Text style={{ fontWeight: "700" }}>Palier {allowedTiers[0]}</Text>
-                </>
-              ) : (
-                <>
-                  les{" "}
-                  <Text style={{ fontWeight: "700" }}>
-                    Paliers {allowedTiers[0]} à {allowedTiers[allowedTiers.length - 1]}
-                  </Text>
-                </>
-              )}
-              .
+            <Text className="flex-1 text-[12px] leading-[18px] text-ink-2">
+              Vous recevez toujours le <Text style={{ fontWeight: "700" }}>prénom et l&apos;initiale du nom</Text>{" "}
+              pour personnaliser l&apos;échange. Appels et e-mails passent par la plateforme BUUPP : le
+              numéro et l&apos;adresse ne vous sont jamais communiqués.
             </Text>
           </View>
         </View>
       ) : null}
 
-      {/* ÉTAPE 4 — Ciblage : zone + vérification. */}
+      {/* ÉTAPE 4 — Ciblage : vérification + fiabilité. */}
       {step === 4 ? (
         <View className="gap-3">
-          <View>
-            <Text className="mb-2 text-[13px] text-ink-3">Zone géographique</Text>
-            <View className="flex-row flex-wrap" style={{ gap: 10 }}>
-              {GEO_ZONES.map((z) => (
-                <Chip key={z.key} label={z.label} sub={z.sub} on={geo === z.key} onPress={() => pickGeo(z.key)} flex />
-              ))}
-            </View>
-
-            {/* Cible précise (ville / département / région) via geo.api.gouv.fr. */}
-            {geo === "ville" || geo === "dept" || geo === "region" ? (
-              <View className="mt-3">
-                <Text className="mb-1.5 text-[12.5px] font-semibold text-ink-2">
-                  {geo === "ville" ? "Ville ciblée" : geo === "dept" ? "Département ciblé" : "Région ciblée"}
-                </Text>
-                <GeoTargetAutocomplete key={geo} geo={geo} value={geoTarget} onPick={setGeoTarget} />
-              </View>
-            ) : null}
-
-            {/* « Autour de moi » — rayon autour de l'adresse de l'établissement. */}
-            <Pressable
-              onPress={() => pickGeo("around")}
-              accessibilityRole="button"
-              accessibilityState={{ selected: geo === "around" }}
-              className="mt-3 flex-row items-center rounded-2xl p-3 active:opacity-80"
-              style={{
-                gap: 10,
-                borderWidth: 1.5,
-                borderColor: geo === "around" ? c.accent : c.borderSoft,
-                backgroundColor: geo === "around" ? c.accentSoft : c.surface,
-              }}
-            >
-              <Ionicons name="navigate-circle-outline" size={20} color={geo === "around" ? c.accentInk : c.textMuted} />
-              <View className="flex-1">
-                <Text className="text-[14px] font-semibold" style={{ color: geo === "around" ? c.accentInk : c.text }}>
-                  Autour de moi
-                </Text>
-                <Text className="text-[11px]" style={{ color: geo === "around" ? c.accentInk : c.textMuted }}>
-                  Prospects situés dans un rayon autour de votre établissement
-                </Text>
-              </View>
-              {geo === "around" ? <Ionicons name="checkmark-circle" size={18} color={c.accent} /> : null}
-            </Pressable>
-
-            {geo === "around" ? (
-              <View className="mt-3">
-                <Text className="mb-2 text-[12.5px] font-semibold text-ink-2">Zone d&apos;extension</Text>
-                <View className="flex-row" style={{ gap: 8 }}>
-                  {AROUND_RADII.map((km) => {
-                    const on = radiusKm === km;
-                    return (
-                      <Pressable
-                        key={km}
-                        onPress={() => setRadiusKm(km)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: on }}
-                        className="flex-1 items-center rounded-xl py-2.5 active:opacity-80"
-                        style={{ borderWidth: 1.5, borderColor: on ? c.accent : c.borderSoft, backgroundColor: on ? c.accent : c.surface }}
-                      >
-                        <Text className="text-[13px] font-semibold" style={{ color: on ? c.btnText : c.textSub }}>
-                          {km} km
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {proAddress ? (
-                  <View className="mt-3 flex-row rounded-2xl p-3" style={{ gap: 8, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderSoft }}>
-                    <Ionicons name="information-circle-outline" size={16} color={c.accentInk} />
-                    <Text className="flex-1 text-[12px] leading-[18px] text-ink-2">
-                      Le ciblage se base sur l&apos;adresse de votre établissement (
-                      <Text style={{ fontWeight: "700" }}>{proAddress}</Text>). Vous pouvez la consulter
-                      ou la modifier dans{" "}
-                      <Text
-                        onPress={() => router.push("/(pro)/informations")}
-                        style={{ color: c.accentInk, fontWeight: "700", textDecorationLine: "underline" }}
-                      >
-                        Mes informations
-                      </Text>
-                      .
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="mt-3 rounded-2xl p-3" style={{ backgroundColor: c.amberSoft, borderWidth: 1, borderColor: c.amber }}>
-                    <View className="flex-row" style={{ gap: 8 }}>
-                      <Ionicons name="alert-circle-outline" size={16} color={c.accAmber} />
-                      <Text className="flex-1 text-[12px] leading-[18px]" style={{ color: c.accAmber }}>
-                        <Text style={{ fontWeight: "700" }}>Adresse requise.</Text> Pour cibler autour de
-                        vous, renseignez d&apos;abord l&apos;adresse de votre établissement.
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => router.push("/(pro)/informations")}
-                      accessibilityRole="button"
-                      className="mt-2 flex-row items-center justify-center gap-1.5 self-start rounded-full px-4 py-2 active:opacity-80"
-                      style={{ backgroundColor: c.btnBg }}
-                    >
-                      <Text className="text-[12.5px] font-semibold" style={{ color: c.btnText }}>
-                        Renseigner mon adresse
-                      </Text>
-                      <Ionicons name="arrow-forward" size={13} color={c.btnText} />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            ) : null}
-          </View>
-          <View>
-            <Text className="mb-2 text-[13px] text-ink-3">Tranche d&apos;âge (multi-sélection)</Text>
-            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-              {AGE_RANGES.map((a) => {
-                const on = ages.has(a);
-                return (
-                  <Pressable
-                    key={a}
-                    onPress={() => toggleAge(a)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    className="rounded-full px-3.5 py-2 active:opacity-80"
-                    style={{
-                      borderWidth: 1.5,
-                      borderColor: on ? c.accent : c.borderSoft,
-                      backgroundColor: on ? c.accent : c.surface,
-                    }}
-                  >
-                    <Text className="text-[13px] font-semibold" style={{ color: on ? c.btnText : c.textSub }}>
-                      {a}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
           <View>
             <Text className="mb-2 text-[13px] text-ink-3">Niveau de vérification minimum</Text>
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>
@@ -1808,9 +1519,7 @@ export default function ProWizard() {
               ["Lancement", "Immédiat, dès validation"],
               ["Date de fin estimée", fmtDayLong(endTs)],
               ["Durée", DURATIONS.find((d) => d.key === duration)?.label ?? duration],
-              ["Paliers", tiers.map((t) => TIER_REWARDS[t as TierNum]?.label ?? t).join(", ")],
-              ["Zone", geoSummary(geo, geoTarget, radiusKm)],
-              ["Tranches d'âge", ages.size === 0 ? "Toutes" : [...ages].filter((a) => a !== "Tous").join(", ") || "Toutes"],
+              ["Mode de contact", `${contactChannelsShort(channels)} (via BUUPP)`],
               ["Vérification", VERIF_LEVELS.find((v) => v.key === verif)?.label ?? verif],
               ["Certifiés confiance", excludeCertified ? "Exclus" : "Inclus (gains ×2)"],
               ["Anciens acceptants", excludePast ? "Exclus (12 derniers mois)" : "Inclus"],
@@ -2019,7 +1728,6 @@ export default function ProWizard() {
           setConfirmExclude(false);
         }}
       />
-      <MultiTierSheet visible={multiTierOpen} tiers={tiers} onClose={() => setMultiTierOpen(false)} />
 
       <VitrineOfferSheet
         visible={vitrineModalOpen}

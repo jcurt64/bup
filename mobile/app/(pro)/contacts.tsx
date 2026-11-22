@@ -42,7 +42,6 @@ import {
   useProGroupReveal,
   useProCampaigns,
   type BroadcastResult,
-  type AudienceFacets,
   type ProAudience,
   type ProSegment,
   type SegmentFilters,
@@ -68,17 +67,6 @@ type ContactGroup = {
 };
 
 type Palette = ReturnType<typeof useContactPalette>;
-
-// Clés catégorielles + libellé affiché (ordre de la maquette web).
-const CATEGORICAL: { key: keyof SegmentFilters & keyof AudienceFacets; title: string }[] = [
-  { key: "region", title: "Région" },
-  { key: "distance", title: "Distance du centre" },
-  { key: "statutPro", title: "Statut pro" },
-  { key: "logement", title: "Logement" },
-  { key: "foyer", title: "Foyer" },
-  { key: "vehicule", title: "Véhicule" },
-  { key: "animaux", title: "Animaux" },
-];
 
 // ── Chip générique (pilule tappable) ──────────────────────────────────────
 function Chip({
@@ -208,20 +196,12 @@ function AudiencePanel({ audience, p }: { audience: ProAudience; p: Palette }) {
         items={f.score.map((b) => ({ value: b.label, count: b.count }))}
         p={p}
       />
-      {CATEGORICAL.map(({ key, title }) => {
-        const items = f[key as keyof AudienceFacets] as
-          | { value: string; count: number }[]
-          | undefined;
-        return items ? (
-          <FacetBlock key={key} title={title} items={items} p={p} />
-        ) : null;
-      })}
       <FacetBlock title="Contact" items={f.reached} p={p} />
     </View>
   );
 }
 
-// ── Barre de filtres (recherche + chips score + chips catégoriels) ─────────
+// ── Barre de filtres (recherche + chips score) ─────────
 function FiltersBar({
   audience,
   filters,
@@ -233,8 +213,6 @@ function FiltersBar({
   setFilters: React.Dispatch<React.SetStateAction<SegmentFilters>>;
   p: Palette;
 }) {
-  const f = audience.facets;
-
   const setQ = (q: string) =>
     setFilters((prev) => {
       const next = { ...prev };
@@ -248,20 +226,6 @@ function FiltersBar({
       const next = { ...prev };
       if (next.scoreMin === v) delete next.scoreMin;
       else next.scoreMin = v;
-      return next;
-    });
-
-  const toggleCategory = (
-    key: keyof SegmentFilters & keyof AudienceFacets,
-    value: string,
-  ) =>
-    setFilters((prev) => {
-      const next = { ...prev };
-      const cur = (next[key] as string[] | undefined) ?? [];
-      const has = cur.includes(value);
-      const updated = has ? cur.filter((x) => x !== value) : [...cur, value];
-      if (updated.length) (next[key] as string[]) = updated;
-      else delete next[key];
       return next;
     });
 
@@ -311,40 +275,6 @@ function FiltersBar({
         />
       </View>
 
-      {/* Facettes catégorielles (chips des valeurs top) */}
-      {CATEGORICAL.map(({ key, title }) => {
-        const items = f[key as keyof AudienceFacets] as
-          | { value: string; count: number }[]
-          | undefined;
-        if (!items || !items.length) return null;
-        const selected = (filters[key] as string[] | undefined) ?? [];
-        return (
-          <View key={key} style={{ gap: 7 }}>
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "700",
-                letterSpacing: 0.6,
-                color: p.muted,
-                textTransform: "uppercase",
-              }}
-            >
-              {title}
-            </Text>
-            <View className="flex-row" style={{ flexWrap: "wrap", gap: 8 }}>
-              {items.map((it) => (
-                <Chip
-                  key={it.value}
-                  label={it.value}
-                  on={selected.includes(it.value)}
-                  onPress={() => toggleCategory(key, it.value)}
-                  p={p}
-                />
-              ))}
-            </View>
-          </View>
-        );
-      })}
 
       {hasFilters ? (
         <View className="flex-row" style={{ gap: 8 }}>
@@ -549,7 +479,7 @@ function SavedSegments({
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Ex. Patrimoine élevé Île-de-France"
+              placeholder="Ex. Contacts atteints score ≥ 720"
               placeholderTextColor={p.muted}
               autoFocus
               style={{
