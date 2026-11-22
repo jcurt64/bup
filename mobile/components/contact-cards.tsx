@@ -58,11 +58,14 @@ export const FILTERS: {
   { key: "reached", label: "F2 · Contact atteint", test: (r) => r.evaluation === "atteint" },
 ];
 
-/** Ligne « e-mailable » (sélection groupée) : email partagé et campagne clôturée. */
+/** Ligne « e-mailable » (sélection groupée) : campagne clôturée, e-mail
+ *  coché comme mode de contact et e-mail renseigné par le prospect. Les
+ *  champs `email`/`telephone` de l'API valent toujours « — » (jamais une
+ *  adresse) : seul `emailAvailable` fait foi. */
 export function isEmailable(r: ProContactRow): boolean {
   if (r.locked) return false;
-  if (typeof r.emailAvailable === "boolean") return r.emailAvailable;
-  return !!r.email && r.email !== "—";
+  if (!readContactChannels(r.contactChannels).includes("email")) return false;
+  return r.emailAvailable === true;
 }
 
 // Options de filtre par priorité (mêmes couleurs que la fiche détaillée).

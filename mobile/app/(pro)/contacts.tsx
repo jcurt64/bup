@@ -16,7 +16,7 @@
 // enregistrés. La liste est alors filtrée CÔTÉ SERVEUR. Sans campagne active,
 // le comportement existant (toutes les lignes + filtres locaux) est conservé.
 import { useMemo, useRef, useState } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import {
@@ -27,6 +27,11 @@ import {
   isEmailable,
   type FilterKey,
 } from "../../components/contact-cards";
+import {
+  GROUP_MESSAGE_MAX,
+  GroupMessageSheet,
+  type GroupMessageTarget,
+} from "../../components/group-message-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ContactDetailSheet,
@@ -39,7 +44,7 @@ import {
   useProSegmentCreate,
   useProSegmentDelete,
   useProSegmentBroadcast,
-  useProGroupReveal,
+  broadcastErrorMessage,
   useProCampaigns,
   type BroadcastResult,
   type ProAudience,
@@ -332,7 +337,7 @@ function SavedSegments({
       { campaignId, filters, subject: subj, body: bod },
       {
         onSuccess: (r) => setBcResult(r),
-        onError: () => setBcError("Échec de la diffusion — réessayez."),
+        onError: (e) => setBcError(broadcastErrorMessage(e)),
       },
     );
   };
@@ -761,11 +766,9 @@ export default function Contacts() {
   const filteredQ = useProContactsFiltered(activeCampaign?.id ?? null, segFilters);
 
   // Sélection groupée (parité web) : ids des relations cochées, par
-  // relationId. « Message groupé » révèle les emails (group-reveal) puis
-  // ouvre un mailto: avec tous les prospects en Cci.
+  // relationId. « Message groupé » ouvre le compositeur in-app (envoi BUUPP).
   const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
-  const groupReveal = useProGroupReveal();
-  const [sendingKey, setSendingKey] = useState<string | null>(null);
+  const [groupTarget, setGroupTarget] = useState<GroupMessageTarget | null>(null);
 
   // Repli/dépli des sections campagne (parité web) : repliées par défaut
   // dans la vue « Toutes » ; en mode atelier la campagne reste dépliée.
@@ -805,53 +808,22 @@ export default function Contacts() {
     });
   };
 
-  const sendGroupMessage = async (key: string, contacts: ProContact[]) => {
-    const ids = pickedOf(contacts).map((c) => c.relationId);
-    if (ids.length === 0) return;
-    setSendingKey(key);
-    try {
-      const res = await groupReveal.mutateAsync(ids.slice(0, 50));
-      const emails = (res.items || []).map((x) => x.email).filter((e): e is string => !!e);
-      const skipped = ids.length - emails.length;
-      if (emails.length === 0) {
-        Alert.alert("Message groupé", "Aucun email disponible parmi les prospects sélectionnés.");
-        return;
-      }
-      // Anti-fuite (parité web) : prospects en Cci, le pro en destinataire,
-      // rappel RGPD pré-rempli pour dissuader le déplacement Cci → À/Cc.
-      const bcc = emails.map(encodeURIComponent).join(",");
-      const to = encodeURIComponent(res.proEmail || "");
-      const subject = encodeURIComponent("Message — BUUPP");
-      const body = encodeURIComponent(
-        "\n\n— — — — — — — — — — — — — — — — — — — — — — — — — —\n" +
-          "Envoi groupé via BUUPP — chaque destinataire est en Cci :\n" +
-          "il ne verra pas les emails des autres prospects.\n" +
-          "Ne déplacez pas les adresses dans « À » ou « Cc » avant\n" +
-          "d'envoyer : cela exposerait les emails de tous à tous, ce qui\n" +
-          "constitue une fuite de données personnelles (RGPD).\n" +
-          "Rédigez votre message au-dessus de cette ligne.\n",
-      );
-      const url = `mailto:${to}?bcc=${bcc}&subject=${subject}&body=${body}`;
-      // Pas de canOpenURL : sur Android 11+ il renvoie false pour mailto:
-      // sans entrée <queries> dans le manifeste, même si une app e-mail
-      // est installée. On tente directement et on n'alerte qu'en cas d'échec.
-      try {
-        await Linking.openURL(url);
-      } catch {
-        Alert.alert("Message groupé", "Aucune application e-mail disponible sur cet appareil.");
-        return;
-      }
-      if (skipped > 0) {
-        Alert.alert(
-          "Message groupé",
-          `${skipped} prospect${skipped > 1 ? "s" : ""} ignoré${skipped > 1 ? "s" : ""} (email non partagé).`,
-        );
-      }
-    } catch {
-      Alert.alert("Message groupé", "Impossible de récupérer les emails. Réessayez.");
-    } finally {
-      setSendingKey(null);
-    }
+  // « Message groupé » : composition dans l'app puis envoi PAR BUUPP
+  // (POST /api/pro/segments/broadcast avec relationIds) — jamais de mailto
+  // ni d'adresse en clair. Une seule campagne par envoi (1–500 relations).
+  const sendGroupMessage = (contacts: ProContact[]) => {
+    const picked = pickedOf(contacts);
+    if (picked.length === 0) return;
+    const campaignId = picked[0].campaignId;
+    const ids = picked
+      .filter((c) => c.campaignId === campaignId)
+      .map((c) => c.relationId)
+      .slice(0, GROUP_MESSAGE_MAX);
+    setGroupTarget({
+      campaignId,
+      campaignName: picked[0].campaign,
+      relationIds: ids,
+    });
   };
 
   // Signalement Atteint / Non atteint — optimiste, rollback + alerte si échec.
@@ -1139,7 +1111,6 @@ export default function Contacts() {
                         emailableOf(filteredRows).length > 0 &&
                         pickedOf(filteredRows).length === emailableOf(filteredRows).length
                       }
-                      sending={sendingKey === activeCampaign.id}
                       collapsed={workshopCollapsed}
                       onToggleCollapse={() => setWorkshopCollapsed((v) => !v)}
                       onViewDetails={() => openCampaignDetails(activeCampaign)}
@@ -1149,7 +1120,7 @@ export default function Contacts() {
                           pickedOf(filteredRows).length !== emailableOf(filteredRows).length,
                         )
                       }
-                      onGroupMessage={() => sendGroupMessage(activeCampaign.id, filteredRows)}
+                      onGroupMessage={() => sendGroupMessage(filteredRows)}
                     />
                     {!workshopCollapsed && (
                       <View style={{ gap: 12 }}>
@@ -1227,7 +1198,6 @@ export default function Contacts() {
                           emailableCount={emailable}
                           selectedCount={picked}
                           allSelected={emailable > 0 && picked === emailable}
-                          sending={sendingKey === key}
                           collapsed={isCollapsed}
                           locked={g.locked}
                           empty={g.empty}
@@ -1237,7 +1207,7 @@ export default function Contacts() {
                             openCampaignDetails({ id: g.contacts[0].campaignId, name: g.campaign })
                           }
                           onToggleSelectAll={() => setGroupPicked(g.contacts, picked !== emailable)}
-                          onGroupMessage={() => sendGroupMessage(key, g.contacts)}
+                          onGroupMessage={() => sendGroupMessage(g.contacts)}
                         />
                         {!isCollapsed && (
                           <View style={{ gap: 12 }}>
@@ -1304,6 +1274,13 @@ export default function Contacts() {
         }
         onNavigate={(c) => setSelected(c)}
         onPriorityChange={() => {
+          void q.refetch();
+        }}
+      />
+      <GroupMessageSheet
+        target={groupTarget}
+        onClose={() => {
+          setGroupTarget(null);
           void q.refetch();
         }}
       />

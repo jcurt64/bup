@@ -123,13 +123,17 @@ function applyTokens(text: string, t: { prenom: string; pro: string; camp: strin
 
 const ERRORS: Record<string, string> = {
   quota_reached: "Vous avez déjà envoyé un email à ce prospect pour cette campagne.",
-  prospect_email_missing: "Le prospect n'a pas partagé son email.",
+  prospect_email_missing: "Le prospect n'a pas renseigné son e-mail.",
   relation_not_accepted: "Cette relation n'est plus active.",
   forbidden: "Action non autorisée sur ce contact.",
   campaign_not_closed: "Disponible à la clôture de la campagne.",
   subject_too_long: "L'objet est trop long (200 caractères max).",
   body_too_long: "Le message est trop long (10 000 caractères max).",
   pro_email_missing: "Votre email de compte est introuvable.",
+  channel_not_allowed:
+    "L'e-mail n'est pas un mode de contact de cette campagne.",
+  email_channel_not_allowed:
+    "L'e-mail n'est pas un mode de contact de cette campagne.",
 };
 
 export function EmailComposerSheet({

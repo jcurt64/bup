@@ -748,7 +748,9 @@ export type FlashDeal = {
   isAuthenticated: boolean;
   relationId: string | null;
   relationStatus: string | null;
-  missingTierKeys: string[];
+  /** ["identity"] si les 4 coordonnées sont incomplètes, [] si complètes,
+   *  null pour un visiteur anonyme. */
+  missingTierKeys: string[] | null;
   /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
    *  Absent → les deux (campagnes antérieures au pivot). */
   contactChannels?: ("phone" | "email")[] | null;
@@ -1054,27 +1056,6 @@ export type ProContactDetails = {
 export const useProContacts = () =>
   useGet<{ rows: ProContact[] }>(["pro", "contacts"], "/api/pro/contacts", 30_000);
 
-/**
- * Révèle en clair les emails d'un lot de prospects sélectionnés
- * (parité web `handleGroupMessage` → `/api/pro/contacts/group-reveal`).
- * Réponse : `{ items: [{ relationId, email|null }], proEmail }` (≤ 50 ids).
- * Le client filtre les emails non nuls puis ouvre un `mailto:` en Cci.
- */
-export type GroupRevealResult = {
-  items: { relationId: string; email: string | null }[];
-  proEmail: string | null;
-};
-export function useProGroupReveal() {
-  const api = useApi();
-  return useMutation({
-    mutationFn: (relationIds: string[]) =>
-      api<GroupRevealResult>("/api/pro/contacts/group-reveal", {
-        method: "POST",
-        body: JSON.stringify({ relationIds }),
-      }),
-  });
-}
-
 // ── Atelier de segmentation (parité web) ──────────────────────────────────
 // Clés catégorielles héritées (avant le pivot) — plus affichées par l'app.
 type FacetKey =
@@ -1188,12 +1169,40 @@ export type BroadcastResult = {
 // Diffusion médiée d'un message au segment (SP2). BUUPP envoie les emails ;
 // le pro ne voit jamais les adresses. Quota 1/prospect/campagne appliqué côté
 // serveur (les déjà-sollicités sont ignorés).
+const BROADCAST_ERRORS: Record<string, string> = {
+  email_channel_not_allowed:
+    "L'e-mail n'est pas un mode de contact de cette campagne : la diffusion est impossible.",
+  channel_not_allowed:
+    "Ce mode de contact n'a pas été coché pour cette campagne.",
+  campaign_not_closed:
+    "La diffusion n'est possible qu'une fois la campagne clôturée.",
+  invalid_relation_ids:
+    "Sélection invalide : choisissez entre 1 et 500 contacts d'une même campagne.",
+};
+/** Message FR d'une erreur de diffusion (codes serveur connus). */
+export function broadcastErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    try {
+      const j = JSON.parse(e.body) as { error?: unknown; message?: unknown };
+      if (typeof j.error === "string" && BROADCAST_ERRORS[j.error]) {
+        return BROADCAST_ERRORS[j.error];
+      }
+    } catch {
+      /* corps non JSON */
+    }
+    if (e.status === 403) return BROADCAST_ERRORS.email_channel_not_allowed;
+  }
+  return "Échec de la diffusion — réessayez.";
+}
 export function useProSegmentBroadcast() {
   const api = useApi();
   return useMutation({
     mutationFn: (v: {
       campaignId: string;
-      filters: SegmentFilters;
+      /** Diffusion au segment courant (atelier)… */
+      filters?: SegmentFilters;
+      /** …ou à une sélection explicite (1–500 relations d'UNE campagne). */
+      relationIds?: string[];
       subject: string;
       body: string;
     }) =>

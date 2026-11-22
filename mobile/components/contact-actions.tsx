@@ -19,11 +19,18 @@ import { Alert, Linking, Modal, Pressable, Text, View } from "react-native";
 import { useApi } from "../lib/api";
 import { readContactChannels } from "../lib/contact-channels";
 import { useTheme } from "../lib/theme";
-import { useContactReveal, type ProContactRow } from "../lib/queries-pro-contacts";
+import {
+  apiErrorCode,
+  useContactReveal,
+  type ProContactRow,
+} from "../lib/queries-pro-contacts";
 import { useContactPalette } from "./contact-style";
 import { EmailComposerSheet } from "./email-composer-sheet";
 
 type Intent = "call" | "email" | "sms" | "whatsapp";
+
+const CHANNEL_NOT_ALLOWED_MSG =
+  "Le téléphone n'est pas un mode de contact de cette campagne.";
 type PhoneIntent = Exclude<Intent, "email">;
 
 // « 06 •• •• •• 78 » — seul l'AFFICHAGE est masqué, la CTA utilise le numéro réel.
@@ -68,7 +75,9 @@ function RevealContactSheet({
   const { varStyle } = useTheme();
   const api = useApi();
   const reveal = useContactReveal();
-  const [status, setStatus] = useState<"loading" | "ok" | "not_shared" | "error">("loading");
+  const [status, setStatus] = useState<
+    "loading" | "ok" | "not_shared" | "not_allowed" | "error"
+  >("loading");
   const [value, setValue] = useState<string | null>(null);
   const meta = REVEAL[intent];
 
@@ -84,7 +93,14 @@ function RevealContactSheet({
       .catch((e: unknown) => {
         if (cancelled) return;
         const st = (e as { status?: number })?.status;
-        setStatus(st === 404 ? "not_shared" : "error");
+        const code = apiErrorCode(e);
+        setStatus(
+          code === "channel_not_allowed"
+            ? "not_allowed"
+            : st === 404
+              ? "not_shared"
+              : "error",
+        );
       });
     return () => {
       cancelled = true;
@@ -96,7 +112,14 @@ function RevealContactSheet({
     if (!value) return;
     if (intent === "call") {
       // SMS de préavis « BUUPP + code buupp » (dédupliqué serveur, 1×/relation).
-      api(`/api/pro/contacts/${relationId}/call-notice`, { method: "POST" }).catch(() => {});
+      // 403 channel_not_allowed : téléphone non coché → on n'appelle pas.
+      api(`/api/pro/contacts/${relationId}/call-notice`, { method: "POST" }).catch(
+        (e: unknown) => {
+          if (apiErrorCode(e) === "channel_not_allowed") {
+            Alert.alert("Mode de contact non autorisé", CHANNEL_NOT_ALLOWED_MSG);
+          }
+        },
+      );
     }
     Linking.openURL(meta.build(value)).catch(() =>
       Alert.alert("Action indisponible", "Impossible d'ouvrir l'application sur cet appareil."),
@@ -161,8 +184,10 @@ function RevealContactSheet({
             <View style={{ alignItems: "center", paddingVertical: 10, gap: 14 }}>
               <Text style={{ fontSize: 13, color: p.text, textAlign: "center" }}>
                 {status === "not_shared"
-                  ? "Le prospect n'a pas partagé ce contact pour cette campagne."
-                  : "Impossible de récupérer le contact. Réessayez."}
+                  ? "Le prospect n'a pas renseigné son numéro de téléphone."
+                  : status === "not_allowed"
+                    ? CHANNEL_NOT_ALLOWED_MSG
+                    : "Impossible de récupérer le contact. Réessayez."}
               </Text>
               <Pressable
                 onPress={onClose}
