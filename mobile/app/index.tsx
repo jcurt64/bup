@@ -8,6 +8,7 @@ import { Pressable, Text, View } from "react-native";
 import { BuuppLoader } from "../components/loader";
 import { hasSeenOnboarding } from "../lib/onboarding";
 import { useRole } from "../lib/queries";
+import { PRO_SIGNUP_ENABLED } from "../lib/purchases";
 import { getRoleIntent } from "../lib/role-intent";
 
 export default function Index() {
@@ -66,7 +67,10 @@ export default function Index() {
   // Compte sans rôle encore matérialisé : on suit l'intention choisie à
   // l'auth (le serveur tranchera via ensureRole) ; sinon écran de choix.
   if (!intent || intent.userId !== userId) return <Splash />;
-  if (intent.value === "pro") return <Redirect href="/(pro)/overview" />;
+  // iOS : jamais de compte pro créé depuis l'appli (App Review 3.1.1) —
+  // une intention « pro » restée dans le trousseau est ignorée.
+  if (intent.value === "pro" && PRO_SIGNUP_ENABLED)
+    return <Redirect href="/(pro)/overview" />;
   if (intent.value === "prospect")
     return <Redirect href="/(prospect)/portefeuille" />;
   return <Redirect href="/(auth)/role-select" />;

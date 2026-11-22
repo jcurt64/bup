@@ -23,6 +23,7 @@ import {
 } from "../../components/ui";
 import { AuthBackdrop } from "../../components/auth-backdrop";
 import { withAlpha } from "../../components/onboarding-art";
+import { PRO_SIGNUP_ENABLED } from "../../lib/purchases";
 import { setRoleIntent, type RoleIntent } from "../../lib/role-intent";
 import { useTheme } from "../../lib/theme";
 
@@ -265,7 +266,9 @@ export default function AuthScreen() {
 
           {step === "email" && (
             <>
-              {/* JE SUIS — toggle rôle */}
+              {/* JE SUIS — toggle rôle. Masqué sur iOS (App Review 3.1.1) :
+                  rôle forcé à « prospect » (état initial jamais modifié). */}
+              {PRO_SIGNUP_ENABLED ? (
               <View className="gap-1.5">
                 <Text
                   className="text-[11px] font-bold uppercase text-ink-4"
@@ -308,6 +311,7 @@ export default function AuthScreen() {
                   })}
                 </View>
               </View>
+              ) : null}
 
               <Field
                 label="Email"

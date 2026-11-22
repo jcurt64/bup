@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { Accent, BrandLogo, LegalFooter } from "../../components/ui";
+import { PRO_SIGNUP_ENABLED } from "../../lib/purchases";
 import { setRoleIntent } from "../../lib/role-intent";
 
 export default function RoleSelect() {
@@ -20,7 +21,9 @@ export default function RoleSelect() {
           Vous <Accent>êtes…</Accent>
         </Text>
         <Text className="text-center text-lg leading-6 text-ink-3">
-          Le choix est définitif (un compte = prospect OU pro).
+          {PRO_SIGNUP_ENABLED
+            ? "Le choix est définitif (un compte = prospect OU pro)."
+            : "Créez votre compte particulier."}
         </Text>
       </View>
 
@@ -41,6 +44,8 @@ export default function RoleSelect() {
         </Text>
       </Pressable>
 
+      {/* Masqué sur iOS : pas de création de compte pro (App Review 3.1.1). */}
+      {PRO_SIGNUP_ENABLED ? (
       <Pressable
         className="rounded-3xl border border-line bg-paper p-5 active:opacity-80"
         style={{
@@ -57,6 +62,7 @@ export default function RoleSelect() {
           Je lance des campagnes pour acquérir des contacts.
         </Text>
       </Pressable>
+      ) : null}
 
       <LegalFooter />
     </View>

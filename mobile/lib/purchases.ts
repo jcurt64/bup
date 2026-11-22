@@ -44,6 +44,13 @@ export const WEB_RECHARGE_LINK_ENABLED =
       ? ANDROID_WEB_RECHARGE_LINK
       : false);
 
+// Création de compte PROFESSIONNEL dans l'appli. Refus App Review 3.1.1 du
+// 22/11/2026 (build 12) : « account registration feature for businesses »
+// = accès à un mécanisme d'achat externe → retirée sur iOS. Un compte pro
+// déjà créé sur le web (ou Android) peut toujours SE CONNECTER sur iOS :
+// le rôle vient de /api/me/role, pas de ce choix. Android inchangé.
+export const PRO_SIGNUP_ENABLED = Platform.OS !== "ios";
+
 const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://www.buupp.com";
 export const WEB_RECHARGE_URL = `${WEB_BASE}/pro?recharge=1`;
 
