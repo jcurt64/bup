@@ -7,6 +7,8 @@ import { Redirect, Tabs } from "expo-router";
 
 import FloatingTabBarPro from "../../components/floating-tab-bar-pro";
 import { FlashSheetProvider } from "../../components/flash-sheet-context";
+import { ProUnavailable } from "../../components/pro-unavailable";
+import { PRO_SPACE_ENABLED } from "../../lib/purchases";
 import { useRole } from "../../lib/queries";
 
 export default function ProLayout() {
@@ -15,6 +17,9 @@ export default function ProLayout() {
   if (isLoaded && !isSignedIn) return <Redirect href="/(auth)/sign-in" />;
   // Garde de rôle : un compte prospect n'affiche jamais l'espace pro.
   if (role.data?.role === "prospect") return <Redirect href="/(prospect)/portefeuille" />;
+  // iOS : aucun écran pro (App Review 3.1.1) — rien n'est monté, donc aucun
+  // appel /api/pro/* (pas de création de compte pro par ensureProAccount).
+  if (!PRO_SPACE_ENABLED) return <ProUnavailable />;
 
   return (
     <FlashSheetProvider>
