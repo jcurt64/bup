@@ -660,7 +660,7 @@ function FlashDealDetailSheet({
                   <Text className="text-[13px] leading-5" style={{ color: isDark ? c.gold : "#92400E" }}>
                     Pour accepter ce deal, renseignez d’abord{" "}
                     <Text className="font-semibold">
-                      vos coordonnées (prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone et e-mail)
+                      vos coordonnées (prénom, initiale du nom, téléphone et e-mail)
                     </Text>
                     .
                   </Text>
@@ -789,7 +789,7 @@ function FlashDealDetailSheet({
                 >
                   <Text className="text-[12.5px] leading-5 text-ink-2">
                     Cette campagne ne vous a pas été proposée. Vérifiez que vos
-                    coordonnées (prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone et e-mail) sont
+                    coordonnées (prénom, initiale du nom, téléphone et e-mail) sont
                     complètes pour être éligible aux prochains deals.
                   </Text>
                 </View>

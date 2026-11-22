@@ -104,6 +104,23 @@ export function missingContactFields(
   return CONTACT_FIELDS.filter((f) => !filled(identity?.[f]));
 }
 
+/** Champs EXIGÉS pour accepter une sollicitation (parité serveur 422) :
+ *  prénom, initiale du nom, e-mail, téléphone. Ville, sexe et tranche d'âge
+ *  restent facultatifs (ils ne servent qu'au filtrage des campagnes). */
+export const ACCEPT_REQUIRED_FIELDS = [
+  "prenom",
+  "nom",
+  "email",
+  "telephone",
+] as const satisfies readonly ContactField[];
+export type AcceptRequiredField = (typeof ACCEPT_REQUIRED_FIELDS)[number];
+
+export function missingAcceptFields(
+  identity: Record<string, unknown> | null | undefined,
+): AcceptRequiredField[] {
+  return ACCEPT_REQUIRED_FIELDS.filter((f) => !filled(identity?.[f]));
+}
+
 // ── Sexe / tranche d'âge (profil prospect + ciblage pro) ────────────────────
 export type Genre = "femme" | "homme" | "autre";
 export type TrancheAge = "18-35" | "35+";

@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 
 import { Card, eur, ScrollScreen } from "../../components/screen";
 import { OBJECTIVES } from "../../lib/pro-objectives";
@@ -346,8 +346,6 @@ export default function ProWizard() {
   // individuelle) ; « BUUPP Pool » est affiché mais « À venir ». Le serveur
   // stocke la valeur telle quelle dans targeting.poolMode (libellé détail).
   const [poolMode, setPoolMode] = useState("standard");
-  // Bonus parrain v2 (étendre aux filleuls) — opt-in, désactivé par défaut.
-  const [founderBonus, setFounderBonus] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [kwInput, setKwInput] = useState("");
   const [kwFilter, setKwFilter] = useState(false);
@@ -405,7 +403,6 @@ export default function ProWizard() {
         setCpcCents(d.cpcCents);
         setContacts(d.contacts);
         setPoolMode(d.poolMode === "pool" ? "pool" : "standard");
-        setFounderBonus(d.founderBonusEnabled === true);
         setKeywords(readKeywords(d.keywords));
         setKwFilter(d.kwFilter);
         setBrief((d.brief ?? "").slice(0, BRIEF_MAX_LENGTH));
@@ -492,7 +489,6 @@ export default function ProWizard() {
       cpcCents,
       contacts,
       poolMode,
-      founderBonusEnabled: founderBonus,
       keywords,
       kwFilter,
       brief,
@@ -501,7 +497,7 @@ export default function ProWizard() {
       vitrineModalSeen,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, targetCities, targetGenres, targetAgeBands, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
+  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, targetCities, targetGenres, targetAgeBands, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
   const range = useMemo(() => cpcRange(duration, verif), [duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -765,7 +761,8 @@ export default function ProWizard() {
         excludeCertified,
         excludePastAcceptors: excludePast,
         minFiabilite: minFiab,
-        founder_bonus_enabled: founderBonus,
+        // Bonus parrain (étendre aux filleuls) retiré : toujours désactivé.
+        founder_bonus_enabled: false,
         // « La Vitrine » — URL https du site (le serveur re-valide et recalcule
         // le tarif : offert à la 1re campagne, 2 € sinon).
         websiteUrl:
@@ -1375,29 +1372,6 @@ export default function ProWizard() {
             })}
           </View>
 
-          {/* Bonus parrain v2 — opt-in (désactivé par défaut, comme le web). */}
-          <View className="flex-row rounded-2xl p-3.5" style={{ gap: 10, borderWidth: 1, borderColor: c.borderSoft, backgroundColor: c.surface }}>
-            <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-ink">
-                Activer le bonus parrain (étendre à leurs filleuls)
-              </Text>
-              <Text className="mt-1 text-[12px] leading-[18px] text-ink-4">
-                Lorsqu&apos;un de vos prospects ciblés est un parrain,{" "}
-                <Text style={{ fontWeight: "700", color: c.textSub }}>tous ses filleuls reçoivent aussi votre sollicitation</Text>{" "}
-                (mail + message), même hors cible — plus de portée. À chaque acceptation d&apos;un
-                filleul, son <Text style={{ fontWeight: "700", color: c.textSub }}>parrain touche +50 %</Text> de
-                sa récompense (à votre charge) ; le filleul perçoit la récompense normale. Le quota de
-                la campagne n&apos;est jamais dépassé.
-              </Text>
-            </View>
-            <Switch
-              value={founderBonus}
-              onValueChange={setFounderBonus}
-              trackColor={{ false: c.track, true: c.accent }}
-              thumbColor="#FFFFFF"
-              accessibilityLabel="Activer le bonus parrain"
-            />
-          </View>
         </View>
       ) : null}
 
@@ -1675,27 +1649,6 @@ export default function ProWizard() {
                 </Pressable>
               )}
             </View>
-          </View>
-
-          {/* Bonus parrain — rappel de l'état choisi à l'étape 5. */}
-          <View className="rounded-2xl p-3.5" style={{ backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderSoft }}>
-            <Text className="mb-1 font-mono text-[10px] uppercase text-ink-4" style={{ letterSpacing: 1 }}>
-              Bonus parrain (à vie)
-            </Text>
-            {founderBonus ? (
-              <Text className="text-[12.5px] leading-[19px] text-ink-2">
-                Activé — les <Text style={{ fontWeight: "700" }}>filleuls</Text> des parrains ciblés sont
-                sollicités en plus. À chaque acceptation d&apos;un filleul, son parrain touche{" "}
-                <Text style={{ fontWeight: "700" }}>+50 %</Text> de la récompense du filleul (soit{" "}
-                <Text style={{ fontWeight: "700" }}>+{eur(cpcCents / 200)}</Text>), à vie. Les acceptations
-                restent plafonnées au quota de la campagne.
-              </Text>
-            ) : (
-              <Text className="text-[12.5px] leading-[19px] text-ink-3">
-                Désactivé pour cette campagne — les filleuls ne seront pas sollicités et aucun bonus
-                parrain ne sera versé.
-              </Text>
-            )}
           </View>
 
           {!fundsOk ? (

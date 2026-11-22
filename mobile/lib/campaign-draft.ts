@@ -28,7 +28,6 @@ export type CampaignDraft = {
   /** Jour de lancement « AAAA-MM-JJ » (heure locale). */
   startDay?: string;
   poolMode?: string;
-  founderBonusEnabled?: boolean;
   vitrineUrl?: string;
   vitrineAdded?: boolean;
   vitrineModalSeen?: boolean;

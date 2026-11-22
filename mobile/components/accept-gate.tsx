@@ -1,8 +1,9 @@
 // Garde « coordonnées complètes » à l'acceptation d'une sollicitation.
 //
 // Règle métier (pivot mise en relation) : pour ACCEPTER une sollicitation, le
-// prospect doit avoir renseigné ses 7 coordonnées — prénom, initiale du nom,
-// ville, sexe, tranche d'âge, téléphone et e-mail. Le serveur applique le même garde-fou (422).
+// prospect doit avoir renseigné prénom, initiale du nom, téléphone et e-mail.
+// Ville, sexe et tranche d'âge restent facultatifs (filtrage des campagnes
+// uniquement). Le serveur applique le même garde-fou (422).
 //
 // Ce provider porte l'état du gate, écoute le profil (`/api/prospect/donnees`)
 // pour rouvrir une modale quand tout est rempli, et héberge les deux
@@ -22,9 +23,9 @@ import { Pressable, Text, View } from "react-native";
 
 import { BottomSheet } from "./bottom-sheet";
 import {
-  CONTACT_FIELDS,
+  ACCEPT_REQUIRED_FIELDS,
   CONTACT_FIELD_LABEL,
-  missingContactFields,
+  missingAcceptFields,
   type ContactField,
 } from "../lib/contact-channels";
 import { useProspectDonnees } from "../lib/queries";
@@ -83,7 +84,7 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
     (rel: RelationLike): boolean => {
       const data = q.data;
       if (!data) return false;
-      const missingFields = missingContactFields(data.identity);
+      const missingFields = missingAcceptFields(data.identity);
       if (missingFields.length > 0) {
         setAcceptGate({ relationId: rel.id, missingFields });
         return true;
@@ -96,9 +97,9 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
   const openIncomplete = useCallback(
     (relationId: string, missingFields?: string[]) => {
       const known = (missingFields ?? []).filter((f): f is ContactField =>
-        (CONTACT_FIELDS as readonly string[]).includes(f),
+        (ACCEPT_REQUIRED_FIELDS as readonly string[]).includes(f),
       );
-      const fromProfile = q.data ? missingContactFields(q.data.identity) : [];
+      const fromProfile = q.data ? missingAcceptFields(q.data.identity) : [];
       setAcceptGate({
         relationId,
         missingFields:
@@ -106,7 +107,7 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
             ? known
             : fromProfile.length > 0
               ? fromProfile
-              : [...CONTACT_FIELDS],
+              : [...ACCEPT_REQUIRED_FIELDS],
       });
     },
     [q.data],
@@ -118,7 +119,7 @@ export function AcceptGateProvider({ children }: { children: ReactNode }) {
     if (!pendingAccept) return;
     const data = q.data;
     if (!data) return;
-    if (missingContactFields(data.identity).length === 0) {
+    if (missingAcceptFields(data.identity).length === 0) {
       setAcceptReady({ relationId: pendingAccept.relationId });
       setPendingAccept(null);
     }
@@ -212,10 +213,9 @@ function AcceptIncompleteSheet({
             <Text className="mt-1 text-[13px] leading-5 text-ink-2">
               Merci de renseigner{" "}
               <Text className="font-semibold">
-                vos coordonnées complètes
+                vos coordonnées
               </Text>{" "}
-              (prénom, initiale du nom, ville, sexe, tranche d&apos;âge, téléphone
-              et e-mail) pour accepter cette mise en relation. Le professionnel
+              (prénom, initiale du nom, téléphone et e-mail) pour accepter cette mise en relation. Le professionnel
               ne voit que votre prénom et l&apos;initiale de votre nom.
             </Text>
           </View>
