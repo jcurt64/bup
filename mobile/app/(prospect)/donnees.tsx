@@ -1,9 +1,10 @@
 // Mes données — /api/prospect/donnees (lecture + édition des coordonnées via
 // PATCH /api/prospect/donnees, tier "identity").
 //
-// Pivot « mise en relation pure » : BUUPP ne collecte plus que 4 données —
-// prénom, initiale du nom, téléphone, e-mail. Le professionnel ne voit que le
-// prénom et l'initiale ; appels et e-mails passent par la plateforme BUUPP.
+// Pivot « mise en relation pure » : BUUPP ne collecte plus que 7 données —
+// prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. Le
+// professionnel ne voit que le prénom et l'initiale ; ville, sexe et tranche
+// d'âge servent uniquement à proposer des offres pertinentes ; appels et e-mails passent par la plateforme BUUPP.
 // Le téléphone n'est jamais PATCHé ici : saisie/changement uniquement via la
 // vérification SMS (PhoneVerifySheet), parité web PhoneVerifyModal.
 import { Ionicons } from "@expo/vector-icons";
@@ -12,10 +13,17 @@ import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, TextInput, View } from "react-native";
 
+import { CityAutocomplete } from "../../components/city-autocomplete";
 import { PhoneVerifySheet } from "../../components/phone-verify-sheet";
 import { QueryGate, ScrollScreen } from "../../components/screen";
 import type { CompactExtra } from "../../lib/header-scroll";
-import { nomInitial } from "../../lib/contact-channels";
+import {
+  GENRE_OPTIONS,
+  TRANCHE_AGE_OPTIONS,
+  genreLabel,
+  nomInitial,
+  trancheAgeLabel,
+} from "../../lib/contact-channels";
 import { useTheme } from "../../lib/theme";
 import { HERO_GRADIENT } from "../../lib/pro-theme";
 import { useProspectDonnees, usePatchDonnees } from "../../lib/queries";
@@ -24,7 +32,14 @@ import { useRefetchOnFocus } from "../../lib/use-refetch-on-focus";
 // Base web (= prod que pointe le mobile) — sert les pages légales (/rgpd…).
 const WEB_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://www.buupp.com";
 
-type FieldKey = "prenom" | "nom" | "telephone" | "email";
+type FieldKey =
+  | "prenom"
+  | "nom"
+  | "ville"
+  | "genre"
+  | "trancheAge"
+  | "telephone"
+  | "email";
 type FieldDef = {
   key: FieldKey;
   label: string;
@@ -34,6 +49,9 @@ type FieldDef = {
 const FIELDS: FieldDef[] = [
   { key: "prenom", label: "Prénom", icon: "person-outline" },
   { key: "nom", label: "Initiale du nom", icon: "text-outline" },
+  { key: "ville", label: "Ville", icon: "business-outline" },
+  { key: "genre", label: "Sexe", icon: "people-outline" },
+  { key: "trancheAge", label: "Tranche d'âge", icon: "calendar-outline" },
   { key: "telephone", label: "Téléphone", icon: "call-outline" },
   { key: "email", label: "E-mail", icon: "mail-outline" },
 ];
@@ -101,6 +119,55 @@ function RowFieldIcon({ icon }: { icon: keyof typeof Ionicons.glyphMap }) {
       }}
     >
       <Ionicons name={icon} size={17} color={c.accVioletDeep} />
+    </View>
+  );
+}
+
+// Choix unique en pastilles (Sexe, Tranche d'âge).
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: string;
+  onChange: (v: T) => void;
+}) {
+  const { c } = useTheme();
+  return (
+    <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            className="active:opacity-70"
+            style={{
+              flexGrow: 1,
+              alignItems: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: active ? c.accViolet : c.borderSoft,
+              backgroundColor: active ? c.accViolet : c.surface,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: active ? "700" : "500",
+                color: active ? "#FFFFFF" : c.text,
+              }}
+            >
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -208,7 +275,8 @@ export default function Donnees() {
             <Text className="mt-2 text-[14px] leading-5 text-white/80">
               BUUPP ne vous demande que l&apos;essentiel pour être mis en
               relation : votre prénom, l&apos;initiale de votre nom, votre
-              téléphone et votre e-mail.
+              ville, votre sexe, votre tranche d&apos;âge, votre téléphone et
+              votre e-mail.
             </Text>
           </View>
           <View
@@ -468,7 +536,10 @@ export default function Donnees() {
                     }}
                   >
                     Le professionnel ne voit que votre prénom et l&apos;initiale
-                    de votre nom. Appels et e-mails passent par BUUPP.
+                    de votre nom. Ville, sexe et tranche d&apos;âge servent
+                    uniquement à vous proposer des offres pertinentes et ne
+                    sont jamais montrés aux professionnels. Appels et e-mails
+                    passent par BUUPP.
                   </Text>
                 </View>
 
@@ -519,6 +590,29 @@ export default function Donnees() {
                                 </Text>
                               </Pressable>
                             </>
+                          ) : f.key === "genre" ? (
+                            <Segmented
+                              options={GENRE_OPTIONS}
+                              value={current}
+                              onChange={(v) =>
+                                setDraft((s) => ({ ...s, genre: v }))
+                              }
+                            />
+                          ) : f.key === "trancheAge" ? (
+                            <Segmented
+                              options={TRANCHE_AGE_OPTIONS}
+                              value={current}
+                              onChange={(v) =>
+                                setDraft((s) => ({ ...s, trancheAge: v }))
+                              }
+                            />
+                          ) : f.key === "ville" ? (
+                            <CityAutocomplete
+                              value={current}
+                              onChange={(v) =>
+                                setDraft((s) => ({ ...s, ville: v }))
+                              }
+                            />
                           ) : (
                             <TextInput
                               value={current}
@@ -588,7 +682,14 @@ export default function Donnees() {
                   <View>
                     {FIELDS.map((f, idx) => {
                       const raw = str(row[f.key]).trim();
-                      const main = f.key === "nom" ? nomInitial(raw) : raw;
+                      const main =
+                        f.key === "nom"
+                          ? nomInitial(raw)
+                          : f.key === "genre"
+                            ? genreLabel(raw)
+                            : f.key === "trancheAge"
+                              ? trancheAgeLabel(raw)
+                              : raw;
                       const isEmpty = main === "";
                       const isMasked = pseudonymized && !isEmpty;
                       const displayed = isMasked

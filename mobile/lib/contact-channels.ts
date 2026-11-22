@@ -70,13 +70,26 @@ export function prenomInitiale(prenom: unknown, nom: unknown): string {
   return [p, i ? `${i}.` : ""].filter(Boolean).join(" ");
 }
 
-/** Les 4 champs du profil contact (prénom, initiale, e-mail, téléphone). */
-export const CONTACT_FIELDS = ["prenom", "nom", "email", "telephone"] as const;
+/** Les 7 champs du profil contact (prénom, initiale, ville, sexe, tranche
+ *  d'âge, e-mail, téléphone). Ville, sexe et tranche d'âge servent à proposer
+ *  des offres pertinentes et ne sont jamais montrés au pro. */
+export const CONTACT_FIELDS = [
+  "prenom",
+  "nom",
+  "ville",
+  "genre",
+  "trancheAge",
+  "email",
+  "telephone",
+] as const;
 export type ContactField = (typeof CONTACT_FIELDS)[number];
 
 export const CONTACT_FIELD_LABEL: Record<ContactField, string> = {
   prenom: "Prénom",
   nom: "Initiale du nom",
+  ville: "Ville",
+  genre: "Sexe",
+  trancheAge: "Tranche d'âge",
   email: "E-mail",
   telephone: "Téléphone",
 };
@@ -89,4 +102,72 @@ export function missingContactFields(
   identity: Record<string, unknown> | null | undefined,
 ): ContactField[] {
   return CONTACT_FIELDS.filter((f) => !filled(identity?.[f]));
+}
+
+// ── Sexe / tranche d'âge (profil prospect + ciblage pro) ────────────────────
+export type Genre = "femme" | "homme" | "autre";
+export type TrancheAge = "18-35" | "35+";
+
+export const GENRE_OPTIONS: { value: Genre; label: string }[] = [
+  { value: "femme", label: "Femme" },
+  { value: "homme", label: "Homme" },
+  { value: "autre", label: "Autre" },
+];
+
+export const TRANCHE_AGE_OPTIONS: { value: TrancheAge; label: string }[] = [
+  { value: "18-35", label: "18–35 ans" },
+  { value: "35+", label: "Plus de 35 ans" },
+];
+
+export function genreLabel(v: unknown): string {
+  return GENRE_OPTIONS.find((o) => o.value === v)?.label ?? "";
+}
+
+export function trancheAgeLabel(v: unknown): string {
+  return TRANCHE_AGE_OPTIONS.find((o) => o.value === v)?.label ?? "";
+}
+
+// ── Ciblage pro : villes / sexe / tranche d'âge (vide = tous) ───────────────
+export const MAX_TARGET_CITIES = 20;
+export type TargetGenre = "femme" | "homme";
+
+export function readTargetCities(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of v) {
+    if (typeof x !== "string" || !x.trim()) continue;
+    const k = x.trim().toLocaleLowerCase("fr-FR");
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x.trim());
+  }
+  return out.slice(0, MAX_TARGET_CITIES);
+}
+
+export function readTargetGenres(v: unknown): TargetGenre[] {
+  if (!Array.isArray(v)) return [];
+  return (["femme", "homme"] as const).filter((g) => v.includes(g));
+}
+
+export function readTargetAgeBands(v: unknown): TrancheAge[] {
+  if (!Array.isArray(v)) return [];
+  return (["18-35", "35+"] as const).filter((b) => v.includes(b));
+}
+
+export function targetCitiesLabel(v: unknown): string {
+  const list = readTargetCities(v);
+  return list.length ? list.join(", ") : "Toute la France";
+}
+
+export function targetGenresLabel(v: unknown): string {
+  const list = readTargetGenres(v);
+  if (list.length !== 1) return "Tous";
+  return list[0] === "femme" ? "Femmes" : "Hommes";
+}
+
+export function targetAgeBandsLabel(v: unknown): string {
+  const list = readTargetAgeBands(v);
+  if (list.length !== 1) return "Tous";
+  return list[0] === "18-35" ? "18–35 ans" : "Plus de 35 ans";
 }

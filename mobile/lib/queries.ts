@@ -748,7 +748,7 @@ export type FlashDeal = {
   isAuthenticated: boolean;
   relationId: string | null;
   relationStatus: string | null;
-  /** ["identity"] si les 4 coordonnées sont incomplètes, [] si complètes,
+  /** ["identity"] si les 7 coordonnées sont incomplètes, [] si complètes,
    *  null pour un visiteur anonyme. */
   missingTierKeys: string[] | null;
   /** Modes de contact choisis par le pro (téléphone / e-mail, via BUUPP).
@@ -931,6 +931,12 @@ export type ProCampaignDetail = {
     verifLabel: string;
     /** Seuil de fiabilité minimum (0 / 60 / 80). */
     minFiabilite?: number;
+    /** Ciblage par ville(s) du prospect — vide/absent = toute la France. */
+    cities?: string[] | null;
+    /** Ciblage par sexe — vide/absent = tous. */
+    genres?: ("femme" | "homme")[] | null;
+    /** Ciblage par tranche d'âge — vide/absent = toutes. */
+    ageBands?: ("18-35" | "35+")[] | null;
     keywords: string[];
     kwFilter: boolean;
     poolLabel: string;
@@ -1313,9 +1319,16 @@ export type CreateCampaignInput = {
   /** Modes de contact cochés par le pro (non vide) — téléphone et/ou e-mail,
    *  toujours via la plateforme BUUPP. */
   contactChannels: ("phone" | "email")[];
-  /** Ignorés par le serveur depuis le pivot (plus de ciblage géo/âge). */
+  /** Ignorés par le serveur depuis le pivot (remplacés par targetCities /
+   *  targetAgeBands). */
   geo?: string;
   ages?: string[];
+  /** Villes ciblées (noms de commune, max 20) — vide = toute la France. */
+  targetCities: string[];
+  /** Sexes ciblés — vide = tous. */
+  targetGenres: ("femme" | "homme")[];
+  /** Tranches d'âge ciblées — vide = toutes. */
+  targetAgeBands: ("18-35" | "35+")[];
   verifLevel: string;
   contacts: number;
   startDate: string;

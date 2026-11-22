@@ -27,7 +27,12 @@ import {
   type CampaignContactFilters,
   type ProCampaignDetailFull,
 } from "../../lib/queries-pro-contacts";
-import { contactChannelsShort } from "../../lib/contact-channels";
+import {
+  contactChannelsShort,
+  targetAgeBandsLabel,
+  targetCitiesLabel,
+  targetGenresLabel,
+} from "../../lib/contact-channels";
 import { useTheme } from "../../lib/theme";
 import { useAuthedDownload } from "../../lib/use-authed-download";
 import { BALANCE_SOURCE_NOTE, PURCHASES_ENABLED } from "../../lib/purchases";
@@ -766,6 +771,9 @@ export default function ProCampaignDetailScreen() {
                     ["Objectif", d.objectiveLabel],
                     ["Sous-types", d.targeting.subTypes.length ? d.targeting.subTypes.join(", ") : "—"],
                     ["Mode de contact", `${channelsLabel} (via BUUPP)`],
+                    ["Villes", targetCitiesLabel(d.targeting.cities)],
+                    ["Sexe", targetGenresLabel(d.targeting.genres)],
+                    ["Tranche d'âge", targetAgeBandsLabel(d.targeting.ageBands)],
                     ["Vérification", d.targeting.verifLabel],
                     ["Fiabilité minimum", fiabLabel(d.targeting.minFiabilite)],
                     ["Durée", d.targeting.days != null ? `${d.targeting.days} jour${d.targeting.days > 1 ? "s" : ""}` : (d.targeting.durationKey ?? "—")],

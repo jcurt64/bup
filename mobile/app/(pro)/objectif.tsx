@@ -1,6 +1,6 @@
 // Wizard de création de campagne (8 étapes, miroir du dashboard web) :
 // 1 Objectif (sous-types) · 2 Dates (durée) · 3 Contact (téléphone/e-mail) ·
-// 4 Ciblage (vérif/fiabilité) · 5 Budget (coût/contacts) · 6 Mots-clés ·
+// 4 Ciblage (villes/sexe/âge/vérif/fiabilité) · 5 Budget (coût/contacts) · 6 Mots-clés ·
 // 7 Description · 8 Récap (+ lancement réel POST /api/pro/campaigns).
 // L'objectif est passé via ?id= depuis la grille « Créer une campagne ».
 import { Ionicons } from "@expo/vector-icons";
@@ -26,8 +26,17 @@ import {
   CONTACT_CHANNELS,
   contactChannelsShort,
   readContactChannels,
+  readTargetAgeBands,
+  readTargetCities,
+  readTargetGenres,
+  targetAgeBandsLabel,
+  targetCitiesLabel,
+  targetGenresLabel,
   type ContactChannel,
+  type TargetGenre,
+  type TrancheAge,
 } from "../../lib/contact-channels";
+import { CityMultiPicker } from "../../components/city-multi-picker";
 import {
   campaignExcludesPastAcceptors,
   useCreateCampaign,
@@ -319,6 +328,10 @@ export default function ProWizard() {
   const [channels, setChannels] = useState<ContactChannel[]>(["phone", "email"]);
   const [verif, setVerif] = useState<VerifLevel>("p0");
   const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
+  // Ciblage villes / sexe / tranche d'âge — vide = tous.
+  const [targetCities, setTargetCities] = useState<string[]>([]);
+  const [targetGenres, setTargetGenres] = useState<TargetGenre[]>([]);
+  const [targetAgeBands, setTargetAgeBands] = useState<TrancheAge[]>([]);
   const [excludeCertified, setExcludeCertified] = useState(false);
   const [confirmExclude, setConfirmExclude] = useState(false);
   // « Exclure les prospects ayant déjà accepté une de mes campagnes » (12
@@ -381,6 +394,9 @@ export default function ProWizard() {
         }
         setVerif(d.verif as VerifLevel);
         setMinFiab(d.minFiab ?? 0);
+        setTargetCities(readTargetCities(d.targetCities));
+        setTargetGenres(readTargetGenres(d.targetGenres));
+        setTargetAgeBands(readTargetAgeBands(d.targetAgeBands));
         setExcludeCertified(d.excludeCertified);
         if (d.excludePastAcceptorsTouched === true && typeof d.excludePastAcceptors === "boolean") {
           setExcludePast(d.excludePastAcceptors);
@@ -432,6 +448,9 @@ export default function ProWizard() {
     if (tg.verifLevel === "p0" || tg.verifLevel === "p1" || tg.verifLevel === "p2") setVerif(tg.verifLevel);
     const fiab = Number((tg as { minFiabilite?: unknown }).minFiabilite ?? 0);
     setMinFiab([0, 60, 80].includes(fiab) ? fiab : 0);
+    setTargetCities(readTargetCities(tg.cities));
+    setTargetGenres(readTargetGenres(tg.genres));
+    setTargetAgeBands(readTargetAgeBands(tg.ageBands));
     if (tg.durationKey && DURATIONS.some((x) => x.key === tg.durationKey)) {
       setDuration(tg.durationKey as DurationKey);
     }
@@ -464,6 +483,9 @@ export default function ProWizard() {
       startDay,
       verif,
       minFiab,
+      targetCities,
+      targetGenres,
+      targetAgeBands,
       excludeCertified,
       excludePastAcceptors: excludePast,
       excludePastAcceptorsTouched: excludePastTouched,
@@ -479,7 +501,7 @@ export default function ProWizard() {
       vitrineModalSeen,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
+  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, targetCities, targetGenres, targetAgeBands, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, founderBonus, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
   const range = useMemo(() => cpcRange(duration, verif), [duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -720,11 +742,15 @@ export default function ProWizard() {
         name: obj.name,
         objectiveId: obj.id,
         subTypes: [...subTypes],
-        // Pivot mise en relation : plus de paliers ni de ciblage géo/âge.
+        // Pivot mise en relation : plus de paliers ; ciblage villes / sexe /
+        // tranche d'âge (vide = tous). geo/ages gardés pour la rétrocompat.
         requiredTiers: [1],
         contactChannels: channels,
         geo: "national",
         ages: ["Tous"],
+        targetCities,
+        targetGenres,
+        targetAgeBands,
         verifLevel: verif,
         contacts: contactsNum,
         startDate: new Date(startTs).toISOString(),
@@ -1069,9 +1095,53 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 4 — Ciblage : vérification + fiabilité. */}
+      {/* ÉTAPE 4 — Ciblage : villes, sexe, tranche d'âge, vérification,
+          fiabilité. */}
       {step === 4 ? (
         <View className="gap-3">
+          <View>
+            <Text className="mb-1 text-[13px] text-ink-3">Villes</Text>
+            <Text className="mb-2 text-[11.5px] text-ink-4">
+              Jusqu&apos;à 20 villes. Laissez vide pour cibler toute la France.
+            </Text>
+            <CityMultiPicker value={targetCities} onChange={setTargetCities} />
+          </View>
+          <View>
+            <Text className="mb-2 text-[13px] text-ink-3">Sexe</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+              {([
+                { v: [] as TargetGenre[], label: "Tous" },
+                { v: ["femme"] as TargetGenre[], label: "Femmes" },
+                { v: ["homme"] as TargetGenre[], label: "Hommes" },
+              ]).map((o) => (
+                <Chip
+                  key={o.label}
+                  label={o.label}
+                  on={targetGenresLabel(targetGenres) === o.label}
+                  onPress={() => setTargetGenres(o.v)}
+                  flex
+                />
+              ))}
+            </View>
+          </View>
+          <View>
+            <Text className="mb-2 text-[13px] text-ink-3">Tranche d&apos;âge</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+              {([
+                { v: [] as TrancheAge[], label: "Tous" },
+                { v: ["18-35"] as TrancheAge[], label: "18–35 ans" },
+                { v: ["35+"] as TrancheAge[], label: "Plus de 35 ans" },
+              ]).map((o) => (
+                <Chip
+                  key={o.label}
+                  label={o.label}
+                  on={targetAgeBandsLabel(targetAgeBands) === o.label}
+                  onPress={() => setTargetAgeBands(o.v)}
+                  flex
+                />
+              ))}
+            </View>
+          </View>
           <View>
             <Text className="mb-2 text-[13px] text-ink-3">Niveau de vérification minimum</Text>
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>
@@ -1520,6 +1590,9 @@ export default function ProWizard() {
               ["Date de fin estimée", fmtDayLong(endTs)],
               ["Durée", DURATIONS.find((d) => d.key === duration)?.label ?? duration],
               ["Mode de contact", `${contactChannelsShort(channels)} (via BUUPP)`],
+              ["Villes", targetCitiesLabel(targetCities)],
+              ["Sexe", targetGenresLabel(targetGenres)],
+              ["Tranche d'âge", targetAgeBandsLabel(targetAgeBands)],
               ["Vérification", VERIF_LEVELS.find((v) => v.key === verif)?.label ?? verif],
               ["Certifiés confiance", excludeCertified ? "Exclus" : "Inclus (gains ×2)"],
               ["Anciens acceptants", excludePast ? "Exclus (12 derniers mois)" : "Inclus"],

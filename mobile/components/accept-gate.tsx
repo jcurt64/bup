@@ -1,8 +1,8 @@
 // Garde « coordonnées complètes » à l'acceptation d'une sollicitation.
 //
 // Règle métier (pivot mise en relation) : pour ACCEPTER une sollicitation, le
-// prospect doit avoir renseigné ses 4 coordonnées — prénom, initiale du nom,
-// téléphone et e-mail. Le serveur applique le même garde-fou (422).
+// prospect doit avoir renseigné ses 7 coordonnées — prénom, initiale du nom,
+// ville, sexe, tranche d'âge, téléphone et e-mail. Le serveur applique le même garde-fou (422).
 //
 // Ce provider porte l'état du gate, écoute le profil (`/api/prospect/donnees`)
 // pour rouvrir une modale quand tout est rempli, et héberge les deux
@@ -33,6 +33,9 @@ import { useTheme } from "../lib/theme";
 const FIELD_ICON: Record<ContactField, keyof typeof Ionicons.glyphMap> = {
   prenom: "person-outline",
   nom: "text-outline",
+  ville: "business-outline",
+  genre: "people-outline",
+  trancheAge: "calendar-outline",
   email: "mail-outline",
   telephone: "call-outline",
 };
@@ -211,9 +214,9 @@ function AcceptIncompleteSheet({
               <Text className="font-semibold">
                 vos coordonnées complètes
               </Text>{" "}
-              (prénom, initiale du nom, téléphone et e-mail) pour accepter
-              cette mise en relation. Le professionnel ne voit que votre
-              prénom et l&apos;initiale de votre nom.
+              (prénom, initiale du nom, ville, sexe, tranche d&apos;âge, téléphone
+              et e-mail) pour accepter cette mise en relation. Le professionnel
+              ne voit que votre prénom et l&apos;initiale de votre nom.
             </Text>
           </View>
         </View>

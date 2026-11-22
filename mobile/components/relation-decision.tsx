@@ -167,7 +167,7 @@ export function useRelationDecision() {
         } else {
           Alert.alert(
             "Coordonnées incomplètes",
-            "Pour accepter, renseignez d'abord votre prénom, l'initiale de votre nom, votre téléphone et votre e-mail dans « Mes données ».",
+            "Pour accepter, renseignez d'abord votre prénom, l'initiale de votre nom, votre ville, votre sexe, votre tranche d'âge, votre téléphone et votre e-mail dans « Mes données ».",
           );
         }
         onDone?.();

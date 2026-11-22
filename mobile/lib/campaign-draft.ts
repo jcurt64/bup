@@ -3,7 +3,8 @@
 // quand le pro quitte puis revient sur « Créer une campagne ».
 import * as SecureStore from "expo-secure-store";
 
-// v2 : pivot mise en relation (modes de contact, plus de paliers/géo/âge).
+// v2 : pivot mise en relation (modes de contact, plus de paliers) ; ciblage
+// villes/sexe/âge ajouté en champs optionnels (anciens brouillons = tous).
 const KEY = "buupp.campaign.draft.v2";
 
 export type CampaignDraft = {
@@ -35,6 +36,11 @@ export type CampaignDraft = {
   excludePastAcceptors?: boolean;
   /** Le pro a modifié l'option lui-même (sinon défaut selon l'objectif). */
   excludePastAcceptorsTouched?: boolean;
+  /** Ciblage villes / sexe / tranche d'âge (absents des anciens brouillons
+   *  → vides = tous). */
+  targetCities?: string[];
+  targetGenres?: string[];
+  targetAgeBands?: string[];
   updatedAt: number;
 };
 
