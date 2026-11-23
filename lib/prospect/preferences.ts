@@ -15,6 +15,7 @@
  */
 
 import type { Database } from "@/lib/supabase/types";
+import { ACTIVITY_DOMAINS } from "@/lib/campaigns/domains";
 
 export type CampaignTypeDb = Database["public"]["Enums"]["campaign_type"];
 
@@ -27,19 +28,8 @@ export const CAMPAIGN_TYPE_LABELS = [
   "Promotion",
 ] as const;
 
-export const CATEGORY_LABELS = [
-  "Bien-être",
-  "Coaching",
-  "Artisanat",
-  "Immobilier",
-  "Finance",
-  "Assurance",
-  "Auto",
-  "Éducation",
-  "Beauté",
-  "Alimentation",
-  "Juridique",
-] as const;
+/** Domaines d'activité (ex-« catégories ») — liste partagée avec le pro. */
+export const CATEGORY_LABELS = ACTIVITY_DOMAINS;
 
 /** Libellé UI (objectif) → valeur enum DB. Plusieurs libellés peuvent
  *  retomber sur le même enum (collapse 6 → 4), cohérent avec la table

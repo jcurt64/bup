@@ -20,6 +20,7 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
+import { parseCampaignDomains } from "@/lib/campaigns/domains";
 import {
   MAX_TARGET_CITIES,
   parseAudienceTargeting,
@@ -71,8 +72,11 @@ type Body = {
   brief: string;
   costPerContactCents: number;
   budgetCents: number;
-  keywords: string[];
-  kwFilter: boolean;
+  /** Historique (ex-étape 6 « mots-clés ») : ignoré. */
+  keywords?: string[];
+  kwFilter?: boolean;
+  /** Domaines d'activité de la campagne (≤ 2 ; vide = « Tous »). */
+  domains?: unknown;
   poolMode: string;
   /** « La Vitrine » — URL du site web (https uniquement) à afficher sur
    *  l'annonce côté prospect. Optionnel. Facturé 2 € (offert à la 1re
@@ -218,6 +222,7 @@ export async function POST(req: Request) {
     );
   }
   const audience = audienceParsed.value;
+  const domains = parseCampaignDomains(body.domains);
 
   // Plus de paliers de données : seul le palier 1 (prénom + initiale +
   // téléphone transmis après acceptation / e-mail relayé) subsiste, forcé
@@ -418,8 +423,10 @@ export async function POST(req: Request) {
     excludeCertified: body.excludeCertified === true,
     excludePastAcceptors,
     minFiabilite,
-    keywords: body.keywords,
-    kwFilter: body.kwFilter,
+    // Domaines d'activité (≤ 2, vide = « Tous ») — remplacent les mots-clés.
+    domains,
+    keywords: [],
+    kwFilter: false,
     poolMode: body.poolMode,
     durationKey,
     durationMultiplier: durationMeta.mult,
@@ -528,6 +535,7 @@ export async function POST(req: Request) {
       excludeProspectIds: [...pastAcceptors],
       minFiabilitePct: minFiabilite,
       audience,
+      domains,
       testAccounts: pro.is_test === true,
     });
   } catch (err) {

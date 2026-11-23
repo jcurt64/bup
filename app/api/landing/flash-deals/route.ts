@@ -28,6 +28,7 @@ import {
 } from "@/lib/campaigns/contact-channels";
 import { getFounderContext } from "@/lib/founders";
 import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
+import { readCampaignDomains } from "@/lib/campaigns/domains";
 import {
   excludesPastAcceptors,
   PAST_ACCEPTOR_STATUSES,
@@ -279,6 +280,7 @@ export async function GET() {
       missingTierKeys,
       // Objectif de la campagne (`addigital` → l'app iOS demande l'ATT).
       objectiveId: objectiveIdOf(r.targeting as Record<string, unknown> | null),
+      domains: readCampaignDomains(r.targeting),
     };
   });
 

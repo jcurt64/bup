@@ -21,7 +21,10 @@ const EMPTY_IDENTITY = {
 // un chip depuis le mode `allXxx = true`) ET par le rendu des chips dans
 // le composant Prefs. Tenir les deux usages synchronisés.
 const CAMPAIGN_TYPE_LIST = ['Prise de contact', 'Prise de rendez-vous', 'Événement', 'Téléchargement', 'Enquête & avis', 'Promotion'];
-const CATEGORY_LIST = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
+// Domaines d'activité — liste PARTAGÉE avec le pro (étape 6 de la création
+// de campagne) : miroir exact de ACTIVITY_DOMAINS (lib/campaigns/domains.ts).
+// Les 11 premiers = anciennes « catégories » (préférences conservées).
+const CATEGORY_LIST = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique', 'Santé', 'Énergie', 'Maison & jardin', 'Mode', 'Loisirs & voyages', 'High-tech & télécom', 'Services à la personne'];
 
 const INITIAL_PROFILE = {
   ...EMPTY_IDENTITY,
@@ -5149,6 +5152,16 @@ function Relations() {
                   </button>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 10, marginBottom: 16, lineHeight: 1.55 }}>{p.motif}</p>
+                {/* Domaines d'activité précisés par le pro (≤ 2). */}
+                {Array.isArray(p.domains) && p.domains.length > 0 && (
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: -6, marginBottom: 14 }}>
+                    {p.domains.map(d => (
+                      <span key={d} className="chip" style={{ fontSize: 11, padding: '3px 10px', background: 'color-mix(in oklab, var(--accent) 8%, var(--paper))', color: 'var(--accent)', border: '1px solid color-mix(in oklab, var(--accent) 25%, var(--line))' }}>
+                        <Icon name="grid" size={10}/> {d}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {/* « La Vitrine » — accès direct au site du pro depuis la carte
                     (avant d'ouvrir le détail). Ouvre l'interstitiel de sortie. */}
                 {p.websiteUrl && (
@@ -6742,8 +6755,8 @@ function Prefs() {
           <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
             <IconBadge name="grid" tone="teal" size={40}/>
             <div>
-              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Catégories autorisées</div>
-              <div className="muted" style={{ fontSize: 13 }}>Seuls les professionnels de ces secteurs pourront vous adresser une demande.</div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Domaines d'activité</div>
+              <div className="muted" style={{ fontSize: 13 }}>Choisissez le ou les domaines dans lesquels vous acceptez d'être sollicité, ou « Tous ».</div>
             </div>
           </div>
           <button
@@ -6757,7 +6770,7 @@ function Prefs() {
               boxShadow: allCats_ ? '0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent)' : 'none',
               cursor: 'pointer', transition: 'all .15s'
             }}>
-            <Icon name="check" size={13} stroke={2}/> Toutes catégories
+            <Icon name="check" size={13} stroke={2}/> Tous
           </button>
         </div>
         <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 10 }}>

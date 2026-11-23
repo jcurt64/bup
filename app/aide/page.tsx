@@ -358,10 +358,11 @@ const CATEGORIES: Category[] = [
             Le wizard vous guide pas à pas : <strong>objectif</strong> (prise de
             contact, RDV, devis, sondage), <strong>dates</strong> (période de
             diffusion), <strong>mode de contact</strong> (téléphone et/ou
-            e-mail), <strong>ciblage</strong> facultatif (villes, sexe, tranche
+            e-mail, déduit du canal choisi à l&apos;objectif), <strong>ciblage</strong> facultatif (villes, sexe, tranche
             d&apos;âge — vous ne voyez jamais ces données des prospects),{" "}
             <strong>budget</strong> (durée, nombre de contacts),{" "}
-            <strong>mots-clés</strong>, <strong>description</strong> et{" "}
+            <strong>domaines d&apos;activité</strong> (2 au plus, ou tous — affichés
+            sur l&apos;annonce), <strong>description</strong> et{" "}
             <strong>récap</strong>. Une fois lancée, la campagne est immédiatement
             notifiée par email aux prospects. Vous verrez le prénom et
             l&apos;initiale du nom de chaque prospect qui accepte&nbsp;; le contact se

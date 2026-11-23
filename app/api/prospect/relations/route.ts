@@ -14,6 +14,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { reportedRelationIds } from "@/lib/prospect/reports";
+import { readCampaignDomains } from "@/lib/campaigns/domains";
 import { readContactChannels } from "@/lib/campaigns/contact-channels";
 import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 
@@ -158,6 +159,8 @@ export async function GET() {
         // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
         // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
         objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
+        // Domaines d'activité précisés par le pro (≤ 2 ; [] = tous).
+        domains: readCampaignDomains(r.campaigns?.targeting ?? null),
         // Plus de localisation prospect : distance toujours inconnue (compat).
         distanceKm: null,
         reported: reportedSet.has(r.id),
@@ -244,6 +247,8 @@ export async function GET() {
         // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
         // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
         objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
+        // Domaines d'activité précisés par le pro (≤ 2 ; [] = tous).
+        domains: readCampaignDomains(r.campaigns?.targeting ?? null),
         distanceKm: null,
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (cf. pending).

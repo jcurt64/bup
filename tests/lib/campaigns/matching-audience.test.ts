@@ -91,4 +91,13 @@ describe("findMatchingProspects — filtres d'audience", () => {
     await findMatchingProspects(test.admin, { ...baseInput, testAccounts: true });
     expect(test.calls).toContainEqual(["eq", "is_test", true]);
   });
+
+  it("domaines : un seul `or` développé type × domaine", async () => {
+    const { admin, calls } = fakeAdmin([]);
+    await findMatchingProspects(admin, { ...baseInput, domains: ["Auto"] });
+    const ors = calls.filter((c) => c[0] === "or" && !(c[2] as { referencedTable?: string } | undefined)?.referencedTable);
+    expect(ors).toHaveLength(1);
+    expect(String(ors[0][1])).toContain('and(all_campaign_types.eq.true,categories.ov.{"Auto"})');
+    expect(String(ors[0][1])).toContain("and(all_campaign_types.eq.true,all_categories.eq.true)");
+  });
 });

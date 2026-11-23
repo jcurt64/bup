@@ -2376,10 +2376,18 @@ const VERIF_LEVELS = [
   {id:'p2', name:'Certifié confiance', sub:'Mise en relation validée par un pro — Gains prospects doublés', mult:2, badge:'×2'},
 ];
 
-const KW_SUGGESTIONS = ['véhicule','immobilier','retraite','sport','artisan','nutrition','coaching','BTP','épargne','assurance','crédit','jardinage','animaux','voyages','informatique'];
+// Domaines d'activité (étape 6, ex-« mots-clés ») — liste PARTAGÉE avec le
+// prospect (Préférences) : miroir exact de ACTIVITY_DOMAINS
+// (lib/campaigns/domains.ts) et de CATEGORY_LIST (Prospect.jsx). Le pro en
+// précise 2 au plus, ou « Tous » (= aucun) ; ils s'affichent sur l'annonce.
+const ACTIVITY_DOMAINS = ['Bien-être','Coaching','Artisanat','Immobilier','Finance','Assurance','Auto','Éducation','Beauté','Alimentation','Juridique','Santé','Énergie','Maison & jardin','Mode','Loisirs & voyages','High-tech & télécom','Services à la personne'];
+const MAX_CAMPAIGN_DOMAINS = 2;
+function sanitizeDomains(v) {
+  return Array.isArray(v) ? Array.from(new Set(v.filter(x => ACTIVITY_DOMAINS.includes(x)))).slice(0, MAX_CAMPAIGN_DOMAINS) : [];
+}
 
 // 8 étapes : Objectif → Dates → Contact → Ciblage → Budget → Mots-clés → Description → Récap.
-const WIZ_STEPS = ['Objectif','Dates','Contact','Ciblage','Budget','Mots-clés','Description','Récap'];
+const WIZ_STEPS = ['Objectif','Dates','Contact','Ciblage','Budget','Domaines','Description','Récap'];
 const WIZ_TOTAL = WIZ_STEPS.length;
 const WIZ_STEP_RECAP = WIZ_TOTAL; // dernière étape
 
@@ -2996,7 +3004,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         selectedSubs: Array.from(selectedSubs),
         contactChannels: Array.from(contactChannels),
         verif, minFiab, contacts, durationKey, poolMode,
-        keywords, kwInput,
+        domains,
         startDate, endDate, brief,
         excludePastAcceptors, excludePastTouched,
         targetCities, targetGenres, targetAgeBands,
@@ -3054,8 +3062,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       setContacts(Number(d.contacts ?? 10));
       setDurationKey(typeof d.durationKey === 'string' ? d.durationKey : '7d');
       setPoolMode(d.poolMode ?? 'standard');
-      setKeywords(d.keywords || []);
-      setKwInput(d.kwInput || '');
+      setDomains(sanitizeDomains(d.domains));
       if (typeof d.excludePastAcceptors === 'boolean') {
         setExcludePastAcceptors(d.excludePastAcceptors);
         setExcludePastTouched(Boolean(d.excludePastTouched));
@@ -3151,7 +3158,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         if (typeof tg.minFiabilite === 'number') setMinFiab(tg.minFiabilite);
         if (typeof tg.durationKey === 'string') setDurationKey(tg.durationKey);
         if (typeof tg.poolMode === 'string') setPoolMode(tg.poolMode);
-        if (Array.isArray(tg.keywords)) setKeywords(tg.keywords);
+        if (Array.isArray(tg.domains)) setDomains(sanitizeDomains(tg.domains));
         if (typeof tg.excludeCertified === 'boolean') setExcludeCertified(tg.excludeCertified);
         // Option « anciens acceptants » : valeur de la campagne d'origine,
         // verrouillée contre le défaut par objectif (touched = true).
@@ -3230,12 +3237,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
   // acceptation par un fondateur coûte 2× le tarif choisi.
   // Désactivé par défaut — opt-in volontaire.
-  const [keywords, setKeywords] = useState([]);
-  const [kwInput, setKwInput] = useState('');
-  // Référence sur l'input mot-clé pour pouvoir le focus depuis le bouton
-  // "+ Ajouter" quand l'input est vide (cf. étape 6 : on garde le bouton
-  // toujours cliquable visuellement plutôt que de le griser).
-  const kwInputRef = React.useRef(null);
+  // Étape 6 : domaines d'activité de la campagne ([] = « Tous »).
+  const [domains, setDomains] = useState([]);
   // Étape 2 : dates de lancement / fin de campagne
   // Le serveur démarre toute campagne à sa validation (starts_at = now) :
   // pas de date de lancement différée, la date affichée est donc aujourd'hui.
@@ -3267,7 +3270,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       step > 1 ||
       selectedObj != null ||
       selectedSubs.size > 0 ||
-      keywords.length > 0 ||
+      domains.length > 0 ||
       brief.length > 0;
     if (!hasContent) return;
     const t = setTimeout(() => saveDraft(), 500);
@@ -3276,7 +3279,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
   }, [
     step, plan, selectedObj, selectedSubs, contactChannels,
     verif, minFiab, contacts, durationKey, poolMode,
-    keywords, kwInput, startDate, endDate, brief,
+    domains, startDate, endDate, brief,
     excludePastAcceptors, excludePastTouched,
     targetCities, targetGenres, targetAgeBands,
   ]);
@@ -3351,8 +3354,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setConfirmExcludeCertified(false);
     setExcludePastAcceptors(false);
     setExcludePastTouched(false);
-    setKeywords([]);
-    setKwInput('');
+    setDomains([]);
     setStartDate(todayIso());
     setEndDate(isoPlusDays(8));
     setBrief('');
@@ -3361,15 +3363,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     setTermsError(false);
   };
 
-  const addKw = (val) => {
-    const kw = (val ?? kwInput).trim();
-    if (kw && !keywords.includes(kw)) setKeywords(prev => [...prev, kw]);
-    if (!val) setKwInput('');
-  };
-  const removeKw = (i) => {
-    const next = keywords.filter((_, idx) => idx !== i);
-    setKeywords(next);
-  };
+  // Domaines : 2 au plus ; un clic sur un domaine déjà pris le retire.
+  // Au-delà de 2, le clic est ignoré (les autres chips sont grisés).
+  const toggleDomain = (d) => setDomains(prev => (
+    prev.includes(d) ? prev.filter(x => x !== d)
+      : prev.length >= MAX_CAMPAIGN_DOMAINS ? prev : [...prev, d]
+  ));
 
   /* Cliquable : on autorise un retour direct vers une étape déjà visitée
      (idx <= step). Aller en avant force toujours à passer par "Continuer"
@@ -4161,93 +4160,62 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
         {step === 6 && (
           <div>
             <div className="row center gap-3" style={{ marginBottom: 6 }}>
-              <div className="serif" style={{ fontSize: 22 }}>Filtrage par mots-clés</div>
-              <span className="chip chip-accent" style={{ fontSize: 10 }}>Optionnel</span>
+              <div className="serif" style={{ fontSize: 22 }}>Précision du domaine d'activité</div>
+              <span className="chip chip-accent" style={{ fontSize: 10 }}>2 maximum</span>
             </div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 22, maxWidth: 720 }}>
-              Affinez votre ciblage en ajoutant des mots-clés. Ils servent de signal de priorité pour
-              présenter votre campagne aux prospects les plus susceptibles d'être intéressés.
+            <div className="muted" style={{ fontSize: 13, marginBottom: 22, maxWidth: 720, lineHeight: 1.55 }}>
+              Précisez le domaine de votre offre (2 au plus), ou choisissez « Tous ». Ils s'affichent sur
+              votre annonce, et seuls les prospects qui acceptent ces domaines sont sollicités.
             </div>
-
-            <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 14, padding: 22, marginBottom: 16 }}>
-              <div className="row" style={{ gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--accent)' }}>
-                  <Icon name="search" size={14}/>
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Ajouter des mots-clés de ciblage</div>
-                  <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Tapez un mot-clé et appuyez sur Entrée ou cliquez sur + Ajouter.</div>
-                </div>
+            <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 14, padding: 22 }}>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+                {(() => {
+                  const on = domains.length === 0;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setDomains([])}
+                      aria-pressed={on}
+                      className="chip"
+                      style={{
+                        cursor: 'pointer', fontSize: 12, padding: '7px 14px', fontWeight: 600,
+                        background: on ? 'var(--accent)' : 'var(--paper)',
+                        color: on ? '#fff' : 'var(--ink)',
+                        border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
+                      }}>
+                      {on && <Icon name="check" size={11}/>} Tous
+                    </button>
+                  );
+                })()}
+                {ACTIVITY_DOMAINS.map(d => {
+                  const on = domains.includes(d);
+                  const full = !on && domains.length >= MAX_CAMPAIGN_DOMAINS;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDomain(d)}
+                      aria-pressed={on}
+                      disabled={full}
+                      title={full ? '2 domaines maximum — retirez-en un pour changer' : ''}
+                      className="chip"
+                      style={{
+                        cursor: full ? 'not-allowed' : 'pointer', fontSize: 12, padding: '7px 14px',
+                        opacity: full ? 0.45 : 1,
+                        background: on ? 'color-mix(in oklab, var(--accent) 12%, var(--paper))' : 'var(--paper)',
+                        color: on ? 'var(--accent)' : 'var(--ink)',
+                        border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
+                        fontWeight: on ? 600 : 400,
+                      }}>
+                      {on && <Icon name="check" size={11}/>} {d}
+                    </button>
+                  );
+                })}
               </div>
-
-              <div className="row gap-2 wizard-kw-input-row" style={{ marginBottom: 14 }}>
-                <input
-                  ref={kwInputRef}
-                  value={kwInput}
-                  onChange={e => setKwInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKw(); } }}
-                  placeholder="Ex : véhicule, immobilier, retraite…" maxLength={40}
-                  className="input" style={{ flex: 1, fontSize: 13 }}/>
-                {/* Bouton toujours actif visuellement : si l'input est vide,
-                    on focus le champ pour inviter à saisir au lieu de griser
-                    le CTA (UX). Ajout effectif uniquement avec une valeur. */}
-                <button
-                  onClick={() => {
-                    if (!kwInput.trim()) { kwInputRef.current?.focus(); return; }
-                    addKw();
-                  }}
-                  className="btn btn-primary btn-sm"
-                  style={{ whiteSpace: 'nowrap' }}>
-                  <Icon name="plus" size={12}/> Ajouter
-                </button>
-              </div>
-
-              {/* Suggestions rapides : on les affiche TANT qu'il en reste à
-                  proposer, même après une première sélection (pour permettre
-                  d'en ajouter plusieurs d'un clic). Les mots déjà ajoutés
-                  sont filtrés pour éviter le doublon visuel. */}
-              {KW_SUGGESTIONS.some(kw => !keywords.includes(kw)) && (
-                <div style={{ marginBottom: 14 }}>
-                  <div className="mono muted" style={{ fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.1em' }}>Suggestions rapides</div>
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                    {KW_SUGGESTIONS.filter(kw => !keywords.includes(kw)).map(kw => (
-                      <button key={kw} onClick={() => addKw(kw)} className="chip" style={{ cursor: 'pointer', fontSize: 11, padding: '5px 10px' }}>{kw}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {keywords.length > 0 && (
-                <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {keywords.map((kw, i) => (
-                    <div key={i} className="row center" style={{ gap: 6, padding: '4px 6px 4px 12px', borderRadius: 999,
-                      background: 'color-mix(in oklab, var(--accent) 10%, var(--paper))',
-                      border: '1px solid color-mix(in oklab, var(--accent) 25%, transparent)',
-                      color: 'var(--accent)', fontSize: 12, fontWeight: 500 }}>
-                      {kw}
-                      <button onClick={() => removeKw(i)} style={{ width: 16, height: 16, borderRadius: 999,
-                        background: 'color-mix(in oklab, var(--accent) 20%, transparent)', color: 'var(--accent)',
-                        fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-            </div>
-
-            <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: 16 }}>
-              <div className="mono caps" style={{ fontSize: 10, fontWeight: 600, marginBottom: 10, letterSpacing: '.1em' }}>Comment fonctionne le matching par mots-clés ?</div>
-              <div className="col gap-3">
-                <div className="row wizard-kw-explainer-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-                  <span className="chip" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Priorité</span>
-                  <div className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
-                    Les mots-clés agissent comme un <strong style={{ color: 'var(--ink)' }}>signal de priorité</strong> — les prospects
-                    correspondants remontent en tête de liste sans exclure les autres. Le volume de campagne est préservé.
-                  </div>
-                </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 14 }}>
+                {domains.length === 0
+                  ? 'Tous les domaines : votre annonce est proposée à tous les prospects.'
+                  : `Sélection : ${domains.join(' · ')} (${domains.length}/${MAX_CAMPAIGN_DOMAINS}).`}
               </div>
             </div>
           </div>
@@ -4428,16 +4396,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 </div>
               ))}
               <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', gap: 16, alignItems: 'flex-start' }}>
-                <span className="muted" style={{ fontSize: 12 }}>Mots-clés</span>
+                <span className="muted" style={{ fontSize: 12 }}>Domaines d'activité</span>
                 <div style={{ textAlign: 'right' }}>
-                  {keywords.length > 0 ? (
+                  {domains.length > 0 ? (
                     <div className="row" style={{ flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
-                      {keywords.map((kw, i) => (
-                        <span key={i} className="chip chip-accent" style={{ fontSize: 10, padding: '2px 8px' }}>{kw}</span>
+                      {domains.map(d => (
+                        <span key={d} className="chip chip-accent" style={{ fontSize: 10, padding: '2px 8px' }}>{d}</span>
                       ))}
                     </div>
                   ) : (
-                    <span className="muted" style={{ fontSize: 12 }}>Aucun</span>
+                    <span style={{ fontSize: 12, fontWeight: 500 }}>Tous</span>
                   )}
                 </div>
               </div>
@@ -4644,8 +4612,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                         startDate, endDate: computedEndDate, brief,
                         costPerContactCents: Math.round(cpc * 100),
                         budgetCents: Math.round(total * 100),
-                        // Mots-clés = simple signal de priorité (plus de filtre strict).
-                        keywords, kwFilter: false, poolMode,
+                        // Domaines d'activité (≤ 2, [] = « Tous ») — remplacent les mots-clés.
+                        domains, keywords: [], kwFilter: false, poolMode,
                         excludeCertified,
                         excludePastAcceptors,
                         founder_bonus_enabled: false, // bonus parrain supprimé (pivot mise en relation)
@@ -8721,7 +8689,8 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
   const objectiveValue = data.objectiveLabel || '—';
   const subTypesValue = (tg.subTypes && tg.subTypes.length) ? tg.subTypes.join(', ') : '—';
   const contactModeValue = <ContactChannelChips channels={data.contactChannels ?? tg.contactChannels ?? camp?.contactChannels}/>;
-  const keywordsValue = (tg.keywords && tg.keywords.length) ? tg.keywords.join(', ') : '—';
+  const campaignDomains = Array.isArray(data.domains) ? data.domains : (Array.isArray(tg.domains) ? tg.domains : []);
+  const domainsValue = campaignDomains.length ? campaignDomains.join(' · ') : 'Tous';
   const briefValue = data.brief || '—';
 
   return (
@@ -9182,7 +9151,7 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
               ['Objectif principal', objectiveValue],
               ['Sous-types',         subTypesValue],
               ['Mode de contact',    contactModeValue],
-              ['Mots-clés',          keywordsValue],
+              ['Domaines d\'activité', domainsValue],
               ['Brief',              briefValue],
             ].map(([l, v], i, arr) => (
               <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', gap: 16 }}>

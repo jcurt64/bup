@@ -37,6 +37,7 @@ import {
   identityMatchesAudience,
   type AudienceTargeting,
 } from "./audience-targeting";
+import { pgTextArrayLiteral } from "./domains";
 
 export type MatchingInput = {
   objectiveId: string;
@@ -53,6 +54,8 @@ export type MatchingInput = {
   minFiabilitePct?: number | null;
   /** Filtres d'audience (villes / sexe / tranche d'âge). Absent = aucun. */
   audience?: AudienceTargeting;
+  /** Domaines d'activité de la campagne (≤ 2). Vide/absent = « Tous ». */
+  domains?: string[];
   /** Pro de TEST (`pro_accounts.is_test`) : true → seuls les prospects de
    *  test sont éligibles ; false/absent → les prospects de test sont exclus.
    *  Cf. lib/test-accounts. */
@@ -161,9 +164,19 @@ export async function findMatchingProspects(
 
   // Filtre type campagne : `all_campaign_types=true OR enum dans campaign_types`.
   // ⚠ campaignType DOIT venir de `objectiveToCampaignType` (enum literal).
-  query = query.or(
-    `all_campaign_types.eq.true,campaign_types.cs.{${campaignType}}`,
-  );
+  // Domaines d'activité : prospect « Tous » OU au moins un domaine commun.
+  // Un seul `or` (forme développée) pour combiner proprement les deux
+  // conditions (type ET domaine) — cf. lib/campaigns/domains.ts.
+  const typeConds = ["all_campaign_types.eq.true", `campaign_types.cs.{${campaignType}}`];
+  const domains = input.domains ?? [];
+  if (domains.length > 0) {
+    const domainConds = ["all_categories.eq.true", `categories.ov.${pgTextArrayLiteral(domains)}`];
+    query = query.or(
+      typeConds.flatMap((t) => domainConds.map((d) => `and(${t},${d})`)).join(","),
+    );
+  } else {
+    query = query.or(typeConds.join(","));
+  }
 
   const { data, error } = await query
     .order("bupp_score", { ascending: false })

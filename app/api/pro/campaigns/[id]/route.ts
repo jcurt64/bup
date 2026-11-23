@@ -20,6 +20,7 @@
  *       autres            → 409 invalid_transition
  */
 
+import { readCampaignDomains } from "@/lib/campaigns/domains";
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -385,6 +386,8 @@ export async function GET(req: Request, ctx: RouteContext) {
       // Seuil de fiabilité minimum courant (0/60/80) — la popup d'édition ne
       // propose que des seuils inférieurs ou égaux (élargir seulement).
       minFiabilite: typeof targeting?.minFiabilite === "number" ? targeting.minFiabilite : 0,
+      // Domaines d'activité (≤ 2 ; [] = tous) — remplacent les mots-clés.
+      domains: readCampaignDomains(targeting),
       keywords: targeting?.keywords ?? [],
       kwFilter: !!targeting?.kwFilter,
       poolMode: targeting?.poolMode ?? null,

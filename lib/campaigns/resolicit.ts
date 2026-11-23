@@ -16,6 +16,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { findMatchingProspects } from "./matching";
+import { readCampaignDomains } from "./domains";
 import { readContactChannels } from "./contact-channels";
 import { readAudienceTargeting } from "./audience-targeting";
 import { sendRelationInvitation } from "@/lib/email/relation";
@@ -127,6 +128,7 @@ export async function resolicitNewlyEligible(
       excludeProspectIds: [...excludeIds],
       minFiabilitePct: t.minFiabilite ?? null,
       audience: readAudienceTargeting(t),
+      domains: readCampaignDomains(t),
       testAccounts: pro?.is_test === true,
     });
   } catch (e) {
