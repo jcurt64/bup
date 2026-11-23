@@ -5951,8 +5951,9 @@ function ReportProModal({ relation, onClose, onSubmitted }) {
    Modèle métier (enums Supabase) :
      basique           — créé par défaut à l'ouverture du compte.
      verifie           — téléphone vérifié par SMS (prospect_identity.phone_verified_at).
-     certifie_confiance — au moins une mise en relation acceptée
-                          issue d'une campagne 'prise_de_rendez_vous'.
+     certifie_confiance — un professionnel a validé une mise en relation
+                          effective (ou une participation Tests & Études
+                          approuvée) — cf. lib/prospect/verification-tier.
    Le RIB (prospect_rib) n'intervient PAS dans le niveau : il relève du
    flux de retrait (Stripe Connect) et n'est lu que pour affichage.
    Données récupérées via /api/prospect/verification (recalcul + persist
@@ -5976,8 +5977,8 @@ const VERIF_TIERS = [
   {
     key: 'certifie_confiance',
     label: 'Certifié confiance',
-    done: "Rendez-vous physique accepté",
-    requirement: "Acceptez un rendez-vous physique proposé par un professionnel.",
+    done: "Mise en relation validée par un professionnel",
+    requirement: "Échangez avec un professionnel (appel, e-mail, étude, sondage…) : il confirme que la mise en relation a eu lieu.",
     nextLabel: 'Dernière étape',
   },
 ];
@@ -6018,7 +6019,7 @@ const VERIF_META = {
   },
   certifie_confiance: {
     icon: 'shieldCheck',
-    full: 'Rendez-vous physique accepté.',
+    full: 'Un professionnel a validé une mise en relation avec vous.',
     perks: ['Toutes les campagnes ouvertes', 'Confiance maximale auprès des professionnels'],
     soft: '#EEF2FF', fg: '#4F46E5',
     dark: 'linear-gradient(135deg, #166534 0%, #143C1E 100%)',
@@ -6047,7 +6048,7 @@ function VerifTiers() {
       <SectionTitle
         eyebrow="Niveau de vérification"
         title="Vos niveaux"
-        desc="Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées."
+        desc="Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (mise en relation validée par un professionnel). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées."
       />
       {(() => {
         const meta = VERIF_META[tier] || VERIF_META.basique;

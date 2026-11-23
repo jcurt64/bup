@@ -59,7 +59,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
   const { data, error } = await admin
     .from("relations")
     .select(
-      `id, status, pro_account_id, prospect_id, pro_priority,
+      `id, status, pro_account_id, prospect_id, pro_priority, pro_validated_at,
        campaigns ( status, code, contact_channels ),
        prospects:prospect_id ( id, prospect_identity ( prenom, nom, email, telephone ) )`,
     )
@@ -82,6 +82,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     pro_account_id: string;
     prospect_id: string;
     pro_priority: number | null;
+    pro_validated_at: string | null;
     campaigns: Camp | Camp[] | null;
     prospects:
       | { id: string; prospect_identity: Ident | Ident[] | null }
@@ -154,6 +155,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
     priority: row.pro_priority ?? null,
     fiabiliteAgg,
     authCode,
+    // Mise en relation confirmée effective par le pro (→ certifié confiance).
+    validatedAt: row.pro_validated_at ?? null,
     contactChannels,
     contact: { canCall, canEmail, aliasEmail },
   });

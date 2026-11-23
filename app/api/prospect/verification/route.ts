@@ -4,8 +4,9 @@
  *
  *   basique             : par défaut à la création (toujours OK).
  *   verifie             : téléphone vérifié par SMS (Brevo).
- *   certifie_confiance  : le prospect a accepté ≥ 1 mise en relation
- *                         issue d'une campagne de type 'prise_de_rendez_vous'.
+ *   certifie_confiance  : un pro a validé une mise en relation effective, ou
+ *                         une participation Tests & Études a été approuvée
+ *                         (cf. lib/prospect/verification-tier).
  *
  * Le calcul est fait à chaque GET puis écrit dans `prospects.verification`
  * (idempotent, négligeable en coût). Le client peut ainsi afficher la
@@ -16,10 +17,9 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
+import { recomputeVerificationTier } from "@/lib/prospect/verification-tier";
 
 export const runtime = "nodejs";
-
-type Tier = "basique" | "verifie" | "certifie_confiance";
 
 export async function GET() {
   const { userId } = await auth();
@@ -39,49 +39,14 @@ export async function GET() {
   });
   const admin = createSupabaseAdminClient();
 
-  // Lectures parallèles : tél vérifié, RIB éventuel, relations physiques.
-  const [identityRes, ribRes, rdvRes] = await Promise.all([
-    admin
-      .from("prospect_identity")
-      .select("phone_verified_at")
-      .eq("prospect_id", prospectId)
-      .maybeSingle(),
+  const [{ tier, signals }, ribRes] = await Promise.all([
+    recomputeVerificationTier(admin, prospectId),
     admin
       .from("prospect_rib")
       .select("prospect_id, validated_at, iban, bic, holder_name")
       .eq("prospect_id", prospectId)
       .maybeSingle(),
-    // Une relation = "rendez-vous physique accepté" si :
-    //   - status ∈ {accepted, settled}
-    //   - la campagne associée a type = 'prise_de_rendez_vous'
-    // Postgrest fait le join via le FK, count(*) côté client.
-    admin
-      .from("relations")
-      .select("id, campaigns!inner(type)", { count: "exact" })
-      .eq("prospect_id", prospectId)
-      .in("status", ["accepted", "settled"])
-      .eq("campaigns.type", "prise_de_rendez_vous"),
   ]);
-
-  const hasPhoneVerified = Boolean(identityRes.data?.phone_verified_at);
-  const hasPhysicalAcceptance = (rdvRes.count ?? 0) > 0;
-
-  let tier: Tier = "basique";
-  if (hasPhysicalAcceptance) tier = "certifie_confiance";
-  else if (hasPhoneVerified) tier = "verifie";
-
-  // Persiste si différent — évite des UPDATE inutiles à chaque fetch.
-  const { data: current } = await admin
-    .from("prospects")
-    .select("verification")
-    .eq("id", prospectId)
-    .single();
-  if ((current?.verification ?? "") !== tier) {
-    await admin
-      .from("prospects")
-      .update({ verification: tier })
-      .eq("id", prospectId);
-  }
 
   return NextResponse.json({
     tier,
@@ -100,7 +65,11 @@ export async function GET() {
           validatedAt: ribRes.data.validated_at,
         }
       : null,
-    physicalAcceptances: rdvRes.count ?? 0,
+    // Nombre de mises en relation validées par un pro (+ études approuvées).
+    // Clé historique conservée pour l'app mobile publiée.
+    physicalAcceptances: signals.proValidations + signals.approvedStudies,
+    proValidations: signals.proValidations,
+    approvedStudies: signals.approvedStudies,
     progress:
       tier === "basique" ? 33
       : tier === "verifie" ? 66

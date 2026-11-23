@@ -1166,6 +1166,7 @@ export type Database = {
           non_atteint_counted: boolean
           pro_account_id: string
           pro_priority: number | null
+          pro_validated_at: string | null
           prospect_id: string
           referral_extra: boolean
           referral_parrain_bonus: boolean
@@ -1190,6 +1191,7 @@ export type Database = {
           non_atteint_counted?: boolean
           pro_account_id: string
           pro_priority?: number | null
+          pro_validated_at?: string | null
           prospect_id: string
           referral_extra?: boolean
           referral_parrain_bonus?: boolean
@@ -1214,6 +1216,7 @@ export type Database = {
           non_atteint_counted?: boolean
           pro_account_id?: string
           pro_priority?: number | null
+          pro_validated_at?: string | null
           prospect_id?: string
           referral_extra?: boolean
           referral_parrain_bonus?: boolean

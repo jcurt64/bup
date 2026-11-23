@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { REJECT_REASONS, type RejectReason } from "./constants";
+import { recomputeVerificationTier } from "@/lib/prospect/verification-tier";
 import { listPublicStudies, proEmail, prospectIdentities, type StudyRow } from "./repo";
 import {
   sendStudyApproved, sendStudyCanceledToProspect, sendStudyDisputeOutcome, sendStudyDisputeToPro,
@@ -121,6 +122,11 @@ export async function notifyApproved(admin: Admin, participationId: string): Pro
   try {
     const { data: p } = await admin.from("study_participations").select("prospect_id, campaign_id").eq("id", participationId).single();
     if (!p) return;
+    // Participation approuvée par le pro = mise en relation validée →
+    // niveau « certifié confiance » (cf. lib/prospect/verification-tier).
+    await recomputeVerificationTier(admin, p.prospect_id).catch((e) =>
+      console.error("[studies/notify] tier recompute", e),
+    );
     const { data: c } = await admin.from("study_campaigns").select("title, reward_cents").eq("id", p.campaign_id).single();
     if (!c) return;
     const id = (await prospectIdentities(admin, [p.prospect_id])).get(p.prospect_id);

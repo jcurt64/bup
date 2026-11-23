@@ -2361,12 +2361,12 @@ const BASE_REWARD_EUR = 1.00;
 
 // Niveaux alignés sur la page Prospect → onglet « vérification » :
 // Basique (création de compte) → Vérifié (RIB validé) → Certifié confiance
-// (rendez-vous physique accepté). Les ids restent `p0/p1/p2` pour rester
+// (mise en relation validée par un pro). Les ids restent `p0/p1/p2` pour rester
 // rétro-compatibles avec les campagnes déjà persistées.
 const VERIF_LEVELS = [
   {id:'p0', name:'Basique',            sub:'Compte créé — email vérifié',                                  mult:1},
   {id:'p1', name:'Vérifié',            sub:'Numéro de téléphone vérifié par SMS',                         mult:1.5},
-  {id:'p2', name:'Certifié confiance', sub:'Rendez-vous physique accepté — Gains prospects doublés', mult:2, badge:'×2'},
+  {id:'p2', name:'Certifié confiance', sub:'Mise en relation validée par un pro — Gains prospects doublés', mult:2, badge:'×2'},
 ];
 
 const KW_SUGGESTIONS = ['véhicule','immobilier','retraite','sport','artisan','nutrition','coaching','BTP','épargne','assurance','crédit','jardinage','animaux','voyages','informatique'];
@@ -6396,6 +6396,34 @@ function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityC
   const [authCode, setAuthCode] = React.useState(null);
   // Feedback du bouton « Copier » du code buupp.
   const [authCopied, setAuthCopied] = React.useState(false);
+  // Mise en relation confirmée EFFECTIVE par le pro (ISO ou null). Une
+  // validation fait passer le prospect « certifié confiance ».
+  const [validatedAt, setValidatedAt] = React.useState(null);
+  const [validating, setValidating] = React.useState(false);
+  const [validateError, setValidateError] = React.useState(null);
+  async function submitValidation(next) {
+    setValidating(true);
+    setValidateError(null);
+    try {
+      const res = await fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/validate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ validated: next }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setValidateError(j?.error === 'campaign_not_closed'
+          ? "Disponible une fois la campagne clôturée."
+          : "Impossible d'enregistrer pour le moment. Réessayez.");
+        return;
+      }
+      setValidatedAt(j?.validatedAt ?? null);
+    } catch {
+      setValidateError("Impossible d'enregistrer pour le moment. Réessayez.");
+    } finally {
+      setValidating(false);
+    }
+  }
   const copyAuthCode = React.useCallback(() => {
     if (!authCode) return;
     try {
@@ -6428,6 +6456,8 @@ function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityC
     let cancelled = false;
     setStatus('loading');
     setAuthCode(null);
+    setValidatedAt(null);
+    setValidateError(null);
     setPicked(row.priority ?? null);
     setSaved(row.priority ?? null);
     fetch(`/api/pro/contacts/${encodeURIComponent(row.relationId)}/details`, { cache: 'no-store' })
@@ -6441,6 +6471,7 @@ function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityC
         setRef(j?.ref ?? null);
         setFiabAgg(j?.fiabiliteAgg ?? null);
         setAuthCode(j?.authCode ?? null);
+        setValidatedAt(j?.validatedAt ?? null);
         if (typeof j?.priority !== 'undefined') {
           setPicked(j.priority ?? null);
           setSaved(j.priority ?? null);
@@ -6569,6 +6600,59 @@ function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityC
                   </button>
                 </div>
               </div>
+          )}
+          {/* Mise en relation effective — validée par le pro après l'appel,
+              l'e-mail ou la réponse à son étude / sondage. Débloque le niveau
+              « certifié confiance » du prospect. */}
+          {status === 'ok' && (
+            <div style={{
+              background: validatedAt ? 'color-mix(in oklab, #10B981 9%, var(--paper))' : 'var(--paper)',
+              border: '1px solid ' + (validatedAt ? 'color-mix(in oklab, #10B981 40%, var(--line))' : 'var(--line-2)'),
+              borderRadius: 14, padding: 16, marginBottom: 16,
+            }}>
+              <div className="row center gap-3" style={{ marginBottom: 12, alignItems: 'flex-start' }}>
+                <span style={{ display: 'inline-flex', width: 34, height: 34, borderRadius: 9, background: validatedAt ? '#10B981' : 'var(--ivory-2)', border: '1px solid var(--line)', alignItems: 'center', justifyContent: 'center', color: validatedAt ? '#fff' : '#10B981', flexShrink: 0 }}>
+                  <Icon name={validatedAt ? 'check' : 'shieldCheck'} size={16}/>
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>
+                    {validatedAt ? 'Mise en relation validée' : 'La mise en relation a-t-elle été effective ?'}
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+                    {validatedAt
+                      ? `Validée le ${new Date(validatedAt).toLocaleDateString('fr-FR')}. Ce prospect est désormais « certifié confiance ».`
+                      : "Après votre appel, votre e-mail ou sa réponse à votre étude, confirmez que l'échange a bien eu lieu. Votre validation certifie ce prospect « certifié confiance »."}
+                  </div>
+                </div>
+              </div>
+              {validatedAt ? (
+                <button
+                  onClick={() => submitValidation(false)}
+                  disabled={validating}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 12, opacity: validating ? 0.6 : 1 }}
+                >
+                  {validating ? 'Enregistrement…' : 'Annuler la validation'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => submitValidation(true)}
+                  disabled={validating}
+                  className="btn"
+                  style={{
+                    background: '#10B981', color: '#fff', border: 0,
+                    padding: '9px 16px', borderRadius: 8, fontWeight: 600, fontSize: 13,
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    cursor: validating ? 'wait' : 'pointer', opacity: validating ? 0.6 : 1,
+                  }}
+                >
+                  <Icon name="check" size={13}/> {validating ? 'Enregistrement…' : 'Valider la mise en relation'}
+                </button>
+              )}
+              {validateError && (
+                <div role="alert" style={{ marginTop: 8, fontSize: 12, color: '#991b1b' }}>{validateError}</div>
+              )}
+            </div>
           )}
           {/* Priorité de traitement */}
           <div style={{
