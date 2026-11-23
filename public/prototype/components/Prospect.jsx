@@ -4944,8 +4944,22 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
 // arrondi cliquable (capture via /api/campaign/[id]/preview). Remplace le lien
 // texte. Au clic → interstitiel de sortie (onVisit). Fallback globe si la
 // capture échoue.
+// La capture peut être en cours de génération (503 côté /preview) : on
+// réessaie quelques fois avant d'afficher « Aperçu indisponible ».
+const VITRINE_PREVIEW_RETRIES = 5;
 function VitrinePreview({ campaignId, proName, onVisit }) {
   const [failed, setFailed] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
+  const [loaded, setLoaded] = React.useState(false);
+  const retryRef = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(retryRef.current), []);
+  const onImgError = () => {
+    if (attempt < VITRINE_PREVIEW_RETRIES) {
+      retryRef.current = setTimeout(() => setAttempt(a => a + 1), 4000);
+    } else {
+      setFailed(true);
+    }
+  };
   if (!campaignId) return null;
   return (
     <button
@@ -4963,13 +4977,23 @@ function VitrinePreview({ campaignId, proName, onVisit }) {
     >
       <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', background: 'linear-gradient(135deg, var(--ivory-2), var(--paper))' }}>
         {!failed ? (
-          <img
-            src={`/api/campaign/${campaignId}/preview?w=640`}
-            alt={`Aperçu du site de ${proName}`}
-            loading="lazy"
-            onError={() => setFailed(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
-          />
+          <>
+            {!loaded && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-4)' }}>
+                <Icon name="globe" size={24}/>
+                <span style={{ fontSize: 11 }}>Aperçu du site en préparation…</span>
+              </div>
+            )}
+            <img
+              key={attempt}
+              src={`/api/campaign/${campaignId}/preview?w=640${attempt ? `&r=${attempt}` : ''}`}
+              alt={`Aperçu du site de ${proName}`}
+              loading="lazy"
+              onLoad={() => setLoaded(true)}
+              onError={onImgError}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity .2s' }}
+            />
+          </>
         ) : (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-4)' }}>
             <Icon name="globe" size={26}/>

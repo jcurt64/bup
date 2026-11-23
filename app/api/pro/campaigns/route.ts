@@ -21,6 +21,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
 import { parseCampaignDomains } from "@/lib/campaigns/domains";
+import { warmSitePreview } from "@/lib/campaigns/site-preview";
 import {
   MAX_TARGET_CITIES,
   parseAudienceTargeting,
@@ -479,6 +480,9 @@ export async function POST(req: Request) {
     console.error("[/api/pro/campaigns] insert campaign failed", campErr);
     return NextResponse.json({ error: "insert_campaign_failed" }, { status: 500 });
   }
+  // « La Vitrine » : lance la capture du site tout de suite, pour qu'elle
+  // soit prête quand le prospect ouvre l'annonce (sinon image d'attente).
+  if (websiteUrl) warmSitePreview(websiteUrl);
 
   // Incrémente la réservation du pro (budget + commission max). Le
   // wallet "disponible" affiché côté UI = wallet_balance - wallet_reserved.

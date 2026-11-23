@@ -1,20 +1,20 @@
 /**
  * GET /api/campaign/[id]/preview — « La Vitrine ».
  *
- * Renvoie (via redirection) un APERÇU image de la page d'accueil du site web
- * du pro, pour l'afficher en vignette côté prospect (carré arrondi cliquable)
- * au lieu d'un simple lien texte.
+ * Renvoie l'APERÇU image (capture mShots) de la page d'accueil du site web
+ * du pro, affiché en vignette côté prospect.
  *
- * - La capture est générée par le service mShots de WordPress.com (gratuit,
- *   sans clé). La 1ʳᵉ requête peut renvoyer un placeholder le temps que la
- *   capture se génère, puis la vraie capture aux chargements suivants.
+ * - Proxy serveur (cf. lib/campaigns/site-preview) : seule une vraie capture
+ *   est servie (cache 1 jour). Tant qu'elle se génère, 503 NON mis en cache
+ *   (Retry-After) → la vignette réessaie au lieu d'afficher l'image d'attente
+ *   WordPress.
  * - On ne capture QUE `campaigns.website_url` (URL https validée à la
  *   création) — jamais un paramètre client (pas de SSRF / open-redirect).
- * - L'URL réelle reste côté serveur : le client ne voit que cette route.
  */
 
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { fetchSitePreview } from "@/lib/campaigns/site-preview";
 
 export const runtime = "nodejs";
 
@@ -38,10 +38,21 @@ export async function GET(req: Request, ctx: RouteContext) {
   const wRaw = Number(new URL(req.url).searchParams.get("w"));
   const w = Number.isFinite(wRaw) && wRaw >= 200 && wRaw <= 1280 ? Math.round(wRaw) : 640;
 
-  const shot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(camp.website_url)}?w=${w}`;
-  // 307 : la vignette <img> suit la redirection ; cache court côté navigateur.
-  return NextResponse.redirect(shot, {
-    status: 307,
-    headers: { "cache-control": "public, max-age=3600" },
+  const shot = await fetchSitePreview(camp.website_url, w);
+  if (!shot.ok) {
+    return NextResponse.json(
+      { error: shot.reason === "pending" ? "preview_pending" : "preview_failed" },
+      {
+        status: shot.reason === "pending" ? 503 : 502,
+        headers: { "cache-control": "no-store", "retry-after": "5" },
+      },
+    );
+  }
+  return new NextResponse(shot.body, {
+    status: 200,
+    headers: {
+      "content-type": shot.contentType,
+      "cache-control": "public, max-age=86400",
+    },
   });
 }
