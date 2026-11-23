@@ -1484,8 +1484,8 @@ function FlashDealModal({
               <strong style={{ color: "#B45309" }}>vos coordonnées</strong>{" "}
               (prénom, initiale du nom,
               téléphone et e-mail). Le professionnel
-              ne verra que votre prénom et votre initiale&nbsp;: le contact passe
-              toujours par BUUPP.
+              ne voit que votre prénom et votre initiale&nbsp;; votre numéro ne
+              lui est communiqué qu&apos;après votre acceptation.
             </div>
             <button
               onClick={() => goDonnees()}
@@ -1936,7 +1936,7 @@ function HowItWorks() {
     {
       n: "01",
       title: "Créez votre profil",
-      body: "Quelques informations seulement : prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone et e-mail. Rien de plus, et le professionnel ne voit que votre prénom et votre initiale.",
+      body: "Quelques informations seulement : prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone et e-mail. Rien de plus : le professionnel ne voit que votre prénom et votre initiale, et n’obtient votre numéro qu’après votre acceptation.",
     },
     {
       n: "02",
@@ -2033,13 +2033,13 @@ function ProspectPrivacyNote() {
   const points: { ic: IconName; t: string; d: string }[] = [
     {
       ic: "phone",
-      t: "Appels filtrés par BUUPP",
-      d: "L\u2019appel du professionnel transite par la plateforme BUUPP, qui le filtre et le sécurise avant qu\u2019il ne vous parvienne.",
+      t: "Un appel seulement si vous acceptez",
+      d: "Le professionnel n\u2019obtient votre numéro qu\u2019après votre acceptation, uniquement pour vous appeler.",
     },
     {
       ic: "mail",
-      t: "E-mails filtrés par BUUPP",
-      d: "Ses e-mails transitent par la plateforme BUUPP, qui les filtre et les sécurise : votre adresse ne lui est jamais transmise.",
+      t: "E-mails relayés par BUUPP",
+      d: "Ses e-mails passent par la plateforme BUUPP : votre adresse e-mail ne lui est jamais transmise.",
     },
     {
       ic: "user",
@@ -2077,9 +2077,8 @@ function ProspectPrivacyNote() {
             Le professionnel a-t-il accès à mes informations&nbsp;?
           </h3>
           <p style={{ marginTop: 16, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.6, color: "var(--ink-3)" }}>
-            <strong style={{ color: "var(--ink)" }}>Non.</strong>{" "}Tout contact passe par la
-            plateforme BUUPP&nbsp;: votre numéro et votre adresse e-mail ne sont jamais
-            communiqués au professionnel. Vos données sont protégées.
+            <strong style={{ color: "var(--ink)" }}>Seulement le strict nécessaire, et seulement si vous acceptez.</strong>{" "}
+            Vos données sont protégées.
           </p>
         </div>
         <div className="privacy-note-points" style={{ display: "grid", gap: 14 }}>
