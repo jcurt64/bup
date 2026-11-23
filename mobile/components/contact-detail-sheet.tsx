@@ -135,6 +135,9 @@ export function ContactDetailSheet({
   // pour s'authentifier (même code que le chip « Code buupp » de la campagne
   // et que le mail de clôture `lib/email/relation-settled.ts`).
   const [authCode, setAuthCode] = useState<string | null>(null);
+  // Mise en relation effective validée par le pro → « certifié confiance ».
+  const [validatedAt, setValidatedAt] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
 
   const relId = contact?.relationId ?? null;
   async function copyAuthCode() {
@@ -154,6 +157,7 @@ export function ContactDetailSheet({
     setTiers([]);
     setRefCode(null);
     setAuthCode(null);
+    setValidatedAt(null);
     setPicked(contact?.priority ?? null);
     setSaved(contact?.priority ?? null);
     api<ProContactDetails>(`/api/pro/contacts/${relId}/details`)
@@ -162,6 +166,7 @@ export function ContactDetailSheet({
         setTiers(j.tiers || []);
         setRefCode(j.ref ?? null);
         setAuthCode(j.authCode ?? null);
+        setValidatedAt(j.validatedAt ?? null);
         setPicked(j.priority ?? null);
         setSaved(j.priority ?? null);
         setStatus("ok");
@@ -199,6 +204,27 @@ export function ContactDetailSheet({
   };
   const goNext = () => {
     if (idx < total - 1) onNavigate?.(list[idx + 1]);
+  };
+
+  const submitValidation = async (validated: boolean) => {
+    setValidating(true);
+    try {
+      const j = await api<{ ok: true; validatedAt: string | null }>(
+        `/api/pro/contacts/${contact.relationId}/validate`,
+        { method: "POST", body: JSON.stringify({ validated }) },
+      );
+      setValidatedAt(j.validatedAt ?? null);
+    } catch (e) {
+      const msg = String((e as { body?: string })?.body ?? "");
+      Alert.alert(
+        "Mise en relation",
+        /campaign_not_closed/.test(msg)
+          ? "Vous pourrez valider la mise en relation une fois la campagne clôturée."
+          : "Impossible d'enregistrer la validation. Réessayez.",
+      );
+    } finally {
+      setValidating(false);
+    }
   };
 
   const savePriority = async () => {
@@ -377,6 +403,58 @@ export function ContactDetailSheet({
                   <Text style={{ fontSize: 12.5, fontWeight: "700", color: p.card }}>{authCopied ? "Copié" : "Copier"}</Text>
                 </Pressable>
               </View>
+            </View>
+          ) : null}
+
+          {/* Mise en relation effective — validée par le pro après l'appel,
+              l'e-mail ou la réponse à son étude (parité web). Débloque le
+              niveau « certifié confiance » du prospect. */}
+          {status === "ok" ? (
+            <View
+              style={{
+                marginTop: 16,
+                backgroundColor: validatedAt ? "#10B98117" : p.card,
+                borderWidth: 1,
+                borderColor: validatedAt ? "#10B98166" : p.border,
+                borderRadius: 16,
+                padding: 14,
+              }}
+            >
+              <View className="flex-row items-center" style={{ gap: 10, marginBottom: 12 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: "#10B98122", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={validatedAt ? "checkmark" : "shield-checkmark-outline"} size={16} color="#10B981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text className="font-serif-bold" style={{ fontSize: 14.5, color: p.text }}>
+                    {validatedAt ? "Mise en relation validée" : "La mise en relation a-t-elle été effective ?"}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: p.sub, marginTop: 1 }}>
+                    {validatedAt
+                      ? `Validée le ${new Date(validatedAt).toLocaleDateString("fr-FR")}. Ce prospect est désormais « certifié confiance ».`
+                      : "Après votre appel, votre e-mail ou sa réponse à votre étude, confirmez que l'échange a bien eu lieu. Votre validation certifie ce prospect « certifié confiance »."}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => submitValidation(!validatedAt)}
+                disabled={validating}
+                accessibilityRole="button"
+                className="flex-row items-center justify-center active:opacity-80"
+                style={{
+                  gap: 6,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  backgroundColor: validatedAt ? "transparent" : "#10B981",
+                  borderWidth: validatedAt ? 1 : 0,
+                  borderColor: p.border,
+                  opacity: validating ? 0.6 : 1,
+                }}
+              >
+                {validatedAt ? null : <Ionicons name="checkmark" size={14} color="#fff" />}
+                <Text style={{ fontSize: 13.5, fontWeight: "700", color: validatedAt ? p.text : "#fff" }}>
+                  {validating ? "Enregistrement…" : validatedAt ? "Annuler la validation" : "Valider la mise en relation"}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
 

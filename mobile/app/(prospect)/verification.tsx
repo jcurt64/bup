@@ -42,9 +42,9 @@ const TIERS = [
   {
     key: "certifie_confiance",
     label: "Certifié confiance",
-    done: "Rendez-vous physique accepté",
+    done: "Mise en relation validée par un pro",
     icon: "shield-checkmark-outline" as const,
-    full: "Rendez-vous physique accepté.",
+    full: "Un professionnel a validé une mise en relation effective avec vous, ou une participation Tests & Études a été approuvée.",
     perks: ["Toutes les campagnes ouvertes", "Gains ×2 sur les campagnes ciblant les certifiés"],
     soft: "#EEF2FF",
     fg: "#4F46E5",
@@ -64,7 +64,7 @@ export default function Verification() {
       hero={{
         eyebrow: "Niveau de vérification",
         title: "Vos niveaux",
-        desc: "Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (rendez-vous physique accepté). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées.",
+        desc: "Trois niveaux : Basique (à la création), Vérifié (numéro de téléphone vérifié par SMS), Certifié confiance (mise en relation validée par un professionnel). Chaque niveau débloque des demandes plus exigeantes et mieux rémunérées.",
         nav: "drawer",
       }}
     >
@@ -317,15 +317,15 @@ export default function Verification() {
                 )}
               </Card>
 
-              {/* Acceptations physiques (niveau Certifié confiance) */}
+              {/* Mises en relation validées (niveau Certifié confiance) */}
               <Card badge={{ icon: "checkmark-circle-outline", tone: "teal" }}>
                 <Text className="font-serif text-lg text-ink">
-                  Acceptations physiques
+                  Mises en relation validées
                 </Text>
                 <Text className="mt-1 font-serif text-2xl text-violet">
                   {d.physicalAcceptances}
                 </Text>
-                <Text className="mt-0.5 text-[11px] text-ink-4">rendez-vous physiques acceptés</Text>
+                <Text className="mt-0.5 text-[11px] text-ink-4">validées par un professionnel (+ études approuvées)</Text>
               </Card>
             </>
           );

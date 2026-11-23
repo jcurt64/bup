@@ -5,7 +5,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { apiBase } from "../lib/api";
@@ -18,6 +18,9 @@ export function campaignIdFromVisitUrl(url: string | null | undefined): string |
   return m ? m[1] : null;
 }
 
+const PREVIEW_RETRIES = 5;
+const PREVIEW_RETRY_MS = 4000;
+
 export function VitrinePreview({
   campaignId,
   proName,
@@ -28,11 +31,24 @@ export function VitrinePreview({
   onVisit: () => void;
 }) {
   const { c } = useTheme();
-  const [failed, setFailed] = useState(false);
+  // La capture peut être en cours de génération (route → 503) : on réessaie
+  // quelques fois avant d'afficher « Aperçu indisponible » (parité web).
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const failed = attempt > PREVIEW_RETRIES;
+  const [pendingRetry, setPendingRetry] = useState(false);
+  useEffect(() => {
+    if (!pendingRetry) return;
+    const t = setTimeout(() => {
+      setPendingRetry(false);
+      setAttempt((a) => a + 1);
+    }, PREVIEW_RETRY_MS);
+    return () => clearTimeout(t);
+  }, [pendingRetry]);
   if (!campaignId) return null;
   let uri: string | null = null;
   try {
-    uri = `${apiBase()}/api/campaign/${campaignId}/preview?w=640`;
+    uri = `${apiBase()}/api/campaign/${campaignId}/preview?w=640${attempt ? `&r=${attempt}` : ""}`;
   } catch {
     uri = null;
   }
@@ -51,14 +67,36 @@ export function VitrinePreview({
       }}
     >
       <View style={{ width: "100%", aspectRatio: 16 / 10 }}>
+        {uri && !failed && !loaded ? (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Ionicons name="hourglass-outline" size={22} color={c.textMuted} />
+            <Text style={{ fontSize: 11, color: c.textMuted }}>Aperçu du site en préparation…</Text>
+          </View>
+        ) : null}
         {uri && !failed ? (
           <Image
+            key={attempt}
             source={{ uri }}
             style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
             contentFit="cover"
             contentPosition="top center"
             accessibilityLabel={`Aperçu du site de ${proName}`}
-            onError={() => setFailed(true)}
+            onLoad={() => setLoaded(true)}
+            onError={() => {
+              if (attempt < PREVIEW_RETRIES) setPendingRetry(true);
+              else setAttempt(PREVIEW_RETRIES + 1);
+            }}
             transition={150}
           />
         ) : (

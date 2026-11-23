@@ -24,17 +24,14 @@ export const OBJECTIVES: CampaignObjective[] = [
   {
     id: "contact",
     name: "Prise de contact direct",
-    desc: "8 opérations — email, SMS, push, appel, WhatsApp",
+    desc: "5 opérations — e-mail, SMS, MMS, appel, WhatsApp",
     icon: "mail-outline",
     sub: [
       { id: "email", name: "Email marketing", desc: "Newsletter, campagne promotionnelle, séquence de bienvenue", cost: 0.15 },
       { id: "sms", name: "SMS marketing", desc: "Message promotionnel, alerte offre, rappel personnalisé", cost: 0.2 },
       { id: "mms", name: "MMS marketing", desc: "Message multimédia avec image ou vidéo courte", cost: 0.25 },
-      { id: "postal", name: "Mailing postal", desc: "Courrier physique personnalisé, catalogue, carte postale", cost: 0.8 },
       { id: "phone", name: "Phoning / Cold calling", desc: "Appel téléphonique de prospection sortante", cost: 0.5 },
       { id: "wa", name: "WhatsApp Business", desc: "Message direct via canal messaging instantané", cost: 0.25 },
-      { id: "pushweb", name: "Push notification web", desc: "Notification navigateur envoyée à un abonné consentant", cost: 0.1 },
-      { id: "pushapp", name: "Push notification app", desc: "Notification mobile sur application installée", cost: 0.1 },
       { id: "autres", name: "Autres", desc: "Autre canal de contact — précisez à l’étape Description", cost: 0 },
     ],
   },

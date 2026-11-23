@@ -19,10 +19,11 @@ export type CampaignDraft = {
   excludeCertified: boolean;
   cpcCents: number;
   contacts: string;
-  /** Liste de mots-clés (puces). Les anciens brouillons stockaient une
-   *  chaîne « a, b, c » — toujours relue par le wizard. */
-  keywords: string[] | string;
-  kwFilter: boolean;
+  /** Domaines d'activité (≤ 2, [] = Tous). Absent des anciens brouillons. */
+  domains?: string[];
+  /** Hérités (mots-clés retirés) — ignorés à la relecture. */
+  keywords?: string[] | string;
+  kwFilter?: boolean;
   brief: string;
   // Champs ajoutés pour la parité web (optionnels : brouillons antérieurs).
   /** Jour de lancement « AAAA-MM-JJ » (heure locale). */

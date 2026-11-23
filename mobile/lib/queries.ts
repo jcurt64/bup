@@ -127,6 +127,8 @@ export type Relation = {
   pro: string;
   sector: string;
   motif: string;
+  /** Domaines d'activité précisés par le pro (≤ 2) — vide/absent = Tous. */
+  domains?: string[];
   brief: string | null;
   reward: number;
   tier: number;
@@ -939,6 +941,8 @@ export type ProCampaignDetail = {
     ageBands?: ("18-35" | "35+")[] | null;
     keywords: string[];
     kwFilter: boolean;
+    /** Domaines d'activité précisés par le pro (≤ 2) — vide = Tous. */
+    domains?: string[];
     poolLabel: string;
     days: number | null;
     durationKey: string | null;
@@ -1058,6 +1062,8 @@ export type ProContactDetails = {
   /** Code buupp d'authentification (4 derniers caractères du code de
    *  campagne) que le pro annonce au prospect. Null si code absent. */
   authCode: string | null;
+  /** Mise en relation validée par le pro (→ certifié confiance). */
+  validatedAt?: string | null;
 };
 export const useProContacts = () =>
   useGet<{ rows: ProContact[] }>(["pro", "contacts"], "/api/pro/contacts", 30_000);
@@ -1339,6 +1345,8 @@ export type CreateCampaignInput = {
   budgetCents: number;
   keywords: string[];
   kwFilter: boolean;
+  /** Domaines d'activité (≤ 2) — vide = Tous. */
+  domains?: string[];
   poolMode: string;
   excludeCertified: boolean;
   /** Exclure les prospects ayant déjà accepté (accepted/settled) une autre

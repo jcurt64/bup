@@ -644,6 +644,26 @@ function SollicitationCard({
                 {r.motif}
               </Text>
             ) : null}
+            {/* Domaines d'activité précisés par le pro (≤ 2). */}
+            {r.domains && r.domains.length > 0 ? (
+              <View className="flex-row flex-wrap" style={{ gap: 6, marginTop: 10 }}>
+                {r.domains.map((d) => (
+                  <View
+                    key={d}
+                    style={{
+                      paddingVertical: 4,
+                      paddingHorizontal: 10,
+                      borderRadius: 999,
+                      backgroundColor: R.field,
+                      borderWidth: 1,
+                      borderColor: R.DLINE,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11.5, fontWeight: "600", color: R.DNAVY }}>{d}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           <View

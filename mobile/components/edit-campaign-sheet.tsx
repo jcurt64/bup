@@ -69,7 +69,7 @@ const ERR_LABELS: Record<string, string> = {
 const EDIT_VERIF_OPTS: { id: string; name: string; sub: string }[] = [
   { id: "p0", name: "Basique", sub: "Compte créé — email vérifié" },
   { id: "p1", name: "Vérifié", sub: "Numéro de téléphone vérifié par SMS" },
-  { id: "p2", name: "Certifié confiance", sub: "Rendez-vous physique accepté" },
+  { id: "p2", name: "Certifié confiance", sub: "Mise en relation validée par un pro" },
 ];
 // Seuils de fiabilité minimum (du plus large au plus strict).
 const EDIT_FIAB_OPTS: { v: number; name: string; sub: string }[] = [

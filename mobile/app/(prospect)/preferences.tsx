@@ -50,6 +50,13 @@ const CATEGORY_LIST = [
   "Beauté",
   "Alimentation",
   "Juridique",
+  "Santé",
+  "Énergie",
+  "Maison & jardin",
+  "Mode",
+  "Loisirs & voyages",
+  "High-tech & télécom",
+  "Services à la personne",
 ] as const;
 
 // ── Primitives de style (pre.html) ──────────────────────────────────────
@@ -455,15 +462,15 @@ export default function Preferences() {
         right={
           <AllButton
             active={allCats}
-            label="Toutes catégories"
+            label="Tous"
             onPress={() => setAllCatsPersist(!allCats)}
           />
         }
       >
-        <H3>Catégories autorisées</H3>
+        <H3>Domaines d&apos;activité</H3>
         <Desc>
-          Seuls les professionnels de ces secteurs pourront vous adresser une
-          demande.
+          Choisissez le ou les domaines dans lesquels vous acceptez d&apos;être
+          sollicité, ou « Tous ».
         </Desc>
         <View
           className="flex-row flex-wrap"

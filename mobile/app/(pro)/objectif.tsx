@@ -1,6 +1,6 @@
 // Wizard de création de campagne (8 étapes, miroir du dashboard web) :
 // 1 Objectif (sous-types) · 2 Dates (durée) · 3 Contact (téléphone/e-mail) ·
-// 4 Ciblage (villes/sexe/âge/vérif/fiabilité) · 5 Budget (coût/contacts) · 6 Mots-clés ·
+// 4 Ciblage (villes/sexe/âge/vérif/fiabilité) · 5 Budget (coût/contacts) · 6 Domaines ·
 // 7 Description · 8 Récap (+ lancement réel POST /api/pro/campaigns).
 // L'objectif est passé via ?id= depuis la grille « Créer une campagne ».
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +16,6 @@ import {
   cpcRange,
   DURATIONS,
   durMs,
-  KW_SUGGESTIONS,
   VERIF_LEVELS,
   type DurationKey,
   type VerifLevel,
@@ -70,7 +69,7 @@ const HERO_GRADIENT: Record<ThemeMode, readonly [string, string, string]> = {
   fushia: ["#E84F98", "#D63B80", "#7A2350"],
 };
 
-const STEPS = ["Objectif", "Dates", "Contact", "Ciblage", "Budget", "Mots-clés", "Description", "Récap"];
+const STEPS = ["Objectif", "Dates", "Contact", "Ciblage", "Budget", "Domaines", "Description", "Récap"];
 
 const BRIEF_PLACEHOLDER = "Ex : offre de remise de 10% les 10 premiers clients du jour…";
 
@@ -117,15 +116,53 @@ function excludePastDefault(objectiveId: string | undefined | null): boolean {
   return objectiveId === "contact" || objectiveId === "rdv";
 }
 
-function readKeywords(v: unknown): string[] {
-  if (Array.isArray(v)) return v.filter((k): k is string => typeof k === "string" && !!k.trim());
-  if (typeof v === "string") {
-    return v
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-  }
-  return [];
+// Domaines d'activité — liste partagée avec les préférences prospect et le
+// serveur (lib/campaigns/domains.ts côté web). [] = « Tous ».
+const ACTIVITY_DOMAINS = [
+  "Bien-être",
+  "Coaching",
+  "Artisanat",
+  "Immobilier",
+  "Finance",
+  "Assurance",
+  "Auto",
+  "Éducation",
+  "Beauté",
+  "Alimentation",
+  "Juridique",
+  "Santé",
+  "Énergie",
+  "Maison & jardin",
+  "Mode",
+  "Loisirs & voyages",
+  "High-tech & télécom",
+  "Services à la personne",
+] as const;
+const MAX_CAMPAIGN_DOMAINS = 2;
+function sanitizeDomains(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const known = new Set<string>(ACTIVITY_DOMAINS);
+  return [...new Set(v.filter((x): x is string => typeof x === "string" && known.has(x)))].slice(
+    0,
+    MAX_CAMPAIGN_DOMAINS,
+  );
+}
+
+// Le canal choisi à l'étape 1 fixe le mode de contact (étape 3 sautée).
+// Synchronisé avec SUB_TYPE_CHANNEL (lib/campaigns/contact-channels.ts web).
+const SUB_TYPE_CHANNEL: Record<string, ContactChannel> = {
+  email: "email",
+  phone: "phone",
+  sms: "phone",
+  mms: "phone",
+  wa: "phone",
+  rdvtel: "phone",
+};
+function channelsFromSubs(subs: Iterable<string>): ContactChannel[] | null {
+  const set = new Set<ContactChannel>();
+  for (const sid of subs) if (SUB_TYPE_CHANNEL[sid]) set.add(SUB_TYPE_CHANNEL[sid]);
+  const out = CONTACT_CHANNELS.filter((ch) => set.has(ch));
+  return out.length ? out : null;
 }
 // — Petite pastille sélectionnable réutilisée par les étapes (chips). —
 function Chip({
@@ -167,7 +204,18 @@ function Chip({
   );
 }
 
-function StepHeader({ step, max, go }: { step: number; max: number; go: (s: number) => void }) {
+function StepHeader({
+  step,
+  max,
+  go,
+  skip,
+}: {
+  step: number;
+  max: number;
+  go: (s: number) => void;
+  /** Étape non cliquable (contact défini à l'étape 1). */
+  skip?: number;
+}) {
   const { c } = useTheme();
   return (
     <View className="flex-row items-center justify-between" style={{ marginBottom: 4 }}>
@@ -175,7 +223,7 @@ function StepHeader({ step, max, go }: { step: number; max: number; go: (s: numb
         const n = i + 1;
         const done = n < step;
         const active = n === step;
-        const reachable = n <= max;
+        const reachable = n <= max && n !== skip;
         return (
           <Pressable
             key={n}
@@ -346,9 +394,7 @@ export default function ProWizard() {
   // individuelle) ; « BUUPP Pool » est affiché mais « À venir ». Le serveur
   // stocke la valeur telle quelle dans targeting.poolMode (libellé détail).
   const [poolMode, setPoolMode] = useState("standard");
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [kwInput, setKwInput] = useState("");
-  const [kwFilter, setKwFilter] = useState(false);
+  const [domains, setDomains] = useState<string[]>([]);
   const [brief, setBrief] = useState("");
   const [briefError, setBriefError] = useState(false);
   const [cgu, setCgu] = useState(false);
@@ -403,8 +449,7 @@ export default function ProWizard() {
         setCpcCents(d.cpcCents);
         setContacts(d.contacts);
         setPoolMode(d.poolMode === "pool" ? "pool" : "standard");
-        setKeywords(readKeywords(d.keywords));
-        setKwFilter(d.kwFilter);
+        setDomains(sanitizeDomains(d.domains));
         setBrief((d.brief ?? "").slice(0, BRIEF_MAX_LENGTH));
         setVitrineUrl(d.vitrineUrl ?? "");
         setVitrineAdded(d.vitrineAdded === true && !!d.vitrineUrl);
@@ -453,8 +498,7 @@ export default function ProWizard() {
     }
     const pm = (tg as { poolMode?: unknown }).poolMode;
     setPoolMode(pm === "pool" ? "pool" : "standard");
-    setKeywords(readKeywords(tg.keywords));
-    setKwFilter(!!tg.kwFilter && (tg.keywords ?? []).length > 0);
+    setDomains(sanitizeDomains((tg as { domains?: unknown }).domains));
     setExcludeCertified(!!tg.excludeCertified);
     // Option reprise telle quelle de la campagne source (serveur antérieur → false).
     setExcludePast(campaignExcludesPastAcceptors(d));
@@ -489,15 +533,14 @@ export default function ProWizard() {
       cpcCents,
       contacts,
       poolMode,
-      keywords,
-      kwFilter,
+      domains,
       brief,
       vitrineUrl,
       vitrineAdded,
       vitrineModalSeen,
       updatedAt: Date.now(),
     });
-  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, targetCities, targetGenres, targetAgeBands, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, keywords, kwFilter, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
+  }, [hydrated, id, step, subTypes, duration, channels, startDay, verif, minFiab, targetCities, targetGenres, targetAgeBands, excludeCertified, excludePast, excludePastTouched, cpcCents, contacts, poolMode, domains, brief, vitrineUrl, vitrineAdded, vitrineModalSeen]);
 
   const range = useMemo(() => cpcRange(duration, verif), [duration, verif]);
   // Recale le coût par contact dans la fourchette autorisée à chaque
@@ -552,17 +595,24 @@ export default function ProWizard() {
         ? cur.filter((x) => x !== ch)
         : CONTACT_CHANNELS.filter((x) => x === ch || cur.includes(x)),
     );
-  // Mots-clés en puces (miroir web addKw/removeKw).
-  const addKw = (val?: string) => {
-    const kw = (val ?? kwInput).trim().slice(0, 40);
-    if (kw && !keywords.includes(kw)) setKeywords((prev) => [...prev, kw]);
-    if (val === undefined) setKwInput("");
-  };
-  const removeKw = (kw: string) => {
-    const next = keywords.filter((k) => k !== kw);
-    setKeywords(next);
-    if (!next.length) setKwFilter(false);
-  };
+  // Domaines d'activité (2 max) — miroir web toggleDomain.
+  const toggleDomain = (d: string) =>
+    setDomains((prev) =>
+      prev.includes(d)
+        ? prev.filter((x) => x !== d)
+        : prev.length >= MAX_CAMPAIGN_DOMAINS
+          ? prev
+          : [...prev, d],
+    );
+  // Canal déduit des opérations de l'étape 1 → mode de contact imposé,
+  // étape 3 sautée (plus de doublon).
+  const derivedChannels = channelsFromSubs(subTypes);
+  const derivedKey = derivedChannels ? derivedChannels.join(",") : "";
+  useEffect(() => {
+    if (derivedChannels) setChannels(derivedChannels);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedKey]);
+  const skipContactStep = !!derivedChannels;
   // Ouvre la recharge après fermeture de la popup « solde insuffisant »
   // (deux Modal RN enchaînés : on laisse l'animation de sortie se finir).
   const openRechargeFromInsufficient = () => {
@@ -697,12 +747,12 @@ export default function ProWizard() {
       return;
     }
     if (!canNext()) return;
-    const next = Math.min(STEPS.length, step + 1);
+    const next = Math.min(STEPS.length, step + 1 === 3 && skipContactStep ? 4 : step + 1);
     setStep(next);
     setMaxStep((m) => Math.max(m, next));
   };
-  const goPrev = () => setStep((s) => Math.max(1, s - 1));
-  const goTo = (s: number) => s <= maxStep && setStep(s);
+  const goPrev = () => setStep((s) => Math.max(1, s - 1 === 3 && skipContactStep ? 2 : s - 1));
+  const goTo = (s: number) => s <= maxStep && !(s === 3 && skipContactStep) && setStep(s);
 
   async function launch() {
     if (!obj || !cgu || !infoComplete) return;
@@ -755,8 +805,9 @@ export default function ProWizard() {
         brief: brief.trim(),
         costPerContactCents: cpcCents,
         budgetCents,
-        keywords,
-        kwFilter: kwFilter && keywords.length > 0,
+        domains,
+        keywords: [],
+        kwFilter: false,
         poolMode,
         excludeCertified,
         excludePastAcceptors: excludePast,
@@ -818,7 +869,7 @@ export default function ProWizard() {
       headerVariant="pro"
       hero={{ nav: "back", eyebrow: `Étape ${step}/8 · ${STEPS[step - 1]}`, title: obj.name, gradient: HERO_GRADIENT[mode] }}
     >
-      <StepHeader step={step} max={maxStep} go={goTo} />
+      <StepHeader step={step} max={maxStep} go={goTo} skip={skipContactStep ? 3 : undefined} />
 
       {/* Brouillon restauré — message « tout gardé pour vous » + recommencer. */}
       {restored ? (
@@ -1376,128 +1427,77 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 6 — Mots-clés (optionnel) : puces + suggestions rapides. */}
+      {/* ÉTAPE 6 — Précision du domaine d'activité (2 max, ou « Tous »). */}
       {step === 6 ? (
         <View className="gap-3">
-          <Text className="text-[13px] leading-5 text-ink-3">
-            Mots-clés (optionnel) — BUUPP vérifie leur présence dans les données déclarées des
-            prospects : centres d&apos;intérêt, profession, projets de vie, logement, véhicule…
-          </Text>
           <View className="flex-row items-center" style={{ gap: 8 }}>
-            <TextInput
-              value={kwInput}
-              onChangeText={setKwInput}
-              onSubmitEditing={() => addKw()}
-              submitBehavior="submit"
-              returnKeyType="done"
-              maxLength={40}
-              placeholder="Ex : véhicule, immobilier, retraite…"
-              placeholderTextColor={c.textMuted}
-              style={{ flex: 1, minWidth: 0, backgroundColor: c.field, borderColor: c.borderSoft, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: c.text }}
-            />
+            <Text className="font-serif text-[19px] text-ink">Précision du domaine d&apos;activité</Text>
+            <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: c.accentSoft }}>
+              <Text className="text-[10px] font-bold" style={{ color: c.accentInk }}>
+                2 maximum
+              </Text>
+            </View>
+          </View>
+          <Text className="text-[13px] leading-5 text-ink-3">
+            Précisez le domaine de votre offre (2 au plus), ou choisissez « Tous ». Ils s&apos;affichent
+            sur votre annonce, et seuls les prospects qui acceptent ces domaines sont sollicités.
+          </Text>
+          <View className="flex-row flex-wrap" style={{ gap: 7 }}>
             <Pressable
-              onPress={() => addKw()}
-              disabled={!kwInput.trim()}
+              onPress={() => setDomains([])}
               accessibilityRole="button"
-              className="flex-row items-center rounded-full px-3.5 py-2.5 active:opacity-80"
-              style={{ gap: 4, backgroundColor: c.btnBg, opacity: kwInput.trim() ? 1 : 0.5 }}
+              accessibilityState={{ selected: domains.length === 0 }}
+              className="flex-row items-center rounded-full px-3.5 py-2 active:opacity-80"
+              style={{
+                gap: 4,
+                backgroundColor: domains.length === 0 ? c.accent : c.surface,
+                borderWidth: 1.5,
+                borderColor: domains.length === 0 ? c.accent : c.borderSoft,
+              }}
             >
-              <Ionicons name="add" size={15} color={c.btnText} />
-              <Text className="text-[13px] font-semibold" style={{ color: c.btnText }}>
-                Ajouter
+              {domains.length === 0 ? <Ionicons name="checkmark" size={13} color={c.btnText} /> : null}
+              <Text
+                className="text-[12.5px] font-semibold"
+                style={{ color: domains.length === 0 ? c.btnText : c.text }}
+              >
+                Tous
               </Text>
             </Pressable>
-          </View>
-
-          {keywords.length > 0 ? (
-            <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-              {keywords.map((kw) => (
+            {ACTIVITY_DOMAINS.map((d) => {
+              const on = domains.includes(d);
+              const full = !on && domains.length >= MAX_CAMPAIGN_DOMAINS;
+              return (
                 <Pressable
-                  key={kw}
-                  onPress={() => removeKw(kw)}
+                  key={d}
+                  onPress={() => toggleDomain(d)}
+                  disabled={full}
                   accessibilityRole="button"
-                  accessibilityLabel={`Retirer ${kw}`}
-                  className="flex-row items-center rounded-full py-1.5 pl-3 pr-2 active:opacity-70"
-                  style={{ gap: 5, backgroundColor: c.accentSoft, borderWidth: 1, borderColor: c.accent }}
+                  accessibilityState={{ selected: on, disabled: full }}
+                  className="flex-row items-center rounded-full px-3 py-2 active:opacity-80"
+                  style={{
+                    gap: 4,
+                    opacity: full ? 0.45 : 1,
+                    backgroundColor: on ? c.accentSoft : c.surface,
+                    borderWidth: 1.5,
+                    borderColor: on ? c.accent : c.borderSoft,
+                  }}
                 >
-                  <Text className="text-[12.5px] font-semibold" style={{ color: c.accentInk }}>
-                    {kw}
-                  </Text>
-                  <Ionicons name="close-circle" size={15} color={c.accentInk} />
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          {KW_SUGGESTIONS.some((kw) => !keywords.includes(kw)) ? (
-            <View>
-              <Text className="mb-2 font-mono text-[10px] uppercase text-ink-4" style={{ letterSpacing: 1 }}>
-                Suggestions rapides
-              </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                {KW_SUGGESTIONS.filter((kw) => !keywords.includes(kw)).map((kw) => (
-                  <Pressable
-                    key={kw}
-                    onPress={() => addKw(kw)}
-                    accessibilityRole="button"
-                    className="rounded-full px-2.5 py-1.5 active:opacity-70"
-                    style={{ borderWidth: 1, borderColor: c.borderSoft, backgroundColor: c.surface }}
+                  {on ? <Ionicons name="checkmark" size={13} color={c.accentInk} /> : null}
+                  <Text
+                    className="text-[12.5px]"
+                    style={{ color: on ? c.accentInk : c.text, fontWeight: on ? "600" : "400" }}
                   >
-                    <Text className="text-[12px] text-ink-2">+ {kw}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {keywords.length > 0 ? (
-            <>
-              <Pressable
-                onPress={() => setKwFilter((v) => !v)}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: kwFilter }}
-                className="flex-row items-start rounded-2xl border bg-paper p-3 active:opacity-80"
-                style={{ gap: 10, borderColor: kwFilter ? c.accent : c.borderSoft }}
-              >
-                <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: kwFilter ? c.accent : c.ink5, backgroundColor: kwFilter ? c.accent : "transparent", alignItems: "center", justifyContent: "center" }}>
-                  {kwFilter ? <Ionicons name="checkmark" size={14} color={c.btnText} /> : null}
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[13px] font-semibold text-ink">
-                    Filtrer uniquement si le mot-clé est contenu dans les données du prospect
+                    {d}
                   </Text>
-                  <Text className="mt-0.5 text-[11.5px] leading-4 text-ink-4">
-                    Seuls les prospects dont le profil contient au moins l&apos;un de vos mots-clés
-                    recevront votre mise en relation. Volume réduit, précision améliorée.
-                  </Text>
-                </View>
-              </Pressable>
-              {kwFilter ? (
-                <View className="flex-row rounded-2xl px-3 py-2.5" style={{ gap: 8, backgroundColor: c.amberSoft }}>
-                  <Ionicons name="warning-outline" size={14} color={c.accAmber} />
-                  <Text className="flex-1 text-[11.5px] leading-4" style={{ color: c.accAmber }}>
-                    Le filtre strict peut réduire le nombre de prospects disponibles. BUUPP vous
-                    notifiera si le volume ciblé est insuffisant.
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          ) : null}
-
-          <View className="rounded-2xl p-3.5" style={{ backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderSoft }}>
-            <Text className="mb-2 font-mono text-[10px] font-semibold uppercase text-ink-3" style={{ letterSpacing: 1 }}>
-              Comment fonctionne le matching par mots-clés ?
-            </Text>
-            <Text className="text-[12px] leading-[18px] text-ink-4">
-              <Text style={{ fontWeight: "700", color: c.text }}>Sans filtre</Text> — les mots-clés sont
-              un signal de priorité : les prospects correspondants remontent en tête sans exclure les
-              autres.
-            </Text>
-            <Text className="mt-1.5 text-[12px] leading-[18px] text-ink-4">
-              <Text style={{ fontWeight: "700", color: c.text }}>Filtre strict</Text> — seuls les
-              prospects dont le profil contient l&apos;un des mots-clés sont ciblés.
-            </Text>
+                </Pressable>
+              );
+            })}
           </View>
+          <Text className="text-[12px] text-ink-4">
+            {domains.length === 0
+              ? "Tous les domaines : votre annonce est proposée à tous les prospects."
+              : `Sélection : ${domains.join(" · ")} (${domains.length}/${MAX_CAMPAIGN_DOMAINS}).`}
+          </Text>
         </View>
       ) : null}
 
@@ -1573,7 +1573,7 @@ export default function ProWizard() {
               ["Anciens acceptants", excludePast ? "Exclus (12 derniers mois)" : "Inclus"],
               ["Fiabilité minimum", minFiab === 0 ? "Toutes (aucun filtre)" : `≥ ${minFiab} / 100`],
               ["Mode", poolMode === "pool" ? "BUUPP Pool — enchère groupée" : "Mise en relation individuelle"],
-              ["Mots-clés", keywords.length ? `${keywords.join(", ")}${kwFilter ? " (filtre strict)" : ""}` : "Aucun"],
+              ["Domaines d'activité", domains.length ? domains.join(" · ") : "Tous"],
               ["Le mot du pro", brief ? `« ${brief} »` : "—"],
               ["Coût / contact", `${(cpcCents / 100).toFixed(2)} €`],
               ["Contacts", String(contactsNum)],
