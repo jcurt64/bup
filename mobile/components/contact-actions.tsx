@@ -1,5 +1,5 @@
 // Rangée d'actions de contact (appel / e-mail, selon les modes de contact
-// cochés sur la campagne — toujours via BUUPP) — parité web
+// cochés sur la campagne) — parité web
 // ContactActionButtons + RevealContactModal + EmailComposerModal (Pro.jsx).
 //
 //  - Chaque clic est logué (`contact-click` → audit admin + rappel anti-abus
@@ -215,7 +215,7 @@ export function ContactActions({ contact }: { contact: ProContactRow | null }) {
   const relationId = contact.relationId;
 
   // Pivot mise en relation : seuls les modes de contact cochés par le pro
-  // (téléphone et/ou e-mail, via BUUPP) sont proposés. Absent → les deux.
+  // (téléphone et/ou e-mail relayé par BUUPP) sont proposés. Absent → les deux.
   const channels: string[] = readContactChannels(contact.contactChannels);
   const channelAllowed = (k: string) => channels.includes(k);
   const hasValue = (v: string | null | undefined) => !!v && v !== "—";
@@ -231,7 +231,7 @@ export function ContactActions({ contact }: { contact: ProContactRow | null }) {
     label: string;
     dataOk: boolean;
   }[] = [
-    { key: "call", channel: "phone", icon: "call-outline", color: p.accent, label: "Appeler via BUUPP", dataOk: phoneOk },
+    { key: "call", channel: "phone", icon: "call-outline", color: p.accent, label: "Appeler", dataOk: phoneOk },
     { key: "email", channel: "email", icon: "mail-outline", color: p.coral, label: "Envoyer un e-mail via BUUPP", dataOk: emailOk },
   ];
   const buttons = allButtons.filter((b) => channelAllowed(b.channel));

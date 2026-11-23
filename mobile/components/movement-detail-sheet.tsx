@@ -26,7 +26,7 @@ import { useRelationDecision } from "./relation-decision";
 import { ReportProSheet } from "./report-pro-sheet";
 import { campaignIdFromVisitUrl, VitrinePreview } from "./vitrine-preview";
 import { VitrineLeaveSheet } from "./vitrine-leave-sheet";
-import { contactChannelsShort } from "../lib/contact-channels";
+import { contactChannelsDetail, contactChannelsShort } from "../lib/contact-channels";
 import { useTheme } from "../lib/theme";
 import type { MovementRelation } from "../lib/queries";
 
@@ -825,7 +825,7 @@ export function MovementDetailSheet({
           </DetailRow>
           <DetailRow label="Mode de contact">
             <Text className="text-[14px] font-semibold text-ink">
-              {contactChannelsShort(r.contactChannels)} (via BUUPP)
+              {contactChannelsDetail(r.contactChannels)}
             </Text>
           </DetailRow>
           <DetailRow label="Référence">

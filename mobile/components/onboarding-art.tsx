@@ -303,7 +303,7 @@ export function ProsArt({ active }: { active: boolean }) {
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <IconTile name="call" bg={c.tintViolet} color={c.accViolet} />
           <View>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: c.text }}>Contact via BUUPP</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: c.text }}>Contact sur accord</Text>
             <Text style={{ fontSize: 10, color: c.textSub }}>consentement clair</Text>
           </View>
         </Card>

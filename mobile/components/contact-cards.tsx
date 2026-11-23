@@ -730,8 +730,9 @@ export function ContactCard({
               borderColor: p.border,
             }}
           >
-            {/* Mode de contact (téléphone / e-mail) — toujours via BUUPP :
-                le pro ne voit jamais le numéro ni l'adresse brute. */}
+            {/* Mode de contact (téléphone / e-mail). Téléphone : le pro appelle
+                depuis son propre téléphone ; e-mail : relayé par BUUPP, l'adresse
+                réelle n'est jamais transmise. */}
             {readContactChannels(contact.contactChannels).map((ch, i) => (
               <View
                 key={ch}
@@ -742,7 +743,7 @@ export function ContactCard({
                 <Text style={{ fontSize: 12.5, color: p.text, flex: 1 }} numberOfLines={1}>
                   {locked
                     ? "🔒 Disponible à la clôture"
-                    : `${CHANNEL_LABEL[ch]} via BUUPP`}
+                    : ch === "email" ? `${CHANNEL_LABEL[ch]} via BUUPP` : CHANNEL_LABEL[ch]}
                 </Text>
               </View>
             ))}

@@ -613,7 +613,7 @@ function FlashDealDetailSheet({
             </View>
           ) : null}
 
-          {/* Mode de contact (téléphone / e-mail, via BUUPP). */}
+          {/* Mode de contact (téléphone / e-mail relayé par BUUPP). */}
           <View style={{ marginTop: 16 }}>
             <Text style={{ fontSize: 13, color: c.textSub, marginBottom: 9 }}>
               Mode de contact
@@ -642,8 +642,10 @@ function FlashDealDetailSheet({
               ))}
             </View>
             <Text style={{ fontSize: 12, color: c.textSub, marginTop: 8 }}>
-              {contactChannelsLabel(d.contactChannels)} — le professionnel ne voit
-              que votre prénom et l’initiale de votre nom.
+              {contactChannelsLabel(d.contactChannels)} — le professionnel n’obtient
+              votre prénom, l’initiale de votre nom et votre numéro qu’après votre
+              acceptation, uniquement pour vous appeler. Votre adresse e-mail ne lui
+              est jamais transmise.
             </Text>
           </View>
 

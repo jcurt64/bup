@@ -28,6 +28,7 @@ import {
   type ProCampaignDetailFull,
 } from "../../lib/queries-pro-contacts";
 import {
+  contactChannelsDetail,
   contactChannelsShort,
   targetAgeBandsLabel,
   targetCitiesLabel,
@@ -770,7 +771,7 @@ export default function ProCampaignDetailScreen() {
                   {[
                     ["Objectif", d.objectiveLabel],
                     ["Sous-types", d.targeting.subTypes.length ? d.targeting.subTypes.join(", ") : "—"],
-                    ["Mode de contact", `${channelsLabel} (via BUUPP)`],
+                    ["Mode de contact", contactChannelsDetail(d.contactChannels ?? d.targeting.contactChannels)],
                     ["Villes", targetCitiesLabel(d.targeting.cities)],
                     ["Sexe", targetGenresLabel(d.targeting.genres)],
                     ["Tranche d'âge", targetAgeBandsLabel(d.targeting.ageBands)],

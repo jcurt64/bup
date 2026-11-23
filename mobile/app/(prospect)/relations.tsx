@@ -4,7 +4,7 @@
 // (relations/wallet/score) = synchro web⇄mobile (§6.1). Parité web
 // (Prospect.jsx fn Relations) : 4 cartes de stats, barre de filtres
 // (Montant / Date / Flash deals), cartes avec le mode de contact (téléphone /
-// e-mail via BUUPP) + motif + Accepter/Refuser directs, historique avec
+// e-mail relayé par BUUPP) + motif + Accepter/Refuser directs, historique avec
 // badge FLASH, statut séquestre/crédité et « Total accepté ».
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";

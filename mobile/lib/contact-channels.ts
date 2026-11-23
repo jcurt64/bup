@@ -4,8 +4,10 @@
 // Le pro ne choisit plus de catégories de données : il coche le ou les
 // canaux par lesquels il contactera le prospect — téléphone et/ou e-mail.
 // Le prénom + l'initiale du nom sont toujours transmis (personnalisation).
-// Appels et e-mails passent TOUJOURS par la plateforme BUUPP : le pro ne
-// voit jamais le numéro ni l'adresse brute.
+// Avant l'acceptation, le pro ne sait rien du prospect. Après : téléphone →
+// il obtient le numéro et appelle depuis son propre téléphone (l'appel ne
+// passe PAS par BUUPP) ; e-mail → relayé par BUUPP (alias), l'adresse réelle
+// n'est jamais transmise au pro.
 import type { Ionicons } from "@expo/vector-icons";
 
 export const CONTACT_CHANNELS = ["phone", "email"] as const;
@@ -41,11 +43,21 @@ export const CHANNEL_ICON: Record<
   email: "mail-outline",
 };
 
-/** « Contact par téléphone / e-mail (via BUUPP) ». */
+/** « Contact par téléphone / e-mail (relayé par BUUPP) » — seul l'e-mail
+ *  transite par BUUPP ; l'appel se fait directement depuis le téléphone du pro. */
 export function contactChannelsLabel(raw: unknown): string {
   const ch = readContactChannels(raw);
-  const parts = ch.map((c) => (c === "phone" ? "téléphone" : "e-mail"));
-  return `Contact par ${parts.join(" / ")} (via BUUPP)`;
+  const parts = ch.map((c) =>
+    c === "phone" ? "téléphone" : "e-mail (relayé par BUUPP)",
+  );
+  return `Contact par ${parts.join(" / ")}`;
+}
+
+/** Version détaillée pour les récapitulatifs : « Téléphone · E-mail (via BUUPP) ». */
+export function contactChannelsDetail(raw: unknown): string {
+  return readContactChannels(raw)
+    .map((c) => (c === "email" ? `${CHANNEL_LABEL[c]} (via BUUPP)` : CHANNEL_LABEL[c]))
+    .join(" · ");
 }
 
 /** Version courte pour les puces : « Téléphone · E-mail ». */

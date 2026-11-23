@@ -6,7 +6,8 @@
 // Le design source est en thème « forest » (verts) : toutes les couleurs vives
 // sont mappées sur l'accent du thème courant (useContactPalette) pour s'adapter
 // aux thèmes buupp / sombre / fushia. Les coordonnées affichées sont MASQUÉES
-// par le serveur : le pro ne voit que le prénom et l'initiale du nom.
+// par le serveur : la fiche montre le prénom et l'initiale du nom ; le numéro
+// (campagne téléphone) n'est obtenu que via la révélation auditée des actions.
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../lib/theme";
 import { useApi } from "../lib/api";
 import type { ProContactDetails, ProDetailTier } from "../lib/queries";
-import { contactChannelsShort, nomInitial } from "../lib/contact-channels";
+import { contactChannelsDetail, nomInitial } from "../lib/contact-channels";
 import type { ProContactRow } from "../lib/queries-pro-contacts";
 import { ContactActions } from "./contact-actions";
 import {
@@ -443,7 +444,7 @@ export function ContactDetailSheet({
             </Pressable>
           </View>
 
-          {/* Coordonnées : prénom + initiale du nom + mode de contact (via BUUPP) */}
+          {/* Coordonnées : prénom + initiale du nom + mode de contact */}
           {status === "loading" ? (
             <Text style={{ textAlign: "center", color: p.muted, fontSize: 13, paddingVertical: 24 }}>
               Chargement des informations…
@@ -473,7 +474,7 @@ export function ContactDetailSheet({
               <InfoRow label="Initiale du nom" value={identity.initiale ? `${identity.initiale}.` : NR} />
               <InfoRow
                 label="Mode de contact"
-                value={`${contactChannelsShort(contact.contactChannels)} (via BUUPP)`}
+                value={contactChannelsDetail(contact.contactChannels)}
                 last
               />
             </View>
@@ -512,10 +513,11 @@ export function ContactDetailSheet({
               />
             </View>
             <Text style={{ flex: 1, fontSize: 12, color: p.accentInk, lineHeight: 18 }}>
-              Le numéro et l’adresse e-mail du prospect{" "}
-              <Text style={{ fontWeight: "600" }}>ne vous sont jamais communiqués</Text> :
-              appels et e-mails passent par la plateforme BUUPP. Accès journalisé
-              conformément à notre politique RGPD.
+              Le numéro du prospect ne vous est transmis qu’après son acceptation,
+              uniquement pour l’appeler depuis votre téléphone. Ses e-mails passent par
+              la plateforme BUUPP : son adresse e-mail{" "}
+              <Text style={{ fontWeight: "600" }}>ne vous est jamais transmise</Text>.
+              Accès journalisé conformément à notre politique RGPD.
             </Text>
           </View>
 

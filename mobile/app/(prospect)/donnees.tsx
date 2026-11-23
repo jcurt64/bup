@@ -3,8 +3,10 @@
 //
 // Pivot « mise en relation pure » : BUUPP ne collecte plus que 7 données —
 // prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. Le
-// professionnel ne voit que le prénom et l'initiale ; ville, sexe et tranche
-// d'âge servent uniquement à proposer des offres pertinentes ; appels et e-mails passent par la plateforme BUUPP.
+// professionnel ne reçoit, après acceptation, que le prénom et l'initiale (+ le
+// numéro pour une campagne téléphonique, appel direct hors BUUPP) ; ville, sexe et
+// tranche d'âge servent uniquement à proposer des offres pertinentes ; les e-mails
+// sont relayés par BUUPP (adresse jamais transmise).
 // Le téléphone n'est jamais PATCHé ici : saisie/changement uniquement via la
 // vérification SMS (PhoneVerifySheet), parité web PhoneVerifyModal.
 import { Ionicons } from "@expo/vector-icons";
@@ -535,11 +537,13 @@ export default function Donnees() {
                       color: c.textSub,
                     }}
                   >
-                    Le professionnel ne voit que votre prénom et l&apos;initiale
-                    de votre nom. Ville, sexe et tranche d&apos;âge servent
-                    uniquement à vous proposer des offres pertinentes et ne
-                    sont jamais montrés aux professionnels. Appels et e-mails
-                    passent par BUUPP.
+                    Après votre acceptation, le professionnel voit votre prénom
+                    et l&apos;initiale de votre nom. Il n&apos;obtient votre numéro
+                    qu&apos;après votre acceptation, uniquement pour vous appeler.
+                    Ses e-mails passent par la plateforme BUUPP : votre adresse
+                    e-mail ne lui est jamais transmise. Ville, sexe et tranche
+                    d&apos;âge servent uniquement à vous proposer des offres
+                    pertinentes et ne sont jamais montrés aux professionnels.
                   </Text>
                 </View>
 

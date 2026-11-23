@@ -1234,7 +1234,7 @@ export default function Portefeuille() {
             ) : (
             <View className="mt-4 gap-2.5">
               {d.movements.map((mv) => {
-                // Mode de contact de la campagne (téléphone / e-mail via BUUPP).
+                // Mode de contact de la campagne (téléphone / e-mail).
                 const tStr = mv.relation
                   ? contactChannelsShort(mv.relation.contactChannels)
                   : null;

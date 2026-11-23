@@ -216,7 +216,8 @@ function AcceptIncompleteSheet({
                 vos coordonnées
               </Text>{" "}
               (prénom, initiale du nom, téléphone et e-mail) pour accepter cette mise en relation. Le professionnel
-              ne voit que votre prénom et l&apos;initiale de votre nom.
+              voit votre prénom et l&apos;initiale de votre nom ; il n&apos;obtient votre numéro qu&apos;après
+              votre acceptation, uniquement pour vous appeler. Votre adresse e-mail ne lui est jamais transmise.
             </Text>
           </View>
         </View>

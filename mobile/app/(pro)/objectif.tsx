@@ -24,7 +24,7 @@ import {
 import {
   CHANNEL_ICON,
   CONTACT_CHANNELS,
-  contactChannelsShort,
+  contactChannelsDetail,
   readContactChannels,
   readTargetAgeBands,
   readTargetCities,
@@ -324,7 +324,7 @@ export default function ProWizard() {
   // Toujours aujourd'hui : le serveur démarre la campagne à sa validation.
   const [startDay] = useState(() => dayFromOffset(0));
   const [duration, setDuration] = useState<DurationKey>("7d");
-  // Modes de contact (téléphone et/ou e-mail, via BUUPP) — non vide.
+  // Modes de contact (téléphone et/ou e-mail relayé par BUUPP) — non vide.
   const [channels, setChannels] = useState<ContactChannel[]>(["phone", "email"]);
   const [verif, setVerif] = useState<VerifLevel>("p0");
   const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
@@ -1026,7 +1026,7 @@ export default function ProWizard() {
         </View>
       ) : null}
 
-      {/* ÉTAPE 3 — Mode de contact (téléphone et/ou e-mail, via BUUPP). */}
+      {/* ÉTAPE 3 — Mode de contact (téléphone et/ou e-mail relayé par BUUPP). */}
       {step === 3 ? (
         <View className="gap-2">
           <Text className="text-[13px] text-ink-3">
@@ -1063,7 +1063,7 @@ export default function ProWizard() {
                     </Text>
                     <Text className="text-[11px] text-ink-4">
                       {ch === "phone"
-                        ? "Vous appelez le prospect depuis BUUPP"
+                        ? "Vous appelez le prospect depuis votre téléphone"
                         : "Vous écrivez au prospect depuis BUUPP"}
                     </Text>
                   </View>
@@ -1085,8 +1085,9 @@ export default function ProWizard() {
             <Ionicons name="lock-closed-outline" size={14} color={c.accentInk} />
             <Text className="flex-1 text-[12px] leading-[18px] text-ink-2">
               Vous recevez toujours le <Text style={{ fontWeight: "700" }}>prénom et l&apos;initiale du nom</Text>{" "}
-              pour personnaliser l&apos;échange. Appels et e-mails passent par la plateforme BUUPP : le
-              numéro et l&apos;adresse ne vous sont jamais communiqués.
+              pour personnaliser l&apos;échange. Vous n&apos;obtenez le numéro qu&apos;après acceptation, uniquement
+              pour appeler le prospect. Les e-mails passent par la plateforme BUUPP : son adresse ne vous
+              est jamais transmise.
             </Text>
           </View>
         </View>
@@ -1563,7 +1564,7 @@ export default function ProWizard() {
               ["Lancement", "Immédiat, dès validation"],
               ["Date de fin estimée", fmtDayLong(endTs)],
               ["Durée", DURATIONS.find((d) => d.key === duration)?.label ?? duration],
-              ["Mode de contact", `${contactChannelsShort(channels)} (via BUUPP)`],
+              ["Mode de contact", contactChannelsDetail(channels)],
               ["Villes", targetCitiesLabel(targetCities)],
               ["Sexe", targetGenresLabel(targetGenres)],
               ["Tranche d'âge", targetAgeBandsLabel(targetAgeBands)],
