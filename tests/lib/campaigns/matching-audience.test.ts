@@ -7,7 +7,7 @@ type Call = [string, ...unknown[]];
 function fakeAdmin(rows: unknown[]) {
   const calls: Call[] = [];
   const builder: Record<string, unknown> = {};
-  for (const m of ["select", "in", "not", "or", "gte", "order"]) {
+  for (const m of ["select", "in", "eq", "not", "or", "gte", "order"]) {
     builder[m] = (...args: unknown[]) => {
       calls.push([m, ...args]);
       return builder;
@@ -81,5 +81,14 @@ describe("findMatchingProspects — filtres d'audience", () => {
       audience: { cities: [], genres: ["femme", "homme"], ageBands: ["35+"] },
     });
     expect(out.map((m) => m.prospectId)).toEqual(["p2"]);
+  });
+
+  it("cloisonne les comptes de test : vrai pro → is_test=false, pro de test → is_test=true", async () => {
+    const real = fakeAdmin([]);
+    await findMatchingProspects(real.admin, baseInput);
+    expect(real.calls).toContainEqual(["eq", "is_test", false]);
+    const test = fakeAdmin([]);
+    await findMatchingProspects(test.admin, { ...baseInput, testAccounts: true });
+    expect(test.calls).toContainEqual(["eq", "is_test", true]);
   });
 });

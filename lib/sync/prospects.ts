@@ -9,6 +9,7 @@
 
 import { nomInitial } from "@/lib/campaigns/contact-channels";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isTestEmail } from "@/lib/test-accounts";
 
 export type EnsureProspectInput = {
   clerkUserId: string;
@@ -22,16 +23,23 @@ export async function ensureProspect(input: EnsureProspectInput) {
 
   const { data: existing, error: lookupError } = await admin
     .from("prospects")
-    .select("id")
+    .select("id, is_test")
     .eq("clerk_user_id", input.clerkUserId)
     .maybeSingle();
 
   if (lookupError) throw lookupError;
-  if (existing) return existing.id;
+  const testAccount = isTestEmail(input.email);
+  if (existing) {
+    // Compte de test créé avant le marquage automatique → rattrapage.
+    if (testAccount && !existing.is_test) {
+      await admin.from("prospects").update({ is_test: true }).eq("id", existing.id);
+    }
+    return existing.id;
+  }
 
   const { data: created, error: insertError } = await admin
     .from("prospects")
-    .insert({ clerk_user_id: input.clerkUserId })
+    .insert({ clerk_user_id: input.clerkUserId, is_test: testAccount })
     .select("id")
     .single();
 

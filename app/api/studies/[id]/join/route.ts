@@ -16,8 +16,14 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!g.ctx.prenom || !g.ctx.email) return err("tier1_incomplete", 422);
 
   await sweepStudy(g.admin, id);
-  const { data: c } = await g.admin.from("study_campaigns").select("scope, department").eq("id", id).maybeSingle();
+  const { data: c } = await g.admin.from("study_campaigns").select("scope, department, pro_account_id").eq("id", id).maybeSingle();
   if (!c) return err("not_found", 404);
+  // Cloisonnement comptes de test ↔ vrais comptes (cf. lib/test-accounts).
+  const [{ data: me }, { data: pro }] = await Promise.all([
+    g.admin.from("prospects").select("is_test").eq("id", g.ctx.prospectId).maybeSingle(),
+    g.admin.from("pro_accounts").select("is_test").eq("id", c.pro_account_id).maybeSingle(),
+  ]);
+  if ((me?.is_test === true) !== (pro?.is_test === true)) return err("not_found", 404);
   // Plus de localisation prospect : la zone d'une étude départementale est
   // affichée sur la fiche, le prospect s'inscrit en connaissance de cause.
 

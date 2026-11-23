@@ -245,7 +245,7 @@ export async function POST(req: Request) {
   const { data: pro } = await admin
     .from("pro_accounts")
     .select(
-      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur",
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, is_test",
     )
     .eq("id", proId)
     .single();
@@ -524,6 +524,7 @@ export async function POST(req: Request) {
       excludeProspectIds: [...pastAcceptors],
       minFiabilitePct: minFiabilite,
       audience,
+      testAccounts: pro.is_test === true,
     });
   } catch (err) {
     console.error("[/api/pro/campaigns] matching failed", err);

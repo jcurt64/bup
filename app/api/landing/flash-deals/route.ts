@@ -57,15 +57,27 @@ export async function GET() {
   // Anonyme : on continue sans prospect — le contexte fondateur sera
   // calculé en mode public.
   let prospect: ProspectIdRow = null;
+  // Compte de test (prospect ou pro fictif) : voit les flash deals des pros
+  // de test, et eux seuls (cloisonnement, cf. lib/test-accounts).
+  let viewerIsTest = false;
   try {
     const { userId } = await auth();
     if (userId) {
       const { data: pRow } = await admin
         .from("prospects")
-        .select("id")
+        .select("id, is_test")
         .eq("clerk_user_id", userId)
         .maybeSingle();
-      prospect = (pRow as ProspectIdRow) ?? null;
+      prospect = pRow ? { id: pRow.id } : null;
+      viewerIsTest = pRow?.is_test === true;
+      if (!pRow) {
+        const { data: proRow } = await admin
+          .from("pro_accounts")
+          .select("is_test")
+          .eq("clerk_user_id", userId)
+          .maybeSingle();
+        viewerIsTest = proRow?.is_test === true;
+      }
     }
   } catch (e) {
     // Auth optionnelle — on log et continue en mode anonyme.
@@ -98,7 +110,7 @@ export async function GET() {
     .select(
       `id, name, ends_at, brief, cost_per_contact_cents, targeting, contact_channels,
        founder_bonus_enabled, budget_cents, created_at, pro_account_id,
-       pro_accounts ( raison_sociale, secteur )`,
+       pro_accounts ( raison_sociale, secteur, is_test )`,
     )
     .eq("status", "active")
     .gt("ends_at", nowIso)
@@ -138,12 +150,16 @@ export async function GET() {
       requiredTiers?: number[];
       requiredTierKeys?: string[];
     } | null;
-    pro_accounts: { raison_sociale: string | null; secteur: string | null }
-      | { raison_sociale: string | null; secteur: string | null }[]
+    pro_accounts: { raison_sociale: string | null; secteur: string | null; is_test?: boolean }
+      | { raison_sociale: string | null; secteur: string | null; is_test?: boolean }[]
       | null;
   };
+  const proIsTest = (r: CampaignRow) => {
+    const p = Array.isArray(r.pro_accounts) ? r.pro_accounts[0] : r.pro_accounts;
+    return p?.is_test === true;
+  };
   let flashes = ((data ?? []) as unknown as CampaignRow[]).filter(
-    (r) => r.targeting?.durationKey === "1h",
+    (r) => r.targeting?.durationKey === "1h" && proIsTest(r) === viewerIsTest,
   );
 
   // Comptage indicatif des flash deals lancés sur les 7 derniers jours

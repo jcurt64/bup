@@ -13,6 +13,7 @@
  */
 
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isTestEmail } from "@/lib/test-accounts";
 
 export type EnsureProInput = {
   clerkUserId: string;
@@ -25,11 +26,18 @@ export async function ensureProAccount(input: EnsureProInput): Promise<string> {
 
   const { data: existing, error: lookupError } = await admin
     .from("pro_accounts")
-    .select("id")
+    .select("id, is_test")
     .eq("clerk_user_id", input.clerkUserId)
     .maybeSingle();
   if (lookupError) throw lookupError;
-  if (existing) return existing.id;
+  const testAccount = isTestEmail(input.email);
+  if (existing) {
+    // Compte de test créé avant le marquage automatique → rattrapage.
+    if (testAccount && !existing.is_test) {
+      await admin.from("pro_accounts").update({ is_test: true }).eq("id", existing.id);
+    }
+    return existing.id;
+  }
 
   const fallbackName =
     input.raisonSociale?.trim() ||
@@ -41,6 +49,7 @@ export async function ensureProAccount(input: EnsureProInput): Promise<string> {
     .insert({
       clerk_user_id: input.clerkUserId,
       raison_sociale: fallbackName,
+      is_test: testAccount,
     })
     .select("id")
     .single();

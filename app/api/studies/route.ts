@@ -5,7 +5,8 @@
  */
 import { NextResponse, after } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { listPublicStudies } from "@/lib/studies/repo";
+import { auth } from "@/lib/clerk/server";
+import { isTestViewer, listPublicStudies } from "@/lib/studies/repo";
 import { sweepStudies } from "@/lib/studies/sweep";
 import { studiesDisabledResponse } from "@/lib/studies/http";
 import { STUDY_TYPES } from "@/lib/studies/constants";
@@ -20,7 +21,14 @@ export async function GET(req: Request) {
   const type = u.searchParams.get("type");
   const minReward = Number(u.searchParams.get("minReward") ?? "");
   const admin = createSupabaseAdminClient();
+  let viewerIsTest = false;
+  try {
+    viewerIsTest = await isTestViewer(admin, (await auth()).userId);
+  } catch {
+    // Auth optionnelle (liste publique) : visiteur anonyme = vrai compte.
+  }
   const items = await listPublicStudies(admin, {
+    viewerIsTest,
     department: u.searchParams.get("department")?.toUpperCase() || null,
     type: type && (STUDY_TYPES as readonly string[]).includes(type) ? type : null,
     minRewardCents: Number.isFinite(minReward) && minReward > 0 ? Math.round(minReward * 100) : null,

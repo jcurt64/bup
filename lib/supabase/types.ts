@@ -445,6 +445,7 @@ export type Database = {
           billing_status: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents: number | null
           clerk_user_id: string
+          is_test: boolean
           code_postal: string | null
           created_at: string
           email_tracking_consent: boolean
@@ -481,6 +482,7 @@ export type Database = {
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents?: number | null
           clerk_user_id: string
+          is_test?: boolean
           code_postal?: string | null
           created_at?: string
           email_tracking_consent?: boolean
@@ -517,6 +519,7 @@ export type Database = {
           billing_status?: Database["public"]["Enums"]["pro_billing_status"]
           capital_social_cents?: number | null
           clerk_user_id?: string
+          is_test?: boolean
           code_postal?: string | null
           created_at?: string
           email_tracking_consent?: boolean
@@ -899,6 +902,7 @@ export type Database = {
           campaign_types: Database["public"]["Enums"]["campaign_type"][]
           categories: string[]
           clerk_user_id: string
+          is_test: boolean
           created_at: string
           founder_signup_bonus_applied: boolean
           id: string
@@ -924,6 +928,7 @@ export type Database = {
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]
           clerk_user_id: string
+          is_test?: boolean
           created_at?: string
           founder_signup_bonus_applied?: boolean
           id?: string
@@ -949,6 +954,7 @@ export type Database = {
           campaign_types?: Database["public"]["Enums"]["campaign_type"][]
           categories?: string[]
           clerk_user_id?: string
+          is_test?: boolean
           created_at?: string
           founder_signup_bonus_applied?: boolean
           id?: string

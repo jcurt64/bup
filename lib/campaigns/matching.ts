@@ -53,6 +53,10 @@ export type MatchingInput = {
   minFiabilitePct?: number | null;
   /** Filtres d'audience (villes / sexe / tranche d'âge). Absent = aucun. */
   audience?: AudienceTargeting;
+  /** Pro de TEST (`pro_accounts.is_test`) : true → seuls les prospects de
+   *  test sont éligibles ; false/absent → les prospects de test sont exclus.
+   *  Cf. lib/test-accounts. */
+  testAccounts?: boolean;
   // ── Champs historiques (ciblage géo/âge/paliers) : acceptés mais IGNORÉS.
   requiredTiers?: number[];
   geo?: string;
@@ -117,6 +121,8 @@ export async function findMatchingProspects(
     `,
     )
     .in("verification", acceptableLevels)
+    // Cloisonnement comptes de test ↔ vrais comptes (cf. lib/test-accounts).
+    .eq("is_test", input.testAccounts === true)
     .not("prospect_identity.prenom", "is", null)
     .not("prospect_identity.nom", "is", null);
   if (channels.includes("phone")) {

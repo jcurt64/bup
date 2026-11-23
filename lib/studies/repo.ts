@@ -91,7 +91,25 @@ export type StudyFilters = {
   type?: string | null;
   minRewardCents?: number | null;
   deadlineBefore?: string | null;
+  /** Visiteur = compte de test → ne voit QUE les études des pros de test ;
+   *  sinon elles lui sont masquées (cf. lib/test-accounts). */
+  viewerIsTest?: boolean;
 };
+
+/** Ids des comptes pro de test (ensemble réduit). */
+export async function testProIds(admin: Admin): Promise<string[]> {
+  const { data } = await admin.from("pro_accounts").select("id").eq("is_test", true);
+  return (data ?? []).map((r) => r.id);
+}
+
+/** L'utilisateur Clerk est-il un compte de test (prospect ou pro) ? */
+export async function isTestViewer(admin: Admin, clerkUserId: string | null): Promise<boolean> {
+  if (!clerkUserId) return false;
+  const { data: p } = await admin.from("prospects").select("is_test").eq("clerk_user_id", clerkUserId).maybeSingle();
+  if (p) return p.is_test === true;
+  const { data: pro } = await admin.from("pro_accounts").select("is_test").eq("clerk_user_id", clerkUserId).maybeSingle();
+  return pro?.is_test === true;
+}
 
 /** Liste publique : campagnes publiées dont les inscriptions sont ouvertes (+ validées récentes). */
 export async function listPublicStudies(admin: Admin, f: StudyFilters = {}, limit = 60): Promise<PublicStudy[]> {
@@ -106,6 +124,13 @@ export async function listPublicStudies(admin: Admin, f: StudyFilters = {}, limi
   if (f.minRewardCents) q = q.gte("reward_cents", f.minRewardCents);
   if (f.deadlineBefore) q = q.lte("signup_deadline", f.deadlineBefore);
   if (f.department) q = q.or(`scope.eq.national,department.eq.${f.department.replace(/[^0-9AB]/gi, "")}`);
+  const testPros = await testProIds(admin);
+  if (f.viewerIsTest) {
+    if (testPros.length === 0) return [];
+    q = q.in("pro_account_id", testPros);
+  } else if (testPros.length > 0) {
+    q = q.not("pro_account_id", "in", `(${testPros.join(",")})`);
+  }
   const { data } = await q;
   const rows = data ?? [];
   const [counts, names] = await Promise.all([

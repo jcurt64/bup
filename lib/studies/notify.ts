@@ -22,8 +22,18 @@ async function proName(admin: Admin, proId: string): Promise<string> {
 /** Publication : notification in-app aux prospects éligibles (palier 1 complet + zone). */
 export async function notifyPublished(admin: Admin, c: Pick<StudyRow, "id" | "scope" | "department">): Promise<number> {
   try {
+    // Cloisonnement comptes de test (cf. lib/test-accounts) : une étude d'un
+    // pro de test ne notifie que les prospects de test, et inversement.
+    const { data: camp } = await admin.from("study_campaigns").select("pro_account_id").eq("id", c.id).maybeSingle();
+    const { data: pro } = camp
+      ? await admin.from("pro_accounts").select("is_test").eq("id", camp.pro_account_id).maybeSingle()
+      : { data: null };
+    const proIsTest = pro?.is_test === true;
+    const testProspects = new Set<string>();
+    const { data: tp } = await admin.from("prospects").select("id").eq("is_test", true);
+    for (const r of tp ?? []) testProspects.add(r.id);
     // Pagination par tranches de 1000 (plafond max_rows de PostgREST).
-    const ids: string[] = [];
+    const all: string[] = [];
     for (let from = 0; ; from += 1000) {
       const { data: page, error } = await admin
         .from("prospect_identity")
@@ -33,9 +43,10 @@ export async function notifyPublished(admin: Admin, c: Pick<StudyRow, "id" | "sc
         .order("prospect_id")
         .range(from, from + 999);
       if (error) throw error;
-      ids.push(...(page ?? []).filter((r) => r.prenom?.trim() && r.email?.trim()).map((r) => r.prospect_id));
+      all.push(...(page ?? []).filter((r) => r.prenom?.trim() && r.email?.trim()).map((r) => r.prospect_id));
       if (!page || page.length < 1000) break;
     }
+    const ids = all.filter((id) => testProspects.has(id) === proIsTest);
     // Pivot « mise en relation pure » : la localisation prospect n'est plus
     // collectée. Une étude départementale est notifiée à tous les prospects
     // éligibles ; la zone reste affichée sur la fiche (le prospect choisit).

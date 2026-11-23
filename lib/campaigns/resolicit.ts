@@ -104,7 +104,7 @@ export async function resolicitNewlyEligible(
 
   const { data: pro } = await admin
     .from("pro_accounts")
-    .select("raison_sociale, secteur")
+    .select("raison_sociale, secteur, is_test")
     .eq("id", proId)
     .single();
 
@@ -127,6 +127,7 @@ export async function resolicitNewlyEligible(
       excludeProspectIds: [...excludeIds],
       minFiabilitePct: t.minFiabilite ?? null,
       audience: readAudienceTargeting(t),
+      testAccounts: pro?.is_test === true,
     });
   } catch (e) {
     console.error("[resolicit] matching failed", e);
