@@ -4,8 +4,11 @@
  * Le pro ne choisit plus de catégories de données : il coche le ou les
  * canaux par lesquels il contactera le prospect — téléphone et/ou e-mail.
  * Le prénom + l'initiale du nom sont toujours transmis (personnalisation).
- * L'appel / l'e-mail passent TOUJOURS par la plateforme BUUPP (relais) :
- * le pro ne reçoit jamais le numéro ni l'adresse brute.
+ * L'e-mail passe TOUJOURS par la plateforme BUUPP (relais) : le pro ne
+ * reçoit jamais l'adresse brute. Le téléphone, lui, est communiqué au pro
+ * APRÈS acceptation (bouton « Appeler », révélation journalisée + SMS de
+ * préavis) : il appelle depuis son propre téléphone, l'appel ne passe pas
+ * par BUUPP.
  *
  * Persisté dans `campaigns.contact_channels text[]` (CHECK ⊆ {phone,email},
  * non vide, défaut {phone,email}).

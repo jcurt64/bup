@@ -153,14 +153,18 @@ export default function CgvPage() {
             <li>
               d&apos;entrer en contact, après <strong>double
               consentement</strong> (acceptation du prospect via son tableau
-              de bord), avec le prospect{" "}
-              <strong>exclusivement par la plateforme BUUPP</strong>{" "}
-              (appel et/ou e-mail selon le mode de contact choisi). Le
-              Professionnel ne voit que le <strong>prénom</strong> du
+              de bord), avec le prospect selon le ou les modes de contact
+              choisis (appel et/ou e-mail). Avant l&apos;acceptation, le
+              Professionnel n&apos;a accès à aucune donnée du prospect. Après
+              l&apos;acceptation, il voit le <strong>prénom</strong> du
               prospect et l&apos;<strong>initiale de son nom</strong>, afin de
-              personnaliser l&apos;échange&nbsp;; le numéro de téléphone,
-              l&apos;adresse e-mail, la ville, le sexe et la tranche
-              d&apos;âge du prospect ne lui sont jamais communiqués. Chaque prise de contact est tracée dans le
+              personnaliser l&apos;échange, et, pour une campagne prévoyant
+              un contact par téléphone, obtient le{" "}
+              <strong>numéro de téléphone</strong> du prospect à la seule fin
+              de l&apos;appeler au sujet de cette campagne. L&apos;adresse
+              e-mail du prospect ne lui est jamais communiquée (les e-mails
+              sont relayés par la plateforme BUUPP), pas plus que sa ville,
+              son sexe ou sa tranche d&apos;âge. Chaque prise de contact est tracée dans le
               journal d&apos;audit BUUPP&nbsp;;
             </li>
             <li>
@@ -442,11 +446,14 @@ export default function CgvPage() {
               prospect et la finalité déclarée de la campagne&nbsp;;
             </li>
             <li>
-              contacter le prospect <strong>exclusivement via la plateforme
-              BUUPP</strong>, ne pas chercher à obtenir ses coordonnées par
-              un autre moyen et ne <strong>jamais réutiliser, copier,
-              exporter ou revendre</strong> les informations le concernant en
-              dehors de la campagne concernée. Chaque prise de contact est
+              contacter le prospect <strong>exclusivement par les modes de
+              contact prévus par la campagne</strong> et au moyen des outils
+              de la plateforme BUUPP (bouton «&nbsp;Appeler&nbsp;», envoi
+              d&apos;e-mails relayés), ne pas chercher à obtenir ses
+              coordonnées par un autre moyen et ne <strong>jamais réutiliser,
+              copier, exporter ou revendre</strong> les informations le
+              concernant (y compris son numéro de téléphone) en dehors de la
+              campagne concernée. Chaque prise de contact est
               tracée et permet de remonter à la source de tout abus&nbsp;;
             </li>
             <li>
@@ -473,10 +480,15 @@ export default function CgvPage() {
           <p>
             Pour garantir la confidentialité des coordonnées des
             Prospects, la qualité de service et le respect du règlement
-            BUUPP, <strong>tous les appels et e-mails</strong> entre le Pro
-            et les Prospects sont <strong>centralisés et tracés</strong>{" "}
-            par la plateforme. Le Pro ne reçoit jamais le numéro de
-            téléphone ni l&apos;adresse e-mail d&apos;un Prospect.
+            BUUPP, <strong>les e-mails</strong> entre le Pro et les
+            Prospects sont <strong>envoyés et tracés</strong> par la
+            plateforme, et <strong>chaque accès au numéro de
+            téléphone</strong> d&apos;un Prospect est journalisé. Le Pro ne
+            reçoit jamais l&apos;adresse e-mail d&apos;un Prospect&nbsp;; il
+            n&apos;obtient son numéro de téléphone qu&apos;après acceptation
+            de la sollicitation, pour une campagne prévoyant un contact par
+            téléphone, et à la seule fin de l&apos;appeler au sujet de cette
+            campagne.
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
@@ -504,13 +516,15 @@ export default function CgvPage() {
               légitime — pas pour un usage commercial.
             </li>
             <li>
-              <strong>Appels via BUUPP</strong> : l&apos;appel est lancé
-              depuis le bouton &laquo;&nbsp;Appeler&nbsp;&raquo; de
-              l&apos;espace pro et mis en relation par la plateforme, sans
-              communication du numéro du Prospect. Chaque appel est
-              enregistré dans le journal d&apos;audit (horodatage,
-              identifiant de la mise en relation, identifiant du Pro) ;
-              son contenu n&apos;est pas enregistré.
+              <strong>Appels</strong> : le numéro du Prospect est
+              communiqué au Pro depuis le bouton &laquo;&nbsp;Appeler&nbsp;&raquo;
+              de l&apos;espace pro, une fois la sollicitation acceptée ;
+              le Pro appelle ensuite le Prospect depuis son propre
+              téléphone, l&apos;appel ne transitant pas par la plateforme.
+              Chaque accès au numéro est enregistré dans le journal
+              d&apos;audit (horodatage, identifiant de la mise en relation,
+              identifiant du Pro) ; le contenu des appels n&apos;est ni
+              connu ni enregistré par BUUPP.
             </li>
             <li>
               <strong>Suivi d&apos;ouverture (pixel)</strong> : pour les
@@ -532,7 +546,9 @@ export default function CgvPage() {
             </li>
             <li>
               <strong>Hors plateforme</strong> : le Pro s&apos;interdit
-              de contacter un Prospect en dehors de ces canaux. Si le
+              de contacter un Prospect en dehors de ces canaux et
+              d&apos;utiliser son numéro de téléphone à d&apos;autres fins
+              que l&apos;appel prévu par la campagne acceptée. Si le
               Prospect choisit de lui-même de communiquer ses coordonnées
               au Pro au cours de l&apos;échange, leur utilisation reste
               limitée au périmètre strict de la campagne acceptée et

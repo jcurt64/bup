@@ -1,7 +1,8 @@
 /**
  * Rémunération d'une mise en relation — pivot « mise en relation pure »
  * (nov. 2026) : il n'existe plus qu'un seul tarif de base, 1,00 € par contact
- * accepté (prénom + initiale + coordonnées relayées par BUUPP), multiplié
+ * accepté (prénom + initiale + téléphone après acceptation / e-mail relayé
+ * par BUUPP), multiplié
  * côté wizard par le niveau de vérification exigé (p0 ×1, p1 ×1,5, p2 ×2)
  * puis par la durée (1h ×3, 24h ×2, 48h ×1,5, 7j ×1). Le ×2 « certifié
  * confiance » s'applique ensuite à chaque relation.

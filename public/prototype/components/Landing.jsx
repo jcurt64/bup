@@ -707,7 +707,7 @@ function SecuritySection() {
     { t: 'RGPD natif', d: "Double consentement explicite, registre de traitement complet, droit à l'effacement en un clic." },
     { t: 'Consentement à usage unique', d: "Chaque accord donné est strictement limité à une seule campagne et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage." },
     { t: 'Anti-fraude multicouche', d: "Honeypots, contraintes d'unicité IBAN/téléphone/rôle, journal d'audit verrouillé des prises de contact." },
-    { t: 'Contact relayé par la plateforme', d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom. Appels et e-mails passent par BUUPP : votre numéro et votre e-mail ne lui sont jamais transmis. Ville, sexe et tranche d'âge servent uniquement à vous proposer des offres pertinentes." },
+    { t: 'Vos coordonnées protégées', d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom, et n'obtient votre numéro qu'après votre acceptation, uniquement pour vous appeler. Ses e-mails passent par BUUPP : votre adresse e-mail ne lui est jamais transmise. Ville, sexe et tranche d'âge servent uniquement à vous proposer des offres pertinentes." },
   ];
   return (
     <section style={{ padding: '120px 32px', background: 'var(--ink)', color: 'var(--paper)' }}>
@@ -737,7 +737,7 @@ function SecuritySection() {
 function Stats() {
   const stats = [
     ['2', 'consentements requis', 'Prospect + professionnel. Sans accord explicite des deux, aucune donnée n\'est transmise.'],
-    ['7', 'données, rien de plus', 'Prénom, initiale du nom, ville, sexe, tranche d\'âge, téléphone, e-mail — et rien d\'autre. Le professionnel ne voit que le prénom et l\'initiale.'],
+    ['7', 'données, rien de plus', 'Prénom, initiale du nom, ville, sexe, tranche d\'âge, téléphone, e-mail — et rien d\'autre. Le professionnel ne voit que le prénom et l\'initiale, et le numéro seulement après acceptation.'],
     ['60%', 'reversé au prospect', 'De la valeur brute de chaque mise en relation. Le reste couvre la fiscalité et la plateforme.'],
   ];
   return (
@@ -928,7 +928,7 @@ function ProsSection({ go }) {
               ['62%', "taux d'acceptation moyen"],
               ['100%', 'double consentement horodaté'],
               ['1,30 €', 'coût d\'un contact accepté (7 jours)'],
-              ['✓', 'contact relayé + piste d\'audit complète'],
+              ['✓', 'e-mails relayés + piste d\'audit complète'],
             ].map((r, i) => (
               <div key={i} className="row between" style={{ padding: '12px 0', borderTop: i ? '1px solid rgba(165,180,252,.15)' : 'none', fontSize: 14 }}>
                 <span style={{ color: 'rgba(255,255,255,.7)' }}>{r[1]}</span>

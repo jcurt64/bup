@@ -126,11 +126,12 @@ export default function SuppressionComptePage() {
               commerce&nbsp;;
             </li>
             <li>
-              le prénom et l&apos;initiale du nom déjà portés à la connaissance
-              d&apos;un professionnel lors d&apos;une mise en relation que vous
-              avez acceptée restent sous la responsabilité de ce professionnel
-              (votre téléphone, votre e-mail, votre ville, votre sexe et votre
-              tranche d&apos;âge ne lui ont jamais été transmis).
+              le prénom, l&apos;initiale du nom et, le cas échéant, le numéro
+              de téléphone déjà portés à la connaissance d&apos;un professionnel
+              lors d&apos;une mise en relation que vous avez acceptée restent
+              sous la responsabilité de ce professionnel (votre e-mail, votre
+              ville, votre sexe et votre tranche d&apos;âge ne lui ont jamais
+              été transmis).
             </li>
           </ul>
         </Section>

@@ -16,7 +16,7 @@ export default function RequestDemoSection() {
 
   const points: string[] = [
     "Tour guidé de la création de campagne et du choix du mode de contact (téléphone et/ou e-mail).",
-    "Démonstration du double consentement et du contact relayé par la plateforme.",
+    "Démonstration du double consentement et de la mise en relation (numéro transmis après acceptation, e-mails relayés par la plateforme).",
     "Échange sur votre cas d'usage et estimation de coût au contact.",
   ];
 

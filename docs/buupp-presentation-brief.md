@@ -97,7 +97,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **3 cartes** (style carte BUUPP) :
   1. **💶 De 1 à 3 € par mise en relation acceptée** — prix unique : 1 € de base × durée de la campagne (7 jours ×1, 48 h ×1,5, 24 h ×2, Flash 1 h ×3), doublé pour un profil certifié confiance.
   2. **🔕 Aucun spam, aucune relance** — vous n'êtes contacté qu'**après votre acceptation explicite**. Vous gardez la main à 100 %.
-  3. **🔐 Sept données, jamais transmises** — prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. Le pro ne voit que le prénom et l'initiale : ville, sexe et tranche d'âge servent uniquement au ciblage, appels et e-mails passent toujours par BUUPP. Vous pouvez tout effacer en un clic.
+  3. **🔐 Sept données, le strict minimum** — prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. Le pro ne voit que le prénom et l'initiale, et le numéro seulement après acceptation (pour appeler) : ville, sexe et tranche d'âge servent uniquement au ciblage, les e-mails passent toujours par BUUPP. Vous pouvez tout effacer en un clic.
 - **Screenshot** : capture de l'onglet « Mises en relation » côté prospect (une carte avec récompense visible). Voir section 5.
 
 ### Slide 5 — Côté pro : pourquoi c'est différent
@@ -109,7 +109,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
   |---|---|---|---|
   | Consentement | Approximatif | Implicite cookies | **Double, horodaté** |
   | Fraîcheur des données | 6-24 mois | Pas accessible | **Mis à jour en temps réel** |
-  | Qualité | Variable | Anonyme | **Téléphone vérifié par SMS, contact relayé par BUUPP** |
+  | Qualité | Variable | Anonyme | **Téléphone vérifié par SMS, e-mails relayés par BUUPP** |
   | Coût | Forfait à l'aveugle | Au clic, pas au prospect | **Au prospect réellement intéressé** |
   | RGPD | Risque élevé | Risque modéré | **Conforme par design** |
 
@@ -122,7 +122,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
   - **🏪 Le commerçant local** (boulanger, garage, coach sportif…)
     *« Je viens d'ouvrir. J'ai besoin de 30 clients dans un rayon de 5 km. Avec BUUPP, j'envoie une offre, je paie 1,30 € par accord, et j'ai 30 vrais contacts qui m'attendent en moins d'une semaine. »*
   - **🏢 La grande marque**
-    *« Je lance une campagne nationale. Je sollicite 500 prospects en flash deal. Ceux qui acceptent m'attendent, avec consentement signé : je les appelle ou leur écris via BUUPP, sans jamais manipuler leurs coordonnées. »*
+    *« Je lance une campagne nationale. Je sollicite 500 prospects en flash deal. Ceux qui acceptent m'attendent, avec consentement signé : je les appelle ou leur écris via BUUPP, sans jamais manipuler leur adresse e-mail. »*
 - Screenshot illustratif : interface de création de campagne pro (encart à côté des deux blocs). Voir section 5.
 
 ### Slide 7 — Sept données, rien de plus
@@ -134,9 +134,9 @@ Baseline officielle : **« Be Used · Paid & Proud »**
   - *Ville* — ciblage uniquement, jamais transmise
   - *Sexe* — ciblage uniquement, jamais transmis
   - *Tranche d'âge* (18-35 / 35+) — ciblage uniquement, jamais transmise
-  - *Téléphone* — jamais transmis, l'appel passe par BUUPP
+  - *Téléphone* — transmis au pro seulement après acceptation, pour l'appeler
   - *E-mail* — jamais transmis, l'e-mail passe par BUUPP
-- **Phrase pied de slide** : « Le pro choisit le mode de contact (téléphone et/ou e-mail) et peut cibler des villes, un sexe ou une tranche d'âge. Il ne reçoit jamais ces données ni vos coordonnées : c'est la **minimisation des données** exigée par le RGPD, poussée au maximum. »
+- **Phrase pied de slide** : « Le pro choisit le mode de contact (téléphone et/ou e-mail) et peut cibler des villes, un sexe ou une tranche d'âge. Il ne reçoit jamais ces données ni votre e-mail, et votre numéro seulement si vous acceptez : c'est la **minimisation des données** exigée par le RGPD, poussée au maximum. »
 - **Screenshot** : page `/about` (tableau « Comment vos données sont pseudonymisées »). Voir section 5.
 
 ### Slide 8 — RGPD-by-design (le sérieux)
@@ -154,7 +154,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **Titre** : Vos données sont *à vous*. Et bien gardées.
 - **3 colonnes** :
   - **🔒 Chiffrement** — toutes les données sensibles sont chiffrées au repos et en transit. Personne chez BUUPP ne peut lire votre IBAN ou votre n° de téléphone en clair.
-  - **🚧 Contact relayé** — le pro ne voit que votre prénom et l'initiale de votre nom ; appels et e-mails passent par la plateforme.
+  - **🚧 Contact maîtrisé** — le pro ne voit que votre prénom et l'initiale de votre nom, et votre numéro seulement après acceptation ; les e-mails passent par la plateforme.
   - **🛡 Hébergement européen** — serveurs en France (Vercel + Supabase EU), zéro export hors UE.
 - En bas, mention discrète : *« BUUPP SAS · RCS Paris 908 214 009 · Agréé intermédiaire en opérations de banque »*.
 

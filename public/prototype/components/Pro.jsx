@@ -2132,11 +2132,14 @@ const OBJECTIVES = [
 // Mode de contact (étape 3 — ex-« Données »). BUUPP est une pure plateforme
 // de mise en relation : le pro reçoit toujours le prénom + l'initiale du
 // nom du prospect (personnalisation du message) et choisit le(s) canal(aux)
-// par le(s)quel(s) il le contactera. Appel et e-mail transitent TOUJOURS
-// par la plateforme BUUPP — le numéro / l'adresse ne sont jamais affichés.
+// par le(s)quel(s) il le contactera. L'e-mail transite TOUJOURS par la
+// plateforme BUUPP (relais, adresse jamais communiquée). Pour le téléphone, le
+// pro obtient le numéro après acceptation via le bouton « Appeler » (accès
+// journalisé + SMS de préavis) et appelle depuis son propre téléphone : l'appel
+// ne passe pas par BUUPP.
 const CONTACT_CHANNELS = [
   { id: 'phone', name: 'Numéro de téléphone', short: 'Téléphone', icon: 'phone',
-    sub: 'Vous appelez le prospect depuis BUUPP (appel relayé, numéro masqué).' },
+    sub: 'Après son acceptation, vous obtenez le numéro du prospect pour l\'appeler depuis votre téléphone.' },
   { id: 'email', name: 'Adresse e-mail', short: 'E-mail', icon: 'email',
     sub: 'Vous écrivez au prospect depuis BUUPP (e-mail relayé, adresse masquée).' },
 ];
@@ -3778,8 +3781,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                   toujours communiqués pour personnaliser votre message (ex. « Camille D. »).
                 </div>
                 <div style={{ marginTop: 6 }}>
-                  Dans tous les cas, l'appel ou l'e-mail <strong>passe par la plateforme BUUPP</strong> :
-                  le numéro de téléphone et l'adresse e-mail du prospect ne vous sont jamais affichés.
+                  Les e-mails <strong>passent toujours par la plateforme BUUPP</strong> : l'adresse
+                  e-mail du prospect ne vous est jamais communiquée. Pour un contact par téléphone,
+                  son numéro vous est communiqué après son acceptation, uniquement pour l'appeler
+                  dans le cadre de cette campagne.
                 </div>
               </div>
             </div>
@@ -6024,8 +6029,10 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               }).catch(() => {});
                               // L'email passe par la modale de composition
                               // intégrée à BUUPP (envoi serveur, quota 1/campagne).
-                              // L'appel passe par le RevealContactModal (numéro
-                              // masqué, SMS de préavis « code buupp »).
+                              // L'appel passe par le RevealContactModal (révélation
+                              // journalisée du numéro, affichage masqué, SMS de
+                              // préavis « code buupp ») puis tel: depuis le
+                              // téléphone du pro — l'appel ne transite pas par BUUPP.
                               if (intent === 'email') {
                                 if ((r.emailsSent ?? 0) >= 1) return; // quota atteint
                                 setEmailCompose(r);
@@ -6139,7 +6146,8 @@ function maskPhoneDisplay(p) {
 }
 
 // Métadonnées par "intent" — chaque bouton d'action déclenche un reveal
-// puis ouvre l'action relayée (tel: avec numéro masqué à l'affichage).
+// puis ouvre l'action (tel: avec le numéro réel ; affichage masqué) — l'appel
+// part du téléphone du pro, il ne passe pas par BUUPP.
 // L'e-mail passe par EmailComposerModal (envoi serveur BUUPP).
 const REVEAL_INTENTS = {
   call:     { field: 'telephone', icon: 'phone',    title: 'Contacter',                  cta: 'Appeler maintenant',           build: v => `tel:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
@@ -6151,7 +6159,8 @@ function ContactActionButtons({ row, channels, onIntent }) {
   // l'affiche normalement et un clic ouvre une popup explicative qui
   // renvoie aux CGU.
   // Seuls les canaux demandés par la campagne (mode de contact) sont
-  // proposés : téléphone → appel via BUUPP, e-mail → composeur BUUPP.
+  // proposés : téléphone → révélation du numéro + appel depuis le téléphone
+  // du pro, e-mail → composeur BUUPP (relayé).
   const [infoModal, setInfoModal] = React.useState(null);
   // {title, body} ou null
 
@@ -6169,7 +6178,7 @@ function ContactActionButtons({ row, channels, onIntent }) {
       enabled: phoneOk,
       disabledReason: !phoneOk ? 'data' : null,
       icon: 'phone', color: '#0F1629',
-      title: 'Appeler ce prospect via BUUPP',
+      title: 'Appeler ce prospect',
     },
     {
       key: 'email', channel: 'email',
@@ -6351,8 +6360,10 @@ function ActionInfoModal({ info, onClose }) {
 
 /* Fiche d'un prospect : identité visible (prénom + initiale du nom),
    mode de contact de la campagne, code buupp et fiabilité. Méta via
-   GET /api/pro/contacts/<id>/details. Le téléphone et l'e-mail ne sont
-   jamais affichés : l'appel et l'e-mail passent par la plateforme.
+   GET /api/pro/contacts/<id>/details. L'e-mail n'est jamais affiché (envoi
+   relayé par la plateforme) ; le numéro n'est pas listé ici, il est obtenu
+   via le bouton « Appeler » (révélation journalisée) pour appeler depuis le
+   téléphone du pro.
    Portail vers <body> (échappe au conteneur scrollable du tableau) +
    pattern scroll-safe (overflow auto, align flex-start, margin auto)
    pour rester lisible sur mobile / petit écran. */
@@ -6721,8 +6732,9 @@ function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityC
               }}>
                 <span aria-hidden="true" style={{ flexShrink: 0, color: '#4F46E5' }}><Icon name="info" size={14}/></span>
                 <span>
-                  L'appel et l'e-mail passent toujours par la plateforme BUUPP : le numéro et
-                  l'adresse du prospect ne vous sont jamais affichés. Accès journalisé
+                  Les e-mails passent toujours par la plateforme BUUPP : l'adresse du prospect ne
+                  vous est jamais communiquée. Son numéro s'obtient via le bouton « Appeler »,
+                  uniquement pour l'appeler dans le cadre de cette campagne. Accès journalisé
                   conformément à notre politique RGPD.
                 </span>
               </div>

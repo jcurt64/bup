@@ -114,6 +114,7 @@ export function acceptableVerifLevels(verif: string): VerificationLevelDb[] {
 /**
  * Pivot « mise en relation pure » : les paliers de données, le ciblage
  * géographique et le ciblage par âge ont été supprimés. Seul subsiste le
- * palier 1 (prénom + initiale + coordonnées relayées par BUUPP).
+ * palier 1 (prénom + initiale + téléphone transmis après acceptation /
+ * e-mail relayé par BUUPP).
  */
 export const CONTACT_ONLY_TIER_KEYS = ["identity"] as const;

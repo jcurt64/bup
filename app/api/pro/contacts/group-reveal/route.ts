@@ -3,7 +3,7 @@
  *
  * Révélait en clair les e-mails de prospects pour un « message groupé » via
  * mailto (BCC). Incompatible avec le pivot « mise en relation pure » : le pro
- * ne reçoit jamais les coordonnées brutes. Le message groupé passe désormais
+ * ne reçoit jamais l'adresse e-mail brute. Le message groupé passe désormais
  * par l'envoi médié POST /api/pro/segments/broadcast (avec `relationIds`).
  *
  * 410 → { error: "group_reveal_removed" }

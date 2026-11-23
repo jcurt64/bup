@@ -199,12 +199,15 @@ export default function RgpdPage() {
           </ul>
           <p>
             <strong>Est-ce que le professionnel a accès à mes
-            informations&nbsp;?</strong> Non&nbsp;: tout contact passe par la
-            plateforme BUUPP&nbsp;; il ne voit que votre prénom et
-            l&apos;initiale de votre nom. Votre numéro de téléphone et votre
-            adresse e-mail ne lui sont jamais transmis&nbsp;: les appels et
-            les e-mails sont relayés par BUUPP. Votre ville, votre sexe et
-            votre tranche d&apos;âge ne lui sont pas non plus
+            informations&nbsp;?</strong> Avant votre acceptation d&apos;une
+            sollicitation, le professionnel n&apos;a accès à aucune de vos
+            données. Après votre acceptation, il voit uniquement votre prénom
+            et l&apos;initiale de votre nom et, si la campagne prévoit un
+            contact par téléphone, votre numéro de téléphone, qui lui est
+            communiqué à la seule fin de vous appeler dans le cadre de cette
+            campagne. Votre adresse e-mail ne lui est jamais transmise&nbsp;:
+            ses e-mails sont relayés par la plateforme BUUPP. Votre ville,
+            votre sexe et votre tranche d&apos;âge ne lui sont pas non plus
             communiqués&nbsp;: ils servent uniquement à déterminer si une
             campagne vous concerne.
           </p>
@@ -220,9 +223,11 @@ export default function RgpdPage() {
             <li>
               <strong>Mise en relation rémunérée</strong> entre prospects
               et pros — double consentement, mise en contact par
-              téléphone et/ou e-mail relayée par la plateforme (sans
-              transmission des coordonnées du prospect au pro), calcul de
-              la rémunération, traçabilité du contrat.
+              téléphone (communication du numéro au pro après acceptation
+              du prospect, aux seules fins de cet appel) et/ou par e-mail
+              relayé par la plateforme (sans transmission de l&apos;adresse
+              e-mail du prospect au pro), calcul de la rémunération,
+              traçabilité du contrat.
             </li>
             <li>
               <strong>Ciblage des campagnes (matching)</strong> — sélection
@@ -267,8 +272,10 @@ export default function RgpdPage() {
               le téléphone E.164 et l&apos;e-mail), exclusivité de rôle
               prospect / pro, détection de freeloaders (signalements
               «&nbsp;non atteint&nbsp;»), <strong>relais systématique des
-              appels et e-mails par la plateforme</strong> (les coordonnées
-              du prospect ne sont jamais transmises au pro) et journal
+              e-mails par la plateforme</strong> (l&apos;adresse e-mail du
+              prospect n&apos;est jamais transmise au pro), communication du
+              numéro de téléphone uniquement après acceptation et pour les
+              seules campagnes prévoyant un contact téléphonique, et journal
               d&apos;audit verrouillé des prises de contact (lecture admin
               uniquement).
             </li>
@@ -421,12 +428,16 @@ export default function RgpdPage() {
               <strong>Professionnels destinataires d&apos;une
               sollicitation acceptée</strong>&nbsp;: ils reçoivent
               uniquement le <strong>prénom</strong> et l&apos;
-              <strong>initiale du nom</strong> du prospect, et deviennent{" "}
+              <strong>initiale du nom</strong> du prospect et, lorsque la
+              campagne prévoit un contact par téléphone, son{" "}
+              <strong>numéro de téléphone</strong>, communiqué après
+              l&apos;acceptation du prospect et à la seule fin de le
+              contacter au sujet de cette campagne. Ils deviennent{" "}
               <em>responsables de traitement distincts</em> pour les
               informations qu&apos;ils recueillent au cours de
-              l&apos;échange. Le numéro de téléphone, l&apos;adresse
-              e-mail, la ville, le sexe et la tranche d&apos;âge du prospect
-              ne leur sont jamais communiqués.
+              l&apos;échange. L&apos;adresse e-mail (les e-mails étant
+              relayés par la plateforme), la ville, le sexe et la tranche
+              d&apos;âge du prospect ne leur sont jamais communiqués.
             </li>
           </ul>
           <p>

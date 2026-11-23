@@ -281,7 +281,8 @@ function ProspectProvider({ children }) {
   // Consentement préalable spécifique au canal TÉLÉPHONE (réforme française
   // du démarchage téléphonique = opt-in). Popup affichée à l'acceptation :
   // le prospect confirme accepter d'être éventuellement contacté par
-  // téléphone (via BUUPP) avant que l'acceptation ne soit finalisée.
+  // téléphone (le pro reçoit alors son numéro et l'appelle depuis son propre
+  // téléphone) avant que l'acceptation ne soit finalisée.
   // Sautée quand la campagne ne prévoit que l'e-mail (contactChannels).
   const [phoneConsent, setPhoneConsent] = useState(null);  // { relationId }
 
@@ -2590,8 +2591,10 @@ function ReferralDots({ count, cap = 10 }) {
 // Modes de contact d'une campagne (`contactChannels` renvoyé par
 // /api/prospect/relations et les flash deals) : 'phone' et/ou 'email'.
 // Absent / vide / invalide (anciennes données) ⇒ les deux canaux.
-// Appels et e-mails passent TOUJOURS par BUUPP (relais) — le pro ne
-// reçoit jamais le numéro ni l'adresse du prospect.
+// E-mails : TOUJOURS relayés par BUUPP — le pro ne reçoit jamais l'adresse
+// du prospect. Téléphone : le pro obtient le numéro APRÈS acceptation (bouton
+// « Appeler », accès journalisé + SMS de préavis) et appelle depuis son propre
+// téléphone — l'appel ne passe pas par BUUPP.
 function relationContactChannels(src) {
   const raw = src && Array.isArray(src.contactChannels) ? src.contactChannels : null;
   const set = new Set((raw || []).filter(c => c === 'phone' || c === 'email'));
@@ -2608,7 +2611,7 @@ function contactModeText(src) {
 function ContactModeChip({ source, style }) {
   const ch = relationContactChannels(source);
   return (
-    <span className="chip chip-accent" title={`Mode de contact : ${contactModeText(source)} (via BUUPP)`}
+    <span className="chip chip-accent" title={`Mode de contact : ${contactModeText(source)}`}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...(style || {}) }}>
       {ch.includes('phone') && <Icon name="phone" size={11}/>}
       {ch.includes('email') && <Icon name="email" size={11}/>}
@@ -3733,9 +3736,10 @@ function FiabiliteCard() {
 // collectées — prénom, initiale du nom, ville, sexe, tranche d'âge,
 // téléphone, e-mail. Le pro ne voit que le prénom + l'initiale ; ville,
 // sexe et tranche d'âge servent uniquement à proposer des offres
-// pertinentes (ciblage) et ne lui sont jamais montrés. Appels et e-mails
-// passent toujours par BUUPP (relais), le numéro et l'adresse ne lui sont
-// jamais communiqués. Prénom, initiale, téléphone et e-mail sont requis pour ACCEPTER
+// pertinentes (ciblage) et ne lui sont jamais montrés. Les e-mails passent
+// toujours par BUUPP (relais) : l'adresse ne lui est jamais communiquée. Le
+// numéro ne lui est communiqué qu'après acceptation (campagne téléphonique),
+// pour qu'il appelle depuis son propre téléphone. Prénom, initiale, téléphone et e-mail sont requis pour ACCEPTER
 // une sollicitation (le serveur applique le même garde-fou en 422).
 const CONTACT_FIELDS = [
   ['prenom', 'Prénom'],
@@ -4008,8 +4012,9 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
         }}>
           <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="shieldCheck" size={15}/></span>
           <span>
-            Le professionnel ne voit que votre prénom et l'initiale de votre nom. Appels et e-mails
-            passent par BUUPP : votre numéro et votre e-mail ne lui sont jamais communiqués.
+            Le professionnel ne voit que votre prénom et l'initiale de votre nom, et n'obtient votre
+            numéro qu'après votre acceptation, uniquement pour vous appeler. Ses e-mails passent par
+            BUUPP : votre adresse e-mail ne lui est jamais communiquée.
             Votre ville, votre sexe et votre tranche d'âge servent uniquement à vous proposer des
             offres pertinentes et ne sont jamais montrés au professionnel.
           </span>
@@ -4489,7 +4494,8 @@ function AcceptIncompleteModal({ missingFields, onGoToData, onClose }) {
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
             Renseignez vos <strong>sept informations</strong> : prénom, initiale du nom, ville,
             sexe, tranche d'âge, téléphone et e-mail. Le professionnel ne voit que votre prénom
-            et l'initiale de votre nom — il vous contacte via BUUPP. Ville, sexe et tranche
+            et l'initiale de votre nom, et n'obtient votre numéro qu'après votre acceptation, pour
+            vous appeler ; ses e-mails passent par BUUPP. Ville, sexe et tranche
             d'âge servent uniquement à vous proposer des offres pertinentes.
           </div>
         </div>
@@ -4614,7 +4620,8 @@ function PhoneConsentModal({ onAccept, onRefuse }) {
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
             vous êtes susceptible d'être <strong>contacté(e) par téléphone</strong> par
-            ce professionnel, via BUUPP — votre numéro ne lui est jamais communiqué. En cliquant sur
+            ce professionnel : votre numéro lui sera communiqué, uniquement pour vous appeler dans
+            le cadre de cette campagne. En cliquant sur
             « OK, j'accepte », vous donnez votre <strong>consentement préalable et
             spécifique au démarchage téléphonique</strong> pour cette mise en relation,
             conformément à la réglementation. Vous pourrez le retirer à tout moment.
@@ -5566,18 +5573,19 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
           <ContactModeChip source={r} style={{ alignSelf: 'center' }}/>
         </div>
 
-        {/* Mode de contact — toujours via BUUPP (relais) */}
+        {/* Mode de contact — e-mails relayés par BUUPP ; numéro transmis au pro après acceptation */}
         <div style={{
           padding: '12px 14px', borderRadius: 10,
           background: 'var(--ivory-2)', border: '1px solid var(--line)',
         }}>
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Mode de contact</div>
           <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>
-            {(() => { const t = contactModeText(r); return t.charAt(0).toUpperCase() + t.slice(1); })()} (via BUUPP)
+            {(() => { const t = contactModeText(r); return t.charAt(0).toUpperCase() + t.slice(1); })()}
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
-            Le professionnel ne voit que votre prénom et l'initiale de votre nom. Votre numéro et
-            votre e-mail ne lui sont jamais communiqués.
+            Le professionnel ne voit que votre prénom et l'initiale de votre nom, et n'obtient votre
+            numéro qu'après votre acceptation, uniquement pour vous appeler. Votre e-mail ne lui est
+            jamais communiqué : ses e-mails passent par BUUPP.
           </div>
         </div>
 

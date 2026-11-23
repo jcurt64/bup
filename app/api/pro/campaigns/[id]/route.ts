@@ -93,7 +93,7 @@ function displayName(prenom: string | null | undefined, nom: string | null | und
 /** Libellé du contenu transmis (pivot « mise en relation pure »). */
 function contactLabel(channels: readonly string[]): string {
   const parts = ["Prénom + initiale"];
-  if (channels.includes("phone")) parts.push("appel via BUUPP");
+  if (channels.includes("phone")) parts.push("téléphone (pour appeler)");
   if (channels.includes("email")) parts.push("e-mail via BUUPP");
   return parts.join(" · ");
 }

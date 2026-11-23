@@ -162,7 +162,7 @@ export default function InfraSouverainete() {
             </div>
             <div className="role">Passerelle de communication</div>
             <div className="pname">Brevo</div>
-            <div className="pdesc">La <b>passerelle d&apos;émission</b> : elle permet aux professionnels d&apos;appeler et d&apos;envoyer des e-mails depuis la plateforme, sans jamais exposer vos coordonnées.</div>
+            <div className="pdesc">La <b>passerelle d&apos;émission</b> : elle achemine les e-mails des professionnels et les SMS envoyés depuis la plateforme, sans jamais exposer votre adresse e-mail.</div>
             <div className="feats">
               <div className="feat"><span className="fi"><CheckIcon /></span>Données hébergées exclusivement dans l&apos;UE</div>
               <div className="feat"><span className="fi"><CheckIcon /></span>Authentification multi-facteurs &amp; whitelisting IP</div>

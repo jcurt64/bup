@@ -377,17 +377,18 @@ function CoordonneesBody() {
     { label: "Ville", icon: "target", note: "Ciblage, jamais transmise" },
     { label: "Sexe", icon: "target", note: "Ciblage, jamais transmis" },
     { label: "Tranche d'âge", icon: "target", note: "Ciblage, jamais transmise" },
-    { label: "Téléphone", icon: "phone", note: "Jamais transmis" },
-    { label: "E-mail", icon: "mail", note: "Jamais transmis" },
+    { label: "Téléphone", icon: "phone", note: "Transmis après acceptation" },
+    { label: "E-mail", icon: "mail", note: "Jamais transmis (relayé)" },
   ];
   return (
     <>
       <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
         BUUPP ne vous demande que{" "}
         <strong style={{ color: C.ink }}>sept données</strong>. Le
-        professionnel ne voit que votre prénom et l&apos;initiale de votre nom&nbsp;;
-        votre téléphone et votre e-mail restent chez BUUPP, qui relaie appels et
-        e-mails. Votre ville, votre sexe et votre tranche d&apos;âge servent
+        professionnel ne voit que votre prénom et l&apos;initiale de votre nom, et
+        n&apos;obtient votre numéro qu&apos;après votre acceptation, uniquement pour
+        vous appeler&nbsp;; votre e-mail reste chez BUUPP, qui relaie ses e-mails.
+        Votre ville, votre sexe et votre tranche d&apos;âge servent
         uniquement à vous proposer des offres pertinentes et ne lui sont jamais
         montrés.
       </p>

@@ -167,11 +167,15 @@ export default function CguPage() {
           </p>
           <p>
             <strong>Le Pro a-t-il accès aux informations du
-            Prospect&nbsp;?</strong> Non&nbsp;: tout contact passe par la
-            plateforme BUUPP. Le Pro ne voit que le prénom du Prospect et
-            l&apos;initiale de son nom&nbsp;; le numéro de téléphone,
-            l&apos;adresse e-mail, la ville, le sexe et la tranche
-            d&apos;âge du Prospect ne lui sont jamais communiqués.
+            Prospect&nbsp;?</strong> Avant l&apos;acceptation d&apos;une
+            sollicitation par le Prospect, le Pro n&apos;a accès à aucune
+            de ses données. Après l&apos;acceptation, le Pro voit le prénom
+            du Prospect et l&apos;initiale de son nom et, si la campagne
+            prévoit un contact par téléphone, obtient son numéro de
+            téléphone, à la seule fin de le contacter au sujet de cette
+            campagne. L&apos;adresse e-mail du Prospect ne lui est jamais
+            communiquée (les e-mails sont relayés par la plateforme BUUPP),
+            pas plus que sa ville, son sexe ou sa tranche d&apos;âge.
           </p>
           <p>
             Chaque acceptation donne lieu à une rémunération unique du
@@ -297,18 +301,21 @@ export default function CguPage() {
               lors de la création de la campagne) ;
             </li>
             <li>
-              passer <strong>exclusivement par la plateforme BUUPP</strong>{" "}
-              pour appeler ou écrire au Prospect&nbsp;: le Pro ne reçoit ni
-              le numéro de téléphone ni l&apos;adresse e-mail du Prospect et
-              s&apos;interdit de chercher à les obtenir par un autre moyen.
+              passer <strong>exclusivement par les outils de la plateforme
+              BUUPP</strong> pour obtenir le numéro du Prospect (bouton
+              &laquo;&nbsp;Appeler&nbsp;&raquo;) ou lui écrire (e-mails
+              relayés)&nbsp;: le Pro ne reçoit jamais l&apos;adresse e-mail
+              du Prospect, n&apos;utilise son numéro de téléphone que pour
+              l&apos;appeler au sujet de la campagne acceptée et s&apos;interdit
+              de chercher à obtenir ses coordonnées par un autre moyen.
               Chaque prise de contact est consignée dans un journal
               d&apos;audit serveur (horodatage, identification du Pro et de
               la relation)&nbsp;;
             </li>
             <li>
               ne <strong>pas copier, exporter, revendre ou diffuser</strong>{" "}
-              les informations du Prospect auxquelles il a accès (prénom et
-              initiale du nom). Tout manquement expose le Pro à une
+              les informations du Prospect auxquelles il a accès (prénom,
+              initiale du nom et, le cas échéant, numéro de téléphone). Tout manquement expose le Pro à une
               résiliation immédiate et à une enquête ;
             </li>
             <li>
@@ -372,10 +379,14 @@ export default function CguPage() {
           <p>
             Pour préserver à la fois la <strong>confidentialité des
             coordonnées</strong> du Prospect et la <strong>traçabilité</strong>
-            des échanges, <strong>tous les appels et e-mails</strong> entre
-            le Pro et le Prospect passent par la plateforme BUUPP. Le Pro ne
-            reçoit jamais le numéro de téléphone ni l&apos;adresse e-mail du
-            Prospect.
+            des échanges, <strong>tous les e-mails</strong> entre le Pro et
+            le Prospect passent par la plateforme BUUPP et chaque accès au
+            numéro de téléphone du Prospect est journalisé. Le Pro ne reçoit
+            jamais l&apos;adresse e-mail du Prospect&nbsp;; il n&apos;obtient
+            son numéro de téléphone qu&apos;après l&apos;acceptation de la
+            sollicitation, pour une campagne prévoyant un contact par
+            téléphone, et à la seule fin de l&apos;appeler au sujet de cette
+            campagne.
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
@@ -401,14 +412,15 @@ export default function CguPage() {
               refusé.
             </li>
             <li>
-              <strong>Appels téléphoniques</strong> : l&apos;appel est
-              lancé par le Pro depuis le bouton
-              &laquo;&nbsp;Appeler&nbsp;&raquo; de son espace et mis en
-              relation par la plateforme BUUPP, sans que le numéro du
-              Prospect ne lui soit communiqué. L&apos;événement
-              (horodatage, identifiant de la mise en relation) est
-              enregistré dans nos journaux d&apos;audit. Le contenu de
-              l&apos;appel n&apos;est pas enregistré par BUUPP.
+              <strong>Appels téléphoniques</strong> : après
+              l&apos;acceptation du Prospect, le Pro obtient son numéro
+              depuis le bouton &laquo;&nbsp;Appeler&nbsp;&raquo; de son
+              espace et l&apos;appelle depuis son propre téléphone&nbsp;;
+              l&apos;appel ne transite pas par la plateforme BUUPP.
+              L&apos;accès au numéro (horodatage, identifiant de la mise en
+              relation) est enregistré dans nos journaux d&apos;audit. Le
+              contenu de l&apos;appel n&apos;est ni connu ni enregistré par
+              BUUPP.
             </li>
             <li>
               <strong>Suivi d&apos;ouverture (pixel)</strong> : si le
@@ -496,12 +508,13 @@ export default function CguPage() {
           </p>
           <p>
             Les <strong>données personnelles du Prospect</strong> restent
-            sa propriété pleine et entière. Seuls son prénom et
-            l&apos;initiale de son nom sont portés à la connaissance du Pro,
-            dans le cadre strict des sollicitations acceptées&nbsp;; son
-            téléphone, son adresse e-mail, sa ville, son sexe et sa tranche
-            d&apos;âge ne lui sont jamais transmis
-            (cf. articles 3, 6 et 8).
+            sa propriété pleine et entière. Seuls son prénom,
+            l&apos;initiale de son nom et, pour les campagnes prévoyant un
+            contact par téléphone, son numéro de téléphone sont portés à la
+            connaissance du Pro, dans le cadre strict des sollicitations
+            acceptées et à la seule fin de le contacter&nbsp;; son adresse
+            e-mail, sa ville, son sexe et sa tranche d&apos;âge ne lui sont
+            jamais transmis (cf. articles 3, 6 et 8).
           </p>
         </Section>
 

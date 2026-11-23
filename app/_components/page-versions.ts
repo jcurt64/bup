@@ -73,7 +73,7 @@ export const PAGE_VERSIONS: PageMeta[] = [
         version: "1.4",
         date: "2026-11-22",
         summary:
-          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; FAQ « Est-ce que le professionnel a accès à mes informations ? » : non, tout contact passe par la plateforme.",
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; FAQ « Est-ce que le professionnel a accès à mes informations ? » : rien avant acceptation ; après acceptation, prénom, initiale du nom et, pour une campagne téléphonique, numéro de téléphone (uniquement pour appeler) ; e-mails relayés par la plateforme, adresse e-mail jamais transmise.",
       },
     ],
   },
@@ -176,7 +176,7 @@ export const PAGE_VERSIONS: PageMeta[] = [
         version: "1.7",
         date: "2026-11-22",
         summary:
-          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; le Pro ne voit que le prénom et l'initiale du nom, appels et e-mails passent toujours par la plateforme ; rémunération unique (base 1,00 € × durée).",
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; après acceptation, le Pro voit le prénom et l'initiale du nom et, pour une campagne téléphonique, obtient le numéro du prospect uniquement pour l'appeler ; les e-mails passent toujours par la plateforme (adresse e-mail jamais transmise) ; rémunération unique (base 1,00 € × durée).",
       },
     ],
   },
@@ -227,7 +227,7 @@ export const PAGE_VERSIONS: PageMeta[] = [
         version: "2.2",
         date: "2026-11-22",
         summary:
-          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; tarif unique (base 1,00 € × coefficient de durée), fin du ciblage par palier et par rayon géographique ; ciblage facultatif par ville, sexe et tranche d'âge (données jamais communiquées au Pro) ; contact exclusivement via la plateforme, sans transmission du téléphone ni de l'e-mail du prospect.",
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; tarif unique (base 1,00 € × coefficient de durée), fin du ciblage par palier et par rayon géographique ; ciblage facultatif par ville, sexe et tranche d'âge (données jamais communiquées au Pro) ; numéro de téléphone du prospect communiqué au Pro après acceptation, uniquement pour l'appeler ; e-mails relayés par la plateforme, sans transmission de l'adresse e-mail du prospect.",
       },
     ],
   },
@@ -272,7 +272,7 @@ export const PAGE_VERSIONS: PageMeta[] = [
         version: "1.6",
         date: "2026-11-22",
         summary:
-          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; le professionnel ne voit que le prénom et l'initiale du nom, appels et e-mails relayés par la plateforme.",
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; après acceptation, le professionnel reçoit le prénom, l'initiale du nom et, pour une campagne téléphonique, le numéro de téléphone (à la seule fin d'appeler le prospect) ; e-mails relayés par la plateforme, adresse e-mail jamais transmise.",
       },
     ],
   },

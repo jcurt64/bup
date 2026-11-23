@@ -1297,7 +1297,7 @@ function FlashDealModal({
 
         {channelLabels.length > 0 && (
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
-            Contact via BUUPP :{" "}
+            Mode de contact :{" "}
             {channelLabels.map((l, i) => (
               <span
                 key={i}
@@ -2027,8 +2027,9 @@ function HowItWorks() {
 
 
 /* « Le professionnel a-t-il accès à mes informations ? » — réponse courte
-   placée juste après la section « Pour les prospects » : aucun contact
-   direct, tout passe par la plateforme BUUPP. */
+   placée juste après la section « Pour les prospects » : numéro transmis
+   au pro seulement après acceptation (il appelle depuis son téléphone),
+   e-mails relayés par la plateforme BUUPP. */
 function ProspectPrivacyNote() {
   const points: { ic: IconName; t: string; d: string }[] = [
     {
@@ -2557,7 +2558,8 @@ function PricingCard({
 }
 
 /* Exemples chiffrés : une acceptation = mise en relation avec un prospect
-   (prénom + initiale du nom, contact par téléphone ou e-mail via BUUPP).
+   (prénom + initiale du nom ; numéro transmis pour l'appel et/ou e-mail
+   relayé par BUUPP).
    Rémunération de base 1,00 €, multipliée selon la durée de diffusion
    (DURATION_MULTIPLIERS), + commission BUUPP 10 % plancher 0,30 € (miroir
    de lib/pricing/commission.ts). */
@@ -2581,7 +2583,8 @@ function CommissionExamplesCard() {
       <p className="muted" style={{ fontSize: 14, marginTop: 10, lineHeight: 1.55 }}>
         Une acceptation, c&apos;est une mise en relation avec un prospect qui a
         dit oui&nbsp;: son prénom, l&apos;initiale de son nom, et le contact par
-        téléphone ou par e-mail, toujours via BUUPP. Pas de catégories de
+        téléphone (vous obtenez son numéro pour l&apos;appeler) ou par e-mail
+        (relayé par BUUPP). Pas de catégories de
         données à choisir&nbsp;: un seul prix, selon la durée de diffusion.
       </p>
       <p className="muted" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.55 }}>

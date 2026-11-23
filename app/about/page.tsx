@@ -71,7 +71,7 @@ const PRINCIPLES: Principle[] = [
   {
     icon: "lock",
     t: "Pseudonymisation",
-    d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom. Votre téléphone et votre e-mail ne lui sont jamais transmis : tout contact passe par la plateforme buupp et chaque prise de contact est journalisée. Votre ville, votre sexe et votre tranche d'âge servent uniquement au ciblage des offres.",
+    d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom, et n'obtient votre numéro qu'après votre acceptation, uniquement pour vous appeler. Votre adresse e-mail ne lui est jamais transmise : ses e-mails passent par la plateforme BUUPP, et chaque prise de contact est journalisée. Votre ville, votre sexe et votre tranche d'âge servent uniquement au ciblage des offres.",
     cta: { label: "Voir la pseudonymisation", href: "#confidentialite" },
   },
 ];
@@ -79,7 +79,7 @@ const PRINCIPLES: Principle[] = [
 const SECURITY: { t: string; d: string }[] = [
   {
     t: "Données pseudonymisées",
-    d: "Les professionnels ne voient que votre prénom et l'initiale de votre nom. Votre téléphone, votre e-mail, votre ville, votre sexe et votre tranche d'âge restent chez BUUPP.",
+    d: "Les professionnels ne voient que votre prénom et l'initiale de votre nom, plus votre numéro après votre acceptation d'une campagne téléphonique. Votre e-mail, votre ville, votre sexe et votre tranche d'âge restent chez BUUPP.",
   },
   {
     t: "Consentement à usage unique",
@@ -90,8 +90,8 @@ const SECURITY: { t: string; d: string }[] = [
     d: "Contraintes d'unicité IBAN/téléphone/rôle, honeypots sur formulaires publics, journal d'audit verrouillé des prises de contact.",
   },
   {
-    t: "Contact relayé par la plateforme",
-    d: "Appels et e-mails passent toujours par BUUPP : le professionnel ne reçoit jamais votre numéro ni votre adresse e-mail.",
+    t: "E-mails relayés par la plateforme",
+    d: "Les e-mails passent toujours par BUUPP : le professionnel ne reçoit jamais votre adresse e-mail. Votre numéro ne lui est communiqué qu'après votre acceptation, uniquement pour vous appeler.",
   },
 ];
 

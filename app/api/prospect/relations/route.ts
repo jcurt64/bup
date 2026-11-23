@@ -141,7 +141,8 @@ export async function GET() {
         tier: 1,
         tiers: [1],
         // Modes de contact de la campagne : le prospect sait s'il sera
-        // appelé et/ou contacté par e-mail (toujours via BUUPP).
+        // appelé (numéro transmis au pro après acceptation) et/ou contacté
+        // par e-mail (toujours relayé par BUUPP).
         contactChannels: readContactChannels(r.campaigns?.contact_channels),
         timer: timerString(r.expires_at),
         // Échéance brute : l'en-tête du dashboard s'en sert pour calculer
@@ -224,7 +225,8 @@ export async function GET() {
         tier: 1,
         tiers: [1],
         // Modes de contact de la campagne : le prospect sait s'il sera
-        // appelé et/ou contacté par e-mail (toujours via BUUPP).
+        // appelé (numéro transmis au pro après acceptation) et/ou contacté
+        // par e-mail (toujours relayé par BUUPP).
         contactChannels: readContactChannels(r.campaigns?.contact_channels),
         timer: timerString(r.expires_at),
         startDate: r.campaigns?.starts_at ?? r.sent_at,

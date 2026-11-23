@@ -41,8 +41,9 @@ const CATEGORIES: Category[] = [
             votre adresse e-mail — et les professionnels qui
             souhaitent vous contacter doivent <em>vous payer</em>{" "}
             pour obtenir votre accord. Rien ne se passe sans votre validation explicite, et
-            le professionnel ne voit jamais votre numéro ni votre e-mail : tout contact passe
-            par la plateforme BUUPP. Vos gains sont libellés en <strong>BUUPP Coins</strong>{" "}
+            le professionnel n&apos;obtient votre numéro qu&apos;après votre acceptation,
+            uniquement pour vous appeler&nbsp;; ses e-mails passent par la plateforme BUUPP et
+            votre adresse e-mail ne lui est jamais transmise. Vos gains sont libellés en <strong>BUUPP Coins</strong>{" "}
             (1 BUUPP Coin = 1 €) et retirables sur votre IBAN.
           </p>
         ),
@@ -78,11 +79,12 @@ const CATEGORIES: Category[] = [
         q: "Est-ce que le professionnel a accès à mes informations ?",
         a: (
           <p>
-            Non&nbsp;: tout contact passe par la plateforme BUUPP. Le professionnel ne
-            voit que votre <strong>prénom</strong> et l&apos;<strong>initiale de votre
-            nom</strong>. Lorsqu&apos;il vous appelle ou vous écrit, l&apos;appel et
-            l&apos;e-mail sont relayés par BUUPP&nbsp;: votre numéro de téléphone et votre
-            adresse e-mail ne lui sont jamais transmis. Votre ville, votre sexe et votre
+            Avant que vous acceptiez sa sollicitation, le professionnel ne sait rien de
+            vous. Après votre acceptation, il voit votre <strong>prénom</strong> et
+            l&apos;<strong>initiale de votre nom</strong> et, si la campagne prévoit un
+            contact par téléphone, il obtient votre numéro, uniquement pour vous appeler
+            (depuis son propre téléphone). Ses e-mails, eux, sont relayés par
+            BUUPP&nbsp;: votre adresse e-mail ne lui est jamais transmise. Votre ville, votre sexe et votre
             tranche d&apos;âge ne lui sont pas non plus montrés&nbsp;: ils servent
             uniquement à vous proposer des offres pertinentes.
           </p>
@@ -416,11 +418,11 @@ const CATEGORIES: Category[] = [
           <p>
             La page <em>Mes contacts</em> liste tous les prospects ayant accepté vos
             sollicitations, regroupés par campagne, avec leur <strong>prénom</strong> et
-            l&apos;<strong>initiale de leur nom</strong>. Le numéro de téléphone,
-            l&apos;adresse e-mail, la ville, le sexe et la tranche d&apos;âge du prospect ne
-            vous sont jamais communiqués&nbsp;: vous
-            l&apos;appelez ou lui écrivez directement depuis la plateforme, selon le
-            mode de contact choisi pour la campagne.{" "}
+            l&apos;<strong>initiale de leur nom</strong>. Selon le mode de contact choisi
+            pour la campagne, vous obtenez le numéro du prospect via le bouton
+            «&nbsp;Appeler&nbsp;» pour l&apos;appeler depuis votre téléphone, et/ou vous
+            lui écrivez depuis la plateforme. L&apos;adresse e-mail, la ville, le sexe et
+            la tranche d&apos;âge du prospect ne vous sont jamais communiqués.{" "}
             <strong>Chaque prise de contact est consignée</strong> dans un journal
             d&apos;audit serveur (qui, quand, quel canal).
           </p>
@@ -459,10 +461,12 @@ const CATEGORIES: Category[] = [
             </p>
             <ul>
               <li>
-                <strong>Contact relayé par la plateforme.</strong> Appels et e-mails
-                passent toujours par BUUPP&nbsp;: vous ne recevez jamais le numéro ni
-                l&apos;adresse e-mail du prospect, et vous vous engagez à ne pas
-                chercher à les obtenir par un autre moyen.
+                <strong>Coordonnées limitées au strict nécessaire.</strong> Les e-mails
+                passent toujours par BUUPP&nbsp;: vous ne recevez jamais l&apos;adresse
+                e-mail du prospect. Son numéro ne vous est communiqué qu&apos;après son
+                acceptation, pour une campagne téléphonique, et uniquement pour
+                l&apos;appeler au sujet de cette campagne. Vous vous engagez à ne pas
+                chercher à obtenir ses coordonnées par un autre moyen.
               </li>
               <li>
                 <strong>Journal d&apos;audit serveur.</strong> Chaque prise de contact
@@ -511,7 +515,8 @@ const CATEGORIES: Category[] = [
                 doit accepter <em>explicitement</em> sa sollicitation depuis son
                 espace personnel. Sans cette validation au cas par cas, la mise en
                 relation n&apos;a pas lieu. Même après acceptation, le
-                professionnel ne voit que son prénom et l&apos;initiale de son nom.
+                professionnel ne voit que son prénom et l&apos;initiale de son nom,
+                et son numéro de téléphone si la campagne prévoit un appel.
               </li>
             </ul>
             <p>
@@ -541,9 +546,9 @@ const CATEGORIES: Category[] = [
               d&apos;être contacté(e) par téléphone et vous demande de le
               confirmer (« OK, j&apos;accepte ») ou de le refuser. Sans cette
               confirmation, l&apos;acceptation n&apos;est pas finalisée et aucun
-              appel ne peut avoir lieu. Dans tous les cas, l&apos;appel passe par la
-              plateforme&nbsp;: votre numéro n&apos;est jamais communiqué au
-              professionnel.
+              appel ne peut avoir lieu. Votre numéro n&apos;est communiqué au
+              professionnel qu&apos;après votre acceptation, uniquement pour vous
+              appeler dans le cadre de cette campagne.
             </p>
             <p>
               Ce consentement est <strong>tracé</strong> dans le journal
@@ -559,11 +564,12 @@ const CATEGORIES: Category[] = [
         a: (
           <p>
             Uniquement le <strong>prénom</strong> et l&apos;<strong>initiale du
-            nom</strong> des prospects qui ont accepté sa sollicitation. Le numéro de
-            téléphone, l&apos;adresse e-mail, la ville, le sexe et la tranche d&apos;âge ne
-            sont <strong>jamais</strong>{" "}
-            transmis, ni avant ni après acceptation&nbsp;: appels et e-mails sont relayés
-            par la plateforme BUUPP.
+            nom</strong> des prospects qui ont accepté sa sollicitation et, pour une
+            campagne téléphonique, leur numéro de téléphone, uniquement pour les
+            appeler. Avant l&apos;acceptation, il ne voit rien. L&apos;adresse e-mail, la
+            ville, le sexe et la tranche d&apos;âge ne sont <strong>jamais</strong>{" "}
+            transmis, ni avant ni après acceptation&nbsp;: les e-mails sont relayés par
+            la plateforme BUUPP.
           </p>
         ),
         tags: ["pseudonymisation", "confidentialité", "coordonnées"],

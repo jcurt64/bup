@@ -216,7 +216,8 @@ export async function POST(req: Request) {
   const audience = audienceParsed.value;
 
   // Plus de paliers de données : seul le palier 1 (prénom + initiale +
-  // coordonnées relayées) subsiste, forcé côté serveur.
+  // téléphone transmis après acceptation / e-mail relayé) subsiste, forcé
+  // côté serveur.
   const requiredTiers = [1];
 
   if (!SUB_TYPES_BY_OBJECTIVE[body.objectiveId]) {

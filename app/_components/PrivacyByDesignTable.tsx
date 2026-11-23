@@ -8,14 +8,16 @@ import { type ReactNode } from "react";
  * Depuis le 22/11/2026, BUUPP ne collecte plus que sept données (prénom,
  * initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail) : le pro ne
  * voit que le prénom et l'initiale ; ville, sexe et tranche d'âge servent
- * uniquement au ciblage des campagnes ; téléphone et e-mail ne lui sont jamais
- * transmis, les appels et e-mails étant relayés par la plateforme.
+ * uniquement au ciblage des campagnes ; l'e-mail ne lui est jamais transmis
+ * (e-mails relayés par la plateforme) ; le téléphone ne lui est communiqué
+ * qu'APRÈS l'acceptation du prospect (campagne téléphonique), pour l'appeler
+ * depuis son propre téléphone — les appels ne passent pas par BUUPP.
  *
  * Extrait de AnonymizationModal pour pouvoir être affiché EN LIGNE (page
  * « À propos ») autant que dans la modale.
  */
 
-type KindKey = "keep" | "mask" | "target" | "relay";
+type KindKey = "keep" | "mask" | "target" | "consent" | "relay";
 
 const KIND: Record<KindKey, { nm: string; fg: string; bg: string; bd: string; dot: string; icon: ReactNode }> = {
   keep: {
@@ -29,6 +31,10 @@ const KIND: Record<KindKey, { nm: string; fg: string; bg: string; bd: string; do
   target: {
     nm: "Ciblage uniquement", fg: "#b45309", bg: "#fdf3e1", bd: "#f3dcae", dot: "#d97706",
     icon: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></>,
+  },
+  consent: {
+    nm: "Après votre accord", fg: "#1d4ed8", bg: "#e8effd", bd: "#c7d7f8", dot: "#3b82f6",
+    icon: <><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" /></>,
   },
   relay: {
     nm: "Relayé par buupp", fg: "#0d8a64", bg: "#e4f6ef", bd: "#bfe6d4", dot: "#10b981",
@@ -44,7 +50,7 @@ const FIELDS: Field[] = [
   { label: "Ville", value: "Lyon", kind: "target", out: "Jamais transmise" },
   { label: "Sexe", value: "Femme", kind: "target", out: "Jamais transmis" },
   { label: "Tranche d’âge", value: "18–35 ans", kind: "target", out: "Jamais transmise" },
-  { label: "Téléphone", value: "06 12 34 56 78", kind: "relay", out: "Jamais transmis" },
+  { label: "Téléphone", value: "06 12 34 56 78", kind: "consent", out: "Après acceptation" },
   { label: "E-mail", value: "marie@email.fr", kind: "relay", out: "Jamais transmis" },
 ];
 
@@ -153,10 +159,11 @@ export default function PrivacyByDesignTable({
         <p>
           <b>Le pro ne voit que votre prénom et l&apos;initiale de votre nom</b>{" "}
           — juste de quoi échanger convenablement, sans démarrer par un
-          «&nbsp;euh… bonjour, c&apos;est bien vous&nbsp;?&nbsp;». Votre numéro,
-          votre adresse e-mail, votre ville, votre sexe et votre tranche
-          d&apos;âge ne lui sont jamais transmis&nbsp;: tout contact passe par la
-          plateforme buupp.
+          «&nbsp;euh… bonjour, c&apos;est bien vous&nbsp;?&nbsp;». Il
+          n&apos;obtient votre numéro qu&apos;après votre acceptation,
+          uniquement pour vous appeler. Votre adresse e-mail, votre ville, votre
+          sexe et votre tranche d&apos;âge ne lui sont jamais transmis&nbsp;: ses
+          e-mails passent par la plateforme buupp.
         </p>
       </div>
     </>
