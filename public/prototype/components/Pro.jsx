@@ -2057,15 +2057,12 @@ const CHANNEL_ICON = {
 };
 
 const OBJECTIVES = [
-  { id:'contact', name:'Prise de contact direct', desc:'8 opérations — email, SMS, push, appel, WhatsApp', icon:'email', sub:[
+  { id:'contact', name:'Prise de contact direct', desc:'5 opérations — e-mail, SMS, MMS, appel, WhatsApp', icon:'email', sub:[
     {id:'email',     name:'Email marketing',         desc:'Newsletter, campagne promotionnelle, séquence de bienvenue',   cost:0.15},
     {id:'sms',       name:'SMS marketing',           desc:'Message promotionnel, alerte offre, rappel personnalisé',      cost:0.20},
     {id:'mms',       name:'MMS marketing',           desc:'Message multimédia avec image ou vidéo courte',                cost:0.25},
-    {id:'postal',    name:'Mailing postal',          desc:'Courrier physique personnalisé, catalogue, carte postale',     cost:0.80},
     {id:'phone',     name:'Phoning / Cold calling',  desc:'Appel téléphonique de prospection sortante',                   cost:0.50},
     {id:'wa',        name:'WhatsApp Business',       desc:'Message direct via canal messaging instantané',                cost:0.25},
-    {id:'pushweb',   name:'Push notification web',   desc:'Notification navigateur envoyée à un abonné consentant',       cost:0.10},
-    {id:'pushapp',   name:'Push notification app',   desc:'Notification mobile sur application installée',                cost:0.10},
     {id:'autres',    name:'Autres',                  desc:'Autre canal de contact — précisez à l’étape Description',  cost:0},
   ]},
   { id:'rdv', name:'Prise de rendez-vous', desc:'6 opérations — physique, visio, devis, essai', icon:'calendar', sub:[
@@ -2139,7 +2136,7 @@ const OBJECTIVES = [
 // ne passe pas par BUUPP.
 const CONTACT_CHANNELS = [
   { id: 'phone', name: 'Numéro de téléphone', short: 'Téléphone', icon: 'phone',
-    sub: 'Après son acceptation, vous obtenez le numéro du prospect pour l\'appeler depuis votre téléphone.' },
+    sub: 'Après son acceptation, vous obtenez le numéro du prospect pour l\'appeler ou lui écrire (SMS, WhatsApp) depuis votre téléphone.' },
   { id: 'email', name: 'Adresse e-mail', short: 'E-mail', icon: 'email',
     sub: 'Vous écrivez au prospect depuis BUUPP (e-mail relayé, adresse masquée).' },
 ];
@@ -2152,6 +2149,16 @@ function normalizeContactChannels(v) {
 // Canaux d'une campagne lue depuis l'API (racine ou `targeting`).
 function campaignContactChannels(c) {
   return normalizeContactChannels(c?.contactChannels ?? c?.targeting?.contactChannels);
+}
+// Canal IMPLIQUÉ par un sous-type de l'étape 1 : s'il y en a un, il fait foi
+// et l'étape 3 (« Comment souhaitez-vous contacter… ») est sautée — pas de
+// doublon. Synchronisé avec SUB_TYPE_CHANNEL (lib/campaigns/contact-channels.ts).
+const SUB_TYPE_CHANNEL = { email: 'email', phone: 'phone', sms: 'phone', mms: 'phone', wa: 'phone', rdvtel: 'phone' };
+function channelsFromSubs(subs) {
+  const set = new Set();
+  for (const sid of subs || []) if (SUB_TYPE_CHANNEL[sid]) set.add(SUB_TYPE_CHANNEL[sid]);
+  const out = CONTACT_CHANNEL_IDS.filter(id => set.has(id));
+  return out.length ? out : null;
 }
 function contactChannelsLabel(chs) {
   return normalizeContactChannels(chs)
@@ -3315,6 +3322,17 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
     else n.add(id);
     return n;
   });
+  // Canaux déduits de l'étape 1 (null = l'étape 3 reste à remplir).
+  const derivedChannels = channelsFromSubs(Array.from(selectedSubs));
+  const derivedKey = derivedChannels ? derivedChannels.join(',') : '';
+  useEffect(() => {
+    if (derivedChannels) setContactChannels(new Set(derivedChannels));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedKey]);
+  // Étape 3 sautée quand le canal est déjà fixé à l'étape 1.
+  const skipContactStep = !!derivedChannels;
+  const nextStep = (s) => (s + 1 === 3 && skipContactStep ? 4 : s + 1);
+  const prevStep = (s) => (s - 1 === 3 && skipContactStep ? 2 : s - 1);
   // Réinitialise complètement le wizard (étape 1, tous les champs vides).
   // Le plan choisi est PRÉSERVÉ (on ne réinflige pas la popup au user
   // qui veut juste repartir d'un ciblage neuf). Déclenché par le bouton
@@ -3357,6 +3375,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
      (idx <= step). Aller en avant force toujours à passer par "Continuer"
      pour s'assurer que les validations intermédiaires se font dans l'ordre. */
   const goToStep = (idx) => {
+    if (idx === 3 && skipContactStep) return;
     if (idx >= 1 && idx <= step) setStep(idx);
   };
   const stepperBar = (
@@ -3366,10 +3385,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
           const idx = i + 1;
           const isDone = idx < step;
           const isActive = idx === step;
-          const clickable = idx <= step;
+          // Étape « Contact » déduite de l'étape 1 : affichée comme faite,
+          // non cliquable, avec le canal retenu en infobulle.
+          const autoContact = idx === 3 && skipContactStep;
+          const clickable = idx <= step && !autoContact;
           return (
             <button
               key={s}
+              title={autoContact ? 'Défini à l\'étape 1 : ' + contactChannelsLabel(derivedChannels) : undefined}
               type="button"
               onClick={() => goToStep(idx)}
               disabled={!clickable}
@@ -4703,7 +4726,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
       </div>
 
       <div className="row between">
-        <button className="btn btn-ghost" onClick={() => step > 1 ? setStep(step - 1) : onDone()}>
+        <button className="btn btn-ghost" onClick={() => step > 1 ? setStep(prevStep(step)) : onDone()}>
           <Icon name="arrowLeft" size={14}/> {step > 1 ? 'Retour' : 'Annuler'}
         </button>
         {step < WIZ_STEP_RECAP && (
@@ -4716,7 +4739,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSource
                 setBriefError(true);
                 return;
               }
-              setStep(step + 1);
+              setStep(nextStep(step));
             }}
             // Bloque la navigation tant que raison sociale + ville ne sont
             // pas renseignées — l'alerte rouge en haut explique pourquoi et

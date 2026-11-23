@@ -31,7 +31,7 @@ import {
   objectiveToCampaignType,
   SUB_TYPES_BY_OBJECTIVE,
 } from "@/lib/campaigns/mapping";
-import { parseContactChannels, readContactChannels } from "@/lib/campaigns/contact-channels";
+import { channelsFromSubTypes, parseContactChannels, readContactChannels } from "@/lib/campaigns/contact-channels";
 import { sendRelationInvitation } from "@/lib/email/relation";
 import { sendReferralInvitation } from "@/lib/email/referral-invitation";
 import { computeReferralReach } from "@/lib/founders/referral-reach";
@@ -185,8 +185,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Modes de contact (téléphone et/ou e-mail) — requis, non vide, dédoublonné.
-  const contactChannels = parseContactChannels(body.contactChannels);
+  // Modes de contact (téléphone et/ou e-mail). Quand le canal choisi à
+  // l'étape 1 l'implique (e-mail, appel, SMS…), il FAIT FOI et l'étape 3 est
+  // sautée côté wizard ; sinon le choix explicite de l'étape 3 est requis.
+  const contactChannels =
+    channelsFromSubTypes(filterValidSubTypes(body.objectiveId, body.subTypes)) ??
+    parseContactChannels(body.contactChannels);
   if (!contactChannels) {
     return NextResponse.json(
       {

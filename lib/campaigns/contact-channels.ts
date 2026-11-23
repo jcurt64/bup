@@ -146,3 +146,32 @@ export function isContactProfileComplete(
 ): boolean {
   return missingContactFields(identity).length === 0;
 }
+
+/**
+ * Canal de contact IMPLIQUÉ par un sous-type de l'étape 1 (création de
+ * campagne). E-mail → relais e-mail BUUPP ; appel, SMS, MMS, WhatsApp,
+ * RDV téléphonique → numéro de téléphone. Les autres sous-types (webinar,
+ * sondage, « Autres »…) n'impliquent aucun canal : le pro le choisit alors
+ * à l'étape 3. Doit rester synchronisé avec SUB_TYPE_CHANNEL de Pro.jsx.
+ */
+export const SUB_TYPE_CHANNEL: Readonly<Record<string, ContactChannel>> = {
+  email: "email",
+  phone: "phone",
+  sms: "phone",
+  mms: "phone",
+  wa: "phone",
+  rdvtel: "phone",
+};
+
+/** Canaux déduits des sous-types de l'étape 1, ou null si aucun n'en implique. */
+export function channelsFromSubTypes(
+  subTypes: readonly string[] | null | undefined,
+): ContactChannel[] | null {
+  const set = new Set<ContactChannel>();
+  for (const s of subTypes ?? []) {
+    const c = SUB_TYPE_CHANNEL[s];
+    if (c) set.add(c);
+  }
+  const out = CONTACT_CHANNELS.filter((c) => set.has(c));
+  return out.length > 0 ? out : null;
+}
