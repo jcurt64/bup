@@ -14,7 +14,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { reportedRelationIds } from "@/lib/prospect/reports";
-import { haversineMeters, type LatLng } from "@/lib/geo/geocode";
+import { readContactChannels } from "@/lib/campaigns/contact-channels";
 import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 
 export const runtime = "nodejs";
@@ -37,17 +37,13 @@ type RelationRow = {
     starts_at: string;
     ends_at: string | null;
     targeting: Record<string, unknown> | null;
+    contact_channels: string[] | null;
     website_url: string | null;
   } | null;
   pro_accounts: {
     raison_sociale: string;
     secteur: string | null;
     ville: string | null;
-    // Coordonnées de l'établissement pro (cf. ciblage « autour de moi »).
-    // Permettent de calculer la distance domicile prospect ↔ pro pour le
-    // filtre « Autour de moi » de l'onglet Mises en relation.
-    latitude: number | null;
-    longitude: number | null;
   } | null;
 };
 
@@ -71,30 +67,6 @@ function timerString(iso: string): string {
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   return `${h} h ${String(m).padStart(2, "0")} min`;
-}
-
-function highestTier(targeting: Record<string, unknown> | null): number {
-  const t = targeting?.requiredTiers;
-  if (!Array.isArray(t)) return 1;
-  const max = Math.max(...t.map((n) => Number(n) || 0), 1);
-  return Math.min(5, Math.max(1, max));
-}
-
-// Liste triée/unique des paliers (1..5) couverts par la campagne. Permet
-// au front d'afficher tous les paliers concernés ("Paliers 1 – 3 – 5") au
-// lieu du seul palier le plus haut (cf. movementTierLabel côté Prospect.jsx).
-// Aligné sur la même logique que /api/prospect/movements#allTiers.
-function allTiers(targeting: Record<string, unknown> | null): number[] | null {
-  const t = targeting?.requiredTiers;
-  if (!Array.isArray(t) || t.length === 0) return null;
-  const cleaned = [
-    ...new Set(
-      t
-        .map((n) => Math.round(Number(n) || 0))
-        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5),
-    ),
-  ].sort((a, b) => a - b);
-  return cleaned.length > 0 ? cleaned : null;
 }
 
 function isFlashDealTargeting(targeting: Record<string, unknown> | null): boolean {
@@ -133,37 +105,11 @@ export async function GET() {
     .from("relations")
     .select(
       `id, campaign_id, motif, reward_cents, status, sent_at, expires_at, decided_at,
-       campaigns ( name, status, brief, starts_at, ends_at, targeting, website_url ),
-       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville, latitude, longitude )`,
+       campaigns ( name, status, brief, starts_at, ends_at, targeting, contact_channels, website_url ),
+       pro_accounts!relations_pro_account_id_fkey ( raison_sociale, secteur, ville )`,
     )
     .eq("prospect_id", prospectId)
     .order("sent_at", { ascending: false });
-
-  // Coordonnées du domicile du prospect (géocodées à l'enregistrement de la
-  // localisation) — point de référence du filtre « Autour de moi ». Best-effort :
-  // sans coordonnées, `distanceKm` reste null et le filtre n'exclut rien.
-  const { data: loc } = await admin
-    .from("prospect_localisation")
-    .select("latitude, longitude")
-    .eq("prospect_id", prospectId)
-    .maybeSingle();
-  const prospectPoint: LatLng | null =
-    typeof loc?.latitude === "number" && typeof loc?.longitude === "number"
-      ? { lat: loc.latitude, lng: loc.longitude }
-      : null;
-
-  // Distance orthodromique (km, arrondie) entre le domicile du prospect et
-  // l'établissement du pro auteur de la sollicitation. null si l'un des deux
-  // points manque.
-  function distanceKmTo(pro: RelationRow["pro_accounts"]): number | null {
-    if (!prospectPoint) return null;
-    if (typeof pro?.latitude !== "number" || typeof pro?.longitude !== "number") {
-      return null;
-    }
-    return Math.round(
-      haversineMeters(prospectPoint, { lat: pro.latitude, lng: pro.longitude }) / 1000,
-    );
-  }
 
   if (error) {
     console.error("[/api/prospect/relations] read failed", error);
@@ -191,8 +137,12 @@ export async function GET() {
         motif: r.motif,
         brief: r.campaigns?.brief ?? null,
         reward,
-        tier: highestTier(r.campaigns?.targeting ?? null),
-        tiers: allTiers(r.campaigns?.targeting ?? null),
+        // Plus de paliers de données : palier 1 unique (compat clients).
+        tier: 1,
+        tiers: [1],
+        // Modes de contact de la campagne : le prospect sait s'il sera
+        // appelé et/ou contacté par e-mail (toujours via BUUPP).
+        contactChannels: readContactChannels(r.campaigns?.contact_channels),
         timer: timerString(r.expires_at),
         // Échéance brute : l'en-tête du dashboard s'en sert pour calculer
         // la « prochaine échéance » (min sur les pending) sans reparser
@@ -207,9 +157,8 @@ export async function GET() {
         // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
         // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
         objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
-        // Distance domicile prospect ↔ établissement pro (km), pour le filtre
-        // « Autour de moi ». null si coordonnées indisponibles.
-        distanceKm: distanceKmTo(r.pro_accounts),
+        // Plus de localisation prospect : distance toujours inconnue (compat).
+        distanceKm: null,
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (null si l'option
         // n'a pas été prise). Le clic est enregistré par /api/campaign/[id]/visit.
@@ -271,8 +220,12 @@ export async function GET() {
         motif: r.motif,
         brief: r.campaigns?.brief ?? null,
         reward,
-        tier: highestTier(r.campaigns?.targeting ?? null),
-        tiers: allTiers(r.campaigns?.targeting ?? null),
+        // Plus de paliers de données : palier 1 unique (compat clients).
+        tier: 1,
+        tiers: [1],
+        // Modes de contact de la campagne : le prospect sait s'il sera
+        // appelé et/ou contacté par e-mail (toujours via BUUPP).
+        contactChannels: readContactChannels(r.campaigns?.contact_channels),
         timer: timerString(r.expires_at),
         startDate: r.campaigns?.starts_at ?? r.sent_at,
         endDate: r.campaigns?.ends_at ?? r.expires_at,
@@ -289,7 +242,7 @@ export async function GET() {
         // Objectif de la campagne (ex. `addigital` = Publicité digitale) —
         // l'app iOS s'en sert pour demander l'autorisation ATT avant d'accepter.
         objectiveId: objectiveIdOf(r.campaigns?.targeting ?? null),
-        distanceKm: distanceKmTo(r.pro_accounts),
+        distanceKm: null,
         reported: reportedSet.has(r.id),
         // « La Vitrine » — lien tracké vers le site du pro (cf. pending).
         websiteUrl: r.campaigns?.website_url ? `/api/campaign/${r.campaign_id}/visit` : null,

@@ -14,29 +14,15 @@ import { settleRipeRelationsAndNotify } from "@/lib/settle/ripe";
 import { loadCampaignAudience } from "@/lib/pro/segmentation/load";
 import { matchesFilters, sanitizeFilters } from "@/lib/pro/segmentation/filter";
 import { proCanSeeContacts } from "@/lib/pro/campaign-access";
+import { nomInitial, readContactChannels } from "@/lib/campaigns/contact-channels";
 
 export const runtime = "nodejs";
 
-function maskEmail(e: string | null | undefined): string {
-  if (!e) return "—";
-  const at = e.indexOf("@");
-  if (at < 0) return e;
-  const local = e.slice(0, at);
-  const domain = e.slice(at);
-  return local.slice(0, Math.max(1, local.length - 4)) + "•••" + domain;
-}
-function maskPhone(p: string | null | undefined): string {
-  if (!p) return "—";
-  const digits = p.replace(/\D/g, "");
-  if (digits.length < 4) return p;
-  const head = digits.slice(0, 2);
-  const tail = digits.slice(-2);
-  return `${head} •• •• •• ${tail}`;
-}
 function maskName(prenom: string | null | undefined, nom: string | null | undefined): string {
   const p = (prenom ?? "").trim();
   const n = (nom ?? "").trim();
-  const nomMasked = n ? `${n.charAt(0).toUpperCase()}.` : "";
+  const initial = nomInitial(n);
+  const nomMasked = initial ? `${initial}.` : "";
   const out = `${p} ${nomMasked}`.trim();
   return out || "Prospect anonyme";
 }
@@ -90,7 +76,7 @@ export async function GET(req: Request) {
     .from("relations")
     .select(
       `id, decided_at, status, campaign_id, evaluation, evaluated_at, pro_priority,
-       campaigns!inner ( id, name, status, targeting, ends_at ),
+       campaigns!inner ( id, name, status, targeting, contact_channels, ends_at ),
        prospects:prospect_id ( id, bupp_score,
          prospect_identity ( prenom, nom, email, telephone )
        )`,
@@ -126,15 +112,13 @@ export async function GET(req: Request) {
     evaluation: "atteint" | "non_atteint" | null;
     evaluated_at: string | null;
     pro_priority: number | null;
-    campaigns: { id: string; name: string; status: string; targeting: { requiredTiers?: number[]; channels?: string[]; objectiveId?: string } | null; ends_at: string | null } | null;
+    campaigns: { id: string; name: string; status: string; targeting: { objectiveId?: string } | null; contact_channels: string[] | null; ends_at: string | null } | null;
     prospects: {
       id: string;
       bupp_score: number;
       prospect_identity: { prenom: string | null; nom: string | null; email: string | null; telephone: string | null } | null;
     } | null;
   };
-
-  const ALL_CHANNELS = ["email", "phone", "sms", "whatsapp", "linkedin"];
 
   // Pré-calcul des compteurs d'emails déjà envoyés via BUUPP par couple
   // (prospect_id × campaign_id) pour ce pro. Un email_sent par couple
@@ -215,13 +199,15 @@ export async function GET(req: Request) {
         : id.prospect_identity
       : null;
     const camp = (Array.isArray(r.campaigns) ? r.campaigns[0] : r.campaigns) ?? null;
-    const tiers = (camp?.targeting?.requiredTiers ?? [1]) as number[];
-    const tier = Math.max(1, ...tiers.map((n) => Number(n) || 0));
+    // Plus de paliers de données : palier 1 unique (prénom + initiale).
+    const tier = 1;
     const fullName = maskName(ident?.prenom, ident?.nom);
-    const declared = camp?.targeting?.channels;
-    const campaignChannels = Array.isArray(declared) && declared.length > 0
-      ? declared.filter((x): x is string => typeof x === "string")
-      : ALL_CHANNELS;
+    // Modes de contact choisis par le pro (téléphone et/ou e-mail). Le
+    // contact passe toujours par le relais BUUPP.
+    const contactChannels = readContactChannels(camp?.contact_channels);
+    const campaignChannels: string[] = [...contactChannels];
+    const phoneOk = contactChannels.includes("phone");
+    const emailOk = contactChannels.includes("email");
     // Campagne non clôturée → ligne verrouillée : on n'expose AUCUNE
     // coordonnée (même watermarquée) ni accès détails/révélation (qui
     // renverraient 403 de toute façon). Seuls nom masqué + score + palier
@@ -240,12 +226,15 @@ export async function GET(req: Request) {
       // pas d'actions de contact, coordonnées masquées (« 🔒 »).
       locked,
       campaignChannels,
+      contactChannels,
       proName,
       tier,
-      email: locked ? "—" : maskEmail(ident?.email),
-      telephone: locked ? "—" : maskPhone(ident?.telephone),
-      emailAvailable: locked ? false : !!ident?.email,
-      telephoneAvailable: locked ? false : !!ident?.telephone,
+      // Plus aucune coordonnée (même masquée) n'est renvoyée : le contact
+      // passe toujours par BUUPP. Clés conservées ("—") pour les clients publiés.
+      email: "—",
+      telephone: "—",
+      emailAvailable: locked || !emailOk ? false : !!ident?.email,
+      telephoneAvailable: locked || !phoneOk ? false : !!ident?.telephone,
       receivedAt: r.decided_at,
       evaluation: r.evaluation,
       evaluatedAt: r.evaluated_at,

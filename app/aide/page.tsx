@@ -29,52 +29,78 @@ const CATEGORIES: Category[] = [
     id: "prospect",
     icon: "🎯",
     label: "Prospect — utiliser BUUPP",
-    desc: "Construire son profil, faire grimper son BUUPP Score, encaisser ses gains.",
+    desc: "Créer son profil, faire grimper son BUUPP Score, encaisser ses gains.",
     articles: [
       {
         q: "Qu'est-ce que BUUPP et pourquoi je suis rémunéré ?",
         a: (
           <p>
             BUUPP est une plateforme de mise en relation à <strong>double consentement</strong>.
-            Vous renseignez les informations que vous acceptez de partager, par paliers, et
-            les professionnels qui souhaitent vous contacter doivent <em>vous payer</em>{" "}
-            pour obtenir votre accord. Aucune donnée n&apos;est jamais transmise sans votre
-            validation explicite. Vos gains sont libellés en <strong>BUUPP Coins</strong>{" "}
+            Vous renseignez seulement sept informations — votre prénom, l&apos;initiale de
+            votre nom, votre ville, votre sexe, votre tranche d&apos;âge, votre téléphone et
+            votre adresse e-mail — et les professionnels qui
+            souhaitent vous contacter doivent <em>vous payer</em>{" "}
+            pour obtenir votre accord. Rien ne se passe sans votre validation explicite, et
+            le professionnel ne voit jamais votre numéro ni votre e-mail : tout contact passe
+            par la plateforme BUUPP. Vos gains sont libellés en <strong>BUUPP Coins</strong>{" "}
             (1 BUUPP Coin = 1 €) et retirables sur votre IBAN.
           </p>
         ),
       },
       {
-        q: "Comment fonctionnent les 5 paliers de données ?",
+        q: "Quelles données dois-je renseigner ?",
         a: (
           <>
-            <p>Chaque palier regroupe une catégorie d&apos;informations :</p>
-            <ul>
-              <li><strong>Palier 1 — Identification</strong> (email, nom, téléphone) : minimum 1,00 €</li>
-              <li><strong>Palier 2 — Localisation</strong> (adresse, logement) : 1,00 € – 2,00 €</li>
-              <li><strong>Palier 3 — Style de vie</strong> (habitudes, famille, véhicule) : 2,00 € – 3,50 €</li>
-              <li><strong>Palier 4 — Données professionnelles</strong> (statut, secteur) : 3,50 € – 5,00 €</li>
-              <li><strong>Palier 5 — Patrimoine &amp; projets</strong> (immobilier, projets) : 5,00 € – 10,00 €</li>
-            </ul>
             <p>
-              Plus vous remplissez de paliers, plus vous accédez à des sollicitations
-              variées et mieux rémunérées. Le détail palier par palier est sur la
-              page <Link href="/bareme" style={{ color: "var(--accent)", textDecoration: "underline" }}>Barème des paliers</Link>.
+              Uniquement sept informations&nbsp;: votre prénom, l&apos;initiale de votre
+              nom, votre ville, votre sexe, votre tranche d&apos;âge (18-35 ans ou plus de
+              35 ans), votre numéro de téléphone (vérifié par SMS) et votre adresse
+              e-mail. BUUPP ne vous demande ni date de naissance, ni adresse, ni code
+              postal, ni aucune autre information personnelle.
+            </p>
+            <p>
+              Votre ville, votre sexe et votre tranche d&apos;âge servent uniquement à
+              vous proposer des offres pertinentes (un professionnel peut réserver sa
+              campagne à certaines villes, à un sexe ou à une tranche d&apos;âge). Ils ne
+              sont <strong>jamais montrés au professionnel</strong>.
+            </p>
+            <p>
+              Chaque mise en relation acceptée vous rapporte une{" "}
+              <strong>rémunération unique</strong>&nbsp;: une base de 1,00&nbsp;€,
+              multipliée selon la durée de la campagne (voir «&nbsp;Comment fonctionne
+              une sollicitation&nbsp;?&nbsp;»).
             </p>
           </>
         ),
-        tags: ["palier", "rémunération", "tarif", "données"],
+        tags: ["données", "rémunération", "tarif", "téléphone", "e-mail"],
+      },
+      {
+        q: "Est-ce que le professionnel a accès à mes informations ?",
+        a: (
+          <p>
+            Non&nbsp;: tout contact passe par la plateforme BUUPP. Le professionnel ne
+            voit que votre <strong>prénom</strong> et l&apos;<strong>initiale de votre
+            nom</strong>. Lorsqu&apos;il vous appelle ou vous écrit, l&apos;appel et
+            l&apos;e-mail sont relayés par BUUPP&nbsp;: votre numéro de téléphone et votre
+            adresse e-mail ne lui sont jamais transmis. Votre ville, votre sexe et votre
+            tranche d&apos;âge ne lui sont pas non plus montrés&nbsp;: ils servent
+            uniquement à vous proposer des offres pertinentes.
+          </p>
+        ),
+        tags: ["confidentialité", "coordonnées", "téléphone", "e-mail", "pro"],
       },
       {
         q: "C'est quoi le BUUPP Score ?",
         a: (
           <p>
-            Le BUUPP Score est un indice sur 1000 qui reflète la qualité de votre profil
+            Le BUUPP Score est un indice sur 1000 qui reflète le sérieux de votre profil
             aux yeux des professionnels. Il évolue selon trois axes : <strong>complétude
-            des paliers</strong>, <strong>fraîcheur des données</strong> et <strong>taux
-            d&apos;acceptation</strong> de vos sollicitations. Quatre tranches : Découverte
+            de vos coordonnées</strong>, <strong>fraîcheur de vos informations</strong> et{" "}
+            <strong>taux de fiabilité</strong> (notes attribuées par les professionnels
+            après une mise en relation). Le détail est sur la page{" "}
+            <Link href="/indice-desirabilite" style={{ color: "var(--accent)", textDecoration: "underline" }}>Indice de désirabilité</Link>. Quatre tranches : Découverte
             (0–399), Solide (400–699), Recherché (700–899), Prestige (900–1000). Un score
-            élevé attire des demandes plus exigeantes, donc mieux rémunérées. À l&apos;inverse,
+            élevé rassure les professionnels sur votre sérieux. À l&apos;inverse,
             accepter des sollicitations puis rester injoignable de façon répétée peut entraîner
             un léger ajustement temporaire (voir «&nbsp;Que se passe-t-il si je ne réponds pas
             aux sollicitations…&nbsp;»).
@@ -85,10 +111,10 @@ const CATEGORIES: Category[] = [
         q: "Vérifié à 100 % : qu'est-ce que ça change ?",
         a: (
           <p>
-            Quand votre profil est <strong>certifié confiance</strong> (téléphone vérifié
-            par SMS, RIB validé, paliers à jour), un bonus <strong>×2</strong> est
+            Quand votre profil est <strong>certifié confiance</strong> (niveau de
+            vérification le plus élevé), un bonus <strong>×2</strong> est
             automatiquement appliqué à toutes vos récompenses. Concrètement : sur une
-            sollicitation à 4,00 €, vous touchez 8,00 €. Aucune action n&apos;est
+            sollicitation de 48&nbsp;h à 1,50 €, vous touchez 3,00 €. Aucune action n&apos;est
             nécessaire — le multiplicateur est appliqué côté serveur au moment où le
             professionnel lance sa campagne.
           </p>
@@ -100,15 +126,16 @@ const CATEGORIES: Category[] = [
         a: (
           <>
             <p>
-              Quand un professionnel cible votre profil, vous recevez un email + une
+              Quand un professionnel lance une campagne, vous recevez un email + une
               fiche dans l&apos;onglet <em>Mises en relation</em>. Vous avez une fenêtre
-              limitée pour décider — selon le format de campagne :
+              limitée pour décider — la récompense (base 1,00 €) dépend du format de
+              campagne :
             </p>
             <ul>
-              <li><strong>Flash deal 1 h</strong> — gain ×3 sur le palier ciblé.</li>
-              <li><strong>24 h</strong> — gain ×2.</li>
-              <li><strong>48 h</strong> — gain ×1,5.</li>
-              <li><strong>7 jours</strong> — gain ×1.</li>
+              <li><strong>Flash deal 1 h</strong> — gain ×3 (3,00 €).</li>
+              <li><strong>24 h</strong> — gain ×2 (2,00 €).</li>
+              <li><strong>48 h</strong> — gain ×1,5 (1,50 €).</li>
+              <li><strong>7 jours</strong> — gain ×1 (1,00 €).</li>
             </ul>
             <p>
               <strong>Accepter</strong> place la récompense en séquestre. <strong>Refuser</strong>{" "}
@@ -148,7 +175,7 @@ const CATEGORIES: Category[] = [
               <li>
                 <strong>4 signalements</strong> — l&apos;acceptation de nouvelles
                 sollicitations est mise en pause pendant <strong>2&nbsp;mois</strong>.
-                Pendant cette pause, vous restez libre de compléter votre profil et
+                Pendant cette pause, vous restez libre de mettre à jour votre profil et
                 de consulter votre espace.
               </li>
             </ul>
@@ -256,13 +283,13 @@ const CATEGORIES: Category[] = [
               au nouvel inscrit.
             </p>
             <p>
-              <strong>Vos avantages.</strong> Pendant le 1er mois suivant le
-              lancement&nbsp;:
+              <strong>Vos avantages</strong> (détaillés dans les{" "}
+              <Link href="/cgu" style={{ color: "var(--accent)", textDecoration: "underline" }}>CGU</Link>)&nbsp;:
             </p>
             <ul style={{ paddingLeft: 22, marginTop: 4 }}>
               <li>
-                <strong>×2 sur vos gains</strong> à chaque sollicitation
-                acceptée (financé par le pro sauf opt-out de sa part)&nbsp;;
+                un <strong>bonus fondateur·ice de 5,00&nbsp;€</strong>, débloquable
+                après 3&nbsp;mois et au moins une sollicitation acceptée&nbsp;;
               </li>
               <li>
                 <strong>priorité de 20&nbsp;min</strong> sur les flash deals
@@ -270,11 +297,9 @@ const CATEGORIES: Category[] = [
                 grand public)&nbsp;;
               </li>
               <li>
-                au <strong>plafond de 10 filleul·es</strong>, vous passez{" "}
-                <strong>VIP</strong>&nbsp;: à la place du ×2, vous touchez un{" "}
-                <strong>bonus forfaitaire de +5&nbsp;€</strong> par acceptation,
-                sur les campagnes dont le budget dépasse 300&nbsp;€ (sinon le
-                ×2 standard s&apos;applique).
+                un <strong>bonus parrain·e de 50&nbsp;%</strong> de la récompense de
+                vos filleul·es, à chacune de leurs acceptations, sur les campagnes où
+                le professionnel a activé l&apos;option.
               </li>
             </ul>
             <p>
@@ -291,7 +316,7 @@ const CATEGORIES: Category[] = [
             Depuis le menu latéral, cliquez sur <strong>« Supprimer mon compte »</strong>.
             La suppression est <em>irréversible</em> et entraîne la perte du solde de
             BUUPP Coins non encore retirés. Récupérez vos gains avant si possible. Le
-            compte Clerk associé et toutes vos données dans Supabase (paliers, RIB,
+            compte Clerk associé et toutes vos données dans Supabase (coordonnées, RIB,
             historique) sont effacés.
           </p>
         ),
@@ -302,7 +327,7 @@ const CATEGORIES: Category[] = [
     id: "pro",
     icon: "💼",
     label: "Professionnel — lancer une campagne",
-    desc: "Tarifs, ciblage, facturation, gestion des contacts révélés.",
+    desc: "Tarifs, modes de contact, facturation, gestion des mises en relation.",
     articles: [
       {
         q: "Y a-t-il un abonnement ?",
@@ -310,9 +335,8 @@ const CATEGORIES: Category[] = [
           <>
             <p>
               Non. BUUPP fonctionne avec une <strong>formule unique, sans abonnement
-              ni frais d&apos;accès</strong> : campagnes illimitées, jusqu&apos;à 500
-              prospects par campagne et accès à tous les paliers de données (1 à 5,
-              dans la limite de ce qu&apos;autorise la finalité de votre campagne).
+              ni frais d&apos;accès</strong> : campagnes illimitées et jusqu&apos;à 500
+              prospects par campagne.
             </p>
             <p>
               Vous ne payez que les <strong>acceptations</strong> : la rémunération du
@@ -321,7 +345,7 @@ const CATEGORIES: Category[] = [
             </p>
           </>
         ),
-        tags: ["abonnement", "formule", "starter", "pro", "tarif"],
+        tags: ["abonnement", "formule", "pro", "tarif"],
       },
       {
         q: "Comment lancer ma première campagne ?",
@@ -329,14 +353,17 @@ const CATEGORIES: Category[] = [
           <p>
             Depuis le dashboard professionnel, cliquez sur{" "}
             <strong>« Créer une campagne »</strong>.
-            Le wizard vous guide en 8 étapes : <strong>objectif</strong> (prise de
+            Le wizard vous guide pas à pas : <strong>objectif</strong> (prise de
             contact, RDV, devis, sondage), <strong>dates</strong> (période de
-            diffusion), <strong>données</strong> (paliers requis),{" "}
-            <strong>ciblage</strong> (zone géo, âge, niveau de vérif),{" "}
-            <strong>budget</strong> (durée, nombre de contacts, prix par contact),{" "}
+            diffusion), <strong>mode de contact</strong> (téléphone et/ou
+            e-mail), <strong>ciblage</strong> facultatif (villes, sexe, tranche
+            d&apos;âge — vous ne voyez jamais ces données des prospects),{" "}
+            <strong>budget</strong> (durée, nombre de contacts),{" "}
             <strong>mots-clés</strong>, <strong>description</strong> et{" "}
             <strong>récap</strong>. Une fois lancée, la campagne est immédiatement
-            notifiée par email aux prospects matchés.
+            notifiée par email aux prospects. Vous verrez le prénom et
+            l&apos;initiale du nom de chaque prospect qui accepte&nbsp;; le contact se
+            fait ensuite via la plateforme.
           </p>
         ),
       },
@@ -345,12 +372,12 @@ const CATEGORIES: Category[] = [
         a: (
           <>
             <p>
-              Le prix par contact est calculé automatiquement à partir de :
+              Le prix par contact est unique et calculé automatiquement à partir de :
             </p>
             <ul>
-              <li>la fourchette du palier le plus élevé requis (1 € à 10 €) ;</li>
-              <li>le multiplicateur de durée (×3 en flash deal 1 h jusqu&apos;à ×1 en 7 jours) ;</li>
-              <li>le bonus ×2 « certifié confiance » quand le prospect matché a son profil 100 % vérifié.</li>
+              <li>une base de <strong>1,00 €</strong> versée au prospect ;</li>
+              <li>le multiplicateur de durée (×3 en flash deal 1 h, ×2 en 24 h, ×1,5 en 48 h, ×1 en 7 jours) ;</li>
+              <li>le bonus ×2 « certifié confiance » quand le prospect a atteint le niveau de vérification le plus élevé.</li>
             </ul>
             <p>
               Le <strong>sous-type d&apos;opération</strong> (RDV physique, livre blanc, SMS…)
@@ -361,8 +388,9 @@ const CATEGORIES: Category[] = [
             <p>
               À cela s&apos;ajoute, <strong>pour chaque acceptation</strong>, la{" "}
               <strong>commission BUUPP : 10 % de la rémunération du prospect, avec un
-              minimum de 0,30 €</strong>. Exemples : prospect à 1 € → vous payez
-              1,30 € ; à 5 € → 5,50 € ; à 10 € → 11,00 €. Sans acceptation, aucune
+              minimum de 0,30 €</strong>. Exemples : campagne 7 jours (1 €) → vous payez
+              1,30 € ; Flash 1 h (3 €) → 3,30 € ; Flash 1 h avec un prospect certifié
+              confiance (6 €) → 6,60 €. Sans acceptation, aucune
               commission n&apos;est facturée.
             </p>
           </>
@@ -387,17 +415,17 @@ const CATEGORIES: Category[] = [
         a: (
           <p>
             La page <em>Mes contacts</em> liste tous les prospects ayant accepté vos
-            sollicitations, regroupés par campagne. Les coordonnées (email, téléphone)
-            sont <strong>masquées par défaut</strong> et révélables individuellement
-            (un clic → un usage). L&apos;email révélé est un{" "}
-            <strong>alias unique <code>prospect+rXXX@buupp.com</code></strong> propre
-            à la relation : tout mail qui y est envoyé est routé vers le vrai email du
-            prospect. Le téléphone et le nom complet sont révélés en clair, mais{" "}
-            <strong>chaque révélation est consignée</strong> dans un journal
-            d&apos;audit serveur (qui, quand, quelle donnée).
+            sollicitations, regroupés par campagne, avec leur <strong>prénom</strong> et
+            l&apos;<strong>initiale de leur nom</strong>. Le numéro de téléphone,
+            l&apos;adresse e-mail, la ville, le sexe et la tranche d&apos;âge du prospect ne
+            vous sont jamais communiqués&nbsp;: vous
+            l&apos;appelez ou lui écrivez directement depuis la plateforme, selon le
+            mode de contact choisi pour la campagne.{" "}
+            <strong>Chaque prise de contact est consignée</strong> dans un journal
+            d&apos;audit serveur (qui, quand, quel canal).
           </p>
         ),
-        tags: ["contact", "révélation", "email", "téléphone", "audit", "alias"],
+        tags: ["contact", "email", "téléphone", "audit", "appel"],
       },
       {
         q: "Recharger mon portefeuille",
@@ -423,38 +451,35 @@ const CATEGORIES: Category[] = [
         ),
       },
       {
-        q: "Règles d'usage, alias unique et journal d'audit",
+        q: "Règles d'usage et journal d'audit",
         a: (
           <>
             <p>
-              Deux mécanismes complémentaires protègent les coordonnées révélées :
+              Deux mécanismes complémentaires protègent les prospects :
             </p>
             <ul>
               <li>
-                <strong>Watermark cryptographique sur l&apos;email.</strong>{" "}
-                L&apos;email révélé est un alias unique{" "}
-                <code>prospect+rXXX@buupp.com</code> qui n&apos;existe que pour
-                votre relation avec ce prospect. Si le prospect reçoit un mail
-                provenant d&apos;une autre source que cet alias, on remonte
-                instantanément à votre compte — sans aucun recoupement nécessaire.
+                <strong>Contact relayé par la plateforme.</strong> Appels et e-mails
+                passent toujours par BUUPP&nbsp;: vous ne recevez jamais le numéro ni
+                l&apos;adresse e-mail du prospect, et vous vous engagez à ne pas
+                chercher à les obtenir par un autre moyen.
               </li>
               <li>
-                <strong>Journal d&apos;audit serveur.</strong> Chaque révélation
-                (email, téléphone, nom complet) est horodatée et reliée à votre
-                compte pro dans une table d&apos;audit interne, exploitable sur
-                signalement.
+                <strong>Journal d&apos;audit serveur.</strong> Chaque prise de contact
+                (appel, e-mail) est horodatée et reliée à votre compte pro dans une
+                table d&apos;audit interne, exploitable sur signalement.
               </li>
             </ul>
             <p>
-              Toute diffusion hors du périmètre de la campagne (revente, partage
-              à un tiers, sollicitation hors objet) entraîne la résiliation
-              immédiate du compte ainsi qu&apos;une transmission à la CNIL. La
-              règle est simple : <strong>un prospect, une sollicitation, un
-              usage</strong>.
+              Toute utilisation hors du périmètre de la campagne (revente, partage
+              à un tiers, sollicitation hors objet, contournement de la plateforme)
+              entraîne la résiliation immédiate du compte ainsi qu&apos;une
+              transmission à la CNIL. La règle est simple : <strong>un prospect, une
+              sollicitation, un usage</strong>.
             </p>
           </>
         ),
-        tags: ["audit", "règles", "fuite", "rgpd", "watermark", "alias"],
+        tags: ["audit", "règles", "fuite", "rgpd", "confidentialité"],
       },
     ],
   },
@@ -476,17 +501,17 @@ const CATEGORIES: Category[] = [
               <li>
                 <strong>Premier consentement — à l&apos;inscription.</strong> Le
                 prospect accepte les Conditions Générales d&apos;Utilisation de
-                BUUPP et autorise l&apos;enregistrement de ses données sur la
-                plateforme, palier par palier, en choisissant ce qu&apos;il accepte
-                de partager.
+                BUUPP et autorise l&apos;enregistrement de ses seules données de
+                profil (prénom, initiale du nom, ville, sexe, tranche d&apos;âge,
+                téléphone, e-mail) sur la plateforme.
               </li>
               <li>
                 <strong>Second consentement — pour chaque sollicitation.</strong>{" "}
                 Avant qu&apos;un professionnel n&apos;entre en contact, le prospect
                 doit accepter <em>explicitement</em> sa sollicitation depuis son
-                espace personnel. Sans cette validation au cas par cas, aucune
-                coordonnée n&apos;est transmise et la mise en relation
-                n&apos;a pas lieu.
+                espace personnel. Sans cette validation au cas par cas, la mise en
+                relation n&apos;a pas lieu. Même après acceptation, le
+                professionnel ne voit que son prénom et l&apos;initiale de son nom.
               </li>
             </ul>
             <p>
@@ -515,8 +540,10 @@ const CATEGORIES: Category[] = [
               fenêtre vous informe explicitement que vous êtes susceptible
               d&apos;être contacté(e) par téléphone et vous demande de le
               confirmer (« OK, j&apos;accepte ») ou de le refuser. Sans cette
-              confirmation, l&apos;acceptation n&apos;est pas finalisée — aucune
-              coordonnée n&apos;est alors transmise.
+              confirmation, l&apos;acceptation n&apos;est pas finalisée et aucun
+              appel ne peut avoir lieu. Dans tous les cas, l&apos;appel passe par la
+              plateforme&nbsp;: votre numéro n&apos;est jamais communiqué au
+              professionnel.
             </p>
             <p>
               Ce consentement est <strong>tracé</strong> dans le journal
@@ -528,17 +555,18 @@ const CATEGORIES: Category[] = [
         ),
       },
       {
-        q: "Données pseudonymisées",
+        q: "Quelles informations voit le professionnel ?",
         a: (
           <p>
-            Tant qu&apos;un prospect n&apos;a pas accepté une sollicitation, le
-            professionnel voit
-            uniquement des informations <strong>agrégées et anonymisées</strong>{" "}
-            (palier, score, ville, etc.). Les coordonnées (email, téléphone, adresse)
-            ne deviennent visibles qu&apos;<em>après</em> acceptation, et sont marquées
-            individuellement.
+            Uniquement le <strong>prénom</strong> et l&apos;<strong>initiale du
+            nom</strong> des prospects qui ont accepté sa sollicitation. Le numéro de
+            téléphone, l&apos;adresse e-mail, la ville, le sexe et la tranche d&apos;âge ne
+            sont <strong>jamais</strong>{" "}
+            transmis, ni avant ni après acceptation&nbsp;: appels et e-mails sont relayés
+            par la plateforme BUUPP.
           </p>
         ),
+        tags: ["pseudonymisation", "confidentialité", "coordonnées"],
       },
       {
         q: "Anti-fraude : règles d'unicité",
@@ -566,10 +594,10 @@ const CATEGORIES: Category[] = [
               bots automatisés.
             </li>
             <li>
-              <strong>Journal d&apos;audit des révélations</strong> — chaque clic
-              d&apos;un pro pour révéler un email ou un téléphone est consigné côté
+              <strong>Journal d&apos;audit des prises de contact</strong> — chaque
+              appel ou e-mail d&apos;un pro passé via la plateforme est consigné côté
               serveur (table d&apos;audit verrouillée, lecture admin uniquement),
-              ce qui permet d&apos;identifier l&apos;origine d&apos;une fuite sur
+              ce qui permet d&apos;identifier l&apos;origine d&apos;un abus sur
               signalement.
             </li>
           </ul>
@@ -637,11 +665,12 @@ const CATEGORIES: Category[] = [
         q: "Combien je peux gagner par mois ?",
         a: (
           <p>
-            Cela dépend de votre profil : un palier 1 seul rapporte quelques euros par
-            mois ; un profil complet (5 paliers + certifié confiance) peut atteindre
-            plusieurs dizaines d&apos;euros par mois selon le volume de campagnes
-            ciblant votre zone et votre profession. La meilleure stratégie est de
-            compléter au moins 3 paliers et de vérifier votre téléphone.
+            Cela dépend du volume de campagnes et de leur format : chaque acceptation
+            rapporte de 1,00 € (campagne 7 jours) à 3,00 € (flash deal 1 h), et le
+            double si vous êtes certifié confiance. La meilleure stratégie est de
+            vérifier votre téléphone, d&apos;activer les notifications pour ne pas
+            manquer les flash deals et de répondre aux professionnels dont vous
+            acceptez la sollicitation.
           </p>
         ),
       },
@@ -649,11 +678,14 @@ const CATEGORIES: Category[] = [
         q: "Pourquoi je ne reçois pas de sollicitations ?",
         a: (
           <p>
-            Trois causes fréquentes : (1) votre palier 1 (identification) n&apos;est
-            pas complet — c&apos;est le minimum pour matcher ; (2) votre zone
-            géographique est sous-représentée chez les pros pour le moment ; (3) vous
-            avez décoché certains paliers de partage. Allez dans <em>Mes données</em>{" "}
-            et activez tous les paliers que vous acceptez de partager.
+            Deux causes fréquentes : (1) vos informations ne sont pas complètes —
+            prénom, initiale du nom, téléphone et e-mail sont nécessaires pour recevoir
+            des sollicitations, et votre ville, votre sexe et votre tranche d&apos;âge
+            pour recevoir les campagnes qui ciblent ces critères (les sept informations
+            sont requises pour accepter) ; allez dans <em>Mes données</em> pour les
+            renseigner ;
+            (2) peu de campagnes sont en cours pour le moment — vous serez notifié dès
+            qu&apos;une nouvelle sollicitation arrive.
           </p>
         ),
       },
@@ -666,8 +698,8 @@ const CATEGORIES: Category[] = [
               la page Contact chargé de la protection des données
             </Link>{" "}
             ou en répondant à l&apos;email de sollicitation. Tout abus (sollicitation
-            hors objet, harcèlement, fuite de coordonnées) est traçable grâce au
-            watermarking et entraîne sanction.
+            hors objet, harcèlement, contournement de la plateforme) est traçable
+            grâce au journal d&apos;audit des prises de contact et entraîne sanction.
           </p>
         ),
       },
@@ -753,8 +785,8 @@ export default function AidePage() {
           Comment pouvons-nous vous aider ?
         </h1>
         <p style={{ fontSize: 17, lineHeight: 1.65, color: "var(--ink-3)", maxWidth: 720 }}>
-          Tout ce qu&apos;il faut savoir pour utiliser BUUPP au mieux : compléter ses
-          paliers, comprendre son BUUPP Score, encaisser ses BUUPP Coins, lancer une
+          Tout ce qu&apos;il faut savoir pour utiliser BUUPP au mieux : renseigner ses
+          coordonnées, comprendre son BUUPP Score, encaisser ses BUUPP Coins, lancer une
           campagne professionnelle, ou simplement protéger ses données.
         </p>
 
@@ -770,7 +802,7 @@ export default function AidePage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher : « retrait », « palier 3 », « certifié confiance »…"
+            placeholder="Rechercher : « retrait », « flash deal », « certifié confiance »…"
             aria-label="Rechercher dans le centre d'aide"
             style={{
               width: "100%",

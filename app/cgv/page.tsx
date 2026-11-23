@@ -81,8 +81,8 @@ export default function CgvPage() {
             Les présentes Conditions Générales de Vente (ci-après
             «&nbsp;CGV&nbsp;») régissent les <strong>commandes passées par
             des professionnels</strong> auprès de la société Majelink dans
-            le cadre du Service BUUPP&nbsp;: recharge du portefeuille BUUPP, lancement de campagnes,
-            révélation de coordonnées prospects.
+            le cadre du Service BUUPP&nbsp;: recharge du portefeuille BUUPP, lancement de campagnes et mise
+            en relation avec des prospects via la plateforme.
           </p>
           <p>
             Elles s&apos;adressent <strong>exclusivement</strong> à des
@@ -133,25 +133,35 @@ export default function CgvPage() {
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
-              de créer des <strong>campagnes ciblées</strong> par objectif,
-              palier de données, zone géographique, tranche d&apos;âge,
-              niveau de vérification, mots-clés&nbsp;;
+              de créer des <strong>campagnes</strong> en choisissant
+              l&apos;objectif, la durée et le ou les{" "}
+              <strong>modes de contact</strong> souhaités (téléphone et/ou
+              e-mail), et, de façon facultative, en réservant la campagne à
+              certaines <strong>villes</strong>, à un <strong>sexe</strong>{" "}
+              ou à une <strong>tranche d&apos;âge</strong> (18-35&nbsp;ans /
+              plus de 35&nbsp;ans). Ces critères déterminent uniquement les
+              prospects sollicités&nbsp;: la ville, le sexe et la tranche
+              d&apos;âge d&apos;un prospect ne sont jamais communiqués au
+              Professionnel&nbsp;;
             </li>
             <li>
               de bénéficier d&apos;un <strong>BUUPP Score</strong> par
-              prospect, reflétant la qualité du profil (complétude des
-              paliers, vérification téléphone, taux de réponse
-              historique)&nbsp;;
+              prospect, reflétant le sérieux de son profil (complétude des
+              données du profil, fraîcheur des informations, taux de fiabilité issu
+              des notes des professionnels)&nbsp;;
             </li>
             <li>
-              d&apos;accéder, après <strong>double consentement</strong>{" "}
-              (acceptation du prospect via son tableau de bord), aux
-              coordonnées révélées dans l&apos;interface BUUPP&nbsp;:
-              l&apos;email est révélé sous forme d&apos;<strong>alias unique{" "}
-              <code>prospect+rXXX@buupp.com</code></strong> propre à la relation
-              (le vrai email du prospect n&apos;est jamais exposé) ; le téléphone
-              et le nom complet sont révélés en clair, chaque accès étant tracé
-              dans le journal d&apos;audit BUUPP&nbsp;;
+              d&apos;entrer en contact, après <strong>double
+              consentement</strong> (acceptation du prospect via son tableau
+              de bord), avec le prospect{" "}
+              <strong>exclusivement par la plateforme BUUPP</strong>{" "}
+              (appel et/ou e-mail selon le mode de contact choisi). Le
+              Professionnel ne voit que le <strong>prénom</strong> du
+              prospect et l&apos;<strong>initiale de son nom</strong>, afin de
+              personnaliser l&apos;échange&nbsp;; le numéro de téléphone,
+              l&apos;adresse e-mail, la ville, le sexe et la tranche
+              d&apos;âge du prospect ne lui sont jamais communiqués. Chaque prise de contact est tracée dans le
+              journal d&apos;audit BUUPP&nbsp;;
             </li>
             <li>
               s&apos;agissant du <strong>canal téléphonique</strong>, de ne
@@ -172,10 +182,8 @@ export default function CgvPage() {
           </ul>
           <p>
             BUUPP propose une <strong>formule unique, sans abonnement ni
-            frais d&apos;accès</strong>&nbsp;: campagnes illimitées, jusqu&apos;à
-            500&nbsp;prospects par campagne et accès aux paliers de données
-            1 à 5 (dans la limite de ce qu&apos;autorise la finalité de la
-            campagne au titre du RGPD). Le Professionnel ne paie que les
+            frais d&apos;accès</strong>&nbsp;: campagnes illimitées et
+            jusqu&apos;à 500&nbsp;prospects par campagne. Le Professionnel ne paie que les
             acceptations effectives, selon les modalités de l&apos;article&nbsp;4.
           </p>
         </Section>
@@ -187,18 +195,11 @@ export default function CgvPage() {
             sur la facture finale.
           </p>
           <p>
-            <strong>Tarif par contact accepté.</strong> Le coût d&apos;une
-            mise en relation est calculé à partir du{" "}
-            <strong>tarif de palier</strong> sélectionné lors de la
-            création de la campagne (cf.{" "}
-            <Link
-              href="/bareme"
-              style={{ color: "var(--accent)", textDecoration: "underline" }}
-            >
-              barème des paliers
-            </Link>
-            ), multiplié par un{" "}
-            <strong>coefficient de durée</strong>&nbsp;:
+            <strong>Tarif unique par contact accepté.</strong> La
+            rémunération versée au prospect pour une mise en relation repose
+            sur une <strong>base unique de 1,00&nbsp;€</strong>, multipliée
+            par un <strong>coefficient de durée</strong> choisi lors de la
+            création de la campagne&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>Flash 1&nbsp;heure&nbsp;: ×3</li>
@@ -224,8 +225,9 @@ export default function CgvPage() {
             inclus, bonus parrain exclu), avec un{" "}
             <strong>minimum de 0,30&nbsp;€ HT par acceptation</strong>&nbsp;: le
             montant retenu est le plus élevé des deux. Exemples&nbsp;: rémunération
-            de 1&nbsp;€ → commission de 0,30&nbsp;€&nbsp;; 3&nbsp;€ → 0,30&nbsp;€&nbsp;;
-            5&nbsp;€ → 0,50&nbsp;€&nbsp;; 10&nbsp;€ → 1,00&nbsp;€. La commission
+            de 1&nbsp;€ (7&nbsp;jours) → commission de 0,30&nbsp;€&nbsp;;
+            3&nbsp;€ (Flash 1&nbsp;h) → 0,30&nbsp;€&nbsp;; 6&nbsp;€ (Flash 1&nbsp;h,
+            prospect certifié confiance) → 0,60&nbsp;€. La commission
             maximale (tous les contacts acceptent) est réservée au lancement
             de la campagne&nbsp;; la commission est débitée à chaque acceptation
             et <strong>remboursée</strong> si le prospect revient sur son
@@ -262,8 +264,8 @@ export default function CgvPage() {
           </p>
           <p>
             <strong>Débit définitif.</strong> Lors de chaque acceptation
-            par un prospect, le tarif correspondant (palier × durée ×
-            éventuels bonus) est{" "}
+            par un prospect, la rémunération correspondante (base de
+            1,00&nbsp;€ × coefficient de durée × éventuels bonus) est{" "}
             <strong>débité réellement</strong> du wallet et placé en
             séquestre interne pour reversement au prospect à la clôture de
             campagne&nbsp;; la commission BUUPP de cette acceptation est
@@ -432,26 +434,20 @@ export default function CgvPage() {
             <li>
               utiliser le Service à des fins{" "}
               <strong>strictement professionnelles</strong> (interdiction
-              de l&apos;achat de palier à titre personnel ou pour le
-              compte d&apos;un tiers non identifié)&nbsp;;
+              de l&apos;achat de mises en relation à titre personnel ou pour
+              le compte d&apos;un tiers non identifié)&nbsp;;
             </li>
             <li>
               respecter le <strong>consentement explicite</strong> du
-              prospect et la finalité déclarée de la campagne (cf.{" "}
-              <Link
-                href="/minimisation"
-                style={{ color: "var(--accent)", textDecoration: "underline" }}
-              >
-                principe de minimisation
-              </Link>
-              )&nbsp;;
+              prospect et la finalité déclarée de la campagne&nbsp;;
             </li>
             <li>
-              ne <strong>jamais réutiliser, copier, exporter ou revendre</strong>
-              {" "}les coordonnées révélées en dehors de la campagne
-              concernée. Toutes les fiches contact sont individuellement
-              watermarquées et permettent de remonter à la source de toute
-              fuite&nbsp;;
+              contacter le prospect <strong>exclusivement via la plateforme
+              BUUPP</strong>, ne pas chercher à obtenir ses coordonnées par
+              un autre moyen et ne <strong>jamais réutiliser, copier,
+              exporter ou revendre</strong> les informations le concernant en
+              dehors de la campagne concernée. Chaque prise de contact est
+              tracée et permet de remonter à la source de tout abus&nbsp;;
             </li>
             <li>
               limiter chaque contact à une seule sollicitation par
@@ -459,7 +455,8 @@ export default function CgvPage() {
             </li>
             <li>
               agir en tant que <strong>responsable de traitement
-              distinct</strong> dès la révélation des coordonnées, et
+              distinct</strong> pour les informations qu&apos;il reçoit ou
+              recueille à l&apos;occasion de la mise en relation, et
               respecter à ce titre l&apos;ensemble des obligations
               RGPD (information du prospect, durée de conservation, base
               légale, droits)&nbsp;;
@@ -474,22 +471,22 @@ export default function CgvPage() {
 
         <Section title="11. Envoi via BUUPP et audit anti-fraude">
           <p>
-            Pour garantir la qualité de service et le respect du
-            règlement BUUPP, certains canaux de contact entre le Pro et
-            les Prospects sont <strong>centralisés et tracés</strong>{" "}
-            par la plateforme.
+            Pour garantir la confidentialité des coordonnées des
+            Prospects, la qualité de service et le respect du règlement
+            BUUPP, <strong>tous les appels et e-mails</strong> entre le Pro
+            et les Prospects sont <strong>centralisés et tracés</strong>{" "}
+            par la plateforme. Le Pro ne reçoit jamais le numéro de
+            téléphone ni l&apos;adresse e-mail d&apos;un Prospect.
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
               <strong>Envoi des emails via BUUPP uniquement</strong> :
               le Pro accepte que les emails à destination des Prospects
               acquis soient envoyés via l&apos;infrastructure d&apos;envoi
-              de BUUPP (prestataire e-mail Brevo, Union européenne),
-              avec son adresse personnelle en{" "}
-              <em>Reply-To</em>. L&apos;adresse email du Prospect
-              n&apos;est jamais affichée au Pro dans l&apos;interface
-              de composition — elle est résolue côté serveur au moment
-              de l&apos;envoi.
+              de BUUPP (prestataire e-mail Brevo, Union européenne).
+              L&apos;adresse e-mail du Prospect n&apos;est jamais
+              communiquée au Pro — elle est résolue côté serveur au
+              moment de l&apos;envoi.
             </li>
             <li>
               <strong>Quota</strong> : <strong>1 email maximum</strong>{" "}
@@ -507,12 +504,13 @@ export default function CgvPage() {
               légitime — pas pour un usage commercial.
             </li>
             <li>
-              <strong>Click-to-call audité</strong> : tout clic sur le
-              bouton &laquo;&nbsp;Appeler&nbsp;&raquo; est enregistré
-              (horodatage, identifiant de la mise en relation,
-              identifiant du Pro). L&apos;appel téléphonique
-              lui-même se déroule via le réseau standard et
-              n&apos;est ni intercepté ni enregistré.
+              <strong>Appels via BUUPP</strong> : l&apos;appel est lancé
+              depuis le bouton &laquo;&nbsp;Appeler&nbsp;&raquo; de
+              l&apos;espace pro et mis en relation par la plateforme, sans
+              communication du numéro du Prospect. Chaque appel est
+              enregistré dans le journal d&apos;audit (horodatage,
+              identifiant de la mise en relation, identifiant du Pro) ;
+              son contenu n&apos;est pas enregistré.
             </li>
             <li>
               <strong>Suivi d&apos;ouverture (pixel)</strong> : pour les
@@ -533,12 +531,12 @@ export default function CgvPage() {
               dans les conditions de la section 14.
             </li>
             <li>
-              <strong>Hors plateforme</strong> : toute communication
-              hors de ces canaux (mail personnel, SMS direct, etc.) est
-              à la charge et sous la seule responsabilité du Pro, et
-              reste soumise à l&apos;interdiction d&apos;exploiter les
-              coordonnées révélées hors du périmètre strict de la
-              campagne validée (section 10).
+              <strong>Hors plateforme</strong> : le Pro s&apos;interdit
+              de contacter un Prospect en dehors de ces canaux. Si le
+              Prospect choisit de lui-même de communiquer ses coordonnées
+              au Pro au cours de l&apos;échange, leur utilisation reste
+              limitée au périmètre strict de la campagne acceptée et
+              relève de la seule responsabilité du Pro (section 10).
             </li>
           </ul>
         </Section>
@@ -556,8 +554,8 @@ export default function CgvPage() {
               comportement des prospects est par nature aléatoire)&nbsp;;
             </li>
             <li>
-              la conclusion d&apos;une transaction commerciale après
-              révélation des coordonnées&nbsp;;
+              la conclusion d&apos;une transaction commerciale après la
+              mise en relation&nbsp;;
             </li>
             <li>
               l&apos;adéquation parfaite entre la finalité commerciale du
@@ -598,8 +596,11 @@ export default function CgvPage() {
             >
               politique RGPD
             </Link>
-            . Le professionnel agit en tant que responsable de traitement
-            distinct dès la révélation des coordonnées.
+            . Le professionnel n&apos;a accès qu&apos;au prénom et à
+            l&apos;initiale du nom du prospect&nbsp;; il agit en tant que
+            responsable de traitement distinct pour les informations
+            qu&apos;il reçoit ou recueille à l&apos;occasion de la mise en
+            relation.
           </p>
         </Section>
 
@@ -612,14 +613,15 @@ export default function CgvPage() {
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
-              <strong>exfiltration, revente ou diffusion à un tiers</strong>{" "}
-              des coordonnées prospects révélées (passible également de
-              poursuites pénales et civiles)&nbsp;;
+              <strong>revente ou diffusion à un tiers</strong>{" "}
+              d&apos;informations relatives aux prospects (passible
+              également de poursuites pénales et civiles)&nbsp;;
             </li>
             <li>
-              tentative de contournement du double consentement
-              (sollicitation hors plateforme avant acceptation, démarchage
-              de contacts révélés en dehors de la campagne)&nbsp;;
+              tentative de contournement de la plateforme ou du double
+              consentement (sollicitation hors plateforme, tentative
+              d&apos;obtenir les coordonnées d&apos;un prospect, démarchage
+              en dehors de la campagne)&nbsp;;
             </li>
             <li>
               fraude au paiement (chargeback abusif, données carte
@@ -688,8 +690,9 @@ export default function CgvPage() {
             magasin / rendez-vous d&apos;échange. La tâche est réalisée chez le
             Professionnel ; BUUPP assure la publication, les inscriptions, la
             preuve de réalisation par code individuel, la validation et le
-            paiement. Seuls le prénom et un alias e-mail du participant sont
-            transmis au Professionnel.
+            paiement. Seuls le prénom et l&apos;initiale du nom du participant
+            sont transmis au Professionnel ; les échanges éventuels passent par
+            la plateforme.
           </p>
           <p>
             <strong>Tout ou rien et réservation.</strong> Le Professionnel fixe
@@ -750,7 +753,7 @@ export default function CgvPage() {
             aux prospects fondateur·ices est <strong>intégralement financé par
             BUUPP</strong>. Il n&apos;est refacturé à aucun Professionnel, n&apos;entre
             dans aucun budget de campagne et n&apos;affecte ni le tarif des
-            paliers, ni la commission. Il n&apos;est débloqué au bénéfice du
+            mises en relation, ni la commission. Il n&apos;est débloqué au bénéfice du
             prospect qu&apos;après <strong>trois (3) mois</strong> d&apos;ancienneté
             de son compte <strong>et</strong> au moins{" "}
             <strong>une sollicitation acceptée</strong>, et sur{" "}
@@ -761,9 +764,8 @@ export default function CgvPage() {
           <p>
             Lorsque le Professionnel active le <strong>bonus parrain</strong> sur
             une campagne, les <strong>filleul·es</strong> de tout prospect
-            parrain·e / fondateur·ice ciblé reçoivent <strong>également</strong> la
-            sollicitation, même s&apos;ils ne remplissent pas les critères de
-            ciblage de la campagne. Le filleul·e perçoit la{" "}
+            parrain·e / fondateur·ice sollicité·e reçoivent <strong>également</strong> la
+            sollicitation. Le filleul·e perçoit la{" "}
             <strong>récompense normale</strong> de mise en relation.
           </p>
           <p>
@@ -778,7 +780,7 @@ export default function CgvPage() {
             pas sa rémunération).
           </p>
           <p>
-            Le nombre total d&apos;acceptations (prospects ciblés et filleul·es
+            Le nombre total d&apos;acceptations (prospects sollicités et filleul·es
             confondus) ne peut <strong>jamais dépasser le quota</strong> de la
             campagne&nbsp;: une fois ce quota atteint, plus aucune acceptation
             n&apos;est possible. Le bonus parrain (50&nbsp;%) constitue un{" "}

@@ -17,6 +17,7 @@
  *            wallet (transactions, etc.) tombent via les cascades existantes.
  */
 
+import { nomInitial } from "@/lib/campaigns/contact-channels";
 import { NextResponse } from "next/server";
 import { auth, clerkClient, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -104,6 +105,11 @@ export async function GET() {
       nom = nom || wl.nom;
     }
   }
+
+  // Prospect : seule l'initiale du nom est collectée (pivot « mise en
+  // relation pure ») — on ne ré-expose jamais un nom complet venu de
+  // Clerk / waitlist.
+  if (prospectRow?.id) nom = nomInitial(nom);
 
   // Mutuellement exclusif depuis la migration 20260508140000.
   // `role === null` = utilisateur Clerk valide mais qui n'a pas encore

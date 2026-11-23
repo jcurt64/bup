@@ -21,8 +21,7 @@ const SHOW_HERO_STATS = false;
 const TYPES: { v: string; l: string; icon: StudyIconName }[] = [
   { v: "", l: "Toutes", icon: "sparkles" },
   { v: "survey", l: "Sondages", icon: "survey" },
-  { v: "product_test", l: "Tests de site / appli", icon: "product_test" },
-  { v: "visit", l: "Visites & rendez-vous", icon: "visit" },
+  { v: "product_test", l: "Test / avis produit", icon: "product_test" },
 ];
 
 const initials = (s: string) => s.replace(/\[.*?\]\s*/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "P";
@@ -117,8 +116,8 @@ export default function StudiesList() {
           <span className="st-eyebrow"><span className="dot" />Tests &amp; Études · participations rémunérées</span>
           <h1 className="serif st-title">Votre avis compte pour les professionnels.<br /><em>Ils vous payent.</em></h1>
           <p className="st-lead">
-            Des professionnels cherchent des participants pour un sondage, le test de leur site ou de leur appli, ou une visite
-            en magasin. Inscrivez-vous, réalisez la tâche, encaissez dans votre portefeuille BUUPP.
+            Des professionnels cherchent des participants pour un sondage, le test de leur produit ou un avis sur leur
+            prestation. Inscrivez-vous, répondez au test ou au sondage, encaissez votre gain.
           </p>
           {SHOW_HERO_STATS && (
           <div className="st-stats">
@@ -129,9 +128,9 @@ export default function StudiesList() {
           )}
           <div className="st-steps">
             {([
-              ["target", "Choisissez une campagne et inscrivez-vous en un clic.", "#6366F1", "#A855F7"],
-              ["check", "Seuil atteint : recevez votre code et réalisez la tâche.", "#0EA5E9", "#14B8A6"],
-              ["wallet", "Validé sous 7 jours, crédité dans votre portefeuille.", "#F97316", "#F43F5E"],
+              ["target", "Inscrivez-vous pour une campagne en un clic.", "#6366F1", "#A855F7"],
+              ["check", "Recevez votre code et réalisez la tâche.", "#0EA5E9", "#14B8A6"],
+              ["wallet", "Votre gain est validé et crédité dans votre portefeuille.", "#F97316", "#F43F5E"],
             ] as [StudyIconName, string, string, string][]).map(([ic, txt, a, b], k) => (
               <div key={k} className="st-step">
                 <span className="st-step-ic" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}><StudyIcon name={ic} size={20} /></span>
@@ -209,7 +208,7 @@ export default function StudiesList() {
 
         <div className="st-trust">
           {([
-            ["lock", "Données protégées", "Seuls votre prénom et un alias e-mail sont transmis, et uniquement si la campagne est lancée.", "#EEF2FF", "#4338CA"],
+            ["lock", "Données protégées", "Seuls votre prénom et l'initiale de votre nom sont transmis, et uniquement si la campagne est lancée.", "#EEF2FF", "#4338CA"],
             ["shield", "Tout ou rien", "Pas assez de participants ? La campagne est annulée et votre inscription supprimée.", "#ECFEFF", "#0E7490"],
             ["wallet", "Paiement garanti", "Le budget est réservé par le professionnel dès la publication. Sans réponse de sa part sous 7 jours, vous êtes payé.", "#FFF7ED", "#C2410C"],
           ] as [StudyIconName, string, string, string, string][]).map(([ic, h, p, bg, fg]) => (

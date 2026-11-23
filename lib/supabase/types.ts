@@ -265,6 +265,7 @@ export type Database = {
           commission_settled_cents: number
           commission_floor_cents: number
           commission_rate_bp: number
+          contact_channels: string[]
           contact_quota: number | null
           cost_per_contact_cents: number
           created_at: string
@@ -300,6 +301,7 @@ export type Database = {
           commission_settled_cents?: number
           commission_floor_cents?: number
           commission_rate_bp?: number
+          contact_channels?: string[]
           contact_quota?: number | null
           cost_per_contact_cents: number
           created_at?: string
@@ -335,6 +337,7 @@ export type Database = {
           commission_settled_cents?: number
           commission_floor_cents?: number
           commission_rate_bp?: number
+          contact_channels?: string[]
           contact_quota?: number | null
           cost_per_contact_cents?: number
           created_at?: string
@@ -719,128 +722,46 @@ export type Database = {
           email_tracking_consent: boolean
           email_tracking_consent_given_at: string | null
           genre: string | null
-          naissance: string | null
           nom: string | null
           phone_verified_at: string | null
           prenom: string | null
           prospect_id: string
           telephone: string | null
-          updated_at: string
-        }
-        Insert: {
-          email?: string | null
-          email_tracking_consent?: boolean
-          email_tracking_consent_given_at?: string | null
-          genre?: string | null
-          naissance?: string | null
-          nom?: string | null
-          phone_verified_at?: string | null
-          prenom?: string | null
-          prospect_id: string
-          telephone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          email?: string | null
-          email_tracking_consent?: boolean
-          email_tracking_consent_given_at?: string | null
-          genre?: string | null
-          naissance?: string | null
-          nom?: string | null
-          phone_verified_at?: string | null
-          prenom?: string | null
-          prospect_id?: string
-          telephone?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_identity_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prospect_localisation: {
-        Row: {
-          adresse: string | null
-          center_distance_m: number | null
-          code_postal: string | null
-          geo_extension: string
-          latitude: number | null
-          longitude: number | null
-          national_opt_in: boolean
-          prospect_id: string
-          region: string | null
-          targeting_radius_km: number
+          tranche_age: string | null
           updated_at: string
           ville: string | null
         }
         Insert: {
-          adresse?: string | null
-          center_distance_m?: number | null
-          code_postal?: string | null
-          geo_extension?: string
-          latitude?: number | null
-          longitude?: number | null
-          national_opt_in?: boolean
+          email?: string | null
+          email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
+          genre?: string | null
+          nom?: string | null
+          phone_verified_at?: string | null
+          prenom?: string | null
           prospect_id: string
-          region?: string | null
-          targeting_radius_km?: number
+          telephone?: string | null
+          tranche_age?: string | null
           updated_at?: string
           ville?: string | null
         }
         Update: {
-          adresse?: string | null
-          center_distance_m?: number | null
-          code_postal?: string | null
-          geo_extension?: string
-          latitude?: number | null
-          longitude?: number | null
-          national_opt_in?: boolean
+          email?: string | null
+          email_tracking_consent?: boolean
+          email_tracking_consent_given_at?: string | null
+          genre?: string | null
+          nom?: string | null
+          phone_verified_at?: string | null
+          prenom?: string | null
           prospect_id?: string
-          region?: string | null
-          targeting_radius_km?: number
+          telephone?: string | null
+          tranche_age?: string | null
           updated_at?: string
           ville?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "prospect_localisation_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prospect_patrimoine: {
-        Row: {
-          epargne: string | null
-          projets: string | null
-          prospect_id: string
-          residence: string | null
-          updated_at: string
-        }
-        Insert: {
-          epargne?: string | null
-          projets?: string | null
-          prospect_id: string
-          residence?: string | null
-          updated_at?: string
-        }
-        Update: {
-          epargne?: string | null
-          projets?: string | null
-          prospect_id?: string
-          residence?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_patrimoine_prospect_id_fkey"
+            foreignKeyName: "prospect_identity_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
             referencedRelation: "prospects"
@@ -879,41 +800,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prospect_phone_otp_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prospect_pro: {
-        Row: {
-          poste: string | null
-          prospect_id: string
-          revenus: string | null
-          secteur: string | null
-          statut: string | null
-          updated_at: string
-        }
-        Insert: {
-          poste?: string | null
-          prospect_id: string
-          revenus?: string | null
-          secteur?: string | null
-          statut?: string | null
-          updated_at?: string
-        }
-        Update: {
-          poste?: string | null
-          prospect_id?: string
-          revenus?: string | null
-          secteur?: string | null
-          statut?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_pro_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
             referencedRelation: "prospects"
@@ -1000,53 +886,6 @@ export type Database = {
           },
         ]
       }
-      prospect_vie: {
-        Row: {
-          animaux: string | null
-          animaux_detail: string | null
-          foyer: string | null
-          logement: string | null
-          mobilite: string | null
-          prospect_id: string
-          sports: string | null
-          updated_at: string
-          vehicule: string | null
-          vehicule_marque: string | null
-        }
-        Insert: {
-          animaux?: string | null
-          animaux_detail?: string | null
-          foyer?: string | null
-          logement?: string | null
-          mobilite?: string | null
-          prospect_id: string
-          sports?: string | null
-          updated_at?: string
-          vehicule?: string | null
-          vehicule_marque?: string | null
-        }
-        Update: {
-          animaux?: string | null
-          animaux_detail?: string | null
-          foyer?: string | null
-          logement?: string | null
-          mobilite?: string | null
-          prospect_id?: string
-          sports?: string | null
-          updated_at?: string
-          vehicule?: string | null
-          vehicule_marque?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_vie_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       prospects: {
         Row: {
           studies_email_digest: boolean
@@ -1061,13 +900,11 @@ export type Database = {
           categories: string[]
           clerk_user_id: string
           created_at: string
-          hidden_tiers: Database["public"]["Enums"]["tier_key"][]
           founder_signup_bonus_applied: boolean
           id: string
           is_founder: boolean
           non_response_level: number
           non_response_strikes: number
-          removed_tiers: Database["public"]["Enums"]["tier_key"][]
           score_malus: number
           stripe_connect_account_id: string | null
           stripe_details_submitted: boolean
@@ -1089,12 +926,10 @@ export type Database = {
           clerk_user_id: string
           created_at?: string
           founder_signup_bonus_applied?: boolean
-          hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
           non_response_level?: number
           non_response_strikes?: number
-          removed_tiers?: Database["public"]["Enums"]["tier_key"][]
           score_malus?: number
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
@@ -1116,12 +951,10 @@ export type Database = {
           clerk_user_id?: string
           created_at?: string
           founder_signup_bonus_applied?: boolean
-          hidden_tiers?: Database["public"]["Enums"]["tier_key"][]
           id?: string
           is_founder?: boolean
           non_response_level?: number
           non_response_strikes?: number
-          removed_tiers?: Database["public"]["Enums"]["tier_key"][]
           score_malus?: number
           stripe_connect_account_id?: string | null
           stripe_details_submitted?: boolean
@@ -1931,7 +1764,6 @@ export type Database = {
         | "refused"
         | "expired"
         | "settled"
-      tier_key: "identity" | "localisation" | "vie" | "pro" | "patrimoine"
       transaction_status: "pending" | "completed" | "failed" | "canceled"
       transaction_type:
         | "credit"
@@ -2096,7 +1928,6 @@ export const Constants = {
         "echange_abusif",
       ],
       relation_status: ["pending", "accepted", "refused", "expired", "settled"],
-      tier_key: ["identity", "localisation", "vie", "pro", "patrimoine"],
       transaction_status: ["pending", "completed", "failed", "canceled"],
       transaction_type: [
         "credit",

@@ -1,24 +1,25 @@
-/** Types partagés de l'atelier de segmentation pro. */
+/** Types partagés de l'atelier de segmentation pro.
+ *
+ * Pivot « mise en relation pure » : seules les données de contact
+ * (prénom + initiale du nom) subsistent. Les anciens attributs des paliers
+ * localisation / vie / pro / patrimoine ont disparu — les facettes
+ * catégorielles sont donc toujours vides. Les clés restent déclarées pour
+ * la compatibilité des segments enregistrés et des clients publiés. */
 
-export type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
+export type TierKey = "identity";
 
-/** Contact normalisé pour la segmentation. Chaque bloc palier n'est présent
- *  que si le palier est acheté pour la campagne ET non masqué par le prospect.
- *  Aucune donnée de contact sensible (email/téléphone) n'y figure : on ne
- *  segmente que sur des attributs, jamais sur des identifiants. */
+/** Contact normalisé pour la segmentation. Aucune donnée de contact
+ *  sensible (email/téléphone) n'y figure. */
 export type SegmentContact = {
   relationId: string;
   score: number;
   reached: "atteint" | "non_atteint" | null;
+  /** Prénom + initiale du nom (toujours fournis à la personnalisation). */
   identity?: { prenom: string | null; nom: string | null };
-  localisation?: { region: string | null; ville: string | null; codePostal: string | null; adresse: string | null; centerDistanceM: number | null };
-  vie?: { foyer: string | null; sports: string | null; animaux: string | null; vehicule: string | null; logement: string | null; mobilite: string | null };
-  pro?: { poste: string | null; statut: string | null; secteur: string | null; revenus: string | null };
-  patrimoine?: { residence: string | null; epargne: string | null; projets: string | null };
 };
 
-/** Champs catégoriels facettables + leur palier source. `distance` = tranche
- *  de distance au centre de la commune (dérivée de center_distance_m). */
+/** Anciennes facettes catégorielles (données supprimées) — conservées
+ *  comme clés connues mais toujours ignorées / vides. */
 export type CategoricalKey = "region" | "distance" | "logement" | "statutPro" | "foyer" | "vehicule" | "animaux";
 
 export type SegmentFilters = {
@@ -26,13 +27,6 @@ export type SegmentFilters = {
   scoreMax?: number;
   reached?: "atteint" | "non_atteint";
   q?: string;
-  region?: string[];
-  distance?: string[];
-  logement?: string[];
-  statutPro?: string[];
-  foyer?: string[];
-  vehicule?: string[];
-  animaux?: string[];
 };
 
 export type FacetCount = { value: string; count: number };

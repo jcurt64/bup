@@ -5,7 +5,6 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { departmentFromPostalCode } from "./department";
 import { REJECT_REASONS, type RejectReason } from "./constants";
 import { listPublicStudies, proEmail, prospectIdentities, type StudyRow } from "./repo";
 import {
@@ -24,7 +23,7 @@ async function proName(admin: Admin, proId: string): Promise<string> {
 export async function notifyPublished(admin: Admin, c: Pick<StudyRow, "id" | "scope" | "department">): Promise<number> {
   try {
     // Pagination par tranches de 1000 (plafond max_rows de PostgREST).
-    let ids: string[] = [];
+    const ids: string[] = [];
     for (let from = 0; ; from += 1000) {
       const { data: page, error } = await admin
         .from("prospect_identity")
@@ -37,17 +36,9 @@ export async function notifyPublished(admin: Admin, c: Pick<StudyRow, "id" | "sc
       ids.push(...(page ?? []).filter((r) => r.prenom?.trim() && r.email?.trim()).map((r) => r.prospect_id));
       if (!page || page.length < 1000) break;
     }
-    if (c.scope === "department" && c.department) {
-      // Filtre par lots de 200 identifiants (URL GET bornée).
-      const ok = new Set<string>();
-      for (let i = 0; i < ids.length; i += 200) {
-        const { data: locs, error } = await admin.from("prospect_localisation")
-          .select("prospect_id, code_postal").in("prospect_id", ids.slice(i, i + 200));
-        if (error) throw error;
-        for (const l of locs ?? []) if (departmentFromPostalCode(l.code_postal) === c.department) ok.add(l.prospect_id);
-      }
-      ids = ids.filter((id) => ok.has(id));
-    }
+    // Pivot « mise en relation pure » : la localisation prospect n'est plus
+    // collectée. Une étude départementale est notifiée à tous les prospects
+    // éligibles ; la zone reste affichée sur la fiche (le prospect choisit).
     for (let i = 0; i < ids.length; i += 500) {
       await admin.from("study_notifications").upsert(
         ids.slice(i, i + 500).map((prospect_id) => ({ prospect_id, campaign_id: c.id, kind: "published" })),

@@ -61,27 +61,31 @@ export async function GET(req: Request) {
 
   const admin = createSupabaseAdminClient();
 
-  // Inner join sur la localisation uniquement quand on filtre par ville
-  // (sinon les prospects sans localisation seraient exclus à tort).
-  const locEmbed = ville
-    ? "prospect_localisation!inner(ville)"
-    : "prospect_localisation(ville)";
+  // Ville = prospect_identity.ville (nom de commune seul). Le filtre `ville`
+  // bascule l'embed en inner join pour que le `total` en tienne compte.
+  const identityEmbed = ville
+    ? "prospect_identity!inner(prenom, nom, email, ville)"
+    : "prospect_identity(prenom, nom, email, ville)";
 
   let query = admin
     .from("prospects")
     .select(
-      `id, bupp_score, verification, is_founder, created_at, prospect_identity(prenom, nom, email), ${locEmbed}`,
+      `id, bupp_score, verification, is_founder, created_at, ${identityEmbed}`,
       { count: "exact" },
     )
     .gte("bupp_score", minScore)
     .order(sort.col, { ascending: sort.asc })
     .range((page - 1) * size, page * size - 1);
 
+  if (ville) {
+    // Échappe les jokers ilike saisis par l'admin.
+    const v = ville.replace(/[\\%_]/g, (c) => `\\${c}`);
+    query = query.ilike("prospect_identity.ville", `%${v}%`);
+  }
   if (maxScore != null) query = query.lte("bupp_score", maxScore);
   if (verification) query = query.eq("verification", verification as never);
   if (founder === "true") query = query.eq("is_founder", true);
   if (founder === "false") query = query.eq("is_founder", false);
-  if (ville) query = query.ilike("prospect_localisation.ville", `%${ville}%`);
   if (days > 0) {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();
     query = query.gte("created_at", since);
@@ -97,9 +101,6 @@ export async function GET(req: Request) {
     const id = Array.isArray(r.prospect_identity)
       ? r.prospect_identity[0]
       : r.prospect_identity;
-    const loc = Array.isArray(r.prospect_localisation)
-      ? r.prospect_localisation[0]
-      : r.prospect_localisation;
     return {
       id: r.id,
       score: r.bupp_score,
@@ -109,7 +110,7 @@ export async function GET(req: Request) {
       prenom: id?.prenom ?? null,
       nom: id?.nom ?? null,
       email: id?.email ?? null,
-      ville: loc?.ville ?? null,
+      ville: (id?.ville as string | null | undefined) ?? null,
     };
   });
 
@@ -127,25 +128,17 @@ export async function GET(req: Request) {
   // l'UI ne s'en sert que pour peupler les <select> au montage.
   let facets: { villes: string[]; verifications: string[] } | undefined;
   if (page === 1) {
-    const [vRes, verRes] = await Promise.all([
-      admin
-        .from("prospect_localisation")
-        .select("ville")
-        .not("ville", "is", null)
-        .limit(5000),
-      admin.from("prospects").select("verification").limit(5000),
-    ]);
-    const villes = Array.from(
-      new Set(
-        (vRes.data ?? [])
-          .map((r: any) => String(r.ville).trim())
-          .filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b, "fr"));
+    const { data: verData } = await admin.from("prospects").select("verification").limit(5000);
     const verifications = Array.from(
-      new Set(
-        (verRes.data ?? []).map((r: any) => r.verification).filter(Boolean),
-      ),
+      new Set((verData ?? []).map((r) => r.verification as string).filter(Boolean)),
+    ).sort((a: string, b: string) => a.localeCompare(b, "fr"));
+    const { data: villeData } = await admin
+      .from("prospect_identity")
+      .select("ville")
+      .not("ville", "is", null)
+      .limit(5000);
+    const villes = Array.from(
+      new Set((villeData ?? []).map((r) => (r.ville ?? "").trim()).filter(Boolean)),
     ).sort((a: string, b: string) => a.localeCompare(b, "fr"));
     facets = { villes, verifications };
   }

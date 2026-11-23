@@ -41,7 +41,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       }
       me = {
         role: "prospect",
-        eligibleZone: study.scope === "national" || pc.department === study.department,
+        // Localisation prospect supprimée : toute zone est « éligible »
+        // (la zone départementale est affichée, le prospect choisit).
+        eligibleZone: true,
         tier1Complete: Boolean(pc.prenom && pc.email),
         participation: part ?? null,
         access,

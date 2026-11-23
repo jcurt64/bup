@@ -3,12 +3,15 @@
  * de BUUPP (onglet Contacts du dashboard pro). Le pro tape son message
  * directement dans BUUPP — l'envoi part de notre transport SMTP, avec
  *   From    : BUUPP (jamais l'adresse personnelle du pro)
- *   Reply-To: l'email du pro (les réponses lui arrivent directement)
+ *   Reply-To: adresse no-reply BUUPP (jamais l'e-mail du pro : une réponse
+ *             directe exposerait l'adresse du prospect — pivot « mise en
+ *             relation pure », le contact passe toujours par BUUPP)
  *
  * Ce design répond à la promesse "le pro n'a pas besoin de copier les
  * coordonnées du prospect" et garantit côté plateforme que :
  *  - chaque envoi est tracé en base (pro_contact_actions),
- *  - le prospect peut répondre normalement (Reply-To),
+ *  - le prospect ne répond PAS directement (aucun relais entrant) : le pied
+ *    de mail l'invite à passer par son espace BUUPP,
  *  - l'identité visuelle BUUPP reste reconnaissable dans la boîte du prospect.
  *
  * Quota : limité côté API (1 email max par couple pro × prospect × campagne).
@@ -26,8 +29,9 @@ const PROSPECT_URL = `${APP_URL}/prospect`;
 export type ProToProspectParams = {
   /** Email du prospect (destinataire). */
   to: string;
-  /** Email du pro — utilisé en Reply-To pour que le prospect réponde. */
-  proReplyTo: string;
+  /** Historique : e-mail du pro. N'est PLUS utilisé en Reply-To (protection
+   *  de l'adresse du prospect) — conservé pour la compatibilité des appelants. */
+  proReplyTo?: string | null;
   /** Raison sociale du pro affichée dans le mail. */
   proName: string;
   /** Prénom du prospect pour la salutation. */
@@ -55,7 +59,7 @@ export type ProToProspectParams = {
 export async function sendProToProspectEmail(
   params: ProToProspectParams,
 ): Promise<void> {
-  const { to, proReplyTo, proName, prospectFirstName, campaignName, subject, body, trackingToken, trackingConsent } =
+  const { to, proName, prospectFirstName, campaignName, subject, body, trackingToken, trackingConsent } =
     params;
   const greet = prospectFirstName?.trim() || "Bonjour";
   // Pixel uniquement si consentement explicite — conformité CNIL.
@@ -72,7 +76,7 @@ export async function sendProToProspectEmail(
     body,
     "—",
     "",
-    `Pour répondre, utilisez simplement la fonction "Répondre" de votre messagerie — ${proName} recevra directement votre message.`,
+    `Merci de ne pas répondre directement à cet e-mail : les échanges avec ${proName} passent par BUUPP, qui protège vos coordonnées. Retrouvez cette mise en relation dans votre espace BUUPP.`,
     "",
     `Votre espace BUUPP : ${PROSPECT_URL}`,
     "",
@@ -123,7 +127,7 @@ export async function sendProToProspectEmail(
   </div>
 
   <p style="margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#3A4150;">
-    Pour répondre, utilisez simplement la fonction <strong>« Répondre »</strong> de votre messagerie — ${escapeHtml(proName)} recevra directement votre réponse.
+    Merci de <strong>ne pas répondre directement</strong> à cet e-mail : les échanges avec ${escapeHtml(proName)} passent par BUUPP, qui protège vos coordonnées. Retrouvez cette mise en relation dans votre espace BUUPP.
   </p>
 
   <p style="margin:18px 0 6px;text-align:center;">
@@ -149,6 +153,9 @@ export async function sendProToProspectEmail(
   <p style="margin:10px 0 0;font-size:11px;color:#6B7180;line-height:1.5;">
     BUUPP — Be Used, Paid &amp; Proud · Données minimisées, consentement respecté.
   </p>
+  <p style="margin:6px 0 0;font-size:11px;color:#6B7180;line-height:1.5;">
+    E-mail envoyé via BUUPP depuis une adresse qui n'accepte pas de réponse. Ne répondez pas directement : vos échanges passent par BUUPP.
+  </p>
 </td></tr>
 </td></tr>
 </table>
@@ -160,7 +167,9 @@ ${pixelHtml}
   await safeSendMail({
     from: getFromAddress(),
     to,
-    replyTo: proReplyTo,
+    // No-reply BUUPP : une réponse ne doit jamais partir vers le pro (elle
+    // exposerait l'adresse réelle du prospect).
+    replyTo: getFromAddress(),
     subject,
     text,
     html,

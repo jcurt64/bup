@@ -107,7 +107,7 @@ export default function CookiesPage() {
             <li>
               <strong>Sécuriser les formulaires</strong> — vérification CSRF
               et protection anti-bot lors des actions sensibles (lancement
-              d&apos;une campagne, retrait IBAN, mise à jour des paliers).
+              d&apos;une campagne, retrait IBAN, mise à jour de vos coordonnées).
             </li>
             <li>
               <strong>Mémoriser vos préférences</strong> — langue

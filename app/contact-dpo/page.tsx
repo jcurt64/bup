@@ -127,8 +127,9 @@ export default function ContactDpoPage() {
               portabilité)&nbsp;;
             </li>
             <li>
-              corriger ou rectifier une information inexacte dans un
-              palier ou un profil&nbsp;;
+              corriger ou rectifier une information inexacte de votre
+              profil (prénom, initiale du nom, ville, sexe, tranche
+              d&apos;âge, téléphone, e-mail)&nbsp;;
             </li>
             <li>
               vous opposer au traitement marketing (broadcast de produit,
@@ -219,7 +220,7 @@ export default function ContactDpoPage() {
         <Section title="4. Pièces à fournir">
           <p>
             Pour les demandes <strong>standards</strong> (rectification
-            d&apos;un palier, opposition marketing, désabonnement), un
+            d&apos;une coordonnée, opposition marketing, désabonnement), un
             simple courriel depuis l&apos;adresse e-mail rattachée à
             votre compte BUUPP suffit. La correspondance entre
             l&apos;adresse expéditrice et l&apos;adresse du compte vaut

@@ -392,7 +392,7 @@ app/
   (auth)/
     sign-in.tsx  sign-up.tsx  role-select.tsx
   (public)/
-    waitlist.tsx  status.tsx  bareme.tsx  aide.tsx
+    waitlist.tsx  status.tsx  aide.tsx
   (prospect)/
     _layout.tsx               # tab bar prospect
     portefeuille.tsx  donnees.tsx  relations.tsx

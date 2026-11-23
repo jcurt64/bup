@@ -1,143 +1,25 @@
 /**
- * POST /api/pro/contacts/group-reveal
- * Body : { relationIds: string[] }   (1..50 ids)
+ * POST /api/pro/contacts/group-reveal — SUPPRIMÉ.
  *
- * Révèle en clair les emails des prospects sélectionnés (relations
- * accepted/settled appartenant au pro authentifié) et logue chaque
- * accès dans pro_contact_reveals (field='email'). Utilisé par le
- * bouton "Message groupé" de l'onglet Mes contacts.
+ * Révélait en clair les e-mails de prospects pour un « message groupé » via
+ * mailto (BCC). Incompatible avec le pivot « mise en relation pure » : le pro
+ * ne reçoit jamais les coordonnées brutes. Le message groupé passe désormais
+ * par l'envoi médié POST /api/pro/segments/broadcast (avec `relationIds`).
  *
- * 200 → { items: [{ relationId, email | null }], proEmail }
- *       email = null si la relation n'appartient pas au pro / n'est
- *       pas en bon statut / l'email n'est pas partagé. Le client filtre.
- *       proEmail = email primaire Clerk du pro authentifié — utilisé
- *       par le client pour pré-remplir le champ `to:` du mailto (les
- *       prospects sont en BCC). Évite un `to:` vide qui peut être rejeté
- *       par certains serveurs SMTP et garantit la même UX sur tous les
- *       clients mail.
- * 400 → body invalide ou vide
- * 401 → non authentifié
+ * 410 → { error: "group_reveal_removed" }
  */
 
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@/lib/clerk/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { ensureProAccount } from "@/lib/sync/pro-accounts";
-import {
-  buildAliasAddress,
-  getOrCreateRelationAlias,
-} from "@/lib/aliases/relation-email";
-import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 
 export const runtime = "nodejs";
 
-const MAX_IDS = 50;
-
-export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  let body: { relationIds?: unknown };
-  try {
-    body = (await req.json()) as { relationIds?: unknown };
-  } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
-  }
-  const ids = Array.isArray(body?.relationIds) ? body!.relationIds : null;
-  if (!ids || ids.length === 0) {
-    return NextResponse.json({ error: "empty_relation_ids" }, { status: 400 });
-  }
-  if (ids.length > MAX_IDS) {
-    return NextResponse.json({ error: "too_many_ids" }, { status: 400 });
-  }
-  const cleanIds = ids.filter((x): x is string => typeof x === "string" && x.length > 0);
-  if (cleanIds.length === 0) {
-    return NextResponse.json({ error: "invalid_relation_ids" }, { status: 400 });
-  }
-
-  const user = await currentUser();
-  const email =
-    user?.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? null;
-  const proId = await ensureProAccount({ clerkUserId: userId, email });
-
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("relations")
-    .select(
-      `id, status, pro_account_id,
-       campaigns:campaign_id ( status ),
-       prospects:prospect_id (
-         prospect_identity ( email )
-       )`,
-    )
-    .in("id", cleanIds);
-
-  if (error) {
-    console.error("[/api/pro/contacts/group-reveal] read failed", error);
-    return NextResponse.json({ error: "read_failed" }, { status: 500 });
-  }
-
-  type Row = {
-    id: string;
-    status: string;
-    pro_account_id: string;
-    campaigns: { status: string } | null;
-    prospects: {
-      prospect_identity:
-        | { email: string | null }
-        | { email: string | null }[]
-        | null;
-    } | null;
-  };
-  const rows = (data ?? []) as unknown as Row[];
-
-  const items: Array<{ relationId: string; email: string | null }> = [];
-  const auditPayload: Array<{ pro_account_id: string; relation_id: string; field: string }> = [];
-
-  for (const id of cleanIds) {
-    const row = rows.find((r) => r.id === id) ?? null;
-    if (
-      !row ||
-      row.pro_account_id !== proId ||
-      (row.status !== "accepted" && row.status !== "settled") ||
-      !proCanSeeContacts(row.campaigns?.status)
-    ) {
-      items.push({ relationId: id, email: null });
-      continue;
-    }
-    const prospects = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
-    const identRaw = prospects?.prospect_identity ?? null;
-    const ident = Array.isArray(identRaw) ? identRaw[0] ?? null : identRaw;
-    if (!ident?.email) {
-      items.push({ relationId: id, email: null });
-      continue;
-    }
-    // Watermark cryptographique : on retourne l'alias `prospect+rXXX@buupp.com`
-    // au lieu du vrai email. Cf. /api/pro/contacts/[relationId]/reveal et
-    // lib/aliases/relation-email.ts pour le détail.
-    try {
-      const slug = await getOrCreateRelationAlias(admin, id);
-      items.push({ relationId: id, email: buildAliasAddress(slug) });
-      auditPayload.push({ pro_account_id: proId, relation_id: id, field: "email" });
-    } catch (err) {
-      console.error("[/api/pro/contacts/group-reveal] alias gen failed", { id, err });
-      items.push({ relationId: id, email: null });
-    }
-  }
-
-  if (auditPayload.length > 0) {
-    // Audit FAIL-CLOSED — on ne livre les alias QUE si l'accès groupé a pu être
-    // journalisé (« chaque révélation est journalisée », cf. page À propos). Si
-    // l'insert échoue, on renvoie 500 SANS exposer les alias.
-    const { error: auditErr } = await admin.from("pro_contact_reveals").insert(auditPayload);
-    if (auditErr) {
-      console.error("[/api/pro/contacts/group-reveal] audit insert failed", auditErr);
-      return NextResponse.json({ error: "audit_failed" }, { status: 500 });
-    }
-  }
-
-  return NextResponse.json({ items, proEmail: email });
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: "group_reveal_removed",
+      message:
+        "Le message groupé passe désormais par l'envoi sécurisé BUUPP (POST /api/pro/segments/broadcast).",
+    },
+    { status: 410 },
+  );
 }

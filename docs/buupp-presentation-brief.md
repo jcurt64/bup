@@ -48,7 +48,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 
 ### Codes visuels signatures
 
-- Les mots en *italique* dans les titres sont **toujours en accent indigo** (Fraunces italic, color `--accent`). Exemple : *« Cinq paliers. Un prix par donnée. »* → « Un prix par donnée » en italique indigo.
+- Les mots en *italique* dans les titres sont **toujours en accent indigo** (Fraunces italic, color `--accent`). Exemple : *« Sept données. Rien de plus. »* → « Rien de plus » en italique indigo.
 - **Eyebrow** au-dessus des titres : petit label monospace en MAJUSCULES, lettré (tracking 0.14em), couleur `--ink-4`, ~11 px. Exemple : `— LA PROMESSE BUUPP`.
 - **Confetti header** (signature mail/landing) : 4 formes décoratives sur 1 ligne — un cercle bleu (#4596EC), un losange violet (#7C3AED) à 45°, un triangle ambre (#F59E0B), un cercle vert (#10B981). Petits (~10-14 px). À reprendre sur la slide de titre et la slide de fin.
 - **Cartes** : `background: #FBF9F3`, `border: 1px solid #EAE3D0`, `border-radius: 16-18px`, `box-shadow: 0 4px 24px -8px rgba(15,22,41,.08)`. Padding intérieur 24-32 px.
@@ -95,9 +95,9 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **Eyebrow** : `— POUR VOUS, PARTICULIER`
 - **Titre** : Vous êtes payé, *vraiment*.
 - **3 cartes** (style carte BUUPP) :
-  1. **💶 De 5 à 80 € par mise en relation acceptée** — selon le palier de données partagées (ex. seulement votre code postal = quelques €, profil complet vérifié = jusqu'à 80 €).
+  1. **💶 De 1 à 3 € par mise en relation acceptée** — prix unique : 1 € de base × durée de la campagne (7 jours ×1, 48 h ×1,5, 24 h ×2, Flash 1 h ×3), doublé pour un profil certifié confiance.
   2. **🔕 Aucun spam, aucune relance** — vous n'êtes contacté qu'**après votre acceptation explicite**. Vous gardez la main à 100 %.
-  3. **🔐 Données chiffrées et cloisonnées** — BUUPP ne revend rien, ne stocke que le strict nécessaire, et vous pouvez tout effacer en un clic.
+  3. **🔐 Sept données, jamais transmises** — prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. Le pro ne voit que le prénom et l'initiale : ville, sexe et tranche d'âge servent uniquement au ciblage, appels et e-mails passent toujours par BUUPP. Vous pouvez tout effacer en un clic.
 - **Screenshot** : capture de l'onglet « Mises en relation » côté prospect (une carte avec récompense visible). Voir section 5.
 
 ### Slide 5 — Côté pro : pourquoi c'est différent
@@ -109,7 +109,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
   |---|---|---|---|
   | Consentement | Approximatif | Implicite cookies | **Double, horodaté** |
   | Fraîcheur des données | 6-24 mois | Pas accessible | **Mis à jour en temps réel** |
-  | Qualité | Variable | Anonyme | **Profils vérifiés par paliers** |
+  | Qualité | Variable | Anonyme | **Téléphone vérifié par SMS, contact relayé par BUUPP** |
   | Coût | Forfait à l'aveugle | Au clic, pas au prospect | **Au prospect réellement intéressé** |
   | RGPD | Risque élevé | Risque modéré | **Conforme par design** |
 
@@ -120,29 +120,31 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **Titre** : *Du petit commerce à la grande marque.*
 - **Deux blocs côte à côte** :
   - **🏪 Le commerçant local** (boulanger, garage, coach sportif…)
-    *« Je viens d'ouvrir. J'ai besoin de 30 clients dans un rayon de 5 km. Avec BUUPP, j'envoie une offre ciblée, je paie 8 € par accord, et j'ai 30 vrais contacts qui m'attendent en moins d'une semaine. »*
+    *« Je viens d'ouvrir. J'ai besoin de 30 clients dans un rayon de 5 km. Avec BUUPP, j'envoie une offre, je paie 1,30 € par accord, et j'ai 30 vrais contacts qui m'attendent en moins d'une semaine. »*
   - **🏢 La grande marque**
-    *« Je lance une campagne nationale. Je cible 500 profils ultra-qualifiés (palier 4-5, âge, revenu, intérêt produit). BUUPP me les délivre avec consentement signé, prêts à recevoir mon offre. »*
+    *« Je lance une campagne nationale. Je sollicite 500 prospects en flash deal. Ceux qui acceptent m'attendent, avec consentement signé : je les appelle ou leur écris via BUUPP, sans jamais manipuler leurs coordonnées. »*
 - Screenshot illustratif : interface de création de campagne pro (encart à côté des deux blocs). Voir section 5.
 
-### Slide 7 — Le principe des 5 paliers
+### Slide 7 — Sept données, rien de plus
 - **Eyebrow** : `— LE CŒUR TECHNIQUE, EXPLIQUÉ SIMPLEMENT`
-- **Titre** : Cinq paliers. *Un prix par donnée.*
-- **Visuel central** : 5 disques empilés horizontalement, chacun avec son label + montant indicatif (de 5 € à 80 €).
-  - Palier 1 — *Identification de base* (prénom, code postal)
-  - Palier 2 — *Localisation détaillée + tranche d'âge*
-  - Palier 3 — *Style de vie* (mobilité, animaux, habitat)
-  - Palier 4 — *Profession et revenus*
-  - Palier 5 — *Patrimoine et projets*
-- **Phrase pied de slide** : « Chaque palier est **cloisonné** : un pro qui achète un palier 2 ne voit jamais le palier 5. C'est la **minimisation des données** exigée par le RGPD. »
-- **Screenshot** : page `/bareme` ou `/minimisation` montrant la matrice. Voir section 5.
+- **Titre** : Sept données. *Rien de plus.*
+- **Visuel central** : 7 cartes alignées, chacune avec son label et ce que voit le pro :
+  - *Prénom* — visible par le pro
+  - *Initiale du nom* — visible par le pro
+  - *Ville* — ciblage uniquement, jamais transmise
+  - *Sexe* — ciblage uniquement, jamais transmis
+  - *Tranche d'âge* (18-35 / 35+) — ciblage uniquement, jamais transmise
+  - *Téléphone* — jamais transmis, l'appel passe par BUUPP
+  - *E-mail* — jamais transmis, l'e-mail passe par BUUPP
+- **Phrase pied de slide** : « Le pro choisit le mode de contact (téléphone et/ou e-mail) et peut cibler des villes, un sexe ou une tranche d'âge. Il ne reçoit jamais ces données ni vos coordonnées : c'est la **minimisation des données** exigée par le RGPD, poussée au maximum. »
+- **Screenshot** : page `/about` (tableau « Comment vos données sont pseudonymisées »). Voir section 5.
 
 ### Slide 8 — RGPD-by-design (le sérieux)
 - **Eyebrow** : `— LE SÉRIEUX QU'ON EXIGE DE NOUS`
 - **Titre** : *Aucune zone grise.*
 - **4 piliers en carrés alignés** (icône + phrase courte) :
   1. **🤝 Double consentement** — prospect ET pro doivent dire « oui » avant tout échange. Horodaté, archivé, vérifiable.
-  2. **📐 Minimisation des données** — chaque finalité (prise de RDV, étude, opération promo…) débloque **uniquement** les paliers de données strictement nécessaires. Aucun « pack tout inclus ».
+  2. **📐 Minimisation des données** — BUUPP ne collecte que sept données (prénom, initiale, ville, sexe, tranche d'âge, téléphone, e-mail) : ni date de naissance, ni adresse, ni profil de consommation.
   3. **👁 CNIL & pixels** — BUUPP applique les dernières recommandations CNIL (notamment sur les pixels de tracking email) : **consentement explicite obligatoire** avant toute mesure.
   4. **🗑 Droit à l'effacement en 1 clic** — le prospect peut tout effacer instantanément. Aucune copie cachée, aucune rétention indue.
 - **Phrase pied** : « BUUPP n'est pas un projet "RGPD-compatible". C'est un projet **né du RGPD**. »
@@ -152,7 +154,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **Titre** : Vos données sont *à vous*. Et bien gardées.
 - **3 colonnes** :
   - **🔒 Chiffrement** — toutes les données sensibles sont chiffrées au repos et en transit. Personne chez BUUPP ne peut lire votre IBAN ou votre n° de téléphone en clair.
-  - **🚧 Cloisonnement strict** — accès par palier uniquement, aucun pro ne voit ce qui n'a pas été acheté.
+  - **🚧 Contact relayé** — le pro ne voit que votre prénom et l'initiale de votre nom ; appels et e-mails passent par la plateforme.
   - **🛡 Hébergement européen** — serveurs en France (Vercel + Supabase EU), zéro export hors UE.
 - En bas, mention discrète : *« BUUPP SAS · RCS Paris 908 214 009 · Agréé intermédiaire en opérations de banque »*.
 
@@ -160,7 +162,7 @@ Baseline officielle : **« Be Used · Paid & Proud »**
 - **Eyebrow** : `— COMMENT ON UTILISE BUUPP, CÔTÉ PROSPECT`
 - **Titre** : *Trois étapes. C'est tout.*
 - **Timeline horizontale 3 points** :
-  1. **Je crée mon profil par paliers** — je remplis seulement ce que je suis prêt à partager.
+  1. **Je crée mon profil** — prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail. C'est tout.
   2. **Je reçois des propositions** — je vois le pro, l'offre, la rémunération. Je dis oui ou non.
   3. **Je suis payé** — virement IBAN, carte cadeau, ou don à une association.
 - **Screenshot** : aperçu d'une notification de mise en relation reçue (carte pending). Voir section 5.
@@ -192,8 +194,8 @@ Capture les URLs ci-dessous (mode connecté en prospect, viewport desktop 1440×
 |---|---|---|---|
 | **A** | `https://bup-rouge.vercel.app/` (home, hero) | Slide 1 (en fond très estompé, opacité 8 %) | Pleine page, haut |
 | **B** | `/prospect?tab=relations` — une carte de mise en relation pending visible | Slide 4 | Zoom sur une seule carte |
-| **C** | `/pro` (création de campagne, écran de ciblage par paliers) | Slide 6 (encart droit) | Section ciblage uniquement |
-| **D** | `/bareme` ou `/minimisation` (matrice paliers) | Slide 7 | La grille des 5 paliers |
+| **C** | `/pro` (création de campagne, choix du mode de contact) | Slide 6 (encart droit) | Section mode de contact uniquement |
+| **D** | `/about` (tableau de pseudonymisation) | Slide 7 | Le tableau des 7 données |
 | **E** | `/prospect?tab=relations` modale d'une mise en relation | Slide 10 (étape 2) | Modale détaillée |
 
 > Si tu ne peux pas générer de screenshots dynamiques, **mock-up des écrans** dans le style BUUPP (cartes ivoire, fonts Fraunces/DM Sans, accent indigo). Le rendu doit rester crédible.
@@ -207,7 +209,7 @@ Capture les URLs ci-dessous (mode connecté en prospect, viewport desktop 1440×
 - **Animations** :
   - Slide 2 : les 3 cartes apparaissent en cascade (fly-in left, décalage 0,2 s).
   - Slide 3 : flèches du schéma central animées séquentiellement (flèche prospect → BUUPP, puis BUUPP → pro, puis flèche verte de retour).
-  - Slide 7 : les 5 paliers apparaissent un à un.
+  - Slide 7 : les 4 cartes de données apparaissent une à une.
   - Slide 11 : la phrase narrative se révèle ligne par ligne.
 - **Navigation cliquable** : sommaire optionnel sur slide 1, et icône « home » en footer de chaque slide pour revenir au début (lien interne).
 - **Mode présentateur** : notes orateur pour chaque slide (1-2 phrases clés à dire à voix haute, en français naturel).

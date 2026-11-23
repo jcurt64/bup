@@ -7,19 +7,13 @@ var { useState, useEffect } = React;
    mutation est répliquée sur l'API (PATCH/POST) tout en restant
    optimiste côté UI pour ne pas geler le formulaire.
 
-   Toute édition de "Mes données" se propage à :
+   Seules 7 données sont collectées (prénom, initiale du nom, ville,
+   sexe, tranche d'âge, téléphone, e-mail). Toute édition de "Mes données" se propage à :
    - la salutation du header ("Bonjour Marie" / "Bonsoir Marie" à partir de 19h)
    - l'avatar du topbar (initiales)
    - les onglets Préférences / Score                              */
-const EMPTY_TIER = {
-  identity:    { prenom: '', nom: '', email: '', telephone: '', naissance: '' },
-  // `targetingRadiusKm` est stocké en string (cohérence avec les autres
-  // champs du tier — rowToUi serialize tout en string). Le slider Prefs
-  // fait le parseInt à la lecture.
-  localisation:{ adresse: '', ville: '', codePostal: '', logement: '', mobilite: '', targetingRadiusKm: '25', nationalOptIn: 'true', geoExtension: 'national' },
-  vie:         { foyer: '', sports: '', animaux: '', vehicule: '' },
-  pro:         { statut: '', secteur: '' },
-  patrimoine:  { residence: '', projets: '' },
+const EMPTY_IDENTITY = {
+  identity: { prenom: '', nom: '', ville: '', genre: '', trancheAge: '', email: '', telephone: '' },
 };
 
 // Sources de vérité pour les listes complètes — utilisées par les toggle
@@ -30,7 +24,7 @@ const CAMPAIGN_TYPE_LIST = ['Prise de contact', 'Prise de rendez-vous', 'Événe
 const CATEGORY_LIST = ['Bien-être', 'Coaching', 'Artisanat', 'Immobilier', 'Finance', 'Assurance', 'Auto', 'Éducation', 'Beauté', 'Alimentation', 'Juridique'];
 
 const INITIAL_PROFILE = {
-  ...EMPTY_TIER,
+  ...EMPTY_IDENTITY,
   // Préférences par défaut volontairement larges — opt-OUT plutôt qu'opt-IN.
   // Le prospect part sur "tous les types & toutes les catégories acceptés"
   // (= valeur par défaut côté DB `prospects.all_campaign_types = true`),
@@ -53,9 +47,8 @@ const INITIAL_PROFILE = {
 function notifyProfileChanged() {
   try { window.dispatchEvent(new Event('prospect:profile-changed')); } catch (_) {}
 }
-async function persistFieldUpdate(category, field, value) {
-  return persistFieldsUpdate(category, { [field]: value });
-}
+// Renvoie { ok, status?, message? } — utilisé par « Mes coordonnées » pour
+// afficher un retour d'enregistrement (ex. e-mail refusé par le serveur).
 async function persistFieldsUpdate(category, fields) {
   try {
     const r = await fetch('/api/prospect/donnees', {
@@ -66,25 +59,16 @@ async function persistFieldsUpdate(category, fields) {
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       console.warn('[prospect/donnees] PATCH failed', r.status, j);
-      return;
+      // Resynchronise le store avec la vérité serveur (annule l'optimiste).
+      notifyProfileChanged();
+      return { ok: false, status: r.status, message: typeof j?.message === 'string' ? j.message : null };
     }
     notifyProfileChanged();
-  } catch (e) { console.warn('[prospect/donnees] PATCH error', e); }
-}
-async function persistTierAction(tier, action) {
-  try {
-    const r = await fetch('/api/prospect/tier', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tier, action }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      console.warn('[prospect/tier] POST failed', r.status, j);
-      return;
-    }
-    notifyProfileChanged();
-  } catch (e) { console.warn('[prospect/tier] POST error', e); }
+    return { ok: true };
+  } catch (e) {
+    console.warn('[prospect/donnees] PATCH error', e);
+    return { ok: false, message: 'Erreur réseau. Réessayez.' };
+  }
 }
 // Préférences de monétisation (types de campagne + catégories acceptés) —
 // persistées sur la row maître `prospects` via une route dédiée. `fields`
@@ -111,8 +95,6 @@ const ProspectCtx = React.createContext(null);
 
 function ProspectProvider({ children }) {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
-  const [deleted, setDeleted] = useState({});
-  const [removed, setRemoved] = useState({});
   const [hydrated, setHydrated] = useState(false);
   const [isFounder, setIsFounder] = useState(false);
 
@@ -132,11 +114,10 @@ function ProspectProvider({ children }) {
       const prefs = data.preferences;
       setProfile(p => ({
         ...p,
-        identity:    { ...p.identity,    ...data.identity },
-        localisation:{ ...p.localisation,...data.localisation },
-        vie:         { ...p.vie,         ...data.vie },
-        pro:         { ...p.pro,         ...data.pro },
-        patrimoine:  { ...p.patrimoine,  ...data.patrimoine },
+        // Seul le bloc `identity` (prénom, initiale du nom, e-mail,
+        // téléphone) est lu — les anciens blocs (localisation, vie, pro,
+        // patrimoine, hiddenTiers, removedTiers) sont ignorés.
+        identity:    { ...p.identity,    ...(data.identity || {}) },
         identityMeta: { ...(p.identityMeta || {}), ...(data.identityMeta || {}) },
         ...(prefs ? {
           allCampaignTypes: prefs.allCampaignTypes !== false,
@@ -145,12 +126,6 @@ function ProspectProvider({ children }) {
           categories: new Set(Array.isArray(prefs.categories) ? prefs.categories : []),
         } : {}),
       }));
-      const nextDeleted = {};
-      (data.hiddenTiers || []).forEach(t => { nextDeleted[t] = true; });
-      setDeleted(nextDeleted);
-      const nextRemoved = {};
-      (data.removedTiers || []).forEach(t => { nextRemoved[t] = true; });
-      setRemoved(nextRemoved);
     } catch (e) { console.warn('[prospect/donnees] GET error', e); }
   }, []);
 
@@ -255,6 +230,15 @@ function ProspectProvider({ children }) {
         // en arrière à chaque fois.
         // Campagne réservée aux nouveaux contacts du pro (option « exclure
         // les anciens acceptants ») : popup dédiée avec le message serveur.
+        // Coordonnées incomplètes (garde serveur 422) : on rouvre la modale
+        // d'invitation à compléter les 7 champs du profil.
+        if (r.status === 422) {
+          setAcceptGate({
+            relationId: id,
+            missingFields: missingContactFields(profile).map(([, l]) => l),
+          });
+          return false;
+        }
         if (j?.error === 'already_accepted_pro') {
           setDecisionNotice({
             title: 'Offre non disponible',
@@ -285,19 +269,20 @@ function ProspectProvider({ children }) {
   // États optimistes locaux pour répondre instantanément.
   const [optimistic, setOptimistic] = useState({}); // id → 'accepted' | 'refused' | 'pending'
 
-  // Garde « données complètes » à l'acceptation d'une sollicitation.
+  // Garde « coordonnées complètes » à l'acceptation d'une sollicitation.
   //  - acceptGate    : modale d'invitation à compléter (clic « Accepter »
-  //                    sur une sollicitation dont un palier requis est vide).
+  //                    alors qu'une des 7 données est vide).
   //  - pendingAccept  : sollicitation que le prospect est parti compléter ;
   //                     surveillée pour rouvrir une modale quand c'est prêt.
   //  - acceptReady    : modale « vous pouvez retourner accepter ».
-  const [acceptGate, setAcceptGate] = useState(null);     // { relationId, requiredTierNums, missingTierNums }
-  const [pendingAccept, setPendingAccept] = useState(null); // { relationId, requiredTierNums }
+  const [acceptGate, setAcceptGate] = useState(null);     // { relationId, missingFields: string[] }
+  const [pendingAccept, setPendingAccept] = useState(null); // { relationId }
   const [acceptReady, setAcceptReady] = useState(null);    // { relationId }
   // Consentement préalable spécifique au canal TÉLÉPHONE (réforme française
   // du démarchage téléphonique = opt-in). Popup affichée à l'acceptation :
   // le prospect confirme accepter d'être éventuellement contacté par
-  // téléphone avant que l'acceptation ne soit finalisée.
+  // téléphone (via BUUPP) avant que l'acceptation ne soit finalisée.
+  // Sautée quand la campagne ne prévoit que l'e-mail (contactChannels).
   const [phoneConsent, setPhoneConsent] = useState(null);  // { relationId }
 
   // Toute mutation de décision (accept/refuse/undo) modifie le ratio
@@ -310,12 +295,13 @@ function ProspectProvider({ children }) {
   };
 
   // Finalise réellement l'acceptation (optimistic UI + POST décision).
-  // Appelée APRÈS confirmation du consentement au canal téléphonique.
-  const finalizeAccept = async (id) => {
+  // Appelée APRÈS confirmation du consentement au canal téléphonique
+  // (phoneConsent = true), ou directement pour une campagne e-mail seul
+  // (phoneConsent = false : aucun appel prévu).
+  const finalizeAccept = async (id, phoneConsent = true) => {
     setOptimistic(o => ({ ...o, [id]: 'accepted' }));
-    // phoneConsent: true — le prospect a confirmé la popup de consentement
-    // au canal téléphonique avant d'arriver ici (tracé côté serveur).
-    const ok = await postDecision(id, 'accept', { phoneConsent: true });
+    // phoneConsent tracé côté serveur (preuve du consentement au canal).
+    const ok = await postDecision(id, 'accept', { phoneConsent: phoneConsent === true });
     if (!ok) setOptimistic(o => { const n = {...o}; delete n[id]; return n; });
     await refetchRelations();
     // Scoped delete : on retire UNIQUEMENT l'id traité, pour ne pas
@@ -325,17 +311,23 @@ function ProspectProvider({ children }) {
   };
 
   const acceptRelation = async (id) => {
-    // Garde « données complètes » : pour accepter, tous les paliers exigés
-    // par la campagne doivent être intégralement renseignés. Sinon on ouvre
-    // la modale d'invitation à compléter (le serveur refuse aussi en 422).
+    // Garde « coordonnées complètes » : pour accepter, prénom, initiale
+    // du nom,
+    // téléphone, e-mail) doivent être renseignés. Sinon on ouvre la modale d'invitation à compléter (le
+    // serveur refuse aussi en 422).
     const rel =
       pendingRelations.find(r => r.id === id) ||
       historyRelations.find(r => r.id === id) ||
       null;
-    const requiredTierNums = relationRequiredTiers(rel);
-    const missingTierNums = missingRequiredTiers(profile, requiredTierNums);
-    if (missingTierNums.length > 0) {
-      setAcceptGate({ relationId: id, requiredTierNums, missingTierNums });
+    const missing = missingContactFields(profile);
+    if (missing.length > 0) {
+      setAcceptGate({ relationId: id, missingFields: missing.map(([, l]) => l) });
+      return;
+    }
+    // Campagne sans appel prévu (e-mail seul) → pas de consentement
+    // téléphonique à recueillir, on finalise directement.
+    if (!relationContactChannels(rel).includes('phone')) {
+      finalizeAccept(id, false);
       return;
     }
     // Étape consentement canal téléphonique (opt-in) AVANT de finaliser :
@@ -375,65 +367,16 @@ function ProspectProvider({ children }) {
   const pendingRelationsCount = pendingRelations.filter(
     r => !accepted[r.id] && !refused[r.id]
   ).length;
-  const updateField = (category, field, value) => {
-    setProfile(p => ({ ...p, [category]: { ...p[category], [field]: value } }));
-    // Persiste vers /api/prospect/donnees (PATCH). Optimiste : on n'attend
-    // pas la réponse pour mettre à jour l'UI ; les erreurs sont loggées.
-    persistFieldUpdate(category, field, value);
-  };
-  // Met à jour PLUSIEURS champs d'un même palier en un seul PATCH atomique.
-  // Utilisé par l'autocomplétion ville+code postal : on garantit que les
-  // deux valeurs sont écrites ensemble, jamais l'une sans l'autre.
+  // Met à jour un ou plusieurs champs d'identité en un seul PATCH
+  // atomique (optimiste côté UI). Renvoie la promesse de persistFieldsUpdate ({ ok, message? }).
   const updateFields = (category, fields) => {
     setProfile(p => ({ ...p, [category]: { ...p[category], ...fields } }));
-    persistFieldsUpdate(category, fields);
+    return persistFieldsUpdate(category, fields);
   };
-  const suppressTemp = (category) => {
-    // Garde-fou : le palier Identification ne se masque pas (refusé par
-    // l'API en 400 identity_tier_required) — pas d'état optimiste trompeur.
-    if (category === 'identity') return;
-    setDeleted(d => ({ ...d, [category]: true }));
-    persistTierAction(category, 'hide');
-  };
-  const restore = (category) => {
-    setDeleted(d => { const n = {...d}; delete n[category]; return n; });
-    persistTierAction(category, 'restore');
-  };
-  const deletePermanent = (category) => {
-    // Identification is the keystone palier: without it the prospect cannot
-    // be identified at all, so removing it cascades to every other category.
-    const cascade = category === 'identity';
-    const targets = cascade
-      ? DATA_CATEGORIES.map(c => c.key)
-      : [category];
-    setProfile(p => {
-      const next = { ...p };
-      targets.forEach(key => {
-        const cleared = Object.fromEntries(Object.keys(p[key] || {}).map(k => [k, '']));
-        next[key] = cleared;
-      });
-      return next;
-    });
-    setDeleted(d => {
-      const n = { ...d };
-      targets.forEach(key => { delete n[key]; });
-      return n;
-    });
-    // Remove the categories from the displayed list — RGPD art.17 (droit à l'effacement).
-    setRemoved(r => {
-      const n = { ...r };
-      targets.forEach(key => { n[key] = true; });
-      return n;
-    });
-    // Côté serveur, le DELETE sur 'identity' déclenche la cascade vers
-    // tous les paliers — on n'envoie qu'un seul appel API.
-    persistTierAction(category, 'delete');
-  };
-  const addField = (category, field, value) => updateField(category, field, value);
   // Les 4 handlers ci-dessous calculent l'état suivant de façon
   // déterministe (à partir du `profile` du render courant) puis le
   // répliquent à la fois dans le state local (setProfile) et côté API
-  // (persistPreferences) — même contrat optimiste que updateField.
+  // (persistPreferences) — même contrat optimiste que updateFields.
   const setAllCampaignTypes = (on) => {
     setProfile(p => ({ ...p, allCampaignTypes: on }));
     persistPreferences({ allCampaignTypes: on, campaignTypes: [...(profile.campaignTypes || [])] });
@@ -489,7 +432,7 @@ function ProspectProvider({ children }) {
 
   return (
     <ProspectCtx.Provider value={{
-      profile, deleted, removed, updateField, updateFields, suppressTemp, restore, deletePermanent, addField,
+      profile, updateFields,
       setAllCampaignTypes, toggleCampaignType, setAllCategories, toggleCategory,
       pendingRelations, historyRelations: mergedHistory,
       acceptedRelations: accepted, refusedRelations: refused,
@@ -529,9 +472,10 @@ function ProspectDashboard({ go, initialTab, initialScrollTier }) {
 
 function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
   const [sec, setSec] = useState(initialTab || 'portefeuille');
-  // Palier vers lequel scroller à l'ouverture de « Mes données » (ex. depuis
-  // le popup d'acceptation, la carte Zone géo, ou un deep-link home
-  // ?tab=donnees&scrollTier=N). Consommé par MesDonnees.
+  // Demande de scroll vers la carte « Mes coordonnées » à l'ouverture de
+  // « Mes données » (ex. depuis le popup d'acceptation ou un deep-link home
+  // ?tab=donnees&scrollTier=N — la valeur n'est plus qu'un déclencheur).
+  // Consommé par MesDonnees.
   const [donneesScrollTier, setDonneesScrollTier] = useState(
     initialTab === 'donnees' ? (initialScrollTier ?? null) : null,
   );
@@ -544,13 +488,12 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     decisionNotice, setDecisionNotice,
   } = useProspect();
 
-  // Surveille le palier que le prospect est parti compléter après un clic
-  // « Accepter » bloqué : dès que tous les paliers requis de cette
-  // sollicitation sont intégralement renseignés, on ouvre la modale
-  // « vous pouvez retourner à la sollicitation pour accepter ».
+  // Surveille les coordonnées que le prospect est parti compléter après un
+  // clic « Accepter » bloqué : dès que les 7 champs sont renseignés, on
+  // ouvre la modale « vous pouvez retourner à la sollicitation ».
   useEffect(() => {
     if (!pendingAccept) return;
-    const missing = missingRequiredTiers(profile, pendingAccept.requiredTierNums);
+    const missing = missingContactFields(profile);
     if (missing.length === 0) {
       setAcceptReady({ relationId: pendingAccept.relationId });
       setPendingAccept(null);
@@ -588,14 +531,14 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     return () => window.removeEventListener('bupp:open-message', onOpenMsg);
   }, []);
 
-  // Bridge cross-onglet pour les CTAs internes (ex. "Ouvrir Mes données"
-  // depuis la carte Zone géographique de l'onglet Préférences). Le tab
+  // Bridge cross-onglet pour les CTAs internes (ex. "Vérifier mon
+  // téléphone" depuis Niveau de vérification → Mes données). Le tab
   // ciblé doit exister dans PROSPECT_SECTIONS — sinon on ignore.
   useEffect(() => {
     const onGotoTab = (e) => {
       const tab = e?.detail?.tab;
       if (typeof tab === 'string' && PROSPECT_SECTIONS.some(s => s.id === tab)) {
-        // Scroll optionnel vers un palier précis de « Mes données ».
+        // Scroll optionnel vers la carte « Mes coordonnées ».
         if (tab === 'donnees' && e.detail?.scrollTier != null) {
           setDonneesScrollTier(e.detail.scrollTier);
         }
@@ -615,8 +558,8 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     ? [s, { id: 'etudes', icon: 'bulb', label: 'Tests & Études' }]
     : [s]);
   // Override live du nom dans le header : reflète instantanément les
-  // modifications de l'onglet "Mes données" (palier identification).
-  const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom || ''}`.trim();
+  // modifications de l'onglet "Mes données" (prénom + initiale du nom).
+  const overrideName = `${profile?.identity?.prenom || ''} ${profile?.identity?.nom ? profile.identity.nom.charAt(0).toUpperCase() + '.' : ''}`.trim();
   return (
     <>
     <DashShell role="prospect" go={go} sections={sections} current={sec} onNav={setSec}
@@ -635,13 +578,11 @@ function ProspectDashboardInner({ go, initialTab, initialScrollTier }) {
     </DashShell>
     {acceptGate && (
       <AcceptIncompleteModal
-        missingTierNums={acceptGate.missingTierNums}
-        profile={profile}
+        missingFields={acceptGate.missingFields}
         onGoToData={() => {
-          setPendingAccept({ relationId: acceptGate.relationId, requiredTierNums: acceptGate.requiredTierNums });
-          // Scroll direct vers le 1er palier manquant (les missingTierNums
-          // sont triés croissants).
-          setDonneesScrollTier(acceptGate.missingTierNums?.[0] ?? null);
+          setPendingAccept({ relationId: acceptGate.relationId });
+          // Scroll direct vers la carte « Mes coordonnées ».
+          setDonneesScrollTier(1);
           setAcceptGate(null);
           setSec('donnees');
         }}
@@ -2646,34 +2587,34 @@ function ReferralDots({ count, cap = 10 }) {
 }
 
 /* ---------- Portefeuille ---------- */
-// Sérialise la liste des paliers couverts par une campagne : [1,3,5] → "1 – 3 – 5".
-// Chaque palier est listé explicitement (pas de compression d'intervalle
-// type "1-3") pour rester lisible côté UI, séparateur tiret cadratin " – ".
-// Retourne null si la liste est vide / invalide.
-function formatPaliers(tiers) {
-  if (!Array.isArray(tiers)) return null;
-  const uniq = [
-    ...new Set(
-      tiers
-        .map((n) => Math.round(Number(n) || 0))
-        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5),
-    ),
-  ].sort((a, b) => a - b);
-  if (uniq.length === 0) return null;
-  return uniq.join(' – ');
+// Modes de contact d'une campagne (`contactChannels` renvoyé par
+// /api/prospect/relations et les flash deals) : 'phone' et/ou 'email'.
+// Absent / vide / invalide (anciennes données) ⇒ les deux canaux.
+// Appels et e-mails passent TOUJOURS par BUUPP (relais) — le pro ne
+// reçoit jamais le numéro ni l'adresse du prospect.
+function relationContactChannels(src) {
+  const raw = src && Array.isArray(src.contactChannels) ? src.contactChannels : null;
+  const set = new Set((raw || []).filter(c => c === 'phone' || c === 'email'));
+  const out = ['phone', 'email'].filter(c => set.has(c));
+  return out.length ? out : ['phone', 'email'];
 }
-
-// Renvoie { label, value } pour rendre « Palier 3 » ou « Paliers 1 – 3 – 5 »
-// à partir du Movement renvoyé par /api/prospect/movements (tiers[] si
-// présent, sinon repli sur tier unique).
-function movementTierLabel(m) {
-  const list = Array.isArray(m?.tiers) && m.tiers.length > 0
-    ? m.tiers
-    : (m?.tier != null ? [m.tier] : null);
-  if (!list) return null;
-  const value = formatPaliers(list);
-  if (!value) return null;
-  return { label: list.length > 1 ? 'Paliers' : 'Palier', value };
+// « par téléphone », « par e-mail » ou « par téléphone ou par e-mail ».
+function contactModeText(src) {
+  const ch = relationContactChannels(src);
+  if (ch.length === 2) return 'par téléphone ou par e-mail';
+  return ch[0] === 'phone' ? 'par téléphone' : 'par e-mail';
+}
+// Pastille compacte « Téléphone · E-mail » avec icônes.
+function ContactModeChip({ source, style }) {
+  const ch = relationContactChannels(source);
+  return (
+    <span className="chip chip-accent" title={`Mode de contact : ${contactModeText(source)} (via BUUPP)`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...(style || {}) }}>
+      {ch.includes('phone') && <Icon name="phone" size={11}/>}
+      {ch.includes('email') && <Icon name="email" size={11}/>}
+      {ch.map(c => (c === 'phone' ? 'Téléphone' : 'E-mail')).join(' · ')}
+    </span>
+  );
 }
 
 // Formate la date de disponibilité des BUUPP Coins pour les mouvements
@@ -2942,11 +2883,12 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                 day: '2-digit', month: '2-digit', year: 'numeric',
                 hour: '2-digit', minute: '2-digit',
               });
-              const header = ['Date', 'Origine', 'Palier', 'Statut', 'Montant (€)'];
+              const header = ['Date', 'Origine', 'Mode de contact', 'Statut', 'Montant (€)'];
               const lines = rows.map((m) => {
                 const date = m.date ? dateFmt.format(new Date(m.date)) : '';
-                const tLabel = movementTierLabel(m);
-                const tier = tLabel ? `${tLabel.label} ${tLabel.value}` : '';
+                const tier = m.relation
+                  ? relationContactChannels(m.relation).map(c => (c === 'phone' ? 'Téléphone' : 'E-mail')).join(' / ')
+                  : '';
                 const amount =
                   (m.sign || (Number(m.amountCents ?? 0) >= 0 ? '+' : '−')) +
                   Number(Math.abs(m.amountEur ?? 0)).toFixed(2).replace('.', ',');
@@ -2980,7 +2922,7 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
         <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr>
-              <th>Date</th><th>Origine</th><th>Palier</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th>
+              <th>Date</th><th>Origine</th><th>Contact</th><th>Statut</th><th style={{textAlign:'right'}}>Montant</th>
             </tr></thead>
             <tbody>
               {!movements ? (
@@ -3050,19 +2992,9 @@ function Portefeuille({ pendingDetail, onPendingConsumed }) {
                         </div>
                       )}
                     </td>
-                    <td>{(() => {
-                      const t = movementTierLabel(m);
-                      if (!t) return <span className="muted">—</span>;
-                      // Séparateur « · » (point médian) au lieu du tiret cadratin
-                      // de formatPaliers, pour coller au rendu de la maquette.
-                      const val = t.value.split(' – ').join(' · ');
-                      return (
-                        <span className="chip" style={{ padding: '5px 10px', borderRadius: 8 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }}/>
-                          {t.label} {val}
-                        </span>
-                      );
-                    })()}</td>
+                    <td>{m.relation
+                      ? <ContactModeChip source={m.relation} style={{ padding: '5px 10px', borderRadius: 8 }}/>
+                      : <span className="muted">—</span>}</td>
                     <td>
                       <span className={'chip ' + (m.statusChip ? 'chip-' + m.statusChip : '')} style={{ borderRadius: 999, padding: '5px 12px' }}>
                         {m.statusChip === 'good' && <Icon name="check" size={12}/>}
@@ -3797,224 +3729,74 @@ function FiabiliteCard() {
 }
 
 /* ---------- Mes données ---------- */
-const DATA_CATEGORIES = [
-  {
-    key: 'identity', tier: 1, label: 'Identification', icon: 'user',
-    desc: "Email, nom, téléphone, date de naissance.",
-    fields: [
-      ['prenom', 'Prénom'],
-      ['nom', 'Nom'],
-      ['email', 'Email'],
-      ['telephone', 'Téléphone'],
-      ['naissance', 'Naissance (mois et année)'],
-    ],
-  },
-  {
-    key: 'localisation', tier: 2, label: 'Localisation', icon: 'france',
-    desc: "Adresse, ville, code postal, région.",
-    fields: [
-      ['adresse', 'Adresse postale'],
-      ['ville', 'Ville'],
-      ['codePostal', 'Code postal'],
-      ['region', 'Région'],
-    ],
-  },
-  {
-    key: 'vie', tier: 3, label: 'Style de vie', icon: 'sparkle',
-    desc: "Logement, mobilité, foyer, véhicule, sports, animaux.",
-    fields: [
-      ['foyer', 'Composition du foyer'],
-      ['logement', 'Type de logement'],
-      ['mobilite', 'Mobilité'],
-      ['vehicule', 'Véhicule'],
-      ['sports', 'Sports / loisirs'],
-      ['animaux', 'Animaux'],
-    ],
-  },
-  {
-    key: 'pro', tier: 4, label: 'Données professionnelles', icon: 'briefcase',
-    desc: "Statut, secteur.",
-    fields: [
-      ['statut', 'Statut'],
-      ['secteur', 'Secteur'],
-    ],
-  },
-  {
-    key: 'patrimoine', tier: 5, label: 'Patrimoine & projets', icon: 'gauge',
-    desc: "Immobilier, projets.",
-    fields: [
-      ['residence', 'Résidence principale'],
-      ['projets', 'Projets à 3–5 ans'],
-    ],
-  },
+// BUUPP est une plateforme de mise en relation : seules SEPT données sont
+// collectées — prénom, initiale du nom, ville, sexe, tranche d'âge,
+// téléphone, e-mail. Le pro ne voit que le prénom + l'initiale ; ville,
+// sexe et tranche d'âge servent uniquement à proposer des offres
+// pertinentes (ciblage) et ne lui sont jamais montrés. Appels et e-mails
+// passent toujours par BUUPP (relais), le numéro et l'adresse ne lui sont
+// jamais communiqués. Prénom, initiale, téléphone et e-mail sont requis pour ACCEPTER
+// une sollicitation (le serveur applique le même garde-fou en 422).
+const CONTACT_FIELDS = [
+  ['prenom', 'Prénom'],
+  ['nom', 'Initiale du nom'],
+  ['ville', 'Ville'],
+  ['genre', 'Sexe'],
+  ['trancheAge', "Tranche d'âge"],
+  ['telephone', 'Téléphone'],
+  ['email', 'E-mail'],
 ];
-
-// Couleur d'identité par palier — appliquée au badge d'icône de la carte de
-// catégorie, à la barre de complétude et à la valeur % correspondantes. Chaque
-// palier a une teinte distincte (fond clair `soft` + aplat saturé `fg`).
-const CAT_COLORS = {
-  identity:     { soft: '#EEF2FF', fg: '#4F46E5' }, // indigo
-  localisation: { soft: '#DCF1EC', fg: '#0D9488' }, // teal
-  vie:          { soft: '#FCE7F1', fg: '#DB2777' }, // rose
-  pro:          { soft: '#FAEBCF', fg: '#B45309' }, // ambre
-  patrimoine:   { soft: '#E4F3E9', fg: '#15803D' }, // vert
-};
-
-// ─── Complétude « intégrale » d'un palier ───────────────────────────────
-// Un palier est COMPLET quand TOUS ses champs sont renseignés (distinct du
-// palier « atteint » = ≥ 1 champ, utilisé pour le BUUPP Score). C'est la
-// condition pour ACCEPTER une sollicitation : le prospect doit avoir
-// intégralement renseigné tous les paliers exigés par la campagne. Le
-// serveur applique le même garde-fou (cf. /api/prospect/relations/[id]/decision
-// + lib/prospect/completeness.ts — garder les deux synchronisés).
-function tierNumToCategory(num) {
-  return DATA_CATEGORIES.find(c => c.tier === num) || null;
-}
+const GENRE_OPTIONS = [
+  ['femme', 'Femme'],
+  ['homme', 'Homme'],
+  ['autre', 'Autre'],
+];
+const TRANCHE_AGE_OPTIONS = [
+  ['18-35', '18–35 ans'],
+  ['35+', 'Plus de 35 ans'],
+];
 function isFieldFilled(v) {
   return typeof v === 'string' ? v.trim() !== '' : Boolean(v);
 }
-function isCategoryComplete(profile, catKey) {
-  const cat = DATA_CATEGORIES.find(c => c.key === catKey);
-  if (!cat) return false;
-  return cat.fields.every(([f]) => isFieldFilled(profile?.[catKey]?.[f]));
+// Champs requis pour ACCEPTER une sollicitation (ville / sexe / tranche
+// d'âge facultatifs : ils ne servent qu'au filtrage des campagnes).
+const ACCEPT_REQUIRED_KEYS = ['prenom', 'nom', 'telephone', 'email'];
+// Champs requis encore vides → liste de [clé, libellé].
+function missingContactFields(profile) {
+  return CONTACT_FIELDS.filter(([f]) =>
+    ACCEPT_REQUIRED_KEYS.includes(f) && !isFieldFilled(profile?.identity?.[f]));
 }
-// Numéros de paliers requis par une sollicitation. Préfère la liste
-// complète `tiers` (1..5) ; retombe sur le palier le plus haut, puis [1].
-function relationRequiredTiers(rel) {
-  if (rel && Array.isArray(rel.tiers) && rel.tiers.length) return rel.tiers;
-  if (rel && rel.tier) return [rel.tier];
-  return [1];
+// Tous les champs du profil encore vides (complétude affichée).
+function missingProfileFields(profile) {
+  return CONTACT_FIELDS.filter(([f]) => !isFieldFilled(profile?.identity?.[f]));
 }
-// Renvoie les numéros de paliers requis NON intégralement renseignés.
-function missingRequiredTiers(profile, requiredTierNums) {
-  const nums = Array.isArray(requiredTierNums) && requiredTierNums.length
-    ? requiredTierNums
-    : [1];
-  return nums.filter(num => {
-    const cat = tierNumToCategory(num);
-    return !cat || !isCategoryComplete(profile, cat.key);
-  });
+// Initiale du nom : première lettre, en majuscule (le serveur normalise
+// de la même façon — seule cette lettre est conservée).
+function nomToInitial(raw) {
+  const t = String(raw || '').trim();
+  if (!t) return '';
+  return Array.from(t)[0].toLocaleUpperCase('fr-FR');
 }
-
-/* Configuration par champ : type de saisie + options (pour les tags) +
-   éventuel sous-champ "détail" libre. La clé est `category.field`.
-   - `tag`           : sélection unique parmi `options`
-   - `tag+text`      : tag + champ libre secondaire (placeholder, persisté
-                       dans `detailField`, optionnel sauf si `requireDetail`)
-   - `numeric`       : input numérique (chiffres uniquement, message d'erreur
-                       sur lettre / caractère spécial)
-   - `text` (défaut) : input libre (tel placeholder éventuel)
-*/
-const TAG_VIOLET = '#7C3AED';
-const FIELD_CONFIG = {
-  'vie.foyer': {
-    type: 'tag',
-    options: ['Solo', 'Famille'],
-  },
-  'vie.logement': {
-    type: 'tag',
-    multi: true,
-    options: ['Maison', 'Appartement', 'Studio', 'Loft', 'Duplex', 'Colocation'],
-  },
-  'vie.mobilite': {
-    type: 'tag',
-    multi: true,
-    options: ['Voiture', 'Co-voiturage', 'Transports en commun', 'Vélo', 'Trottinette', 'Moto', 'Piéton'],
-  },
-  'vie.animaux': {
-    type: 'tag+text',
-    options: ['Oui', 'Non'],
-    detailField: 'animauxDetail',
-    detailPlaceholder: 'Chat',
-    detailVisibleWhenTag: 'Oui',
-  },
-  'vie.vehicule': {
-    type: 'tag+text',
-    options: ['SUV', '4x4', 'Berline', 'Citadine', 'Break', 'Monospace', 'Coupé', 'Cabriolet', 'Utilitaire', 'Aucun'],
-    detailField: 'vehiculeMarque',
-    detailPlaceholder: 'Marque du véhicule',
-    // La marque ne s'affiche que pour un vrai véhicule — masquée si « Aucun »
-    // (permet de compléter le palier sans posséder de véhicule).
-    detailHiddenWhenTag: 'Aucun',
-  },
-  'pro.statut': {
-    type: 'tag',
-    options: [
-      'Cadre',
-      'Non cadre',
-      'Cadre dirigeant',
-      'Directeur',
-      'Employé',
-      'Ouvrier',
-      'Profession libérale',
-      'Indépendant / Freelance',
-      "Chef d'entreprise",
-      'Fonctionnaire',
-      'Étudiant',
-      "En recherche d'emploi",
-      'Retraité',
-    ],
-  },
-  // Secteur d'activité — liste déroulante des 21 sections de la
-  // nomenclature d'activités française (NAF rév. 2, INSEE). Intitulés
-  // officiels des sections A à U (T et U abrégés pour la lisibilité).
-  'pro.secteur': {
-    type: 'select',
-    placeholder: 'Sélectionnez un secteur…',
-    options: [
-      'Agriculture, sylviculture et pêche',
-      'Industries extractives',
-      'Industrie manufacturière',
-      "Production et distribution d'électricité, de gaz, de vapeur et d'air conditionné",
-      "Production et distribution d'eau ; assainissement, gestion des déchets et dépollution",
-      'Construction',
-      "Commerce ; réparation d'automobiles et de motocycles",
-      'Transports et entreposage',
-      'Hébergement et restauration',
-      'Information et communication',
-      "Activités financières et d'assurance",
-      'Activités immobilières',
-      'Activités spécialisées, scientifiques et techniques',
-      'Activités de services administratifs et de soutien',
-      'Administration publique',
-      'Enseignement',
-      'Santé humaine et action sociale',
-      'Arts, spectacles et activités récréatives',
-      'Autres activités de services',
-      "Activités des ménages en tant qu'employeurs",
-      'Activités extra-territoriales',
-    ],
-  },
-  'patrimoine.residence': {
-    type: 'tag',
-    options: ['Oui', 'Non'],
-  },
-  'patrimoine.projets': {
-    type: 'tag',
-    multi: true,
-    // « Déménagement » est cumulable avec Achat / Construction / Location.
-    // « Aucun » reste exclusif : le sélectionner vide les autres (et vice versa).
-    options: ['Achat', 'Construction', 'Location', 'Déménagement', 'Aucun'],
-    exclusive: 'Aucun',
-  },
-};
-
-function fieldConfig(category, field) {
-  return FIELD_CONFIG[`${category}.${field}`] || { type: 'text' };
+function isEmailValid(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
 }
 
 function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
   const ctx = useProspect();
-  // Scroll direct vers le palier concerné (ex. après le popup d'acceptation
-  // qui demande de compléter un palier). Délai pour passer APRÈS le
-  // scroll-en-haut automatique du shell au changement d'onglet.
+  const profile = ctx?.profile;
+  const identity = profile?.identity || {};
+  const phoneVerifiedAt = profile?.identityMeta?.phoneVerifiedAt || null;
+
+  // Scroll vers la carte « Mes coordonnées » quand on arrive depuis un
+  // lien interne (popup d'acceptation, niveau de vérification, deep-link
+  // ?tab=donnees&scrollTier=…). Délai pour passer APRÈS le scroll-en-haut
+  // automatique du shell au changement d'onglet.
   React.useEffect(() => {
     if (scrollTier == null) return;
     const t = setTimeout(() => {
-      const el = document.getElementById(`donnees-tier-${scrollTier}`);
+      const el = document.getElementById('donnees-coordonnees');
       if (el && el.scrollIntoView) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Petit halo pour attirer l'œil sur le palier à remplir.
         const prev = el.style.boxShadow;
         el.style.transition = 'box-shadow .3s';
         el.style.boxShadow = '0 0 0 3px color-mix(in oklab, var(--accent) 38%, transparent)';
@@ -4025,48 +3807,69 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollTier]);
-  const profile = ctx?.profile;
-  const deleted = ctx?.deleted || {};
-  const removed = ctx?.removed || {};
-  const phoneVerifiedAt = profile?.identityMeta?.phoneVerifiedAt || null;
-  const [editing, setEditing] = useState(null); // { category, field, value }
-  const [adding, setAdding] = useState(null); // category key
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [confirmHide, setConfirmHide] = useState(null); // category key
-  const [confirmFieldDelete, setConfirmFieldDelete] = useState(null); // { category, field, label }
-  // Modal dédié à la vérification SMS du téléphone : on intercepte les
-  // édit / add du champ `identity.telephone` pour le router ici plutôt
-  // que par EditFieldModal / AddFieldModal, qui PATCHeraient en clair.
+
+  // Formulaire local (prénom / initiale / ville / sexe / tranche d'âge /
+  // e-mail). Resynchronisé depuis le store tant que l'utilisateur n'a rien
+  // modifié (hydratation async, normalisation serveur après enregistrement).
+  const formFromIdentity = () => ({
+    prenom: identity.prenom || '', nom: identity.nom || '', ville: identity.ville || '',
+    genre: identity.genre || '', trancheAge: identity.trancheAge || '', email: identity.email || '',
+  });
+  const [form, setForm] = useState(formFromIdentity);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null); // { ok: boolean, msg: string } | null
+  useEffect(() => {
+    if (dirty) return;
+    setForm(formFromIdentity());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.prenom, identity.nom, identity.ville, identity.genre, identity.trancheAge, identity.email]);
+  const setField = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    setDirty(true);
+    setStatus(null);
+  };
+
+  // Vérification SMS du téléphone (flow dédié, jamais PATCHé en clair).
   const [phoneVerify, setPhoneVerify] = useState(null); // { initialPhone }
 
-  // Categories permanently removed by the user are excluded from the list,
-  // from the completeness calculation, and from the per-tier progress bars.
-  const visibleCategories = DATA_CATEGORIES.filter(c => !removed[c.key]);
-  // Niveau de palier = paliers atteints / paliers visibles (pondération
-  // identique au scoring backend `/api/prospect/score`). Un palier est
-  // "atteint" dès qu'au moins un de ses champs est renseigné. Aligné
-  // avec la logique de matching côté pro (un palier requis n'a besoin
-  // que d'une donnée pour qu'un prospect soit éligible).
-  const reachedTiers = visibleCategories.filter(
-    c => !deleted[c.key] && c.fields.some(([f]) => profile?.[c.key]?.[f]),
-  ).length;
-  const completeness = visibleCategories.length === 0
-    ? 0
-    : Math.round((reachedTiers / visibleCategories.length) * 100);
-  // Détail "X champs remplis sur Y" affiché en sous-titre — granularité
-  // utile pour le prospect qui veut maximiser ses gains.
-  const totalFields = visibleCategories.reduce((acc, c) => acc + c.fields.length, 0);
-  const filledFields = visibleCategories.reduce(
-    (acc, c) => acc + (deleted[c.key] ? 0 : c.fields.filter(([f]) => profile?.[c.key]?.[f]).length),
-    0,
-  );
+  const emailInvalid = form.email.trim() !== '' && !isEmailValid(form.email);
+  const changes = {};
+  if (form.prenom.trim() !== (identity.prenom || '')) changes.prenom = form.prenom.trim();
+  if (nomToInitial(form.nom) !== (identity.nom || '')) changes.nom = nomToInitial(form.nom);
+  const villeClean = form.ville.replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (villeClean !== (identity.ville || '')) changes.ville = villeClean;
+  if (form.genre !== (identity.genre || '')) changes.genre = form.genre;
+  if (form.trancheAge !== (identity.trancheAge || '')) changes.trancheAge = form.trancheAge;
+  if (form.email.trim() !== (identity.email || '')) changes.email = form.email.trim();
+  const hasChanges = Object.keys(changes).length > 0;
+
+  const save = async () => {
+    if (!hasChanges || emailInvalid || saving) return;
+    setSaving(true);
+    setStatus(null);
+    const res = await ctx?.updateFields('identity', changes);
+    setSaving(false);
+    if (res && res.ok === false) {
+      setStatus({ ok: false, msg: res.message || "L'enregistrement a échoué. Vérifiez vos informations et réessayez." });
+      return;
+    }
+    setDirty(false);
+    setStatus({ ok: true, msg: 'Coordonnées enregistrées.' });
+  };
+
+  const filledCount = CONTACT_FIELDS.length - missingProfileFields(profile).length;
+  const complete = filledCount === CONTACT_FIELDS.length;
+
+  const labelStyle = { fontSize: 10, marginBottom: 6, display: 'block' };
+  const inputStyle = { width: '100%', fontSize: 14 };
 
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Mes données" title="Vos informations déclarées"
-        desc="Ajoutez, modifiez, supprimez temporairement ou définitivement chaque donnée. Toute modification se répercute immédiatement sur l'ensemble de l'application."/>
+      <SectionTitle eyebrow="Mes données" title="Mes coordonnées"
+        desc="BUUPP ne vous demande que l'essentiel pour vous mettre en relation : votre prénom, l'initiale de votre nom, votre ville, votre sexe, votre tranche d'âge, votre téléphone et votre e-mail."/>
 
-      {/* RGPD rights banner — eye-catching */}
+      {/* RGPD rights banner */}
       <div className="alert-block" style={{
         padding: '22px 26px', borderRadius: 16,
         background: 'linear-gradient(120deg, #FCEFCF 0%, #F7E2A8 100%)',
@@ -4085,8 +3888,8 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
           <div style={{ fontSize: 13, lineHeight: 1.6, color: '#6E4E14' }}>
             Vous disposez des droits d'<strong>accès</strong>, de <strong>rectification</strong>,
             d'<strong>effacement</strong>, de <strong>limitation du traitement</strong>, de <strong>portabilité</strong>
-            et d'<strong>opposition</strong> sur l'intégralité de vos données personnelles. Ces droits
-            s'exercent directement depuis cette page — chaque action est horodatée et tracée.
+            et d'<strong>opposition</strong> sur vos données personnelles. Vous pouvez modifier vos
+            coordonnées à tout moment depuis cette page.
           </div>
           <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#8A6A22', letterSpacing: '.06em' }}>
             RGPD · ARTICLES 15 À 22 · RÈGLEMENT (UE) 2016/679
@@ -4094,221 +3897,126 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
         </div>
       </div>
 
-      {/* Completeness summary */}
-      <div className="card" style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 28, alignItems: 'center' }}>
-        <div>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8, letterSpacing: '.14em' }}>Niveau de palier</div>
-          <div className="serif tnum" style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em' }}>
-            {completeness}<span style={{ fontSize: 26, fontWeight: 400, color: 'var(--ink-4)' }}>%</span>
-          </div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-            <strong style={{ color: 'var(--ink-2)' }}>{reachedTiers}/{visibleCategories.length} paliers atteints</strong>
-            {' · '}{filledFields}/{totalFields} champs renseignés
-          </div>
-          <div className="muted" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
-            Un palier est <em>atteint</em> dès qu'au moins une donnée y est renseignée. Plus vous remplissez de champs, plus votre BUUPP Score augmente.
-          </div>
-        </div>
-        <div>
-          <div className="col gap-3">
-            {visibleCategories.map(c => {
-              const filled = c.fields.filter(([f]) => profile?.[c.key]?.[f]).length;
-              const pct = deleted[c.key] ? 0 : Math.round(filled / c.fields.length * 100);
-              const col = CAT_COLORS[c.key] || { soft: 'var(--ivory-2)', fg: 'var(--accent)' };
-              return (
-                <div key={c.key}>
-                  <div className="row between" style={{ fontSize: 13, marginBottom: 6 }}>
-                    <span>
-                      <span className="mono muted" style={{ fontSize: 11, marginRight: 8 }}>P{c.tier}</span>
-                      <span style={{ color: 'var(--ink)' }}>{c.label}</span>
-                    </span>
-                    <span className="mono tnum" style={{ color: pct > 0 ? col.fg : 'var(--ink-5)' }}>{pct}%</span>
-                  </div>
-                  <div style={{ height: 7, background: 'var(--ivory-2)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: pct + '%', background: col.fg, transition: 'width .25s' }}/>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="col gap-4">
-        {visibleCategories.length === 0 && (
-          <div className="card" style={{ padding: 28, textAlign: 'center', color: 'var(--ink-4)' }}>
-            <div className="serif" style={{ fontSize: 18, color: 'var(--ink-2)', marginBottom: 6 }}>
-              Aucun palier de données
+      {/* Carte unique « Mes coordonnées » */}
+      <div id="donnees-coordonnees" className="card" style={{ padding: 24, scrollMarginTop: 90 }}>
+        <div className="row between" style={{ marginBottom: 18, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div className="row center gap-4">
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', color: '#4F46E5',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="user" size={20}/>
             </div>
-            <div style={{ fontSize: 13 }}>
-              Vous avez supprimé toutes vos catégories de données. Les professionnels ne peuvent
-              plus vous solliciter via BUUPP.
-            </div>
-          </div>
-        )}
-        {visibleCategories.map(cat => {
-          const isDeleted = deleted[cat.key];
-          return (
-            <div key={cat.key} id={`donnees-tier-${cat.tier}`} data-tier-key={cat.key} className="card" style={{ padding: 24, opacity: isDeleted ? 0.65 : 1, scrollMarginTop: 90 }}>
-              <div className="row between mes-donnees-card-head" style={{ marginBottom: 16, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                <div className="row center gap-4">
-                  {(() => {
-                    const col = CAT_COLORS[cat.key] || { soft: 'var(--ivory-2)', fg: 'var(--ink-2)' };
-                    return (
-                      <div style={{ width: 44, height: 44, borderRadius: 12, background: col.soft, color: col.fg,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon name={cat.icon} size={20}/>
-                      </div>
-                    );
-                  })()}
-                  <div>
-                    <div className="row center gap-3">
-                      <div className="serif" style={{ fontSize: 20 }}>{cat.label}</div>
-                      <span className="chip">Palier {cat.tier}</span>
-                      {isDeleted && <span className="chip chip-warn">Masquée temporairement</span>}
-                    </div>
-                    <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{cat.desc}</div>
-                  </div>
-                </div>
-                <div className="row gap-2">
-                  {isDeleted ? (
-                    <>
-                      <button className="btn btn-primary btn-sm" onClick={() => ctx?.restore(cat.key)}>
-                        <Icon name="rotate" size={12}/> Restaurer
-                      </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)}
-                        style={{ color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 30%, var(--line))' }}>
-                        <Icon name="trash" size={12}/> Supprimer définitivement
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button className="btn btn-primary btn-sm" onClick={() => setAdding(cat.key)}>
-                        <Icon name="plus" size={12}/> Ajouter
-                      </button>
-                      {/* Le palier Identification (tier 1) ne peut pas être
-                          masqué : l'API le refuse (400 identity_tier_required,
-                          cf. /api/prospect/tier) — sans nom + e-mail +
-                          téléphone aucun contact n'aboutit. On n'offre donc
-                          pas l'action (seule la suppression RGPD reste). */}
-                      {cat.key !== 'identity' && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmHide(cat.key)}>
-                          <Icon name="eyeSlash" size={12}/> Masquer temporairement
-                        </button>
-                      )}
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(cat.key)}
-                        style={{ color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 30%, var(--line))' }}>
-                        <Icon name="trash" size={12}/> Supprimer
-                      </button>
-                    </>
-                  )}
-                </div>
+            <div>
+              <div className="serif" style={{ fontSize: 20 }}>Mes coordonnées</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                {filledCount}/{CONTACT_FIELDS.length} champs renseignés
               </div>
-              {!isDeleted && (() => {
-                // Bandeau "section incomplète" : visible dès qu'un champ est
-                // rempli ET qu'un autre champ de la même section ne l'est pas.
-                // Non-bloquant — c'est juste un nudge avec un peu d'humour pour
-                // éviter d'avoir des sections à moitié renseignées en base.
-                const missing = cat.fields
-                  .filter(([f]) => !(profile?.[cat.key]?.[f]))
-                  .map(([, l]) => l);
-                const filledSomeButNotAll =
-                  missing.length > 0 && missing.length < cat.fields.length;
-                return (
-                  <>
-                    {filledSomeButNotAll && (
-                      <div style={{
-                        marginBottom: 14,
-                        padding: '12px 16px',
-                        borderRadius: 10,
-                        background: 'color-mix(in oklab, #B45309 8%, var(--paper))',
-                        border: '1px solid color-mix(in oklab, #B45309 30%, var(--line))',
-                        color: 'var(--ink-2)',
-                        fontSize: 13.5,
-                        lineHeight: 1.5,
-                        display: 'flex',
-                        gap: 10,
-                        alignItems: 'flex-start',
-                      }} role="status">
-                        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>😊</span>
-                        <span>
-                          Encore un petit effort pour valider la section{' '}
-                          <strong>{cat.label}</strong> — il manque{' '}
-                          <strong>
-                            {missing.length === 1
-                              ? missing[0].toLowerCase()
-                              : missing.slice(0, -1).map(l => l.toLowerCase()).join(', ') +
-                                ' et ' +
-                                missing.slice(-1)[0].toLowerCase()}
-                          </strong>{' '}
-                          😊
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
-                      {cat.fields.map(([field, label], idx) => {
-                    const rawVal = profile?.[cat.key]?.[field] || '';
-                    const cfg = fieldConfig(cat.key, field);
-                    // Affichage compound : tag + détail (ex. "Berline · Renault").
-                    const detailVal =
-                      cfg.type === 'tag+text' && cfg.detailField
-                        ? (profile?.[cat.key]?.[cfg.detailField] || '')
-                        : '';
-                    const showDetail =
-                      detailVal &&
-                      (!cfg.detailVisibleWhenTag || rawVal === cfg.detailVisibleWhenTag) &&
-                      (!cfg.detailHiddenWhenTag || rawVal !== cfg.detailHiddenWhenTag);
-                    const val = rawVal && showDetail ? `${rawVal} · ${detailVal}` : rawVal;
-                    const isPhone = cat.key === 'identity' && field === 'telephone';
-                    const phoneVerified = isPhone && Boolean(phoneVerifiedAt);
-                    const onEdit = isPhone
-                      ? () => setPhoneVerify({ initialPhone: rawVal })
-                      : () => setEditing({ category: cat.key, field, label, value: rawVal });
-                    return (
-                      <div key={field} style={{ background: 'var(--paper)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 3 }}>{label}</div>
-                          <div className="row center" style={{ gap: 8, flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: 14, color: val ? 'var(--ink)' : 'var(--ink-5)', fontStyle: val ? 'normal' : 'italic' }}>
-                              {val || '— non renseigné —'}
-                            </div>
-                            {isPhone && val && (
-                              phoneVerified ? (
-                                <span className="chip chip-good" style={{ fontSize: 10, fontWeight: 600 }}>✓ Vérifié</span>
-                              ) : (
-                                <span className="chip chip-warn" style={{ fontSize: 10, fontWeight: 600 }}>Non vérifié</span>
-                              )
-                            )}
-                          </div>
-                        </div>
-                        <div className="row gap-2">
-                          <button className="btn btn-ghost" style={{ width: 32, height: 32, padding: 0, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                            onClick={onEdit}
-                            title={isPhone ? (val ? 'Modifier et vérifier le téléphone' : 'Renseigner et vérifier le téléphone') : 'Modifier'}>
-                            <Icon name="edit" size={13}/>
-                          </button>
-                          <button className="btn btn-ghost" style={{ width: 32, height: 32, padding: 0, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--danger)', borderColor: 'color-mix(in oklab, var(--danger) 28%, var(--line))' }}
-                            onClick={() => setConfirmFieldDelete({ category: cat.key, categoryLabel: cat.label, field, label })}
-                            disabled={!val}
-                            title={val ? 'Supprimer cette donnée' : 'Aucune valeur à supprimer'}>
-                            <Icon name="trash" size={13}/>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {/* Cellule de remplissage paper quand le nombre de champs est
-                      impair : évite que le fond `--line` de la grille n'apparaisse
-                      en gris dans le dernier emplacement vide. */}
-                  {cat.fields.length % 2 === 1 && <div style={{ background: 'var(--paper)' }}/>}
-                </div>
-              </>
-            );
-          })()}
             </div>
-          );
-        })}
+          </div>
+          {complete
+            ? <span className="chip chip-good" style={{ fontWeight: 600 }}><Icon name="check" size={11}/> Complet</span>
+            : <span className="chip chip-warn" style={{ fontWeight: 600 }}>À compléter pour accepter les sollicitations</span>}
+        </div>
+
+        <div className="donnees-coord-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
+          <label>
+            <span className="mono caps muted" style={labelStyle}>Prénom</span>
+            <input className="input" value={form.prenom} autoComplete="given-name"
+              onChange={e => setField('prenom', e.target.value)}
+              placeholder="Marie" style={inputStyle}/>
+          </label>
+          <label>
+            <span className="mono caps muted" style={labelStyle}>Initiale du nom</span>
+            <input className="input" value={form.nom} maxLength={1} autoComplete="off"
+              onFocus={e => e.target.select()}
+              onChange={e => setField('nom', nomToInitial(e.target.value))}
+              placeholder="D" style={{ ...inputStyle, maxWidth: 90, textAlign: 'center', textTransform: 'uppercase', fontWeight: 600 }}/>
+            <span className="muted" style={{ fontSize: 11.5, marginTop: 6, display: 'block', lineHeight: 1.45 }}>
+              Seule la première lettre de votre nom est conservée.
+            </span>
+          </label>
+          <div>
+            <span className="mono caps muted" style={labelStyle}>Ville</span>
+            <CityPostalAutocomplete
+              cityOnly
+              value={form.ville}
+              onTextChange={v => setField('ville', v)}
+              onPick={it => setField('ville', it.ville)}/>
+            <span className="muted" style={{ fontSize: 11.5, marginTop: 6, display: 'block', lineHeight: 1.45 }}>
+              Seul le nom de la ville est conservé (ni adresse, ni code postal).
+            </span>
+          </div>
+          <div>
+            <span className="mono caps muted" style={labelStyle}>Sexe</span>
+            <ChoiceChips options={GENRE_OPTIONS} value={form.genre} ariaLabel="Sexe"
+              onChange={v => setField('genre', v)}/>
+          </div>
+          <div>
+            <span className="mono caps muted" style={labelStyle}>Tranche d'âge</span>
+            <ChoiceChips options={TRANCHE_AGE_OPTIONS} value={form.trancheAge} ariaLabel="Tranche d'âge"
+              onChange={v => setField('trancheAge', v)}/>
+          </div>
+          <div>
+            <span className="mono caps muted" style={labelStyle}>Téléphone</span>
+            <div className="row center" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 14, color: identity.telephone ? 'var(--ink)' : 'var(--ink-5)', fontStyle: identity.telephone ? 'normal' : 'italic' }}>
+                {identity.telephone || '— non renseigné —'}
+              </div>
+              {identity.telephone && (
+                phoneVerifiedAt
+                  ? <span className="chip chip-good" style={{ fontSize: 10, fontWeight: 600 }}>✓ Vérifié</span>
+                  : <span className="chip chip-warn" style={{ fontSize: 10, fontWeight: 600 }}>Non vérifié</span>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm"
+                onClick={() => setPhoneVerify({ initialPhone: identity.telephone || '' })}>
+                <Icon name="phone" size={12}/> {identity.telephone ? 'Modifier' : 'Ajouter et vérifier'}
+              </button>
+            </div>
+            <span className="muted" style={{ fontSize: 11.5, marginTop: 6, display: 'block', lineHeight: 1.45 }}>
+              Vérifié par un code envoyé par SMS.
+            </span>
+          </div>
+          <label>
+            <span className="mono caps muted" style={labelStyle}>E-mail</span>
+            <input className="input" type="email" value={form.email} autoComplete="email" inputMode="email"
+              onChange={e => setField('email', e.target.value)}
+              placeholder="marie@exemple.fr"
+              style={{ ...inputStyle, borderColor: emailInvalid ? 'var(--danger)' : undefined }}/>
+            {emailInvalid && (
+              <span style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6, display: 'block' }}>
+                Adresse e-mail invalide.
+              </span>
+            )}
+          </label>
+        </div>
+
+        <div className="row between" style={{ marginTop: 20, gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12.5, minHeight: 18, color: status ? (status.ok ? 'var(--good)' : 'var(--danger)') : 'var(--ink-4)' }} aria-live="polite">
+            {status ? status.msg : (hasChanges ? 'Modifications non enregistrées.' : '')}
+          </div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={save}
+            disabled={!hasChanges || emailInvalid || saving}>
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+
+        {/* Réassurance : ce que voit le professionnel */}
+        <div style={{
+          marginTop: 18, padding: '12px 14px', borderRadius: 10,
+          background: 'color-mix(in oklab, var(--accent) 6%, var(--paper))',
+          border: '1px solid color-mix(in oklab, var(--accent) 24%, var(--line))',
+          display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.55, color: 'var(--ink-2)',
+        }}>
+          <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="shieldCheck" size={15}/></span>
+          <span>
+            Le professionnel ne voit que votre prénom et l'initiale de votre nom. Appels et e-mails
+            passent par BUUPP : votre numéro et votre e-mail ne lui sont jamais communiqués.
+            Votre ville, votre sexe et votre tranche d'âge servent uniquement à vous proposer des
+            offres pertinentes et ne sont jamais montrés au professionnel.
+          </span>
+        </div>
+        <style>{`
+          @media (max-width: 640px) { .donnees-coord-grid { grid-template-columns: 1fr !important; } }
+        `}</style>
       </div>
 
       {/* Pointer to Préférences */}
@@ -4325,8 +4033,8 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
         <div style={{ flex: 1, minWidth: 240 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2, color: 'var(--ink)' }}>Pensez à affiner vos préférences</div>
           <div className="muted" style={{ fontSize: 13 }}>
-            Rendez-vous dans l'onglet <strong style={{ color: 'var(--ink)' }}>Préférences</strong> pour préciser,
-            type par type de campagne, quelles données vous souhaitez communiquer.
+            Rendez-vous dans l'onglet <strong style={{ color: 'var(--ink)' }}>Préférences</strong> pour choisir
+            les types de campagne et les secteurs de professionnels qui peuvent vous solliciter.
           </div>
         </div>
         <button onClick={onGoPrefs} className="btn btn-primary btn-sm">
@@ -4334,115 +4042,42 @@ function MesDonnees({ onGoPrefs, scrollTier, onScrollConsumed }) {
         </button>
       </div>
 
-      {editing && (
-        <EditFieldModal edit={editing}
-          profileForCategory={profile?.[editing.category] || {}}
-          onSave={(v) => {
-            // Autocomplétion ville+CP+région → patch atomique des trois
-            // champs (un seul PATCH /api/prospect/donnees). La région
-            // peut être vide si l'API n'a pas renvoyé d'objet `region`.
-            if (v && typeof v === 'object' && v.pair) {
-              ctx?.updateFields(editing.category, {
-                ville: v.pair.ville,
-                codePostal: v.pair.codePostal,
-                region: v.pair.region || '',
-              });
-            } else if (v && typeof v === 'object' && v.multi) {
-              // tag+text (ex. animaux + animauxDetail) → patch atomique.
-              ctx?.updateFields(editing.category, v.multi);
-            } else {
-              ctx?.updateField(editing.category, editing.field, v);
-            }
-            setEditing(null);
-          }}
-          onAutoSave={(v) => {
-            // Persist sans fermer la modale (auto-save debounced 700 ms).
-            if (v && typeof v === 'object' && v.multi) {
-              ctx?.updateFields(editing.category, v.multi);
-            } else {
-              ctx?.updateField(editing.category, editing.field, v);
-            }
-          }}
-          onClose={() => setEditing(null)}/>
-      )}
-      {adding && (
-        <AddFieldModal category={DATA_CATEGORIES.find(c => c.key === adding)}
-          existing={profile?.[adding] || {}}
-          onSave={(field, value) => {
-            // Intercepte l'ajout du téléphone : on bascule sur le flow
-            // de vérification SMS au lieu d'un PATCH direct (l'API
-            // /api/prospect/donnees rejette ce champ).
-            if (adding === 'identity' && field === 'telephone') {
-              setPhoneVerify({ initialPhone: value || '' });
-              setAdding(null);
-              return;
-            }
-            // Autocomplétion ville+CP+région : updateFields atomique au
-            // lieu d'updateField (un seul PATCH, trois champs).
-            if (value && typeof value === 'object' && value.pair) {
-              ctx?.updateFields(adding, {
-                ville: value.pair.ville,
-                codePostal: value.pair.codePostal,
-                region: value.pair.region || '',
-              });
-            } else if (value && typeof value === 'object' && value.multi) {
-              ctx?.updateFields(adding, value.multi);
-            } else {
-              ctx?.updateField(adding, field, value);
-            }
-            setAdding(null);
-          }}
-          onAutoSave={(field, value) => {
-            // Auto-save debounced — exclus du flow téléphone (SMS) côté
-            // modale ; ici on persiste direct les autres champs.
-            if (value && typeof value === 'object' && value.multi) {
-              ctx?.updateFields(adding, value.multi);
-            } else {
-              ctx?.updateField(adding, field, value);
-            }
-          }}
-          onClose={() => setAdding(null)}/>
-      )}
       {phoneVerify && (
         <PhoneVerifyModal
           initialPhone={phoneVerify.initialPhone}
           onDone={() => {
             setPhoneVerify(null);
-            // Rafraîchit donnees + verification : le flow a écrit côté
-            // serveur (telephone + phone_verified_at) sans passer par
-            // updateField, donc le store local doit être resynchronisé.
+            // Le flow a écrit côté serveur (telephone + phone_verified_at)
+            // sans passer par updateFields → resynchronise le store.
             notifyProfileChanged();
           }}
           onClose={() => setPhoneVerify(null)}/>
       )}
-      {confirmDelete && (
-        <ConfirmDeleteModal category={DATA_CATEGORIES.find(c => c.key === confirmDelete)}
-          onConfirm={() => { ctx?.deletePermanent(confirmDelete); setConfirmDelete(null); }}
-          onClose={() => setConfirmDelete(null)}/>
-      )}
-      {confirmHide && (
-        <ConfirmHideModal category={DATA_CATEGORIES.find(c => c.key === confirmHide)}
-          onConfirm={() => { ctx?.suppressTemp(confirmHide); setConfirmHide(null); }}
-          onClose={() => setConfirmHide(null)}/>
-      )}
-      {confirmFieldDelete && (
-        <ConfirmFieldDeleteModal field={confirmFieldDelete}
-          onConfirm={() => {
-            // Pour les champs composites (tag+text), on efface aussi le
-            // sous-champ détail pour que l'état UI reste cohérent.
-            const cfg = fieldConfig(confirmFieldDelete.category, confirmFieldDelete.field);
-            if (cfg.type === 'tag+text' && cfg.detailField) {
-              ctx?.updateFields(confirmFieldDelete.category, {
-                [confirmFieldDelete.field]: '',
-                [cfg.detailField]: '',
-              });
-            } else {
-              ctx?.updateField(confirmFieldDelete.category, confirmFieldDelete.field, '');
-            }
-            setConfirmFieldDelete(null);
-          }}
-          onClose={() => setConfirmFieldDelete(null)}/>
-      )}
+    </div>
+  );
+}
+
+// Choix unique en pastilles (sexe, tranche d'âge) — même style que les
+// sélecteurs de période du BUUPP Score.
+function ChoiceChips({ options, value, onChange, ariaLabel }) {
+  return (
+    <div className="row" role="radiogroup" aria-label={ariaLabel} style={{ gap: 8, flexWrap: 'wrap' }}>
+      {options.map(([v, label]) => {
+        const active = value === v;
+        return (
+          <button key={v} type="button" className="chip" role="radio" aria-checked={active}
+            onClick={() => onChange(v)}
+            style={{
+              cursor: 'pointer', fontSize: 13, padding: '7px 14px',
+              background: active ? 'var(--ink)' : 'var(--ivory-2)',
+              color: active ? 'var(--paper)' : 'var(--ink-3)',
+              border: 0, fontWeight: active ? 600 : 400,
+              transition: 'background .15s, color .15s',
+            }}>
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -4486,35 +4121,10 @@ function ModalShell({ title, children, onClose, width = 460 }) {
   );
 }
 
-/* Masque "MM/AAAA" pour la date de naissance : seuls le mois et l'année
-   sont collectés (minimisation RGPD — suffisants pour le ciblage par âge).
-   - Une ancienne valeur "JJ/MM/AAAA" est convertie (le jour est abandonné).
-   - Sinon on extrait jusqu'à 6 chiffres (MMAAAA) et on insère le slash
-     après 2 chiffres.
-   La validation mois/année est faite via `isNaissanceValid` (et côté API,
-   autoritaire). */
-function maskNaissance(input) {
-  const legacy = /^\d{2}\/(\d{2}\/\d{4})$/.exec(String(input || '').trim());
-  if (legacy) return legacy[1];
-  const digits = String(input || '').replace(/\D/g, '').slice(0, 6);
-  if (digits.length <= 2) return digits;
-  return digits.slice(0, 2) + '/' + digits.slice(2);
-}
-
-function isNaissanceValid(s) {
-  if (!s) return true; // vide = champ effacé, autorisé
-  if (!/^\d{2}\/\d{4}$/.test(s)) return false;
-  const [m, y] = s.split('/').map(Number);
-  if (m < 1 || m > 12) return false;
-  // Plage raisonnable : pas dans le futur ni > 120 ans.
-  const now = new Date();
-  const year = now.getFullYear();
-  if (y < year - 120 || y > year) return false;
-  if (y === year && m > now.getMonth() + 1) return false;
-  return true;
-}
-
-/* Autocomplétion ville + code postal + région (France) basée sur l'API
+/* Utilisé côté prospect en mode `cityOnly` (« Mes coordonnées » → Ville :
+   une suggestion par commune, seul le NOM de la ville est conservé) et par
+   Pro.jsx (CityPostalEditCard, mode par défaut ville + CP + région).
+   Autocomplétion ville + code postal + région (France) basée sur l'API
    officielle `geo.api.gouv.fr`. CORS autorisé, gratuit, pas d'install.
    - Si l'utilisateur tape des chiffres → recherche par code postal.
    - Sinon → recherche par nom de commune.
@@ -4522,13 +4132,20 @@ function isNaissanceValid(s) {
    chaque combinaison ville+CP est éclatée en suggestion distincte. La
    région administrative est récupérée via `fields=...,region` (objet
    `{ code, nom }`) et propagée dans `onPick({ ville, codePostal, region })`. */
-function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
+function CityPostalAutocomplete({ value, onPick, autoFocus = false, cityOnly = false, onTextChange }) {
   const [query, setQuery] = useState(value || '');
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [highlight, setHighlight] = useState(-1);
   const containerRef = React.useRef(null);
+
+  // Mode cityOnly : champ contrôlé par le parent (resynchronisation après
+  // hydratation / enregistrement).
+  useEffect(() => {
+    if (cityOnly && (value || '') !== query) setQuery(value || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityOnly, value]);
 
   // Debounced search.
   useEffect(() => {
@@ -4537,7 +4154,7 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const isPostal = /^\d{2,5}$/.test(q);
+        const isPostal = !cityOnly && /^\d{2,5}$/.test(q);
         const url = isPostal
           ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&limit=20`
           : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux,region&boost=population&limit=10`;
@@ -4545,6 +4162,18 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
         if (!r.ok) { setItems([]); setLoading(false); return; }
         const data = await r.json();
         const exploded = [];
+        if (cityOnly) {
+          // Une suggestion par commune (pas d'éclatement par code postal).
+          const seen = new Set();
+          for (const c of data || []) {
+            const key = `${c.nom}|${c?.region?.nom || ''}`;
+            if (!c.nom || seen.has(key)) continue;
+            seen.add(key);
+            exploded.push({ ville: c.nom, codePostal: '', region: c?.region?.nom || '' });
+          }
+          setItems(exploded.slice(0, 10));
+          return;
+        }
         for (const c of data || []) {
           const codes = Array.isArray(c.codesPostaux) ? c.codesPostaux : [];
           const region = c?.region?.nom || '';
@@ -4568,7 +4197,7 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
       }
     }, 220);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, cityOnly]);
 
   // Click extérieur ferme la liste.
   useEffect(() => {
@@ -4581,7 +4210,7 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
   }, []);
 
   const pick = (item) => {
-    setQuery(`${item.codePostal} ${item.ville}`);
+    setQuery(cityOnly ? item.ville : `${item.codePostal} ${item.ville}`);
     setOpen(false);
     setHighlight(-1);
     onPick(item);
@@ -4610,11 +4239,13 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
       <input
         className="input"
         value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); }}
+        onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); onTextChange?.(e.target.value); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         autoFocus={autoFocus}
-        placeholder="Tapez le nom de votre ville ou un code postal"
+        placeholder={cityOnly ? 'Tapez le nom de votre ville' : 'Tapez le nom de votre ville ou un code postal'}
+        autoComplete={cityOnly ? 'address-level2' : undefined}
+        maxLength={cityOnly ? 120 : undefined}
         style={{ width: '100%', fontSize: 14 }}
         aria-autocomplete="list"
         aria-expanded={open}
@@ -4663,7 +4294,9 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
                   </span>
                 )}
               </span>
-              <span className="mono" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>{it.codePostal}</span>
+              {it.codePostal && (
+                <span className="mono" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>{it.codePostal}</span>
+              )}
             </button>
           ))}
         </div>
@@ -4672,506 +4305,7 @@ function CityPostalAutocomplete({ value, onPick, autoFocus = false }) {
   );
 }
 
-/* TagPicker : grille de pastilles cliquables. Tag actif rempli en violet.
-   - Mode `multi=false` (défaut) : sélection unique. Cliquer le tag actif le
-     désélectionne.
-   - Mode `multi=true` : sélection multiple. Valeur stockée en CSV
-     "A, B, C" pour rester compatible avec les colonnes TEXT. */
-function tagsToList(value) {
-  if (!value) return [];
-  return value.split(',').map(s => s.trim()).filter(Boolean);
-}
-function listToTags(list) {
-  return list.join(', ');
-}
-
-function TagPicker({ value, options, onPick, multi = false, exclusive = null }) {
-  const selected = multi ? new Set(tagsToList(value)) : null;
-  return (
-    <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 4 }}>
-      {options.map(opt => {
-        const active = multi ? selected.has(opt) : value === opt;
-        const onClick = () => {
-          if (multi) {
-            const next = new Set(selected);
-            if (next.has(opt)) {
-              next.delete(opt);
-            } else {
-              next.add(opt);
-              // Option exclusive (ex. « Aucun ») : sa sélection vide les
-              // autres ; sélectionner une autre option retire l'exclusive.
-              if (exclusive) {
-                if (opt === exclusive) {
-                  next.clear();
-                  next.add(opt);
-                } else {
-                  next.delete(exclusive);
-                }
-              }
-            }
-            // Préserve l'ordre des options pour un rendu stable.
-            const ordered = options.filter(o => next.has(o));
-            onPick(listToTags(ordered));
-          } else {
-            onPick(active ? '' : opt);
-          }
-        };
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={onClick}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: '1.5px solid ' + (active ? TAG_VIOLET : 'var(--line-2)'),
-              background: active ? TAG_VIOLET : 'var(--paper)',
-              color: active ? 'white' : 'var(--ink)',
-              fontSize: 13,
-              fontWeight: active ? 600 : 500,
-              cursor: 'pointer',
-              transition: 'background .15s, border-color .15s, transform .1s',
-            }}
-            onMouseEnter={e => {
-              if (!active) e.currentTarget.style.borderColor = TAG_VIOLET;
-            }}
-            onMouseLeave={e => {
-              if (!active) e.currentTarget.style.borderColor = 'var(--line-2)';
-            }}
-            aria-pressed={active}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* Saisie générique pour un champ : route vers le bon widget selon
-   FIELD_CONFIG (tag, tag+text, numeric, text). Renvoie via `onChange`
-   un objet { value, detail? } : les modaux savent s'il faut PATCH un
-   ou deux champs. */
-function FieldInput({ category, field, value, detail, onChange, autoFocus = false }) {
-  const cfg = fieldConfig(category, field);
-  const setValue = (v) => onChange({ value: v, detail: cfg.type === 'tag+text' ? detail : undefined });
-  const setDetail = (d) => onChange({ value, detail: d });
-
-  if (cfg.type === 'tag') {
-    return (
-      <>
-        <TagPicker value={value || ''} options={cfg.options} multi={!!cfg.multi} exclusive={cfg.exclusive || null} onPick={setValue} />
-        {cfg.multi && (
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-            Plusieurs choix possibles — cliquez pour ajouter ou retirer.
-          </div>
-        )}
-      </>
-    );
-  }
-  if (cfg.type === 'tag+text') {
-    const showDetail =
-      (!cfg.detailVisibleWhenTag || value === cfg.detailVisibleWhenTag) &&
-      (!cfg.detailHiddenWhenTag || value !== cfg.detailHiddenWhenTag);
-    return (
-      <>
-        <TagPicker value={value || ''} options={cfg.options} onPick={setValue} />
-        {showDetail && (
-          <input
-            className="input"
-            value={detail || ''}
-            onChange={e => setDetail(e.target.value)}
-            placeholder={cfg.detailPlaceholder}
-            autoFocus={autoFocus && !!value}
-            style={{ width: '100%', fontSize: 14, marginTop: 12 }}
-          />
-        )}
-      </>
-    );
-  }
-  if (cfg.type === 'numeric') {
-    const invalid = !!value && !/^\d+$/.test(value);
-    return (
-      <>
-        <input
-          className="input"
-          value={value || ''}
-          onChange={e => setValue(e.target.value)}
-          inputMode="numeric"
-          placeholder={cfg.placeholder}
-          autoFocus={autoFocus}
-          style={{
-            width: '100%', fontSize: 14,
-            borderColor: invalid ? 'var(--danger)' : undefined,
-          }}
-        />
-        {invalid && (
-          <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>
-            Renseignez uniquement les chiffres.
-          </div>
-        )}
-      </>
-    );
-  }
-  if (cfg.type === 'select') {
-    return (
-      <select
-        className="input"
-        value={value || ''}
-        onChange={e => setValue(e.target.value)}
-        autoFocus={autoFocus}
-        style={{ width: '100%', fontSize: 14 }}
-      >
-        <option value="">{cfg.placeholder || 'Sélectionnez…'}</option>
-        {cfg.options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-    );
-  }
-  // type 'text' (défaut)
-  return (
-    <input
-      className="input"
-      value={value || ''}
-      onChange={e => setValue(e.target.value)}
-      placeholder={cfg.placeholder}
-      autoFocus={autoFocus}
-      style={{ width: '100%', fontSize: 14 }}
-    />
-  );
-}
-
-/* Validation de soumission selon le type de champ. Retourne `true`
-   si l'enregistrement est autorisé. */
-function isFieldSavable(category, field, value, detail) {
-  const cfg = fieldConfig(category, field);
-  if (cfg.type === 'tag' || cfg.type === 'tag+text') {
-    // Pour les tags, vide = clear → autorisé.
-    return true;
-  }
-  if (cfg.type === 'numeric') {
-    if (!value) return true; // clear OK
-    return /^\d+$/.test(value);
-  }
-  return true;
-}
-
-function EditFieldModal({ edit, onSave, onAutoSave, onClose, profileForCategory }) {
-  const cfg = fieldConfig(edit.category, edit.field);
-  const isNaissance = edit.field === 'naissance';
-  // Ville, code postal et région partagent le même flow d'autocomplétion :
-  // une sélection patche atomiquement les trois champs (cf. CityPostalAutocomplete).
-  const isCityPostal = edit.category === 'localisation' && (edit.field === 'ville' || edit.field === 'codePostal' || edit.field === 'region');
-  const [val, setVal] = useState(isNaissance ? maskNaissance(edit.value) : edit.value);
-  const initialDetail =
-    cfg.type === 'tag+text' && cfg.detailField
-      ? (profileForCategory?.[cfg.detailField] || '')
-      : '';
-  const [detail, setDetail] = useState(initialDetail);
-  const [pair, setPair] = useState(null); // { ville, codePostal, region } après sélection
-  // Auto-save indicator : "saving" pendant le PATCH, "saved" après ack.
-  // Permet à l'utilisateur de fermer la modale sans crainte de perte de
-  // données — la persistance s'est déjà faite à chaque pause de saisie.
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved
-  // Debounce auto-save : 700 ms après la dernière modif valide → PATCH
-  // sans fermer la modale. La saisie ville+CP (autocomplétion) garde son
-  // flow explicite via le bouton "Enregistrer" : pas d'auto-save tant
-  // qu'aucune sélection complète n'est faite.
-  useEffect(() => {
-    if (!onAutoSave || isCityPostal) return;
-    if (isNaissance) {
-      // Auto-save uniquement quand la date est complète et valide,
-      // ou réinitialisée à vide (effacement explicite).
-      const ok = val === '' || isNaissanceValid(val);
-      if (!ok) return;
-    } else if (!isFieldSavable(edit.category, edit.field, val, detail)) {
-      return;
-    }
-    // Skip si rien n'a changé depuis l'ouverture.
-    if (val === edit.value && detail === initialDetail) return;
-    const timer = setTimeout(() => {
-      setSaveStatus('saving');
-      try {
-        if (cfg.type === 'tag+text' && cfg.detailField) {
-          onAutoSave({ multi: { [edit.field]: val, [cfg.detailField]: detail } });
-        } else {
-          onAutoSave(val);
-        }
-        setSaveStatus('saved');
-      } catch {
-        setSaveStatus('idle');
-      }
-    }, 700);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [val, detail]);
-
-  if (isCityPostal) {
-    return (
-      <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
-          Tapez les premières lettres de votre ville ou son code postal puis sélectionnez-la dans la liste — Ville, Code postal et Région seront renseignés automatiquement.
-        </div>
-        <CityPostalAutocomplete
-          value={edit.value}
-          onPick={(item) => setPair(item)}
-          autoFocus
-        />
-        {pair && (
-          <div className="row gap-2" style={{ marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="chip">{pair.ville}</span>
-            <span className="chip mono">{pair.codePostal}</span>
-            {pair.region && <span className="chip">{pair.region}</span>}
-            <span className="muted" style={{ fontSize: 12 }}>Sélection prête à enregistrer.</span>
-          </div>
-        )}
-        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 22 }}>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-          <button onClick={() => pair && onSave({ pair })} disabled={!pair} className="btn btn-primary btn-sm">
-            Enregistrer
-          </button>
-        </div>
-      </ModalShell>
-    );
-  }
-
-  // Naissance : masque dédié, pas géré par FieldInput.
-  if (isNaissance) {
-    const showError = val && !isNaissanceValid(val);
-    const canSave = isNaissanceValid(val) || !val;
-    return (
-      <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
-        <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>{edit.label}</div>
-        <input
-          className="input"
-          value={val}
-          onChange={e => setVal(maskNaissance(e.target.value))}
-          autoFocus
-          placeholder="MM/AAAA"
-          inputMode="numeric"
-          maxLength={7}
-          style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
-        />
-        {showError && (
-          <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-            Format attendu : MM/AAAA (ex. 06/1988).
-          </div>
-        )}
-        {!val && (
-          <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-            Format attendu : MM/AAAA (mois et année uniquement).
-          </div>
-        )}
-        <SaveIndicator status={saveStatus} />
-        <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
-          <button onClick={() => onSave(val)} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
-        </div>
-      </ModalShell>
-    );
-  }
-
-  // Cas générique : route vers FieldInput selon la config.
-  const canSave = isFieldSavable(edit.category, edit.field, val, detail);
-  const submit = () => {
-    if (cfg.type === 'tag+text' && cfg.detailField) {
-      onSave({ multi: { [edit.field]: val, [cfg.detailField]: detail } });
-    } else {
-      onSave(val);
-    }
-  };
-  return (
-    <ModalShell title={"Modifier : " + edit.label} onClose={onClose}>
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 12 }}>{edit.label}</div>
-      <FieldInput
-        category={edit.category}
-        field={edit.field}
-        value={val}
-        detail={detail}
-        onChange={({ value, detail: d }) => {
-          setVal(value);
-          if (d !== undefined) setDetail(d);
-        }}
-        autoFocus
-      />
-      <SaveIndicator status={saveStatus} />
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
-        <button onClick={submit} disabled={!canSave} className="btn btn-primary btn-sm">Enregistrer</button>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* Petit indicateur d'auto-save affiché sous les champs dans les modales
-   d'édition. Donne au user le feedback que ses données ont été persistées
-   sans qu'il ait besoin de cliquer sur "Enregistrer". */
-function SaveIndicator({ status }) {
-  if (status === 'idle') return null;
-  const isSaving = status === 'saving';
-  return (
-    <div
-      className="row"
-      style={{
-        gap: 6, marginTop: 14, alignItems: 'center', fontSize: 12,
-        color: isSaving ? 'var(--ink-4)' : 'var(--good)',
-      }}
-      aria-live="polite"
-    >
-      <span aria-hidden="true">{isSaving ? '⏳' : '✓'}</span>
-      <span>{isSaving ? 'Enregistrement…' : 'Modifications enregistrées automatiquement'}</span>
-    </div>
-  );
-}
-
-function AddFieldModal({ category, existing, onSave, onAutoSave, onClose }) {
-  const empty = category.fields.filter(([f]) => !existing[f]);
-  const pool = empty.length ? empty : category.fields;
-  const [field, setField] = useState(pool[0][0]);
-  const [val, setVal] = useState(existing[pool[0][0]] || '');
-  const [detail, setDetail] = useState('');
-  const [pair, setPair] = useState(null);
-  const [saveStatus, setSaveStatus] = useState('idle');
-
-  const cfg = fieldConfig(category.key, field);
-  const isNaissance = field === 'naissance';
-  const isCityPostal = category.key === 'localisation' && (field === 'ville' || field === 'codePostal' || field === 'region');
-
-  // Auto-save : 700 ms après la dernière modif valide → PATCH sans
-  // fermer la modale. Ne s'applique pas au flow ville+CP (Enregistrer
-  // explicite après sélection) ni au champ téléphone qui passe par
-  // PhoneVerifyModal (vérification SMS obligatoire).
-  useEffect(() => {
-    if (!onAutoSave) return;
-    if (isCityPostal) return;
-    if (category.key === 'identity' && field === 'telephone') return;
-    if (isNaissance) {
-      if (!val || !isNaissanceValid(val)) return;
-    } else if (!isFieldSavable(category.key, field, val, detail)) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setSaveStatus('saving');
-      try {
-        if (cfg.type === 'tag+text' && cfg.detailField) {
-          onAutoSave(field, { multi: { [field]: val, [cfg.detailField]: detail } });
-        } else {
-          onAutoSave(field, val);
-        }
-        setSaveStatus('saved');
-      } catch {
-        setSaveStatus('idle');
-      }
-    }, 700);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [val, detail, field]);
-
-  const showError = isNaissance && val && !isNaissanceValid(val);
-  const canSubmit = isCityPostal
-    ? !!pair
-    : isNaissance
-      ? !!val && isNaissanceValid(val)
-      : (cfg.type === 'tag' || cfg.type === 'tag+text')
-        ? !!val
-        : cfg.type === 'numeric'
-          ? !!val && /^\d+$/.test(val)
-          : !!val;
-
-  const onFieldChange = (nextField) => {
-    setField(nextField);
-    setPair(null);
-    setDetail('');
-    const initial = existing[nextField] || '';
-    setVal(nextField === 'naissance' ? maskNaissance(initial) : initial);
-  };
-
-  const submit = () => {
-    if (isCityPostal) {
-      onSave(field, { pair });
-      return;
-    }
-    if (cfg.type === 'tag+text' && cfg.detailField) {
-      onSave(field, { multi: { [field]: val, [cfg.detailField]: detail } });
-      return;
-    }
-    onSave(field, val);
-  };
-
-  return (
-    <ModalShell title={"Ajouter : " + category.label} onClose={onClose}>
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Donnée</div>
-      <select className="input" value={field}
-        onChange={e => onFieldChange(e.target.value)}
-        style={{ width: '100%', fontSize: 14, marginBottom: 14, padding: '10px 12px' }}>
-        {category.fields.map(([f, l]) => <option key={f} value={f}>{l}{existing[f] ? ' (déjà renseignée)' : ''}</option>)}
-      </select>
-      <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 8 }}>Valeur</div>
-      {isCityPostal ? (
-        <>
-          <div className="muted" style={{ fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 }}>
-            Tapez les premières lettres de votre ville (ou son code postal) puis cliquez sur la bonne entrée — Ville, Code postal et Région seront renseignés ensemble.
-          </div>
-          <CityPostalAutocomplete
-            value={existing[field] || ''}
-            onPick={(item) => setPair(item)}
-            autoFocus
-          />
-          {pair && (
-            <div className="row gap-2" style={{ marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span className="chip">{pair.ville}</span>
-              <span className="chip mono">{pair.codePostal}</span>
-              {pair.region && <span className="chip">{pair.region}</span>}
-            </div>
-          )}
-          <div style={{ marginBottom: 20 }} />
-        </>
-      ) : isNaissance ? (
-        <>
-          <input
-            className="input"
-            value={val}
-            onChange={e => setVal(maskNaissance(e.target.value))}
-            autoFocus
-            placeholder="MM/AAAA"
-            inputMode="numeric"
-            maxLength={7}
-            style={{ width: '100%', fontSize: 14, marginBottom: showError ? 8 : 20 }}
-          />
-          {showError && (
-            <div className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16 }}>
-              Format attendu : MM/AAAA (ex. 06/1988).
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ marginBottom: 20 }}>
-          <FieldInput
-            category={category.key}
-            field={field}
-            value={val}
-            detail={detail}
-            onChange={({ value, detail: d }) => {
-              setVal(value);
-              if (d !== undefined) setDetail(d);
-            }}
-            autoFocus
-          />
-        </div>
-      )}
-      <SaveIndicator status={saveStatus} />
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Fermer</button>
-        <button onClick={submit} className="btn btn-primary btn-sm" disabled={!canSubmit}>
-          Ajouter
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* Modal de vérification SMS du téléphone (Mes données → Identification).
+/* Modal de vérification SMS du téléphone (Mes données → Mes coordonnées).
    Flow en 2 étapes via Brevo (proxy par /api/prospect/phone/*) :
      1. saisie du numéro → POST /api/prospect/phone/start
         → BUUPP génère le code à 6 chiffres, Brevo l'envoie par SMS.
@@ -5324,138 +4458,16 @@ function PhoneVerifyModal({ initialPhone, onDone, onClose }) {
   );
 }
 
-function ConfirmDeleteModal({ category, onConfirm, onClose }) {
-  const isIdentity = category.key === 'identity';
-  const otherCategories = DATA_CATEGORIES.filter(c => c.key !== 'identity').map(c => c.label);
+// Modale affichée au clic « Accepter » quand une des 7 données
+// (prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail)
+// n'est pas renseignée.
+// Invite à compléter avec un lien direct vers l'onglet « Mes données ».
+function AcceptIncompleteModal({ missingFields, onGoToData, onClose }) {
+  const labels = Array.isArray(missingFields) && missingFields.length
+    ? missingFields
+    : CONTACT_FIELDS.map(([, l]) => l);
   return (
-    <ModalShell title="Suppression définitive" onClose={onClose}>
-      <div className="alert-block" style={{
-        padding: 16, borderRadius: 10, marginBottom: 14,
-        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
-        display: 'flex', gap: 14, alignItems: 'flex-start'
-      }}>
-        <div style={{
-          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
-          background: '#DC2626', color: 'white',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon name="alert" size={16} stroke={2}/>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
-            Vous ne pourrez plus être sollicité
-          </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            En supprimant la catégorie <strong>{category.label}</strong>, les professionnels
-            <strong> ne pourront plus vous contacter</strong> pour les campagnes qui exigent ces
-            données. Vous ne recevrez donc plus aucune sollicitation associée à ce palier — et
-            ne pourrez plus en tirer de gains.
-          </div>
-          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
-            Action irréversible — RGPD article 17 (droit à l'effacement)
-          </div>
-        </div>
-      </div>
-      {isIdentity && (
-        <div className="alert-block" style={{
-          padding: 16, borderRadius: 10, marginBottom: 14,
-          background: '#FFF7ED', border: '1.5px solid #FDBA74', color: '#7C2D12',
-          display: 'flex', gap: 14, alignItems: 'flex-start'
-        }}>
-          <div style={{
-            width: 36, height: 36, minWidth: 36, borderRadius: '50%',
-            background: '#EA580C', color: 'white',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Icon name="alert" size={16} stroke={2}/>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#7C2D12', marginBottom: 4 }}>
-              Suppression en cascade de tous vos paliers
-            </div>
-            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-              La catégorie <strong>Identification</strong> est la <strong>clé de voûte</strong> de
-              votre profil — sans elle, plus aucune donnée ne peut être rattachée à votre personne.
-              Sa suppression entraînera donc <strong>l'effacement définitif</strong> de toutes les
-              autres catégories : <strong>{otherCategories.join(', ')}</strong>.
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
-          <Icon name="trash" size={12}/> {isIdentity ? 'Confirmer la suppression complète' : 'Confirmer la suppression'}
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function ConfirmHideModal({ category, onConfirm, onClose }) {
-  return (
-    <ModalShell title="Masquer cette catégorie ?" onClose={onClose}>
-      <div className="alert-block" style={{
-        padding: 16, borderRadius: 10, marginBottom: 16,
-        background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
-        border: '1.5px solid color-mix(in oklab, var(--warn) 40%, var(--line))',
-        color: 'var(--ink-2)',
-        display: 'flex', gap: 14, alignItems: 'flex-start'
-      }}>
-        <div style={{
-          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
-          background: 'var(--warn)', color: 'white',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon name="eyeSlash" size={16} stroke={2}/>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
-            Conséquence du masquage
-          </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            Tant que la catégorie <strong>{category.label}</strong> est masquée, les professionnels
-            <strong> ne pourront plus vous contacter</strong> pour les campagnes qui exigent
-            ces données. Vous recevrez donc moins de demandes de mise en relation — et potentiellement
-            aucun gain sur les campagnes correspondant à ce palier.
-          </div>
-          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: 'var(--ink-4)', letterSpacing: '.06em' }}>
-            Action réversible à tout moment — restauration en un clic
-          </div>
-        </div>
-      </div>
-      <div style={{
-        padding: 12, borderRadius: 8, marginBottom: 18,
-        background: 'var(--ivory-2)', fontSize: 12, color: 'var(--ink-3)',
-        display: 'flex', gap: 10, alignItems: 'center'
-      }}>
-        <Icon name="info" size={12}/>
-        <span>Vos données restent stockées mais <strong style={{ color: 'var(--ink-2)' }}>ne sont plus diffusables</strong> — aucun professionnel n'y aura accès.</span>
-      </div>
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={onConfirm} className="btn btn-primary btn-sm">
-          <Icon name="eyeSlash" size={12}/> Masquer temporairement
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-// Modale affichée au clic « Accepter » quand un palier exigé par la
-// campagne n'est pas intégralement renseigné. Invite à compléter ses
-// informations avec un lien direct vers l'onglet « Mes données ».
-function AcceptIncompleteModal({ missingTierNums, profile, onGoToData, onClose }) {
-  const cats = (missingTierNums || [])
-    .map(n => DATA_CATEGORIES.find(c => c.tier === n))
-    .filter(Boolean);
-  // Champ considéré comme vide si aucune valeur (chaîne vide / null).
-  const isEmpty = (catKey, fieldKey) => {
-    const v = profile?.[catKey]?.[fieldKey];
-    return !(typeof v === 'string' ? v.trim() : v);
-  };
-  return (
-    <ModalShell title="Informations incomplètes" onClose={onClose}>
+    <ModalShell title="Coordonnées incomplètes" onClose={onClose}>
       <div className="alert-block" style={{
         padding: 16, borderRadius: 10, marginBottom: 16,
         background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
@@ -5475,60 +4487,40 @@ function AcceptIncompleteModal({ missingTierNums, profile, onGoToData, onClose }
             Pour accepter cette sollicitation
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            Merci de renseigner <strong>l'intégralité des informations demandées</strong> par
-            le professionnel. Tant qu'un palier requis est incomplet, vous ne pouvez pas
-            accepter cette mise en relation.
+            Renseignez vos <strong>sept informations</strong> : prénom, initiale du nom, ville,
+            sexe, tranche d'âge, téléphone et e-mail. Le professionnel ne voit que votre prénom
+            et l'initiale de votre nom — il vous contacte via BUUPP. Ville, sexe et tranche
+            d'âge servent uniquement à vous proposer des offres pertinentes.
           </div>
         </div>
       </div>
-      {cats.length > 0 && (
-        <div style={{
-          padding: 14, borderRadius: 8, marginBottom: 18,
-          background: 'var(--ivory-2)',
-        }}>
-          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10 }}>
-            Informations à compléter
-          </div>
-          <div className="col gap-3">
-            {cats.map(c => {
-              // Champs encore vides de ce palier (à renseigner). Si tout est
-              // détecté comme rempli, on liste l'ensemble des champs du palier.
-              const empty = (c.fields || []).filter(([fk]) => isEmpty(c.key, fk));
-              const toShow = empty.length ? empty : (c.fields || []);
-              return (
-                <div key={c.key}>
-                  <div className="row center gap-2" style={{ marginBottom: 6 }}>
-                    <Icon name={c.icon} size={13}/>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)' }}>Palier {c.tier} · {c.label}</span>
-                  </div>
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 6, paddingLeft: 21 }}>
-                    {toShow.map(([fk, label]) => (
-                      <span key={fk} style={{
-                        fontSize: 11.5, fontWeight: 600, color: '#DC2626',
-                        padding: '3px 9px', borderRadius: 999,
-                        background: 'color-mix(in oklab, #DC2626 8%, var(--paper))',
-                        border: '1px solid color-mix(in oklab, #DC2626 28%, var(--line))',
-                      }}>{label}</span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div style={{ padding: 14, borderRadius: 8, marginBottom: 18, background: 'var(--ivory-2)' }}>
+        <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 10 }}>
+          À compléter
         </div>
-      )}
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {labels.map(label => (
+            <span key={label} style={{
+              fontSize: 11.5, fontWeight: 600, color: '#DC2626',
+              padding: '3px 9px', borderRadius: 999,
+              background: 'color-mix(in oklab, #DC2626 8%, var(--paper))',
+              border: '1px solid color-mix(in oklab, #DC2626 28%, var(--line))',
+            }}>{label}</span>
+          ))}
+        </div>
+      </div>
       <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} className="btn btn-ghost btn-sm">Plus tard</button>
         <button onClick={onGoToData} className="btn btn-primary btn-sm">
-          Renseigner mes informations <Icon name="arrow" size={12}/>
+          Renseigner mes coordonnées <Icon name="arrow" size={12}/>
         </button>
       </div>
     </ModalShell>
   );
 }
 
-// Modale affichée quand le prospect a complété, depuis « Mes données », tous
-// les paliers requis de la sollicitation qu'il voulait accepter.
+// Modale affichée quand le prospect a complété, depuis « Mes données », les
+// 7 données requises pour accepter la sollicitation.
 function AcceptReadyModal({ onBack, onClose }) {
   return (
     <ModalShell title="Informations complétées" onClose={onClose}>
@@ -5551,7 +4543,7 @@ function AcceptReadyModal({ onBack, onClose }) {
             Tout est renseigné
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            Vos paliers requis sont désormais intégralement remplis.
+            Vos coordonnées sont désormais complètes.
             Vous pouvez <strong>retourner à la sollicitation pour l'accepter</strong>.
           </div>
         </div>
@@ -5622,7 +4614,7 @@ function PhoneConsentModal({ onAccept, onRefuse }) {
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
             vous êtes susceptible d'être <strong>contacté(e) par téléphone</strong> par
-            ce professionnel, en plus des autres canaux. En cliquant sur
+            ce professionnel, via BUUPP — votre numéro ne lui est jamais communiqué. En cliquant sur
             « OK, j'accepte », vous donnez votre <strong>consentement préalable et
             spécifique au démarchage téléphonique</strong> pour cette mise en relation,
             conformément à la réglementation. Vous pourrez le retirer à tout moment.
@@ -5633,46 +4625,6 @@ function PhoneConsentModal({ onAccept, onRefuse }) {
         <button onClick={onRefuse} className="btn btn-ghost btn-sm">Non, je refuse</button>
         <button onClick={onAccept} className="btn btn-primary btn-sm">
           <Icon name="check" size={12}/> OK, j'accepte
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function ConfirmFieldDeleteModal({ field, onConfirm, onClose }) {
-  return (
-    <ModalShell title={'Supprimer : ' + field.label} onClose={onClose}>
-      <div className="alert-block" style={{
-        padding: 16, borderRadius: 10, marginBottom: 14,
-        background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#991B1B',
-        display: 'flex', gap: 14, alignItems: 'flex-start'
-      }}>
-        <div style={{
-          width: 36, height: 36, minWidth: 36, borderRadius: '50%',
-          background: '#DC2626', color: 'white',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon name="alert" size={16} stroke={2}/>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#7F1D1D', marginBottom: 4 }}>
-            Conséquence sur vos sollicitations
-          </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            En supprimant la donnée <strong>{field.label}</strong> (catégorie{' '}
-            <strong>{field.categoryLabel}</strong>), vous <strong>ne pourrez plus être sollicité</strong>{' '}
-            pour les campagnes dont le professionnel a besoin de cette information — et donc{' '}
-            <strong>plus être rémunéré</strong> sur ces mises en relation.
-          </div>
-          <div className="mono" style={{ fontSize: 11, marginTop: 10, color: '#991B1B', letterSpacing: '.06em' }}>
-            Vous pourrez la renseigner à nouveau à tout moment depuis cette page
-          </div>
-        </div>
-      </div>
-      <div className="row gap-2 modal-actions" style={{ justifyContent: 'flex-end' }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">Annuler</button>
-        <button onClick={onConfirm} className="btn btn-sm" style={{ background: '#DC2626', color: 'white' }}>
-          <Icon name="trash" size={12}/> Confirmer la suppression
         </button>
       </div>
     </ModalShell>
@@ -5708,20 +4660,10 @@ function relMatchDate(p, v) {
   if (v === '7d') return t >= now - 7 * day;
   return true;
 }
-function relMatchTier(tier, v) {
+// Filtre « Contact » : la sollicitation prévoit-elle ce canal ?
+function relMatchContact(p, v) {
   if (v === 'all') return true;
-  return Number(tier) === Number(v);
-}
-// Filtre « Autour de moi » : distance domicile prospect ↔ établissement pro
-// (km, fournie par /api/prospect/relations#distanceKm). Sans distance connue,
-// une sollicitation est exclue dès qu'un rayon est sélectionné.
-function relMatchDistance(distanceKm, v) {
-  if (v === 'all') return true;
-  if (distanceKm == null || isNaN(distanceKm)) return false;
-  if (v === '10') return distanceKm <= 10;
-  if (v === '10-30') return distanceKm > 10 && distanceKm <= 30; // entre 10 et 30 km
-  if (v === '30') return distanceKm > 30; // « +30 km » = plus de 30 km
-  return true;
+  return relationContactChannels(p).includes(v);
 }
 const REL_FILTERS = [
   { id: 'amount', label: 'Montant', def: 'all', opts: [
@@ -5736,19 +4678,10 @@ const REL_FILTERS = [
     { v: '3d', t: '3 derniers jours', short: '3 jours' },
     { v: '7d', t: '7 derniers jours', short: '7 jours' },
   ]},
-  { id: 'tier', label: 'Palier', def: 'all', opts: [
-    { v: 'all', t: 'Tous les paliers', short: 'Tous' },
-    { v: '1', t: 'Palier 1', short: 'Palier 1' },
-    { v: '2', t: 'Palier 2', short: 'Palier 2' },
-    { v: '3', t: 'Palier 3', short: 'Palier 3' },
-    { v: '4', t: 'Palier 4', short: 'Palier 4' },
-    { v: '5', t: 'Palier 5', short: 'Palier 5' },
-  ]},
-  { id: 'distance', label: 'Autour de moi', def: 'all', opts: [
-    { v: 'all', t: 'Toutes les distances', short: 'Toutes' },
-    { v: '10', t: 'À moins de 10 km', short: '≤ 10 km' },
-    { v: '10-30', t: 'Entre 10 et 30 km', short: '10–30 km' },
-    { v: '30', t: 'Plus de 30 km', short: '+30 km' },
+  { id: 'contact', label: 'Contact', def: 'all', opts: [
+    { v: 'all', t: 'Tous les modes', short: 'Tous' },
+    { v: 'phone', t: 'Par téléphone', short: 'Téléphone' },
+    { v: 'email', t: 'Par e-mail', short: 'E-mail' },
   ]},
 ];
 // Palette fi.html (mode clair).
@@ -5786,7 +4719,7 @@ const SvgX = ({ size = 9 }) => (
 );
 
 function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
-  const { amount, date, tier, dist, flash } = values;
+  const { amount, date, contact, flash } = values;
   const [open, setOpen] = React.useState(null); // id du chip ouvert
   React.useEffect(() => {
     const close = () => setOpen(null);
@@ -5797,14 +4730,13 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
   }, []);
   const total = pending.length;
   const flashCount = pending.filter(p => p.isFlashDeal).length;
-  const filtersActive = amount !== 'all' || date !== 'all' || tier !== 'all' || dist !== 'all' || flash;
-  const valOf = (id) => (id === 'amount' ? amount : id === 'date' ? date : id === 'distance' ? dist : tier);
-  const setOf = (id, v) => { if (id === 'amount') set.amount(v); else if (id === 'date') set.date(v); else if (id === 'distance') set.dist(v); else set.tier(v); };
+  const filtersActive = amount !== 'all' || date !== 'all' || contact !== 'all' || flash;
+  const valOf = (id) => (id === 'amount' ? amount : id === 'date' ? date : contact);
+  const setOf = (id, v) => { if (id === 'amount') set.amount(v); else if (id === 'date') set.date(v); else set.contact(v); };
   const countFor = (id, v) => {
     if (id === 'amount') return pending.filter(p => relMatchAmount(Number(p.reward) || 0, v)).length;
     if (id === 'date') return pending.filter(p => relMatchDate(p, v)).length;
-    if (id === 'distance') return pending.filter(p => relMatchDistance(p.distanceKm, v)).length;
-    return pending.filter(p => relMatchTier(Number(p.tier), v)).length;
+    return pending.filter(p => relMatchContact(p, v)).length;
   };
   const shortOf = (f) => (f.opts.find(o => o.v === valOf(f.id)) || f.opts[0]).short;
   // Tags actifs (bande sous la barre).
@@ -5827,7 +4759,7 @@ function RelFilterBar({ values, set, pending, filteredCount, onReset }) {
           Le conteneur des chips passe en `display:contents` → ses 3 chips
           deviennent des items directs de la grille, et le placement auto donne :
             Montant | Date
-            Palier  | Flash deals
+            Contact | Flash deals
             Sans filtre | compteur
           .rel-fbar a un style inline `display:flex`, donc la règle blanket de
           styles.css (qui force les grilles INLINE en 1 colonne) ne le cible pas.
@@ -6076,28 +5008,26 @@ function Relations() {
     (historyFilter === 'refused'  && h.decision === 'Refusée')
   );
   // Modale "détails de l'offre" — affiche toutes les infos campagne (dates,
-  // brief texte, motif complet, palier, récompense) au clic sur le bouton +.
+  // brief texte, motif complet, mode de contact, récompense) au clic sur le bouton +.
   const [detail, setDetail] = useState(null); // l'objet pending sélectionné
   // « La Vitrine » — interstitiel de sortie depuis la carte ({proName, websiteUrl}).
   const [vitrineLeave, setVitrineLeave] = useState(null);
 
   // ─── Filtres des sollicitations en attente ───────────────────────────
-  // Montant (récompense), date de réception, palier, et flash deals.
+  // Montant (récompense), date de réception, mode de contact, et flash deals.
   const [fAmount, setFAmount] = useState('all'); // all | 1-2 | 2-5 | 5+
   const [fDate, setFDate] = useState('all');     // all | today | 3d | 7d
-  const [fTier, setFTier] = useState('all');     // all | 1..5
-  const [fDist, setFDist] = useState('all');     // all | 10 | 20 | 30 (autour de moi)
+  const [fContact, setFContact] = useState('all'); // all | phone | email
   const [fFlash, setFFlash] = useState(false);
-  const resetFilters = () => { setFAmount('all'); setFDate('all'); setFTier('all'); setFDist('all'); setFFlash(false); };
+  const resetFilters = () => { setFAmount('all'); setFDate('all'); setFContact('all'); setFFlash(false); };
   const filteredPending = React.useMemo(() => {
     return (pending || []).filter(p =>
       relMatchAmount(Number(p.reward) || 0, fAmount) &&
       relMatchDate(p, fDate) &&
-      relMatchTier(Number(p.tier), fTier) &&
-      relMatchDistance(p.distanceKm, fDist) &&
+      relMatchContact(p, fContact) &&
       (!fFlash || p.isFlashDeal)
     );
-  }, [pending, fAmount, fDate, fTier, fDist, fFlash]);
+  }, [pending, fAmount, fDate, fContact, fFlash]);
 
   // Statistiques dérivées de l'historique → cartes du haut + total du pied.
   const eur = (v) => Number(v || 0).toFixed(2).replace('.', ',');
@@ -6163,8 +5093,8 @@ function Relations() {
           {/* Barre de filtres premium (cf. fi.html) : chips déroulants,
               toggle Flash deals, bande de filtres actifs, compteur. */}
           <RelFilterBar
-            values={{ amount: fAmount, date: fDate, tier: fTier, dist: fDist, flash: fFlash }}
-            set={{ amount: setFAmount, date: setFDate, tier: setFTier, dist: setFDist, flash: setFFlash }}
+            values={{ amount: fAmount, date: fDate, contact: fContact, flash: fFlash }}
+            set={{ amount: setFAmount, date: setFDate, contact: setFContact, flash: setFFlash }}
             pending={pending}
             filteredCount={filteredPending.length}
             onReset={resetFilters}
@@ -6181,12 +5111,7 @@ function Relations() {
             return (
               <div key={p.id} className="card" style={{ padding: 20, position: 'relative' }}>
                 <div className="row between center" style={{ marginBottom: 14 }}>
-                  {(() => {
-                    const t = movementTierLabel(p);
-                    return t
-                      ? <span className="chip chip-accent">{t.label} {t.value}</span>
-                      : <span className="chip chip-accent">Palier —</span>;
-                  })()}
+                  <ContactModeChip source={p}/>
                   <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>
                     <Icon name="bolt" size={10}/> {p.timer}
                   </span>
@@ -6379,7 +5304,7 @@ function Relations() {
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
-            <thead><tr><th>Date</th><th>Professionnel</th><th>Palier</th><th>Décision</th><th>Statut</th><th style={{textAlign:'right'}}>Gain</th></tr></thead>
+            <thead><tr><th>Date</th><th>Professionnel</th><th>Contact</th><th>Décision</th><th>Statut</th><th style={{textAlign:'right'}}>Gain</th></tr></thead>
             <tbody>
               {filteredHistory.length === 0 && (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px 12px' }}>
@@ -6429,17 +5354,7 @@ function Relations() {
                         </div>
                       </div>
                     </td>
-                    <td>{(() => {
-                      const t = movementTierLabel(h);
-                      if (!t) return <span className="muted">—</span>;
-                      const val = t.value.split(' – ').join(' · ');
-                      return (
-                        <span className="chip" style={{ padding: '5px 10px', borderRadius: 8 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }}/>
-                          {t.label} {val}
-                        </span>
-                      );
-                    })()}</td>
+                    <td><ContactModeChip source={h} style={{ padding: '5px 10px', borderRadius: 8 }}/></td>
                     <td>
                       {h.decision === 'Acceptée' ? (
                         <span className="chip chip-good" style={{ borderRadius: 999, padding: '5px 12px' }}>
@@ -6641,19 +5556,29 @@ function RelationDetailModal({ relation, isAccepted, isRefused, onAccept, onRefu
             )}
           </div>
         )}
-        {/* En-tête : nom pro + secteur + chip palier */}
+        {/* En-tête : nom pro + secteur + chip mode de contact */}
         <div className="row center gap-3" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <Avatar name={r.pro} size={44}/>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>{r.pro}</div>
             <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{r.sector}</div>
           </div>
-          {(() => {
-            const t = movementTierLabel(r);
-            return t
-              ? <span className="chip chip-accent" style={{ alignSelf: 'center' }}>{t.label} {t.value}</span>
-              : <span className="chip chip-accent" style={{ alignSelf: 'center' }}>Palier —</span>;
-          })()}
+          <ContactModeChip source={r} style={{ alignSelf: 'center' }}/>
+        </div>
+
+        {/* Mode de contact — toujours via BUUPP (relais) */}
+        <div style={{
+          padding: '12px 14px', borderRadius: 10,
+          background: 'var(--ivory-2)', border: '1px solid var(--line)',
+        }}>
+          <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6 }}>Mode de contact</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>
+            {(() => { const t = contactModeText(r); return t.charAt(0).toUpperCase() + t.slice(1); })()} (via BUUPP)
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+            Le professionnel ne voit que votre prénom et l'initiale de votre nom. Votre numéro et
+            votre e-mail ne lui sont jamais communiqués.
+          </div>
         </div>
 
         {/* Brief de campagne — texte court rédigé par le pro */}
@@ -7020,7 +5945,7 @@ function ReportProModal({ relation, onClose, onSubmitted }) {
      verifie           — téléphone vérifié par SMS (prospect_identity.phone_verified_at).
      certifie_confiance — au moins une mise en relation acceptée
                           issue d'une campagne 'prise_de_rendez_vous'.
-   Le RIB (prospect_rib) n'intervient PAS dans le palier : il relève du
+   Le RIB (prospect_rib) n'intervient PAS dans le niveau : il relève du
    flux de retrait (Stripe Connect) et n'est lu que pour affichage.
    Données récupérées via /api/prospect/verification (recalcul + persist
    à chaque GET). Le re-fetch est aussi déclenché par le bus
@@ -7057,9 +5982,7 @@ const VERIF_LABELS = {
 // Index 1-based d'un niveau de vérification dans l'échelle des 3 niveaux.
 // Utilisé pour afficher "Niveau 2/3" plutôt que "66%" — qui prête à
 // confusion (un user à 66% pensait être "vérifié à 66%" alors que c'est
-// la position dans l'échelle, pas un degré de complétion). On parle de
-// « niveau » côté UI pour éviter la confusion avec les « paliers » de
-// données (catégories 1 à 5 dans Mes données).
+// la position dans l'échelle, pas un degré de complétion).
 function verifTierPosition(tier) {
   if (tier === 'verifie') return 2;
   if (tier === 'certifie_confiance') return 3;
@@ -7072,7 +5995,7 @@ const VERIF_META = {
   basique: {
     icon: 'user',
     full: "Compte créé. Niveau attribué automatiquement à l'inscription.",
-    perks: ['Accès aux campagnes standard', 'Paliers 1 et 2'],
+    perks: ['Accès aux campagnes standard'],
     soft: '#EEF2FF', fg: '#4F46E5',
     dark: 'linear-gradient(135deg, #334155 0%, #1E293B 100%)',
     banner: 'Niveau de départ — vérifiez votre téléphone pour débloquer plus de campagnes.',
@@ -7080,7 +6003,7 @@ const VERIF_META = {
   verifie: {
     icon: 'phone',
     full: 'Numéro de téléphone vérifié par SMS.',
-    perks: ['Demandes mieux rémunérées', 'Paliers 1 à 4'],
+    perks: ['Demandes mieux rémunérées', 'Plus de campagnes ouvertes'],
     soft: '#ECFDF5', fg: '#15803D',
     dark: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
     banner: 'Votre téléphone est vérifié — la plupart des campagnes vous sont ouvertes.',
@@ -7088,7 +6011,7 @@ const VERIF_META = {
   certifie_confiance: {
     icon: 'shieldCheck',
     full: 'Rendez-vous physique accepté.',
-    perks: ['Toutes les campagnes ouvertes', 'Tous les paliers · 1 à 5'],
+    perks: ['Toutes les campagnes ouvertes', 'Confiance maximale auprès des professionnels'],
     soft: '#EEF2FF', fg: '#4F46E5',
     dark: 'linear-gradient(135deg, #166534 0%, #143C1E 100%)',
     banner: 'Vous bénéficiez du niveau de confiance maximal — toutes les campagnes vous sont ouvertes.',
@@ -7283,7 +6206,7 @@ function RibModal({ initial, onClose }) {
       }}>
         <div className="serif" style={{ fontSize: 24, marginBottom: 6 }}>Coordonnées bancaires</div>
         <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
-          La saisie de votre RIB validera automatiquement le palier <strong>Vérifié</strong>.
+          La saisie de votre RIB validera automatiquement le niveau <strong>Vérifié</strong>.
           {initial?.ibanMasked ? <> RIB actuel : <span className="mono">{initial.ibanMasked}</span>.</> : null}
         </p>
 
@@ -7372,7 +6295,7 @@ function ScorePanel() {
     };
   }, []);
 
-  const value = score?.score ?? 0;
+  const value = Number.isFinite(Number(score?.score)) ? Number(score.score) : 0;
   // Bandeau qualitatif aligné sur la grille de la landing.
   const tier =
     value >= 900 ? { label: 'Prestige', color: '#166534' }
@@ -7380,11 +6303,16 @@ function ScorePanel() {
     : value >= 400 ? { label: 'Solide', color: '#A16207' }
     : { label: 'Découverte', color: '#B91C1C' };
 
-  const completeness = score?.breakdown?.completeness;
-  const freshness = score?.breakdown?.freshness;
+  // Lecture défensive : le payload peut évoluer (complétude des 4
+  // coordonnées au lieu des anciens paliers). `filled`/`total` optionnels.
+  const _bd = score && typeof score.breakdown === 'object' && score.breakdown ? score.breakdown : {};
+  const _dim = (d) => (d && typeof d === 'object' ? { ...d, pct: Number.isFinite(Number(d.pct)) ? Math.max(0, Math.min(100, Math.round(Number(d.pct)))) : 0 } : null);
+  const completeness = _dim(_bd.completeness);
+  const hasCounts = completeness && Number.isFinite(Number(completeness.filled)) && Number.isFinite(Number(completeness.total)) && Number(completeness.total) > 0;
+  const freshness = _dim(_bd.freshness);
   // Fiabilité = note moyenne des professionnels (remplace l'ancien « taux
   // d'acceptation »). { pct, count } — count = nb de pros ayant noté.
-  const fiabilite = score?.breakdown?.fiabilite;
+  const fiabilite = _dim(_bd.fiabilite);
 
   // ─── Conseils dynamiques : valeurs EXACTES dérivées de la formule ───
   // Formule (cf. lib/prospect/score.ts) : score = round(((completeness +
@@ -7401,8 +6329,8 @@ function ScorePanel() {
   // peut pas l'auto-déclencher) — cohérent avec l'ancien taux d'acceptation.
   const fiabiliteGap = fiabilite && fiabilite.count === 0 ? 0 : ptsToFull(fiabilite?.pct);
 
-  // Paliers (alignés sur la grille tier ci-dessus). Trouve le prochain
-  // palier et le gap exact en pts.
+  // Niveaux de score (alignés sur la grille ci-dessus). Trouve le prochain
+  // niveau et le gap exact en pts.
   const TIER_THRESHOLDS = [
     { min: 0,   label: 'Découverte', color: '#B91C1C' },
     { min: 400, label: 'Solide',     color: '#A16207' },
@@ -7416,7 +6344,7 @@ function ScorePanel() {
   const nextTier = TIER_THRESHOLDS[currentTierIdx + 1] ?? null;
   const ptsToNextTier = nextTier ? Math.max(0, nextTier.min - value) : 0;
   // Progression dans le segment courant [tier.min, nextTier.min] pour
-  // une barre visuelle parlante (0% au moment où on passe le palier,
+  // une barre visuelle parlante (0% au moment où on passe le niveau,
   // 100% au moment où on atteint le suivant).
   const segMin = TIER_THRESHOLDS[currentTierIdx].min;
   const segMax = nextTier?.min ?? 1000;
@@ -7429,17 +6357,17 @@ function ScorePanel() {
   const tips = [
     {
       icon: 'chart',
-      label: 'Complétude des paliers',
+      label: 'Complétude des coordonnées',
       currentPct: completeness?.pct ?? 0,
       gain: completenessGap,
-      subline: completeness
-        ? `${completeness.filled}/${completeness.total} paliers validés`
+      subline: hasCounts
+        ? `${completeness.filled}/${completeness.total} champs renseignés`
         : null,
       hint: !completeness
         ? '—'
-        : completeness.filled >= completeness.total
-        ? 'Tous vos paliers sont validés — bravo !'
-        : `Renseignez ${completeness.total - completeness.filled === 1 ? 'votre dernier palier' : `les ${completeness.total - completeness.filled} paliers manquants`} dans Mes données pour gagner ${completenessGap} pts.`,
+        : completeness.pct >= 100
+        ? 'Vos coordonnées sont complètes — bravo !'
+        : `Complétez vos informations (prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone, e-mail) dans Mes données pour gagner ${completenessGap} pts.`,
     },
     {
       icon: 'sparkle',
@@ -7455,7 +6383,7 @@ function ScorePanel() {
         ? 'Vos données sont à jour (moins d\'un an).'
         : freshness.lastUpdate
         ? `Ré-éditez un champ dans Mes données pour repasser à 100 % et gagner ${freshnessGap} pts.`
-        : `Renseignez au moins un champ pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`,
+        : `Renseignez vos coordonnées pour amorcer la fraîcheur et débloquer ${freshnessGap} pts.`,
     },
     {
       icon: 'shieldCheck',
@@ -7483,7 +6411,7 @@ function ScorePanel() {
           .score-dims { grid-template-columns: 1fr !important; }
         }
       `}</style>
-      <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos paliers, de la fraîcheur de vos données et de votre fiabilité (la note des professionnels)."/>
+      <SectionTitle eyebrow="BUUPP Score" title="Votre indice de désirabilité" desc="Un score sur 1000 calculé à partir de la complétude de vos coordonnées, de leur fraîcheur et de votre fiabilité (la note des professionnels)."/>
       <div className="score-top" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
           <ScoreGauge value={value} size={240} stroke={10} bold/>
@@ -7491,9 +6419,9 @@ function ScorePanel() {
           {displayedName && <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{displayedName}</div>}
           <div className="col gap-2" style={{ marginTop: 22, borderTop: '1px solid var(--line)', paddingTop: 16, fontSize: 12, textAlign: 'left' }}>
             {[
-              ['Complétude des paliers', completeness?.pct ?? 0, completeness ? `${completeness.filled}/${completeness.total} paliers` : null],
+              ['Complétude des coordonnées', completeness?.pct ?? 0, hasCounts ? `${completeness.filled}/${completeness.total} champs` : null],
               ['Fraîcheur des données', freshness?.pct ?? 0, freshness?.ageDays != null ? `${freshness.ageDays} j` : null],
-              ['Fiabilité', fiabilite?.pct ?? 0, fiabilite ? `${fiabilite.count} note${fiabilite.count > 1 ? 's' : ''}` : null],
+              ['Fiabilité', fiabilite?.pct ?? 0, fiabilite && Number.isFinite(Number(fiabilite.count)) ? `${fiabilite.count} note${fiabilite.count > 1 ? 's' : ''}` : null],
             ].map(([l, v, sub], i) => (
               <div key={i}>
                 <div className="row between" style={{ marginBottom: 4, letterSpacing: '.04em' }}>
@@ -7520,7 +6448,7 @@ function ScorePanel() {
           <div className="mono muted" style={{ fontSize: 11 }}>1 % sur une dimension = ~{ptsPerPct.toFixed(1).replace('.', ',')} pts au score</div>
         </div>
 
-        {/* Bandeau : points acquis + palier courant + gap vers palier suivant */}
+        {/* Bandeau : points acquis + niveau courant + gap vers niveau suivant */}
         <div style={{
           padding: '14px 18px', borderRadius: 12, marginBottom: 18,
           background: 'color-mix(in oklab, var(--accent) 5%, var(--paper))',
@@ -7539,7 +6467,7 @@ function ScorePanel() {
             <div style={{ fontSize: 13, color: 'var(--ink-2)', textAlign: 'right' }}>
               {nextTier
                 ? <>Encore <strong style={{ color: 'var(--ink)' }}>{ptsToNextTier} pts</strong> pour atteindre <strong style={{ color: nextTier.color }}>{nextTier.label}</strong></>
-                : <>Vous avez atteint le palier maximal — bravo !</>}
+                : <>Vous avez atteint le niveau maximal — bravo !</>}
             </div>
           </div>
           {nextTier && (
@@ -7749,102 +6677,6 @@ function Prefs() {
   const allTypes = ctx?.profile?.allCampaignTypes;
   const selectedTypes = ctx?.profile?.campaignTypes || new Set();
 
-  // Ville / CP / rayon désormais source-of-truthés via le profile
-  // (synchro `Mes données` ↔ `Préférences`). Si la ville est vide,
-  // on grise la carte et on affiche le message demandant de la
-  // renseigner avant de pouvoir modifier la zone.
-  const ville = (ctx?.profile?.localisation?.ville || '').trim();
-  const codePostal = (ctx?.profile?.localisation?.codePostal || '').trim();
-  const persistedRadius = parseInt(ctx?.profile?.localisation?.targetingRadiusKm, 10);
-  const initialRadius = Number.isFinite(persistedRadius) && persistedRadius >= 5 && persistedRadius <= 100
-    ? persistedRadius
-    : 25;
-  const [radius, setRadius] = useState(initialRadius);
-  // National opt-in — case à cocher "Étendre au niveau national". Quand
-  // cochée, le matching ignore les filtres CP préfixe + plancher rayon
-  // pour ce prospect (cf. lib/campaigns/matching.ts). Le slider de rayon
-  // devient inopérant (grisé) mais reste affiché pour que l'utilisateur
-  // retrouve sa préférence en cas de décochage. Persisté côté DB en
-  // boolean — la valeur côté UI est sérialisée en string par rowToUi.
-  // Coché par DÉFAUT (opt-out) : seule la valeur explicite 'false'
-  // décoche la case. Une valeur absente / vide / nouvelle row (DEFAULT
-  // DB désormais true) ⇒ considéré coché. Cohérent avec la migration
-  // 20260517120000 (national_opt_in DEFAULT true).
-  // Niveau d'extension géographique gradué : local | departemental | regional
-  // | national. Remplace l'ancien opt-in national binaire. Rétro-compat : si
-  // `geoExtension` n'est pas encore renseigné, on le dérive de `nationalOptIn`
-  // (true → national, sinon local). Persisté via geo_extension ; la route
-  // PATCH resynchronise national_opt_in (true ⟺ national).
-  const GEO_LEVELS = [
-    { v: 'local',         label: 'Local',        desc: 'Selon mon rayon' },
-    { v: 'departemental', label: 'Départemental', desc: 'Tout mon département' },
-    { v: 'regional',      label: 'Régional',      desc: 'Toute ma région' },
-    { v: 'national',      label: 'National',      desc: 'Partout en France' },
-  ];
-  const geoExtension = (() => {
-    const raw = ctx?.profile?.localisation?.geoExtension;
-    if (raw && GEO_LEVELS.some(l => l.v === raw)) return raw;
-    return String(ctx?.profile?.localisation?.nationalOptIn ?? 'true') !== 'false'
-      ? 'national' : 'local';
-  })();
-  // Le rayon n'est éditable qu'au niveau « local » ; les autres niveaux
-  // définissent une portée nommée (le rayon stocké reste la base locale).
-  const radiusActive = geoExtension === 'local';
-  const geoLevelLabel = (GEO_LEVELS.find(l => l.v === geoExtension) || {}).label || 'National';
-  // Rayon (km) passé à la carte pour adapter le ZOOM au niveau choisi
-  // (la carte cadre sur un cercle de ce rayon). « local » = rayon réel ;
-  // les autres = valeurs représentatives (département ~40 km, région ~130 km,
-  // national ~700 km) pour un dézoom progressif et lisible.
-  const GEO_MAP_RADIUS_KM = { local: radius, departemental: 40, regional: 130, national: 700 };
-  const mapRadius = GEO_MAP_RADIUS_KM[geoExtension] ?? radius;
-  // Resync local quand le profile arrive de l'API (hydratation async).
-  useEffect(() => {
-    if (Number.isFinite(persistedRadius) && persistedRadius !== radius) {
-      setRadius(persistedRadius);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistedRadius]);
-  // Debounce la persistance : on attend que l'utilisateur arrête de
-  // bouger le slider 400 ms avant de PATCHer (sinon = 1 requête par
-  // tick du curseur sur Chrome qui émet en continu).
-  useEffect(() => {
-    if (!ville) return; // pas de persistance si la zone n'est pas activée
-    if (radius === persistedRadius) return;
-    const t = setTimeout(() => {
-      if (ctx?.updateField) {
-        ctx.updateField('localisation', 'targetingRadiusKm', String(radius));
-      }
-    }, 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [radius, ville]);
-
-  const zoneLocked = !ville;
-
-  // Paliers partageables — désormais branchés sur l'état réel du
-  // backend (prospects.hidden_tiers / removed_tiers via ctx) au lieu
-  // d'un state local décoratif. Par défaut TOUS cochés : un palier est
-  // « partagé » tant que le prospect ne l'a ni masqué ni supprimé —
-  // cohérent avec le matching (blocked = removed ∪ hidden). Décocher =
-  // hide réversible (ctx.suppressTemp), recocher = ctx.restore. Un
-  // palier supprimé définitivement (RGPD) reste décoché + verrouillé
-  // (réactivation = re-saisie dans « Mes données »).
-  const TIER_KEY_BY_NUM = { 1: 'identity', 2: 'localisation', 3: 'vie', 4: 'pro', 5: 'patrimoine' };
-  const tierIsHidden = (n) => !!ctx?.deleted?.[TIER_KEY_BY_NUM[n]];
-  const tierIsRemoved = (n) => !!ctx?.removed?.[TIER_KEY_BY_NUM[n]];
-  // Palier 1 (Identification) = obligatoire : sans nom/e-mail/téléphone
-  // aucune mise en relation n'est possible. La case est forcée cochée
-  // et verrouillée — cohérent avec le rejet `hide` côté API.
-  const tierIsRequired = (n) => n === 1;
-  const tierShared = (n) => tierIsRequired(n) || (!tierIsHidden(n) && !tierIsRemoved(n));
-  const toggleTierShare = (n) => {
-    if (tierIsRequired(n)) return; // palier 1 verrouillé
-    const key = TIER_KEY_BY_NUM[n];
-    if (tierIsRemoved(n)) return; // supprimé définitivement → verrouillé ici
-    if (tierShared(n)) ctx?.suppressTemp?.(key);
-    else ctx?.restore?.(key);
-  };
-
   // Source-of-truth des listes : module-level CAMPAIGN_TYPE_LIST / CATEGORY_LIST
   // (utilisé aussi par les toggle handlers du contexte pour le "tout sauf X").
   const allCats = CATEGORY_LIST;
@@ -7852,7 +6684,7 @@ function Prefs() {
 
   return (
     <div className="col gap-6">
-      <SectionTitle eyebrow="Préférences" title="Qui peut vous contacter" desc="Réglez finement les catégories, les types de campagne, la zone et les paliers de données que vous acceptez de partager."/>
+      <SectionTitle eyebrow="Préférences" title="Qui peut vous contacter" desc="Choisissez les types de campagne et les secteurs de professionnels qui peuvent vous solliciter."/>
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between" style={{ marginBottom: 12, alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
@@ -7938,164 +6770,6 @@ function Prefs() {
               {active && <span style={{ marginRight: 6 }}>✓</span>}
               {c}
             </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 20 }}>
-        <div className="card" style={{ padding: 28, position: 'relative' }}>
-          <div className="serif" style={{ fontSize: 22, marginBottom: 18 }}>Zone géographique</div>
-          <div className="row between center" style={{ marginBottom: 14 }}>
-            <div>
-              <div className="muted" style={{ fontSize: 12 }}>Centrée sur</div>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>
-                {zoneLocked
-                  ? <span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>Ville non renseignée</span>
-                  : (codePostal ? `${ville}, ${codePostal}` : ville)}
-              </div>
-            </div>
-            <div>
-              <div className="muted" style={{ fontSize: 12, textAlign: 'right' }}>Portée</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: (zoneLocked || !radiusActive) ? 'var(--ink-4)' : 'var(--accent)' }}>
-                {radiusActive
-                  ? <>{radius} <span style={{ fontSize: 14, color: 'var(--ink-4)' }}>km</span></>
-                  : <span style={{ fontSize: 16 }}>{geoLevelLabel}</span>}
-              </div>
-            </div>
-          </div>
-          <input type="range" min="5" max="100" step="5" value={radius}
-            disabled={zoneLocked || !radiusActive}
-            onChange={e => setRadius(+e.target.value)}
-            style={{ width: '100%', accentColor: 'var(--accent)',
-              opacity: (zoneLocked || !radiusActive) ? 0.4 : 1,
-              cursor: (zoneLocked || !radiusActive) ? 'not-allowed' : 'pointer' }}/>
-          {/* Sélecteur d'extension géographique : Local (rayon) → Départemental
-              → Régional → National. Le niveau choisi définit jusqu'où le
-              prospect accepte d'être contacté (cf. lib/campaigns/matching.ts :
-              le niveau lève le plancher de rayon jusqu'à la portée, le national
-              levant aussi le filtre code postal). */}
-          <div style={{ marginTop: 16 }}>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-              Jusqu'où acceptez-vous d'être contacté ?
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {GEO_LEVELS.map((lvl) => {
-                const on = geoExtension === lvl.v;
-                return (
-                  <button
-                    key={lvl.v}
-                    type="button"
-                    disabled={zoneLocked}
-                    onClick={() => {
-                      if (zoneLocked) return;
-                      ctx?.updateField?.('localisation', 'geoExtension', lvl.v);
-                    }}
-                    style={{
-                      textAlign: 'left', padding: '10px 12px', borderRadius: 10,
-                      border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
-                      background: on ? 'color-mix(in oklab, var(--accent) 7%, var(--paper))' : 'var(--paper)',
-                      cursor: zoneLocked ? 'not-allowed' : 'pointer',
-                      opacity: zoneLocked ? 0.5 : 1, transition: 'all .15s',
-                    }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: on ? 'var(--accent)' : 'var(--ink)' }}>
-                      {lvl.label}
-                    </div>
-                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{lvl.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <RealMapThumb ville={ville} codePostal={codePostal} radius={mapRadius} fallback={<MapThumb radius={mapRadius}/>}/>
-          </div>
-          {zoneLocked && (
-            /* Verrou — bannière + overlay semi-transparent qui couvre la
-               carte sans masquer l'info principale. Le clic sur le bouton
-               renvoie sur l'onglet "Mes données" pour saisir la ville. */
-            <div style={{
-              position: 'absolute', inset: 14, borderRadius: 14,
-              background: 'color-mix(in oklab, var(--paper) 86%, transparent)',
-              backdropFilter: 'blur(2px)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', textAlign: 'center', padding: 24, gap: 10,
-              border: '1px dashed var(--line-2)',
-            }}>
-              <IconBadge name="mapPin" tone="accent" size={44}/>
-              <div className="serif" style={{ fontSize: 17, lineHeight: 1.3, maxWidth: 320 }}>
-                Renseignez votre ville pour activer cette section
-              </div>
-              <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.45, maxWidth: 340 }}>
-                Le rayon de ciblage dépend de votre ville. Allez dans <strong style={{ color: 'var(--ink)' }}>Mes données</strong> → palier <em>Localisation</em> pour la saisir.
-              </div>
-              <button
-                type="button"
-                onClick={() => { try { window.dispatchEvent(new CustomEvent('bupp:goto-tab', { detail: { tab: 'donnees', scrollTier: 2 } })); } catch (e) {} }}
-                className="btn btn-primary btn-sm"
-                style={{ marginTop: 4 }}>
-                Ouvrir Mes données <Icon name="arrow" size={12}/>
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="card" style={{ padding: 28 }}>
-          <div className="row" style={{ gap: 14, alignItems: 'flex-start', marginBottom: 16 }}>
-            <IconBadge name="tiers" tone="warn" size={40}/>
-            <div>
-              <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Paliers partageables</div>
-              <div className="muted" style={{ fontSize: 13 }}>Tous vos paliers sont partagés par défaut. Décochez ceux que vous ne souhaitez pas voir transmis (réversible — aucune donnée n'est effacée).</div>
-            </div>
-          </div>
-          {[
-            [1, 'Identification', 'minimum 1,00 €'],
-            [2, 'Localisation', '1,00 – 2,00 €'],
-            [3, 'Style de vie', '2,00 – 3,50 €'],
-            [4, 'Données pro', '3,50 – 5,00 €'],
-            [5, 'Patrimoine', '5,00 – 10,00 €'],
-          ].map(([n, name, range]) => {
-            const shared = tierShared(n);
-            const removed = tierIsRemoved(n);
-            const required = tierIsRequired(n);
-            const locked = removed || required;
-            return (
-            <label
-              key={n}
-              className="row center between"
-              style={{
-                padding: '12px 0', borderBottom: '1px solid var(--line)',
-                cursor: locked ? 'not-allowed' : 'pointer',
-                opacity: removed ? 0.55 : 1,
-              }}
-              title={
-                required
-                  ? 'Palier obligatoire : sans données d\'identification, aucun professionnel ne peut vous contacter.'
-                  : removed
-                    ? 'Palier supprimé définitivement dans « Mes données » — réactivez-le en re-saisissant ces données.'
-                    : undefined
-              }
-            >
-              <div className="row center gap-3">
-                <span style={{
-                  width: 16, height: 16, borderRadius: 4,
-                  border: '1.5px solid ' + (shared ? 'var(--accent)' : 'var(--line-2)'),
-                  background: shared ? 'var(--accent)' : 'var(--paper)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>{shared && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</span>
-                <span className="serif" style={{ fontSize: 17 }}>Palier {n}</span>
-                <span className="muted" style={{ fontSize: 13 }}>{name}</span>
-                {required && <span className="chip" style={{ fontSize: 10 }}>obligatoire</span>}
-                {removed && <span className="chip" style={{ fontSize: 10 }}>supprimé</span>}
-              </div>
-              <span className="mono tnum" style={{ fontSize: 12, color: 'var(--ink-4)' }}>{range}</span>
-              <input
-                type="checkbox"
-                checked={shared}
-                disabled={locked}
-                onChange={() => toggleTierShare(n)}
-                style={{ display: 'none' }}
-              />
-            </label>
             );
           })}
         </div>
@@ -8203,209 +6877,6 @@ function EmailTrackingConsentCard() {
       {error && (
         <div style={{ marginTop: 14, fontSize: 12, color: '#dc2626' }}>{error}</div>
       )}
-    </div>
-  );
-}
-
-/* Carte OpenStreetMap réelle via Leaflet (chargé en lazy depuis CDN
-   unpkg, comme React/Babel), avec marker + cercle bleu redimensionnable
-   matérialisant la zone de couverture du prospect. Le géocodage utilise
-   `api-adresse.data.gouv.fr` (BAN, gouvernement français — pas de clé
-   API requise, déjà utilisée dans le projet pour l'autocomplete CP).
-
-   Avantage Leaflet vs iframe embed :
-   - cercle natif (L.circle) avec setRadius en temps réel sur le slider
-   - pas de rechargement à chaque tick (l'iframe rechargeait toute la map)
-   - fitBounds auto pour qu'on voie toujours toute la zone de couverture
-
-   Fallback gracieux : si Leaflet ou le géocodage échoue, on rend
-   `fallback` (la MapThumb stylisée d'origine — pas de plage blanche). */
-function RealMapThumb({ ville, codePostal, radius, fallback }) {
-  const [coords, setCoords] = useState(null); // { lat, lng } | null
-  const [failed, setFailed] = useState(false);
-  const [leafletReady, setLeafletReady] = useState(
-    typeof window !== 'undefined' && !!window.L,
-  );
-  const containerRef = React.useRef(null);
-  const mapRef = React.useRef(null);
-  const markerRef = React.useRef(null);
-  const circleRef = React.useRef(null);
-
-  // 1. Lazy-load Leaflet CSS + JS depuis unpkg (singleton — si plusieurs
-  //    RealMapThumb sont montés en parallèle on attend la même promesse).
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (window.L) { setLeafletReady(true); return; }
-    if (!document.getElementById('buupp-leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'buupp-leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-    const existing = document.getElementById('buupp-leaflet-js');
-    if (existing) {
-      const onLoad = () => setLeafletReady(true);
-      existing.addEventListener('load', onLoad);
-      return () => existing.removeEventListener('load', onLoad);
-    }
-    const script = document.createElement('script');
-    script.id = 'buupp-leaflet-js';
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.async = true;
-    script.onload = () => setLeafletReady(true);
-    script.onerror = () => setFailed(true);
-    document.head.appendChild(script);
-  }, []);
-
-  // 2. Géocodage ville + CP via BAN.
-  useEffect(() => {
-    if (!ville) { setCoords(null); setFailed(false); return; }
-    let cancelled = false;
-    setFailed(false);
-    const q = encodeURIComponent(ville);
-    const cp = codePostal ? `&postcode=${encodeURIComponent(codePostal)}` : '';
-    fetch(`https://api-adresse.data.gouv.fr/search/?q=${q}${cp}&limit=1`, { cache: 'force-cache' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        if (cancelled) return;
-        const c = j?.features?.[0]?.geometry?.coordinates;
-        if (Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
-          setCoords({ lng: c[0], lat: c[1] });
-        } else {
-          setFailed(true);
-        }
-      })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [ville, codePostal]);
-
-  // 3. Init Leaflet quand prêt (une seule fois). On préfère gardé le
-  //    scrollWheelZoom OFF pour ne pas hijacker le scroll de la page.
-  useEffect(() => {
-    if (!leafletReady || !coords || !containerRef.current || mapRef.current) return;
-    const L = window.L;
-    const map = L.map(containerRef.current, {
-      scrollWheelZoom: false,
-      attributionControl: true,
-      zoomControl: true,
-    }).setView([coords.lat, coords.lng], 11);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap',
-    }).addTo(map);
-    markerRef.current = L.marker([coords.lat, coords.lng]).addTo(map);
-    circleRef.current = L.circle([coords.lat, coords.lng], {
-      radius: radius * 1000,
-      color: '#4596EC',
-      weight: 2,
-      fillColor: '#4596EC',
-      fillOpacity: 0.18,
-    }).addTo(map);
-    map.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
-    mapRef.current = map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leafletReady, coords]);
-
-  // 4. Déplacement marker+circle si la ville change après init.
-  useEffect(() => {
-    if (!mapRef.current || !coords) return;
-    if (markerRef.current) markerRef.current.setLatLng([coords.lat, coords.lng]);
-    if (circleRef.current) {
-      circleRef.current.setLatLng([coords.lat, coords.lng]);
-      mapRef.current.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
-    }
-  }, [coords]);
-
-  // 5. Redimensionne le cercle en temps réel sur le slider (Leaflet est
-  //    rapide → pas besoin de debounce sur setRadius).
-  useEffect(() => {
-    if (!circleRef.current) return;
-    circleRef.current.setRadius(radius * 1000);
-  }, [radius]);
-
-  // 6. fitBounds debounced 350 ms : on évite que la carte zoome à chaque
-  //    tick du slider, mais elle se recadre proprement quand l'utilisateur
-  //    relâche.
-  useEffect(() => {
-    if (!mapRef.current || !circleRef.current) return;
-    const t = setTimeout(() => {
-      try {
-        mapRef.current.fitBounds(circleRef.current.getBounds(), { padding: [12, 12] });
-      } catch (e) { /* ignore */ }
-    }, 350);
-    return () => clearTimeout(t);
-  }, [radius]);
-
-  // 7. Cleanup : détruit l'instance Leaflet à l'unmount (sinon fuite
-  //    mémoire + handlers détachés qui persistent).
-  useEffect(() => {
-    return () => {
-      if (mapRef.current) {
-        try { mapRef.current.remove(); } catch (e) {}
-        mapRef.current = null;
-        circleRef.current = null;
-        markerRef.current = null;
-      }
-    };
-  }, []);
-
-  // Pas (encore) de coords ou erreur de chargement → on rend le fallback
-  // (MapThumb stylisée d'origine). Évite le flash plage blanche.
-  if (failed || !coords) return fallback || null;
-
-  return (
-    <div style={{
-      height: 220, position: 'relative', marginTop: 18, borderRadius: 10,
-      overflow: 'hidden', border: '1px solid var(--line-2)', background: 'var(--ivory-2)',
-    }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }}/>
-      {!leafletReady && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, color: 'var(--ink-4)',
-          background: 'var(--ivory-2)',
-        }}>
-          Chargement de la carte…
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MapThumb({ radius }) {
-  const size = Math.min(200, 40 + radius * 2);
-  return (
-    <div style={{ height: 220, position: 'relative', marginTop: 18, borderRadius: 10, overflow: 'hidden',
-      background: 'linear-gradient(135deg, #EEE9DA, #E2DAC3)',
-      border: '1px solid var(--line-2)'
-    }}>
-      {/* Grid overlay */}
-      <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-        <defs>
-          <pattern id="gr" width="24" height="24" patternUnits="userSpaceOnUse">
-            <path d="M 24 0 L 0 0 0 24" fill="none" stroke="rgba(15,23,42,.08)" strokeWidth="0.5"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#gr)"/>
-        {/* roads */}
-        <path d="M0 110 Q200 90 400 130" stroke="rgba(15,23,42,.15)" strokeWidth="2" fill="none"/>
-        <path d="M180 0 L220 220" stroke="rgba(15,23,42,.12)" strokeWidth="1.5" fill="none"/>
-        <path d="M0 60 L400 200" stroke="rgba(15,23,42,.10)" strokeWidth="1" fill="none"/>
-      </svg>
-      <div style={{
-        position: 'absolute', left: '50%', top: '50%',
-        width: size, height: size,
-        transform: 'translate(-50%, -50%)',
-        borderRadius: '50%',
-        background: 'color-mix(in oklab, var(--accent) 14%, transparent)',
-        border: '1.5px solid var(--accent)',
-      }}/>
-      <div style={{
-        position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-        width: 12, height: 12, borderRadius: 999, background: 'var(--accent)', border: '2px solid var(--paper)'
-      }}/>
     </div>
   );
 }
@@ -8742,13 +7213,13 @@ function Parrainage() {
         </div>
         <div className="tbl-scroll">
           <table className="tbl">
-            <thead><tr><th>Nom</th><th>Ville</th><th>Inscrit le</th><th style={{textAlign:'right'}}>Statut</th></tr></thead>
+            <thead><tr><th>Nom</th><th>Inscrit le</th><th style={{textAlign:'right'}}>Statut</th></tr></thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={4} className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement de vos filleuls…</td></tr>
+                <tr><td colSpan={3} className="muted" style={{ padding: 20, textAlign: 'center' }}>Chargement de vos filleuls…</td></tr>
               )}
               {!loading && filleuls.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 28, textAlign: 'center' }}>
+                <tr><td colSpan={3} style={{ padding: 28, textAlign: 'center' }}>
                   <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -8765,7 +7236,6 @@ function Parrainage() {
                 return (
                   <tr key={i}>
                     <td className="row center gap-3"><Avatar name={fullName} size={28}/><span>{fullName}</span></td>
-                    <td className="muted">{f.ville || '—'}</td>
                     <td className="muted mono">{formatDate(f.createdAt)}</td>
                     <td className="mono" style={{ textAlign: 'right', color: 'var(--good)' }}>Inscrit ✓</td>
                   </tr>

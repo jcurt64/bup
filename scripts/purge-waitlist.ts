@@ -16,7 +16,7 @@
  * par accident (un `npx tsx scripts/purge-waitlist.ts` seul ne supprime rien).
  *
  * NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont lues dans
- * .env.local (mini-parser ci-dessous, comme scripts/backfill-geocode.ts).
+ * .env.local (mini-parser ci-dessous, parser historique).
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

@@ -7,7 +7,14 @@
  * Si l'appelant est authentifié et a un compte prospect, on enrichit
  * chaque deal avec :
  *   - relationId / relationStatus  (s'il a déjà reçu cette sollicitation)
- *   - missingTierKeys              (paliers requis qu'il n'a pas remplis)
+ *   - missingTierKeys              (['identity'] si l'un des 7 champs —
+ *                                   prénom / initiale / ville / sexe /
+ *                                   tranche d'âge / téléphone / e-mail —
+ *                                   manque, sinon [])
+ *
+ * Chaque deal expose `contactChannels` (téléphone et/ou e-mail). Les champs
+ * `requiredTiers` ([1]) / `requiredTierKeys` (['identity']) sont conservés
+ * pour les apps mobiles publiées.
  * Permet à la home page d'afficher un état adapté (accepter/refuser ou
  * "complétez vos données").
  */
@@ -15,7 +22,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { TIERS, TIER_KEYS, type TierKey } from "@/lib/prospect/donnees";
+import {
+  isContactProfileComplete,
+  readContactChannels,
+} from "@/lib/campaigns/contact-channels";
 import { getFounderContext } from "@/lib/founders";
 import { objectiveIdOf } from "@/lib/prospect/tracking-consent";
 import {
@@ -86,7 +96,7 @@ export async function GET() {
   let campaignQuery = admin
     .from("campaigns")
     .select(
-      `id, name, ends_at, brief, cost_per_contact_cents, targeting,
+      `id, name, ends_at, brief, cost_per_contact_cents, targeting, contact_channels,
        founder_bonus_enabled, budget_cents, created_at, pro_account_id,
        pro_accounts ( raison_sociale, secteur )`,
     )
@@ -119,6 +129,7 @@ export async function GET() {
     budget_cents: number;
     created_at: string;
     pro_account_id: string;
+    contact_channels: string[] | null;
     targeting: {
       durationKey?: string;
       durationMultiplier?: number;
@@ -154,29 +165,16 @@ export async function GET() {
     console.warn("[/api/landing/flash-deals] 7d count failed", e);
   }
 
-  // ─── Tier fill state + relations for authenticated prospects ────
-  let tierFilled: Record<TierKey, boolean> | null = null;
+  // ─── Profil contact + relations du prospect authentifié ────
+  let contactComplete: boolean | null = null;
   let relationsByCampaign: Map<string, { id: string; status: string }> | null = null;
   if (prospect && flashes.length > 0) {
-    // Lecture parallèle des 5 tables de paliers.
-    const tierResults = await Promise.all(
-      TIER_KEYS.map((key) =>
-        admin
-          .from(TIERS[key].table)
-          .select("*")
-          .eq("prospect_id", prospect!.id)
-          .maybeSingle(),
-      ),
-    );
-    const filled: Record<string, boolean> = {};
-    TIER_KEYS.forEach((key, idx) => {
-      const row = tierResults[idx].data as Record<string, unknown> | null;
-      filled[key] = !!row && Object.values(TIERS[key].fields).some((dbCol) => {
-        const v = row[dbCol];
-        return typeof v === "string" && v.trim() !== "";
-      });
-    });
-    tierFilled = filled as Record<TierKey, boolean>;
+    const { data: ident } = await admin
+      .from("prospect_identity")
+      .select("prenom, nom, ville, genre, tranche_age, email, telephone")
+      .eq("prospect_id", prospect.id)
+      .maybeSingle();
+    contactComplete = isContactProfileComplete(ident ?? null);
 
     // Relations existantes pour ce prospect sur les flash deals visibles.
     const ids = flashes.map((f) => f.id);
@@ -231,15 +229,13 @@ export async function GET() {
   const deals = flashes.map((r) => {
     const pro = Array.isArray(r.pro_accounts) ? r.pro_accounts[0] : r.pro_accounts;
     const targeting = r.targeting ?? {};
-    const requiredTiers = Array.isArray(targeting.requiredTiers) ? targeting.requiredTiers : [];
-    const requiredTierKeys = Array.isArray(targeting.requiredTierKeys)
-      ? (targeting.requiredTierKeys as string[]).filter((x): x is TierKey => (TIER_KEYS as string[]).includes(x))
-      : [];
+    // Plus de paliers de données : palier 1 seul (compat mobile publié).
+    const requiredTiers = [1];
+    const requiredTierKeys = ["identity"];
     const multiplier = Number(targeting.durationMultiplier ?? 3);
     const rel = relationsByCampaign?.get(r.id) ?? null;
-    const missingTierKeys = tierFilled
-      ? requiredTierKeys.filter((k) => !tierFilled![k])
-      : null;
+    const missingTierKeys =
+      contactComplete === null ? null : contactComplete ? [] : ["identity"];
     const baseCostCents = Number(r.cost_per_contact_cents ?? 0);
     // Le filleul voit sa récompense normale. Le bonus parrain (50 % à sa
     // 1ʳᵉ acceptation) est versé au PARRAIN, pas au filleul — il n'apparaît
@@ -256,6 +252,9 @@ export async function GET() {
       founderVipBonusApplied: false,
       requiredTiers,
       requiredTierKeys,
+      // Modes de contact : le prospect sera appelé et/ou contacté par e-mail
+      // (toujours via la plateforme BUUPP).
+      contactChannels: readContactChannels(r.contact_channels),
       proName: pro?.raison_sociale ?? null,
       proSector: pro?.secteur ?? null,
       isAuthenticated: prospect !== null,

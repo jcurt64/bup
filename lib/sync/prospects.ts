@@ -7,6 +7,7 @@
  * aussi un upsert défensif appelé au premier accès au dashboard.
  */
 
+import { nomInitial } from "@/lib/campaigns/contact-channels";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export type EnsureProspectInput = {
@@ -42,7 +43,8 @@ export async function ensureProspect(input: EnsureProspectInput) {
       prospect_id: created.id,
       email: input.email ?? null,
       prenom: input.prenom ?? null,
-      nom: input.nom ?? null,
+      // Pivot « mise en relation pure » : seule l'initiale du nom est stockée.
+      nom: nomInitial(input.nom),
     });
   }
 

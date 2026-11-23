@@ -1,6 +1,11 @@
 /**
  * POST /api/pro/segments/broadcast
- * Body : { campaignId: string, filters: SegmentFilters, subject: string, body: string }
+ * Body : { campaignId: string, filters?: SegmentFilters, subject: string, body: string,
+ *          relationIds?: string[] }
+ *   `relationIds` (optionnel, ≤ 500) restreint l'envoi à une sélection de
+ *   contacts (« message groupé ») — intersectée avec le segment/la campagne.
+ *   Refusé (403 `email_channel_not_allowed`) si la campagne n'a pas le canal
+ *   de contact « email ».
  *
  * Diffusion MÉDIÉE d'un message à un segment (SP2). Le pro compose un
  * message ; BUUPP l'envoie par e-mail à tous les prospects du segment (ceux
@@ -39,6 +44,7 @@ import {
 } from "@/lib/pro/segmentation/broadcast";
 import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { sendProToProspectEmail } from "@/lib/email/pro-to-prospect";
+import { readContactChannels } from "@/lib/campaigns/contact-channels";
 
 export const runtime = "nodejs";
 
@@ -58,7 +64,13 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  let body: { campaignId?: string; filters?: unknown; subject?: string; body?: string };
+  let body: {
+    campaignId?: string;
+    filters?: unknown;
+    subject?: string;
+    body?: string;
+    relationIds?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -77,6 +89,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "body_too_long" }, { status: 400 });
 
   const filters = sanitizeFilters(body.filters);
+  // Sélection explicite optionnelle (message groupé depuis « Mes contacts »).
+  let selection: Set<string> | null = null;
+  if (body.relationIds !== undefined) {
+    if (!Array.isArray(body.relationIds)) {
+      return NextResponse.json({ error: "invalid_relation_ids" }, { status: 400 });
+    }
+    const ids = body.relationIds.filter(
+      (x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x),
+    );
+    if (ids.length === 0 || ids.length > BROADCAST_MAX_RECIPIENTS) {
+      return NextResponse.json({ error: "invalid_relation_ids" }, { status: 400 });
+    }
+    selection = new Set(ids);
+  }
 
   const user = await currentUser();
   const proEmail =
@@ -96,7 +122,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
   }
 
-  const relIds = matchedRelationIds(audience.contacts, filters);
+  // Canal de contact : l'e-mail doit faire partie des modes choisis par le pro.
+  const { data: campRow } = await admin
+    .from("campaigns")
+    .select("contact_channels")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!readContactChannels(campRow?.contact_channels).includes("email")) {
+    return NextResponse.json({ error: "email_channel_not_allowed" }, { status: 403 });
+  }
+
+  const relIds = matchedRelationIds(audience.contacts, filters).filter(
+    (id) => !selection || selection.has(id),
+  );
   if (relIds.length === 0) {
     return NextResponse.json({ ok: true, total: 0, sent: 0, skippedNoEmail: 0, skippedQuota: 0, skippedCap: 0 });
   }

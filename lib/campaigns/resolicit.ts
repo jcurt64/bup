@@ -1,10 +1,11 @@
 /**
  * Re-sollicitation après ÉLARGISSEMENT d'une campagne en cours.
  *
- * Quand un pro élargit la zone géo ou la tranche d'âge (cf. PATCH
- * /api/pro/campaigns/[id], branche édition), les prospects désormais dans la
- * cible MAIS pas encore sollicités doivent recevoir la sollicitation —
- * exactement comme au lancement.
+ * Ce module sert à combler les places restantes d'une campagne avec des
+ * prospects nouvellement éligibles (ex. prospect ayant complété ses
+ * coordonnées depuis le lancement, ou filtres d'audience élargis), avec les
+ * mêmes critères qu'au lancement (filtres villes / sexe / tranche d'âge
+ * compris).
  *
  * Garde-fou budget : on ne dépasse JAMAIS le nombre de contacts déjà payé
  * (`contact_quota` = budget réservé au lancement). On ne fait que COMBLER les
@@ -14,7 +15,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { findMatchingProspects, type MatchingInput } from "./matching";
+import { findMatchingProspects } from "./matching";
+import { readContactChannels } from "./contact-channels";
+import { readAudienceTargeting } from "./audience-targeting";
 import { sendRelationInvitation } from "@/lib/email/relation";
 import { excludesPastAcceptors, pastAcceptorProspectIds } from "./past-acceptors";
 import {
@@ -26,15 +29,6 @@ import {
 
 type Targeting = {
   objectiveId?: string;
-  requiredTiers?: number[];
-  geo?: string;
-  geoTarget?:
-    | { type: "ville"; nom?: string; code?: string; codesPostaux?: string[] }
-    | { type: "dept"; nom?: string; code?: string }
-    | { type: "region"; nom?: string; code?: string; deptCodes?: string[] }
-    | null;
-  radiusKm?: number | null;
-  ages?: string[];
   verifLevel?: string;
   excludeCertified?: boolean;
   excludePastAcceptors?: boolean;
@@ -76,7 +70,7 @@ export async function resolicitNewlyEligible(
   const { data: camp, error: campErr } = await admin
     .from("campaigns")
     .select(
-      "id, status, targeting, budget_cents, cost_per_contact_cents, contact_quota, matched_count, ends_at, brief, pro_account_id",
+      "id, status, targeting, contact_channels, budget_cents, cost_per_contact_cents, contact_quota, matched_count, ends_at, brief, pro_account_id",
     )
     .eq("id", campaignId)
     .single();
@@ -110,7 +104,7 @@ export async function resolicitNewlyEligible(
 
   const { data: pro } = await admin
     .from("pro_accounts")
-    .select("code_postal, latitude, longitude, raison_sociale, secteur")
+    .select("raison_sociale, secteur")
     .eq("id", proId)
     .single();
 
@@ -126,20 +120,13 @@ export async function resolicitNewlyEligible(
     }
     matched = await findMatchingProspects(admin, {
       objectiveId: t.objectiveId ?? "",
-      requiredTiers: t.requiredTiers ?? [],
-      geo: t.geo ?? "national",
-      // Le geoTarget stocké est déjà normalisé (cf. POST /campaigns) → cast sûr.
-      geoTarget: (t.geoTarget ?? null) as MatchingInput["geoTarget"],
-      proCodePostal: pro?.code_postal ?? null,
-      proLat: pro?.latitude ?? null,
-      proLng: pro?.longitude ?? null,
-      radiusKm: t.radiusKm ?? null,
-      ages: t.ages ?? [],
+      contactChannels: readContactChannels(camp.contact_channels),
       verifLevel: t.verifLevel ?? "p0",
       contacts: remaining,
       excludeCertified: t.excludeCertified === true,
       excludeProspectIds: [...excludeIds],
       minFiabilitePct: t.minFiabilite ?? null,
+      audience: readAudienceTargeting(t),
     });
   } catch (e) {
     console.error("[resolicit] matching failed", e);

@@ -18,7 +18,8 @@ export async function POST(req: Request, ctx: Ctx) {
   await sweepStudy(g.admin, id);
   const { data: c } = await g.admin.from("study_campaigns").select("scope, department").eq("id", id).maybeSingle();
   if (!c) return err("not_found", 404);
-  if (c.scope === "department" && g.ctx.department !== c.department) return err("out_of_area", 403);
+  // Plus de localisation prospect : la zone d'une étude départementale est
+  // affichée sur la fiche, le prospect s'inscrit en connaissance de cause.
 
   const { data, error } = await g.admin.rpc("join_study_tx", { p_campaign: id, p_prospect: g.ctx.prospectId });
   if (error) {

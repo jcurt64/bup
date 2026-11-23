@@ -39,6 +39,6 @@ export function StudyIcon({ name, size = 18, ...rest }: { name: StudyIconName; s
 /** Dégradé et teinte par type de campagne. */
 export const TYPE_THEME: Record<string, { from: string; to: string; soft: string; ink: string; label: string }> = {
   survey: { from: "#6366F1", to: "#A855F7", soft: "#EEF2FF", ink: "#4338CA", label: "Sondage" },
-  product_test: { from: "#0EA5E9", to: "#14B8A6", soft: "#ECFEFF", ink: "#0E7490", label: "Test site / appli" },
+  product_test: { from: "#0EA5E9", to: "#14B8A6", soft: "#ECFEFF", ink: "#0E7490", label: "Test / avis produit" },
   visit: { from: "#F97316", to: "#F43F5E", soft: "#FFF7ED", ink: "#C2410C", label: "Visite / rendez-vous" },
 };

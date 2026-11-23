@@ -4,7 +4,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { clerkClient } from "@/lib/clerk/server";
-import { departmentFromPostalCode } from "./department";
 import { studyBadge } from "./status";
 import { PAID_MENTION, STUDY_TYPE_LABELS, type StudyType } from "./constants";
 
@@ -134,15 +133,17 @@ export type ProspectCtx = {
 export async function prospectContext(admin: Admin, clerkUserId: string): Promise<ProspectCtx | null> {
   const { data: p } = await admin.from("prospects").select("id").eq("clerk_user_id", clerkUserId).maybeSingle();
   if (!p) return null;
-  const [{ data: ident }, { data: loc }] = await Promise.all([
-    admin.from("prospect_identity").select("prenom, email").eq("prospect_id", p.id).maybeSingle(),
-    admin.from("prospect_localisation").select("code_postal").eq("prospect_id", p.id).maybeSingle(),
-  ]);
+  const { data: ident } = await admin
+    .from("prospect_identity")
+    .select("prenom, email")
+    .eq("prospect_id", p.id)
+    .maybeSingle();
   return {
     prospectId: p.id,
     prenom: ident?.prenom?.trim() || null,
     email: ident?.email?.trim() || null,
-    department: departmentFromPostalCode(loc?.code_postal ?? null),
+    // Localisation prospect supprimée (pivot « mise en relation pure »).
+    department: null,
   };
 }
 

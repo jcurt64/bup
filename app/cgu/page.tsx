@@ -148,34 +148,43 @@ export default function CguPage() {
             explicitement la sollicitation depuis son tableau de bord.
           </p>
           <p>
-            Les données du Prospect sont organisées en{" "}
-            <strong>cinq paliers</strong> (Identification, Localisation,
-            Style de vie, Données professionnelles, Patrimoine &amp;
-            projets) selon le principe de{" "}
-            <Link
-              href="/minimisation"
-              style={{ color: "var(--accent)", textDecoration: "underline" }}
-            >
-              minimisation
-            </Link>
-            . Chaque palier est complété volontairement par le Prospect et
-            associé à une rémunération propre. Le Pro ne peut cibler que les
-            paliers strictement nécessaires à l&apos;objectif déclaré de sa
-            campagne (cf.{" "}
-            <Link
-              href="/bareme"
-              style={{ color: "var(--accent)", textDecoration: "underline" }}
-            >
-              barème
-            </Link>
-            ).
+            Les seules données personnelles du Prospect traitées pour la
+            mise en relation sont son <strong>prénom</strong>, l&apos;
+            <strong>initiale de son nom</strong>, sa{" "}
+            <strong>ville</strong>, son <strong>sexe</strong>, sa{" "}
+            <strong>tranche d&apos;âge</strong>, son{" "}
+            <strong>numéro de téléphone</strong> et son{" "}
+            <strong>adresse e-mail</strong>, conformément au principe de
+            minimisation (RGPD art.&nbsp;5.1.c). À la création de sa
+            campagne, le Pro choisit le ou les modes de contact souhaités
+            (téléphone et/ou e-mail) et peut, s&apos;il le souhaite,
+            réserver sa campagne à certaines villes, à un sexe ou à une
+            tranche d&apos;âge&nbsp;: ces critères servent uniquement à
+            déterminer quels Prospects reçoivent la sollicitation, sans que
+            la ville, le sexe ou la tranche d&apos;âge d&apos;un Prospect ne
+            soient jamais communiqués au Pro. Le prénom et l&apos;initiale
+            du nom lui sont communiqués afin de personnaliser l&apos;échange.
           </p>
           <p>
-            Le <strong>BUUPP Score</strong> (0-1000) reflète la qualité du
-            profil Prospect&nbsp;: complétude des paliers, vérification du
-            téléphone, taux de réponse aux sollicitations passées. Il sert
-            au Pro à filtrer ses cibles et au Prospect à valoriser son
-            profil. Les rémunérations sont versées en{" "}
+            <strong>Le Pro a-t-il accès aux informations du
+            Prospect&nbsp;?</strong> Non&nbsp;: tout contact passe par la
+            plateforme BUUPP. Le Pro ne voit que le prénom du Prospect et
+            l&apos;initiale de son nom&nbsp;; le numéro de téléphone,
+            l&apos;adresse e-mail, la ville, le sexe et la tranche
+            d&apos;âge du Prospect ne lui sont jamais communiqués.
+          </p>
+          <p>
+            Chaque acceptation donne lieu à une rémunération unique du
+            Prospect&nbsp;: une base de 1,00&nbsp;€ multipliée selon la
+            durée de la campagne (7&nbsp;jours&nbsp;×1, 48&nbsp;h&nbsp;×1,5,
+            24&nbsp;h&nbsp;×2, Flash 1&nbsp;h&nbsp;×3).
+          </p>
+          <p>
+            Le <strong>BUUPP Score</strong> (0-1000) reflète le sérieux du
+            profil Prospect&nbsp;: complétude de ses coordonnées, fraîcheur de
+            ses informations et taux de fiabilité (notes attribuées par les
+            Pros après une mise en relation). Il permet au Prospect de
+            valoriser son profil auprès des Pros. Les rémunérations sont versées en{" "}
             <strong>BUUPP Coins</strong> (1&nbsp;BUUPP Coin =
             1,00&nbsp;€), retirables sur compte bancaire selon les
             modalités décrites à l&apos;article&nbsp;8.
@@ -240,9 +249,9 @@ export default function CguPage() {
           <p>Le Prospect s&apos;engage à&nbsp;:</p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
-              fournir des informations <strong>exactes, à jour et
-              complètes</strong> dans tous les paliers qu&apos;il choisit de
-              remplir ;
+              fournir des informations <strong>exactes et à jour</strong>{" "}
+              (prénom, initiale du nom, ville, sexe, tranche d&apos;âge,
+              téléphone, adresse e-mail) ;
             </li>
             <li>
               ne <strong>pas créer plusieurs comptes</strong> (les contrôles
@@ -272,8 +281,8 @@ export default function CguPage() {
             </li>
             <li>
               signaler à BUUPP tout comportement déviant d&apos;un Pro
-              (utilisation hors périmètre, démarchage tiers, exfiltration
-              de coordonnées).
+              (utilisation hors périmètre, démarchage tiers, tentative
+              d&apos;obtenir ses coordonnées en dehors de la plateforme).
             </li>
           </ul>
         </Section>
@@ -282,34 +291,25 @@ export default function CguPage() {
           <p>Le Pro s&apos;engage à&nbsp;:</p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
-              n&apos;utiliser les coordonnées révélées que{" "}
-              <strong>dans le strict cadre de la campagne validée</strong>{" "}
-              par le Prospect (objectif, sous-type et canal déclarés au
-              wizard de création) ;
+              ne contacter le Prospect{" "}
+              <strong>que dans le strict cadre de la campagne acceptée</strong>{" "}
+              par celui-ci (objectif, sous-type et mode de contact déclarés
+              lors de la création de la campagne) ;
             </li>
             <li>
-              respecter le principe de{" "}
-              <Link
-                href="/minimisation"
-                style={{ color: "var(--accent)", textDecoration: "underline" }}
-              >
-                minimisation
-              </Link>
-              {" "}: ne cibler que les paliers strictement nécessaires à la
-              finalité déclarée ;
+              passer <strong>exclusivement par la plateforme BUUPP</strong>{" "}
+              pour appeler ou écrire au Prospect&nbsp;: le Pro ne reçoit ni
+              le numéro de téléphone ni l&apos;adresse e-mail du Prospect et
+              s&apos;interdit de chercher à les obtenir par un autre moyen.
+              Chaque prise de contact est consignée dans un journal
+              d&apos;audit serveur (horodatage, identification du Pro et de
+              la relation)&nbsp;;
             </li>
             <li>
-              ne <strong>pas exfiltrer, copier, exporter ou revendre</strong>{" "}
-              les coordonnées révélées. L&apos;email du Prospect révélé au Pro
-              est un <strong>alias unique de la forme{" "}
-              <code>prospect+rXXX@buupp.com</code></strong>, propre à la relation,
-              routé vers le vrai email du Prospect par BUUPP : tout mail reçu
-              par le Prospect en dehors de cet alias remonte instantanément au
-              Pro émetteur. Le téléphone et le nom complet sont révélés en clair,
-              mais chaque révélation est consignée dans un journal d&apos;audit
-              serveur (horodatage, identification du Pro et de la relation).
-              Tout export, capture massif ou diffusion à des tiers expose le Pro
-              à une résiliation immédiate et à une enquête ;
+              ne <strong>pas copier, exporter, revendre ou diffuser</strong>{" "}
+              les informations du Prospect auxquelles il a accès (prénom et
+              initiale du nom). Tout manquement expose le Pro à une
+              résiliation immédiate et à une enquête ;
             </li>
             <li>
               limiter ses contacts à <strong>une seule sollicitation</strong>
@@ -338,8 +338,8 @@ export default function CguPage() {
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
               <strong>côté Pro</strong> : sélection du prospect via une
-              campagne ciblée (objectif, palier, géographie, mots-clés) et
-              validation du budget&nbsp;;
+              campagne (objectif, mode de contact, durée) et validation du
+              budget&nbsp;;
             </li>
             <li>
               <strong>côté Prospect</strong> : clic explicite sur
@@ -372,20 +372,19 @@ export default function CguPage() {
           <p>
             Pour préserver à la fois la <strong>confidentialité des
             coordonnées</strong> du Prospect et la <strong>traçabilité</strong>
-            des échanges, BUUPP centralise l&apos;envoi de certaines
-            communications.
+            des échanges, <strong>tous les appels et e-mails</strong> entre
+            le Pro et le Prospect passent par la plateforme BUUPP. Le Pro ne
+            reçoit jamais le numéro de téléphone ni l&apos;adresse e-mail du
+            Prospect.
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
-              <strong>Emails Pro → Prospect</strong> : tout email envoyé
-              au Prospect via les outils &laquo;&nbsp;Actions
-              intégrées&nbsp;&raquo; de BUUPP est transmis par nos
-              serveurs SMTP, avec l&apos;adresse <em>BUUPP</em> en
-              expéditeur et l&apos;adresse personnelle du Pro en
-              <em> Reply-To</em> (les réponses du Prospect arrivent
-              donc directement chez le Pro). L&apos;adresse email du
-              Prospect <strong>n&apos;est jamais affichée</strong> au Pro
-              dans l&apos;interface de composition.
+              <strong>Emails Pro → Prospect</strong> : tout email destiné
+              au Prospect est rédigé depuis l&apos;espace du Pro et
+              transmis par l&apos;infrastructure d&apos;envoi de BUUPP
+              (prestataire Brevo), avec l&apos;adresse <em>BUUPP</em> en
+              expéditeur. L&apos;adresse e-mail du Prospect{" "}
+              <strong>n&apos;est jamais communiquée</strong> au Pro.
             </li>
             <li>
               <strong>Conservation</strong> : le sujet et le corps de
@@ -402,13 +401,14 @@ export default function CguPage() {
               refusé.
             </li>
             <li>
-              <strong>Appels téléphoniques</strong> : lorsque le Pro
-              clique sur le bouton &laquo;&nbsp;Appeler&nbsp;&raquo;
-              dans l&apos;interface contact, l&apos;événement
+              <strong>Appels téléphoniques</strong> : l&apos;appel est
+              lancé par le Pro depuis le bouton
+              &laquo;&nbsp;Appeler&nbsp;&raquo; de son espace et mis en
+              relation par la plateforme BUUPP, sans que le numéro du
+              Prospect ne lui soit communiqué. L&apos;événement
               (horodatage, identifiant de la mise en relation) est
-              enregistré dans nos journaux d&apos;audit. L&apos;appel
-              lui-même se déroule via le réseau téléphonique standard
-              et n&apos;est ni intercepté ni enregistré par BUUPP.
+              enregistré dans nos journaux d&apos;audit. Le contenu de
+              l&apos;appel n&apos;est pas enregistré par BUUPP.
             </li>
             <li>
               <strong>Suivi d&apos;ouverture (pixel)</strong> : si le
@@ -438,8 +438,8 @@ export default function CguPage() {
           <p>
             <strong>Séquestre &amp; déblocage.</strong> Lors de
             l&apos;acceptation d&apos;une sollicitation, le montant de la
-            rémunération (palier × multiplicateur durée × bonus
-            éventuels) est <strong>débité du wallet du Pro</strong> et
+            rémunération (base de 1,00&nbsp;€ × multiplicateur de durée ×
+            bonus éventuels) est <strong>débité du wallet du Pro</strong> et
             placé en séquestre. Il est{" "}
             <strong>automatiquement crédité au Prospect</strong> à la
             clôture de la campagne (date communiquée à l&apos;acceptation),
@@ -496,9 +496,12 @@ export default function CguPage() {
           </p>
           <p>
             Les <strong>données personnelles du Prospect</strong> restent
-            sa propriété pleine et entière. Les paliers complétés sont mis
-            à disposition des Pros dans le cadre strict des sollicitations
-            acceptées (cf. articles 6 et 7).
+            sa propriété pleine et entière. Seuls son prénom et
+            l&apos;initiale de son nom sont portés à la connaissance du Pro,
+            dans le cadre strict des sollicitations acceptées&nbsp;; son
+            téléphone, son adresse e-mail, sa ville, son sexe et sa tranche
+            d&apos;âge ne lui sont jamais transmis
+            (cf. articles 3, 6 et 8).
           </p>
         </Section>
 
@@ -540,7 +543,7 @@ export default function CguPage() {
           <p>
             <strong>Évolutions fonctionnelles.</strong> BUUPP peut faire
             évoluer le Service, ajouter ou retirer des fonctionnalités,
-            modifier la grille tarifaire des plans Pro, ou ajuster les
+            modifier la tarification applicable aux Pros, ou ajuster les
             seuils opérationnels (durées de campagne, BUUPP Score, etc.).
             Les évolutions sont notifiées par message in-app et/ou
             courriel. Les modifications substantiellement défavorables au
@@ -563,8 +566,8 @@ export default function CguPage() {
               téléphone, e-mail) ;
             </li>
             <li>
-              fourniture délibérée de données fausses ou trompeuses dans
-              les paliers ;
+              fourniture délibérée de données fausses ou trompeuses (identité,
+              ville, sexe, tranche d&apos;âge, téléphone, adresse e-mail) ;
             </li>
             <li>
               signalements répétés «&nbsp;non atteint&nbsp;» (Prospect qui
@@ -577,9 +580,10 @@ export default function CguPage() {
               avérée au-delà de ce dispositif ;
             </li>
             <li>
-              côté Pro&nbsp;: exfiltration, revente, capture en masse ou
-              diffusion à un tiers des coordonnées révélées (passibles
-              aussi de poursuites pénales) ;
+              côté Pro&nbsp;: contournement de la plateforme pour contacter
+              un Prospect, revente, capture en masse ou diffusion à un tiers
+              des informations d&apos;un Prospect (passibles aussi de
+              poursuites pénales) ;
             </li>
             <li>
               usage du Service à des fins illicites, frauduleuses ou
@@ -609,9 +613,9 @@ export default function CguPage() {
           <p>
             <strong>Résiliation côté utilisateur.</strong> L&apos;utilisateur
             peut à tout moment résilier son contrat par la suppression de
-            son compte (cf. article&nbsp;4) ou, pour les Pros, en
-            résiliant son abonnement depuis l&apos;onglet «&nbsp;Mes
-            informations&nbsp;».
+            son compte (cf. article&nbsp;4). Les Pros n&apos;étant soumis à
+            aucun abonnement, aucune résiliation distincte n&apos;est
+            nécessaire.
           </p>
         </Section>
 
@@ -700,17 +704,17 @@ export default function CguPage() {
             (sondage en ligne, test d&apos;un site ou d&apos;une application, visite
             en magasin ou rendez-vous) et s&apos;y inscrire par un{" "}
             <strong>consentement explicite</strong>. Il doit avoir renseigné
-            son prénom et son e-mail ; une campagne départementale est réservée
-            aux prospects dont le code postal relève de ce département (le
-            département n&apos;est jamais transmis au Professionnel).
+            son prénom et son e-mail.
           </p>
           <p>
             Le prospect peut se retirer tant que la campagne n&apos;est pas
             validée. Si le nombre minimum de participants est atteint, il
             reçoit un <strong>code personnel</strong> à transmettre au
             Professionnel en réalisant la tâche, puis déclare la tâche
-            terminée dans BUUPP avant la date limite. Seuls son prénom et un
-            alias e-mail sont alors communiqués au Professionnel.
+            terminée dans BUUPP avant la date limite. Seuls son prénom et
+            l&apos;initiale de son nom sont alors communiqués au
+            Professionnel&nbsp;; les échanges éventuels passent par la
+            plateforme BUUPP.
           </p>
           <p>
             La rémunération est créditée sur le portefeuille BUUPP après
@@ -815,9 +819,8 @@ export default function CguPage() {
           <p>
             <strong>Sollicitation élargie des filleul·es.</strong> Lorsqu&apos;un
             professionnel active l&apos;option de bonus parrain·e sur une
-            campagne et qu&apos;un·e parrain·e figure dans le ciblage, ses{" "}
-            <strong>filleul·es sont également sollicité·es</strong>, y compris
-            s&apos;ils·elles ne remplissent pas les critères de ciblage. Le
+            campagne et qu&apos;un·e parrain·e est sollicité·e, ses{" "}
+            <strong>filleul·es sont également sollicité·es</strong>. Le
             nombre total d&apos;acceptations reste plafonné au volume de
             contacts financé par le professionnel pour cette campagne.
           </p>

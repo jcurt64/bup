@@ -21,19 +21,23 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { findMatchingProspects } from "@/lib/campaigns/matching";
 import {
+  MAX_TARGET_CITIES,
+  parseAudienceTargeting,
+  readAudienceTargeting,
+} from "@/lib/campaigns/audience-targeting";
+import {
   filterValidSubTypes,
-  normalizeRadiusKm,
   objectiveLabel,
   objectiveToCampaignType,
   SUB_TYPES_BY_OBJECTIVE,
-  tierNumsToKeys,
 } from "@/lib/campaigns/mapping";
+import { parseContactChannels, readContactChannels } from "@/lib/campaigns/contact-channels";
 import { sendRelationInvitation } from "@/lib/email/relation";
 import { sendReferralInvitation } from "@/lib/email/referral-invitation";
 import { computeReferralReach } from "@/lib/founders/referral-reach";
 import { pastAcceptorProspectIds } from "@/lib/campaigns/past-acceptors";
 import { buildClassicPayload, buildFlashPayload, sendBatch, type ExpoPushMessage } from "@/lib/push/expo";
-import { rangeForRequiredTiers, TIER_REWARDS, type TierNum } from "@/lib/prospect/tier-rewards";
+import { CONTACT_BASE_REWARD_CENTS } from "@/lib/prospect/tier-rewards";
 import {
   campaignCommissionMaxCents,
   COMMISSION_FLOOR_CENTS,
@@ -47,14 +51,18 @@ type Body = {
   name?: string;
   objectiveId: string;
   subTypes: string[];
-  requiredTiers: number[];
-  geo: string;
+  /** Modes de contact choisis par le pro (au moins un). Requis. */
+  contactChannels: unknown;
+  /** Historique : forcé à [1] côté serveur (plus de paliers de données). */
+  requiredTiers?: number[];
+  /** Historique : ignoré (plus de ciblage géographique — national). */
+  geo?: string;
   /** Fiabilité minimum exigée (0 = toutes, 60, 80) — étape 4 ciblage. */
   minFiabilite?: number;
-  /** Rayon (km) pour le ciblage « autour de moi » (`geo === "around"`).
-   *  Borné à 10/30/50 côté serveur (`normalizeRadiusKm`). */
+  /** Historique : ignoré. */
   radiusKm?: number | null;
-  ages: string[];
+  /** Historique : ignoré (plus de ciblage par âge). */
+  ages?: string[];
   verifLevel: string;
   contacts: number;
   startDate: string;
@@ -81,41 +89,15 @@ type Body = {
   /** Bonus fondateur : quand true (défaut), les acceptations par un fondateur
    *  coûtent 2× le tarif palier pendant le 1er mois post-lancement. */
   founder_bonus_enabled?: boolean;
-  /** Cible géographique précise choisie via l'autocomplete geo.api.gouv.fr
-   *  côté wizard. Optionnel (rétro-compat) ; quand fourni, override la
-   *  logique CP-prefix-du-pro pour filtrer le pool exactement sur la
-   *  ville / le département / la région demandés. */
-  geoTarget?:
-    | { type: "ville"; nom: string; code: string; codesPostaux: string[] }
-    | { type: "dept"; nom: string; code: string }
-    | { type: "region"; nom: string; code: string; deptCodes: string[] }
-    | null;
+  /** Historique : ignoré (plus de ciblage géographique). */
+  geoTarget?: unknown;
+  /** Filtre villes (0–20 noms de commune ; vide/absent = toute la France). */
+  targetCities?: unknown;
+  /** Filtre sexe (femme / homme ; vide/absent = tous). */
+  targetGenres?: unknown;
+  /** Filtre tranche d'âge (18-35 / 35+ ; vide/absent = tous âges). */
+  targetAgeBands?: unknown;
 };
-
-/** Valide et normalise la cible géographique reçue du wizard.
- *  Retourne null si le payload est absent ou malformé — le matching
- *  retombera sur la logique CP-prefix-du-pro. */
-function normalizeGeoTarget(raw: unknown): Body["geoTarget"] | null {
-  if (!raw || typeof raw !== "object") return null;
-  const v = raw as Record<string, unknown>;
-  if (v.type === "ville" && typeof v.nom === "string" && typeof v.code === "string" && Array.isArray(v.codesPostaux)) {
-    const cps = v.codesPostaux
-      .filter((cp): cp is string => typeof cp === "string" && /^\d{5}$/.test(cp))
-      .slice(0, 30);
-    return cps.length > 0 ? { type: "ville", nom: v.nom.slice(0, 120), code: v.code.slice(0, 10), codesPostaux: cps } : null;
-  }
-  if (v.type === "dept" && typeof v.nom === "string" && typeof v.code === "string" && /^[\dA-Z]{2,3}$/i.test(v.code)) {
-    return { type: "dept", nom: v.nom.slice(0, 120), code: v.code.toUpperCase().slice(0, 3) };
-  }
-  if (v.type === "region" && typeof v.nom === "string" && typeof v.code === "string" && Array.isArray(v.deptCodes)) {
-    const codes = v.deptCodes
-      .filter((c): c is string => typeof c === "string" && /^[\dA-Z]{2,3}$/i.test(c))
-      .map((c) => c.toUpperCase())
-      .slice(0, 30);
-    return codes.length > 0 ? { type: "region", nom: v.nom.slice(0, 120), code: v.code.slice(0, 10), deptCodes: codes } : null;
-  }
-  return null;
-}
 
 /** Valide/normalise l'URL « Vitrine ». https UNIQUEMENT : un schéma absent
  *  est préfixé `https://`, un `http://` explicite est refusé. Retourne l'URL
@@ -139,8 +121,6 @@ function normalizeWebsiteUrl(raw: unknown): string | null {
 
 /** Tarif de l'option Vitrine, en cents (2 €). Offerte à la 1re campagne. */
 const VITRINE_FEE_CENTS = 200;
-
-const ALLOWED_CHANNELS = ["email", "phone", "sms", "whatsapp", "facebook", "linkedin"] as const;
 
 const DURATION_MULTIPLIERS: Record<string, { mult: number; ms: number }> = {
   "1h":  { mult: 3,   ms: 3600 * 1000 },
@@ -184,7 +164,6 @@ export async function POST(req: Request) {
 
   if (
     !body.objectiveId ||
-    !Array.isArray(body.requiredTiers) || body.requiredTiers.length === 0 ||
     !body.brief || body.brief.trim().length === 0 ||
     !body.contacts || body.contacts < 1 ||
     !body.costPerContactCents || body.costPerContactCents < 1 ||
@@ -205,6 +184,40 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+
+  // Modes de contact (téléphone et/ou e-mail) — requis, non vide, dédoublonné.
+  const contactChannels = parseContactChannels(body.contactChannels);
+  if (!contactChannels) {
+    return NextResponse.json(
+      {
+        error: "invalid_contact_channels",
+        message: "Choisissez au moins un mode de contact : téléphone et/ou e-mail.",
+      },
+      { status: 400 },
+    );
+  }
+  // Filtres d'audience (villes / sexe / tranche d'âge) — matching seulement,
+  // jamais exposés au pro côté prospect.
+  const audienceParsed = parseAudienceTargeting(body);
+  if (!audienceParsed.ok) {
+    return NextResponse.json(
+      {
+        error: audienceParsed.error,
+        message:
+          audienceParsed.error === "invalid_target_cities"
+            ? `Villes invalides (${MAX_TARGET_CITIES} maximum).`
+            : audienceParsed.error === "invalid_target_genres"
+              ? "Sexe ciblé invalide (femme et/ou homme)."
+              : "Tranche d'âge ciblée invalide (18-35 et/ou 35+).",
+      },
+      { status: 400 },
+    );
+  }
+  const audience = audienceParsed.value;
+
+  // Plus de paliers de données : seul le palier 1 (prénom + initiale +
+  // coordonnées relayées) subsiste, forcé côté serveur.
+  const requiredTiers = [1];
 
   if (!SUB_TYPES_BY_OBJECTIVE[body.objectiveId]) {
     return NextResponse.json({ error: "invalid_objective" }, { status: 400 });
@@ -231,7 +244,7 @@ export async function POST(req: Request) {
   const { data: pro } = await admin
     .from("pro_accounts")
     .select(
-      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur, code_postal, latitude, longitude",
+      "wallet_balance_cents, wallet_reserved_cents, raison_sociale, ville, secteur",
     )
     .eq("id", proId)
     .single();
@@ -312,68 +325,52 @@ export async function POST(req: Request) {
     );
   }
 
-  const founderBonusEnabled = body.founder_bonus_enabled !== false;
+  // Bonus parrain (reach filleuls) supprimé avec le pivot « mise en relation » :
+  // toujours désactivé, quel que soit le client (anciennes applis comprises).
+  const founderBonusEnabled = false;
 
   const campaignType = objectiveToCampaignType(body.objectiveId);
-  const finalChannels = [...ALLOWED_CHANNELS];
   const durationKey = typeof body.durationKey === "string" && body.durationKey in DURATION_MULTIPLIERS
     ? body.durationKey
     : "7d";
   const durationMeta = DURATION_MULTIPLIERS[durationKey];
 
-  // Garde-fou rémunération : `costPerContactCents` doit correspondre à
-  // la formule du wizard (Pro.jsx → baseCpc), qui est la source de
-  // vérité côté UX. Le backend miroite cette formule pour rester
-  // cohérent : tout écart = bug ou manipulation client → on rejette.
-  //   - Borne basse : protection prospect, le pro ne peut pas payer
-  //     moins que le minimum garanti pour le palier le plus élevé
-  //     qu'il demande (× la durée).
-  //   - Borne haute : formule wizard = somme des midpoints (min+max)/2
-  //     de CHAQUE palier sélectionné, × multiplicateur de vérification
-  //     (p0=1, p1=1.5, p2=2 — cf. VERIF_LEVELS), × multiplicateur de
-  //     durée. Le ×2 pour les prospects certifie_confiance s'applique
-  //     ensuite automatiquement à chaque relation (cf. rewardForProspect).
-  //   - Tolérance : 2 cents — couvre les rounds successifs du wizard
-  //     (Math.round(x * 100) / 100 répété deux fois).
-  const tierRange = rangeForRequiredTiers(body.requiredTiers);
-  if (tierRange) {
-    const { minCents, tier } = tierRange;
-    const effMin = Math.round(minCents * durationMeta.mult);
+  // Garde-fou rémunération (pivot « mise en relation ») : un seul tarif de
+  // base, 1,00 € par contact (CONTACT_BASE_REWARD_CENTS), × multiplicateur de
+  // vérification (p0=1, p1=1.5, p2=2) × multiplicateur de durée. Le ×2 pour
+  // les prospects certifie_confiance s'applique ensuite à chaque relation.
+  //   - Borne basse : 1,00 € × durée (protection prospect).
+  //   - Borne haute : 1,00 € × vérification × durée + 2 cents de tolérance.
+  {
     const VERIF_MULT: Record<string, number> = { p0: 1, p1: 1.5, p2: 2 };
     const verifMult = VERIF_MULT[body.verifLevel] ?? 1;
-    // Somme des midpoints (min+max)/2 sur les paliers sélectionnés —
-    // miroir exact de la boucle `selectedTiers.forEach` du wizard.
-    const tierMidpointSumCents = body.requiredTiers.reduce<number>((sum, t) => {
-      const n = Number(t);
-      const r = TIER_REWARDS[n as TierNum];
-      return r ? sum + (r.minCents + r.maxCents) / 2 : sum;
-    }, 0);
-    const effMax = Math.round(tierMidpointSumCents * verifMult * durationMeta.mult) + 2;
+    const effMin = Math.round(CONTACT_BASE_REWARD_CENTS * durationMeta.mult);
+    const effMax =
+      Math.round(CONTACT_BASE_REWARD_CENTS * verifMult * durationMeta.mult) + 2;
+    const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
     if (body.costPerContactCents < effMin) {
-      const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
       return NextResponse.json(
         {
           error: "cost_below_tier_minimum",
-          tier,
+          tier: 1,
           minCents: effMin,
           costPerContactCents: body.costPerContactCents,
           durationMultiplier: durationMeta.mult,
-          message: `Pour le palier ${tier} en ${durationKey}, la rémunération minimum est de ${fmtEur(effMin)} € par contact.`,
+          message: `En ${durationKey}, la rémunération minimum est de ${fmtEur(effMin)} € par contact.`,
         },
         { status: 400 },
       );
     }
     if (body.costPerContactCents > effMax) {
-      const fmtEur = (c: number) => (c / 100).toFixed(2).replace(".", ",");
       return NextResponse.json(
         {
           error: "cost_above_tier_maximum",
-          tier,
+          tier: 1,
           maxCents: effMax,
           costPerContactCents: body.costPerContactCents,
           durationMultiplier: durationMeta.mult,
           verifMult,
-          message: `Le coût par contact (${fmtEur(body.costPerContactCents)} €) dépasse le plafond calculé pour vos paliers + vérification + durée (${fmtEur(effMax)} €).`,
+          message: `Le coût par contact (${fmtEur(body.costPerContactCents)} €) dépasse le plafond calculé pour la vérification + durée (${fmtEur(effMax)} €).`,
         },
         { status: 400 },
       );
@@ -391,41 +388,11 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  // Normalisation côté serveur : on n'accepte JAMAIS tel quel le payload
-  // de geoTarget envoyé par le client (potentielle injection PostgREST si
-  // on relâchait les regex). normalizeGeoTarget renvoie null si invalide.
-  const geoTarget = normalizeGeoTarget(body.geoTarget);
-  // Portée géographique : `national` par défaut (zone sélectionnée par
-  // défaut dans le wizard). Toute valeur inconnue retombe sur `national`
-  // pour rester cohérent avec le front et éviter un filtre involontaire.
-  const ALLOWED_GEO = ["ville", "dept", "region", "national", "around"] as const;
-  const geo = (ALLOWED_GEO as readonly string[]).includes(body.geo)
-    ? body.geo
-    : "national";
-  // Rayon « autour de moi » borné à 10/30/50 km (ignoré hors geo=around).
-  const radiusKm = geo === "around" ? normalizeRadiusKm(body.radiusKm) : null;
   // Fiabilité minimum : seuils figés (0 = toutes, 60 = bonne, 80 = excellente).
   const ALLOWED_FIAB = [0, 60, 80];
   const minFiabilite = ALLOWED_FIAB.includes(Number(body.minFiabilite))
     ? Number(body.minFiabilite)
     : 0;
-
-  // Ciblage « autour de moi » : nécessite les coordonnées de l'établissement
-  // (géocodées depuis l'adresse via /api/pro/info). Sans elles, on ne peut pas
-  // mesurer la distance aux prospects → on refuse AVANT toute réservation de
-  // budget, avec un message qui pointe vers « Mes informations ».
-  const proLat = typeof pro.latitude === "number" ? pro.latitude : null;
-  const proLng = typeof pro.longitude === "number" ? pro.longitude : null;
-  if (geo === "around" && (proLat == null || proLng == null)) {
-    return NextResponse.json(
-      {
-        error: "pro_address_required",
-        message:
-          "Renseignez l'adresse de votre établissement dans Mes informations pour cibler autour de vous.",
-      },
-      { status: 400 },
-    );
-  }
 
   // Option « exclure les anciens acceptants » — seul `true` l'active.
   const excludePastAcceptors = body.excludePastAcceptors === true;
@@ -433,12 +400,15 @@ export async function POST(req: Request) {
   const targeting = {
     objectiveId: body.objectiveId,
     subTypes: validSubTypes,
-    requiredTiers: body.requiredTiers,
-    requiredTierKeys: tierNumsToKeys(body.requiredTiers),
-    geo,
-    geoTarget,
-    radiusKm,
-    ages: body.ages,
+    // Champs historiques conservés pour les lecteurs existants (mobile publié,
+    // admin) : palier 1 seul, portée nationale, tous âges.
+    requiredTiers,
+    requiredTierKeys: ["identity"],
+    geo: "national",
+    geoTarget: null,
+    radiusKm: null,
+    ages: ["Tous"],
+    contactChannels,
     verifLevel: body.verifLevel,
     excludeCertified: body.excludeCertified === true,
     excludePastAcceptors,
@@ -448,7 +418,12 @@ export async function POST(req: Request) {
     poolMode: body.poolMode,
     durationKey,
     durationMultiplier: durationMeta.mult,
-    channels: finalChannels,
+    // Miroir historique de `contact_channels` (lu par /api/pro/contacts).
+    channels: contactChannels,
+    // Filtres d'audience (listes vides = pas de filtre).
+    cities: audience.cities,
+    genres: audience.genres,
+    ageBands: audience.ageBands,
   };
   const name = (body.name?.trim() || body.brief.trim()).slice(0, 120);
 
@@ -464,6 +439,7 @@ export async function POST(req: Request) {
       type: campaignType,
       status: "active",
       targeting,
+      contact_channels: contactChannels,
       cost_per_contact_cents: body.costPerContactCents,
       budget_cents: body.budgetCents,
       budget_reserved_cents: reservedCents,
@@ -540,19 +516,13 @@ export async function POST(req: Request) {
     }
     matched = await findMatchingProspects(admin, {
       objectiveId: body.objectiveId,
-      requiredTiers: body.requiredTiers,
-      geo,
-      geoTarget,
-      proCodePostal: pro.code_postal ?? null,
-      proLat,
-      proLng,
-      radiusKm,
-      ages: body.ages,
+      contactChannels,
       verifLevel: body.verifLevel,
       contacts: body.contacts,
       excludeCertified: body.excludeCertified === true,
       excludeProspectIds: [...pastAcceptors],
       minFiabilitePct: minFiabilite,
+      audience,
     });
   } catch (err) {
     console.error("[/api/pro/campaigns] matching failed", err);
@@ -843,7 +813,7 @@ export async function GET() {
     admin
       .from("campaigns")
       .select(
-        `id, name, brief, status, targeting, budget_cents, spent_cents,
+        `id, name, brief, status, targeting, contact_channels, budget_cents, spent_cents,
          cost_per_contact_cents, created_at, code, matched_count,
          ends_at, paused_at, auto_resume_at, pause_used,
          extension_used, extended_at,
@@ -885,6 +855,10 @@ export async function GET() {
       objectiveId: targeting?.objectiveId ?? null,
       // Option « exclure les anciens acceptants » (absent ⇒ false).
       excludePastAcceptors: targeting?.excludePastAcceptors === true,
+      // Modes de contact (téléphone et/ou e-mail) choisis par le pro.
+      contactChannels: readContactChannels(c.contact_channels),
+      // Filtres d'audience de la campagne (listes vides = pas de filtre).
+      targeting: readAudienceTargeting(c.targeting),
       budgetEur: Number(c.budget_cents ?? 0) / 100,
       spentEur: Number(c.spent_cents ?? 0) / 100,
       // Commission BUUPP (10 %, min. 0,30 €/acceptation) — calculée serveur :

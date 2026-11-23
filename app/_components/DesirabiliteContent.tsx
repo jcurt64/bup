@@ -4,7 +4,7 @@
  * Indice de désirabilité (BUUPP Score) — contenu de la page
  * /indice-desirabilite. Auparavant présenté sur l'accueil sous forme de
  * scène épinglée (popups successifs au défilement) ; depuis le 06/11/2026 il
- * vit sur sa propre page, les trois volets (paliers, fraîcheur, fiabilité)
+ * vit sur sa propre page, les trois volets (coordonnées, fraîcheur, fiabilité)
  * étant empilés en sections distinctes.
  */
 
@@ -118,7 +118,7 @@ function ScoreVisual() {
     ["900–1000", "Prestige", "#166534"],
   ];
   const stats: [string, number][] = [
-    ["Complétude des paliers", 85],
+    ["Complétude des coordonnées", 100],
     ["Fraîcheur des données", 92],
     ["Taux de fiabilité", 90],
   ];
@@ -146,9 +146,9 @@ function ScoreVisual() {
               maxWidth: 520,
             }}
           >
-            Votre score évolue selon la complétude de vos paliers, la fraîcheur
-            de vos données et votre taux de fiabilité. Un score élevé
-            attire des demandes plus exigeantes et mieux rémunérées.
+            Votre score évolue selon la complétude de vos coordonnées, la
+            fraîcheur de vos informations et votre taux de fiabilité. Un score
+            élevé rassure les professionnels sur le sérieux de votre profil.
           </p>
           <div className="row gap-6 wrap">
             {ranges.map(([r, n, c], i) => (
@@ -182,7 +182,7 @@ function ScoreVisual() {
             className="muted"
             style={{ fontSize: 13, letterSpacing: "0.08em", marginTop: 4 }}
           >
-            Profil vérifié · 3 paliers validés · 12 mises en relation
+            Téléphone vérifié · 12 mises en relation
           </div>
           <div
             style={{
@@ -368,189 +368,55 @@ function ScorePopupCard({
   );
 }
 
-/* Popup 1 — mécanisme des paliers (complétude). */
-function PaliersBody() {
+/* Popup 1 — complétude du profil (7 données). */
+function CoordonneesBody() {
   const C = SCORE_C;
-  // 5 marches : libellé, sous-titre, prix affiché, hauteur relative, couleur de barre.
-  const steps: {
-    n: number;
-    label: string;
-    sub: string;
-    price: string;
-    h: number;
-    fill: string;
-    top?: boolean;
-  }[] = [
-    { n: 1, label: "Identification", sub: "email, nom, tél.", price: "1,00 €", h: 60, fill: "#c7c5f1" },
-    { n: 2, label: "Localisation", sub: "adresse, logement", price: "2,00 €", h: 88, fill: "#a9a6ea" },
-    { n: 3, label: "Style de vie", sub: "habitudes, famille", price: "3,50 €", h: 116, fill: "#8b88e2" },
-    { n: 4, label: "Professionnel", sub: "statut, secteur", price: "5,00 €", h: 144, fill: "#6764d6" },
-    { n: 5, label: "Patrimoine", sub: "immobilier, projets", price: "10 €", h: 176, fill: "#4a47bf", top: true },
+  const fields: { label: string; icon: IconName; note: string }[] = [
+    { label: "Prénom", icon: "user", note: "Visible par le pro" },
+    { label: "Initiale du nom", icon: "user", note: "Visible par le pro" },
+    { label: "Ville", icon: "target", note: "Ciblage, jamais transmise" },
+    { label: "Sexe", icon: "target", note: "Ciblage, jamais transmis" },
+    { label: "Tranche d'âge", icon: "target", note: "Ciblage, jamais transmise" },
+    { label: "Téléphone", icon: "phone", note: "Jamais transmis" },
+    { label: "E-mail", icon: "mail", note: "Jamais transmis" },
   ];
   return (
     <>
       <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.ink2, margin: "16px 0 16px" }}>
-        Vos données sont rangées en{" "}
-        <strong style={{ color: C.ink }}>cinq paliers cloisonnés</strong>, de
-        l&apos;identification aux centres d&apos;intérêt. Plus vous montez de marches,
-        plus chaque palier est <strong style={{ color: C.ink }}>rémunéré</strong> — et
-        plus vous décrochez le sommet.
+        BUUPP ne vous demande que{" "}
+        <strong style={{ color: C.ink }}>sept données</strong>. Le
+        professionnel ne voit que votre prénom et l&apos;initiale de votre nom&nbsp;;
+        votre téléphone et votre e-mail restent chez BUUPP, qui relaie appels et
+        e-mails. Votre ville, votre sexe et votre tranche d&apos;âge servent
+        uniquement à vous proposer des offres pertinentes et ne lui sont jamais
+        montrés.
       </p>
-      {/* Graphique en escalier */}
       <div
         style={{
-          position: "relative",
-          borderRadius: 14,
-          padding: "14px 14px 12px",
-          background:
-            "radial-gradient(160px 120px at 87% 12%, rgba(244,205,95,0.24), rgba(244,205,95,0) 70%), linear-gradient(180deg, #f6f5fd 0%, #edecfb 100%)",
-          border: `1px solid ${C.indigoSoft}`,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 8,
         }}
       >
-        <div
-          className="mono caps"
-          style={{
-            fontSize: 9.5,
-            letterSpacing: "0.1em",
-            color: C.indigoD,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            marginBottom: 10,
-          }}
-        >
-          <span aria-hidden style={{ fontSize: 12 }}>
-            ↗
-          </span>
-          + de rémunération à chaque marche
-        </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 236 }}>
-          {steps.map((s) => (
-            <div
-              key={s.n}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                height: "100%",
-              }}
-            >
-              {/* Pastille prix */}
-              <div
-                style={{
-                  position: "relative",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: s.top ? 4 : 3,
-                  marginBottom: 10,
-                  padding: s.top ? "3px 12px" : "3px 8px",
-                  borderRadius: 999,
-                  background: s.top
-                    ? "linear-gradient(180deg, #fff7e2 0%, #f6e1a8 100%)"
-                    : "#fff",
-                  border: s.top ? "1px solid #ecc873" : "none",
-                  boxShadow: s.top
-                    ? "0 6px 16px rgba(212,160,47,0.36)"
-                    : "0 3px 8px rgba(71,68,191,0.18)",
-                  fontSize: s.top ? 13 : 11.5,
-                  fontWeight: 700,
-                  color: s.top ? "#a3701a" : C.indigoD,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {s.top ? (
-                  <>
-                    <style>{`@keyframes bupp-twinkle{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}@media (prefers-reduced-motion:reduce){.bupp-spark{animation:none!important;opacity:.9}}`}</style>
-                    <span>10</span>
-                    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
-                      <span
-                        aria-hidden
-                        style={{
-                          position: "absolute",
-                          inset: -7,
-                          borderRadius: "50%",
-                          background:
-                            "radial-gradient(circle, rgba(245,205,90,0.75), rgba(245,205,90,0) 70%)",
-                        }}
-                      />
-                      <span className="bupp-spark" style={{ position: "absolute", top: -9, left: -9, color: "#e0a72f", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out infinite" }}>
-                        <Icon name="sparkle" size={11} />
-                      </span>
-                      <span className="bupp-spark" style={{ position: "absolute", top: -10, right: -8, color: "#eebb45", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out .5s infinite" }}>
-                        <Icon name="sparkle" size={8} />
-                      </span>
-                      <span className="bupp-spark" style={{ position: "absolute", bottom: -7, right: -9, color: "#eebb45", display: "inline-flex", animation: "bupp-twinkle 1.8s ease-in-out .9s infinite" }}>
-                        <Icon name="sparkle" size={6} />
-                      </span>
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="#c9881d" aria-hidden style={{ position: "relative" }}>
-                        <path d="M18 5V3H6v2H2v3a5 5 0 0 0 5 5h.6A6 6 0 0 0 11 15.9V18H8v2h8v-2h-3v-2.1A6 6 0 0 0 16.4 13H17a5 5 0 0 0 5-5V5h-4zM6 11a3 3 0 0 1-3-3V7h3v4zm15-3a3 3 0 0 1-3 3V7h3v1z" />
-                      </svg>
-                    </span>
-                    <span>€</span>
-                  </>
-                ) : (
-                  s.price
-                )}
-              </div>
-              {/* Barre */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  height: s.h,
-                  borderRadius: "9px 9px 0 0",
-                  background: s.fill,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "flex-start",
-                  paddingTop: 9,
-                }}
-              >
-                <span
-                  className="serif"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.92)",
-                    color: C.indigoD,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 13,
-                  }}
-                >
-                  {s.n}
-                </span>
-              </div>
+        {fields.map((f) => (
+          <div
+            key={f.label}
+            style={{
+              borderRadius: 12,
+              padding: "12px 12px 10px",
+              background: C.indigoXsoft,
+              border: `1px solid ${C.line}`,
+            }}
+          >
+            <span style={{ color: C.indigoD, display: "inline-flex" }}>
+              <Icon name={f.icon} size={16} />
+            </span>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginTop: 6 }}>
+              {f.label}
             </div>
-          ))}
-        </div>
-        {/* Libellés sous les marches */}
-        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          {steps.map((s) => (
-            <div key={s.n} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: C.ink,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {s.label}
-              </div>
-              <div style={{ fontSize: 9.5, color: C.ink4, lineHeight: 1.25, marginTop: 1 }}>
-                {s.sub}
-              </div>
-            </div>
-          ))}
-        </div>
+            <div style={{ fontSize: 11, color: C.ink4, marginTop: 2 }}>{f.note}</div>
+          </div>
+        ))}
       </div>
       <div className="row" style={{ gap: 11, alignItems: "flex-start", margin: "16px 0 16px" }}>
         <span
@@ -569,9 +435,9 @@ function PaliersBody() {
           <Icon name="target" size={15} />
         </span>
         <p style={{ fontSize: 13, lineHeight: 1.55, color: C.ink2, margin: 0 }}>
-          La <strong style={{ color: C.indigoD }}>complétude</strong> mesure la part de
-          paliers validés. Chaque marche gravie fait monter votre indice de désirabilité
-          et débloque des sollicitations mieux rémunérées.
+          La <strong style={{ color: C.indigoD }}>complétude</strong> mesure si vos
+          coordonnées sont toutes renseignées. Un téléphone vérifié par SMS
+          rassure les professionnels sur le sérieux de votre profil.
         </p>
       </div>
       <div
@@ -589,8 +455,8 @@ function PaliersBody() {
           <Icon name="check" size={17} />
         </span>
         <p style={{ fontSize: 13, lineHeight: 1.5, color: C.ink2, margin: 0 }}>
-          <strong style={{ color: C.ink }}>Plus vous complétez de paliers</strong>, plus
-          vous recevez de sollicitations — et mieux rémunérées.
+          <strong style={{ color: C.ink }}>Des coordonnées complètes</strong>&nbsp;= toutes
+          les sollicitations vous sont ouvertes.
         </p>
       </div>
     </>
@@ -976,12 +842,12 @@ const DESIR_POPUPS: {
   body: ReactNode;
 }[] = [
   {
-    key: "paliers",
+    key: "coordonnees",
     accent: "linear-gradient(90deg, #4744bf 0%, #7d79dd 45%, #d4a02f 100%)",
     icon: "lock",
     kicker: "Indice de désirabilité · 1 / 3",
-    title: "Cinq paliers, un prix par palier",
-    body: <PaliersBody />,
+    title: "Sept données, rien de plus",
+    body: <CoordonneesBody />,
   },
   {
     key: "fraicheur",

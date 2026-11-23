@@ -6,7 +6,7 @@ import DesirabiliteContent from "../_components/DesirabiliteContent";
 
 /**
  * /indice-desirabilite — le BUUPP Score expliqué (page du footer
- * « Ressources »). Les trois volets du calcul (paliers, fraîcheur,
+ * « Ressources »). Les trois volets du calcul (coordonnées, fraîcheur,
  * fiabilité) sont empilés en sections distinctes, sans scène épinglée.
  */
 export default function IndiceDesirabilitePage() {
@@ -56,8 +56,9 @@ export default function IndiceDesirabilitePage() {
         >
           Le BUUPP Score mesure, sur 1000, l&apos;intérêt de votre profil pour
           les professionnels. Il repose sur trois éléments, détaillés
-          ci-dessous : la complétude de vos paliers de données, la fraîcheur
-          de vos informations et votre taux de fiabilité.
+          ci-dessous : la complétude de votre profil (prénom, initiale du
+          nom, ville, sexe, tranche d&apos;âge, téléphone, e-mail), la fraîcheur de vos informations et votre
+          taux de fiabilité.
         </p>
       </div>
 

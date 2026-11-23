@@ -84,7 +84,7 @@ const TEMPLATES: Record<string, { subject: string; body: string }> = {
       "[votre e-mail BUUPP].\n\n" +
       "Je vous remercie de me confirmer, dans le délai légal d'un mois :\n" +
       "  • la suppression effective de mon profil et de toutes les données " +
-      "liées (paliers, historique de campagnes, portefeuille, etc.) ;\n" +
+      "liées (coordonnées, historique de campagnes, portefeuille, etc.) ;\n" +
       "  • la liste des éventuelles données conservées au titre d'une " +
       "obligation légale (archives comptables, déclarations DGFiP) et la " +
       "durée pendant laquelle elles seront conservées.\n\n" +
@@ -141,8 +141,8 @@ const TEMPLATES: Record<string, { subject: string; body: string }> = {
       "structuré, couramment utilisé et lisible par machine (de préférence " +
       "JSON ou CSV), l'ensemble des données que je vous ai fournies dans " +
       "le cadre de l'exécution de mon contrat avec BUUPP :\n\n" +
-      "  • mes paliers de profil (identification, localisation, style de " +
-      "vie, données pro, patrimoine) ;\n" +
+      "  • mes données de profil (prénom, initiale du nom, ville, sexe, " +
+      "tranche d'âge, téléphone, e-mail) ;\n" +
       "  • mon historique de campagnes acceptées et refusées ;\n" +
       "  • mon historique financier (BUUPP Coins crédités, retraits) ;\n" +
       "  • mes préférences de communication.\n\n" +
@@ -166,7 +166,7 @@ const TEMPLATES: Record<string, { subject: string; body: string }> = {
       "[préciser]\n" +
       "  • Objet du contact : [résumé]\n" +
       "  • Élément(s) trahissant l'usage de mes données BUUPP : [ex. : " +
-      "mention de mon palier non public, référence à BUUPP, etc.]\n\n" +
+      "référence à BUUPP, à une campagne BUUPP, etc.]\n\n" +
       "Compte BUUPP concerné : [votre e-mail BUUPP].\n\n" +
       "Je vous remercie de bien vouloir ouvrir une enquête, identifier " +
       "l'origine de la fuite et m'informer des mesures correctives " +

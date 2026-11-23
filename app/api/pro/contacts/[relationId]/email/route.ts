@@ -13,6 +13,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { readContactChannels } from "@/lib/campaigns/contact-channels";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { hasExplicitEmailTrackingConsent } from "@/lib/cnil/consent";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -82,7 +83,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     .select(
       `id, pro_account_id, prospect_id, campaign_id, status,
        pro_accounts!relations_pro_account_id_fkey ( raison_sociale ),
-       campaigns ( name, status ),
+       campaigns ( name, status, contact_channels ),
        prospects:prospect_id (
          prospect_identity ( prenom, email, email_tracking_consent, email_tracking_consent_given_at )
        )`,
@@ -110,6 +111,9 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
   }
   const campaignName = camp?.name ?? "—";
+  if (!readContactChannels((camp as { contact_channels?: string[] | null } | null)?.contact_channels).includes("email")) {
+    return NextResponse.json({ error: "channel_not_allowed" }, { status: 403 });
+  }
   const prospect = Array.isArray(rel.prospects) ? rel.prospects[0] : rel.prospects;
   const ident = prospect?.prospect_identity
     ? Array.isArray(prospect.prospect_identity)

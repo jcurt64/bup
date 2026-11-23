@@ -98,8 +98,9 @@ export default function SuppressionComptePage() {
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>votre compte et vos identifiants de connexion&nbsp;;</li>
             <li>
-              vos données de profil (identité, coordonnées, adresse, paliers de
-              données, préférences, RIB)&nbsp;;
+              vos données de profil (prénom, initiale du nom, ville, sexe,
+              tranche d&apos;âge, téléphone, adresse e-mail, préférences,
+              RIB)&nbsp;;
             </li>
             <li>vos jetons de notification et vos réglages&nbsp;;</li>
             <li>
@@ -125,9 +126,11 @@ export default function SuppressionComptePage() {
               commerce&nbsp;;
             </li>
             <li>
-              les coordonnées déjà transmises à un professionnel lors d&apos;une
-              mise en relation que vous avez acceptée restent sous la
-              responsabilité de ce professionnel.
+              le prénom et l&apos;initiale du nom déjà portés à la connaissance
+              d&apos;un professionnel lors d&apos;une mise en relation que vous
+              avez acceptée restent sous la responsabilité de ce professionnel
+              (votre téléphone, votre e-mail, votre ville, votre sexe et votre
+              tranche d&apos;âge ne lui ont jamais été transmis).
             </li>
           </ul>
         </Section>

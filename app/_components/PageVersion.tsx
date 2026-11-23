@@ -5,8 +5,8 @@ import {
 
 /**
  * Petit badge "Version 1.0" inséré dans les pages des sections
- * Ressources et Légal du footer (bareme, aide, status, accessibilite,
- * minimisation, cgu, cgv, rgpd, cookies, contact-dpo).
+ * Ressources et Légal du footer (aide, status, accessibilite,
+ * indice-desirabilite, cgu, cgv, rgpd, cookies, contact-dpo).
  *
  * Préférer l'API `<PageVersion page="rgpd" />` : la version et la date
  * sont alors lues depuis le registre central `page-versions.ts`, ce qui

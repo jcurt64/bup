@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: false,
       },
+      // Matrice de minimisation (objectifs × paliers de données) supprimée
+      // le 22/11/2026 : BUUPP ne collecte plus que les données de contact.
+      {
+        source: "/minimisation",
+        destination: "/rgpd",
+        permanent: false,
+      },
+      // Barème des paliers supprimé le 22/11/2026 (fin des paliers de
+      // données : prix unique par acceptation) → accueil, jamais en 404.
+      {
+        source: "/bareme",
+        destination: "/",
+        permanent: false,
+      },
       // Ancienne page /tutoriels (vidéos de pré-inscription, supprimées le
       // 06/11/2026) : liens du mail d'annonce → accueil, jamais en 404.
       {

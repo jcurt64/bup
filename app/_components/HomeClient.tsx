@@ -28,72 +28,68 @@ function goWaitlist(router: Router) {
 }
 
 
-const ROTATING_WORDS = [
-  { t: "gagnant-gagnant.", color: "#A5B4FC" },
-  { t: "win-win.", color: "#FB923C" },
-  { t: "équitable.", color: "#16a34a" },
-];
+// Accroche du hero : alterne automatiquement entre le message
+// « Particuliers » et le message « Professionnels ». Les deux blocs sont
+// empilés dans la même cellule de grille → la hauteur reste celle du plus
+// grand, aucun saut de mise en page pendant le défilement.
+const HERO_TAGLINES = [
+  {
+    eyebrow: "Particuliers",
+    accent: "#A5B4FC",
+    lines: ["Acceptez librement", "d\u2019être sollicité."],
+    punch: "Soyez rémunéré.",
+  },
+  {
+    eyebrow: "Professionnels",
+    accent: "#FB923C",
+    lines: ["Lancez gratuitement", "votre campagne."],
+    punch: "Payez à l\u2019acceptation.",
+  },
+] as const;
 
-function RotatingHeadlineWord() {
+const HERO_TAGLINE_HOLD_MS = 10000;
+
+function useHeroTaglineIndex() {
   const [i, setI] = useState(0);
-  const [phase, setPhase] = useState<"in" | "out">("in");
   useEffect(() => {
-    let mounted = true;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const tick = () => {
-      if (!mounted) return;
-      setPhase("in");
-      const showT = setTimeout(() => {
-        if (!mounted) return;
-        setPhase("out");
-        const swapT = setTimeout(() => {
-          if (!mounted) return;
-          setI((n) => (n + 1) % ROTATING_WORDS.length);
-          setPhase("in");
-          const nextT = setTimeout(tick, 1000);
-          timers.push(nextT);
-        }, 420);
-        timers.push(swapT);
-      }, 1000);
-      timers.push(showT);
-    };
-    tick();
-    return () => {
-      mounted = false;
-      timers.forEach(clearTimeout);
-    };
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+    const id = setInterval(
+      () => setI((n) => (n + 1) % HERO_TAGLINES.length),
+      HERO_TAGLINE_HOLD_MS,
+    );
+    return () => clearInterval(id);
   }, []);
-  const current = ROTATING_WORDS[i];
+  return i;
+}
+
+function RotatingHeroTagline({ index: i }: { index: number }) {
   return (
-    <span
-      style={{
-        display: "inline-block",
-        position: "relative",
-        minWidth: "8ch",
-        verticalAlign: "baseline",
-      }}
-    >
-      <span
-        key={`${i}-${phase}`}
-        style={{
-          display: "inline-block",
-          fontStyle: "italic",
-          color: current.color,
-          transition:
-            "transform .42s cubic-bezier(.22,.8,.24,1), opacity .42s cubic-bezier(.22,.8,.24,1), filter .42s",
-          transform:
-            phase === "in"
-              ? "translateY(0) rotateX(0deg)"
-              : "translateY(-0.25em) rotateX(45deg)",
-          opacity: phase === "in" ? 1 : 0,
-          filter: phase === "in" ? "blur(0)" : "blur(3px)",
-          transformOrigin: "bottom center",
-          willChange: "transform, opacity",
-        }}
-      >
-        {current.t}
-      </span>
-    </span>
+    <div className="hero-tagline" aria-live="polite">
+      {HERO_TAGLINES.map((t, k) => (
+        <div
+          key={t.eyebrow}
+          className={`hero-tagline-item${k === i ? " is-active" : ""}`}
+          aria-hidden={k !== i}
+        >
+          <div className="hero-tagline-eyebrow mono" style={{ color: t.accent }}>
+            {t.eyebrow}
+          </div>
+          <h1 className="serif hero-tagline-h1">
+            {t.lines.map((l) => (
+              <span key={l} className="hero-tagline-line">
+                {l}
+              </span>
+            ))}
+            <span className="hero-tagline-line hero-tagline-punch" style={{ color: t.accent }}>
+              {t.punch}
+            </span>
+          </h1>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -126,6 +122,9 @@ function Hero({
   // la ligne), d'où la mesure en direct, recalculée au redimensionnement.
   const heroTopRowRef = useRef<HTMLDivElement>(null);
   const heroHeadlineRef = useRef<HTMLDivElement>(null);
+  // Accroche alternée Particuliers / Professionnels : l'index pilote aussi
+  // la couleur de « Vos données sont protégées » (bleu prospect / orange pro).
+  const heroTaglineIdx = useHeroTaglineIndex();
   const heroButtonsRef = useRef<HTMLDivElement>(null);
   // Survol de la carte « Nouveau » : inclinaison 3D et halo qui suivent le
   // curseur. Variables CSS posées directement sur l'élément (pas d'état
@@ -264,11 +263,7 @@ function Hero({
         </div>
 
         <div className="hero-headline" ref={heroHeadlineRef}>
-          <h1 className="serif" style={{ color: "var(--paper)", maxWidth: 1100 }}>
-            Le marketing
-            <br />
-            <RotatingHeadlineWord />
-          </h1>
+          <RotatingHeroTagline index={heroTaglineIdx} />
           {/* Lancement du module Tests & Études : pastille « Nouveau »
               cliquable (affichée seulement quand le module est activé). */}
           {studiesOpen && (
@@ -328,9 +323,27 @@ function Hero({
             accepter d&apos;être contactés par les professionnels. Double
             consentement,{" "} */}
             </p>
-            <p className="inline font-extrabold italic tracking-wider underline underline-offset-4 text-[#FB923C]">
-              {"<"}RGPD natif {">"}.
-            </p>
+            <a
+              href="#vos-donnees"
+              onClick={(e) => {
+                const el = document.getElementById("vos-donnees");
+                if (!el) return;
+                e.preventDefault();
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+                history.replaceState(null, "", "#vos-donnees");
+              }}
+              className="block w-fit font-extrabold italic tracking-wider underline underline-offset-4"
+              style={{
+                marginTop: 22,
+                color: HERO_TAGLINES[heroTaglineIdx].accent,
+                textDecorationLine: "underline",
+                textDecorationColor: "currentColor",
+                textUnderlineOffset: 4,
+                transition: "color .6s cubic-bezier(.22,.8,.24,1)",
+              }}
+            >
+              Vos données sont protégées.
+            </a>
           </h2>
           <div
             ref={heroButtonsRef}
@@ -563,24 +576,14 @@ type Deal = {
   relationId: string | null;
   relationStatus: string | null;
   missingTierKeys: string[] | null;
+  /** Mode(s) de contact choisi(s) par le pro. Absent (anciennes données) →
+   *  téléphone et e-mail. */
+  contactChannels?: ("phone" | "email")[] | null;
 };
 
-const TIER_KEY_LABEL_FR: Record<string, string> = {
-  identity: "Identification",
-  localisation: "Localisation",
-  vie: "Style de vie",
-  pro: "Données professionnelles",
-  patrimoine: "Patrimoine & projets",
-};
-
-// Clé de palier → numéro (1-5), pour deep-linker « Mes données » sur le bon
-// palier depuis le CTA « Compléter mes données ».
-const TIER_NUM_BY_KEY: Record<string, number> = {
-  identity: 1,
-  localisation: 2,
-  vie: 3,
-  pro: 4,
-  patrimoine: 5,
+const CONTACT_CHANNEL_LABEL_FR: Record<string, string> = {
+  phone: "Appel téléphonique",
+  email: "E-mail",
 };
 
 function fmtMultiplier(m: number): string {
@@ -903,19 +906,11 @@ function FlashDealModal({
   const rewardEur = (Number(deal.costPerContactCents ?? 0) / 100)
     .toFixed(2)
     .replace(".", ",");
-  const requiredLabels = (deal.requiredTierKeys || []).map(
-    (k) => TIER_KEY_LABEL_FR[k] || k,
-  );
-  const missingLabels = (deal.missingTierKeys || []).map(
-    (k) => TIER_KEY_LABEL_FR[k] || k,
-  );
-  // Premier palier manquant (numéro le plus bas) → scroll direct dans
-  // « Mes données ».
-  const firstMissingTier =
-    (deal.missingTierKeys || [])
-      .map((k) => TIER_NUM_BY_KEY[k])
-      .filter((n): n is number => typeof n === "number")
-      .sort((a, b) => a - b)[0] ?? undefined;
+  const channelLabels = (
+    deal.contactChannels && deal.contactChannels.length > 0
+      ? deal.contactChannels
+      : (["phone", "email"] as const)
+  ).map((k) => CONTACT_CHANNEL_LABEL_FR[k] || k);
 
   let mode: string;
   // Un compte professionnel peut consulter le détail mais pas accepter :
@@ -1300,10 +1295,10 @@ function FlashDealModal({
           </div>
         )}
 
-        {requiredLabels.length > 0 && (
+        {channelLabels.length > 0 && (
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
-            Données demandées :{" "}
-            {requiredLabels.map((l, i) => (
+            Contact via BUUPP :{" "}
+            {channelLabels.map((l, i) => (
               <span
                 key={i}
                 className="chip"
@@ -1485,20 +1480,15 @@ function FlashDealModal({
                 marginBottom: 14,
               }}
             >
-              {deal.proName || "Le professionnel"} souhaite obtenir vos données
-              de{" "}
-              <strong style={{ color: "#B45309" }}>
-                {missingLabels.length === 1
-                  ? missingLabels[0]
-                  : missingLabels.slice(0, -1).join(", ") +
-                    " et " +
-                    missingLabels.slice(-1)}
-              </strong>
-              , mais vous ne les avez pas encore renseignées. Complétez votre
-              profil pour pouvoir bénéficier de cette offre.
+              Pour accepter cette offre, complétez d&apos;abord{" "}
+              <strong style={{ color: "#B45309" }}>vos coordonnées</strong>{" "}
+              (prénom, initiale du nom,
+              téléphone et e-mail). Le professionnel
+              ne verra que votre prénom et votre initiale&nbsp;: le contact passe
+              toujours par BUUPP.
             </div>
             <button
-              onClick={() => goDonnees(firstMissingTier)}
+              onClick={() => goDonnees()}
               className="btn btn-lg"
               style={{
                 width: "100%",
@@ -1507,7 +1497,7 @@ function FlashDealModal({
                 color: "var(--paper)",
               }}
             >
-              Compléter mes données <Icon name="arrow" size={14} />
+              Compléter mes coordonnées <Icon name="arrow" size={14} />
             </button>
           </>
         )}
@@ -1526,10 +1516,10 @@ function FlashDealModal({
                 marginBottom: 12,
               }}
             >
-              Cette campagne ne correspond pas à votre profil (zone
-              géographique, tranche d&apos;âge ou centres d&apos;intérêt).
-              Complétez vos données pour augmenter vos chances d&apos;être
-              éligible.
+              Cette campagne ne vous a pas été proposée (ville, sexe,
+              tranche d&apos;âge ou niveau de vérification ciblés par le
+              professionnel). Vérifiez que vos
+              coordonnées sont complètes pour ne manquer aucune offre.
             </div>
             <button
               onClick={() => goDonnees()}
@@ -1946,7 +1936,7 @@ function HowItWorks() {
     {
       n: "01",
       title: "Créez votre profil",
-      body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUUPP Score et vos gains potentiels.",
+      body: "Quelques informations seulement : prénom, initiale du nom, ville, sexe, tranche d’âge, téléphone et e-mail. Rien de plus, et le professionnel ne voit que votre prénom et votre initiale.",
     },
     {
       n: "02",
@@ -2036,6 +2026,92 @@ function HowItWorks() {
 }
 
 
+/* « Le professionnel a-t-il accès à mes informations ? » — réponse courte
+   placée juste après la section « Pour les prospects » : aucun contact
+   direct, tout passe par la plateforme BUUPP. */
+function ProspectPrivacyNote() {
+  const points: { ic: IconName; t: string; d: string }[] = [
+    {
+      ic: "phone",
+      t: "Appels filtrés par BUUPP",
+      d: "L\u2019appel du professionnel transite par la plateforme BUUPP, qui le filtre et le sécurise avant qu\u2019il ne vous parvienne.",
+    },
+    {
+      ic: "mail",
+      t: "E-mails filtrés par BUUPP",
+      d: "Ses e-mails transitent par la plateforme BUUPP, qui les filtre et les sécurise : votre adresse ne lui est jamais transmise.",
+    },
+    {
+      ic: "user",
+      t: "Juste un prénom",
+      d: "Il ne connaît que votre prénom et l\u2019initiale de votre nom, pour vous saluer.",
+    },
+  ];
+  return (
+    <section
+      id="vos-donnees"
+      className="section-sm"
+      style={{ paddingTop: 0, scrollMarginTop: 120 }}
+    >
+      <div
+        className="privacy-note"
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          borderRadius: 20,
+          border: "1px solid var(--line)",
+          background: "var(--ivory-2, var(--paper))",
+          padding: "clamp(24px, 4vw, 48px)",
+          display: "grid",
+          gap: "clamp(24px, 4vw, 48px)",
+        }}
+      >
+        <div>
+          <div
+            className="mono caps"
+            style={{ fontSize: 11, letterSpacing: ".18em", color: "var(--accent)", marginBottom: 14 }}
+          >
+            — Vos données
+          </div>
+          <h3 className="serif" style={{ fontSize: "clamp(26px, 3vw, 38px)", lineHeight: 1.12 }}>
+            Le professionnel a-t-il accès à mes informations&nbsp;?
+          </h3>
+          <p style={{ marginTop: 16, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.6, color: "var(--ink-3)" }}>
+            <strong style={{ color: "var(--ink)" }}>Non.</strong>{" "}Tout contact passe par la
+            plateforme BUUPP&nbsp;: votre numéro et votre adresse e-mail ne sont jamais
+            communiqués au professionnel. Vos données sont protégées.
+          </p>
+        </div>
+        <div className="privacy-note-points" style={{ display: "grid", gap: 14 }}>
+          {points.map((p) => (
+            <div key={p.t} className="row gap-3" style={{ alignItems: "flex-start" }}>
+              <div
+                style={{
+                  flex: "0 0 auto",
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  color: "var(--accent)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name={p.ic} size={17} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)" }}>{p.t}</div>
+                <div className="muted" style={{ fontSize: 14, lineHeight: 1.5, marginTop: 2 }}>{p.d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProsSection() {
   const { guard, modal: roleModal } = useRoleGuard();
   const [demoOpen, setDemoOpen] = useState(false);
@@ -2047,26 +2123,15 @@ function ProsSection() {
       d: "Chaque contact que vous obtiendrez a accepté à 2 reprises, explicitement. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide.",
     },
     {
-      ic: "target",
-      t: "Ciblage par paliers de données",
-      d: "Payez uniquement pour ce dont vous avez besoin : identification, localisation, style de vie, profession, patrimoine. Budget maîtrisé au centime.",
-    },
-    {
       ic: "wallet",
-      hi: true,
       t: "Vous ne payez que les acceptations",
       d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté d'être sollicités. Les refus et expirations sont gratuits.",
     },
     {
       ic: "clock",
+      hi: true,
       t: "Du temps commercial qui compte",
       d: "Vos équipes ne relancent plus dans le vide : chaque contact a explicitement accepté l'échange. Le temps passé va aux conversations voulues, pas aux numéros qui raccrochent.",
-    },
-    {
-      ic: "gauge",
-      hi: true,
-      t: "BUUPP Score : qualité mesurée",
-      d: "Chaque prospect est noté sur 1000 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient.",
     },
     {
       ic: "bolt",
@@ -2158,7 +2223,7 @@ function ProsSection() {
         </div>
 
         <div
-          className="grid grid-3"
+          className="grid grid-2"
           data-reveal-group
           style={{
             gap: 1,
@@ -2492,14 +2557,16 @@ function PricingCard({
   );
 }
 
-/* Exemples chiffrés de la commission BUUPP (10 %, plancher 0,30 €). Miroir
-   de lib/pricing/commission.ts. */
+/* Exemples chiffrés : une acceptation = mise en relation avec un prospect
+   (prénom + initiale du nom, contact par téléphone ou e-mail via BUUPP).
+   Rémunération de base 1,00 €, multipliée selon la durée de diffusion
+   (DURATION_MULTIPLIERS), + commission BUUPP 10 % plancher 0,30 € (miroir
+   de lib/pricing/commission.ts). */
 const COMMISSION_EXAMPLES: Array<[string, string, string, string]> = [
-  ["1,00 €", "0,10 €", "0,30 € (plancher)", "1,30 €"],
-  ["2,00 €", "0,20 €", "0,30 € (plancher)", "2,30 €"],
-  ["3,00 €", "0,30 €", "0,30 €", "3,30 €"],
-  ["5,00 €", "0,50 €", "0,50 €", "5,50 €"],
-  ["10,00 €", "1,00 €", "1,00 €", "11,00 €"],
+  ["7 jours", "1,00 €", "0,30 €", "1,30 €"],
+  ["48 heures", "1,50 €", "0,30 €", "1,80 €"],
+  ["24 heures", "2,00 €", "0,30 €", "2,30 €"],
+  ["Flash 1 h", "3,00 €", "0,30 €", "3,30 €"],
 ];
 
 function CommissionExamplesCard() {
@@ -2513,24 +2580,29 @@ function CommissionExamplesCard() {
         Combien coûte une acceptation&nbsp;?
       </div>
       <p className="muted" style={{ fontSize: 14, marginTop: 10, lineHeight: 1.55 }}>
-        On calcule 10 % de la rémunération du prospect et on retient le plus
-        élevé entre ce montant et 0,30 €.
+        Une acceptation, c&apos;est une mise en relation avec un prospect qui a
+        dit oui&nbsp;: son prénom, l&apos;initiale de son nom, et le contact par
+        téléphone ou par e-mail, toujours via BUUPP. Pas de catégories de
+        données à choisir&nbsp;: un seul prix, selon la durée de diffusion.
+      </p>
+      <p className="muted" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.55 }}>
+        Commission BUUPP&nbsp;: 10 % de la rémunération du prospect, minimum 0,30 €.
       </p>
       <div style={{ overflowX: "auto", marginTop: 20 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr className="mono caps muted" style={{ fontSize: 10, textAlign: "left" }}>
+              <th style={cell}>Diffusion</th>
               <th style={cell}>Prospect</th>
-              <th style={cell}>10 %</th>
               <th style={cell}>Commission</th>
               <th style={{ ...cell, textAlign: "right" }}>Vous payez</th>
             </tr>
           </thead>
           <tbody>
-            {COMMISSION_EXAMPLES.map(([reward, pct, com, total]) => (
-              <tr key={reward} style={{ borderTop: "1px solid var(--line)" }}>
-                <td className="tnum" style={cell}>{reward}</td>
-                <td className="tnum muted" style={cell}>{pct}</td>
+            {COMMISSION_EXAMPLES.map(([duration, reward, com, total]) => (
+              <tr key={duration} style={{ borderTop: "1px solid var(--line)" }}>
+                <td style={cell}>{duration}</td>
+                <td className="tnum muted" style={cell}>{reward}</td>
                 <td className="tnum" style={{ ...cell, color: "#16A34A", fontWeight: 600 }}>{com}</td>
                 <td className="tnum" style={{ ...cell, textAlign: "right", fontWeight: 600 }}>{total}</td>
               </tr>
@@ -2600,7 +2672,7 @@ function Pricing() {
             features={[
               "Campagnes illimitées",
               "Jusqu'à 500 prospects par campagne",
-              "Tous les paliers de données 1 à 5",
+              "Prénom, initiale du nom, téléphone ou e-mail",
               "Vous ne payez que les acceptations",
             ]}
             cta="Lancer ma première campagne"
@@ -2899,6 +2971,7 @@ export default function HomeClient({
       <Hero accessOpen={accessOpen} waitlistOpen={waitlistOpen} studiesOpen={studiesOpen} />
       <FlashDeal />
       <HowItWorks />
+      <ProspectPrivacyNote />
       <ProsSection />
       <Pricing />
       <MobileAppSection />

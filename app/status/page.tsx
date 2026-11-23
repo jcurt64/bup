@@ -47,7 +47,7 @@ const OVERALL_BANNER: Record<Status, string> = {
    ce qui est concerné concrètement quand un voyant passe au orange/rouge. */
 const COMPONENT_DESC: Record<string, string> = {
   api: "Cœur applicatif : pages, dashboard, lancement de campagne, mise en relation.",
-  db: "Stockage des données : paliers prospects, campagnes, transactions, BUUPP Score.",
+  db: "Stockage des données : coordonnées prospects, campagnes, transactions, BUUPP Score.",
   auth: "Connexion et création de compte (Clerk).",
   stripe:
     "Recharge du portefeuille pro, retraits prospects vers IBAN, commission BUUPP.",
@@ -341,7 +341,7 @@ export default function StatusPage() {
             <li>
               <strong>Indisponible</strong> — le composant est inaccessible.
               Les opérations dépendantes (envoi d&apos;un SMS de
-              vérification, paiement Stripe, persistance d&apos;un palier)
+              vérification, paiement Stripe, enregistrement des coordonnées)
               peuvent échouer le temps de la résolution.
             </li>
           </ul>

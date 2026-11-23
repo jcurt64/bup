@@ -225,12 +225,6 @@ function ProDashboard({ go, initialTab }) {
           onDone={() => { setDuplicateSourceId(null); setSec('campagnes'); }}
           companyInfo={companyInfo}
           onGoInformations={() => { setReturnAfterInfo('create'); setSec('informations'); }}
-          // Édition de l'adresse (ciblage « autour de moi ») : on N'ARME PAS le
-          // retour auto. La raison sociale + la ville étant déjà remplies à ce
-          // stade, returnAfterInfo provoquerait un rebond immédiat vers le
-          // wizard (cf. useEffect [returnAfterInfo, companyInfo]). Le pro édite
-          // son adresse puis revient manuellement — le brouillon restaure l'étape 4.
-          onEditAddress={() => { setReturnAfterInfo(null); setInfoScrollField('adresse'); setSec('informations'); }}
           duplicateSourceId={duplicateSourceId}
           onRecharge={() => setRecharge(true)}
         />
@@ -464,6 +458,36 @@ function ProHeader({ companyInfo, onCreate, onRecharge }) {
   );
 }
 
+/* Identité prospect visible côté pro : prénom + initiale du nom
+   (« Camille D. »). Le serveur ne devrait déjà plus renvoyer que ça ;
+   on normalise défensivement un éventuel nom complet. */
+function prospectShortName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Prospect';
+  if (parts.length === 1) return parts[0];
+  const last = parts[parts.length - 1].replace(/\.$/, '');
+  return `${parts[0]} ${last.charAt(0).toUpperCase()}.`;
+}
+
+/* Pastilles « mode de contact » d'une campagne (téléphone / e-mail).
+   Repli : les deux canaux si l'information est absente. */
+function ContactChannelChips({ channels, size = 11 }) {
+  const chs = normalizeContactChannels(channels);
+  return (
+    <span className="row" style={{ gap: 4, flexWrap: 'wrap', display: 'inline-flex' }}>
+      {chs.map(id => {
+        const c = CONTACT_CHANNELS.find(x => x.id === id);
+        if (!c) return null;
+        return (
+          <span key={id} className="chip" title={c.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+            <Icon name={c.icon} size={size}/> {c.short}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function Overview({ onCreate }) {
   const [data, setData] = React.useState(null);
   // Popup d'explication du ROI (déclenché par l'icône "i" dans la carte
@@ -520,7 +544,6 @@ function Overview({ onCreate }) {
       + `Dépense réelle 30j : ${fmt2(roiSpentEur)} €.\n`
       + `ROI = (gains − dépense) / dépense × 100.`;
   const last = data?.lastAcceptances || [];
-  const tiers = data?.tierBreakdown || [];
 
   return (
     <div className="col gap-6">
@@ -582,32 +605,7 @@ function Overview({ onCreate }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
-        <PerformanceCard/>
-        <div className="card" style={{ padding: 28 }}>
-          <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition par palier</div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Coût et volume cumulés depuis l'ouverture</div>
-          {tiers.every(t => t.contacts === 0) && (
-            <CardEmptyState
-              compact
-              image="/empty-tiers.png"
-              alt="Aucun contact pour le moment"
-              tint="#F59E0B"
-              title="Aucun palier rempli"
-              sub="Dès que des prospects accepteront vos campagnes, ils se répartiront ici par palier."
-            />
-          )}
-          {!tiers.every(t => t.contacts === 0) && tiers.map((r, i) => (
-            <div key={i} style={{ padding: '10px 0', borderBottom: i < tiers.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <div className="row between" style={{ marginBottom: 6 }}>
-                <span style={{ fontSize: 13 }}><span className="chip">P{r.tier}</span> {r.label}</span>
-                <span className="mono tnum" style={{ fontSize: 12 }}>{r.contacts} contacts · {fmt2(r.totalCents/100)} €</span>
-              </div>
-              <Progress value={Math.min(1, r.contacts / 40)}/>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PerformanceCard/>
 
       <div className="card" style={{ padding: 28 }}>
         <div className="row between historique-header" style={{ marginBottom: 20 }}>
@@ -627,18 +625,18 @@ function Overview({ onCreate }) {
             alt="Aucune acceptation pour le moment"
             tint="#10B981"
             title="Première acceptation à venir"
-            sub="Vos plus récentes mises en relation acceptées s'afficheront ici, avec le palier et le coût unitaire."
+            sub="Vos plus récentes mises en relation acceptées s'afficheront ici, avec le mode de contact et le coût unitaire."
           />
         ) : (
           <div className="tbl-scroll">
             <table className="tbl">
-              <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+              <thead><tr><th>Prospect</th><th>Campagne</th><th>Contact</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
               <tbody>
                 {last.map((r, i) => (
                   <tr key={i}>
-                    <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                    <td className="row center gap-3"><Avatar name={prospectShortName(r.name)} size={28}/><span>{prospectShortName(r.name)}</span></td>
                     <td>{r.campaign}</td>
-                    <td><span className="chip">Palier {r.tier}</span></td>
+                    <td><ContactChannelChips channels={r.contactChannels}/></td>
                     <td>
                       {(() => {
                         // Statut « priorité de traitement » enregistré sur la
@@ -921,7 +919,7 @@ function AllAcceptancesModal({ fmt2, onClose }) {
 
         <div className="tbl-scroll" style={{ marginTop: 16 }}>
           <table className="tbl">
-            <thead><tr><th>Prospect</th><th>Campagne</th><th>Palier</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
+            <thead><tr><th>Prospect</th><th>Campagne</th><th>Contact</th><th>Fiabilité</th><th>BUUPP Score</th><th>Reçu</th><th style={{textAlign:'right'}}>Coût</th></tr></thead>
             <tbody>
               {loading && rows.length === 0 && (
                 <tr><td colSpan={7} style={{ textAlign: 'center', padding: '28px 12px' }}>
@@ -935,9 +933,9 @@ function AllAcceptancesModal({ fmt2, onClose }) {
               )}
               {rows.map((r, i) => (
                 <tr key={i}>
-                  <td className="row center gap-3"><Avatar name={r.name} size={28}/><span>{r.name}</span></td>
+                  <td className="row center gap-3"><Avatar name={prospectShortName(r.name)} size={28}/><span>{prospectShortName(r.name)}</span></td>
                   <td>{r.campaign}</td>
-                  <td><span className="chip">Palier {r.tier}</span></td>
+                  <td><ContactChannelChips channels={r.contactChannels}/></td>
                   <td>
                     {(() => {
                       // Statut priorité de traitement (cf. fiche prospect) ;
@@ -1450,7 +1448,15 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
                     )}
                   </div>
                   <div className="lc-c-meta">
-                    {c.objectiveLabel}<span className="dotsep"/>créée le <b>{dateStr}</b><span className="dotsep"/>coût unitaire moyen <b>{fmt2(c.avgCostEur)} €</b>
+                    {c.objectiveLabel}<span className="dotsep"/>créée le <b>{dateStr}</b><span className="dotsep"/>coût unitaire moyen <b>{fmt2(c.avgCostEur)} €</b><span className="dotsep"/>contact <b>{contactChannelsLabel(campaignContactChannels(c))}</b>
+                    {(() => {
+                      const tf = campaignTargetFilters(c);
+                      return (<>
+                        <span className="dotsep"/>villes <b>{targetCitiesLabel(tf.cities)}</b>
+                        <span className="dotsep"/>sexe <b>{targetGenresLabel(tf.genres)}</b>
+                        <span className="dotsep"/>âge <b>{targetAgeBandsLabel(tf.ageBands)}</b>
+                      </>);
+                    })()}
                   </div>
                   {c.brief && (
                     <div className="lc-c-tagline" title={c.brief}>
@@ -1466,7 +1472,7 @@ function Campagnes({ onCreate, onDetail, onDuplicate }) {
                     <div className="lc-act" role="button" onClick={() => togglePauseStatus(c.id, 'active')} title="Reprendre maintenant — le temps restant est préservé"><LcIcon name="play"/>Relancer</div>
                   )}
                   {!isDone(c.status) && (
-                    <div className="lc-act" role="button" onClick={() => setEditCampId(c.id)} title="Élargir la zone, la tranche d'âge ou le lien Vitrine"><LcIcon name="edit"/>Modifier</div>
+                    <div className="lc-act" role="button" onClick={() => setEditCampId(c.id)} title="Élargir la cible (vérification, fiabilité) ou modifier le lien Vitrine"><LcIcon name="edit"/>Modifier</div>
                   )}
                   <div className="lc-act" role="button" onClick={() => onDuplicate?.(c.id)} title="Relancer la même campagne avec les mêmes paramètres"><LcIcon name="copy"/>Dupliquer</div>
                   <div className="lc-act primary" role="button" onClick={() => onDetail(c)}>Détails<LcIcon name="arrow"/></div>
@@ -1645,17 +1651,15 @@ function PauseCampaignModal({ camp, onCancel, onConfirm }) {
    Le pro ne peut qu'ÉLARGIR (jamais restreindre) 3 points, sans relancer
    la campagne ni re-solliciter de prospects :
      1. le lien du site « Vitrine » (si l'option a été souscrite) ;
-     2. la zone géographique (rayon plus large / niveau supérieur / national) ;
-     3. la tranche d'âge (ajout de tranches uniquement).
+     2. le niveau de vérification (abaisser uniquement) ;
+     3. la fiabilité minimum (baisser uniquement) ;
+     4. l'exclusion des anciens acceptants (désactiver uniquement).
+   Plus de zone géographique ni d'âge : les campagnes sont nationales.
    À l'enregistrement → PATCH /api/pro/campaigns/[id] (branche édition) puis
    onSaved() rafraîchit les vues concernées. */
 const EDIT_ERR_LABELS = {
   vitrine_not_subscribed: "L'option Vitrine n'a pas été souscrite pour cette campagne.",
   invalid_website: "Lien de site invalide (https requis).",
-  age_not_widening: "La tranche d'âge ne peut être qu'élargie, pas restreinte.",
-  geo_not_widening: "La zone ne peut être qu'élargie, pas restreinte.",
-  geo_invalid: "Élargissement de zone invalide.",
-  geo_resolve_failed: "Impossible de résoudre la zone élargie. Réessayez.",
   campaign_closed: "Cette campagne est clôturée : elle n'est plus modifiable.",
   nothing_to_update: "Aucune modification à enregistrer.",
   verif_not_widening: "Le niveau de vérification ne peut être qu'abaissé, pas durci.",
@@ -1690,39 +1694,6 @@ function EcmIcon({ name }) {
   }
 }
 
-/* Échelle géographique présentée dans la maquette : 4 paliers ordonnés.
-   `around` (rayon autour de moi) suit la même mécanique d'échelle. */
-function buildGeoModel(d) {
-  if (!d) return null;
-  const geo = d.targeting?.geo || null;
-  const radius = d.targeting?.radiusKm ?? null;
-  if (geo === 'around') {
-    const radii = [10, 30, 50];
-    const steps = radii
-      .map(r => ({ lab: `${r} km`, sub: 'Autour de moi', kind: 'around', radiusKm: r }))
-      .concat([{ lab: 'National', sub: 'France entière', kind: 'national' }]);
-    let ci = radii.indexOf(Number(radius));
-    if (ci < 0) ci = 0;
-    return { steps, currentIndex: ci, curLabel: `${radii[ci]} km` };
-  }
-  const steps = [
-    { lab: 'Ville',      sub: '~20 km',        kind: 'zone', level: 'ville' },
-    { lab: 'Département', sub: '~50 km',        kind: 'zone', level: 'dept' },
-    { lab: 'Région',     sub: '~150 km',       kind: 'zone', level: 'region' },
-    { lab: 'National',   sub: 'France entière', kind: 'national' },
-  ];
-  const idx = { ville: 0, dept: 1, region: 2, national: 3 }[geo];
-  const ci = idx == null ? 3 : idx;
-  return { steps, currentIndex: ci, curLabel: steps[ci].lab };
-}
-
-function geoPayloadForStep(step) {
-  if (!step) return null;
-  if (step.kind === 'national') return { mode: 'national' };
-  if (step.kind === 'around') return { mode: 'around', radiusKm: step.radiusKm };
-  return { mode: 'zone', level: step.level };
-}
-
 function EditCampaignModal({ campId, onCancel, onSaved }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -1731,9 +1702,6 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
 
   // Champs du formulaire.
   const [site, setSite] = useState('');               // partie après https://
-  const [chosenIndex, setChosenIndex] = useState(0);  // palier géo retenu (>= currentIndex)
-  const [ages, setAges] = useState(() => new Set());  // tranches sélectionnées (buckets)
-  const [lockedAges, setLockedAges] = useState(() => new Set()); // tranches courantes (verrouillées)
   const [verif, setVerif] = useState('p0');           // niveau de vérification retenu (<= courant)
   const [baseVerif, setBaseVerif] = useState('p0');   // niveau courant (plafond)
   const [minFiab, setMinFiab] = useState(0);          // seuil de fiabilité retenu (<= courant)
@@ -1741,8 +1709,6 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
   // Exclusion des anciens acceptants : désactivable seulement (true → false).
   const [excludePast, setExcludePast] = useState(false);
   const [baseExcludePast, setBaseExcludePast] = useState(false);
-
-  const BUCKETS = AGE_RANGES.filter(a => a !== 'Tous');
 
   useEffect(() => {
     let cancelled = false;
@@ -1753,13 +1719,6 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
         if (cancelled) return;
         setData(j);
         setSite((j.websiteUrl || '').replace(/^https?:\/\//i, ''));
-        const cur = Array.isArray(j.targeting?.ages) ? j.targeting.ages : [];
-        const isAll = cur.length === 0 || cur.includes('Tous') || BUCKETS.every(b => cur.includes(b));
-        const initial = new Set(isAll ? BUCKETS : cur.filter(a => a !== 'Tous'));
-        setAges(new Set(initial));
-        setLockedAges(new Set(initial));
-        const gm = buildGeoModel(j);
-        setChosenIndex(gm ? gm.currentIndex : 0);
         const curVerif = j.targeting?.verifLevel || 'p0';
         setVerif(curVerif); setBaseVerif(curVerif);
         const curFiab = Number(j.targeting?.minFiabilite ?? 0);
@@ -1771,44 +1730,22 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
     return () => { cancelled = true; };
   }, [campId]);
 
-  const geoModel = data ? buildGeoModel(data) : null;
-  const ci = geoModel ? geoModel.currentIndex : 0;
-  const lastIndex = geoModel ? geoModel.steps.length - 1 : 0;
   const hasVitrine = !!data?.websiteUrl;
   const refLabel = data?.name || campId;
-
-  const toggleAge = (b) => {
-    if (lockedAges.has(b)) return; // tranche courante non décochable
-    setAges(prev => {
-      const n = new Set(prev);
-      if (n.has(b)) n.delete(b); else n.add(b);
-      return n;
-    });
-  };
 
   // Détection des changements par section (pour ne PATCher que le nécessaire).
   const siteOriginal = (data?.websiteUrl || '').replace(/^https?:\/\//i, '');
   const siteChanged = hasVitrine && site.trim() && site.trim().replace(/^https?:\/\//i, '') !== siteOriginal;
-  const agesChanged = BUCKETS.filter(b => ages.has(b)).length > lockedAges.size;
-  const geoChanged = !!geoModel && chosenIndex > ci;
   const verifRank = (id) => VERIF_LEVELS.findIndex(v => v.id === id);
   const baseVerifRank = verifRank(baseVerif);
   const verifChanged = verif !== baseVerif;
   const fiabChanged = minFiab !== baseFiab;
   const excludePastChanged = baseExcludePast && !excludePast;
-  const canSubmit = !submitting && (siteChanged || agesChanged || geoChanged || verifChanged || fiabChanged || excludePastChanged);
-
-  const geoHelp = geoChanged
-    ? `Cible élargie à « ${geoModel.steps[chosenIndex].lab} ». Les zones plus étroites restent couvertes.`
-    : (ci >= lastIndex
-        ? 'Zone déjà à son maximum — France entière.'
-        : 'Sélectionnez une zone plus large pour élargir la diffusion.');
+  const canSubmit = !submitting && (siteChanged || verifChanged || fiabChanged || excludePastChanged);
 
   const submit = async () => {
     const payload = {};
     if (siteChanged) payload.websiteUrl = 'https://' + site.trim().replace(/^https?:\/\//i, '');
-    if (agesChanged) payload.ages = BUCKETS.filter(b => ages.has(b));
-    if (geoChanged) payload.geo = geoPayloadForStep(geoModel.steps[chosenIndex]);
     if (verifChanged) payload.verifLevel = verif;
     if (fiabChanged) payload.minFiabilite = minFiab;
     if (excludePastChanged) payload.excludePastAcceptors = false;
@@ -1881,82 +1818,7 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
                 </div>
               )}
 
-              {/* 2) Zone géographique — échelle 4 paliers (verrouillé / actuel / ajouté) */}
-              {geoModel && (
-                <div className="ecm-field">
-                  <div className="ecm-flabel">
-                    <span className="k">Zone géographique</span>
-                    <span className="cur">Actuelle · {geoModel.curLabel}</span>
-                  </div>
-                  <div className="ecm-geo">
-                    {geoModel.steps.map((s, i) => {
-                      let cls = 'ecm-geo-step';
-                      let tag = null;
-                      if (i < ci) cls += ' locked';
-                      else if (i === ci) { cls += ' current'; tag = 'Actuelle'; }
-                      else if (i <= chosenIndex) { cls += ' added'; if (i === chosenIndex) tag = 'Nouvelle cible'; }
-                      return (
-                        <button
-                          key={i} type="button" className={cls}
-                          onClick={() => { if (i <= ci) return; setChosenIndex(chosenIndex === i ? ci : i); }}
-                        >
-                          {tag && <span className="tag">{tag}</span>}
-                          <div className="lab">{s.lab}{i < ci && <span className="lk"><EcmIcon name="lock"/></span>}</div>
-                          <div className="sub">{s.sub}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="ecm-geohelp">{geoHelp}</p>
-                </div>
-              )}
-
-              {/* 3) Tranche d'âge — pills (verrouillé / ajouté / disponible) + légende */}
-              <div className="ecm-field">
-                <div className="ecm-flabel"><span className="k">Tranche d'âge</span></div>
-                <div className="ecm-pills">
-                  {BUCKETS.map(b => {
-                    const isBase = lockedAges.has(b);
-                    const isAdded = !isBase && ages.has(b);
-                    let cls = 'ecm-pill';
-                    if (isBase) cls += ' base';
-                    else if (isAdded) cls += ' added';
-                    return (
-                      <button
-                        key={b} type="button" className={cls}
-                        onClick={() => toggleAge(b)}
-                        title={isBase ? 'Déjà ciblée — ne peut pas être retirée' : undefined}
-                      >
-                        <span>{b}</span>
-                        {isBase
-                          ? <span className="lk"><EcmIcon name="lock"/></span>
-                          : (isAdded ? <EcmIcon name="check"/> : <EcmIcon name="plus"/>)}
-                      </button>
-                    );
-                  })}
-                  {(() => {
-                    // Bouton « Tous » : coche toutes les tranches d'un coup
-                    // (élargissement maximal). Actif quand tout est sélectionné.
-                    const allSel = BUCKETS.every(b => ages.has(b));
-                    return (
-                      <button
-                        type="button" className={'ecm-pill' + (allSel ? ' added' : '')}
-                        onClick={() => setAges(new Set(BUCKETS))}
-                        title="Cibler toutes les tranches d'âge"
-                      >
-                        <span>Tous</span>
-                        {allSel ? <EcmIcon name="check"/> : <EcmIcon name="plus"/>}
-                      </button>
-                    );
-                  })()}
-                </div>
-                <div className="ecm-legend">
-                  <span><i className="sw base"/>Déjà ciblée (verrouillée)</span>
-                  <span><i className="sw added"/>Ajoutée</span>
-                </div>
-              </div>
-
-              {/* 4) Niveau de vérification minimum — ABAISSER seulement.
+              {/* 2) Niveau de vérification minimum — ABAISSER seulement.
                   Les niveaux plus exigeants que l'actuel sont verrouillés. */}
               <div className="ecm-field">
                 <div className="ecm-flabel">
@@ -1988,7 +1850,7 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
                 <p className="ecm-geohelp">Vous pouvez abaisser l'exigence pour élargir la cible, jamais la durcir.</p>
               </div>
 
-              {/* 5) Fiabilité minimum — BAISSER le seuil seulement. */}
+              {/* 3) Fiabilité minimum — BAISSER le seuil seulement. */}
               <div className="ecm-field">
                 <div className="ecm-flabel">
                   <span className="k">Fiabilité minimum</span>
@@ -2019,7 +1881,7 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
                 <p className="ecm-geohelp">Baissez le seuil pour toucher davantage de prospects ; il ne peut pas être relevé.</p>
               </div>
 
-              {/* 6) Exclusion des anciens acceptants — DÉSACTIVER seulement.
+              {/* 4) Exclusion des anciens acceptants — DÉSACTIVER seulement.
                   Case grisée quand l'option est déjà inactive (l'activer
                   restreindrait la cible). */}
               <div className="ecm-field">
@@ -2118,37 +1980,9 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
         .ecm-url input{ flex:1; min-width:0; border:none; outline:none; background:transparent; padding:14px 16px; font-family:inherit; font-size:15px; color:var(--ecm-ink); }
         .ecm-url input::placeholder{ color:var(--ecm-ink-4); }
 
-        .ecm-geo{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
-        .ecm-geo-step{ position:relative; text-align:left; padding:12px 13px; border-radius:12px; border:1.5px solid var(--ecm-line); background:#fff; cursor:pointer; font-family:inherit; transition:border-color .15s, background .15s, box-shadow .15s; }
-        .ecm-geo-step .lab{ font-weight:600; font-size:13.5px; color:var(--ecm-ink); line-height:1.1; display:flex; align-items:center; gap:6px; }
-        .ecm-geo-step .sub{ font-family:"IBM Plex Mono", monospace; font-size:10px; color:var(--ecm-ink-4); margin-top:4px; letter-spacing:0.02em; }
-        .ecm-geo-step .lk{ display:inline-flex; }
-        .ecm-geo-step .lk svg{ width:12px; height:12px; color:var(--ecm-ink-4); }
-        .ecm-geo-step:hover:not(.locked):not(.current){ border-color:rgba(90,87,214,0.5); box-shadow:0 4px 12px rgba(90,87,214,0.12); }
-        .ecm-geo-step.locked{ background:var(--ecm-paper); border-color:var(--ecm-line-soft); cursor:not-allowed; }
-        .ecm-geo-step.locked .lab{ color:var(--ecm-ink-4); }
-        .ecm-geo-step.current{ border-color:var(--ecm-ink); background:#fff; cursor:default; }
-        .ecm-geo-step.current .lab{ color:var(--ecm-ink); }
-        .ecm-geo-step.current .tag{ position:absolute; top:-8px; left:11px; font-family:"IBM Plex Mono", monospace; font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; background:var(--ecm-ink); color:#fff; padding:2px 6px; border-radius:5px; }
-        .ecm-geo-step.added{ border-color:var(--ecm-indigo); background:var(--ecm-indigo-xsoft); box-shadow:0 4px 12px rgba(90,87,214,0.14); }
-        .ecm-geo-step.added .lab{ color:var(--ecm-indigo-d); }
-        .ecm-geo-step.added .sub{ color:var(--ecm-indigo); }
-        .ecm-geo-step.added .tag{ position:absolute; top:-8px; left:11px; font-family:"IBM Plex Mono", monospace; font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; background:var(--ecm-indigo); color:#fff; padding:2px 6px; border-radius:5px; }
         .ecm-geohelp{ font-size:12px; color:var(--ecm-ink-3); margin:9px 2px 0; line-height:1.4; }
 
-        .ecm-pills{ display:flex; flex-wrap:wrap; gap:8px; }
-        .ecm-pill{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:999px; border:1.5px solid var(--ecm-line); background:#fff; font-size:13.5px; font-weight:600; color:var(--ecm-ink-2); cursor:pointer; font-family:inherit; transition:border-color .15s, background .15s, color .15s, box-shadow .15s; }
-        .ecm-pill svg{ width:13px; height:13px; }
-        .ecm-pill:hover:not(.base){ border-color:rgba(90,87,214,0.5); }
-        .ecm-pill.base{ background:var(--ecm-paper); border-color:var(--ecm-line-soft); color:var(--ecm-ink-3); cursor:not-allowed; }
-        .ecm-pill.base .lk svg{ color:var(--ecm-ink-4); }
-        .ecm-pill.added{ background:var(--ecm-indigo); border-color:var(--ecm-indigo); color:#fff; box-shadow:0 4px 12px rgba(90,87,214,0.22); }
 
-        .ecm-legend{ display:flex; flex-wrap:wrap; gap:16px; margin-top:11px; }
-        .ecm-legend span{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ecm-ink-3); }
-        .ecm-legend .sw{ width:11px; height:11px; border-radius:4px; }
-        .ecm-legend .sw.base{ background:var(--ecm-paper); border:1.5px solid var(--ecm-line-soft); }
-        .ecm-legend .sw.added{ background:var(--ecm-indigo); }
 
         /* Cartes « niveau de vérification » / « fiabilité minimum » — 3 par ligne */
         .ecm-cards{ display:grid; grid-template-columns:repeat(3, 1fr); gap:9px; }
@@ -2177,17 +2011,16 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
         .ecm-btn-primary svg{ width:16px; height:16px; }
         .ecm-btn:disabled{ opacity:.5; cursor:not-allowed; }
 
-        /* Tablette : modale resserrée, échelle géo conservée en 4 colonnes. */
+        /* Tablette : modale resserrée. */
         @media (max-width: 720px){
           .ecm-inner{ padding:26px 22px 24px; }
         }
-        /* Téléphone : plein écran, échelle géo en 2 colonnes, footer compact. */
+        /* Téléphone : plein écran, footer compact. */
         @media (max-width: 540px){
           .ecm-overlay{ padding:0; align-items:stretch; }
           .ecm-modal{ max-width:none; border-radius:0; max-height:100dvh; min-height:100dvh; }
           .ecm-inner{ padding:24px 18px 22px; }
           h2.ecm-title{ font-size:23px; }
-          .ecm-geo{ grid-template-columns:repeat(2, 1fr); }
           .ecm-cards{ gap:6px; }
           .ecm-card{ padding:10px 9px; border-radius:11px; }
           .ecm-card .nm{ font-size:12px; padding-right:14px; gap:4px; }
@@ -2206,18 +2039,12 @@ function EditCampaignModal({ campId, onCancel, onSaved }) {
   );
 }
 
-/* 6-step wizard — objectif, données, ciblage, budget, mots-clés, récap */
-// allowedTiers : paliers accessibles selon le principe de minimisation RGPD.
-// Données strictement nécessaires à la finalité de la campagne.
+/* Wizard 8 étapes — objectif, dates, contact, ciblage, budget, mots-clés, description, récap */
 // Couleur premium par objectif (cartes étape 1 — création de campagne).
 const OBJ_COLOR = {
   contact: '#5a57d6', rdv: '#1c8a6e', evt: '#2f72c4', dl: '#b9842a',
   survey: '#c14d77', promo: '#d6432f', addigital: '#2e9e5b',
 };
-// Icône par palier de données (étape 3 — création de campagne).
-const TIER_ICON = { 1: 'user', 2: 'mapPin', 3: 'heart', 4: 'briefcase', 5: 'wallet' };
-// Icône par zone géographique (étape 4 — ciblage).
-const GEO_ICON = { ville: 'home', dept: 'mapPin', region: 'globe', national: 'france' };
 // Icône par canal / sous-type (étape 1). Repli sur l'icône de l'objectif.
 const CHANNEL_ICON = {
   email: 'email', sms: 'sms', mms: 'sms', postal: 'send', phone: 'phone', wa: 'whatsapp', pushweb: 'globe', pushapp: 'bell', autres: 'sparkle',
@@ -2230,7 +2057,7 @@ const CHANNEL_ICON = {
 };
 
 const OBJECTIVES = [
-  { id:'contact', name:'Prise de contact direct', desc:'8 opérations — email, SMS, push, appel, WhatsApp', icon:'email', allowedTiers:[1], sub:[
+  { id:'contact', name:'Prise de contact direct', desc:'8 opérations — email, SMS, push, appel, WhatsApp', icon:'email', sub:[
     {id:'email',     name:'Email marketing',         desc:'Newsletter, campagne promotionnelle, séquence de bienvenue',   cost:0.15},
     {id:'sms',       name:'SMS marketing',           desc:'Message promotionnel, alerte offre, rappel personnalisé',      cost:0.20},
     {id:'mms',       name:'MMS marketing',           desc:'Message multimédia avec image ou vidéo courte',                cost:0.25},
@@ -2241,7 +2068,7 @@ const OBJECTIVES = [
     {id:'pushapp',   name:'Push notification app',   desc:'Notification mobile sur application installée',                cost:0.10},
     {id:'autres',    name:'Autres',                  desc:'Autre canal de contact — précisez à l’étape Description',  cost:0},
   ]},
-  { id:'rdv', name:'Prise de rendez-vous', desc:'6 opérations — physique, visio, devis, essai', icon:'calendar', allowedTiers:[1], sub:[
+  { id:'rdv', name:'Prise de rendez-vous', desc:'6 opérations — physique, visio, devis, essai', icon:'calendar', sub:[
     {id:'rdvphys',   name:'RDV physique commercial', desc:'Rencontre en face-à-face chez le prospect ou en agence',       cost:2.00},
     {id:'rdvtel',    name:'RDV téléphonique',        desc:'Appel qualifié planifié avec un conseiller ou commercial',     cost:1.00},
     {id:'rdvvisio',  name:'RDV visioconférence',     desc:'Réunion en ligne via Teams, Zoom ou Google Meet',              cost:0.80},
@@ -2250,7 +2077,7 @@ const OBJECTIVES = [
     {id:'essai',     name:'Essai produit planifié',  desc:'Test drive, essai cuisine, démo logiciel avec commercial',     cost:2.50},
     {id:'autres',    name:'Autres',                  desc:'Autre format de rendez-vous — précisez à l’étape Description', cost:0},
   ]},
-  { id:'evt', name:'Événementiel & inscription', desc:'8 opérations — webinar, atelier, conférence', icon:'flag', allowedTiers:[1,2,3,4,5], sub:[
+  { id:'evt', name:'Événementiel & inscription', desc:'8 opérations — webinar, atelier, conférence', icon:'flag', sub:[
     {id:'webinar',   name:'Webinar / conférence web',desc:'Événement en ligne éducatif ou commercial',                    cost:1.00},
     {id:'portes',    name:'Portes ouvertes',         desc:'Visite libre des locaux, découverte de l\u2019offre',                 cost:1.20},
     {id:'atelier',   name:'Atelier / workshop',      desc:'Événement pratique en petit groupe, en présentiel',            cost:2.00},
@@ -2261,7 +2088,7 @@ const OBJECTIVES = [
     {id:'tournoi',   name:'Tournoi / challenge',     desc:'Compétition sponsorisée autour d\u2019un thème produit',              cost:1.20},
     {id:'autres',    name:'Autres',                  desc:'Autre type d\u2019événement — précisez à l\u2019étape Description',         cost:0},
   ]},
-  { id:'dl', name:'Contenus à télécharger', desc:'9 opérations — livre blanc, guide, étude', icon:'download', allowedTiers:[1], sub:[
+  { id:'dl', name:'Contenus à télécharger', desc:'9 opérations — livre blanc, guide, étude', icon:'download', sub:[
     {id:'wb',        name:'Livre blanc',             desc:'Guide expert sur un sujet thématique avec valeur perçue élevée',cost:1.00},
     {id:'etude',     name:'Étude de cas',            desc:'Résultat client concret présenté sous forme narrative',        cost:1.20},
     {id:'cat',       name:'Fiche produit / catalogue', desc:'Descriptif commercial téléchargeable',                        cost:0.50},
@@ -2273,7 +2100,7 @@ const OBJECTIVES = [
     {id:'replay',    name:'Replay vidéo',            desc:'Enregistrement d\u2019un webinar ou conférence passée',               cost:0.80},
     {id:'autres',    name:'Autres',                  desc:'Autre format de contenu — précisez à l\u2019étape Description',         cost:0},
   ]},
-  { id:'survey', name:'Études & collecte d\u2019avis', desc:'8 opérations — NPS, sondage, focus group', icon:'check', allowedTiers:[1,2,3,4,5], sub:[
+  { id:'survey', name:'Études & collecte d\u2019avis', desc:'8 opérations — NPS, sondage, focus group', icon:'check', sub:[
     {id:'csat',      name:'Enquête satisfaction (CSAT)', desc:'Score de satisfaction sur une expérience récente',          cost:0.80},
     {id:'nps',       name:'Net Promoter Score (NPS)',    desc:'Mesure de la propension à recommander la marque',           cost:0.80},
     {id:'poll',      name:'Sondage d\u2019opinion',         desc:'Questionnaire sur un sujet marché ou produit',              cost:0.50},
@@ -2284,14 +2111,14 @@ const OBJECTIVES = [
     {id:'vote',      name:'Vote / élection produit',   desc:'Participation à un choix (packaging, nom, design)',            cost:0.60},
     {id:'autres',    name:'Autres',                  desc:'Autre format d\u2019étude — précisez à l\u2019étape Description',         cost:0},
   ]},
-  { id:'promo', name:'Promotions & fidélisation', desc:'4 opérations — coupon, flash, concours', icon:'bolt', allowedTiers:[1,2,3,4,5], sub:[
+  { id:'promo', name:'Promotions & fidélisation', desc:'4 opérations — coupon, flash, concours', icon:'bolt', sub:[
     {id:'coupon',    name:'Offre de réduction ciblée', desc:'Coupon, code promo ou remise envoyé à un segment',            cost:0.30},
     {id:'welcome',   name:'Offre de bienvenue',        desc:'Avantage exclusif à la première commande ou inscription',     cost:0.60},
     {id:'flash',     name:'Vente flash',               desc:'Promotion à durée limitée pour créer l\u2019urgence',                cost:0.50},
     {id:'contest',   name:'Concours / jeu-concours',   desc:'Animation avec gain à la clé pour créer de l\u2019engagement',       cost:0.80},
     {id:'autres',    name:'Autres',                  desc:'Autre mécanique promo — précisez à l\u2019étape Description',         cost:0},
   ]},
-  { id:'addigital', name:'Publicité digitale', desc:'Adresses réseaux sociaux pour ciblage publicitaire', icon:'bolt', allowedTiers:[1,2,3,4,5], sub:[
+  { id:'addigital', name:'Publicité digitale', desc:'Adresses réseaux sociaux pour ciblage publicitaire', icon:'bolt', sub:[
     {id:'meta',      name:'Audience Meta (Facebook / Instagram)', desc:'Liste d\u2019emails / téléphones hashés pour ciblage publicitaire', cost:0.20},
     {id:'google',    name:'Google Customer Match',     desc:'Audience pour Google Ads, YouTube, Discovery',                cost:0.20},
     {id:'tiktok',    name:'TikTok Ads — Custom Audience', desc:'Liste pour ciblage publicitaire TikTok Ads',               cost:0.20},
@@ -2302,24 +2129,234 @@ const OBJECTIVES = [
   ]},
 ];
 
-const TIERS_DATA = [
-  {id:1, name:'Identification',            sub:'Email, nom, téléphone, date de naissance',        min:1.00, max:1.00,  pct:20},
-  {id:2, name:'Localisation',              sub:'Adresse postale, logement, mobilité',             min:1.00, max:2.00,  pct:40},
-  {id:3, name:'Style de vie',              sub:'Habitudes, famille, véhicule, sport',             min:2.00, max:3.50,  pct:58},
-  {id:4, name:'Données professionnelles',  sub:'Statut, secteur',                                 min:3.50, max:5.00,  pct:78},
-  {id:5, name:'Patrimoine & projets',      sub:'Immobilier, projets',                             min:5.00, max:10.00, pct:100},
+// Mode de contact (étape 3 — ex-« Données »). BUUPP est une pure plateforme
+// de mise en relation : le pro reçoit toujours le prénom + l'initiale du
+// nom du prospect (personnalisation du message) et choisit le(s) canal(aux)
+// par le(s)quel(s) il le contactera. Appel et e-mail transitent TOUJOURS
+// par la plateforme BUUPP — le numéro / l'adresse ne sont jamais affichés.
+const CONTACT_CHANNELS = [
+  { id: 'phone', name: 'Numéro de téléphone', short: 'Téléphone', icon: 'phone',
+    sub: 'Vous appelez le prospect depuis BUUPP (appel relayé, numéro masqué).' },
+  { id: 'email', name: 'Adresse e-mail', short: 'E-mail', icon: 'email',
+    sub: 'Vous écrivez au prospect depuis BUUPP (e-mail relayé, adresse masquée).' },
 ];
-
-const GEO_ZONES = [
-  {id:'ville',    name:'Ville',       sub:'Rayon 20 km'},
-  {id:'dept',     name:'Département', sub:'Rayon 50 km'},
-  {id:'region',   name:'Région',      sub:'Rayon 150 km'},
-  {id:'national', name:'National',    sub:'Toute la France'},
+const CONTACT_CHANNEL_IDS = CONTACT_CHANNELS.map(c => c.id);
+// Normalise une liste de canaux (brouillon, API) ; repli = les deux canaux.
+function normalizeContactChannels(v) {
+  const arr = Array.isArray(v) ? v.filter(x => CONTACT_CHANNEL_IDS.includes(x)) : [];
+  return arr.length ? Array.from(new Set(arr)) : ['phone', 'email'];
+}
+// Canaux d'une campagne lue depuis l'API (racine ou `targeting`).
+function campaignContactChannels(c) {
+  return normalizeContactChannels(c?.contactChannels ?? c?.targeting?.contactChannels);
+}
+function contactChannelsLabel(chs) {
+  return normalizeContactChannels(chs)
+    .map(id => CONTACT_CHANNELS.find(c => c.id === id)?.short)
+    .filter(Boolean).join(' / ');
+}
+// ─── Filtres de ciblage ville / sexe / tranche d'âge ─────────────────
+// Servent UNIQUEMENT à sélectionner les prospects côté serveur : le pro ne
+// voit jamais la ville, le sexe ni l'âge d'un prospect. Tableau vide = tous.
+const TARGET_CITIES_MAX = 20;
+const TARGET_GENRES = [
+  { id: 'femme', label: 'Femmes' },
+  { id: 'homme', label: 'Hommes' },
 ];
+const TARGET_AGE_BANDS = [
+  { id: '18-35', label: '18–35 ans' },
+  { id: '35+',   label: 'Plus de 35 ans' },
+];
+function normalizeTargetCities(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const raw of v) {
+    const name = typeof raw === 'string' ? raw.trim() : (raw && typeof raw.nom === 'string' ? raw.nom.trim() : '');
+    if (!name) continue;
+    const k = name.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(name);
+    if (out.length >= TARGET_CITIES_MAX) break;
+  }
+  return out;
+}
+function normalizeTargetIds(v, allowed) {
+  const ids = allowed.map(a => a.id);
+  const arr = Array.isArray(v) ? Array.from(new Set(v.filter(x => ids.includes(x)))) : [];
+  // Les deux cochés = tous → tableau vide (forme canonique).
+  return arr.length === ids.length ? [] : arr;
+}
+function normalizeTargetGenres(v) { return normalizeTargetIds(v, TARGET_GENRES); }
+function normalizeTargetAgeBands(v) { return normalizeTargetIds(v, TARGET_AGE_BANDS); }
+// Lecture tolérante depuis l'API (targeting.* ou racine).
+function campaignTargetFilters(c) {
+  const tg = c?.targeting || {};
+  return {
+    cities: normalizeTargetCities(tg.cities ?? c?.targetCities ?? c?.cities),
+    genres: normalizeTargetGenres(tg.genres ?? c?.targetGenres ?? c?.genres),
+    ageBands: normalizeTargetAgeBands(tg.ageBands ?? c?.targetAgeBands ?? c?.ageBands),
+  };
+}
+function targetCitiesLabel(cities) {
+  const arr = normalizeTargetCities(cities);
+  return arr.length ? arr.join(', ') : 'Toute la France';
+}
+function targetGenresLabel(genres) {
+  const arr = normalizeTargetGenres(genres);
+  return arr.length ? arr.map(id => TARGET_GENRES.find(g => g.id === id)?.label).filter(Boolean).join(', ') : 'Tous';
+}
+function targetAgeBandsLabel(bands) {
+  const arr = normalizeTargetAgeBands(bands);
+  return arr.length ? arr.map(id => TARGET_AGE_BANDS.find(a => a.id === id)?.label).filter(Boolean).join(', ') : 'Tous';
+}
 
-const AGE_RANGES = ['18–25','26–35','36–45','46–55','56–65','65+','Tous'];
+/* Sélecteur multi-villes (geo.api.gouv.fr) — adapté de l'ancien
+   GeoTargetAutocomplete : on ne stocke que le NOM des communes. */
+function CityMultiPicker({ value, onChange }) {
+  const cities = normalizeTargetCities(value);
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const containerRef = React.useRef(null);
+  const full = cities.length >= TARGET_CITIES_MAX;
 
-// Paliers alignés sur la page Prospect → onglet "Paliers de vérification" :
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setItems([]); setLoading(false); return; }
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,codesPostaux&boost=population&limit=6`);
+        if (!r.ok) { setItems([]); return; }
+        const data = await r.json();
+        setItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn('[geo.api.gouv.fr] error', e);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const has = (name) => cities.some(c => c.toLowerCase() === String(name).toLowerCase());
+  const pick = (it) => {
+    if (!it?.nom || full || has(it.nom)) { setQuery(''); setOpen(false); return; }
+    onChange(normalizeTargetCities([...cities, it.nom]));
+    setQuery('');
+    setItems([]);
+    setOpen(false);
+    setHighlight(-1);
+  };
+  const remove = (name) => onChange(cities.filter(c => c !== name));
+
+  const onKeyDown = (e) => {
+    if (!open || items.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(items.length - 1, h + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(0, h - 1)); }
+    else if (e.key === 'Enter' && highlight >= 0 && highlight < items.length) { e.preventDefault(); pick(items[highlight]); }
+    else if (e.key === 'Escape') { setOpen(false); }
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {cities.length === 0 ? (
+          <span className="chip chip-accent" style={{ fontSize: 12, fontWeight: 600 }}>Toute la France</span>
+        ) : (
+          <>
+            {cities.map(c => (
+              <span key={c} className="chip" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {c}
+                <button type="button" onClick={() => remove(c)} aria-label={'Retirer ' + c} title={'Retirer ' + c}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--ink-4)', display: 'inline-flex' }}>
+                  <Icon name="close" size={11}/>
+                </button>
+              </span>
+            ))}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([])} style={{ fontSize: 11.5 }}>
+              Toute la France
+            </button>
+          </>
+        )}
+      </div>
+      <input
+        className="input"
+        value={query}
+        disabled={full}
+        onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder={full ? `Maximum ${TARGET_CITIES_MAX} villes atteint` : 'Ajouter une ville (ex. Lyon, Bordeaux…)'}
+        style={{ width: '100%', boxSizing: 'border-box', fontSize: 14, padding: '10px 12px', minHeight: 44 }}
+        aria-autocomplete="list"
+        aria-expanded={open}
+      />
+      <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+        {cities.length}/{TARGET_CITIES_MAX} ville{cities.length > 1 ? 's' : ''} · aucune ville = toute la France
+      </div>
+      {open && query.trim().length >= 2 && (
+        <div role="listbox" style={{
+          position: 'absolute', top: 'calc(100% - 14px)', left: 0, right: 0,
+          background: 'var(--paper)', border: '1px solid var(--line-2)',
+          borderRadius: 10, boxShadow: '0 12px 30px -12px rgba(15,22,41,.25)',
+          maxHeight: 280, overflowY: 'auto', zIndex: 50,
+        }}>
+          {loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Recherche…</div>
+          )}
+          {!loading && items.length === 0 && (
+            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Aucun résultat.</div>
+          )}
+          {items.map((it, i) => {
+            const already = has(it.nom);
+            const cps = (it.codesPostaux || []).slice(0, 2).join(', ');
+            return (
+              <button
+                key={`${it.nom}-${i}`}
+                type="button"
+                disabled={already}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => pick(it)}
+                onMouseEnter={() => setHighlight(i)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  width: '100%', padding: '12px 14px', textAlign: 'left',
+                  background: highlight === i ? 'var(--ivory-2)' : 'transparent',
+                  border: 'none', cursor: already ? 'default' : 'pointer', fontSize: 14,
+                  color: already ? 'var(--ink-4)' : 'var(--ink)',
+                  minHeight: 44, gap: 12,
+                }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.nom}{already ? ' · déjà ajoutée' : ''}</span>
+                {cps && <span className="mono" style={{ color: 'var(--ink-4)', fontSize: 12, flexShrink: 0 }}>{cps}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Récompense de base par acceptation (tarif unique), avant multiplicateurs
+// de durée et de niveau de vérification. Le serveur force requiredTiers=[1].
+const BASE_REWARD_EUR = 1.00;
+
+// Niveaux alignés sur la page Prospect → onglet « vérification » :
 // Basique (création de compte) → Vérifié (RIB validé) → Certifié confiance
 // (rendez-vous physique accepté). Les ids restent `p0/p1/p2` pour rester
 // rétro-compatibles avec les campagnes déjà persistées.
@@ -2331,9 +2368,8 @@ const VERIF_LEVELS = [
 
 const KW_SUGGESTIONS = ['véhicule','immobilier','retraite','sport','artisan','nutrition','coaching','BTP','épargne','assurance','crédit','jardinage','animaux','voyages','informatique'];
 
-// 8 étapes : Objectif → Dates → Données → Ciblage → Budget → Mots-clés → Description → Récap.
-// "Dates" et "Description" sont les deux étapes ajoutées récemment.
-const WIZ_STEPS = ['Objectif','Dates','Données','Ciblage','Budget','Mots-clés','Description','Récap'];
+// 8 étapes : Objectif → Dates → Contact → Ciblage → Budget → Mots-clés → Description → Récap.
+const WIZ_STEPS = ['Objectif','Dates','Contact','Ciblage','Budget','Mots-clés','Description','Récap'];
 const WIZ_TOTAL = WIZ_STEPS.length;
 const WIZ_STEP_RECAP = WIZ_TOTAL; // dernière étape
 
@@ -2628,234 +2664,6 @@ const DURATIONS = [
 ];
 const DURATION_BY_ID = Object.fromEntries(DURATIONS.map(d => [d.id, d]));
 
-/* ─── Autocomplete cible géographique (ville / département / région) ───
-   Source : geo.api.gouv.fr (officiel, gratuit, CORS autorisé).
-   Le champ se ré-initialise quand `geo` change (cf. useEffect dans
-   CreateCampaign) parce que la sélection précédente n'a pas de sens à
-   l'autre échelle. Le shape de la valeur retournée à `onPick` :
-
-     ville    → { type:'ville',  nom, code, codesPostaux, codeDepartement, codeRegion }
-     dept     → { type:'dept',   nom, code, codeRegion }
-     region   → { type:'region', nom, code, deptCodes }   (deptCodes résolus
-                                                            via /regions/{code}/departements)
-
-   Pour `region`, on fait un 2nd fetch après la sélection pour récupérer
-   la liste des départements — utilisée côté backend pour générer le
-   filtre de CP (OR des préfixes dept). */
-function GeoTargetAutocomplete({ geo, value, onPick }) {
-  const [query, setQuery] = useState('');
-  const [items, setItems] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [highlight, setHighlight] = useState(-1);
-  const containerRef = React.useRef(null);
-
-  // Reset visible quand la sélection est purgée (geo change).
-  useEffect(() => { if (!value) setQuery(''); }, [value]);
-
-  // Debounced search vers l'endpoint adapté au mode.
-  // Comportement par défaut : recherche par nom (lettres).
-  // Si la saisie est numérique on bascule sur la recherche par code :
-  //   - ville  : codePostal (2 à 5 chiffres, ex. "750", "75001")
-  //   - dept   : code département (ex. "33", "2A")
-  //   - region : code région (1-2 chiffres officiels INSEE)
-  // Permet à un pro qui connaît son code postal de retrouver vite sa
-  // commune sans devoir taper le nom complet.
-  useEffect(() => {
-    const q = query.trim();
-    if (!geo || geo === 'national' || q.length < 1) { setItems([]); setLoading(false); return; }
-    setLoading(true);
-    const isNumeric = /^\d+$/.test(q);
-    const timer = setTimeout(async () => {
-      try {
-        let url;
-        if (geo === 'ville') {
-          if (isNumeric) {
-            // Code postal partiel ou complet : l'API filtre les communes
-            // dont au moins un codesPostaux commence par `q`.
-            url = `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&limit=20`;
-          } else {
-            url = `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,code,codesPostaux,codeDepartement,codeRegion&boost=population&limit=10`;
-          }
-        } else if (geo === 'dept') {
-          if (isNumeric) {
-            url = `https://geo.api.gouv.fr/departements?code=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
-          } else {
-            url = `https://geo.api.gouv.fr/departements?nom=${encodeURIComponent(q)}&fields=nom,code,codeRegion&limit=10`;
-          }
-        } else { // region
-          if (isNumeric) {
-            url = `https://geo.api.gouv.fr/regions?code=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
-          } else {
-            url = `https://geo.api.gouv.fr/regions?nom=${encodeURIComponent(q)}&fields=nom,code&limit=10`;
-          }
-        }
-        const r = await fetch(url);
-        if (!r.ok) { setItems([]); setLoading(false); return; }
-        let data = await r.json();
-        if (!Array.isArray(data)) data = [];
-        // Pour le mode ville en saisie numérique : si l'utilisateur a tapé
-        // un code postal partiel, on remonte uniquement les communes dont
-        // un CP commence vraiment par la saisie (le `codePostal=` côté
-        // API filtre déjà mais on garantit le tri).
-        if (geo === 'ville' && isNumeric) {
-          data = data.filter(c =>
-            Array.isArray(c.codesPostaux) &&
-            c.codesPostaux.some(cp => cp.startsWith(q))
-          );
-        }
-        setItems(data);
-      } catch (e) {
-        console.warn('[geo.api.gouv.fr] error', e);
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 220);
-    return () => clearTimeout(timer);
-  }, [query, geo]);
-
-  // Click extérieur ferme la liste.
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
-
-  const pick = async (it) => {
-    if (geo === 'ville') {
-      onPick({
-        type: 'ville',
-        nom: it.nom,
-        code: it.code,
-        codesPostaux: Array.isArray(it.codesPostaux) ? it.codesPostaux : [],
-        codeDepartement: it.codeDepartement ?? null,
-        codeRegion: it.codeRegion ?? null,
-      });
-      setQuery(`${it.nom}${it.codesPostaux?.[0] ? ` (${it.codesPostaux[0]})` : ''}`);
-    } else if (geo === 'dept') {
-      onPick({ type: 'dept', nom: it.nom, code: it.code, codeRegion: it.codeRegion ?? null });
-      setQuery(`${it.nom} (${it.code})`);
-    } else {
-      // region — on résout les depts pour pouvoir appliquer le filtre CP
-      // côté backend (préfixes OR'd). L'API renvoie la liste complète.
-      let deptCodes = [];
-      try {
-        const r2 = await fetch(`https://geo.api.gouv.fr/regions/${encodeURIComponent(it.code)}/departements?fields=code`);
-        if (r2.ok) {
-          const dd = await r2.json();
-          deptCodes = Array.isArray(dd) ? dd.map(d => String(d.code)) : [];
-        }
-      } catch (e) {
-        console.warn('[geo.api.gouv.fr] regions/depts error', e);
-      }
-      onPick({ type: 'region', nom: it.nom, code: it.code, deptCodes });
-      setQuery(it.nom);
-    }
-    setOpen(false);
-    setHighlight(-1);
-  };
-
-  const clear = () => { onPick(null); setQuery(''); setOpen(false); };
-
-  const onKeyDown = (e) => {
-    if (!open || items.length === 0) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(items.length - 1, h + 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(0, h - 1)); }
-    else if (e.key === 'Enter' && highlight >= 0 && highlight < items.length) { e.preventDefault(); pick(items[highlight]); }
-    else if (e.key === 'Escape') { setOpen(false); }
-  };
-
-  const placeholder =
-    geo === 'ville' ? 'Tapez le nom d\'une ville ou un code postal (ex. Bordeaux, 33000)' :
-    geo === 'dept' ? 'Tapez le nom ou le code d\'un département (ex. Gironde, 33)' :
-    geo === 'region' ? 'Tapez le nom ou le code d\'une région (ex. Nouvelle-Aquitaine, 75)' :
-    '';
-
-  // Rendu du résumé d'item (clé contextuelle = code dept pour ville/dept,
-  // rien pour region puisque l'API en renvoie ~18 max).
-  const renderItem = (it) => {
-    if (geo === 'ville') {
-      const cps = (it.codesPostaux || []).slice(0, 2).join(', ');
-      return { left: it.nom, right: cps ? `${cps} · ${it.codeDepartement || ''}` : (it.codeDepartement || '') };
-    }
-    if (geo === 'dept') return { left: it.nom, right: it.code };
-    return { left: it.nom, right: '' };
-  };
-
-  return (
-    <div ref={containerRef} style={{ position: 'relative', marginBottom: 24 }}>
-      <div className="row" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <input
-          className="input"
-          value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(-1); if (value) onPick(null); }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          style={{ flex: 1, minWidth: 0, fontSize: 14, padding: '10px 12px', minHeight: 44 }}
-          aria-autocomplete="list"
-          aria-expanded={open}
-        />
-        {value && (
-          <button type="button" onClick={clear} className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}>
-            Effacer
-          </button>
-        )}
-      </div>
-      {value && (
-        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-          Sélectionné : <strong style={{ color: 'var(--ink)' }}>{value.nom}</strong>
-          {value.type === 'ville' && value.codesPostaux?.length > 0 && (
-            <> · CP {value.codesPostaux.slice(0, 3).join(', ')}{value.codesPostaux.length > 3 ? '…' : ''}</>
-          )}
-          {value.type === 'dept' && <> · code {value.code}</>}
-          {value.type === 'region' && <> · {value.deptCodes?.length || 0} départements</>}
-        </div>
-      )}
-      {open && query.trim().length >= 1 && (
-        <div role="listbox" style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: 'var(--paper)', border: '1px solid var(--line-2)',
-          borderRadius: 10, boxShadow: '0 12px 30px -12px rgba(15,22,41,.25)',
-          maxHeight: 280, overflowY: 'auto', zIndex: 50,
-        }}>
-          {loading && items.length === 0 && (
-            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Recherche…</div>
-          )}
-          {!loading && items.length === 0 && (
-            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Aucun résultat.</div>
-          )}
-          {items.map((it, i) => {
-            const r = renderItem(it);
-            return (
-              <button
-                key={`${geo}-${it.code}-${i}`}
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => pick(it)}
-                onMouseEnter={() => setHighlight(i)}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  width: '100%', padding: '12px 14px', textAlign: 'left',
-                  background: highlight === i ? 'var(--ivory-2)' : 'transparent',
-                  border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--ink)',
-                  minHeight: 44, gap: 12,
-                }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.left}</span>
-                {r.right && <span className="mono" style={{ color: 'var(--ink-4)', fontSize: 12, flexShrink: 0 }}>{r.right}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* Toast "On a tout gardé" affiché quand le wizard restaure un brouillon
    au retour sur l'onglet (cf. CreateCampaign / restoreDraft). Slide-in
    en haut au centre, illustration thiings.co (bookmark), auto-dismiss
@@ -3061,7 +2869,7 @@ function VitrineOfferModal({ free, url, onSkip, onConfirm }) {
   );
 }
 
-function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, duplicateSourceId, onRecharge }) {
+function CreateCampaign({ onDone, companyInfo, onGoInformations, duplicateSourceId, onRecharge }) {
   const [step, setStep] = useState(1);
   const [launched, setLaunched] = useState(null); // {code} when launched
   const [insufficient, setInsufficient] = useState(null); // {balance, campaignTotal, commission, vitrineFee, needed, missing}
@@ -3082,7 +2890,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const [vitrineModalSeen, setVitrineModalSeen] = useState(false);
   const [priorCampaignCount, setPriorCampaignCount] = useState(null);
   // ─── Formule unique (nov. 2026) ──────────────────────────────────
-  // Plus de choix Starter/Pro ni de cycle : tous les paliers sont ouverts,
+  // Plus de choix Starter/Pro ni de cycle : tarif unique par acceptation,
   // campagnes illimitées, 500 contacts max par campagne. Seule la
   // commission BUUPP (10 % par acceptation, min. 0,30 €) s'applique.
   const plan = 'pro';
@@ -3176,12 +2984,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         plan,
         selectedObj,
         selectedSubs: Array.from(selectedSubs),
-        selectedTiers: Array.from(selectedTiers),
-        geo, geoTarget, radiusKm, ages: Array.from(ages),
-        verif, contacts, durationKey, poolMode,
-        keywords, kwInput, kwFilter,
+        contactChannels: Array.from(contactChannels),
+        verif, minFiab, contacts, durationKey, poolMode,
+        keywords, kwInput,
         startDate, endDate, brief,
         excludePastAcceptors, excludePastTouched,
+        targetCities, targetGenres, targetAgeBands,
       };
       safeTopLocal().setItem(k, JSON.stringify(draft));
     } catch (e) { console.warn('saveDraft failed', e); }
@@ -3228,17 +3036,9 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       }
       setSelectedObj(d.selectedObj ?? null);
       setSelectedSubs(new Set(d.selectedSubs || []));
-      setSelectedTiers(new Set(d.selectedTiers || [1]));
-      setGeo(d.geo ?? 'national');
-      // Important : setGeo() ré-init geoTarget via useEffect → on doit
-      // setter geoTarget APRÈS dans la tick suivant. Ici on l'enrobe d'un
-      // micro-task pour que la reset useEffect ne masque pas la valeur
-      // restaurée.
-      if (d.geoTarget) {
-        Promise.resolve().then(() => setGeoTarget(d.geoTarget));
-      }
-      if (typeof d.radiusKm === 'number') setRadiusKm(d.radiusKm);
-      setAges(new Set(d.ages || []));
+      // Anciens brouillons (selectedTiers / geo / ages) : champs ignorés ;
+      // repli sur les deux canaux de contact.
+      setContactChannels(new Set(normalizeContactChannels(d.contactChannels)));
       setVerif(d.verif ?? 'p0');
       setMinFiab(typeof d.minFiab === 'number' ? d.minFiab : 0);
       setContacts(Number(d.contacts ?? 10));
@@ -3246,11 +3046,14 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       setPoolMode(d.poolMode ?? 'standard');
       setKeywords(d.keywords || []);
       setKwInput(d.kwInput || '');
-      setKwFilter(Boolean(d.kwFilter));
       if (typeof d.excludePastAcceptors === 'boolean') {
         setExcludePastAcceptors(d.excludePastAcceptors);
         setExcludePastTouched(Boolean(d.excludePastTouched));
       }
+      // Filtres ville / sexe / âge — absents des anciens brouillons ⇒ tous.
+      setTargetCities(normalizeTargetCities(d.targetCities));
+      setTargetGenres(normalizeTargetGenres(d.targetGenres));
+      setTargetAgeBands(normalizeTargetAgeBands(d.targetAgeBands));
       setStartDate(todayIso());
       setEndDate(d.endDate || isoPlusDays(8));
       setBrief(d.brief || '');
@@ -3333,28 +3136,24 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         const tg = d.targeting || {};
         if (d.objectiveId) setSelectedObj(d.objectiveId);
         if (Array.isArray(tg.subTypes)) setSelectedSubs(new Set(tg.subTypes));
-        if (Array.isArray(tg.requiredTiers)) {
-          setSelectedTiers(new Set(tg.requiredTiers.map((n) => Number(n)).filter((n) => n > 0)));
-        }
-        if (typeof tg.geo === 'string') setGeo(tg.geo);
-        // Idem draft restore : on diffère la restauration du geoTarget
-        // pour qu'elle survive au reset useEffect déclenché par setGeo.
-        if (tg.geoTarget && typeof tg.geoTarget === 'object') {
-          Promise.resolve().then(() => setGeoTarget(tg.geoTarget));
-        }
-        if (typeof tg.radiusKm === 'number') setRadiusKm(tg.radiusKm);
-        if (Array.isArray(tg.ages) && tg.ages.length > 0) setAges(new Set(tg.ages));
+        setContactChannels(new Set(campaignContactChannels(d)));
         if (typeof tg.verifLevel === 'string') setVerif(tg.verifLevel);
+        if (typeof tg.minFiabilite === 'number') setMinFiab(tg.minFiabilite);
         if (typeof tg.durationKey === 'string') setDurationKey(tg.durationKey);
         if (typeof tg.poolMode === 'string') setPoolMode(tg.poolMode);
         if (Array.isArray(tg.keywords)) setKeywords(tg.keywords);
-        if (typeof tg.kwFilter === 'boolean') setKwFilter(tg.kwFilter);
         if (typeof tg.excludeCertified === 'boolean') setExcludeCertified(tg.excludeCertified);
         // Option « anciens acceptants » : valeur de la campagne d'origine,
         // verrouillée contre le défaut par objectif (touched = true).
         if (typeof tg.excludePastAcceptors === 'boolean') {
           setExcludePastAcceptors(tg.excludePastAcceptors);
           setExcludePastTouched(true);
+        }
+        {
+          const tf = campaignTargetFilters(d);
+          setTargetCities(tf.cities);
+          setTargetGenres(tf.genres);
+          setTargetAgeBands(tf.ageBands);
         }
         if (typeof d.plannedContacts === 'number' && d.plannedContacts > 0) setContacts(d.plannedContacts);
         if (typeof d.brief === 'string') setBrief(d.brief);
@@ -3383,40 +3182,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   }
   if (!companyInfo?.ville) missingCompanyFields.push('ville');
   const canLaunch = missingCompanyFields.length === 0;
-  // Le ciblage « autour de moi » exige une adresse d'établissement (géocodée
-  // côté serveur). On s'appuie sur l'adresse déjà connue dans « Mes
-  // informations » pour guider le pro avant l'aller-retour réseau.
-  const hasProAddress = !!(companyInfo?.adresse || '').trim();
   const [selectedObj, setSelectedObj] = useState(null);
   const [selectedSubs, setSelectedSubs] = useState(new Set());
-  const [selectedTiers, setSelectedTiers] = useState(new Set([1]));
-  // Message transitoire affiché quand le pro tente de décocher le
-  // palier 1 (obligatoire — identification = socle de toute mise en
-  // relation). Auto-effacé après 4 s.
-  const [tier1Notice, setTier1Notice] = useState(false);
-  useEffect(() => {
-    if (!tier1Notice) return;
-    const t = setTimeout(() => setTier1Notice(false), 4000);
-    return () => clearTimeout(t);
-  }, [tier1Notice]);
-  // Popup pédagogique « multi-paliers » : s'affiche une seule fois par
-  // campagne, dès que le pro sélectionne un 2ᵉ palier. But : rappeler que
-  // le matching est CUMULATIF (le prospect doit avoir renseigné TOUS les
-  // paliers demandés). `multiTierNoticeShown` verrouille l'affichage pour
-  // la campagne en cours ; il est remis à false par resetWizard et au
-  // remontage du wizard (= nouvelle campagne).
-  const [multiTierModalOpen, setMultiTierModalOpen] = useState(false);
-  const [multiTierNoticeShown, setMultiTierNoticeShown] = useState(false);
-  const [geo, setGeo] = useState('national');
-  // Cible géo précise (ville/dept/région choisie via l'autocomplete
-  // geo.api.gouv.fr). Reset à null quand on bascule `geo` parce que la
-  // sélection précédente n'a plus de sens (autre échelle).
-  const [geoTarget, setGeoTarget] = useState(null);
-  useEffect(() => { setGeoTarget(null); }, [geo]);
-  // Rayon (km) du ciblage « autour de moi ». Borné à 10/30/50 ; le serveur
-  // re-valide (normalizeRadiusKm) et exige une adresse pro géocodée.
-  const [radiusKm, setRadiusKm] = useState(10);
-  const [ages, setAges] = useState(new Set());
+  // Étape 3 — mode de contact : 'phone' et/ou 'email' (au moins un).
+  const [contactChannels, setContactChannels] = useState(new Set(['phone', 'email']));
   const [verif, setVerif] = useState('p0');
   const [minFiab, setMinFiab] = useState(0); // fiabilité minimum (0/60/80)
   const [contacts, setContacts] = useState(10);
@@ -3436,6 +3205,11 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // (`excludePastTouched`). Duplication / brouillon = valeur explicite.
   const [excludePastAcceptors, setExcludePastAcceptors] = useState(false);
   const [excludePastTouched, setExcludePastTouched] = useState(false);
+  // Étape 4 : filtres ville / sexe / tranche d'âge (tableau vide = tous).
+  // Sélection serveur uniquement — jamais affichés par prospect au pro.
+  const [targetCities, setTargetCities] = useState([]);
+  const [targetGenres, setTargetGenres] = useState([]);
+  const [targetAgeBands, setTargetAgeBands] = useState([]);
   useEffect(() => {
     // `selectedObj == null` (montage / reset) : rien à appliquer — évite
     // d'écraser une valeur restaurée (brouillon) dans le même commit.
@@ -3444,12 +3218,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedObj]);
   // Bonus fondateur : pendant le 1er mois post-lancement de BUUPP, chaque
-  // acceptation par un fondateur coûte 2× le tarif palier choisi.
+  // acceptation par un fondateur coûte 2× le tarif choisi.
   // Désactivé par défaut — opt-in volontaire.
-  const [founderBonusEnabled, setFounderBonusEnabled] = useState(false);
   const [keywords, setKeywords] = useState([]);
   const [kwInput, setKwInput] = useState('');
-  const [kwFilter, setKwFilter] = useState(false);
   // Référence sur l'input mot-clé pour pouvoir le focus depuis le bouton
   // "+ Ajouter" quand l'input est vide (cf. étape 6 : on garde le bouton
   // toujours cliquable visuellement plutôt que de le griser).
@@ -3486,51 +3258,28 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
       selectedObj != null ||
       selectedSubs.size > 0 ||
       keywords.length > 0 ||
-      brief.length > 0 ||
-      geoTarget != null;
+      brief.length > 0;
     if (!hasContent) return;
     const t = setTimeout(() => saveDraft(), 500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    step, plan, selectedObj, selectedSubs, selectedTiers,
-    geo, geoTarget, radiusKm, ages, verif, minFiab, contacts, durationKey, poolMode,
-    keywords, kwInput, kwFilter, startDate, endDate, brief,
+    step, plan, selectedObj, selectedSubs, contactChannels,
+    verif, minFiab, contacts, durationKey, poolMode,
+    keywords, kwInput, startDate, endDate, brief,
     excludePastAcceptors, excludePastTouched,
+    targetCities, targetGenres, targetAgeBands,
   ]);
 
   const obj = OBJECTIVES.find(o => o.id === selectedObj);
-  const objAllowedTiers = obj?.allowedTiers || [1,2,3,4,5];
-  // Formule unique : les 5 paliers sont ouverts ; seule la finalité
-  // (RGPD — minimisation) restreint les paliers autorisés.
-  const allowedTiers = objAllowedTiers;
 
-  // RGPD : prune tiers when objective changes — only keep allowed ones
-  useEffect(() => {
-    setSelectedTiers(prev => {
-      const next = new Set();
-      prev.forEach(tid => { if (allowedTiers.includes(tid)) next.add(tid); });
-      // Le palier 1 (Identification) est TOUJOURS requis : sans lui,
-      // impossible d'identifier le prospect ni d'établir une mise en
-      // relation. Il est donc forcé dans la sélection quoi qu'il arrive
-      // (il est aussi toujours dans allowedTiers — toutes les finalités
-      // l'autorisent).
-      if (allowedTiers.includes(1)) next.add(1);
-      if (next.size === 0 && allowedTiers.length > 0) next.add(allowedTiers[0]);
-      return next;
-    });
-  }, [selectedObj]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Tarif unique : 1,00 € de base par acceptation × multiplicateur de
+  // vérification (ci-dessous) × multiplicateur de durée. Les sous-types
+  // de l'étape 1 et le mode de contact n'affectent pas le tarif. Le
+  // serveur valide la même formule (requiredTiers forcé à [1]).
   const baseCpc = (() => {
-    if (!selectedTiers.size) return 0;
-    // Seul le coût des paliers est retenu — les sous-types choisis à
-    // l'étape 1 sont purement informatifs (nature de l'opération
-    // marketing) et n'affectent pas le tarif. Le pro paie pour la
-    // donnée, pas pour le canal utilisé.
-    let base = 0;
-    selectedTiers.forEach(tid => { const t = TIERS_DATA.find(t => t.id === tid); base += (t.min + t.max) / 2; });
     const mult = VERIF_LEVELS.find(v => v.id === verif)?.mult || 1;
-    return Math.round(base * mult * 100) / 100;
+    return Math.round(BASE_REWARD_EUR * mult * 100) / 100;
   })();
   const durationMeta = DURATION_BY_ID[durationKey] || DURATION_BY_ID['7d'];
   const durationMultiplier = durationMeta.mult;
@@ -3555,41 +3304,12 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     else next.add(sid);
     return next;
   });
-  const toggleTier = (tid) => {
-    // Palier 1 verrouillé : on n'autorise jamais sa désélection. Si le
-    // pro clique dessus pour le décocher, on affiche le message
-    // d'explication au lieu de le retirer.
-    if (tid === 1) {
-      setTier1Notice(true);
-      return;
-    }
-    const willAdd = !selectedTiers.has(tid);
-    setSelectedTiers(p => { const n = new Set(p); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
-    // 1ʳᵉ fois qu'on dépasse 1 palier sur cette campagne → popup explicatif
-    // (le palier 1 étant toujours présent, ajouter un palier = ≥ 2 requis).
-    if (willAdd && !multiTierNoticeShown && selectedTiers.size + 1 >= 2) {
-      setMultiTierNoticeShown(true);
-      setMultiTierModalOpen(true);
-    }
-  };
-  // "Tous" agit comme un raccourci "tout cocher" — pas de pré-sélection
-  // au démarrage : toutes les pills sont vides (y compris "Tous"). Cliquer
-  // "Tous" coche les 6 tranches d'un coup ; re-cliquer dessus tout décoche.
-  // Les clics sur les tranches individuelles synchronisent la pill "Tous"
-  // (cochée ssi les 6 tranches le sont). Le backend traite "Tous", la
-  // liste complète et la liste vide comme un synonyme = aucun filtre
-  // (cf. lib/campaigns/mapping.ts → ageRangesToBounds).
-  const ALL_AGE_RANGES_NO_TOUS = AGE_RANGES.filter(x => x !== 'Tous');
-  const toggleAge = (a) => setAges(p => {
-    if (a === 'Tous') {
-      const allOn = ALL_AGE_RANGES_NO_TOUS.every(r => p.has(r));
-      return allOn ? new Set() : new Set(AGE_RANGES);
-    }
-    const n = new Set(p);
-    n.has(a) ? n.delete(a) : n.add(a);
-    // Synchro de la pill "Tous" — cochée ssi toutes les tranches le sont.
-    if (ALL_AGE_RANGES_NO_TOUS.every(r => n.has(r))) n.add('Tous');
-    else n.delete('Tous');
+  // Mode de contact : au moins un canal reste coché (on ignore le clic qui
+  // décocherait le dernier).
+  const toggleChannel = (id) => setContactChannels(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) { if (n.size > 1) n.delete(id); }
+    else n.add(id);
     return n;
   });
   // Réinitialise complètement le wizard (étape 1, tous les champs vides).
@@ -3600,13 +3320,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     setStep(1);
     setSelectedObj(null);
     setSelectedSubs(new Set());
-    setSelectedTiers(new Set([1]));
-    setMultiTierModalOpen(false);
-    setMultiTierNoticeShown(false);
-    setGeo('national');
-    setGeoTarget(null);
-    setRadiusKm(10);
-    setAges(new Set());
+    setContactChannels(new Set(['phone', 'email']));
     setVerif('p0');
     setMinFiab(0);
     setContacts(10);
@@ -3616,10 +3330,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
     setConfirmExcludeCertified(false);
     setExcludePastAcceptors(false);
     setExcludePastTouched(false);
-    setFounderBonusEnabled(false);
     setKeywords([]);
     setKwInput('');
-    setKwFilter(false);
     setStartDate(todayIso());
     setEndDate(isoPlusDays(8));
     setBrief('');
@@ -3636,7 +3348,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
   const removeKw = (i) => {
     const next = keywords.filter((_, idx) => idx !== i);
     setKeywords(next);
-    if (!next.length) setKwFilter(false);
   };
 
   /* Cliquable : on autorise un retour direct vers une étape déjà visitée
@@ -3708,7 +3419,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         <div>
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Coût par contact estimé</div>
           <div className="serif tnum" style={{ fontSize: 30, color: 'var(--accent)' }}>{fmtEur(cpc)}</div>
-          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>selon paliers et vérification</div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>1,00 € × durée × vérification</div>
         </div>
         <div className="wizard-cost-right" style={{ textAlign: 'right' }}>
           <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 6, color: 'color-mix(in oklab, var(--accent) 70%, var(--ink-3))' }}>Budget total</div>
@@ -4008,140 +3719,69 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
           </div>
         )}
 
-        {/* Étape 3 — Données (anciennement étape 2) */}
+        {/* Étape 3 — Mode de contact (ex-« Données ») */}
         {step === 3 && (
           <div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Quelles données souhaitez-vous obtenir ?</div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 18 }}>Sélectionnez un ou plusieurs paliers parmi ceux autorisés pour cette finalité.</div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Comment souhaitez-vous contacter vos prospects ?</div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 18 }}>Choisissez un ou deux modes de contact. Au moins un est requis.</div>
 
-            {/* RGPD minimisation banner */}
-            <div style={{
-              display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 10,
-              border: '1px solid color-mix(in oklab, var(--accent) 22%, var(--line))',
-              background: 'color-mix(in oklab, var(--accent) 4%, var(--paper))',
-              marginBottom: 22
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
-                color: 'var(--accent)', fontWeight: 700, fontSize: 13
-              }}>§</div>
-              <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
-                  Principe de minimisation — Article 5.1.c du RGPD
-                </div>
-                <div>
-                  Les données accessibles dépendent de la finalité de la campagne. Vous ne recevrez
-                  que les données <strong>strictement nécessaires</strong> à l'objectif déclaré ci-dessus.
-                </div>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
-                  Ex. : prise de RDV → identité (Palier 1) · livre blanc → e-mail (Palier 1) ·
-                  étude rémunérée → Paliers 1 à 5 selon les questions.
-                </div>
-              </div>
-            </div>
-
-
-            {/* Tiers grid */}
             <div className="col gap-2">
-              {TIERS_DATA.map(t => {
-                const allowed = allowedTiers.includes(t.id);
-                const checked = selectedTiers.has(t.id) && allowed;
+              {CONTACT_CHANNELS.map(c => {
+                const checked = contactChannels.has(c.id);
+                const isLast = checked && contactChannels.size === 1;
                 return (
-                  <button key={t.id}
-                    onClick={() => allowed && toggleTier(t.id)}
-                    disabled={!allowed}
-                    title={allowed ? '' : 'Palier non disponible pour cette finalité (RGPD — minimisation)'}
+                  <button key={c.id}
+                    type="button"
+                    onClick={() => toggleChannel(c.id)}
+                    aria-pressed={checked}
+                    title={isLast ? 'Au moins un mode de contact est requis' : ''}
                     className="row center wizard-tier-row" style={{ gap: 14, padding: 16, borderRadius: 12, textAlign: 'left',
                       border: '1.5px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
-                      background: checked ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))'
-                                : allowed ? 'var(--paper)'
-                                : 'color-mix(in oklab, var(--ink) 3%, var(--paper))',
-                      opacity: allowed ? 1 : 0.5,
-                      cursor: allowed ? 'pointer' : 'not-allowed',
-                      position: 'relative'
+                      background: checked ? 'color-mix(in oklab, var(--accent) 6%, var(--paper))' : 'var(--paper)',
+                      cursor: 'pointer', position: 'relative'
                     }}>
                     <span style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0,
-                      background: allowed ? 'color-mix(in oklab, var(--accent) 12%, var(--paper))' : 'var(--ivory-2)',
-                      color: allowed ? 'var(--accent)' : 'var(--ink-4)',
+                      background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+                      color: 'var(--accent)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={TIER_ICON[t.id] || 'tiers'} size={18}/>
+                      <Icon name={c.icon} size={18}/>
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        Palier {t.id} · {t.name}
-                        {t.id === 1 && (
-                          <span className="mono caps" style={{
-                            fontSize: 9, fontWeight: 700, letterSpacing: '.08em',
-                            padding: '2px 7px', borderRadius: 999,
-                            background: 'color-mix(in oklab, var(--accent) 14%, var(--paper))',
-                            color: 'var(--accent)',
-                          }}>Requis</span>
-                        )}
-                      </div>
-                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{t.sub}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</div>
+                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{c.sub}</div>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      {allowed ? (
-                        <>
-                          <div className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                            {t.min === t.max ? `dès ${fmtEur(t.min)}` : `${fmtEur(t.min)} – ${fmtEur(t.max)}`}
-                          </div>
-                          <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>par contact</div>
-                        </>
-                      ) : (
-                        <span className="mono caps" style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '.08em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Icon name="lock" size={11}/> Non autorisé
-                        </span>
-                      )}
-                    </div>
-                    {allowed && (
-                      <span style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0,
-                        border: '2px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
-                        background: checked ? 'var(--accent)' : 'transparent', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {checked && <Icon name="check" size={11}/>}
-                      </span>
-                    )}
+                    <span style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                      border: '2px solid ' + (checked ? 'var(--accent)' : 'var(--line-2)'),
+                      background: checked ? 'var(--accent)' : 'transparent', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {checked && <Icon name="check" size={11}/>}
+                    </span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Message d'explication quand on tente de décocher le
-                palier 1 (obligatoire). Transitoire (4 s) — rôle alert. */}
-            {tier1Notice && (
-              <div role="alert" style={{
-                marginTop: 12, padding: '10px 14px', borderRadius: 10,
-                background: '#fef3c7', border: '1px solid #fcd34d',
-                color: '#92400e', fontSize: 12.5, lineHeight: 1.5,
-                display: 'flex', alignItems: 'flex-start', gap: 8,
-              }}>
-                <span aria-hidden="true" style={{ flexShrink: 0 }}>ℹ︎</span>
-                <span>
-                  Le <strong>palier 1 — Identification</strong> est nécessaire à
-                  l'identification du prospect et à toute entrée en relation. Il
-                  ne peut pas être décoché ; les autres paliers s'ajoutent
-                  par-dessus de façon cumulative.
-                </span>
-              </div>
-            )}
-
-            {/* Allowed-tier summary */}
-            <div className="row center" style={{
-              gap: 10, marginTop: 16, padding: '10px 14px', borderRadius: 10,
-              background: 'color-mix(in oklab, var(--accent) 5%, var(--paper))',
-              border: '1px dashed color-mix(in oklab, var(--accent) 30%, var(--line))',
-              fontSize: 12, color: 'var(--ink-2)'
+            <div style={{
+              display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 10, marginTop: 18,
+              border: '1px solid color-mix(in oklab, var(--accent) 22%, var(--line))',
+              background: 'color-mix(in oklab, var(--accent) 4%, var(--paper))',
             }}>
-              <Icon name="lock" size={13}/>
-              <span>
-                <strong>{obj?.name || 'Cette finalité'}</strong> autorise{' '}
-                {allowedTiers.length === 1
-                  ? <>uniquement le <strong>Palier {allowedTiers[0]}</strong></>
-                  : <>les <strong>Paliers {allowedTiers[0]} à {allowedTiers[allowedTiers.length-1]}</strong></>}.
-              </span>
+              <span style={{
+                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
+                color: 'var(--accent)'
+              }}><Icon name="lock" size={14}/></span>
+              <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+                <div>
+                  Le <strong>prénom</strong> et l'<strong>initiale du nom</strong> du prospect vous sont
+                  toujours communiqués pour personnaliser votre message (ex. « Camille D. »).
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  Dans tous les cas, l'appel ou l'e-mail <strong>passe par la plateforme BUUPP</strong> :
+                  le numéro de téléphone et l'adresse e-mail du prospect ne vous sont jamais affichés.
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -4150,138 +3790,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
         {step === 4 && (
           <div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Définissez votre ciblage</div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Zone géographique, âge et niveau de vérification des prospects.</div>
-
-            <div className="label">Zone géographique</div>
-            <div className="geo-zones-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: geo === 'national' ? 24 : 12 }}>
-              {GEO_ZONES.map(z => {
-                const sel = geo === z.id;
-                return (
-                  <button key={z.id} onClick={() => setGeo(z.id)} style={{ position: 'relative', padding: '16px 12px', borderRadius: 12, textAlign: 'center', cursor: 'pointer',
-                    border: '1.5px solid ' + (sel ? 'var(--accent)' : 'var(--line-2)'),
-                    background: sel ? 'color-mix(in oklab, var(--accent) 8%, var(--paper))' : 'var(--paper)' }}>
-                    {sel && (
-                      <span style={{ position: 'absolute', top: 10, right: 10, width: 18, height: 18, borderRadius: 999, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="check" size={11}/>
-                      </span>
-                    )}
-                    <span style={{ width: 38, height: 38, borderRadius: 10, margin: '0 auto 10px',
-                      background: 'color-mix(in oklab, var(--accent) 12%, var(--paper))',
-                      color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={GEO_ICON[z.id] || 'mapPin'} size={18}/>
-                    </span>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{z.name}</div>
-                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{z.sub}</div>
-                  </button>
-                );
-              })}
-            </div>
-            {/* Champ dynamique : nom de ville / dept / région via l'API
-                officielle geo.api.gouv.fr. Masqué pour la portée nationale
-                (rien à préciser) et pour « autour de moi » (basé sur la
-                distance à l'adresse du pro, pas sur une zone administrative). */}
-            {geo !== 'national' && geo !== 'around' && (
-              <div style={{ marginBottom: 12 }}>
-                <div className="label" style={{ marginTop: 6 }}>
-                  {geo === 'ville' ? 'Ville ciblée' : geo === 'dept' ? 'Département ciblé' : 'Région ciblée'}
-                </div>
-                <GeoTargetAutocomplete
-                  geo={geo}
-                  value={geoTarget}
-                  onPick={(v) => setGeoTarget(v)}
-                />
-              </div>
-            )}
-
-            {/* Ciblage de proximité : rayon autour de l'adresse de
-                l'établissement. Distinct des portées administratives — basé
-                sur la distance réelle (géocodage de l'adresse du pro). */}
-            <button
-              onClick={() => setGeo('around')}
-              style={{ width: '100%', padding: 14, borderRadius: 10, textAlign: 'left', cursor: 'pointer',
-                marginBottom: geo === 'around' ? 12 : 24, display: 'flex', alignItems: 'center', gap: 12,
-                border: '1px solid ' + (geo === 'around' ? 'var(--accent)' : 'var(--line-2)'),
-                background: geo === 'around' ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                boxShadow: geo === 'around' ? '0 0 0 1px var(--accent)' : 'none' }}>
-              <span style={{ flexShrink: 0, color: geo === 'around' ? 'var(--accent)' : 'var(--ink-3)' }}>
-                <Icon name="mapPin" size={18}/>
-              </span>
-              <span style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>Autour de moi</div>
-                <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Prospects situés dans un rayon autour de votre établissement</div>
-              </span>
-            </button>
-
-            {geo === 'around' && (
-              <div style={{ marginBottom: 24 }}>
-                <div className="label">Zone d'extension</div>
-                <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-                  {[10, 30, 50].map(km => (
-                    <button key={km} onClick={() => setRadiusKm(km)} style={{ flex: 1, cursor: 'pointer',
-                      padding: '10px 0', fontSize: 13, fontWeight: 600, borderRadius: 10, textAlign: 'center',
-                      border: '1px solid ' + (radiusKm === km ? 'var(--accent)' : 'var(--line-2)'),
-                      background: radiusKm === km ? 'var(--accent)' : 'var(--paper)',
-                      color: radiusKm === km ? 'white' : 'var(--ink-3)' }}>
-                      {km} km
-                    </button>
-                  ))}
-                </div>
-                {/* Le ciblage de proximité nécessite une adresse géocodable.
-                    Si elle manque, on alerte et on propose d'aller la saisir. */}
-                {hasProAddress ? (
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--ivory-2)',
-                    border: '1px solid var(--line-2)', display: 'flex', gap: 10, alignItems: 'flex-start',
-                    fontSize: 12.5, lineHeight: 1.5 }}>
-                    <span style={{ flexShrink: 0, color: 'var(--accent)', marginTop: 1 }}><Icon name="info" size={16}/></span>
-                    <div>
-                      Le ciblage se base sur l'adresse de votre établissement
-                      {companyInfo?.adresse ? <> (<strong>{companyInfo.adresse}</strong>)</> : null}.
-                      Vous pouvez la consulter ou la modifier dans{' '}
-                      <button onClick={onEditAddress} style={{ background: 'none', border: 'none', padding: 0,
-                        color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
-                        Mes informations
-                      </button>.
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: '#FFF7ED',
-                    border: '1px solid #FDBA74', color: '#7C2D12', display: 'flex', gap: 10, alignItems: 'flex-start',
-                    fontSize: 12.5, lineHeight: 1.5 }}>
-                    <span style={{ flexShrink: 0, color: '#EA580C', marginTop: 1 }}><Icon name="alert" size={16}/></span>
-                    <div>
-                      <strong>Adresse requise.</strong> Pour cibler autour de vous, renseignez d'abord
-                      l'adresse de votre établissement.
-                      <div style={{ marginTop: 8 }}>
-                        <button onClick={onEditAddress} className="btn btn-primary" style={{ fontSize: 12, padding: '6px 12px' }}>
-                          Renseigner mon adresse <Icon name="arrow" size={12}/>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Responsive : sur mobile (≤640 px), la grille des portées
-                bascule en 2 colonnes pour éviter des boutons écrasés. */}
-            <style>{`
-              @media (max-width: 640px) {
-                .geo-zones-grid { grid-template-columns: repeat(2, 1fr) !important; }
-              }
-            `}</style>
-
-            <div className="label">Tranche d'âge (multi-sélection)</div>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
-              {AGE_RANGES.map(a => (
-                <button key={a} onClick={() => toggleAge(a)} className="chip" style={{ cursor: 'pointer',
-                  padding: '7px 14px', fontSize: 12, fontWeight: 500, borderRadius: 999,
-                  background: ages.has(a) ? 'var(--accent)' : 'var(--paper)',
-                  color: ages.has(a) ? 'white' : 'var(--ink-3)',
-                  borderColor: ages.has(a) ? 'var(--accent)' : 'var(--line-2)' }}>
-                  {a}
-                </button>
-              ))}
-            </div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 22 }}>Par défaut, votre campagne est diffusée à l'ensemble des prospects BUUPP en France. Affinez par ville, sexe, tranche d'âge, niveau de vérification et fiabilité.</div>
 
             <style>{`
               .tgt-3{ display:flex; gap:8px; }
@@ -4295,7 +3804,49 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 .tgt-card .ts{ font-size:9.5px; margin-top:3px; }
               }
             `}</style>
-            <div className="label">Niveau de vérification minimum</div>
+            {/* Villes / Sexe / Tranche d'âge — filtres de sélection seulement. */}
+            <div className="label">Villes</div>
+            <div className="muted" style={{ fontSize: 12.5, margin: '4px 0 10px' }}>
+              Une ou plusieurs villes (jusqu'à {TARGET_CITIES_MAX}). Laissez vide pour toute la France.
+            </div>
+            <CityMultiPicker value={targetCities} onChange={setTargetCities}/>
+
+            {[
+              { key: 'genres', title: 'Sexe', options: TARGET_GENRES, value: targetGenres, set: setTargetGenres, norm: normalizeTargetGenres },
+              { key: 'ages', title: "Tranche d'âge", options: TARGET_AGE_BANDS, value: targetAgeBands, set: setTargetAgeBands, norm: normalizeTargetAgeBands },
+            ].map(blk => {
+              const allOn = blk.value.length === 0;
+              const toggle = (id) => {
+                const cur = new Set(blk.value);
+                if (cur.has(id)) cur.delete(id); else cur.add(id);
+                blk.set(blk.norm(Array.from(cur)));
+              };
+              const chip = (key, label, on, onClick) => (
+                <button key={key} type="button" onClick={onClick} className="tgt-card" aria-pressed={on} style={{
+                  background: on ? 'color-mix(in oklab, var(--accent) 10%, var(--paper))' : 'var(--paper)',
+                  border: '1.5px solid ' + (on ? 'var(--accent)' : 'var(--line-2)'),
+                }}>
+                  <span className="tn" style={{ color: on ? 'var(--accent)' : 'var(--ink)' }}>{label}</span>
+                </button>
+              );
+              return (
+                <div key={blk.key} style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+                  <div className="label">{blk.title}</div>
+                  <div className="tgt-3" style={{ marginTop: 10 }}>
+                    {chip('all', 'Tous', allOn, () => blk.set([]))}
+                    {blk.options.map(o => chip(o.id, o.label, blk.value.includes(o.id), () => toggle(o.id)))}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="muted" style={{ fontSize: 11.5, marginTop: 12, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <span style={{ flexShrink: 0, marginTop: 1 }}><Icon name="lock" size={12}/></span>
+              <span>Ces critères servent uniquement à sélectionner les prospects : le professionnel ne voit jamais la ville, le sexe ni l'âge d'un prospect.</span>
+            </div>
+
+            <div style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+              <div className="label">Niveau de vérification minimum</div>
             <div className="tgt-3">
               {VERIF_LEVELS.map(v => {
                 const sel = verif === v.id;
@@ -4319,7 +3870,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               })}
             </div>
 
-            {/* Avertissement quand le pro choisit un palier élevé : il
+            {/* Avertissement quand le pro choisit un niveau élevé : il
                 gagne en qualité de profil mais perd en volume potentiel.
                 Affiché uniquement pour Vérifié (p1) et Certifié confiance
                 (p2) — Basique (p0) ne réduit pas le bassin. */}
@@ -4337,11 +3888,13 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 <div style={{ flex: 1, fontSize: 12.5, lineHeight: 1.5 }}>
                   <strong>Œil de lynx, audience d'élite !</strong>{' '}
                   {verif === 'p2'
-                    ? "Le palier Certifié confiance ne laisse passer que la crème de la crème — votre ciblage gagne en finesse, votre bassin de prospects en intimité."
+                    ? "Le niveau Certifié confiance ne laisse passer que la crème de la crème — votre ciblage gagne en finesse, votre bassin de prospects en intimité."
                     : "Vérifié, c'est plus sûr — mais aussi plus rare. Vous gagnez en qualité ce que vous perdez en volume."}
                 </div>
               </div>
             )}
+
+            </div>
 
             {/* Fiabilité minimum — ne cibler que les prospects suffisamment
                 bien notés par les pros (cf. indice de désirabilité). */}
@@ -4573,45 +4126,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               })}
             </div>
 
-            {/* Bonus fondateur */}
-            <div style={{
-              marginTop: 16, padding: 14, borderRadius: 10,
-              border: '1px solid var(--line)', background: 'var(--paper)',
-            }}>
-              <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                    Activer le bonus parrain (étendre à leurs filleuls)
-                  </div>
-                  <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-                    Lorsqu'un de vos prospects ciblés est un parrain, <strong>tous ses
-                    filleuls reçoivent aussi votre sollicitation</strong> (mail + message),
-                    même hors cible — plus de portée. À chaque acceptation d'un filleul,
-                    son <strong>parrain touche +50 %</strong> de sa récompense (à votre
-                    charge) ; le filleul perçoit la récompense normale. Le quota de la
-                    campagne n'est jamais dépassé.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={founderBonusEnabled}
-                  onClick={() => setFounderBonusEnabled(v => !v)}
-                  style={{
-                    flexShrink: 0, width: 42, height: 24, borderRadius: 999,
-                    background: founderBonusEnabled ? 'var(--accent)' : 'var(--line-2)',
-                    border: 'none', cursor: 'pointer', position: 'relative',
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: 2,
-                    left: founderBonusEnabled ? 20 : 2,
-                    width: 20, height: 20, borderRadius: 999, background: '#fff',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.18)', transition: 'left .18s',
-                  }}/>
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -4623,8 +4137,8 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               <span className="chip chip-accent" style={{ fontSize: 10 }}>Optionnel</span>
             </div>
             <div className="muted" style={{ fontSize: 13, marginBottom: 22, maxWidth: 720 }}>
-              Affinez votre ciblage en ajoutant des mots-clés. BUUPP vérifiera leur présence dans les données
-              déclarées des prospects — centres d'intérêt, profession, projets de vie, type de logement, véhicule, etc.
+              Affinez votre ciblage en ajoutant des mots-clés. Ils servent de signal de priorité pour
+              présenter votre campagne aux prospects les plus susceptibles d'être intéressés.
             </div>
 
             <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 14, padding: 22, marginBottom: 16 }}>
@@ -4694,71 +4208,16 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 </div>
               )}
 
-              {keywords.length > 0 && (
-                <>
-                  <div style={{ height: 1, background: 'var(--line)', margin: '4px 0 14px' }}/>
-                  <button onClick={() => setKwFilter(f => !f)} className="row" style={{ gap: 12, padding: 14, borderRadius: 10, width: '100%', cursor: 'pointer', textAlign: 'left',
-                    border: '1px solid ' + (kwFilter ? 'var(--accent)' : 'var(--line-2)'),
-                    background: kwFilter ? 'color-mix(in oklab, var(--accent) 5%, var(--paper))' : 'var(--paper)',
-                    alignItems: 'flex-start' }}>
-                    <span style={{ width: 16, height: 16, borderRadius: 4, marginTop: 2,
-                      border: '1.5px solid ' + (kwFilter ? 'var(--accent)' : 'var(--line-2)'),
-                      background: kwFilter ? 'var(--accent)' : 'var(--paper)',
-                      color: 'white', fontSize: 10,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {kwFilter ? '✓' : ''}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                        Filtrer uniquement si le mot-clé est contenu dans les données du prospect
-                      </div>
-                      <div className="muted" style={{ fontSize: 11, lineHeight: 1.5 }}>
-                        Quand cette option est activée, seuls les prospects dont le profil contient au moins l'un de vos
-                        mots-clés recevront votre mise en relation. Volume réduit, précision et taux d'acceptation améliorés.
-                      </div>
-                    </div>
-                    <span style={{ position: 'relative', width: 36, height: 20, borderRadius: 999, flexShrink: 0, marginTop: 2,
-                      background: kwFilter ? 'var(--accent)' : 'var(--line-2)', transition: 'background .15s' }}>
-                      <span style={{ position: 'absolute', top: 2, left: kwFilter ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: 'var(--paper)', transition: 'left .15s' }}/>
-                    </span>
-                  </button>
-
-                  {kwFilter && (
-                    <div className="row" style={{ gap: 10, padding: 12, marginTop: 10,
-                      background: 'color-mix(in oklab, var(--warn) 8%, var(--paper))',
-                      border: '1px solid color-mix(in oklab, var(--warn) 25%, transparent)',
-                      borderRadius: 10, alignItems: 'flex-start' }}>
-                      <span style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 1 }}>
-                        <svg viewBox="0 0 16 16" width={14} height={14} fill="none">
-                          <path d="M8 2L14.5 13.5H1.5L8 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-                          <path d="M8 6.5v3M8 11v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                        </svg>
-                      </span>
-                      <div style={{ fontSize: 11, lineHeight: 1.55, color: 'color-mix(in oklab, var(--warn) 60%, var(--ink-3))' }}>
-                        Le filtre strict peut réduire le nombre de prospects disponibles. BUUPP vous notifiera
-                        si le volume ciblé est insuffisant pour atteindre l'objectif de votre campagne.
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
 
             <div style={{ background: 'var(--ivory-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: 16 }}>
               <div className="mono caps" style={{ fontSize: 10, fontWeight: 600, marginBottom: 10, letterSpacing: '.1em' }}>Comment fonctionne le matching par mots-clés ?</div>
               <div className="col gap-3">
                 <div className="row wizard-kw-explainer-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-                  <span className="chip" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Sans filtre</span>
+                  <span className="chip" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Priorité</span>
                   <div className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
                     Les mots-clés agissent comme un <strong style={{ color: 'var(--ink)' }}>signal de priorité</strong> — les prospects
                     correspondants remontent en tête de liste sans exclure les autres. Le volume de campagne est préservé.
-                  </div>
-                </div>
-                <div className="row wizard-kw-explainer-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-                  <span className="chip chip-accent" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }}>Filtre strict</span>
-                  <div className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>
-                    Seuls les prospects dont le profil contient l'un des mots-clés sont ciblés.
-                    Volume réduit, précision maximale — idéal pour les campagnes très spécialisées.
                   </div>
                 </div>
               </div>
@@ -4924,20 +4383,10 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                 ['Lancement', 'Immédiat, dès validation'],
                 ['Date de fin estimée', fmtDateLong(computedEndDate)],
                 ['Durée', `${durationMeta.label} (gains ${durationMeta.multBadge})`],
-                ['Paliers de données', Array.from(selectedTiers).map(tid => TIERS_DATA.find(t => t.id === tid)?.name).join(', ') || '—'],
-                ['Zone', (() => {
-                  if (geo === 'around') return `Autour de moi · ${radiusKm} km`;
-                  const base = GEO_ZONES.find(z => z.id === geo)?.name || '—';
-                  if (!geoTarget) return base;
-                  if (geoTarget.type === 'ville') {
-                    const cp = geoTarget.codesPostaux?.[0];
-                    return `${base} · ${geoTarget.nom}${cp ? ` (${cp})` : ''}`;
-                  }
-                  if (geoTarget.type === 'dept') return `${base} · ${geoTarget.nom} (${geoTarget.code})`;
-                  if (geoTarget.type === 'region') return `${base} · ${geoTarget.nom}`;
-                  return base;
-                })()],
-                ["Tranches d'âge", ages.size === 0 ? 'Toutes (aucune restriction)' : Array.from(ages).join(', ')],
+                ['Mode de contact', contactChannelsLabel(Array.from(contactChannels))],
+                ['Villes', targetCitiesLabel(targetCities)],
+                ['Sexe', targetGenresLabel(targetGenres)],
+                ['Âge', targetAgeBandsLabel(targetAgeBands)],
                 ['Vérification', VERIF_LEVELS.find(v => v.id === verif)?.name],
                 ['Fiabilité minimum', minFiab === 0 ? 'Toutes (aucun filtre)' : `≥ ${minFiab} / 100`],
                 ['Anciens acceptants', excludePastAcceptors ? 'Exclus (12 derniers mois)' : 'Inclus'],
@@ -4964,14 +4413,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                   )}
                 </div>
               </div>
-              {keywords.length > 0 && (
-                <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', gap: 16 }}>
-                  <span className="muted" style={{ fontSize: 12 }}>Mode mot-clé</span>
-                  <span className={'chip ' + (kwFilter ? 'chip-accent' : '')} style={{ fontSize: 10 }}>
-                    {kwFilter ? 'Filtre strict activé' : 'Signal de priorité'}
-                  </span>
-                </div>
-              )}
               <div className="row between" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
                 <span className="muted" style={{ fontSize: 12 }}>Coût par contact</span>
                 <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{cpc > 0 ? fmtEur(cpc) : '—'}</span>
@@ -5055,27 +4496,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               )}
             </div>
 
-            <div style={{ marginTop: 14, padding: 14, borderRadius: 10,
-                          background: 'var(--ivory-2)', border: '1px solid var(--line)' }}>
-              <div className="mono caps" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 6 }}>
-                Bonus parrain (à vie)
-              </div>
-              {founderBonusEnabled ? (
-                <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
-                  Activé — les <strong>filleuls</strong> des parrains ciblés sont
-                  sollicités en plus. À <strong>chaque acceptation d'un filleul</strong>,
-                  son parrain touche <strong>+50 %</strong> de la récompense du filleul
-                  (soit <strong>+{fmtEur(cpc / 2)}</strong>), <strong>à vie</strong>. Les
-                  filleuls touchent la récompense normale. Les acceptations restent
-                  plafonnées au quota de la campagne.
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
-                  Désactivé pour cette campagne — les filleuls ne seront pas sollicités et
-                  aucun bonus parrain ne sera versé.
-                </div>
-              )}
-            </div>
 
 
             <label
@@ -5180,17 +4600,27 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
                         name: obj?.name || '',
                         objectiveId: selectedObj,
                         subTypes: Array.from(selectedSubs),
-                        requiredTiers: Array.from(selectedTiers),
-                        geo, geoTarget, radiusKm, ages: Array.from(ages), verifLevel: verif, minFiabilite: minFiab,
+                        // Mise en relation pure : seul le socle (prénom +
+                        // initiale + canal) est demandé ; le serveur force
+                        // requiredTiers=[1] et ignore geo / âges (national).
+                        requiredTiers: [1],
+                        contactChannels: CONTACT_CHANNEL_IDS.filter(id => contactChannels.has(id)),
+                        geo: 'national', ages: ['Tous'],
+                        // Filtres de sélection (tableau vide = tous).
+                        targetCities: normalizeTargetCities(targetCities),
+                        targetGenres: normalizeTargetGenres(targetGenres),
+                        targetAgeBands: normalizeTargetAgeBands(targetAgeBands),
+                        verifLevel: verif, minFiabilite: minFiab,
                         contacts,
                         durationKey,
                         startDate, endDate: computedEndDate, brief,
                         costPerContactCents: Math.round(cpc * 100),
                         budgetCents: Math.round(total * 100),
-                        keywords, kwFilter, poolMode,
+                        // Mots-clés = simple signal de priorité (plus de filtre strict).
+                        keywords, kwFilter: false, poolMode,
                         excludeCertified,
                         excludePastAcceptors,
-                        founder_bonus_enabled: founderBonusEnabled,
+                        founder_bonus_enabled: false, // bonus parrain supprimé (pivot mise en relation)
                         // « La Vitrine » — URL https du site (le serveur
                         // re-valide et recalcule le tarif : offert à la 1re
                         // campagne, 2 € sinon).
@@ -5290,7 +4720,7 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
               !canLaunch ||
               (step === 1 && (!selectedObj || !selectedSubs.size)) ||
               (step === 2 && !datesValid) ||
-              (step === 3 && !selectedTiers.size)
+              (step === 3 && !contactChannels.size)
             }
             title={
               !canLaunch
@@ -5321,51 +4751,6 @@ function CreateCampaign({ onDone, companyInfo, onGoInformations, onEditAddress, 
           onCancel={() => setConfirmResetOpen(false)}
           onConfirm={() => { resetWizard(); setConfirmResetOpen(false); }}
         />
-      )}
-      {multiTierModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="multitier-title"
-          onClick={() => setMultiTierModalOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(15,22,41,.55)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--paper)', color: 'var(--ink)', borderRadius: 18,
-              padding: '28px 26px', width: 'min(460px, 100%)', textAlign: 'center',
-              boxShadow: '0 30px 80px -20px rgba(15,22,41,.45), 0 0 0 1px var(--line)',
-            }}
-          >
-            <div style={{ fontSize: 44, lineHeight: 1, marginBottom: 10 }} aria-hidden="true">🎯</div>
-            <div id="multitier-title" className="serif" style={{ fontSize: 23, lineHeight: 1.2, marginBottom: 12 }}>
-              Mode chasseur de précision activé !
-            </div>
-            <div className="muted" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-              Vous demandez {selectedTiers.size} paliers de données
-              {' ('}
-              <strong style={{ color: 'var(--ink)' }}>
-                {[...selectedTiers].sort((a, b) => a - b).map((t) => 'palier ' + t).join(', ')}
-              </strong>
-              {').'}
-              <br /><br />
-              ⚠️ Seuls les prospects qui ont renseigné <strong style={{ color: 'var(--ink)' }}>tous ces paliers</strong> pourront matcher avec votre campagne. Plus vous demandez de données, plus votre cible est qualifiée… mais plus le cercle se resserre 🔍
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-              onClick={() => setMultiTierModalOpen(false)}
-            >
-              OK, j'ai capté 🚀
-            </button>
-          </div>
-        </div>
       )}
       {launched && <CampaignLaunchedModal data={launched} onClose={() => { setLaunched(null); onDone(); }}/>}
       {insufficient && (
@@ -5643,7 +5028,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const [detailsFor, setDetailsFor] = React.useState(null); // row | null
   const [collapsed, setCollapsed] = React.useState(new Set()); // Set<campaignId>
   const [selected, setSelected] = React.useState(new Set()); // Set<relationId>
-  const [groupSending, setGroupSending] = React.useState(false);
   // Mise en avant temporaire d'une ligne sélectionnée depuis le champ
   // de recherche du header — surlignage doux qui s'efface tout seul.
   const [highlightId, setHighlightId] = React.useState(null);
@@ -5654,7 +5038,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   // les lignes, groupées par campagne avec les 3 filtres locaux).
   const [activeCampaign, setActiveCampaign] = React.useState(null); // { id, name } | null — atelier (Statistiques)
   const [campaignFilter, setCampaignFilter] = React.useState(null); // { id, name } | null — filtre de la liste (chips)
-  const [audience, setAudience] = React.useState(null); // { total, availableTiers, facets, savedSegments }
+  const [audience, setAudience] = React.useState(null); // { total, facets: { score, reached }, savedSegments }
   const [segFilters, setSegFilters] = React.useState({}); // SegmentFilters
   const [broadcastOpen, setBroadcastOpen] = React.useState(false); // modal diffusion segment (SP2)
   const [filteredRows, setFilteredRows] = React.useState(null); // null = atelier inactif
@@ -5747,8 +5131,18 @@ function Contacts({ pendingContact, onPendingConsumed }) {
   const FILTERS = {
     f1: { label: 'Score ≥ 720',          test: r => Number(r.score) >= 720 },
     f2: { label: "Contact atteint",      test: r => r.evaluation === 'atteint' },
-    f3: { label: 'Palier 2',             test: r => Number(r.tier) === 2 },
   };
+  // Mode de contact demandé par la campagne de la ligne : champ de la ligne
+  // si l'API le fournit, sinon celui de la campagne (liste /api/pro/campaigns),
+  // sinon les deux canaux.
+  const channelsByCampaign = React.useMemo(() => {
+    const m = new Map();
+    for (const c of (proCampaigns || [])) if (c?.id) m.set(c.id, campaignContactChannels(c));
+    return m;
+  }, [proCampaigns]);
+  const rowChannels = (r) => Array.isArray(r?.contactChannels)
+    ? normalizeContactChannels(r.contactChannels)
+    : (channelsByCampaign.get(r?.campaignId) || normalizeContactChannels(null));
 
   // POST /api/pro/contacts/[relationId]/evaluation — optimistic.
   // On flip immédiatement `allRows` puis on appelle l'API ; en cas
@@ -5881,22 +5275,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     if (val) n.q = val; else delete n.q;
     return n;
   });
-  const addFacetValue = (key, val) => setSegFilters(f => {
-    if (!val) return f;
-    const arr = Array.isArray(f[key]) ? f[key] : [];
-    if (arr.includes(val)) return f;
-    return { ...f, [key]: [...arr, val] };
-  });
-  const removeFacetValue = (key, val) => setSegFilters(f => {
-    const arr = (Array.isArray(f[key]) ? f[key] : []).filter(v => v !== val);
-    const n = { ...f };
-    if (arr.length > 0) n[key] = arr; else delete n[key];
-    return n;
-  });
-  // Réinitialise une facette catégorielle (option « Tout afficher »).
-  const clearFacet = (key) => setSegFilters(f => {
-    const n = { ...f }; delete n[key]; return n;
-  });
   // Filtre de score en deux tranches complémentaires : ≥ 720 (scoreMin) ou
   // < 720 (scoreMax = 719, car le backend exclut score > scoreMax).
   const setScoreBand = (band) => setSegFilters(f => {
@@ -5914,12 +5292,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
     backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
   };
-  // Couples [clé facette → libellé] pour générer les selects catégoriels DRY.
-  const FACET_DEFS = [
-    ['region', 'Région'], ['distance', 'Distance du centre'],
-    ['logement', 'Logement'], ['statutPro', 'Statut pro'], ['foyer', 'Foyer'],
-    ['vehicule', 'Véhicule'], ['animaux', 'Animaux'],
-  ];
 
   // Style des onglets de campagne (pills) : actif = violet clair (cf. maquette).
   const segTabStyle = (on) => ({
@@ -5946,61 +5318,17 @@ function Contacts({ pendingContact, onPendingConsumed }) {
     return n;
   });
 
-  async function handleGroupMessage(group) {
+  // Message groupé : envoi MÉDIÉ par BUUPP (jamais de mailto avec les
+  // adresses réelles). La sélection est faite par carte de campagne → elle
+  // concerne toujours UNE seule campagne. 1 à 500 relations.
+  const [groupCompose, setGroupCompose] = React.useState(null); // { campaignId, campaignName, relationIds } | null
+  function handleGroupMessage(group) {
     const ids = group.items
       .filter(it => it.emailAvailable && selected.has(it.relationId))
-      .map(it => it.relationId);
+      .map(it => it.relationId)
+      .slice(0, 500);
     if (ids.length === 0) return;
-    setGroupSending(true);
-    try {
-      const res = await fetch('/api/pro/contacts/group-reveal', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ relationIds: ids }),
-      });
-      if (!res.ok) {
-        alert("Impossible de récupérer les emails. Réessayez.");
-        return;
-      }
-      const j = await res.json();
-      const emails = (j.items || []).map(x => x.email).filter(Boolean);
-      const skipped = ids.length - emails.length;
-      if (emails.length === 0) {
-        alert("Aucun email disponible parmi les prospects sélectionnés.");
-        return;
-      }
-      if (skipped > 0) {
-        alert(`${skipped} prospect${skipped > 1 ? 's' : ''} ignoré${skipped > 1 ? 's' : ''} (email non partagé).`);
-      }
-      // Hardening anti-fuite :
-      //  - `to:` = email du pro lui-même → garantit que le mail part même
-      //    sur les clients/serveurs SMTP qui refusent un To: vide.
-      //  - `bcc:` = tous les prospects → chacun reçoit le mail sans voir
-      //    les autres destinataires (protocole SMTP).
-      //  - Body pré-rempli avec un rappel pour dissuader le pro de
-      //    déplacer les destinataires de BCC vers TO/CC.
-      const bcc = emails.map(encodeURIComponent).join(',');
-      const toAddr = encodeURIComponent(j.proEmail || '');
-      const subject = encodeURIComponent('Message — BUUPP');
-      const body = encodeURIComponent(
-        '\n\n— — — — — — — — — — — — — — — — — — — — — — — — — —\n' +
-        "Envoi groupé via BUUPP — chaque destinataire est en Cci :\n" +
-        "il ne verra pas les emails des autres prospects.\n" +
-        "Ne déplacez pas les adresses dans « À » ou « Cc » avant\n" +
-        "d'envoyer : cela exposerait les emails de tous à tous, ce qui\n" +
-        "constitue une fuite de données personnelles (RGPD).\n" +
-        "Rédigez votre message au-dessus de cette ligne.\n"
-      );
-      // Prototype en iframe : cibler la fenêtre top pour que le mailto
-      // ouvre le client mail sur mobile (une navigation mailto dans la
-      // sous-frame est ignorée par les navigateurs mobiles).
-      const mailtoUrl = `mailto:${toAddr}?bcc=${bcc}&subject=${subject}&body=${body}`;
-      try { window.top.location.href = mailtoUrl; } catch { window.location.href = mailtoUrl; }
-    } catch {
-      alert("Impossible de récupérer les emails. Réessayez.");
-    } finally {
-      setGroupSending(false);
-    }
+    setGroupCompose({ campaignId: group.campaignId, campaignName: group.campaign, relationIds: ids });
   }
 
   return (
@@ -6071,15 +5399,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
             </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '26px 32px' }}>
-            <FacetBlock title="BUPP Score" color="#10b981" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />
-            {audience.facets.region && <FacetBlock title="Région" color="#7c5cff" items={audience.facets.region} />}
-            {audience.facets.distance && <FacetBlock title="Distance du centre" color="#3b82f6" items={audience.facets.distance} />}
-            {audience.facets.statutPro && <FacetBlock title="Statut pro" color="#f0b429" items={audience.facets.statutPro} />}
-            {audience.facets.logement && <FacetBlock title="Logement" color="#7c5cff" items={audience.facets.logement} />}
-            {audience.facets.foyer && <FacetBlock title="Foyer" color="#10b981" items={audience.facets.foyer} />}
-            {audience.facets.vehicule && <FacetBlock title="Véhicule" color="#3b82f6" items={audience.facets.vehicule} />}
-            {audience.facets.animaux && <FacetBlock title="Animaux" color="#f0b429" items={audience.facets.animaux} />}
-            <FacetBlock title="Contact" color="#64748b" items={audience.facets.reached} />
+            {Array.isArray(audience.facets?.score) && <FacetBlock title="BUUPP Score" color="#10b981" items={audience.facets.score.map(b => ({ value: b.label, count: b.count }))} />}
+            {Array.isArray(audience.facets?.reached) && <FacetBlock title="Contact" color="#64748b" items={audience.facets.reached} />}
           </div>
         </div>
       )}
@@ -6092,7 +5413,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               type="text"
               value={segFilters.q || ''}
               onChange={(e) => setQ(e.target.value || undefined)}
-              placeholder="Rechercher (métier, ville, projet…)"
+              placeholder="Rechercher un prospect (prénom…)"
               style={{
                 flex: '1 1 220px', minWidth: 180, padding: '8px 12px', borderRadius: 8,
                 border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 13,
@@ -6107,29 +5428,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
               <option value="gte720">≥ 720</option>
               <option value="lt720">&lt; 720</option>
             </select>
-            {FACET_DEFS.map(([key, label]) => {
-              const facet = audience.facets[key];
-              if (!facet) return null;
-              return (
-                <select
-                  key={key}
-                  value=""
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === '__all__') clearFacet(key);
-                    else addFacetValue(key, v);
-                    e.target.value = '';
-                  }}
-                  style={selectStyle}
-                >
-                  <option value="">{label}</option>
-                  <option value="__all__">Tout afficher</option>
-                  {facet.map(o => (
-                    <option key={o.value} value={o.value}>{o.value} ({o.count})</option>
-                  ))}
-                </select>
-              );
-            })}
             <button
               className="btn btn-ghost btn-sm"
               onClick={async () => {
@@ -6168,8 +5466,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           )}
 
           {/* Valeurs sélectionnées — chips retirables (score + facettes). */}
-          {(segFilters.scoreMin != null || segFilters.scoreMax != null ||
-            FACET_DEFS.some(([key]) => Array.isArray(segFilters[key]) && segFilters[key].length > 0)) && (
+          {(segFilters.scoreMin != null || segFilters.scoreMax != null) && (
             <div className="row gap-1" style={{ flexWrap: 'wrap', marginTop: 10 }}>
               {(segFilters.scoreMin != null || segFilters.scoreMax != null) && (
                 <button
@@ -6180,19 +5477,6 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                 >
                   Score : {segFilters.scoreMin != null ? `≥ ${segFilters.scoreMin}` : `< ${segFilters.scoreMax + 1}`} ×
                 </button>
-              )}
-              {FACET_DEFS.flatMap(([key, label]) =>
-                (Array.isArray(segFilters[key]) ? segFilters[key] : []).map(val => (
-                  <button
-                    key={`${key}:${val}`}
-                    className="chip"
-                    onClick={() => removeFacetValue(key, val)}
-                    style={{ cursor: 'pointer' }}
-                    title={`Retirer ${label} : ${val}`}
-                  >
-                    {label} : {val} ×
-                  </button>
-                ))
               )}
             </div>
           )}
@@ -6397,7 +5681,9 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         // d'init). En mode atelier (une campagne explicitement ouverte), on force
         // l'affichage déplié. Une campagne verrouillée reste TOUJOURS repliée.
         const isCollapsed = locked || (!activeCampaign && collapsed.has(group.campaignId));
-        const emailableIds = group.items.filter(it => it.emailAvailable).map(it => it.relationId);
+        // E-mail autorisé seulement si la campagne a retenu ce mode de contact.
+        const groupEmailAllowed = (group.items[0] ? rowChannels(group.items[0]) : (channelsByCampaign.get(group.campaignId) || ['phone', 'email'])).includes('email');
+        const emailableIds = groupEmailAllowed ? group.items.filter(it => it.emailAvailable).map(it => it.relationId) : [];
         const selectedInGroup = emailableIds.filter(id => selected.has(id));
         const allSelected = emailableIds.length > 0 && selectedInGroup.length === emailableIds.length;
         const someSelected = selectedInGroup.length > 0 && !allSelected;
@@ -6489,7 +5775,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                 <div style={{ display: 'flex', alignItems: 'center' }} title={`${group.items.length} prospect${group.items.length > 1 ? 's' : ''}`}>
                   {previewAvatars.map((it, idx) => (
                     <div key={it.relationId || idx} style={{ marginLeft: idx === 0 ? 0 : -10, border: '3px solid var(--paper)', borderRadius: 999, position: 'relative', zIndex: idx }}>
-                      <Avatar name={it.name} size={30} color={avatarColor(it.name)}/>
+                      <Avatar name={prospectShortName(it.name)} size={30} color={avatarColor(it.name)}/>
                     </div>
                   ))}
                   {extraAvatars > 0 && (
@@ -6545,11 +5831,12 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                       <button
                         className="btn btn-sm"
                         onClick={() => handleGroupMessage(group)}
-                        disabled={selectedInGroup.length === 0 || groupSending}
+                        disabled={selectedInGroup.length === 0 || !groupEmailAllowed}
+                        title={!groupEmailAllowed ? "Cette campagne n'utilise pas l'e-mail comme mode de contact" : 'Envoyer un message via BUUPP aux prospects sélectionnés'}
                         style={{
-                          background: selectedInGroup.length === 0 ? 'var(--ivory-2)' : 'var(--ink)',
-                          color: selectedInGroup.length === 0 ? 'var(--ink-4)' : 'var(--paper)',
-                          cursor: selectedInGroup.length === 0 ? 'not-allowed' : 'pointer',
+                          background: (selectedInGroup.length === 0 || !groupEmailAllowed) ? 'var(--ivory-2)' : 'var(--ink)',
+                          color: (selectedInGroup.length === 0 || !groupEmailAllowed) ? 'var(--ink-4)' : 'var(--paper)',
+                          cursor: (selectedInGroup.length === 0 || !groupEmailAllowed) ? 'not-allowed' : 'pointer',
                           display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
                         }}
                       >
@@ -6577,7 +5864,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                         />
                       )}
                     </th>
-                    <th>Prospect</th><th>Score</th><th>Palier</th><th>Email</th><th>Téléphone</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>Prospect</th><th>Score</th><th>Mode de contact</th><th>Reçu</th><th>Évaluation</th><th style={{ textAlign: 'right' }}>Actions</th>
                   </tr></thead>
                   <tbody>
                     {group.items.map((r, i) => {
@@ -6596,7 +5883,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                             {!r.locked && (
                               <input
                                 type="checkbox"
-                                aria-label={`Sélectionner ${r.name}`}
+                                aria-label={`Sélectionner ${prospectShortName(r.name)}`}
                                 checked={isChecked}
                                 onChange={() => toggleSelected(r.relationId)}
                                 disabled={!r.emailAvailable}
@@ -6604,11 +5891,9 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               />
                             )}
                           </td>
-                          <td className="row center gap-3"><Avatar name={r.name} size={28} color={avatarColor(r.name)}/><span>{r.name}</span></td>
+                          <td className="row center gap-3"><Avatar name={prospectShortName(r.name)} size={28} color={avatarColor(r.name)}/><span>{prospectShortName(r.name)}</span></td>
                           <td className="mono tnum">{r.score}</td>
-                          <td><span className="chip">P{r.tier}</span></td>
-                          <td className="mono" style={{ fontSize: 12 }}>{r.locked ? <span className="muted" title="Disponible à la clôture">🔒</span> : r.email}</td>
-                          <td className="mono" style={{ fontSize: 12 }}>{r.locked ? <span className="muted" title="Disponible à la clôture">🔒</span> : r.telephone}</td>
+                          <td><ContactChannelChips channels={rowChannels(r)}/></td>
                           <td className="muted mono" style={{ fontSize: 12 }}>{formatRelativeFr(r.receivedAt)}</td>
                           <td>
                             {r.locked ? <span className="muted">—</span> : (() => {
@@ -6721,14 +6006,14 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                                 type="button"
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => setDetailsFor({ row: r, siblings: group.items })}
-                                title="Voir les catégories de données payées dans la campagne"
+                                title="Voir la fiche du prospect (fiabilité, code buupp)"
                                 style={{ whiteSpace: 'nowrap', fontSize: 12 }}
                               >
                                 <Icon name="copy" size={12}/> Voir détails
                               </button>
-                              <ContactActionButtons row={r} onIntent={(intent) => {
+                              <ContactActionButtons row={r} channels={rowChannels(r)} onIntent={(intent) => {
                               // Tout clic sur une icône de contact (téléphone,
-                              // mail, SMS, WhatsApp) est logué en base :
+                              // e-mail) est logué en base :
                               // audit admin « Contacts (clics) » + déclencheur du
                               // rappel anti-abus au pro (≥3 clics/24h sur un même
                               // prospect). Fire-and-forget, non bloquant.
@@ -6739,8 +6024,8 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               }).catch(() => {});
                               // L'email passe par la modale de composition
                               // intégrée à BUUPP (envoi serveur, quota 1/campagne).
-                              // Les autres canaux ouvrent toujours le client externe
-                              // via le RevealContactModal historique.
+                              // L'appel passe par le RevealContactModal (numéro
+                              // masqué, SMS de préavis « code buupp »).
                               if (intent === 'email') {
                                 if ((r.emailsSent ?? 0) >= 1) return; // quota atteint
                                 setEmailCompose(r);
@@ -6750,14 +6035,12 @@ function Contacts({ pendingContact, onPendingConsumed }) {
                               // (audit) avant que le RevealContactModal n'ouvre
                               // tel:// dans le navigateur. Fire-and-forget : on
                               // ne bloque pas l'UX si l'audit échoue.
-                              if (intent === 'call' || intent === 'sms' || intent === 'whatsapp') {
-                                if (intent === 'call') {
-                                  fetch(`/api/pro/contacts/${r.relationId}/call-log`, {
-                                    method: 'POST',
-                                  }).catch(() => {});
-                                }
+                              if (intent === 'call') {
+                                fetch(`/api/pro/contacts/${r.relationId}/call-log`, {
+                                  method: 'POST',
+                                }).catch(() => {});
                               }
-                              setReveal({ relationId: r.relationId, intent, name: r.name });
+                              setReveal({ relationId: r.relationId, intent, name: prospectShortName(r.name) });
                             }}/>
                               </>)}
                             </div>
@@ -6785,6 +6068,7 @@ function Contacts({ pendingContact, onPendingConsumed }) {
         <ProspectDetailsModal
           row={detailsFor.row}
           siblings={detailsFor.siblings}
+          channels={rowChannels(detailsFor.row)}
           onNavigate={(nr) => setDetailsFor({ row: nr, siblings: detailsFor.siblings })}
           onPriorityChange={(relationId, priority, fiabiliteAgg, prospectId) => {
             setAllRows((prev) => (prev || []).map((r) => {
@@ -6808,6 +6092,16 @@ function Contacts({ pendingContact, onPendingConsumed }) {
           intent={reveal.intent}
           name={reveal.name}
           onClose={() => setReveal(null)}
+        />
+      )}
+
+      {groupCompose && (
+        <BroadcastComposerModal
+          campaignId={groupCompose.campaignId}
+          campaignName={groupCompose.campaignName}
+          relationIds={groupCompose.relationIds}
+          onClose={() => setGroupCompose(null)}
+          onSent={() => setSelected(new Set())}
         />
       )}
 
@@ -6845,26 +6139,23 @@ function maskPhoneDisplay(p) {
 }
 
 // Métadonnées par "intent" — chaque bouton d'action déclenche un reveal
-// puis ouvre une URL externe (tel, mailto, sms, wa.me).
+// puis ouvre l'action relayée (tel: avec numéro masqué à l'affichage).
+// L'e-mail passe par EmailComposerModal (envoi serveur BUUPP).
 const REVEAL_INTENTS = {
   call:     { field: 'telephone', icon: 'phone',    title: 'Contacter',                  cta: 'Appeler maintenant',           build: v => `tel:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
-  email:    { field: 'email',     icon: 'email',    title: 'Écrire à',                   cta: 'Ouvrir mon mail',              build: v => `mailto:${encodeURIComponent(v)}`,                                                          valuePresentation: 'mono' },
-  sms:      { field: 'telephone', icon: 'sms',      title: 'Envoyer un SMS à',           cta: 'Ouvrir mes SMS',               build: v => `sms:${v.replace(/[^\d+]/g, '')}`,                                                          valuePresentation: 'mono' },
-  whatsapp: { field: 'telephone', icon: 'whatsapp', title: 'WhatsApp avec',              cta: 'Ouvrir WhatsApp',              build: v => `https://wa.me/${v.replace(/\D/g, '')}`,                                                    valuePresentation: 'mono' },
 };
 
-function ContactActionButtons({ row, onIntent }) {
+function ContactActionButtons({ row, channels, onIntent }) {
   // Quand un bouton n'est pas actionnable (donnée non partagée, quota
-  // atteint, canal désactivé), on N'oblige PAS le bouton à être grisé
-  // et silencieux : on l'affiche normalement et un clic ouvre une
-  // popup explicative qui renvoie aux CGU. Avantage UX : le pro
-  // comprend pourquoi l'action n'est pas disponible plutôt que de
-  // tomber sur un bouton "mort" qui ne réagit pas.
+  // atteint), on N'oblige PAS le bouton à être grisé et silencieux : on
+  // l'affiche normalement et un clic ouvre une popup explicative qui
+  // renvoie aux CGU.
+  // Seuls les canaux demandés par la campagne (mode de contact) sont
+  // proposés : téléphone → appel via BUUPP, e-mail → composeur BUUPP.
   const [infoModal, setInfoModal] = React.useState(null);
   // {title, body} ou null
 
-  const channels = Array.isArray(row.campaignChannels) ? row.campaignChannels : null;
-  const channelAllowed = (k) => channels === null || channels.includes(k);
+  const allowed = normalizeContactChannels(channels);
   const phoneOk = !!row.telephoneAvailable;
   const emailOk = !!row.emailAvailable;
   // Quota email atteint (1 envoi max par campagne) → popup explicative.
@@ -6875,48 +6166,24 @@ function ContactActionButtons({ row, onIntent }) {
     // 'quota' (limite d'envoi atteinte) ou null (bouton actif).
     {
       key: 'call', channel: 'phone',
-      enabled: phoneOk && channelAllowed('phone'),
+      enabled: phoneOk,
       disabledReason: !phoneOk ? 'data' : null,
       icon: 'phone', color: '#0F1629',
-      title: 'Appeler ce prospect',
-      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
+      title: 'Appeler ce prospect via BUUPP',
     },
     {
       key: 'email', channel: 'email',
-      enabled: emailOk && channelAllowed('email') && !emailQuotaReached,
+      enabled: emailOk && !emailQuotaReached,
       // Si l'email n'est pas partagé → 'data'. S'il l'est mais le quota
       // est atteint → 'quota'. Sinon le bouton est actif.
       disabledReason: !emailOk ? 'data' : (emailQuotaReached ? 'quota' : null),
       icon: 'email', color: '#EA4335',
       title: emailQuotaReached ? 'Quota atteint (1 email envoyé)' : 'Envoyer un email via BUUPP',
-      missingDataMsg: "Le prospect n'a pas partagé son email",
     },
-    {
-      key: 'sms', channel: 'sms',
-      enabled: phoneOk && channelAllowed('sms'),
-      disabledReason: !phoneOk ? 'data' : null,
-      icon: 'sms', color: '#34B7F1',
-      title: 'Envoyer un SMS',
-      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
-    },
-    {
-      key: 'whatsapp', channel: 'whatsapp',
-      enabled: phoneOk && channelAllowed('whatsapp'),
-      disabledReason: !phoneOk ? 'data' : null,
-      icon: 'whatsapp', color: '#25D366',
-      title: 'Écrire sur WhatsApp',
-      missingDataMsg: "Le prospect n'a pas partagé son téléphone",
-    },
-  ];
+  ].filter(b => allowed.includes(b.channel));
   // Compose le contenu de la popup d'info selon la raison pour laquelle
   // le bouton n'est pas actionnable. Tous les messages renvoient aux CGU.
-  function infoForButton(b, channelOff) {
-    if (channelOff) {
-      return {
-        title: 'Canal non activé pour cette campagne',
-        body: "Ce canal de contact n'a pas été activé lors de la configuration de votre campagne. Pour l'utiliser, créez une nouvelle campagne en cochant ce canal à l'étape « Objectif & canaux ».",
-      };
-    }
+  function infoForButton(b) {
     if (b.disabledReason === 'quota' && b.key === 'email') {
       return {
         title: 'Quota d’envoi atteint',
@@ -6925,7 +6192,7 @@ function ContactActionButtons({ row, onIntent }) {
     }
     if (b.disabledReason === 'data') {
       const what =
-        b.channel === 'phone' || b.channel === 'sms' || b.channel === 'whatsapp'
+        b.channel === 'phone'
           ? 'son numéro de téléphone'
           : b.channel === 'email'
           ? 'son adresse e-mail'
@@ -6942,11 +6209,10 @@ function ContactActionButtons({ row, onIntent }) {
     <>
       <div className="row gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         {buttons.map((b) => {
-          const channelOff = !channelAllowed(b.channel);
-          const info = infoForButton(b, channelOff);
+          const info = infoForButton(b);
           // Le bouton reste TOUJOURS visible et cliquable. Un clic
           // déclenche soit l’action normale (`onIntent`), soit la popup
-          // d’info quand la donnée/quota/canal bloque l’action.
+          // d’info quand la donnée/quota bloque l’action.
           const handleClick = () => {
             if (info) {
               setInfoModal(info);
@@ -7083,22 +6349,13 @@ function ActionInfoModal({ info, onClose }) {
   return ReactDOM.createPortal(modalNode, document.body);
 }
 
-/* Fiche détaillée d'un prospect : toutes les catégories de données
-   payées par le pro dans la campagne (localisation, style de vie,
-   pro, patrimoine…). Récupérées via GET /api/pro/contacts/<id>/details
-   — l'e-mail reste l'alias watermarqué, jamais le vrai.
+/* Fiche d'un prospect : identité visible (prénom + initiale du nom),
+   mode de contact de la campagne, code buupp et fiabilité. Méta via
+   GET /api/pro/contacts/<id>/details. Le téléphone et l'e-mail ne sont
+   jamais affichés : l'appel et l'e-mail passent par la plateforme.
    Portail vers <body> (échappe au conteneur scrollable du tableau) +
    pattern scroll-safe (overflow auto, align flex-start, margin auto)
    pour rester lisible sur mobile / petit écran. */
-// Métadonnées d'affichage par palier (icône + couleur + n°) — alignées sur la
-// maquette de la fiche détaillée.
-const TIER_META = {
-  identity:     { n: 1, color: '#4F46E5', icon: 'user' },
-  localisation: { n: 2, color: '#0D9488', icon: 'mapPin' },
-  vie:          { n: 3, color: '#D97706', icon: 'heart' },
-  pro:          { n: 4, color: '#1F2937', icon: 'briefcase' },
-  patrimoine:   { n: 5, color: '#DB2777', icon: 'home' },
-};
 // Fiabilité (ex-« Priorité de traitement ») : note donnée par le pro au
 // prospect. Chaque niveau a son icône. Sémantique « fiable » : Haute = vert
 // (prospect fiable), Basse = rouge. La valeur DB reste relations.pro_priority.
@@ -7109,9 +6366,9 @@ const FIABILITE_OPTS = [
 ];
 const fiabiliteLabel = (v) => (FIABILITE_OPTS.find(o => o.v === v)?.label) || null;
 
-function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onClose }) {
+function ProspectDetailsModal({ row, siblings, channels, onNavigate, onPriorityChange, onClose }) {
   const [status, setStatus] = React.useState('loading'); // loading | ok | error
-  const [tiers, setTiers] = React.useState([]);
+  const [detailChannels, setDetailChannels] = React.useState(null);
   const [ref, setRef] = React.useState(null);
   // Priorité : `picked` = sélection courante (non encore enregistrée),
   // `saved` = dernière valeur persistée (sert au bandeau bas + filtres).
@@ -7169,7 +6426,7 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
       })
       .then((j) => {
         if (cancelled) return;
-        setTiers(Array.isArray(j?.tiers) ? j.tiers : []);
+        setDetailChannels(Array.isArray(j?.contactChannels) ? j.contactChannels : null);
         setRef(j?.ref ?? null);
         setFiabAgg(j?.fiabiliteAgg ?? null);
         setAuthCode(j?.authCode ?? null);
@@ -7229,13 +6486,13 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
         <div style={{ padding: '20px 22px', background: 'var(--ivory-2)', borderBottom: '1px solid var(--line)' }}>
           <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
             <div className="row center gap-3" style={{ minWidth: 0 }}>
-              <Avatar name={row.name} size={42} color={avatarColor(row.name)}/>
+              <Avatar name={prospectShortName(row.name)} size={42} color={avatarColor(row.name)}/>
               <div style={{ minWidth: 0 }}>
                 <h3 id="prospect-details-title" className="serif" style={{ fontSize: 19, lineHeight: 1.2, margin: 0, color: 'var(--ink)', wordBreak: 'break-word' }}>
-                  Fiche de {row.name}
+                  Fiche de {prospectShortName(row.name)}
                 </h3>
                 <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>
-                  <span className="muted">Catégories payées dans </span>
+                  <span className="muted">Mise en relation via </span>
                   <strong style={{ color: cs.accent }}>« {cs.full} »</strong>
                 </div>
               </div>
@@ -7440,66 +6697,33 @@ function ProspectDetailsModal({ row, siblings, onNavigate, onPriorityChange, onC
               Réessayez dans un instant.
             </div>
           )}
-          {status === 'ok' && tiers.length === 0 && (
-            <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
-              Aucune catégorie de données disponible pour cette campagne.
-            </div>
-          )}
-          {status === 'ok' && tiers.length > 0 && (
-            <div className="col gap-3">
-              {tiers.map((t) => {
-                const m = TIER_META[t.key] || { n: '', color: 'var(--accent)', icon: 'doc' };
-                return (
-                  <div key={t.key} style={{ border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div className="row between" style={{ padding: '10px 14px', background: 'var(--ivory-2)', borderBottom: '1px solid var(--line-2)', alignItems: 'center', gap: 10 }}>
-                      <div className="row center gap-2" style={{ minWidth: 0 }}>
-                        <span style={{ display: 'inline-flex', width: 26, height: 26, borderRadius: 7, background: m.color, color: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Icon name={m.icon} size={14}/>
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{t.label}</span>
-                      </div>
-                      <span className="mono caps" style={{ fontSize: 9, color: 'var(--ink-4)', letterSpacing: '.1em', textAlign: 'right', lineHeight: 1.3, flexShrink: 0 }}>
-                        PALIER<br/>{m.n}
-                      </span>
-                    </div>
-                    <div>
-                      {(t.items || []).map((it, i) => (
-                        <div
-                          key={i}
-                          className="row between"
-                          style={{
-                            padding: '10px 14px', gap: 12, alignItems: 'flex-start',
-                            borderBottom: i < t.items.length - 1 ? '1px solid var(--line)' : 'none',
-                          }}
-                        >
-                          <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>{it.label}</span>
-                          <span style={{
-                            fontSize: 13, fontWeight: 500, textAlign: 'right',
-                            color: it.value ? 'var(--ink)' : 'var(--ink-4)',
-                            fontStyle: it.value ? 'normal' : 'italic',
-                            wordBreak: 'break-word', minWidth: 0,
-                          }}>
-                            {it.value
-                              ? (it.label === 'Téléphone' ? maskPhoneDisplay(it.value) : it.value)
-                              : '— non renseigné —'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+          {status === 'ok' && (
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 12, overflow: 'hidden' }}>
+              <div className="row center gap-2" style={{ padding: '10px 14px', background: 'var(--ivory-2)', borderBottom: '1px solid var(--line-2)' }}>
+                <span style={{ display: 'inline-flex', width: 26, height: 26, borderRadius: 7, background: '#4F46E5', color: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name="user" size={14}/>
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Mise en relation</span>
+              </div>
+              <div className="row between" style={{ padding: '10px 14px', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--line)' }}>
+                <span className="muted" style={{ fontSize: 12 }}>Prospect</span>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{prospectShortName(row.name)}</span>
+              </div>
+              <div className="row between" style={{ padding: '10px 14px', gap: 12, alignItems: 'center' }}>
+                <span className="muted" style={{ fontSize: 12 }}>Mode de contact</span>
+                <ContactChannelChips channels={detailChannels || channels || row.contactChannels}/>
+              </div>
               <div className="row" style={{
-                gap: 8, padding: '10px 12px', borderRadius: 8,
+                gap: 8, padding: '10px 12px', margin: '0 12px 12px', borderRadius: 8,
                 background: 'color-mix(in oklab, #4F46E5 6%, var(--paper))',
                 border: '1px solid color-mix(in oklab, #4F46E5 18%, var(--line))', fontSize: 11.5,
                 color: 'var(--ink-3)', lineHeight: 1.5, alignItems: 'flex-start',
               }}>
                 <span aria-hidden="true" style={{ flexShrink: 0, color: '#4F46E5' }}><Icon name="info" size={14}/></span>
                 <span>
-                  L'e-mail est un alias sécurisé watermarqué : tout message y est
-                  routé vers le prospect, et toute fuite reste imputable. Accès
-                  journalisé conformément à notre politique RGPD.
+                  L'appel et l'e-mail passent toujours par la plateforme BUUPP : le numéro et
+                  l'adresse du prospect ne vous sont jamais affichés. Accès journalisé
+                  conformément à notre politique RGPD.
                 </span>
               </div>
             </div>
@@ -7985,7 +7209,10 @@ function EmailComposerModal({ row, onClose, onSent }) {
    Le pro compose un message ; BUUPP l'envoie par email à tous les prospects
    du segment (filtres courants). Le pro ne voit jamais les adresses. Quota
    1/campagne : les prospects déjà sollicités sont ignorés. */
-function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, onSent }) {
+function BroadcastComposerModal({ campaignId, campaignName, filters, relationIds, onClose, onSent }) {
+  // `relationIds` fourni → message groupé (sélection explicite, 1–500 d'une
+  // même campagne) ; sinon diffusion au segment courant (`filters`).
+  const isSelection = Array.isArray(relationIds);
   const [subject, setSubject] = React.useState('');
   const [body, setBody] = React.useState('');
   const [sending, setSending] = React.useState(false);
@@ -8010,12 +7237,16 @@ function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, on
       const r = await fetch('/api/pro/segments/broadcast', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ campaignId, filters, subject: subj, body: bod }),
+        body: JSON.stringify(isSelection
+          ? { campaignId, subject: subj, body: bod, relationIds }
+          : { campaignId, filters, subject: subj, body: bod }),
       });
       const j = await r.json().catch(() => null);
       if (r.ok && j) { setResult(j); if (onSent) onSent(); return; }
       const codeMap = {
         campaign_not_closed: "La campagne n'est pas encore clôturée.",
+        email_channel_not_allowed: "Cette campagne n'utilise pas l'e-mail comme mode de contact.",
+        invalid_relation_ids: 'Sélection invalide : choisissez entre 1 et 500 prospects d’une même campagne.',
         forbidden: 'Action non autorisée sur cette campagne.',
         subject_too_long: "L'objet est trop long (200 caractères max).",
         body_too_long: 'Le message est trop long (10 000 caractères max).',
@@ -8041,7 +7272,7 @@ function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, on
       }}>
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 560, padding: 26 }}>
         <div className="row between" style={{ alignItems: 'center', marginBottom: 14 }}>
-          <div className="serif" style={{ fontSize: 20 }}>Diffuser un message au segment</div>
+          <div className="serif" style={{ fontSize: 20 }}>{isSelection ? `Message groupé (${relationIds.length} prospect${relationIds.length > 1 ? 's' : ''})` : 'Diffuser un message au segment'}</div>
           <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Fermer" disabled={sending}>
             <Icon name="close" size={12}/>
           </button>
@@ -8057,7 +7288,7 @@ function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, on
             }}>
               <strong style={{ color: 'var(--ink)' }}>Diffusion lancée.</strong>{' '}
               {result.sent} message{result.sent === 1 ? '' : 's'} en cours d'envoi
-              sur {result.total} contact{result.total === 1 ? '' : 's'} du segment.
+              sur {result.total} contact{result.total === 1 ? '' : 's'} {isSelection ? 'sélectionné' + (result.total === 1 ? '' : 's') : 'du segment'}.
               {result.skippedQuota > 0 && <> {result.skippedQuota} déjà sollicité{result.skippedQuota === 1 ? '' : 's'} (quota).</>}
               {result.skippedNoEmail > 0 && <> {result.skippedNoEmail} sans email partagé.</>}
               {result.skippedCap > 0 && <> {result.skippedCap} au-delà du plafond ({/* */}500) — affinez le segment pour les inclure.</>}
@@ -8075,8 +7306,8 @@ function BroadcastComposerModal({ campaignId, campaignName, filters, onClose, on
               fontSize: 12, lineHeight: 1.5, color: 'var(--ink-3)',
             }}>
               <strong style={{ color: 'var(--ink)' }}>Diffusion médiée par BUUPP.</strong>{' '}
-              Votre message part depuis nos serveurs vers tous les contacts du segment
-              actuel, avec votre adresse en <em>Reply-To</em>. Les adresses des prospects
+              Votre message part depuis nos serveurs vers {isSelection ? 'les prospects sélectionnés' : 'tous les contacts du segment actuel'},
+              avec votre adresse en <em>Reply-To</em>. Les adresses des prospects
               restent cachées. Quota&nbsp;: 1 email par campagne — les prospects déjà
               sollicités sont automatiquement ignorés.
             </div>
@@ -8161,16 +7392,6 @@ function Analytics() {
 
   const campaigns = data?.campaigns || [];
   const empty = !data || data.sampleSize?.wins === 0;
-  const acceptance = data?.acceptanceByTier || [
-    {tier:1,label:'Identification',pct:0},{tier:2,label:'Localisation',pct:0},
-    {tier:3,label:'Style de vie',pct:0},{tier:4,label:'Pro',pct:0},
-    {tier:5,label:'Patrimoine',pct:0},
-  ];
-  const geo = data?.geoBreakdown || [];
-  const ages = data?.ageBreakdown || [];
-  const sex = data?.sexBreakdown || [
-    {label:'Femmes',pct:0},{label:'Hommes',pct:0},{label:'Autre / non précisé',pct:0},
-  ];
   // Taux de lecture des messages pro→prospect (pixel d'ouverture, gaté par
   // le consentement CNIL du prospect). rate=null ⇒ aucun envoi traçable.
   const msgOpens = data?.messageOpens || { sent: 0, trackable: 0, opened: 0, rate: null };
@@ -8311,121 +7532,15 @@ function Analytics() {
         )}
       </div>
 
-      <div style={{
-        display: 'grid',
-        // Auto-fit : 2 colonnes côte à côte si ≥720px de large, sinon
-        // empilement vertical (1 colonne pleine largeur).
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-        gap: 20,
-      }}>
-        <div className="card" style={{ padding: 28 }}>
-          <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Taux d'acceptation par palier</div>
-          {acceptance.map(r => (
-            <div key={r.tier} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-              <div className="row between" style={{ marginBottom: 6 }}>
-                <span style={{ fontSize: 13 }}><span className="chip">P{r.tier}</span> {r.label}</span>
-                <span className="mono tnum">{r.pct}%</span>
-              </div>
-              <Progress value={r.pct/100}/>
-            </div>
-          ))}
+      {/* Mise en relation pure : plus de répartitions par donnée
+          personnelle (zone, âge, sexe…) — seuls les créneaux
+          d'acceptation restent analysés. */}
+      <div className="card analytics-creneaux" style={{ padding: 28 }}>
+        <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Meilleurs créneaux</div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
+          Concentration des acceptations heure × jour (heure de Paris)
         </div>
-        <div className="card analytics-creneaux" style={{ padding: 28 }}>
-          <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Meilleurs créneaux</div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
-            Concentration des acceptations heure × jour (heure de Paris)
-          </div>
-          <Heatmap heatmap={data?.creneauHeatmap || null}/>
-        </div>
-      </div>
-      <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Répartition géographique</div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>Pourcentage de contacts acceptés par zone</div>
-        {geo.length === 0 ? (
-          <CardEmptyState
-            image="/empty-geo.png"
-            alt="Aucune ville disponible"
-            tint="#0EA5E9"
-            title="La carte est encore vide"
-            sub="Les villes de vos prospects acceptés s'afficheront ici dès vos premières mises en relation."
-          />
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: 12,
-          }}>
-            {geo.map((r, i) => (
-              <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
-                <div className="serif" style={{ fontSize: 18 }}>{r.ville}</div>
-                <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{r.pct}%</div>
-                <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{r.contacts} contact{r.contacts > 1 ? 's' : ''}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par tranche d'âge</div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par segment</div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-          gap: 12,
-        }}>
-          {ages.map(({ label: l, pct: v }, i) => (
-            <div key={i} style={{ padding: 16, border: '1px solid var(--line)', borderRadius: 10 }}>
-              <div className="mono caps muted" style={{ fontSize: 10, marginBottom: 4 }}>{l}</div>
-              <div className="serif tnum" style={{ fontSize: 28, color: 'var(--accent)' }}>{v}%</div>
-              <div style={{ height: 4, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 10, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: Math.min(100, v * 3) + '%', background: 'var(--accent)', borderRadius: 999 }}/>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="card" style={{ padding: 28 }}>
-        <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>Répartition par sexe</div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 20 }}>Pourcentage de contacts acceptés par genre déclaré</div>
-        {sex.every(s => Number(s.pct) === 0) ? (
-          <CardEmptyState
-            image="/empty-sex.png"
-            alt="Aucun profil pour le moment"
-            tint="#EC4899"
-            title="Pas encore de profils à comparer"
-            sub="La répartition femmes / hommes / autre apparaîtra ici dès vos premières acceptations."
-          />
-        ) : (
-          <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-              gap: 16,
-            }}>
-              {[
-                [sex[0].label, sex[0].pct, 'color-mix(in oklab, var(--accent) 90%, #EC4899)'],
-                [sex[1].label, sex[1].pct, 'var(--accent)'],
-                [sex[2].label, sex[2].pct, 'var(--ink-4)'],
-              ].map(([l, v, c], i) => (
-                <div key={i} style={{ padding: 20, border: '1px solid var(--line)', borderRadius: 10 }}>
-                  <div className="row between center" style={{ marginBottom: 10 }}>
-                    <div className="mono caps muted" style={{ fontSize: 10 }}>{l}</div>
-                    <span style={{ width: 10, height: 10, borderRadius: 999, background: c }}/>
-                  </div>
-                  <div className="serif tnum" style={{ fontSize: 36, color: c }}>{v}%</div>
-                  <div style={{ height: 6, background: 'var(--ivory-2)', borderRadius: 999, marginTop: 12, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: v + '%', background: c, borderRadius: 999 }}/>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 22, height: 14, borderRadius: 999, overflow: 'hidden', display: 'flex', border: '1px solid var(--line)' }}>
-              <div style={{ width: sex[0].pct + '%', background: 'color-mix(in oklab, var(--accent) 90%, #EC4899)' }}/>
-              <div style={{ width: sex[1].pct + '%', background: 'var(--accent)' }}/>
-              <div style={{ width: sex[2].pct + '%', background: 'var(--ink-4)' }}/>
-            </div>
-          </>
-        )}
+        <Heatmap heatmap={data?.creneauHeatmap || null}/>
       </div>
     </div>
   );
@@ -9483,12 +8598,11 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
 
   // Configuration tab — données du targeting renvoyées par l'API.
   const tg = data.targeting || {};
+  const targetFilters = campaignTargetFilters(data);
   const objectiveValue = data.objectiveLabel || '—';
   const subTypesValue = (tg.subTypes && tg.subTypes.length) ? tg.subTypes.join(', ') : '—';
-  const tiersValue = (tg.tierLabels && tg.tierLabels.length) ? tg.tierLabels.join(', ') : '—';
+  const contactModeValue = <ContactChannelChips channels={data.contactChannels ?? tg.contactChannels ?? camp?.contactChannels}/>;
   const keywordsValue = (tg.keywords && tg.keywords.length) ? tg.keywords.join(', ') : '—';
-  const kwModeValue = tg.kwFilter ? 'Filtre exclusif' : 'Signal de priorité';
-  const agesValue = (tg.ages && tg.ages.length) ? tg.ages.join(', ') : 'Tous';
   const briefValue = data.brief || '—';
 
   return (
@@ -9923,14 +9037,13 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
           ) : (
             <table className="tbl">
               <thead><tr>
-                <th>Prospect</th><th>Score</th><th>Palier</th><th>Date</th><th>Statut</th>
+                <th>Prospect</th><th>Score</th><th>Date</th><th>Statut</th>
               </tr></thead>
               <tbody>
                 {data.contacts.map((c) => (
                   <tr key={c.id}>
-                    <td><span className="row center gap-3"><Avatar name={c.name} size={26}/>{c.name}</span></td>
+                    <td><span className="row center gap-3"><Avatar name={prospectShortName(c.name)} size={26}/>{prospectShortName(c.name)}</span></td>
                     <td className="mono tnum">{c.score == null ? '—' : c.score}</td>
-                    <td><span className="chip" style={{ fontSize: 11 }}>{c.tierLabel}</span></td>
                     <td className="muted mono" style={{ fontSize: 12 }}>{activityFmt.format(new Date(c.decidedAt))}</td>
                     <td><span className={'chip ' + (c.statusChip ? 'chip-' + c.statusChip : '')} style={{ fontSize: 11 }}>{c.statusLabel}</span></td>
                   </tr>
@@ -9945,13 +9058,12 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
       {tab === 'config' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div className="card" style={{ padding: 28 }}>
-            <div className="serif" style={{ fontSize: 20, marginBottom: 18 }}>Objectif & données</div>
+            <div className="serif" style={{ fontSize: 20, marginBottom: 18 }}>Objectif & contact</div>
             {[
               ['Objectif principal', objectiveValue],
               ['Sous-types',         subTypesValue],
-              ['Paliers de données', tiersValue],
+              ['Mode de contact',    contactModeValue],
               ['Mots-clés',          keywordsValue],
-              ['Mode mot-clé',       (tg.keywords && tg.keywords.length) ? kwModeValue : '—'],
               ['Brief',              briefValue],
             ].map(([l, v], i, arr) => (
               <div key={i} className="row between" style={{ padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', gap: 16 }}>
@@ -9963,8 +9075,9 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
           <div className="card" style={{ padding: 28 }}>
             <div className="serif" style={{ fontSize: 20, marginBottom: 18 }}>Ciblage & budget</div>
             {[
-              ['Zone géographique',   tg.geoLabel || '—'],
-              ["Tranches d'âge",      agesValue],
+              ['Villes',              targetCitiesLabel(targetFilters.cities)],
+              ['Sexe',                targetGenresLabel(targetFilters.genres)],
+              ['Âge',                 targetAgeBandsLabel(targetFilters.ageBands)],
               ['Vérification min.',   tg.verifLabel || '—'],
               ['Contacts souhaités',  String(objectivePlannedContacts || '—')],
               ['Durée',               tg.days != null ? (tg.days + ' jour' + (tg.days > 1 ? 's' : '')) : '—'],
@@ -10072,14 +9185,13 @@ function CampaignDetail({ camp, onBack, onDuplicate }) {
           ) : (
             <table className="tbl">
               <thead><tr>
-                <th>Date</th><th>Contact</th><th>Palier</th><th style={{ textAlign: 'right' }}>Montant</th><th>Statut</th>
+                <th>Date</th><th>Contact</th><th style={{ textAlign: 'right' }}>Montant</th><th>Statut</th>
               </tr></thead>
               <tbody>
                 {data.contacts.map((c) => (
                   <tr key={c.id}>
                     <td className="muted mono" style={{ fontSize: 12 }}>{activityFmt.format(new Date(c.decidedAt))}</td>
-                    <td>{c.name}</td>
-                    <td><span className="chip" style={{ fontSize: 11 }}>{c.tierLabel}</span></td>
+                    <td>{prospectShortName(c.name)}</td>
                     <td className="mono tnum" style={{ textAlign: 'right' }}>{fmt2(cpcEur)} €</td>
                     <td><span className={'chip ' + (c.statusChip ? 'chip-' + c.statusChip : '')} style={{ fontSize: 11 }}>{c.statusLabel}</span></td>
                   </tr>
@@ -10636,12 +9748,12 @@ function MesInformations({ info, setInfo, returnAfterInfo, onCancelReturn, scrol
    sélecteur Starter / Pro : plus d'abonnement ni de frais d'accès, seule la
    commission par acceptation s'applique. */
 function PricingInfoSection() {
-  const EXAMPLES = [
-    [1, 0.30, 'le plancher s\'applique'],
-    [3, 0.30, '10 % = plancher'],
-    [5, 0.50, '10 %'],
-    [10, 1.00, '10 %'],
-  ];
+  // Prix unique par acceptation : 1,00 € de base × multiplicateur de durée
+  // (puis × niveau de vérification exigé). Commission = max(0,30 €, 10 %).
+  const EXAMPLES = DURATIONS.slice().reverse().map(d => {
+    const reward = Math.round(BASE_REWARD_EUR * d.mult * 100) / 100;
+    return [reward, buuppCommissionCents(Math.round(reward * 100)) / 100, `${d.label} · ${d.multBadge}`];
+  });
   const fmt = v => Number(v).toFixed(2).replace('.', ',') + ' €';
   return (
     <div className="card" style={{ padding: 24 }}>
@@ -10650,7 +9762,7 @@ function PricingInfoSection() {
           <div className="serif" style={{ fontSize: 20, lineHeight: 1.2 }}>Tarification</div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>
             Une formule unique, sans abonnement ni frais d'accès : campagnes illimitées, jusqu'à 500 prospects
-            par campagne et les 5 paliers de données accessibles. Vous ne payez que les acceptations.
+            par campagne. Un seul prix par acceptation — vous ne payez que les mises en relation acceptées.
           </div>
         </div>
         <span className="chip" style={{
@@ -10668,6 +9780,7 @@ function PricingInfoSection() {
       }}>
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
           Par acceptation : <strong style={{ color: 'var(--accent)' }}>rémunération du prospect</strong>
+          {' '}(<strong>1,00 €</strong> de base × multiplicateur de durée, × niveau de vérification exigé)
           {' '}+ <strong style={{ color: '#16A34A' }}>commission BUUPP de 10 %</strong>, avec un
           {' '}<strong>minimum de 0,30 €</strong>.
         </div>
@@ -10677,8 +9790,8 @@ function PricingInfoSection() {
               padding: '10px 12px', borderRadius: 10, background: 'var(--ivory-2)',
               border: '1px solid var(--line)', fontSize: 12, lineHeight: 1.45,
             }}>
-              <div className="muted">Prospect {fmt(reward)}</div>
-              <div><span style={{ color: '#16A34A', fontWeight: 600 }}>+ {fmt(com)}</span> <span className="muted">({note})</span></div>
+              <div className="muted">{note}</div>
+              <div>Prospect {fmt(reward)} <span style={{ color: '#16A34A', fontWeight: 600 }}>+ {fmt(com)}</span></div>
               <div style={{ fontWeight: 600 }}>= {fmt(reward + com)}</div>
             </div>
           ))}

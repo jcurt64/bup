@@ -12,7 +12,6 @@
  * attendu (qq dizaines max).
  */
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { ageFromBirth } from "@/lib/prospect/naissance";
 
 export type AlertItem = {
   id: string;
@@ -57,9 +56,10 @@ const AGE_BUCKETS: Array<{ label: string; min: number; max: number }> = [
   { label: "Inconnu", min: -1, max: -1 },
 ];
 
-function ageFromNaissance(s: string | null): number | null {
-  // `naissance` est stocké en `MM/AAAA` (anciens formats tolérés).
-  return ageFromBirth(s);
+function ageFromNaissance(_s: string | null): number | null {
+  // Date de naissance supprimée (pivot « mise en relation pure »).
+  void _s;
+  return null;
 }
 
 function bucketAge(age: number | null): string {
@@ -101,8 +101,7 @@ export async function fetchNonAtteintOverview(): Promise<NonAtteintOverview> {
       `id, prospect_id, evaluated_at, evaluated_by_pro_id,
        pro_accounts:evaluated_by_pro_id ( raison_sociale, secteur, plan, ville, code_postal ),
        prospects:prospect_id (
-         prospect_identity ( prenom, nom, genre, naissance ),
-         prospect_localisation ( ville, code_postal )
+         prospect_identity ( prenom, nom )
        )`,
     )
     .eq("evaluation", "non_atteint")
@@ -120,12 +119,8 @@ export async function fetchNonAtteintOverview(): Promise<NonAtteintOverview> {
       | null;
     prospects: {
       prospect_identity:
-        | { prenom: string | null; nom: string | null; genre: string | null; naissance: string | null }
-        | { prenom: string | null; nom: string | null; genre: string | null; naissance: string | null }[]
-        | null;
-      prospect_localisation:
-        | { ville: string | null; code_postal: string | null }
-        | { ville: string | null; code_postal: string | null }[]
+        | { prenom: string | null; nom: string | null }
+        | { prenom: string | null; nom: string | null }[]
         | null;
     } | null;
   };
@@ -134,8 +129,6 @@ export async function fetchNonAtteintOverview(): Promise<NonAtteintOverview> {
     const pa = Array.isArray(r.pro_accounts) ? r.pro_accounts[0] : r.pro_accounts;
     const idRaw = r.prospects?.prospect_identity ?? null;
     const id = Array.isArray(idRaw) ? idRaw[0] ?? null : idRaw;
-    const locRaw = r.prospects?.prospect_localisation ?? null;
-    const loc = Array.isArray(locRaw) ? locRaw[0] ?? null : locRaw;
     return {
       relationId: r.id,
       prospectId: r.prospect_id,
@@ -148,10 +141,11 @@ export async function fetchNonAtteintOverview(): Promise<NonAtteintOverview> {
       proCp: pa?.code_postal ?? null,
       prospectPrenom: id?.prenom ?? null,
       prospectNom: id?.nom ?? null,
-      prospectGenre: id?.genre ?? null,
-      prospectNaissance: id?.naissance ?? null,
-      prospectVille: loc?.ville ?? null,
-      prospectCp: loc?.code_postal ?? null,
+      // Données supprimées (pivot « mise en relation pure ») — clés conservées.
+      prospectGenre: null as string | null,
+      prospectNaissance: null as string | null,
+      prospectVille: null as string | null,
+      prospectCp: null as string | null,
     };
   });
 

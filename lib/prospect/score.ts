@@ -4,9 +4,9 @@
  * (PATCH, recompute automatique après chaque modification de palier).
  *
  * Le score (0..1000) repose sur trois critères pondérés à parts égales :
- *   - complétude des paliers (un palier compte dès qu'au moins un de
- *     ses champs est renseigné — aligné avec la logique de matching pro)
- *   - fraîcheur (basée sur le MAX(updated_at) parmi les paliers remplis)
+ *   - complétude du profil contact (prénom, initiale du nom, ville, sexe,
+ *     tranche d'âge, e-mail, téléphone — part des 7 champs renseignés)
+ *   - fraîcheur (basée sur prospect_identity.updated_at)
  *   - fiabilité : moyenne BAYÉSIENNE des notes données par les pros (sur les
  *     prospects qu'ils ont mis en relation) — Haute=100 / Moyenne=60 / Basse=20,
  *     une note par pro distinct, lissée vers un prior neutre (m₀=60, C=3) ;
@@ -18,7 +18,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { TIERS, TIER_KEYS, type TierKey } from "./donnees";
+import { CONTACT_FIELDS, missingContactFields } from "@/lib/campaigns/contact-channels";
 
 const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
 const TWO_YEARS_MS = ONE_YEAR_MS * 2;
@@ -138,92 +138,42 @@ export async function computeAndPersistProspectScore(
   admin: SupabaseClient<Database>,
   prospectId: string,
 ): Promise<ProspectScoreBreakdown> {
-  const [identity, localisation, vie, pro, patrimoine, prospect, relRatings] =
-    await Promise.all([
-      admin
-        .from("prospect_identity")
-        .select("prenom, nom, email, telephone, naissance, updated_at")
-        .eq("prospect_id", prospectId)
-        .maybeSingle(),
-      admin
-        .from("prospect_localisation")
-        .select("adresse, ville, code_postal, updated_at")
-        .eq("prospect_id", prospectId)
-        .maybeSingle(),
-      admin
-        .from("prospect_vie")
-        .select("foyer, sports, animaux, vehicule, logement, mobilite, updated_at")
-        .eq("prospect_id", prospectId)
-        .maybeSingle(),
-      admin
-        .from("prospect_pro")
-        .select("poste, statut, secteur, revenus, updated_at")
-        .eq("prospect_id", prospectId)
-        .maybeSingle(),
-      admin
-        .from("prospect_patrimoine")
-        .select("residence, epargne, projets, updated_at")
-        .eq("prospect_id", prospectId)
-        .maybeSingle(),
-      admin
-        .from("prospects")
-        .select("removed_tiers, score_malus")
-        .eq("id", prospectId)
-        .single(),
-      // Notes pros (fiabilité) : une ligne par relation notée, la plus récente
-      // d'abord → on retient une note par pro distinct (cf. agrégat ci-dessous).
-      admin
-        .from("relations")
-        .select("pro_account_id, pro_priority, decided_at")
-        .eq("prospect_id", prospectId)
-        .not("pro_priority", "is", null)
-        .order("decided_at", { ascending: false }),
-    ]);
+  const [identity, prospect, relRatings] = await Promise.all([
+    admin
+      .from("prospect_identity")
+      .select("prenom, nom, ville, genre, tranche_age, email, telephone, updated_at")
+      .eq("prospect_id", prospectId)
+      .maybeSingle(),
+    admin
+      .from("prospects")
+      .select("score_malus")
+      .eq("id", prospectId)
+      .single(),
+    // Notes pros (fiabilité) : une ligne par relation notée, la plus récente
+    // d'abord → on retient une note par pro distinct (cf. agrégat ci-dessous).
+    admin
+      .from("relations")
+      .select("pro_account_id, pro_priority, decided_at")
+      .eq("prospect_id", prospectId)
+      .not("pro_priority", "is", null)
+      .order("decided_at", { ascending: false }),
+  ]);
 
-  const tierRows: Record<TierKey, Record<string, unknown> | null> = {
-    identity: identity.data,
-    localisation: localisation.data,
-    vie: vie.data,
-    pro: pro.data,
-    patrimoine: patrimoine.data,
-  };
-  const removedTiers = new Set<TierKey>(
-    (prospect.data?.removed_tiers ?? []) as TierKey[],
-  );
-
-  let filledTiers = 0;
-  let countedTiers = 0;
-  for (const tier of TIER_KEYS) {
-    if (removedTiers.has(tier)) continue;
-    countedTiers += 1;
-    const row = tierRows[tier];
-    const hasAtLeastOneField =
-      row != null &&
-      Object.entries(TIERS[tier].fields).some(([, dbCol]) => {
-        const v = row[dbCol];
-        return typeof v === "string" && v.trim() !== "";
-      });
-    if (hasAtLeastOneField) filledTiers += 1;
-  }
-  const completenessPct =
-    countedTiers === 0 ? 0 : Math.round((filledTiers / countedTiers) * 100);
+  // Complétude = part des 7 champs du profil renseignés (prénom, initiale
+  // du nom, ville, sexe, tranche d'âge, e-mail, téléphone). `filledTiers` / `countedTiers`
+  // conservent leur nom (compat clients) mais comptent désormais des CHAMPS.
+  const identityRow = (identity.data ?? null) as Record<string, unknown> | null;
+  const countedTiers = CONTACT_FIELDS.length;
+  const filledTiers = countedTiers - missingContactFields(
+    identityRow as Parameters<typeof missingContactFields>[0],
+    CONTACT_FIELDS,
+  ).length;
+  const completenessPct = Math.round((filledTiers / countedTiers) * 100);
 
   let mostRecentTs: number | null = null;
-  for (const tier of TIER_KEYS) {
-    const row = tierRows[tier];
-    if (!row) continue;
-    const hasField = Object.entries(TIERS[tier].fields).some(([, dbCol]) => {
-      const v = row[dbCol];
-      return typeof v === "string" && v.trim() !== "";
-    });
-    if (!hasField) continue;
-    const u = row["updated_at"];
-    if (typeof u === "string") {
-      const ts = Date.parse(u);
-      if (!Number.isNaN(ts) && (mostRecentTs == null || ts > mostRecentTs)) {
-        mostRecentTs = ts;
-      }
-    }
+  if (filledTiers > 0 && typeof identityRow?.updated_at === "string") {
+    const ts = Date.parse(identityRow.updated_at);
+    if (!Number.isNaN(ts)) mostRecentTs = ts;
   }
   const ageMs = mostRecentTs == null ? null : Date.now() - mostRecentTs;
   const freshnessPct = freshnessPctFromAge(ageMs);

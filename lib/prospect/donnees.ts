@@ -1,15 +1,28 @@
 /**
- * Couche métier "Mes données" du dashboard prospect.
+ * Couche métier "Mes données" du prospect.
  *
- * Mapping bijectif entre :
- *   - le modèle UI (camelCase, structure imbriquée par palier)
- *   - les 5 tables Supabase prospect_<tier> (snake_case, prospect_id en PK)
+ * Pivot « mise en relation pure » (nov. 2026) : les SEULES données
+ * personnelles collectées sont le prénom, l'INITIALE du nom, la ville (nom de
+ * la commune seul, sans code postal ni adresse), le sexe, la tranche d'âge
+ * (18-35 / 35+), le téléphone et l'e-mail (table `prospect_identity`).
+ * Ville / sexe / tranche d'âge servent uniquement au ciblage des campagnes
+ * (matching) et ne sont jamais transmis aux professionnels. Les 4 autres paliers historiques
+ * (localisation, vie, pro, patrimoine) et la date de naissance ont été
+ * supprimés.
  *
- * Source de vérité de cette structure : `DATA_CATEGORIES` dans
- * `public/prototype/components/Prospect.jsx`. Si un champ y est ajouté,
- * il faut le déclarer ici aussi (sinon il ne sera ni lu ni persisté).
+ * Les clés de paliers historiques restent reconnues pour la compatibilité des
+ * applications mobiles déjà publiées : toute écriture les visant est un no-op.
  */
 
+import { nomInitial } from "@/lib/campaigns/contact-channels";
+import {
+  isAgeBand,
+  isProspectGenre,
+  type AgeBand,
+  type ProspectGenre,
+} from "@/lib/campaigns/audience-targeting";
+
+/** Clés de paliers historiques (acceptées en entrée, ignorées sauf identity). */
 export type TierKey =
   | "identity"
   | "localisation"
@@ -17,134 +30,135 @@ export type TierKey =
   | "pro"
   | "patrimoine";
 
+export const LEGACY_TIER_KEYS: TierKey[] = [
+  "identity",
+  "localisation",
+  "vie",
+  "pro",
+  "patrimoine",
+];
+
+/** Compat : anciens imports `TIER_KEYS`. */
+export const TIER_KEYS = LEGACY_TIER_KEYS;
+
+export function isTierKey(x: unknown): x is TierKey {
+  return typeof x === "string" && (LEGACY_TIER_KEYS as string[]).includes(x);
+}
+
 export type TierFields = Record<string, string | null>;
 
+/** Champs du profil prospect (noms UI). `trancheAge` ↔ colonne `tranche_age`,
+ *  les autres ont le même nom en DB. */
+export const IDENTITY_FIELDS = [
+  "prenom",
+  "nom",
+  "ville",
+  "genre",
+  "trancheAge",
+  "email",
+  "telephone",
+] as const;
+
+/** Longueur max de la ville stockée (nom de commune seul). */
+export const VILLE_MAX_LENGTH = 120;
+export type IdentityField = (typeof IDENTITY_FIELDS)[number];
+
+export type IdentityUi = Record<IdentityField, string>;
+
+/** Shape GET /api/prospect/donnees (rétro-compatible mobile publié). */
 export type ProspectDonnees = {
-  identity: TierFields;
-  localisation: TierFields;
-  vie: TierFields;
-  pro: TierFields;
-  patrimoine: TierFields;
+  identity: IdentityUi;
+  localisation: Record<string, never>;
+  vie: Record<string, never>;
+  pro: Record<string, never>;
+  patrimoine: Record<string, never>;
   hiddenTiers: TierKey[];
   removedTiers: TierKey[];
 };
 
-type TierMap = {
-  table:
-    | "prospect_identity"
-    | "prospect_localisation"
-    | "prospect_vie"
-    | "prospect_pro"
-    | "prospect_patrimoine";
-  /** UI → DB : { camelCase: snake_case }. Quand identique, on met la même clé. */
-  fields: Record<string, string>;
-};
-
-export const TIERS: Record<TierKey, TierMap> = {
-  identity: {
-    table: "prospect_identity",
-    fields: {
-      prenom: "prenom",
-      nom: "nom",
-      email: "email",
-      telephone: "telephone",
-      naissance: "naissance",
-    },
-  },
-  localisation: {
-    table: "prospect_localisation",
-    fields: {
-      adresse: "adresse",
-      ville: "ville",
-      codePostal: "code_postal",
-      // Région administrative (ex. "Île-de-France") — déduite côté UI via
-      // l'autocomplétion geo.api.gouv.fr (`fields=...,region`) en même
-      // temps que ville+CP. Persistée pour l'affichage et les futurs
-      // ciblages au niveau région.
-      region: "region",
-      // Préférence "Zone géographique" (rayon en km autour de la ville
-      // déclarée, 5-100 km — slider dans /prospect → Préférences).
-      // Stocké côté localisation parce qu'il n'a de sens que conjugué
-      // à la ville. Utilisé par lib/campaigns/matching.ts pour filtrer
-      // le pool quand un pro lance une campagne.
-      targetingRadiusKm: "targeting_radius_km",
-      // Opt-in "Étendre au niveau national" — quand true, le matching
-      // ignore les filtres CP préfixe + plancher de rayon pour ce
-      // prospect. Stocké en boolean, sérialisé en "true"/"false" côté
-      // UI par rowToUi (cast string), reconverti par le PATCH route.
-      nationalOptIn: "national_opt_in",
-      // Niveau d'extension géographique gradué (local | departemental |
-      // regional | national). Remplace l'opt-in national binaire côté UI ;
-      // `national_opt_in` reste maintenu en synchro par la route PATCH
-      // (true ⟺ geo_extension='national') pour la compat du matching.
-      geoExtension: "geo_extension",
-    },
-  },
-  vie: {
-    table: "prospect_vie",
-    fields: {
-      foyer: "foyer",
-      sports: "sports",
-      animaux: "animaux",
-      animauxDetail: "animaux_detail",
-      vehicule: "vehicule",
-      vehiculeMarque: "vehicule_marque",
-      logement: "logement",
-      mobilite: "mobilite",
-    },
-  },
-  pro: {
-    table: "prospect_pro",
-    fields: {
-      statut: "statut",
-      secteur: "secteur",
-    },
-  },
-  patrimoine: {
-    table: "prospect_patrimoine",
-    fields: {
-      residence: "residence",
-      projets: "projets",
-    },
-  },
-};
-
-export const TIER_KEYS = Object.keys(TIERS) as TierKey[];
-
-export function isTierKey(x: unknown): x is TierKey {
-  return typeof x === "string" && (TIER_KEYS as string[]).includes(x);
+/** Row prospect_identity → objet UI. `nom` est toujours renvoyé en initiale ;
+ *  `genre` / `trancheAge` = "" si absents ou hors valeurs connues. */
+export function identityRowToUi(row: Record<string, unknown> | null | undefined): IdentityUi {
+  const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+  return {
+    prenom: str(row?.prenom),
+    nom: nomInitial(row?.nom) ?? "",
+    ville: str(row?.ville),
+    genre: isProspectGenre(row?.genre) ? row.genre : "",
+    trancheAge: isAgeBand(row?.tranche_age) ? row.tranche_age : "",
+    email: str(row?.email),
+    telephone: str(row?.telephone),
+  };
 }
 
-/** Convertit une row Supabase (snake_case) → objet UI (camelCase). */
-export function rowToUi(tier: TierKey, row: Record<string, unknown> | null): TierFields {
-  const fields = TIERS[tier].fields;
-  const out: TierFields = {};
-  for (const [ui, db] of Object.entries(fields)) {
-    const v = row?.[db];
-    out[ui] = typeof v === "string" ? v : v == null ? "" : String(v);
-  }
-  return out;
-}
+/** Colonnes `prospect_identity` modifiables via PATCH /api/prospect/donnees. */
+export type IdentityRowPatch = Partial<{
+  prenom: string | null;
+  nom: string | null;
+  ville: string | null;
+  genre: ProspectGenre | null;
+  tranche_age: AgeBand | null;
+  email: string | null;
+  telephone: string | null;
+}>;
 
-/** Convertit un patch UI (camelCase) en patch DB (snake_case), en filtrant
- *  les clés inconnues pour le tier — protection contre les attaques de
- *  mass-assignment. Les valeurs scalaires non-string (booleans, numbers)
- *  passent telles quelles dans `out` ; les handlers spécialisés du
- *  route /api/prospect/donnees re-castent/valident avant l'upsert. */
-export function uiToRow(tier: TierKey, patch: Record<string, unknown>): Record<string, string | boolean | number | null> {
-  const fields = TIERS[tier].fields;
-  const out: Record<string, string | boolean | number | null> = {};
-  for (const [uiKey, val] of Object.entries(patch)) {
-    const dbKey = fields[uiKey];
-    if (!dbKey) continue;
-    if (val == null) {
-      out[dbKey] = null;
-    } else if (typeof val === "string") {
-      const trimmed = val.trim();
-      out[dbKey] = trimmed === "" ? null : trimmed.slice(0, 500);
-    } else if (typeof val === "boolean" || typeof val === "number") {
-      out[dbKey] = val;
+export type IdentityPatchResult =
+  | { ok: true; row: IdentityRowPatch }
+  | { ok: false; error: "invalid_genre" | "invalid_tranche_age" };
+
+/**
+ * Patch UI → patch DB pour `prospect_identity`, en ne gardant QUE les 7
+ * champs autorisés (anti mass-assignment). Règles :
+ *   - `nom` normalisé en son initiale majuscule ("élodie" → "É") ;
+ *   - `ville` = nom de commune seul, espaces normalisés, ≤ VILLE_MAX_LENGTH ;
+ *   - `genre` ∈ femme | homme | autre, `trancheAge` ∈ 18-35 | 35+ (sinon
+ *     erreur) ; `trancheAge` → colonne `tranche_age` ;
+ *   - chaîne vide / null → null ; valeur non-chaîne ignorée (texte) ou
+ *     refusée (genre / tranche).
+ */
+export function parseIdentityPatch(patch: Record<string, unknown>): IdentityPatchResult {
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(patch, k);
+  const row: IdentityRowPatch = {};
+
+  for (const key of ["prenom", "email", "telephone"] as const) {
+    if (!has(key)) continue;
+    const val = patch[key];
+    if (val == null) row[key] = null;
+    else if (typeof val === "string") {
+      const t = val.trim();
+      row[key] = t === "" ? null : t.slice(0, 500);
     }
   }
-  return out;
+
+  if (has("nom")) {
+    const val = patch.nom;
+    if (val == null) row.nom = null;
+    else if (typeof val === "string") row.nom = nomInitial(val);
+  }
+
+  if (has("ville")) {
+    const val = patch.ville;
+    if (val == null) row.ville = null;
+    else if (typeof val === "string") {
+      const v = val.replace(/\s+/g, " ").trim();
+      row.ville = v === "" ? null : v.slice(0, VILLE_MAX_LENGTH).trim();
+    }
+  }
+
+  if (has("genre")) {
+    const val = patch.genre;
+    if (val == null || val === "") row.genre = null;
+    else if (isProspectGenre(val)) row.genre = val;
+    else return { ok: false, error: "invalid_genre" };
+  }
+
+  const ageKey = has("trancheAge") ? "trancheAge" : has("tranche_age") ? "tranche_age" : null;
+  if (ageKey) {
+    const val = patch[ageKey];
+    if (val == null || val === "") row.tranche_age = null;
+    else if (isAgeBand(val)) row.tranche_age = val;
+    else return { ok: false, error: "invalid_tranche_age" };
+  }
+
+  return { ok: true, row };
 }

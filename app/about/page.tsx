@@ -66,13 +66,12 @@ const PRINCIPLES: Principle[] = [
   {
     icon: "target",
     t: "Minimisation",
-    d: "BUUPP ne collecte et ne transmet que les données strictement nécessaires à la finalité choisie par le professionnel. Chaque palier est cloisonné et monétisé séparément : rien de superflu ne circule.",
-    cta: { label: "Voir la minimisation", href: "/minimisation" },
+    d: "BUUPP ne collecte que sept données : votre prénom, l'initiale de votre nom, votre ville, votre sexe, votre tranche d'âge, votre téléphone et votre adresse e-mail. Aucune date de naissance, aucune adresse, rien de superflu.",
   },
   {
     icon: "lock",
     t: "Pseudonymisation",
-    d: "Les données ne parviennent au professionnel que pseudonymisées — masquées, généralisées ou catégorisées. L'identité réelle reste réversible par buupp seul, et chaque révélation est journalisée conformément au RGPD.",
+    d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom. Votre téléphone et votre e-mail ne lui sont jamais transmis : tout contact passe par la plateforme buupp et chaque prise de contact est journalisée. Votre ville, votre sexe et votre tranche d'âge servent uniquement au ciblage des offres.",
     cta: { label: "Voir la pseudonymisation", href: "#confidentialite" },
   },
 ];
@@ -80,7 +79,7 @@ const PRINCIPLES: Principle[] = [
 const SECURITY: { t: string; d: string }[] = [
   {
     t: "Données pseudonymisées",
-    d: "Vos données ne sont pas visibles intégralement. Les professionnels ne peuvent pas les extraire de la plateforme BUUPP.",
+    d: "Les professionnels ne voient que votre prénom et l'initiale de votre nom. Votre téléphone, votre e-mail, votre ville, votre sexe et votre tranche d'âge restent chez BUUPP.",
   },
   {
     t: "Consentement à usage unique",
@@ -88,11 +87,11 @@ const SECURITY: { t: string; d: string }[] = [
   },
   {
     t: "Anti-fraude multicouche",
-    d: "Contraintes d'unicité IBAN/téléphone/rôle, honeypots sur formulaires publics, journal d'audit verrouillé des révélations.",
+    d: "Contraintes d'unicité IBAN/téléphone/rôle, honeypots sur formulaires publics, journal d'audit verrouillé des prises de contact.",
   },
   {
-    t: "Watermarking cryptographique",
-    d: "L'email du prospect est révélé sous forme d'alias unique routé via Cloudflare — toute fuite remonte instantanément au professionnel émetteur.",
+    t: "Contact relayé par la plateforme",
+    d: "Appels et e-mails passent toujours par BUUPP : le professionnel ne reçoit jamais votre numéro ni votre adresse e-mail.",
   },
 ];
 
@@ -384,9 +383,8 @@ export default async function AboutPage() {
               </div>
               <h3>Comment vos données sont pseudonymisées</h3>
               <div className="sub">
-                Palier par palier&nbsp;: ce que vous renseignez, la transformation
-                appliquée par buupp, et ce qui parvient réellement au
-                professionnel.
+                Ce que vous renseignez, la protection appliquée par buupp, et ce
+                qui parvient réellement au professionnel.
               </div>
             </div>
             <div className="anon-body" style={{ overflow: "visible" }}>

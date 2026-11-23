@@ -493,12 +493,10 @@ export function Footer({ studiesOpen = false }: { studiesOpen?: boolean } = {}) 
     [
       "Ressources",
       [
-        { label: "Barème des paliers", href: "/bareme" },
         { label: "Indice de désirabilité", href: "/indice-desirabilite" },
         { label: "Documentation", href: "/aide" },
         { label: "Status", href: "/status" },
         { label: "Accessibilité", href: "/accessibilite" },
-        { label: "Minimisation", href: "/minimisation" },
       ],
     ],
     [

@@ -11,11 +11,13 @@ import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import { computeAndPersistProspectScore } from "@/lib/prospect/score";
+import { CONTACT_FIELDS } from "@/lib/prospect/completeness";
 
 export const runtime = "nodejs";
 
-const TOTAL_TIERS = 5;
-const PER_TIER_PCT = 100 / TOTAL_TIERS;
+// Complétude = 7 champs du profil (prénom, initiale, ville, sexe, tranche d'âge, e-mail, téléphone).
+const TOTAL_FIELDS = CONTACT_FIELDS.length;
+const PER_TIER_PCT = 100 / TOTAL_FIELDS;
 
 async function getProspectId(userId: string): Promise<string> {
   const user = await currentUser();
@@ -39,7 +41,6 @@ export async function GET() {
   const prospectId = await getProspectId(userId);
   const admin = createSupabaseAdminClient();
   const b = await computeAndPersistProspectScore(admin, prospectId);
-  void TOTAL_TIERS; // référencé pour rétro-compat de la doc
 
   return NextResponse.json({
     score: b.score,

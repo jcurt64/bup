@@ -1,38 +1,41 @@
 /**
- * /api/prospect/donnees — lecture/écriture des 5 paliers de l'onglet
- *                         "Mes données" du dashboard prospect.
+ * /api/prospect/donnees — profil contact du prospect (« Mes données »).
  *
- *   GET   → retourne les 5 paliers (camelCase, structurés par tier) +
- *           l'état de visibilité (hiddenTiers / removedTiers).
+ * Pivot « mise en relation pure » : seuls prénom, INITIALE du nom, ville
+ * (nom de commune seul), sexe, tranche d'âge, téléphone et e-mail sont
+ * collectés (table prospect_identity). Ville / sexe / tranche d'âge servent
+ * au ciblage des campagnes et ne sont jamais transmis au pro.
  *
- *   PATCH → upsert d'un sous-ensemble de champs sur un palier donné.
- *           Body : { tier: "identity"|…, fields: { ... } }
+ *   GET   → { identity: { prenom, nom, ville, genre, trancheAge, email, telephone },
+ *             localisation: {},
+ *             vie: {}, pro: {}, patrimoine: {}, hiddenTiers: [], removedTiers: [],
+ *             identityMeta, isFounder, preferences }
+ *           (shape rétro-compatible avec les apps mobiles publiées ; `nom`
+ *           = une seule lettre majuscule).
  *
- * Auth Clerk obligatoire. La row `prospects` est crée à la volée si elle
- * n'existe pas encore (filet de sécurité quand le webhook Clerk est en
- * retard sur la première visite du dashboard).
+ *   PATCH → Body : { tier: "identity", fields: { prenom?, nom?, ville?, genre?,
+ *                    trancheAge?, email?, telephone? } }
+ *           `nom` normalisé côté serveur en son initiale majuscule ; `ville`
+ *           trimée, max 120 caractères (nom de commune seul) ; `genre` ∈
+ *           femme|homme|autre, `trancheAge` ∈ 18-35|35+ (sinon 400
+ *           invalid_genre / invalid_tranche_age).
+ *           Tout autre palier (ou champ naissance seul) → 200 no-op.
+ *
+ * Auth Clerk obligatoire. La row `prospects` est créée à la volée si besoin.
  */
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
-import {
-  geocodeAddress,
-  geocodeCityCenter,
-  haversineMeters,
-} from "@/lib/geo/geocode";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProspect } from "@/lib/sync/prospects";
 import {
-  TIERS,
-  TIER_KEYS,
+  LEGACY_TIER_KEYS,
+  identityRowToUi,
+  parseIdentityPatch,
   isTierKey,
-  rowToUi,
-  uiToRow,
-  type TierKey,
 } from "@/lib/prospect/donnees";
 import { computeAndPersistProspectScore } from "@/lib/prospect/score";
 import { rowToPreferences } from "@/lib/prospect/preferences";
-import { normalizeNaissance } from "@/lib/prospect/naissance";
 
 export const runtime = "nodejs";
 
@@ -58,40 +61,33 @@ export async function GET() {
   const prospectId = await getProspectId(userId);
   const admin = createSupabaseAdminClient();
 
-  // Lecture parallèle des 5 tier rows + de la row maître (paliers cachés/supprimés, is_founder).
-  const [identity, localisation, vie, pro, patrimoine, prospect] = await Promise.all([
-    admin.from("prospect_identity").select("*").eq("prospect_id", prospectId).maybeSingle(),
-    admin.from("prospect_localisation").select("*").eq("prospect_id", prospectId).maybeSingle(),
-    admin.from("prospect_vie").select("*").eq("prospect_id", prospectId).maybeSingle(),
-    admin.from("prospect_pro").select("*").eq("prospect_id", prospectId).maybeSingle(),
-    admin.from("prospect_patrimoine").select("*").eq("prospect_id", prospectId).maybeSingle(),
+  const [identity, prospect] = await Promise.all([
+    admin
+      .from("prospect_identity")
+      .select("prenom, nom, ville, genre, tranche_age, email, telephone, phone_verified_at")
+      .eq("prospect_id", prospectId)
+      .maybeSingle(),
     admin
       .from("prospects")
-      .select(
-        "hidden_tiers, removed_tiers, is_founder, all_campaign_types, campaign_objectives, all_categories, categories",
-      )
+      .select("is_founder, all_campaign_types, campaign_objectives, all_categories, categories")
       .eq("id", prospectId)
       .single(),
   ]);
 
   return NextResponse.json({
-    identity: rowToUi("identity", identity.data ?? null),
-    localisation: rowToUi("localisation", localisation.data ?? null),
-    vie: rowToUi("vie", vie.data ?? null),
-    pro: rowToUi("pro", pro.data ?? null),
-    patrimoine: rowToUi("patrimoine", patrimoine.data ?? null),
-    // Métadonnées identité non couvertes par `rowToUi` (champs lus seuls,
-    // jamais éditables via PATCH côté client — gérés exclusivement par
-    // /api/prospect/phone/verify).
+    identity: identityRowToUi(identity.data ?? null),
+    // Paliers supprimés — objets vides conservés pour les clients publiés.
+    localisation: {},
+    vie: {},
+    pro: {},
+    patrimoine: {},
+    // Métadonnée lue seule (gérée par /api/prospect/phone/verify).
     identityMeta: {
-      phoneVerifiedAt:
-        (identity.data as { phone_verified_at?: string | null } | null)?.phone_verified_at ?? null,
+      phoneVerifiedAt: identity.data?.phone_verified_at ?? null,
     },
-    hiddenTiers: (prospect.data?.hidden_tiers ?? []) as TierKey[],
-    removedTiers: (prospect.data?.removed_tiers ?? []) as TierKey[],
+    hiddenTiers: [],
+    removedTiers: [],
     isFounder: prospect.data?.is_founder === true,
-    // Préférences de monétisation (types de campagne + catégories acceptés).
-    // Lues ici depuis la row maître ; écrites via /api/prospect/preferences.
     preferences: rowToPreferences(prospect.data ?? null),
   });
 }
@@ -116,7 +112,7 @@ export async function PATCH(req: Request) {
 
   if (!isTierKey(body.tier)) {
     return NextResponse.json(
-      { error: "invalid_tier", message: `tier must be one of ${TIER_KEYS.join(", ")}` },
+      { error: "invalid_tier", message: `tier must be one of ${LEGACY_TIER_KEYS.join(", ")}` },
       { status: 400 },
     );
   }
@@ -125,128 +121,35 @@ export async function PATCH(req: Request) {
   }
 
   const tier = body.tier;
-  const patch = uiToRow(tier, body.fields);
+  // Paliers supprimés (localisation, vie, pro, patrimoine) : no-op 200 pour
+  // ne pas casser les anciens clients — rien n'est stocké.
+  if (tier !== "identity") {
+    return NextResponse.json({ ok: true, tier, fields: {}, ignored: true });
+  }
+
+  const parsed = parseIdentityPatch(body.fields);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      {
+        error: parsed.error,
+        message:
+          parsed.error === "invalid_genre"
+            ? "Sexe invalide (femme, homme ou autre)."
+            : "Tranche d'âge invalide (18-35 ou 35+).",
+      },
+      { status: 400 },
+    );
+  }
+  const patch = parsed.row;
+  // Patch vide (ex. uniquement `naissance`, champ supprimé) → no-op 200.
   if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: "no_known_fields" }, { status: 400 });
-  }
-
-  // Date de naissance — stockée en `MM/AAAA` (minimisation : le jour n'est
-  // pas nécessaire au ciblage par âge). Un `JJ/MM/AAAA` (ancien client
-  // mobile) est accepté et tronqué. Une chaîne vide (clear du champ) reste OK.
-  if (
-    tier === "identity" &&
-    Object.prototype.hasOwnProperty.call(patch, "naissance")
-  ) {
-    const raw = patch.naissance;
-    if (typeof raw === "string" && raw !== "") {
-      const normalized = normalizeNaissance(raw);
-      if (!normalized) {
-        return NextResponse.json(
-          {
-            error: "invalid_naissance_format",
-            message: "Format attendu : MM/AAAA (ex. 06/1988).",
-          },
-          { status: 400 },
-        );
-      }
-      patch.naissance = normalized;
-    }
-  }
-
-  // Code postal — 5 chiffres exactement (format français). Le front utilise
-  // l'autocomplétion `geo.api.gouv.fr` qui ne renvoie que des codes valides ;
-  // on bloque ici toute écriture directe non conforme.
-  if (
-    tier === "localisation" &&
-    Object.prototype.hasOwnProperty.call(patch, "code_postal")
-  ) {
-    const raw = patch.code_postal;
-    if (typeof raw === "string" && raw !== "" && !/^\d{5}$/.test(raw)) {
-      return NextResponse.json(
-        {
-          error: "invalid_code_postal_format",
-          message: "Format attendu : 5 chiffres (ex. 75001).",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  // Opt-in « niveau national » — boolean strict. uiToRow laisse passer
-  // les booleans tels quels ; on rejette tout autre type pour bloquer
-  // les payloads malicieux (string "true", number 1, etc.).
-  if (
-    tier === "localisation" &&
-    Object.prototype.hasOwnProperty.call(patch, "national_opt_in")
-  ) {
-    const raw = patch.national_opt_in;
-    if (raw !== true && raw !== false) {
-      return NextResponse.json(
-        {
-          error: "invalid_national_opt_in",
-          message: "national_opt_in doit être un booléen strict.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  // Niveau d'extension géographique — enum strict. On valide la valeur et
-  // on maintient `national_opt_in` en synchro (true ⟺ 'national') pour que
-  // le matching legacy et tout code lisant le boolean restent corrects.
-  if (
-    tier === "localisation" &&
-    Object.prototype.hasOwnProperty.call(patch, "geo_extension")
-  ) {
-    const raw = patch.geo_extension;
-    const allowed = ["local", "departemental", "regional", "national"];
-    if (typeof raw !== "string" || !allowed.includes(raw)) {
-      return NextResponse.json(
-        {
-          error: "invalid_geo_extension",
-          message:
-            "geo_extension doit valoir local, departemental, regional ou national.",
-        },
-        { status: 400 },
-      );
-    }
-    // Synchro du booléen historique.
-    (patch as unknown as Record<string, boolean>).national_opt_in =
-      raw === "national";
-  }
-
-  // Rayon de ciblage (km) — int 5-100. uiToRow l'a déjà sérialisé en
-  // string ; on parse + valide + on re-injecte la bonne valeur typée
-  // dans le patch pour que l'upsert respecte le check constraint DB.
-  if (
-    tier === "localisation" &&
-    Object.prototype.hasOwnProperty.call(patch, "targeting_radius_km")
-  ) {
-    const raw = patch.targeting_radius_km;
-    if (raw != null && raw !== "") {
-      const n = Number(raw);
-      if (!Number.isInteger(n) || n < 5 || n > 100) {
-        return NextResponse.json(
-          {
-            error: "invalid_targeting_radius_km",
-            message: "Le rayon doit être un entier entre 5 et 100 km.",
-          },
-          { status: 400 },
-        );
-      }
-      // Override stringifié par un nombre — pas de cast TS car le
-      // patch est typé `Record<string, string | null>` (cf. uiToRow).
-      // L'upsert Postgres accepte JSON int directement.
-      (patch as unknown as Record<string, number>).targeting_radius_km = n;
-    }
+    return NextResponse.json({ ok: true, tier, fields: {}, ignored: true });
   }
 
   // Garde-fou : on n'accepte JAMAIS un PATCH direct du téléphone via cette
   // route. La vérif SMS (/api/prospect/phone/verify) est la seule porte
-  // d'entrée : sinon un client mal intentionné pourrait écraser un numéro
-  // déjà vérifié sans repasser par le code SMS, ce qui contournerait le
-  // palier `verifie`.
-  if (tier === "identity" && Object.prototype.hasOwnProperty.call(patch, "telephone")) {
+  // d'entrée (sinon un numéro vérifié pourrait être écrasé sans code SMS).
+  if (Object.prototype.hasOwnProperty.call(patch, "telephone")) {
     return NextResponse.json(
       {
         error: "telephone_requires_verification",
@@ -260,7 +163,7 @@ export async function PATCH(req: Request) {
   const admin = createSupabaseAdminClient();
 
   const { error } = await admin
-    .from(TIERS[tier].table)
+    .from("prospect_identity")
     .upsert(
       { prospect_id: prospectId, ...patch },
       { onConflict: "prospect_id" },
@@ -271,65 +174,15 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "upsert_failed" }, { status: 500 });
   }
 
-  // Recompute du BUUPP Score juste après l'upsert : la modification d'un
-  // palier impacte la complétude (paliers atteints) et la fraîcheur. On
-  // évite ainsi un score périmé même si le client n'a pas (encore)
-  // re-fetché /api/prospect/score.
   try {
     await computeAndPersistProspectScore(admin, prospectId);
   } catch (e) {
     console.warn("[/api/prospect/donnees PATCH] score recompute failed", e);
   }
 
-  // Géocodage de l'adresse (best-effort, post-réponse via `after()` pour ne
-  // pas ralentir l'enregistrement). On stocke les coordonnées précises +
-  // la distance au centre de la commune (API Adresse BAN) ; ces valeurs
-  // alimentent la pseudonymisation « distance au centre » servie au pro.
-  if (
-    tier === "localisation" &&
-    (Object.prototype.hasOwnProperty.call(patch, "adresse") ||
-      Object.prototype.hasOwnProperty.call(patch, "ville") ||
-      Object.prototype.hasOwnProperty.call(patch, "code_postal"))
-  ) {
-    after(async () => {
-      try {
-        // Relit la row fusionnée (le PATCH peut n'avoir touché qu'un champ).
-        const { data: loc } = await admin
-          .from("prospect_localisation")
-          .select("adresse, ville, code_postal")
-          .eq("prospect_id", prospectId)
-          .maybeSingle();
-        const adresse = loc?.adresse ?? null;
-        const ville = loc?.ville ?? null;
-        const cp = loc?.code_postal ?? null;
-        if (!adresse && !ville) return;
-        const [point, center] = await Promise.all([
-          geocodeAddress(adresse, cp, ville),
-          geocodeCityCenter(cp, ville),
-        ]);
-        const upd: {
-          latitude?: number | null;
-          longitude?: number | null;
-          center_distance_m?: number | null;
-        } = {};
-        if (point) {
-          upd.latitude = point.lat;
-          upd.longitude = point.lng;
-          upd.center_distance_m = center
-            ? haversineMeters(point, center)
-            : null;
-        }
-        if (Object.keys(upd).length > 0) {
-          await admin
-            .from("prospect_localisation")
-            .update(upd)
-            .eq("prospect_id", prospectId);
-        }
-      } catch (e) {
-        console.warn("[/api/prospect/donnees PATCH] geocode failed", e);
-      }
-    });
-  }
-
-  return NextResponse.json({ ok: true, tier, fields: patch });
+  // Renvoyé en noms UI (`tranche_age` → `trancheAge`).
+  const { tranche_age, ...rest } = patch;
+  const fields =
+    tranche_age === undefined ? rest : { ...rest, trancheAge: tranche_age };
+  return NextResponse.json({ ok: true, tier, fields });
 }

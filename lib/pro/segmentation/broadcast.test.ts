@@ -15,12 +15,6 @@ describe("matchedRelationIds", () => {
     ];
     expect(matchedRelationIds(contacts, { scoreMin: 720 })).toEqual(["a", "c"]);
   });
-
-  it("filtre par tranche de distance", () => {
-    const near = c({ relationId: "n", localisation: { region: null, ville: null, codePostal: null, adresse: null, centerDistanceM: 800 } });
-    const far = c({ relationId: "f", localisation: { region: null, ville: null, codePostal: null, adresse: null, centerDistanceM: 9000 } });
-    expect(matchedRelationIds([near, far], { distance: ["< 2 km du centre"] })).toEqual(["n"]);
-  });
 });
 
 describe("partitionRecipients", () => {

@@ -10,11 +10,9 @@
  */
 
 export type PageSlug =
-  | "bareme"
   | "aide"
   | "status"
   | "accessibilite"
-  | "minimisation"
   | "indice-desirabilite"
   | "cgu"
   | "cgv"
@@ -47,15 +45,6 @@ const INITIAL_RELEASE = "2026-05-15";
 export const PAGE_VERSIONS: PageMeta[] = [
   // — Ressources —
   {
-    slug: "bareme",
-    href: "/bareme",
-    title: "Barème des paliers",
-    section: "ressources",
-    history: [
-      { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
-    ],
-  },
-  {
     slug: "aide",
     href: "/aide",
     title: "Centre d'aide",
@@ -80,6 +69,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Nouvelle FAQ « Que se passe-t-il si je ne réponds pas aux sollicitations » : escalade graduée des signalements « non atteint » (rappel à 2, ajustement du BUUPP Score à 3, mise en pause de l'acceptation 2 mois à 4, remise à zéro à l'échéance).",
       },
+      {
+        version: "1.4",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; FAQ « Est-ce que le professionnel a accès à mes informations ? » : non, tout contact passe par la plateforme.",
+      },
     ],
   },
   {
@@ -89,6 +84,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
     section: "ressources",
     history: [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
+      {
+        version: "1.1",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données.",
+      },
     ],
   },
   {
@@ -98,15 +99,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
     section: "ressources",
     history: [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
-    ],
-  },
-  {
-    slug: "minimisation",
-    href: "/minimisation",
-    title: "Minimisation des données",
-    section: "ressources",
-    history: [
-      { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
+      {
+        version: "1.1",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; périmètre : retrait de la page « Barème des paliers ».",
+      },
     ],
   },
   {
@@ -120,6 +118,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         date: "2026-11-06",
         summary:
           "Page dédiée au BUUPP Score : complétude des paliers, fraîcheur des données et taux de fiabilité (auparavant présentés sur l'accueil).",
+      },
+      {
+        version: "1.1",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données : le volet « complétude » porte désormais sur les sept données du profil.",
       },
     ],
   },
@@ -168,6 +172,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Ajout de la participation aux campagnes « Tests & Études » : consentement explicite, retrait avant validation, code personnel, paiement après validation ou à 7 jours, contestation, signalement.",
       },
+      {
+        version: "1.7",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; le Pro ne voit que le prénom et l'initiale du nom, appels et e-mails passent toujours par la plateforme ; rémunération unique (base 1,00 € × durée).",
+      },
     ],
   },
   {
@@ -213,6 +223,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Ajout des conditions « Tests & Études » : campagnes tout ou rien avec budget réservé, débit des seules participations validées (commission 10 %, min. 0,30 €), validation tacite à 7 jours, arbitrage BUUPP, engagements anti-fraude et produits interdits, mention « Participation rémunérée via BUUPP ».",
       },
+      {
+        version: "2.2",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; tarif unique (base 1,00 € × coefficient de durée), fin du ciblage par palier et par rayon géographique ; ciblage facultatif par ville, sexe et tranche d'âge (données jamais communiquées au Pro) ; contact exclusivement via la plateforme, sans transmission du téléphone ni de l'e-mail du prospect.",
+      },
     ],
   },
   {
@@ -252,6 +268,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Nouveau traitement « Tests & Études » : finalité, base légale, données (département utilisé comme filtre uniquement), destinataire limité au prénom + alias e-mail, durées de conservation.",
       },
+      {
+        version: "1.6",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données ; le professionnel ne voit que le prénom et l'initiale du nom, appels et e-mails relayés par la plateforme.",
+      },
     ],
   },
   {
@@ -267,6 +289,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
         summary:
           "Ajout des équivalents techniques de cookies (localStorage / sessionStorage) à la catégorie « Cookies essentiels » : brouillon de campagne du professionnel (bupp:campaign-draft), acquittement de la formule tarifaire (bupp:plan-acknowledged) et marqueur de session du wizard (bupp:wizard-session-mounted).",
       },
+      {
+        version: "1.2",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données.",
+      },
     ],
   },
   {
@@ -276,6 +304,12 @@ export const PAGE_VERSIONS: PageMeta[] = [
     section: "legal",
     history: [
       { version: "1.0", date: INITIAL_RELEASE, summary: "Version initiale." },
+      {
+        version: "1.1",
+        date: "2026-11-22",
+        summary:
+          "Données collectées limitées au prénom, à l'initiale du nom, à la ville, au sexe, à la tranche d'âge, au téléphone et à l'e-mail (ville, sexe et tranche d'âge servent uniquement au ciblage des campagnes et ne sont jamais transmis au professionnel) ; suppression des paliers de données.",
+      },
     ],
   },
 ];

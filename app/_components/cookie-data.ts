@@ -77,7 +77,7 @@ export const COOKIE_CATEGORIES: CookieCategory[] = [
         name: "bupp:campaign-draft:{email}",
         provider: "BUUPP",
         purpose:
-          "Sauvegarde locale du brouillon de campagne en cours de saisie par un professionnel (objectif, ciblage, budget, mots-clés, description). Permet de retrouver la campagne là où elle a été laissée après une déconnexion, un changement d'onglet ou un retour de paiement Stripe. Aucune donnée nominative de prospect n'y figure — uniquement les paramètres de campagne saisis par le pro lui-même. La clé est namespacée par e-mail pour qu'un autre compte connecté sur le même appareil ne puisse pas y accéder. Expiration applicative : 1 h après la dernière modification, puis nettoyage automatique.",
+          "Sauvegarde locale du brouillon de campagne en cours de saisie par un professionnel (objectif, mode de contact, durée, budget, mots-clés, description). Permet de retrouver la campagne là où elle a été laissée après une déconnexion, un changement d'onglet ou un retour de paiement Stripe. Aucune donnée nominative de prospect n'y figure — uniquement les paramètres de campagne saisis par le pro lui-même. La clé est namespacée par e-mail pour qu'un autre compte connecté sur le même appareil ne puisse pas y accéder. Expiration applicative : 1 h après la dernière modification, puis nettoyage automatique.",
         duration: "1 h glissante (ou jusqu'au lancement de la campagne)",
         type: "Premier",
         storage: "localStorage",

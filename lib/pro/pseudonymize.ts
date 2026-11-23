@@ -1,88 +1,40 @@
 /**
  * Pseudonymisation des données prospect renvoyées au PRO (onglet « Mes
- * contacts »).
+ * contacts », fiche détaillée).
  *
- * Source de vérité des règles fixées avec l'équipe produit (et illustrées
- * dans le popup « Comment vos données sont pseudonymisées ») :
+ * Pivot « mise en relation pure » (nov. 2026) : le prospect ne fournit plus
+ * que son prénom, l'INITIALE de son nom, son e-mail et son téléphone. Le pro
+ * reçoit uniquement :
+ *    - prénom              → CONSERVÉ (personnalisation)
+ *    - nom                 → initiale suivie d'un point (« D. »)
+ *    - e-mail              → alias watermarqué relayé par BUUPP (injecté par
+ *                            la route), seulement si la campagne a le canal
+ *                            « email »
+ *  Le téléphone n'est jamais listé dans la fiche : l'appel passe par le
+ *  bouton « Appeler » (flux révélation journalisé + SMS de préavis), et
+ *  seulement si la campagne a le canal « phone ».
  *
- *  Palier 1 — Identification
- *    - prénom              → CONSERVÉ   (le pro connaît le prénom à l'appel)
- *    - nom                 → MASQUAGE   (initiale + points)
- *    - e-mail              → alias watermarqué (géré en amont par la route)
- *    - téléphone           → CONSERVÉ
- *    - date de naissance   → GÉNÉRALISATION → tranche d'âge de 5 ans
- *  Palier 2 — Localisation
- *    - adresse postale     → GÉNÉRALISATION → distance au centre de la
- *                            commune, bornée en tranche (« < 2 km du centre »).
- *                            Calculée depuis center_distance_m (géocodage BAN
- *                            à l'enregistrement) ; l'adresse précise et les
- *                            coordonnées exactes ne sont JAMAIS exposées.
- *    - ville / région      → CONSERVÉ
- *    - code postal         → GÉNÉRALISATION → département
- *  Palier 3 — Style de vie : conservé, sauf animaux (catégorisé : on retire
- *    la race) et véhicule (type conservé, marque retirée côté route).
- *  Palier 4 — Données professionnelles : statut / secteur conservés ; poste
- *    et revenus supprimés (champs dépréciés + sensibles).
- *  Palier 5 — Patrimoine & projets : résidence / projets conservés ;
- *    épargne supprimée (champ déprécié + sensible).
- *
- * Tout est calculé À LA LECTURE (aucune donnée transformée n'est stockée),
- * donc parfaitement réversible. Le même backend `/api/*` sert le web ET le
- * mobile : la pseudonymisation profite automatiquement aux deux.
+ * Tout est calculé À LA LECTURE (aucune donnée transformée n'est stockée).
+ * Le même backend `/api/*` sert le web ET le mobile.
  */
 
-import { ageFromBirth } from "@/lib/prospect/naissance";
+import { nomInitial, type ContactChannel } from "@/lib/campaigns/contact-channels";
 
-export type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
+/** Seul palier restant (clé conservée pour la compatibilité des clients). */
+export type TierKey = "identity";
 
 export type PseudoKind =
   | "keep" // conservé tel quel
-  | "suppress" // jamais transmis (champ omis)
-  | "mask" // initiale + points (ex. « Marie » → « M•••• »)
-  | "age" // date de naissance → tranche d'âge (« 32–37 ans »)
-  | "postal" // code postal → département (« 69 · Rhône »)
-  | "distance" // adresse → distance au centre (lit center_distance_m)
-  | "alias" // e-mail → alias watermarqué (valeur injectée par la route)
-  | "animal"; // animaux → catégorie sans la race
+  | "initial" // nom → initiale + point (« D. »)
+  | "alias"; // e-mail → alias watermarqué (valeur injectée par la route)
 
-type FieldRule = { col: string; label: string; kind: PseudoKind };
+type FieldRule = { col: string; label: string; kind: PseudoKind; channel?: ContactChannel };
 
-/**
- * Ordre + libellés + règle de transformation par palier. Les libellés sont
- * adaptés au résultat pseudonymisé (« Tranche d'âge », « Département »).
- */
 export const PSEUDO_FIELDS: Record<TierKey, FieldRule[]> = {
   identity: [
     { col: "prenom", label: "Prénom", kind: "keep" },
-    { col: "nom", label: "Nom", kind: "mask" },
-    { col: "email", label: "E-mail (alias sécurisé)", kind: "alias" },
-    { col: "telephone", label: "Téléphone", kind: "keep" },
-    { col: "naissance", label: "Tranche d'âge", kind: "age" },
-  ],
-  localisation: [
-    { col: "adresse", label: "Zone", kind: "distance" },
-    { col: "ville", label: "Ville", kind: "keep" },
-    { col: "code_postal", label: "Département", kind: "postal" },
-    { col: "region", label: "Région", kind: "keep" },
-  ],
-  vie: [
-    { col: "foyer", label: "Foyer", kind: "keep" },
-    { col: "sports", label: "Sports / loisirs", kind: "keep" },
-    { col: "animaux", label: "Animaux", kind: "animal" },
-    { col: "vehicule", label: "Véhicule", kind: "keep" },
-    { col: "logement", label: "Logement", kind: "keep" },
-    { col: "mobilite", label: "Mobilité", kind: "keep" },
-  ],
-  pro: [
-    { col: "poste", label: "Poste", kind: "suppress" },
-    { col: "statut", label: "Statut", kind: "keep" },
-    { col: "secteur", label: "Secteur", kind: "keep" },
-    { col: "revenus", label: "Revenus déclarés", kind: "suppress" },
-  ],
-  patrimoine: [
-    { col: "residence", label: "Résidence principale", kind: "keep" },
-    { col: "epargne", label: "Épargne disponible", kind: "suppress" },
-    { col: "projets", label: "Projets à 3–5 ans", kind: "keep" },
+    { col: "nom", label: "Nom", kind: "initial" },
+    { col: "email", label: "E-mail (alias sécurisé)", kind: "alias", channel: "email" },
   ],
 };
 
@@ -92,97 +44,10 @@ function strOrNull(v: unknown): string | null {
   return s === "" ? null : s;
 }
 
-/** « Marie » → « M•••• », « Dubois » → « D••••• ». */
-export function maskToken(value: unknown): string | null {
-  const s = strOrNull(value);
-  if (!s) return null;
-  const chars = Array.from(s);
-  const first = chars[0].toUpperCase();
-  const dots = Math.min(Math.max(chars.length - 1, 2), 5);
-  return first + "•".repeat(dots);
-}
-
-/**
- * Date de naissance (« MM/AAAA », anciens « JJ/MM/AAAA » / « AAAA-MM-JJ »
- * tolérés) → tranche d'âge par tranche de 5 ans (« 32–37 ans »).
- * `ref` permet de figer la date pour les tests.
- */
-export function ageRange(value: unknown, ref?: Date): string | null {
-  const s = strOrNull(value);
-  if (!s) return null;
-  const age = ageFromBirth(s, ref);
-  if (age === null) return null;
-  // Tranche de 5 ans (au lieu d'une décennie) : on conserve la précision du
-  // profil tout en généralisant. Les paliers sont ancrés sur +2 (…, 27–32,
-  // 32–37, 37–42, …) de sorte que l'âge se situe au cœur de sa tranche
-  // (ex. 34 ans → « 32–37 ans »).
-  const lo = Math.max(0, Math.floor((age - 2) / 5) * 5 + 2);
-  return `${lo}–${lo + 5} ans`;
-}
-
-// Départements français (code → nom). Le code postal est généralisé à son
-// département (2 chiffres ; 3 pour l'Outre-mer 97x/98x ; « 20 » → Corse).
-const DEPARTMENTS: Record<string, string> = {
-  "01": "Ain", "02": "Aisne", "03": "Allier", "04": "Alpes-de-Haute-Provence",
-  "05": "Hautes-Alpes", "06": "Alpes-Maritimes", "07": "Ardèche", "08": "Ardennes",
-  "09": "Ariège", "10": "Aube", "11": "Aude", "12": "Aveyron",
-  "13": "Bouches-du-Rhône", "14": "Calvados", "15": "Cantal", "16": "Charente",
-  "17": "Charente-Maritime", "18": "Cher", "19": "Corrèze", "20": "Corse",
-  "21": "Côte-d'Or", "22": "Côtes-d'Armor", "23": "Creuse", "24": "Dordogne",
-  "25": "Doubs", "26": "Drôme", "27": "Eure", "28": "Eure-et-Loir",
-  "29": "Finistère", "30": "Gard", "31": "Haute-Garonne", "32": "Gers",
-  "33": "Gironde", "34": "Hérault", "35": "Ille-et-Vilaine", "36": "Indre",
-  "37": "Indre-et-Loire", "38": "Isère", "39": "Jura", "40": "Landes",
-  "41": "Loir-et-Cher", "42": "Loire", "43": "Haute-Loire", "44": "Loire-Atlantique",
-  "45": "Loiret", "46": "Lot", "47": "Lot-et-Garonne", "48": "Lozère",
-  "49": "Maine-et-Loire", "50": "Manche", "51": "Marne", "52": "Haute-Marne",
-  "53": "Mayenne", "54": "Meurthe-et-Moselle", "55": "Meuse", "56": "Morbihan",
-  "57": "Moselle", "58": "Nièvre", "59": "Nord", "60": "Oise",
-  "61": "Orne", "62": "Pas-de-Calais", "63": "Puy-de-Dôme", "64": "Pyrénées-Atlantiques",
-  "65": "Hautes-Pyrénées", "66": "Pyrénées-Orientales", "67": "Bas-Rhin", "68": "Haut-Rhin",
-  "69": "Rhône", "70": "Haute-Saône", "71": "Saône-et-Loire", "72": "Sarthe",
-  "73": "Savoie", "74": "Haute-Savoie", "75": "Paris", "76": "Seine-Maritime",
-  "77": "Seine-et-Marne", "78": "Yvelines", "79": "Deux-Sèvres", "80": "Somme",
-  "81": "Tarn", "82": "Tarn-et-Garonne", "83": "Var", "84": "Vaucluse",
-  "85": "Vendée", "86": "Vienne", "87": "Haute-Vienne", "88": "Vosges",
-  "89": "Yonne", "90": "Territoire de Belfort", "91": "Essonne", "92": "Hauts-de-Seine",
-  "93": "Seine-Saint-Denis", "94": "Val-de-Marne", "95": "Val-d'Oise",
-  "971": "Guadeloupe", "972": "Martinique", "973": "Guyane", "974": "La Réunion",
-  "975": "Saint-Pierre-et-Miquelon", "976": "Mayotte",
-};
-
-/** « 69002 » → « 69 · Rhône ». */
-export function postalToDept(value: unknown): string | null {
-  const s = strOrNull(value);
-  if (!s) return null;
-  const digits = s.replace(/\D/g, "");
-  if (digits.length < 2) return null;
-  let code = digits.slice(0, 2);
-  if (code === "97" || code === "98") code = digits.slice(0, 3);
-  const name = DEPARTMENTS[code];
-  return name ? `${code} · ${name}` : code;
-}
-
-/** Distance (m) au centre de la commune → tranche (« < 2 km du centre »). */
-export function distanceBand(meters: unknown): string | null {
-  if (meters == null) return null;
-  const m = Number(meters);
-  if (!Number.isFinite(m) || m < 0) return null;
-  const km = m / 1000;
-  if (km < 2) return "< 2 km du centre";
-  if (km < 5) return "2–5 km du centre";
-  if (km < 10) return "5–10 km du centre";
-  if (km < 20) return "10–20 km du centre";
-  return "> 20 km du centre";
-}
-
-/** Animaux : on retire la race, on ne garde que la présence d'un animal. */
-export function animalCategory(value: unknown): string | null {
-  const s = strOrNull(value);
-  if (!s) return null;
-  const low = s.toLowerCase();
-  if (low === "non" || low === "aucun" || low.startsWith("pas")) return "Aucun";
-  return "Animal de compagnie";
+/** « Dubois » / « D » → « D. ». */
+export function initialToken(value: unknown): string | null {
+  const i = nomInitial(value);
+  return i ? `${i}.` : null;
 }
 
 /** Applique une règle de transformation à une valeur brute. */
@@ -190,46 +55,30 @@ export function applyKind(kind: PseudoKind, raw: unknown): string | null {
   switch (kind) {
     case "keep":
       return strOrNull(raw);
-    case "suppress":
+    case "initial":
+      return initialToken(raw);
     case "alias":
-      return null; // alias : injecté par la route ; suppress : omis
-    case "mask":
-      return maskToken(raw);
-    case "age":
-      return ageRange(raw);
-    case "postal":
-      return postalToDept(raw);
-    case "animal":
-      return animalCategory(raw);
+      return null; // injecté par la route
     default:
       return null;
   }
 }
 
 /**
- * Construit la liste pseudonymisée { label, value } d'un palier à partir de
- * la ligne brute lue en base. Les champs en SUPPRESSION sont omis. L'e-mail
- * reçoit l'alias watermarqué fourni par la route (`opts.aliasEmail`).
+ * Construit la liste pseudonymisée { label, value } du profil contact à partir
+ * de la ligne brute `prospect_identity`. L'e-mail reçoit l'alias watermarqué
+ * fourni par la route (`opts.aliasEmail`) et n'apparaît que si la campagne a
+ * le canal « email » (`opts.channels`, défaut : tous).
  */
 export function pseudonymizeTierItems(
   tier: TierKey,
   raw: Record<string, unknown>,
-  opts?: { aliasEmail?: string | null },
+  opts?: { aliasEmail?: string | null; channels?: readonly ContactChannel[] },
 ): Array<{ label: string; value: string | null }> {
   const out: Array<{ label: string; value: string | null }> = [];
   for (const f of PSEUDO_FIELDS[tier]) {
-    if (f.kind === "suppress") continue; // jamais transmis
-    let value: string | null;
-    if (f.kind === "alias") {
-      value = opts?.aliasEmail ?? null;
-    } else if (f.kind === "distance") {
-      // La distance se lit dans center_distance_m (géocodage), pas dans la
-      // colonne adresse. Si non géocodé, on omet le champ (pas de ligne vide).
-      value = distanceBand(raw["center_distance_m"]);
-      if (value == null) continue;
-    } else {
-      value = applyKind(f.kind, raw[f.col]);
-    }
+    if (f.channel && opts?.channels && !opts.channels.includes(f.channel)) continue;
+    const value = f.kind === "alias" ? opts?.aliasEmail ?? null : applyKind(f.kind, raw[f.col]);
     out.push({ label: f.label, value });
   }
   return out;

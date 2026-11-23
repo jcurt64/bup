@@ -1,185 +1,153 @@
 /**
  * Sélection des prospects qui matchent les critères d'une campagne.
  *
- * Appelé exclusivement depuis `POST /api/pro/campaigns` en service_role
- * (la requête lit en cross-prospect, ce que la RLS bloquerait).
+ * Appelé exclusivement en service_role (POST /api/pro/campaigns,
+ * re-sollicitation) — la requête lit en cross-prospect.
  *
- * Implémentation : 1 SELECT principal + filtre âge appliqué côté Node
- * (la colonne `naissance` est `text`, parser en JS est plus simple
- * qu'une fonction SQL).
+ * Pivot « mise en relation pure » : plus de paliers de données. Un prospect
+ * est éligible s'il a renseigné son prénom + l'initiale de son nom ET la/les
+ * coordonnée(s) requise(s) par les canaux de contact de la campagne
+ * (téléphone et/ou e-mail).
+ *
+ * Filtres d'audience optionnels (cf. audience-targeting.ts) : villes (égalité
+ * insensible casse/accents/tirets sur prospect_identity.ville), sexe
+ * (femme/homme) et tranche d'âge (18-35 / 35+). Liste vide = pas de filtre ;
+ * un prospect sans la donnée filtrée est exclu de cette campagne. Ces données
+ * ne sortent jamais du matching (jamais renvoyées au pro).
+ *
+ * Restent appliqués : niveau de vérification, exclusion des certifiés,
+ * fiabilité minimum, type de campagne accepté, exclusions explicites.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import {
   acceptableVerifLevels,
-  ageFromBirthString,
-  ageMatchesAny,
-  ageRangesToBounds,
-  geoCodePostalPrefix,
-  geoRadiusFloorKm,
   objectiveToCampaignType,
-  tierNumsToKeys,
   type CampaignTypeDb,
 } from "./mapping";
-import { haversineMeters, type LatLng } from "@/lib/geo/geocode";
+import {
+  DEFAULT_CONTACT_CHANNELS,
+  identityCoversChannels,
+  type ContactChannel,
+} from "./contact-channels";
+import {
+  EMPTY_AUDIENCE,
+  cityIlikePattern,
+  identityMatchesAudience,
+  type AudienceTargeting,
+} from "./audience-targeting";
 
 export type MatchingInput = {
   objectiveId: string;
-  requiredTiers: number[];
-  geo: string;
-  /** Cible géographique précise choisie via l'autocomplete officiel
-   *  geo.api.gouv.fr — quand présent, override la logique du préfixe
-   *  CP-du-pro (`geoCodePostalPrefix`). Sécurité : le client envoie le
-   *  shape brut, la route POST le passe à `normalizeGeoTarget` avant
-   *  de le forwarder ici. */
-  geoTarget?:
-    | { type: "ville"; codesPostaux: string[] }
-    | { type: "dept"; code: string }
-    | { type: "region"; deptCodes: string[] }
-    | null;
-  proCodePostal: string | null;
-  /** Coordonnées de l'établissement pro — requises pour `geo === "around"`
-   *  (ciblage par rayon). Renseignées depuis pro_accounts.latitude/longitude
-   *  (géocodage de l'adresse, cf. /api/pro/info). */
-  proLat?: number | null;
-  proLng?: number | null;
-  /** Rayon (km) du ciblage « autour de moi ». Ignoré hors `geo === "around"`. */
-  radiusKm?: number | null;
-  ages: string[];
+  /** Canaux de contact de la campagne (défaut : téléphone + e-mail). */
+  contactChannels?: ContactChannel[];
   verifLevel: string;
   contacts: number;
-  /** Quand true, retire les prospects `certifie_confiance` du pool —
-   *  le pro a explicitement décoché ce palier dans le wizard. */
+  /** Quand true, retire les prospects `certifie_confiance` du pool. */
   excludeCertified?: boolean;
-  /** Prospects à NE PAS resélectionner (déjà sollicités sur la campagne).
-   *  Utilisé par la re-sollicitation après élargissement (cf. resolicit.ts)
-   *  pour ne ramener que des prospects nouvellement éligibles, et par l'option
-   *  « exclure les anciens acceptants » (cf. past-acceptors.ts). */
+  /** Prospects à NE PAS resélectionner (déjà sollicités, anciens acceptants). */
   excludeProspectIds?: string[];
-  /** Fiabilité minimum (0-100) exigée par le pro (étape 4 ciblage). Quand > 0,
-   *  ne retient que les prospects dont `prospects.fiabilite_pct >= seuil`
-   *  (les prospects jamais notés, fiabilite_pct NULL, sont exclus). */
+  /** Fiabilité minimum (0-100). Quand > 0, ne retient que les prospects dont
+   *  `prospects.fiabilite_pct >= seuil` (NULL exclus). */
   minFiabilitePct?: number | null;
+  /** Filtres d'audience (villes / sexe / tranche d'âge). Absent = aucun. */
+  audience?: AudienceTargeting;
+  // ── Champs historiques (ciblage géo/âge/paliers) : acceptés mais IGNORÉS.
+  requiredTiers?: number[];
+  geo?: string;
+  geoTarget?: unknown;
+  proCodePostal?: string | null;
+  proLat?: number | null;
+  proLng?: number | null;
+  radiusKm?: number | null;
+  ages?: string[];
 };
 
 export type MatchedProspect = {
   prospectId: string;
   email: string | null;
   prenom: string | null;
-  /** Niveau de vérification au moment du match. Sert à appliquer le
-   *  bonus ×2 sur la récompense quand le prospect est `certifie_confiance`. */
+  /** Niveau de vérification au moment du match (bonus ×2 certifié). */
   verification: "basique" | "verifie" | "certifie_confiance";
 };
 
 /** Taille max de la liste d'exclusion passée en filtre PostgREST `not.in`. */
 const MAX_SQL_EXCLUDE_IDS = 300;
 
+/** Sur-échantillonnage : la complétude des coordonnées est revérifiée en JS
+ *  (chaînes vides), on ramène un peu plus de lignes que demandé. */
+const OVERSAMPLE_FACTOR = 2;
+
 export async function findMatchingProspects(
   admin: SupabaseClient<Database>,
   input: MatchingInput,
 ): Promise<MatchedProspect[]> {
-  const requiredKeys = tierNumsToKeys(input.requiredTiers);
+  const channels =
+    input.contactChannels && input.contactChannels.length > 0
+      ? input.contactChannels
+      : DEFAULT_CONTACT_CHANNELS;
   let acceptableLevels = acceptableVerifLevels(input.verifLevel);
   if (input.excludeCertified) {
-    // Retire `certifie_confiance` du pool : le pro a explicitement
-    // demandé à exclure ce palier (ex. pour limiter le doublage de gain).
     acceptableLevels = acceptableLevels.filter(
       (l) => l !== "certifie_confiance",
     );
   }
-  // Cible géo précise (issue de l'autocomplete officiel) → la transformer
-  // en règle de filtre CP côté JS. Sinon, retombe sur le préfixe basé
-  // sur le CP du pro (legacy + cas where the pro didn't pick a target).
-  const geoTarget = input.geoTarget ?? null;
-  // `allowedExactCps` : CP exacts à matcher (pour le mode ville → 1-N CP).
-  // `allowedPrefixes` : préfixes (chaque entrée matchée via startsWith)
-  // pour dept (1 préfixe) ou region (N préfixes de tous les dépts).
-  let allowedExactCps: Set<string> | null = null;
-  let allowedPrefixes: string[] | null = null;
-  if (geoTarget?.type === "ville") {
-    allowedExactCps = new Set(geoTarget.codesPostaux);
-  } else if (geoTarget?.type === "dept") {
-    allowedPrefixes = [geoTarget.code];
-  } else if (geoTarget?.type === "region") {
-    allowedPrefixes = geoTarget.deptCodes;
-  }
-  const cpPrefix = geoTarget ? null : geoCodePostalPrefix(input.geo, input.proCodePostal);
-  // Plancher de rayon : un prospect doit avoir réglé son rayon
-  // (`prospect_localisation.targeting_radius_km`) >= ce plancher pour
-  // accepter une campagne de la portée demandée. Null = national → on
-  // ne filtre pas, le prospect reçoit même avec un rayon de 5 km.
-  const radiusFloorKm = geoRadiusFloorKm(input.geo);
-
-  // Niveau d'extension géographique du prospect (cf. prospect_localisation.
-  // geo_extension). Il lève le PLANCHER DE RAYON jusqu'à la portée choisie :
-  // un prospect « départemental » accepte les campagnes ville/dept couvrant
-  // sa zone (filtre CP) même avec un petit rayon ; « régional » va jusqu'à la
-  // région ; « national » lève aussi le filtre CP (accepte partout). Le filtre
-  // CP (= « le prospect habite dans la zone ciblée ») reste sinon appliqué.
-  const GEO_SCOPE_RANK: Record<string, number> = { ville: 1, dept: 2, region: 3 };
-  const EXT_RANK: Record<string, number> = {
-    local: 0,
-    departemental: 2,
-    regional: 3,
-    national: 4,
-  };
-  const campaignScopeRank = GEO_SCOPE_RANK[input.geo] ?? 0;
-
-  // Ciblage « autour de moi » : filtre par distance orthodromique réelle
-  // (haversine) entre l'établissement pro et le domicile du prospect, borné
-  // par le rayon choisi (10/30/50 km). Sans coordonnées pro → aucun match
-  // (la route POST garde déjà ce cas via `pro_address_required`).
-  const isAround = input.geo === "around";
-  const proPoint: LatLng | null =
-    typeof input.proLat === "number" && typeof input.proLng === "number"
-      ? { lat: input.proLat, lng: input.proLng }
-      : null;
-  if (isAround && !proPoint) return [];
-  const aroundRadiusM = (input.radiusKm ?? 0) * 1000;
-
   const excludeSet = new Set(input.excludeProspectIds ?? []);
-
-  const ageBounds = ageRangesToBounds(input.ages);
-  const wantsTier1 = input.requiredTiers.includes(1);
   const campaignType: CampaignTypeDb = objectiveToCampaignType(input.objectiveId);
 
-  // Sur-fetch ×3 quand on filtre par âge côté Node, pour avoir une marge
-  // si beaucoup de prospects matchent les autres critères mais pas l'âge.
-  // Quand cette marge ne suffit pas, l'appelant doit accepter un résultat
-  // plus court que `contacts` sans considérer ça comme une erreur.
-  const oversampleFactor = ageBounds && wantsTier1 ? 3 : 1;
-  // Au-delà de ce seuil, la liste d'exclusion n'est plus envoyée à PostgREST
-  // (URL trop longue) : on filtre en JS et on sur-fetch d'autant de lignes.
   const sqlExclude = excludeSet.size > 0 && excludeSet.size <= MAX_SQL_EXCLUDE_IDS;
+  const audience = input.audience ?? EMPTY_AUDIENCE;
+  // Le pré-filtre ville (ilike) est plus large que l'égalité normalisée →
+  // sur-échantillonnage renforcé quand un filtre ville est actif.
+  const oversample =
+    audience.cities.length > 0 ? OVERSAMPLE_FACTOR * 3 : OVERSAMPLE_FACTOR;
   const selectLimit =
-    input.contacts * oversampleFactor + (sqlExclude ? 0 : excludeSet.size);
+    input.contacts * oversample + (sqlExclude ? 0 : excludeSet.size);
 
+  // `!inner` : seuls les prospects ayant une ligne prospect_identity
+  // remontent, et les filtres sur l'embed filtrent bien le parent.
   let query = admin
     .from("prospects")
     .select(
       `
       id,
       verification,
-      removed_tiers,
-      hidden_tiers,
-      prospect_identity ( email, prenom, naissance ),
-      prospect_localisation ( code_postal, targeting_radius_km, national_opt_in, geo_extension, latitude, longitude )
+      prospect_identity!inner ( email, prenom, nom, telephone, ville, genre, tranche_age )
     `,
     )
     .in("verification", acceptableLevels)
-    .order("bupp_score", { ascending: false })
-    .order("id", { ascending: true })
-    .limit(selectLimit);
+    .not("prospect_identity.prenom", "is", null)
+    .not("prospect_identity.nom", "is", null);
+  if (channels.includes("phone")) {
+    query = query.not("prospect_identity.telephone", "is", null);
+  }
+  if (channels.includes("email")) {
+    query = query.not("prospect_identity.email", "is", null);
+  }
 
-  // Exclut les prospects déjà sollicités (re-sollicitation post-élargissement).
-  // Les UUID n'ont pas besoin d'être quotés dans le filtre `in` de PostgREST.
+  // ── Filtres d'audience ───────────────────────────────────────────
+  if (audience.genres.length > 0) {
+    query = query.in("prospect_identity.genre", audience.genres);
+  }
+  if (audience.ageBands.length > 0) {
+    query = query.in("prospect_identity.tranche_age", audience.ageBands);
+  }
+  if (audience.cities.length > 0) {
+    // Pré-filtre SQL large (motifs ilike `_` sur les caractères variables),
+    // l'égalité normalisée exacte est revérifiée en JS ci-dessous.
+    const patterns = [...new Set(audience.cities.map(cityIlikePattern))].filter(Boolean);
+    if (patterns.length === 0) return [];
+    query = query.or(
+      patterns.map((p) => `ville.ilike.${p}`).join(","),
+      { referencedTable: "prospect_identity" },
+    );
+  }
+
   if (sqlExclude) {
     query = query.not("id", "in", `(${[...excludeSet].join(",")})`);
   }
 
-  // Filtre « fiabilité minimum » (étape 4). `gte` exclut nativement les NULL
-  // (prospects jamais notés) — ce que l'on veut quand un seuil est posé.
   const minFiab = Number(input.minFiabilitePct ?? 0);
   if (minFiab > 0) {
     query = query.gte("fiabilite_pct", minFiab);
@@ -187,21 +155,14 @@ export async function findMatchingProspects(
 
   // Filtre type campagne : `all_campaign_types=true OR enum dans campaign_types`.
   // ⚠ campaignType DOIT venir de `objectiveToCampaignType` (enum literal).
-  // Ne JAMAIS interpoler une chaîne libre ici — risque d'injection PostgREST.
   query = query.or(
     `all_campaign_types.eq.true,campaign_types.cs.{${campaignType}}`,
   );
 
-  // ⚠ Plus de `query.like("prospect_localisation.code_postal", cpPrefix)` :
-  // ce filtre PostgREST ne filtrait que l'embed (nullify la localisation
-  // si CP non matché), pas le parent. On le perdait au profit du check JS
-  // ci-dessous. Désormais on ramène tout, et le filtre CP/national est
-  // appliqué en JS pour pouvoir gérer `national_opt_in=true` (bypass).
-  // Le préfixe est rendu plus strict côté JS via `startsWith` (le `%` du
-  // pattern PostgREST n'est plus pertinent).
-  const cpPrefixRaw = cpPrefix ? cpPrefix.replace(/%$/, "") : null;
-
-  const { data, error } = await query;
+  const { data, error } = await query
+    .order("bupp_score", { ascending: false })
+    .order("id", { ascending: true })
+    .limit(selectLimit);
   if (error) throw error;
   if (!data) return [];
 
@@ -209,87 +170,9 @@ export async function findMatchingProspects(
   for (const row of data) {
     if (matched.length >= input.contacts) break;
     if (excludeSet.has(row.id)) continue;
-
-    // Tous les paliers requis doivent être présents et pas masqués/supprimés.
-    const removed = (row.removed_tiers ?? []) as string[];
-    const hidden = (row.hidden_tiers ?? []) as string[];
-    const blocked = requiredKeys.some(
-      (k) => removed.includes(k) || hidden.includes(k),
-    );
-    if (blocked) continue;
-
-    // Le palier 1 (identity) doit avoir une row prospect_identity non vide
-    // si on l'exige. Idem pour la localisation si geo != national.
-    // (Les deux relations sont isOneToOne → typés `T | null` directement.)
     const identity = row.prospect_identity;
-    if (requiredKeys.includes("identity") && !identity) continue;
-
-    const localisation = row.prospect_localisation;
-    const geoExtension = localisation?.geo_extension ?? "national";
-    // `national` lève tous les filtres géo (CP + plancher rayon).
-    const nationalOptIn =
-      geoExtension === "national" || localisation?.national_opt_in === true;
-    // Le plancher de rayon est levé si le prospect est national OU si son
-    // niveau d'extension couvre la portée de la campagne (départemental ⊇
-    // ville/dept ; régional ⊇ ville/dept/region).
-    const bypassRadiusFloor =
-      nationalOptIn || (EXT_RANK[geoExtension] ?? 0) >= campaignScopeRank;
-
-    // Filtre CP : un prospect doit habiter dans la zone ciblée. Trois
-    // sources possibles (par ordre de priorité) :
-    //   1. `geoTarget` ville → match exact sur l'un des CP du commune
-    //   2. `geoTarget` dept/region → préfixe(s) sur le code dept
-    //   3. legacy `cpPrefixRaw` (dérivé du CP du pro)
-    // Dans tous les cas, `national_opt_in=true` bypasse le filtre.
-    if (!nationalOptIn && (allowedExactCps || allowedPrefixes || cpPrefixRaw)) {
-      const cp = localisation?.code_postal;
-      if (!cp) continue;
-      let pass = false;
-      if (allowedExactCps) {
-        pass = allowedExactCps.has(cp);
-      } else if (allowedPrefixes) {
-        pass = allowedPrefixes.some((p) => cp.startsWith(p));
-      } else if (cpPrefixRaw) {
-        pass = cp.startsWith(cpPrefixRaw);
-      }
-      if (!pass) continue;
-    }
-
-    // Filtre rayon prospect : le prospect doit avoir réglé son rayon
-    // de ciblage >= au plancher imposé par la portée de la campagne.
-    // Le flag « national » l'exempte aussi de ce plancher (sémantique
-    // « j'accepte n'importe où »). Si la row palier 2 (localisation)
-    // n'existe pas, on suppose le default DB (25 km) — cohérent avec
-    // le check constraint.
-    if (radiusFloorKm != null && !bypassRadiusFloor) {
-      const prospectRadius = localisation?.targeting_radius_km ?? 25;
-      if (prospectRadius < radiusFloorKm) continue;
-    }
-
-    // Filtre « autour de moi » : distance réelle pro↔prospect <= rayon choisi.
-    // `national_opt_in=true` exempte (le prospect accepte n'importe où). Le
-    // prospect non géocodé est exclu (on ne peut pas mesurer la distance), et
-    // sa propre zone d'acceptation (`targeting_radius_km`) doit couvrir la
-    // distance — il ne reçoit pas une sollicitation au-delà de ce qu'il a réglé.
-    if (isAround && !nationalOptIn) {
-      const lat = localisation?.latitude;
-      const lng = localisation?.longitude;
-      if (typeof lat !== "number" || typeof lng !== "number") continue;
-      // proPoint est non-null ici (garde en tête de fonction).
-      const distM = haversineMeters(proPoint as LatLng, { lat, lng });
-      if (distM > aroundRadiusM) continue;
-      const prospectRadiusM = (localisation?.targeting_radius_km ?? 25) * 1000;
-      if (prospectRadiusM < distM) continue;
-    }
-
-    // Filtre âge — uniquement applicable si tier 1 requis (sinon on ne
-    // peut pas connaître la naissance, on laisse passer).
-    if (ageBounds && wantsTier1) {
-      const age = ageFromBirthString(identity?.naissance ?? null);
-      if (age == null) continue;
-      if (!ageMatchesAny(age, ageBounds)) continue;
-    }
-
+    if (!identityCoversChannels(identity, channels)) continue;
+    if (!identityMatchesAudience(identity, audience)) continue;
     matched.push({
       prospectId: row.id,
       email: identity?.email ?? null,
@@ -297,6 +180,5 @@ export async function findMatchingProspects(
       verification: row.verification as MatchedProspect["verification"],
     });
   }
-
   return matched;
 }

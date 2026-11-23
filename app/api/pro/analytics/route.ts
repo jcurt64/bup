@@ -21,15 +21,9 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
-import { ageFromBirthString } from "@/lib/campaigns/mapping";
 import { computeMessageOpenStats } from "@/lib/pro/message-opens";
 
 export const runtime = "nodejs";
-
-const AGE_BUCKETS: Array<[string, number, number]> = [
-  ["18–25", 18, 25], ["26–35", 26, 35], ["36–45", 36, 45],
-  ["46–55", 46, 55], ["56–64", 56, 64], ["65+", 65, 200],
-];
 
 const PERIOD_DAYS: Record<string, number | null> = {
   "7d": 7,
@@ -82,12 +76,7 @@ export async function GET(req: Request) {
   let query = admin
     .from("relations")
     .select(
-      `status, decided_at, sent_at,
-       campaigns ( targeting ),
-       prospects:prospect_id (
-         prospect_identity ( naissance, genre ),
-         prospect_localisation ( ville )
-       )`,
+      `status, decided_at, sent_at`,
     )
     .eq("pro_account_id", proId);
 
@@ -105,95 +94,32 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "read_failed" }, { status: 500 });
   }
 
-  type Row = {
-    status: string;
-    decided_at: string | null;
-    sent_at: string | null;
-    campaigns: { targeting: { requiredTiers?: number[] } | null } | null;
-    prospects: {
-      prospect_identity: { naissance: string | null; genre: string | null } | null;
-      prospect_localisation: { ville: string | null } | null;
-    } | null;
-  };
-  const rows = ((data ?? []) as unknown as Row[]).map((r) => {
-    const camp = Array.isArray(r.campaigns) ? r.campaigns[0] : r.campaigns;
-    const id = Array.isArray(r.prospects) ? r.prospects[0] : r.prospects;
-    const pi = id?.prospect_identity
-      ? (Array.isArray(id.prospect_identity) ? id.prospect_identity[0] : id.prospect_identity)
-      : null;
-    const pl = id?.prospect_localisation
-      ? (Array.isArray(id.prospect_localisation) ? id.prospect_localisation[0] : id.prospect_localisation)
-      : null;
-    return {
-      status: r.status,
-      decidedAt: r.decided_at,
-      tiers: (camp?.targeting?.requiredTiers ?? []) as number[],
-      naissance: pi?.naissance ?? null,
-      genre: pi?.genre ?? null,
-      ville: pl?.ville ?? null,
-    };
-  });
+  type Row = { status: string; decided_at: string | null; sent_at: string | null };
+  const rows = ((data ?? []) as unknown as Row[]).map((r) => ({
+    status: r.status,
+    decidedAt: r.decided_at,
+  }));
 
   const isWin = (s: string) => s === "accepted" || s === "settled";
   const isFinal = (s: string) =>
     s === "accepted" || s === "settled" || s === "refused" || s === "expired";
 
-  // 1. Acceptance rate by tier (on relations finales).
-  const acceptanceByTier = [1, 2, 3, 4, 5].map((tier) => {
-    const finals = rows.filter((r) => isFinal(r.status) && r.tiers.includes(tier));
-    const wins = finals.filter((r) => isWin(r.status));
-    const pct = finals.length === 0 ? 0 : Math.round((wins.length / finals.length) * 100);
-    const labels = ["Identification", "Localisation", "Style de vie", "Pro", "Patrimoine"];
-    return { tier, label: labels[tier - 1], pct };
-  });
-
-  // 2. Geographic top 5 par taux d'acceptation.
-  const geoMap = new Map<string, { wins: number; finals: number }>();
-  for (const r of rows) {
-    if (!isFinal(r.status) || !r.ville) continue;
-    const m = geoMap.get(r.ville) || { wins: 0, finals: 0 };
-    m.finals++; if (isWin(r.status)) m.wins++;
-    geoMap.set(r.ville, m);
-  }
-  const geoBreakdown = Array.from(geoMap.entries())
-    .map(([ville, m]) => ({
-      ville,
-      contacts: m.wins,
-      pct: m.finals === 0 ? 0 : Math.round((m.wins / m.finals) * 100),
-    }))
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 5);
-
-  // 3. Age breakdown sur relations gagnées.
-  const ageWins = AGE_BUCKETS.map(() => 0);
-  let ageTotal = 0;
-  for (const r of rows) {
-    if (!isWin(r.status)) continue;
-    const age = ageFromBirthString(r.naissance);
-    if (age == null) continue;
-    const idx = AGE_BUCKETS.findIndex(([, lo, hi]) => age >= lo && age <= hi);
-    if (idx < 0) continue;
-    ageWins[idx]++; ageTotal++;
-  }
-  const ageBreakdown = AGE_BUCKETS.map(([label], i) => ({
-    label,
-    pct: ageTotal === 0 ? 0 : Math.round((ageWins[i] / ageTotal) * 100),
-  }));
-
-  // 4. Sex breakdown.
-  const genres = { femme: 0, homme: 0, autre: 0 } as Record<string, number>;
-  let genreTotal = 0;
-  for (const r of rows) {
-    if (!isWin(r.status)) continue;
-    const g = (r.genre || "autre").toLowerCase();
-    const key = g === "femme" || g === "homme" ? g : "autre";
-    genres[key]++; genreTotal++;
-  }
-  const sexBreakdown = [
-    { label: "Femmes", pct: genreTotal === 0 ? 0 : Math.round((genres.femme / genreTotal) * 100) },
-    { label: "Hommes", pct: genreTotal === 0 ? 0 : Math.round((genres.homme / genreTotal) * 100) },
-    { label: "Autre / non précisé", pct: genreTotal === 0 ? 0 : Math.round((genres.autre / genreTotal) * 100) },
+  // 1-4. Pivot « mise en relation pure » : plus de paliers, de localisation,
+  //      d'âge ni de genre côté prospect. Les répartitions démographiques sont
+  //      renvoyées vides (clés conservées pour les clients publiés) ; le taux
+  //      d'acceptation n'a plus qu'une ligne (palier 1 = contact).
+  const finalsAll = rows.filter((r) => isFinal(r.status));
+  const winsAll = finalsAll.filter((r) => isWin(r.status));
+  const acceptanceByTier = [
+    {
+      tier: 1,
+      label: "Contact",
+      pct: finalsAll.length === 0 ? 0 : Math.round((winsAll.length / finalsAll.length) * 100),
+    },
   ];
+  const geoBreakdown: Array<{ ville: string; contacts: number; pct: number }> = [];
+  const ageBreakdown: Array<{ label: string; pct: number }> = [];
+  const sexBreakdown: Array<{ label: string; pct: number }> = [];
 
   // 5. Heatmap "Meilleurs créneaux" : compte des acceptations par
   //    (jour × heure) sur `decided_at`. Buckets de 2h alignés sur les

@@ -21,13 +21,7 @@ import { checkRateLimit } from "@/lib/rate-limit/check";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendRelationAccepted } from "@/lib/email/relation-accepted";
 import { sendRelationRefused } from "@/lib/email/relation-refused";
-import {
-  TIER_NUM_TO_KEY,
-  missingRequiredTierNums,
-  normalizeRequiredTierNums,
-  tierTable,
-} from "@/lib/prospect/completeness";
-import type { TierKey } from "@/lib/prospect/donnees";
+import { missingContactFields } from "@/lib/prospect/completeness";
 import {
   acceptRestrictedMessage,
   liftExpiredNonResponseRestriction,
@@ -114,8 +108,6 @@ export async function POST(req: Request, ctx: RouteContext) {
   const admin = createSupabaseAdminClient();
 
   // Ownership check : la relation doit appartenir au prospect courant.
-  // On charge aussi le ciblage de la campagne (requiredTiers) pour le
-  // garde-fou « données complètes » appliqué à l'acceptation.
   const { data: rel, error: relErr } = await admin
     .from("relations")
     .select(
@@ -213,40 +205,28 @@ export async function POST(req: Request, ctx: RouteContext) {
     }
   }
 
-  // Garde-fou « données complètes » — backstop du contrôle client (cf.
-  // Prospect.jsx). Pour ACCEPTER, le prospect doit avoir intégralement
-  // renseigné tous les paliers exigés par la campagne. Vérifié AVANT le
+  // Garde-fou « profil contact complet » — backstop du contrôle client.
+  // Pour ACCEPTER, le prospect doit avoir renseigné ses 7 champs : prénom,
+  // initiale du nom, ville, sexe, tranche d'âge, e-mail et téléphone. Vérifié AVANT le
   // rate-limit : une acceptation bloquée pour palier incomplet ne doit
   // pas consommer le quota de 5 min (sinon le prospect, après avoir
   // complété ses infos, devrait attendre pour ré-accepter).
   if (action === "accept") {
-    const campRaw = Array.isArray(rel.campaigns)
-      ? rel.campaigns[0]
-      : rel.campaigns;
-    const targeting = (campRaw?.targeting ?? null) as Record<string, unknown> | null;
-    const requiredNums = normalizeRequiredTierNums(targeting?.requiredTiers);
-    const requiredKeys = requiredNums
-      .map((n) => TIER_NUM_TO_KEY[n])
-      .filter(Boolean) as TierKey[];
-    const rows: Partial<Record<TierKey, Record<string, unknown> | null>> = {};
-    await Promise.all(
-      requiredKeys.map(async (key) => {
-        const { data } = await admin
-          .from(tierTable(key))
-          .select("*")
-          .eq("prospect_id", rel.prospect_id)
-          .maybeSingle();
-        rows[key] = (data as Record<string, unknown> | null) ?? null;
-      }),
-    );
-    const missingTiers = missingRequiredTierNums(requiredNums, rows);
-    if (missingTiers.length > 0) {
+    const { data: ident } = await admin
+      .from("prospect_identity")
+      .select("prenom, nom, ville, genre, tranche_age, email, telephone")
+      .eq("prospect_id", rel.prospect_id)
+      .maybeSingle();
+    const missingFields = missingContactFields(ident ?? null);
+    if (missingFields.length > 0) {
       return NextResponse.json(
         {
+          // Code historique conservé pour les clients publiés.
           error: "tiers_incomplete",
-          missingTiers,
+          missingTiers: [1],
+          missingFields,
           message:
-            "Merci de renseigner l'intégralité des informations demandées pour accepter cette sollicitation.",
+            "Merci de renseigner votre prénom, l'initiale de votre nom, votre e-mail et votre téléphone pour accepter cette sollicitation.",
         },
         { status: 422 },
       );

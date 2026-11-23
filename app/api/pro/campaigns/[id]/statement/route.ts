@@ -15,6 +15,7 @@
  * ne révèle pas l'existence).
  */
 
+import { nomInitial } from "@/lib/campaigns/contact-channels";
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -159,8 +160,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
   const contacts: CampaignStatementContact[] = contactsUnlocked
     ? wins.map((r) => {
         const ident = r.prospects?.prospect_identity ?? null;
+        const initial = nomInitial(ident?.nom);
         const fullName =
-          [ident?.prenom?.trim(), ident?.nom?.trim()].filter(Boolean).join(" ") || "Prospect";
+          [ident?.prenom?.trim(), initial ? `${initial}.` : ""].filter(Boolean).join(" ") || "Prospect";
         return {
           name: fullName,
           tierLabel,

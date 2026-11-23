@@ -1,33 +1,30 @@
 /**
  * GET /api/pro/contacts/[relationId]/details
  *
- * Renvoie au pro authentifié l'INTÉGRALITÉ des catégories de données
- * que sa campagne a payées (campaign.targeting.requiredTiers), pour un
- * prospect qui a accepté la mise en relation.
+ * Fiche d'un prospect ayant accepté la mise en relation.
  *
- * Garde-fous (RGPD — minimisation + consentement) :
- *   - relation rattachée au pro courant
- *   - status ∈ {accepted, settled}
- *   - on ne renvoie QUE les paliers présents dans requiredTiers (= ce
- *     que le pro a effectivement payé)
- *   - on EXCLUT tout palier que le prospect a masqué ou supprimé
- *     (hidden_tiers / removed_tiers)
- *   - l'e-mail n'est JAMAIS renvoyé en clair : alias watermarqué
- *     `prospect+rXXX@buupp.com` (invariant anti-fraude du projet)
+ * Pivot « mise en relation pure » : le pro ne reçoit QUE le prénom et
+ * l'initiale du nom (+ l'alias e-mail watermarqué relayé par BUUPP si la
+ * campagne a le canal « email »). Le téléphone et l'e-mail bruts ne sont
+ * jamais renvoyés ; l'appel passe par le flux « Appeler » (révélation
+ * journalisée + SMS de préavis) si la campagne a le canal « phone ».
  *
- * Chaque ouverture est journalisée dans pro_contact_reveals
- * (field='details') — accountability RGPD art. 5.2.
+ * Garde-fous : relation du pro courant, status ∈ {accepted, settled},
+ * campagne clôturée. Chaque ouverture est journalisée (pro_contact_reveals,
+ * field='details') — FAIL-CLOSED.
  *
- * 200 → { tiers: [{ key, label, items: [{ label, value }] }] }
- * 401 → non authentifié
- * 403 → relation introuvable / wrong pro / status non accepted|settled
+ * 200 → {
+ *   tiers: [{ key: "identity", label, items: [{ label, value }] }],
+ *   ref, priority, fiabiliteAgg, authCode,
+ *   contactChannels: ("phone"|"email")[],
+ *   contact: { canCall: boolean, canEmail: boolean, aliasEmail: string|null }
+ * }
  */
 
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
-import { tierNumsToKeys } from "@/lib/campaigns/mapping";
 import {
   buildAliasAddress,
   getOrCreateRelationAlias,
@@ -35,34 +32,11 @@ import {
 import { proCanSeeContacts } from "@/lib/pro/campaign-access";
 import { computeFiabiliteAgg } from "@/lib/prospect/score";
 import { pseudonymizeTierItems } from "@/lib/pro/pseudonymize";
+import { readContactChannels } from "@/lib/campaigns/contact-channels";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ relationId: string }> };
-type TierKey = "identity" | "localisation" | "vie" | "pro" | "patrimoine";
-
-type TierTable =
-  | "prospect_identity"
-  | "prospect_localisation"
-  | "prospect_vie"
-  | "prospect_pro"
-  | "prospect_patrimoine";
-
-const TIER_TABLE: Record<TierKey, TierTable> = {
-  identity: "prospect_identity",
-  localisation: "prospect_localisation",
-  vie: "prospect_vie",
-  pro: "prospect_pro",
-  patrimoine: "prospect_patrimoine",
-};
-
-const TIER_LABEL: Record<TierKey, string> = {
-  identity: "Identification",
-  localisation: "Localisation",
-  vie: "Style de vie",
-  pro: "Données professionnelles",
-  patrimoine: "Patrimoine & projets",
-};
 
 export async function GET(_req: Request, ctx: RouteContext) {
   const { userId } = await auth();
@@ -86,8 +60,8 @@ export async function GET(_req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id, prospect_id, pro_priority,
-       campaigns ( status, targeting, code ),
-       prospects:prospect_id ( id, removed_tiers, hidden_tiers )`,
+       campaigns ( status, code, contact_channels ),
+       prospects:prospect_id ( id, prospect_identity ( prenom, nom, email, telephone ) )`,
     )
     .eq("id", relationId)
     .maybeSingle();
@@ -100,19 +74,18 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  type Ident = { prenom: string | null; nom: string | null; email: string | null; telephone: string | null };
+  type Camp = { status: string; code: string | null; contact_channels: string[] | null };
   type Row = {
     id: string;
     status: string;
     pro_account_id: string;
     prospect_id: string;
     pro_priority: number | null;
-    campaigns:
-      | { status: string; targeting: { requiredTiers?: number[] } | null; code: string | null }
-      | { status: string; targeting: { requiredTiers?: number[] } | null; code: string | null }[]
-      | null;
+    campaigns: Camp | Camp[] | null;
     prospects:
-      | { id: string; removed_tiers: string[] | null; hidden_tiers: string[] | null }
-      | { id: string; removed_tiers: string[] | null; hidden_tiers: string[] | null }[]
+      | { id: string; prospect_identity: Ident | Ident[] | null }
+      | { id: string; prospect_identity: Ident | Ident[] | null }[]
       | null;
   };
   const row = data as unknown as Row;
@@ -127,76 +100,38 @@ export async function GET(_req: Request, ctx: RouteContext) {
   if (!proCanSeeContacts(camp?.status)) {
     return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
   }
-  const prospect = Array.isArray(row.prospects)
-    ? row.prospects[0]
-    : row.prospects;
+  const prospect = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
   if (!prospect) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  const identRaw = prospect.prospect_identity;
+  const ident = (Array.isArray(identRaw) ? identRaw[0] : identRaw) ?? null;
 
-  const requiredNums = (camp?.targeting?.requiredTiers ?? [1]) as number[];
-  const requiredKeys = tierNumsToKeys(requiredNums) as TierKey[];
-  const blocked = new Set<string>([
-    ...((prospect.removed_tiers ?? []) as string[]),
-    ...((prospect.hidden_tiers ?? []) as string[]),
-  ]);
+  const contactChannels = readContactChannels(camp?.contact_channels);
+  const canEmail = contactChannels.includes("email") && !!ident?.email;
+  const canCall = contactChannels.includes("phone") && !!ident?.telephone;
 
-  // Paliers à révéler : payés par le pro ET non masqués/supprimés par
-  // le prospect. Ordre canonique 1→5.
-  const ORDER: TierKey[] = [
-    "identity",
-    "localisation",
-    "vie",
-    "pro",
-    "patrimoine",
-  ];
-  const toReveal = ORDER.filter(
-    (k) => requiredKeys.includes(k) && !blocked.has(k),
-  );
-
-  // Alias e-mail watermarqué — généré une fois si le palier identity
-  // est révélé (on ne renvoie jamais le vrai e-mail). Le slug sert aussi
-  // de RÉFÉRENCE de fiche affichée dans l'en-tête (ex. « REC1A150404FD »),
-  // disponible quel que soit le palier révélé.
+  // Alias e-mail watermarqué (on ne renvoie jamais le vrai e-mail). Le slug
+  // sert aussi de RÉFÉRENCE de fiche affichée dans l'en-tête.
   let aliasEmail: string | null = null;
   let ref: string | null = null;
   try {
     const slug = await getOrCreateRelationAlias(admin, relationId);
     ref = slug.toUpperCase();
-    if (toReveal.includes("identity")) {
-      aliasEmail = buildAliasAddress(slug);
-    }
+    if (canEmail) aliasEmail = buildAliasAddress(slug);
   } catch (err) {
     console.error("[/api/pro/contacts/details] alias gen failed", err);
   }
 
-  const tiers: Array<{
-    key: TierKey;
-    label: string;
-    items: Array<{ label: string; value: string | null }>;
-  }> = [];
+  const items = pseudonymizeTierItems(
+    "identity",
+    (ident ?? {}) as Record<string, unknown>,
+    { aliasEmail, channels: contactChannels },
+  );
+  const tiers = [{ key: "identity" as const, label: "Contact", items }];
 
-  for (const key of toReveal) {
-    const { data: tierRow } = await admin
-      .from(TIER_TABLE[key])
-      .select("*")
-      .eq("prospect_id", prospect.id)
-      .maybeSingle();
-    const r = (tierRow ?? {}) as Record<string, unknown>;
-
-    // Pseudonymisation des valeurs selon les règles fixées (cf.
-    // lib/pro/pseudonymize). L'e-mail reçoit l'alias watermarqué ; les
-    // champs en suppression (adresse précise, poste, revenus, épargne) sont
-    // omis ; date de naissance → tranche d'âge ; code postal → département ;
-    // prénom/nom masqués ; téléphone conservé.
-    const items = pseudonymizeTierItems(key, r, { aliasEmail });
-
-    tiers.push({ key, label: TIER_LABEL[key], items });
-  }
-
-  // Audit FAIL-CLOSED — la fiche détaillée n'est livrée QUE si son ouverture a
-  // pu être journalisée (« chaque révélation est journalisée », cf. page À
-  // propos). Si l'insert échoue, on renvoie 500 SANS exposer les données.
+  // Audit FAIL-CLOSED — la fiche n'est livrée QUE si son ouverture a pu être
+  // journalisée. Si l'insert échoue, 500 SANS exposer les données.
   const { error: auditErr } = await admin.from("pro_contact_reveals").insert({
     pro_account_id: proId,
     relation_id: relationId,
@@ -207,14 +142,10 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "audit_failed" }, { status: 500 });
   }
 
-  // Agrégat de FIABILITÉ du prospect (cross-pro) : nombre de pros DISTINCTS
-  // ayant donné chaque niveau (note la plus récente par pro). Alimente le badge
-  // « N » par niveau sur la fiche. `priority` = la note du pro courant.
+  // Agrégat de FIABILITÉ du prospect (cross-pro).
   const fiabiliteAgg = await computeFiabiliteAgg(admin, prospect.id);
 
-  // Code buupp d'authentification = 4 derniers caractères du code de campagne
-  // (même convention que le chip « Code buupp » et le mail d'acceptation). Le
-  // pro le communique au prospect lors de la prise de contact post-clôture.
+  // Code buupp d'authentification = 4 derniers caractères du code campagne.
   const authCode = camp?.code ? camp.code.slice(-4).toUpperCase() : null;
 
   return NextResponse.json({
@@ -223,5 +154,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     priority: row.pro_priority ?? null,
     fiabiliteAgg,
     authCode,
+    contactChannels,
+    contact: { canCall, canEmail, aliasEmail },
   });
 }

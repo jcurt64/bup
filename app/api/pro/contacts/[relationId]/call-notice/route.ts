@@ -20,6 +20,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { readContactChannels } from "@/lib/campaigns/contact-channels";
 import { auth, currentUser } from "@/lib/clerk/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
@@ -74,7 +75,7 @@ export async function POST(_req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id, call_notice_sms_sent_at,
-       campaigns ( status, code ),
+       campaigns ( status, code, contact_channels ),
        prospects:prospect_id ( prospect_identity ( telephone ) )`,
     )
     .eq("id", relationId)
@@ -94,8 +95,8 @@ export async function POST(_req: Request, ctx: RouteContext) {
     pro_account_id: string;
     call_notice_sms_sent_at: string | null;
     campaigns:
-      | { status: string; code: string | null }
-      | { status: string; code: string | null }[]
+      | { status: string; code: string | null; contact_channels: string[] | null }
+      | { status: string; code: string | null; contact_channels: string[] | null }[]
       | null;
     prospects:
       | { prospect_identity: { telephone: string | null } | { telephone: string | null }[] | null }
@@ -113,6 +114,10 @@ export async function POST(_req: Request, ctx: RouteContext) {
   const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
   if (!proCanSeeContacts(camp?.status)) {
     return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
+  }
+
+  if (!readContactChannels((camp as { contact_channels?: string[] | null } | null)?.contact_channels).includes("phone")) {
+    return NextResponse.json({ error: "channel_not_allowed" }, { status: 403 });
   }
 
   // Déjà envoyé → on ne renvoie rien (dédup, insensible aux réouvertures).

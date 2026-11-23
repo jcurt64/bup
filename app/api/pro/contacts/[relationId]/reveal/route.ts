@@ -23,6 +23,7 @@ import {
   getOrCreateRelationAlias,
 } from "@/lib/aliases/relation-email";
 import { proCanSeeContacts } from "@/lib/pro/campaign-access";
+import { nomInitial, readContactChannels } from "@/lib/campaigns/contact-channels";
 
 export const runtime = "nodejs";
 
@@ -62,7 +63,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     .from("relations")
     .select(
       `id, status, pro_account_id,
-       campaigns:campaign_id ( status ),
+       campaigns:campaign_id ( status, contact_channels ),
        prospects:prospect_id (
          prospect_identity ( email, telephone, prenom, nom )
        )`,
@@ -83,7 +84,7 @@ export async function POST(req: Request, ctx: RouteContext) {
     id: string;
     status: string;
     pro_account_id: string;
-    campaigns: { status: string } | null;
+    campaigns: { status: string; contact_channels: string[] | null } | null;
     prospects: {
       prospect_identity: Ident | Ident[] | null;
     } | null;
@@ -97,6 +98,16 @@ export async function POST(req: Request, ctx: RouteContext) {
   }
   if (!proCanSeeContacts(row.campaigns?.status)) {
     return NextResponse.json({ error: "campaign_not_closed" }, { status: 403 });
+  }
+
+  // Pivot « mise en relation » : un canal n'est révélable que si le pro l'a
+  // choisi comme mode de contact de la campagne.
+  const channels = readContactChannels(row.campaigns?.contact_channels);
+  if (
+    (field === "email" && !channels.includes("email")) ||
+    (field === "telephone" && !channels.includes("phone"))
+  ) {
+    return NextResponse.json({ error: "channel_not_allowed" }, { status: 403 });
   }
 
   const prospects = Array.isArray(row.prospects) ? row.prospects[0] : row.prospects;
@@ -124,7 +135,9 @@ export async function POST(req: Request, ctx: RouteContext) {
   } else if (field === "telephone") {
     value = ident?.telephone ?? null;
   } else {
-    const full = `${ident?.prenom ?? ""} ${ident?.nom ?? ""}`.trim();
+    // Prénom + initiale du nom uniquement (le nom complet n'est plus collecté).
+    const initial = nomInitial(ident?.nom);
+    const full = `${ident?.prenom ?? ""} ${initial ? `${initial}.` : ""}`.trim();
     value = full.length > 0 ? full : null;
   }
   if (!value) {

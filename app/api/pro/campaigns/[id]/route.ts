@@ -27,14 +27,15 @@ import type { Database } from "@/lib/supabase/types";
 import { ensureProAccount } from "@/lib/sync/pro-accounts";
 import { objectiveLabel } from "@/lib/campaigns/mapping";
 import {
-  validateAgesWiden,
-  classifyGeoWiden,
   classifyVerifWiden,
   classifyFiabiliteWiden,
   classifyExcludePastAcceptorsWiden,
-  type GeoWidenRequest,
 } from "@/lib/campaigns/edit-targeting";
-import { buildWidenedGeoTarget } from "@/lib/geo/france-admin";
+import {
+  classifyAudienceWiden,
+  readAudienceTargeting,
+} from "@/lib/campaigns/audience-targeting";
+import { nomInitial, readContactChannels } from "@/lib/campaigns/contact-channels";
 import { resolicitNewlyEligible } from "@/lib/campaigns/resolicit";
 import {
   filterCampaignContacts,
@@ -76,15 +77,26 @@ type Targeting = {
   excludeCertified?: boolean;
   /** Option « exclure les anciens acceptants » (absent ⇒ false). */
   excludePastAcceptors?: boolean;
+  /** Filtres d'audience (cf. lib/campaigns/audience-targeting.ts). */
+  cities?: string[];
+  genres?: string[];
+  ageBands?: string[];
 };
 
-const TIER_NUM_TO_LABEL: Record<number, string> = {
-  1: "P1 · Identification",
-  2: "P2 · Localisation",
-  3: "P3 · Style de vie",
-  4: "P4 · Vie pro",
-  5: "P5 · Patrimoine",
-};
+/** Prénom + initiale du nom (« Marie D. »). Jamais le nom complet. */
+function displayName(prenom: string | null | undefined, nom: string | null | undefined): string {
+  const p = (prenom ?? "").trim();
+  const i = nomInitial(nom);
+  return [p, i ? `${i}.` : ""].filter(Boolean).join(" ");
+}
+
+/** Libellé du contenu transmis (pivot « mise en relation pure »). */
+function contactLabel(channels: readonly string[]): string {
+  const parts = ["Prénom + initiale"];
+  if (channels.includes("phone")) parts.push("appel via BUUPP");
+  if (channels.includes("email")) parts.push("e-mail via BUUPP");
+  return parts.join(" · ");
+}
 
 const VERIF_LEVEL_LABEL: Record<string, string> = {
   p0: "Aucune (basique accepté)",
@@ -160,7 +172,7 @@ export async function GET(req: Request, ctx: RouteContext) {
   const { data: camp, error: campErr } = await admin
     .from("campaigns")
     .select(
-      `id, name, status, brief, targeting,
+      `id, name, status, brief, targeting, contact_channels,
        budget_cents, spent_cents, cost_per_contact_cents, matched_count,
        starts_at, ends_at, created_at, pro_account_id,
        extension_used, extended_at,
@@ -246,20 +258,13 @@ export async function GET(req: Request, ctx: RouteContext) {
 
   // Liste des contacts : seulement les relations gagnées (accepted/settled),
   // joint sur l'identité prospect pour afficher prénom + nom + score.
+  const contactChannels = readContactChannels(camp.contact_channels);
   const allContacts = rows
     .filter((r) => r.status === "accepted" || r.status === "settled")
     .map((r) => {
       const ident = r.prospects?.prospect_identity ?? null;
-      const prenom = ident?.prenom?.trim() || "";
-      const nom = ident?.nom?.trim() || "";
-      const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prospect";
-      const tierLabel = (() => {
-        const targeting = (camp.targeting as Targeting | null) ?? null;
-        const tiers = targeting?.requiredTiers;
-        if (!Array.isArray(tiers) || tiers.length === 0) return "—";
-        const max = Math.max(...tiers.map((n) => Number(n) || 0));
-        return TIER_NUM_TO_LABEL[max] ?? "—";
-      })();
+      const fullName = displayName(ident?.prenom, ident?.nom) || "Prospect";
+      const tierLabel = contactLabel(contactChannels);
       return {
         id: r.id,
         prospectId: r.prospect_id,
@@ -292,7 +297,7 @@ export async function GET(req: Request, ctx: RouteContext) {
   const activityAll = rows
     .map((r) => {
       const ident = r.prospects?.prospect_identity ?? null;
-      const fullName = [ident?.prenom, ident?.nom].filter(Boolean).join(" ").trim() || "Un prospect";
+      const fullName = displayName(ident?.prenom, ident?.nom) || "Un prospect";
       let ts: string;
       let kind: "settled" | "accepted" | "refused" | "expired" | "pending";
       let label: string;
@@ -326,9 +331,8 @@ export async function GET(req: Request, ctx: RouteContext) {
   const activity = contactsUnlocked ? activityAll : [];
 
   const targeting = (camp.targeting as Targeting | null) ?? null;
-  const tierLabels = (targeting?.requiredTiers ?? [])
-    .map((n) => TIER_NUM_TO_LABEL[Number(n)] ?? null)
-    .filter((s): s is string => !!s);
+  // Plus de paliers de données : un seul libellé décrivant ce qui est transmis.
+  const tierLabels = [contactLabel(contactChannels)];
 
   const budgetEur = Number(camp.budget_cents ?? 0) / 100;
   const spentEur = Number(camp.spent_cents ?? 0) / 100;
@@ -364,16 +368,18 @@ export async function GET(req: Request, ctx: RouteContext) {
       ) / 100,
     costPerContactEur: cpcEur,
     avgCostEur,
+    // Modes de contact (téléphone et/ou e-mail) choisis par le pro.
+    contactChannels,
     targeting: {
       subTypes: targeting?.subTypes ?? [],
-      requiredTiers: targeting?.requiredTiers ?? [],
+      // Champs historiques figés : palier 1 seul, national, tous âges.
+      requiredTiers: [1],
       tierLabels,
-      geo: targeting?.geo ?? null,
-      geoLabel: targeting?.geo ? GEO_LABEL[targeting.geo] ?? targeting.geo : "—",
-      // Rayon « autour de moi » courant (km) — nécessaire à la popup
-      // d'édition pour ne proposer que des rayons strictement plus larges.
-      radiusKm: typeof targeting?.radiusKm === "number" ? targeting.radiusKm : null,
-      ages: targeting?.ages ?? [],
+      contactChannels,
+      geo: "national",
+      geoLabel: GEO_LABEL.national,
+      radiusKm: null,
+      ages: ["Tous"],
       verifLevel: targeting?.verifLevel ?? null,
       verifLabel: targeting?.verifLevel ? VERIF_LEVEL_LABEL[targeting.verifLevel] ?? targeting.verifLevel : "—",
       // Seuil de fiabilité minimum courant (0/60/80) — la popup d'édition ne
@@ -391,6 +397,9 @@ export async function GET(req: Request, ctx: RouteContext) {
       // Option « exclure les prospects ayant déjà accepté une de mes
       // campagnes » — duplication + popup d'édition (désactivable seulement).
       excludePastAcceptors: targeting?.excludePastAcceptors === true,
+      // Filtres d'audience (listes vides = pas de filtre) : villes, sexe,
+      // tranche d'âge. Élargissables seulement via la popup d'édition.
+      ...readAudienceTargeting(targeting),
     },
     // Contacts cible originaux (= budget/cpc, arrondi à l'entier).
     // Distinct de `contacts` (liste des prospects acceptés ci-dessous).
@@ -435,26 +444,27 @@ export async function GET(req: Request, ctx: RouteContext) {
   });
 }
 
-type EditGeoBody =
-  | { mode: "around"; radiusKm?: number }
-  | { mode: "national" }
-  | { mode: "zone"; level?: "dept" | "region" };
-
 type PatchBody = {
   /** Présent → toggle de statut (pause/relance). Absent → édition. */
   status?: string;
   /** Lien Vitrine (https) — seulement si l'option est déjà souscrite. */
   websiteUrl?: string | null;
-  /** Tranches d'âge — doit ÉLARGIR la sélection courante. */
+  /** Historique : ignoré (plus de ciblage par âge). */
   ages?: string[];
-  /** Élargissement géo — voir classifyGeoWiden. */
-  geo?: EditGeoBody;
+  /** Historique : ignoré (plus de ciblage géographique). */
+  geo?: unknown;
   /** Niveau de vérification minimum — ABAISSER seulement (p2→p1→p0). */
   verifLevel?: string;
   /** Seuil de fiabilité minimum (0/60/80) — BAISSER seulement. */
   minFiabilite?: number;
   /** Exclusion des anciens acceptants — DÉSACTIVER seulement (false). */
   excludePastAcceptors?: boolean;
+  /** Filtre villes — élargir seulement (ajouter des villes, ou [] = toute la France). */
+  targetCities?: unknown;
+  /** Filtre sexe — élargir seulement (ajouter, ou [] = tous). */
+  targetGenres?: unknown;
+  /** Filtre tranche d'âge — élargir seulement (ajouter, ou [] = tous âges). */
+  targetAgeBands?: unknown;
 };
 
 /** Validation/normalisation de l'URL Vitrine — https UNIQUEMENT.
@@ -527,60 +537,11 @@ async function handleCampaignEdit(
     touched = true;
   }
 
-  // 2) Tranche d'âge — élargir seulement (sur-ensemble du courant).
-  if (Array.isArray(body.ages)) {
-    const res = validateAgesWiden(targeting.ages ?? [], body.ages);
-    if (!res.ok) {
-      return NextResponse.json({ error: res.error }, { status: 409 });
-    }
-    nextTargeting.ages = res.ages;
-    touchedTargeting = true;
-    touched = true;
-  }
-
-  // 3) Zone géographique — élargir seulement.
-  if (body.geo && typeof body.geo === "object") {
-    const g = body.geo;
-    const req: GeoWidenRequest =
-      g.mode === "around"
-        ? { mode: "around", radiusKm: Number(g.radiusKm) }
-        : g.mode === "zone"
-          ? { mode: "zone", level: g.level as "dept" | "region" }
-          : { mode: "national" };
-    const cls = classifyGeoWiden(targeting.geo ?? "", targeting.radiusKm ?? null, req);
-    if (!cls.ok) {
-      return NextResponse.json({ error: cls.error }, { status: 409 });
-    }
-    const plan = cls.plan;
-    if (plan.kind === "national") {
-      nextTargeting.geo = "national";
-      nextTargeting.geoTarget = null;
-      nextTargeting.radiusKm = null;
-    } else if (plan.kind === "around") {
-      nextTargeting.geo = "around";
-      nextTargeting.radiusKm = plan.radiusKm;
-      nextTargeting.geoTarget = null;
-    } else {
-      // Zone fixe élargie : dériver le geoTarget côté serveur depuis l'ancre
-      // courante (repli sur le CP du pro pour les campagnes legacy sans cible).
-      const { data: pro } = await admin
-        .from("pro_accounts")
-        .select("code_postal")
-        .eq("id", proId)
-        .single();
-      const target = await buildWidenedGeoTarget(
-        plan.level,
-        targeting.geoTarget ?? null,
-        pro?.code_postal ?? null,
-      );
-      if (!target) {
-        return NextResponse.json({ error: "geo_resolve_failed" }, { status: 502 });
-      }
-      nextTargeting.geo = plan.level;
-      nextTargeting.geoTarget = target;
-      nextTargeting.radiusKm = null;
-    }
-    touchedTargeting = true;
+  // 2-3) Tranche d'âge / zone géographique : ces critères n'existent plus
+  //      (pivot « mise en relation pure » — toute campagne est nationale,
+  //      tous âges). Les champs `ages` / `geo` envoyés par d'anciens clients
+  //      sont acceptés et ignorés (200, aucune modification).
+  if (Array.isArray(body.ages) || (body.geo && typeof body.geo === "object")) {
     touched = true;
   }
 
@@ -621,6 +582,26 @@ async function handleCampaignEdit(
     touched = true;
   }
 
+  // 7) Filtres d'audience (villes / sexe / tranche d'âge) — élargir
+  //    seulement : retirer un filtre ([]) ou AJOUTER des valeurs à un filtre
+  //    existant. Ajouter un filtre là où il n'y en avait pas → 409.
+  if (
+    body.targetCities !== undefined ||
+    body.targetGenres !== undefined ||
+    body.targetAgeBands !== undefined
+  ) {
+    const cls = classifyAudienceWiden(readAudienceTargeting(targeting), body);
+    if (!cls.ok) {
+      const status = cls.error.startsWith("invalid_") ? 400 : 409;
+      return NextResponse.json({ error: cls.error }, { status });
+    }
+    nextTargeting.cities = cls.value.cities;
+    nextTargeting.genres = cls.value.genres;
+    nextTargeting.ageBands = cls.value.ageBands;
+    touchedTargeting = true;
+    touched = true;
+  }
+
   if (!touched) {
     return NextResponse.json({ error: "nothing_to_update" }, { status: 400 });
   }
@@ -628,11 +609,13 @@ async function handleCampaignEdit(
     updates.targeting = nextTargeting as unknown as CampaignUpdate["targeting"];
   }
 
-  const { error: updErr } = await admin
-    .from("campaigns")
-    .update(updates)
-    .eq("id", id)
-    .in("status", ["active", "paused"]); // garde TOCTOU : pas clôturée entre-temps
+  const { error: updErr } = Object.keys(updates).length === 0
+    ? { error: null }
+    : await admin
+        .from("campaigns")
+        .update(updates)
+        .eq("id", id)
+        .in("status", ["active", "paused"]); // garde TOCTOU : pas clôturée entre-temps
   if (updErr) {
     console.error("[/api/pro/campaigns/PATCH edit] update failed", updErr);
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
@@ -655,13 +638,14 @@ async function handleCampaignEdit(
   return NextResponse.json({
     ok: true,
     websiteUrl: (updates.website_url as string | undefined) ?? camp.website_url ?? null,
-    geo: nextTargeting.geo ?? null,
-    geoLabel: nextTargeting.geo ? GEO_LABEL[nextTargeting.geo] ?? nextTargeting.geo : "—",
-    radiusKm: typeof nextTargeting.radiusKm === "number" ? nextTargeting.radiusKm : null,
-    ages: nextTargeting.ages ?? [],
+    geo: "national",
+    geoLabel: GEO_LABEL.national,
+    radiusKm: null,
+    ages: ["Tous"],
     verifLevel: nextTargeting.verifLevel ?? null,
     minFiabilite: typeof nextTargeting.minFiabilite === "number" ? nextTargeting.minFiabilite : 0,
     excludePastAcceptors: nextTargeting.excludePastAcceptors === true,
+    targeting: readAudienceTargeting(nextTargeting),
     // Nombre de prospects nouvellement sollicités suite à l'élargissement.
     resolicited,
   });

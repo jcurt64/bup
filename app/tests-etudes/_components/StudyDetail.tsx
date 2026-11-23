@@ -20,7 +20,7 @@ type Me =
     };
 
 const ERRORS: Record<string, string> = {
-  tier1_incomplete: "Complétez d'abord votre prénom et votre e-mail (palier 1) dans « Mes données ».",
+  tier1_incomplete: "Complétez d'abord votre prénom et votre e-mail dans « Mes données ».",
   out_of_area: "Cette campagne est réservée à un autre département que le vôtre.",
   full: "La campagne est complète.",
   not_open: "Les inscriptions sont fermées.",
@@ -162,8 +162,9 @@ export default function StudyDetail({ initial, autoJoin = false }: { initial: Pu
           <section className="sd-panel" style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
             <span className="st-trust-ic" style={{ background: t.soft, color: t.ink }}><StudyIcon name="lock" size={22} /></span>
             <div style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ink-3)" }}>
-              <strong style={{ color: "var(--ink)" }}>Vos données restent protégées.</strong> Seuls votre prénom et un alias e-mail BUUPP
-              sont transmis au professionnel, et uniquement si la campagne est lancée. {s.paidMention}.
+              <strong style={{ color: "var(--ink)" }}>Vos données restent protégées.</strong> Seuls votre prénom et l&apos;initiale de votre nom
+              sont transmis au professionnel, et uniquement si la campagne est lancée. Votre e-mail et votre téléphone ne lui sont
+              jamais communiqués. {s.paidMention}.
             </div>
           </section>
         </div>
@@ -241,8 +242,8 @@ export default function StudyDetail({ initial, autoJoin = false }: { initial: Pu
                   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5 }}>
                     <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 3 }} />
                     <span>
-                      J&apos;accepte de participer. Si la campagne est lancée, BUUPP transmettra à {s.proName}{" "}uniquement mon prénom et un
-                      alias e-mail, et je m&apos;engage à réaliser la tâche avant la date limite. Je peux me retirer tant qu&apos;elle n&apos;est pas lancée.
+                      J&apos;accepte de participer. Si la campagne est lancée, BUUPP transmettra à {s.proName}{" "}uniquement mon prénom et
+                      l&apos;initiale de mon nom, et je m&apos;engage à réaliser la tâche avant la date limite. Je peux me retirer tant qu&apos;elle n&apos;est pas lancée.
                     </span>
                   </label>
                   <div className="sd-row-btns">

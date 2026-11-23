@@ -66,13 +66,6 @@ function RotatingHeadlineWord() {
 }
 
 
-const TIERS = [
-  { n: 1, name: 'Identification', ex: 'email, nom, téléphone', range: 'minimum 1,00 €', low: 1.00, high: 1.00 },
-  { n: 2, name: 'Localisation', ex: 'adresse, logement', range: '1,00 € – 2,00 €', low: 1.00, high: 2.00 },
-  { n: 3, name: 'Style de vie', ex: 'habitudes, famille, véhicule', range: '2,00 € – 3,50 €', low: 2.00, high: 3.50 },
-  { n: 4, name: 'Données professionnelles', ex: 'statut, secteur', range: '3,50 € – 5,00 €', low: 3.50, high: 5.00 },
-  { n: 5, name: 'Patrimoine & projets', ex: 'immobilier, projets', range: '5,00 € – 10,00 €', low: 5.00, high: 10.00 },
-];
 
 function Landing({ go }) {
   return (
@@ -81,8 +74,6 @@ function Landing({ go }) {
       <Hero go={go} />
       <FlashDeal go={go} />
       <HowItWorks />
-      <TiersTable />
-      <ScoreSection />
       <ProsSection go={go} />
       <SecuritySection />
       <Stats />
@@ -315,8 +306,8 @@ function LiveTicker() {
   );
 }
 
-// Libellés FR des paliers — utilisés dans le modal pour annoncer ce que
-// le pro souhaite obtenir si certaines données ne sont pas renseignées.
+// Libellés FR des clés de données renvoyées par l'API (héritage) — utilisés
+// dans le modal si certaines données requises ne sont pas renseignées.
 const TIER_KEY_LABEL_FR = {
   identity:     "Identification",
   localisation: "Localisation",
@@ -648,7 +639,7 @@ function FlashDealModal({ deal, remainingHms, go, onClose, onAfterDecision }) {
             background: 'var(--ivory-2)', border: '1px solid var(--line-2)',
             fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55,
           }}>
-            Cette campagne ne correspond pas à votre profil (zone géographique, tranche d'âge ou centres d'intérêt). Aucune action n'est nécessaire.
+            Cette campagne ne vous est pas destinée. Aucune action n'est nécessaire.
           </div>
         )}
 
@@ -671,8 +662,8 @@ function FlashDealModal({ deal, remainingHms, go, onClose, onAfterDecision }) {
 
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Créez votre profil', body: "Renseignez uniquement ce que vous acceptez de partager, par paliers. Chaque palier validé augmente votre BUUPP Score et vos gains potentiels." },
-    { n: '02', title: 'Choisissez qui vous contacte', body: "Vous recevez des demandes ciblées et vérifiées. 72 heures pour accepter ou refuser. Le double consentement est obligatoire." },
+    { n: '01', title: 'Créez votre profil', body: "Renseignez seulement votre prénom, l'initiale de votre nom, votre ville, votre sexe, votre tranche d'âge, votre téléphone et votre e-mail. Rien d'autre : ni date de naissance, ni adresse." },
+    { n: '02', title: 'Choisissez qui vous contacte', body: "Vous recevez des demandes de professionnels vérifiés. 72 heures pour accepter ou refuser. Le double consentement est obligatoire." },
     { n: '03', title: 'Encaissez vos gains', body: "Chaque mise en relation acceptée crédite votre portefeuille en BUUPP Coins. Retrait par IBAN, carte cadeau ou don associatif." },
   ];
   return (
@@ -711,148 +702,12 @@ function HowItWorks() {
   );
 }
 
-function TiersTable() {
-  const [verified, setVerified] = useState(false);
-  return (
-    <section id="tiers" style={{ padding: '80px 32px', background: 'var(--paper)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-        <div className="row between" style={{ marginBottom: 48, flexWrap: 'wrap', gap: 16, alignItems: 'flex-end' }}>
-          <div>
-            <div className="mono caps muted" style={{ marginBottom: 16 }}>— Grille de rémunération</div>
-            <h2 className="serif">Cinq paliers.<br/><em>Un prix par donnée.</em></h2>
-          </div>
-          <label className="row center gap-3" style={{ cursor: 'pointer', userSelect: 'none' }}>
-            <span className="muted" style={{ fontSize: 14 }}>Afficher les gains Prospect vérifié 100%</span>
-            <span style={{
-              width: 42, height: 24, borderRadius: 999,
-              background: verified ? 'var(--accent)' : 'var(--line-2)',
-              position: 'relative', transition: 'background .2s'
-            }} onClick={() => setVerified(!verified)}>
-              <span style={{
-                position: 'absolute', top: 3, left: verified ? 21 : 3,
-                width: 18, height: 18, borderRadius: 999, background: 'white',
-                transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,.15)'
-              }}/>
-            </span>
-          </label>
-        </div>
-
-        <div className="card" style={{ background: 'var(--ivory)', padding: 0, overflow: 'hidden' }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 80 }}>Palier</th>
-                <th>Catégorie</th>
-                <th>Exemples de données</th>
-                <th style={{ textAlign: 'right', width: 200 }}>Rémunération</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TIERS.map(t => (
-                <tr key={t.n}>
-                  <td>
-                    <div className="serif tnum" style={{ fontSize: 28 }}>{t.n}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 15, fontWeight: 500 }}>{t.name}</div>
-                  </td>
-                  <td className="muted">{t.ex}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <span className="mono tnum" style={{ fontSize: 14 }}>
-                      {verified ? (
-                        <span>
-                          <span style={{ textDecoration: 'line-through', color: 'var(--ink-5)', marginRight: 8 }}>
-                            {t.range}
-                          </span>
-                          <span style={{ color: 'var(--accent)' }}>
-                            {t.low === t.high
-                              ? `minimum ${(t.low * 2).toFixed(2).replace('.', ',')} €`
-                              : `${(t.low * 2).toFixed(2).replace('.', ',')} € – ${(t.high * 2).toFixed(2).replace('.', ',')} €`}
-                          </span>
-                        </span>
-                      ) : t.range}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--line)', background: 'var(--ivory-2)' }}
-               className="row between center">
-            <div className="muted" style={{ fontSize: 13 }}>
-              <Icon name="sparkle" size={13}/> <span style={{ marginLeft: 6, verticalAlign: 'middle' }}>Prospect vérifié 100% → gains doublés ×2</span>
-            </div>
-            <div className="mono" style={{ fontSize: 12, color: 'var(--ink-4)' }}>
-              60% reversé au prospect · 40% plateforme &amp; fiscalité
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ScoreSection() {
-  return (
-    <section style={{ padding: '120px 32px' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
-        <div>
-          <div className="mono caps muted" style={{ marginBottom: 16 }}>— BUUPP Score</div>
-          <h2 className="serif" style={{ marginBottom: 24 }}>Un indice de <em>désirabilité</em> transparent.</h2>
-          <p className="muted" style={{ fontSize: 17, marginBottom: 32, maxWidth: 520 }}>
-            Votre score évolue selon la complétude de vos paliers KYC, la fraîcheur de vos données
-            et votre taux d'acceptation. Un score élevé attire des demandes plus exigeantes et mieux
-            rémunérées.
-          </p>
-          <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
-            {[
-              ['0–399', 'Découverte', '#B91C1C'],
-              ['400–699', 'Solide', '#A16207'],
-              ['700–899', 'Recherché', 'var(--accent)'],
-              ['900–1000', 'Prestige', '#166534'],
-            ].map(([r, n, c], i) => (
-              <div key={i} className="col gap-1">
-                <div className="mono tnum" style={{ fontSize: 12, color: 'var(--ink-4)' }}>{r}</div>
-                <div style={{ fontSize: 15, fontFamily: 'var(--serif)', color: c }}>{n}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="card" style={{ padding: 48, textAlign: 'center' }}>
-          <div className="row center" style={{ justifyContent: 'center' }}>
-            <ScoreGauge value={742} size={220} />
-          </div>
-          <div className="serif" style={{ fontSize: 20, marginTop: 24 }}>Marie L. — <em>Recherchée</em></div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-            Profil vérifié · 3 paliers validés · 12 mises en relation
-          </div>
-          <div style={{ marginTop: 28, borderTop: '1px solid var(--line)', paddingTop: 20, textAlign: 'left' }}>
-            {[
-              ['Complétude des paliers', 80],
-              ['Fraîcheur des données', 92],
-              ['Taux d\'acceptation', 66],
-            ].map(([l, v], i) => (
-              <div key={i} style={{ marginBottom: 10 }}>
-                <div className="row between" style={{ fontSize: 12, marginBottom: 4 }}>
-                  <span className="muted">{l}</span>
-                  <span className="mono tnum">{v}%</span>
-                </div>
-                <Progress value={v/100} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function SecuritySection() {
   const pillars = [
     { t: 'RGPD natif', d: "Double consentement explicite, registre de traitement complet, droit à l'effacement en un clic." },
     { t: 'Consentement à usage unique', d: "Chaque accord donné est strictement limité à une seule campagne et à son émetteur. Les données ne peuvent être réutilisées, revendues, ni réactivées pour un autre usage." },
-    { t: 'Anti-fraude multicouche', d: "Honeypots, détection de comptes dupliqués, empreinte appareil, scoring comportemental en temps réel." },
-    { t: 'Watermarking des données', d: "Chaque fiche transmise est marquée individuellement — toute fuite est traçable jusqu'au professionnel émetteur." },
+    { t: 'Anti-fraude multicouche', d: "Honeypots, contraintes d'unicité IBAN/téléphone/rôle, journal d'audit verrouillé des prises de contact." },
+    { t: 'Contact relayé par la plateforme', d: "Le professionnel ne voit que votre prénom et l'initiale de votre nom. Appels et e-mails passent par BUUPP : votre numéro et votre e-mail ne lui sont jamais transmis. Ville, sexe et tranche d'âge servent uniquement à vous proposer des offres pertinentes." },
   ];
   return (
     <section style={{ padding: '120px 32px', background: 'var(--ink)', color: 'var(--paper)' }}>
@@ -882,7 +737,7 @@ function SecuritySection() {
 function Stats() {
   const stats = [
     ['2', 'consentements requis', 'Prospect + professionnel. Sans accord explicite des deux, aucune donnée n\'est transmise.'],
-    ['5', 'paliers de données', 'De l\'identification au patrimoine — chaque palier est cloisonné et monétisé séparément.'],
+    ['7', 'données, rien de plus', 'Prénom, initiale du nom, ville, sexe, tranche d\'âge, téléphone, e-mail — et rien d\'autre. Le professionnel ne voit que le prénom et l\'initiale.'],
     ['60%', 'reversé au prospect', 'De la valeur brute de chaque mise en relation. Le reste couvre la fiscalité et la plateforme.'],
   ];
   return (
@@ -929,7 +784,7 @@ function Pricing({ go }) {
             features={[
               'Campagnes illimitées',
               "Jusqu'à 500 prospects par campagne",
-              'Tous les paliers 1–5',
+              'Prix unique : 1,00 € × durée par acceptation',
               'Commission BUUPP : 10 % par acceptation, min. 0,30 €',
             ]}
             cta="Lancer ma première campagne"
@@ -977,18 +832,18 @@ function PricingCard({ name, price, priceSuffix = '€ / campagne', features, ct
 function ProsSection({ go }) {
   const benefits = [
     { ic: 'check', t: 'Des prospects qui acceptent vraiment', d: "Chaque contact dans votre base a dit oui, explicitement, à votre offre précise. Pas d'achat de fichier, pas de scraping, pas de cold call qui tombe dans le vide." },
-    { ic: 'target', t: 'Ciblage par paliers de données', d: "Payez uniquement pour ce dont vous avez besoin : identification, localisation, style de vie, profession, patrimoine. Budget maîtrisé au centime." },
+    { ic: 'target', t: 'Un prix unique par contact', d: "1,00 € par acceptation, multiplié selon la durée de la campagne (×1 à ×3), plus 10 % de commission (min. 0,30 €). Choisissez simplement le mode de contact : téléphone et/ou e-mail." },
     { ic: 'wallet', hi: true, t: 'Vous ne payez que les acceptations', d: "Zéro frais caché, zéro clic douteux : vous n'êtes facturé que pour les prospects qui ont explicitement accepté la mise en relation. Les refus et expirations sont gratuits.", featured: true },
     { ic: 'trend', t: 'ROI ×3 à ×5 en moyenne', d: "Taux d'acceptation moyen de 62% contre 1 à 3% sur les canaux froids. Vos équipes commerciales passent leur temps sur des conversations qui convertissent." },
-    { ic: 'gauge', t: 'BUUPP Score : qualité mesurée', d: "Chaque prospect est noté sur 900 points selon la qualité de son profil et son historique. Filtrez à partir du score minimum qui vous convient." },
+    { ic: 'gauge', t: 'Contact via la plateforme', d: "Appelez ou écrivez au prospect depuis BUUPP. Vous voyez son prénom et l'initiale de son nom ; ses coordonnées restent protégées." },
     { ic: 'bolt', t: 'Mise en relation en 24 h', d: "Campagne créée le matin, premiers rendez-vous pris le soir. Plus d'intermédiaires, plus d'agences, plus de délais." },
   ];
 
   const useCases = [
-    ['Artisan', 'Menuisier, plombier, cuisiniste', 'Rayon 30 km', '42 devis/mois', '4,20 €/contact'],
-    ['Professions libérales', 'Kiné, dentiste, coach', 'Rayon 15 km', '28 RDV/mois', '5,80 €/contact'],
-    ['Agences immobilières', 'Vente, location, gestion', 'Rayon 20 km', '65 leads/mois', '7,40 €/contact'],
-    ['SaaS & B2B', 'Éditeurs, cabinets conseil', 'National', '180 DL/mois', '2,90 €/contact'],
+    ['Artisan', 'Menuisier, plombier, cuisiniste', 'Téléphone', '42 devis/mois', '1,30 €/contact'],
+    ['Professions libérales', 'Kiné, dentiste, coach', 'Téléphone', '28 RDV/mois', '2,30 €/contact'],
+    ['Agences immobilières', 'Vente, location, gestion', 'Téléphone + e-mail', '65 leads/mois', '3,30 €/contact'],
+    ['SaaS & B2B', 'Éditeurs, cabinets conseil', 'E-mail', '180 DL/mois', '1,30 €/contact'],
   ];
 
   return (
@@ -1005,7 +860,7 @@ function ProsSection({ go }) {
             </h2>
             <p style={{ fontSize: 18, lineHeight: 1.55, color: 'rgba(255,255,255,.72)', marginTop: 24 }}>
               L'inbound, vraiment. Des contacts qui ont eux-mêmes accepté d'être approchés,
-              pour des campagnes qui correspondent à leur profil et à leur moment de vie.
+              et que vous joignez directement via la plateforme, par téléphone ou par e-mail.
             </p>
           </div>
           <div className="row gap-3">
@@ -1072,8 +927,8 @@ function ProsSection({ go }) {
             {[
               ['62%', "taux d'acceptation moyen"],
               ['100%', 'double consentement horodaté'],
-              ['5,40 €', 'coût moyen d\'un contact qualifié'],
-              ['✓', 'watermarking + piste d\'audit complète'],
+              ['1,30 €', 'coût d\'un contact accepté (7 jours)'],
+              ['✓', 'contact relayé + piste d\'audit complète'],
             ].map((r, i) => (
               <div key={i} className="row between" style={{ padding: '12px 0', borderTop: i ? '1px solid rgba(165,180,252,.15)' : 'none', fontSize: 14 }}>
                 <span style={{ color: 'rgba(255,255,255,.7)' }}>{r[1]}</span>
@@ -1125,8 +980,8 @@ function Journal() {
       tag: 'Product',
       date: '19 mars 2026',
       read: '4 min',
-      title: "Ce qui change avec le BUUPP Score v2",
-      excerpt: "Nouvelle pondération, prise en compte du taux de réponse historique, certification par tiers : ce qui évolue pour les prospects et pour les professionnels."
+      title: "Sept données, pas une de plus",
+      excerpt: "Prénom, initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail : pourquoi BUUPP a renoncé à toutes les autres données personnelles, et ce que cela change pour les prospects et pour les professionnels."
     },
   ];
 
@@ -1337,9 +1192,9 @@ function AppMockScreen({ n, theme }) {
           </div>
           {title('Activité récente')}
           <div style={{ borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}` }}>
-            <AppMockRow c={c} icon="📍" label="Données localisation" sub="Aujourd’hui" amount="+2,00 €" pos />
+            <AppMockRow c={c} icon="⚡" label="Flash deal · Pro vérifié" sub="Aujourd’hui" amount="+3,00 €" pos />
             <AppMockRow c={c} icon="🤝" label="Parrainage · Léa" sub="Hier" amount="+5,00 €" pos />
-            <AppMockRow c={c} icon="🌿" label="Style de vie" sub="2 mai" amount="+3,50 €" pos />
+            <AppMockRow c={c} icon="📞" label="Mise en relation · 48 h" sub="2 mai" amount="+1,50 €" pos />
           </div>
         </div>
       </div>
@@ -1359,14 +1214,14 @@ function AppMockScreen({ n, theme }) {
               <span style={{ fontSize: 9, fontWeight: 700, color: c.accent }}>⏱ 19:58</span>
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: c.text, marginTop: 8 }}>Assurance auto · Pro vérifié</div>
-            <div style={{ fontSize: 8.5, color: c.sub, marginTop: 2 }}>Révélez votre profil et gagnez</div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: c.accent, marginTop: 4 }}>+ 8,00 €</div>
+            <div style={{ fontSize: 8.5, color: c.sub, marginTop: 2 }}>Acceptez d’être contacté et gagnez</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: c.accent, marginTop: 4 }}>+ 3,00 €</div>
           </div>
           {title('Autres opportunités')}
           <div style={{ borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}` }}>
-            <AppMockRow c={c} icon="🥖" label="Boulangerie d’Or · Pro vérifié" sub="Palier 4" amount="+5,00 €" pos />
-            <AppMockRow c={c} icon="🍽️" label="Restaurant 1st · Pro vérifié" sub="Palier 5" amount="+9,00 €" pos />
-            <AppMockRow c={c} icon="🎭" label="Théâtre Duo · Pro vérifié" sub="Palier 2" amount="+2,00 €" pos />
+            <AppMockRow c={c} icon="🥖" label="Boulangerie d’Or · Pro vérifié" sub="24 h" amount="+2,00 €" pos />
+            <AppMockRow c={c} icon="🍽️" label="Restaurant 1st · Pro vérifié" sub="48 h" amount="+1,50 €" pos />
+            <AppMockRow c={c} icon="🎭" label="Théâtre Duo · Pro vérifié" sub="7 jours" amount="+1,00 €" pos />
           </div>
         </div>
       </div>
@@ -1391,9 +1246,9 @@ function AppMockScreen({ n, theme }) {
           </div>
         </div>
         <div style={{ width: '100%', borderRadius: 11, padding: '2px 11px', background: c.surface, border: `1px solid ${c.line}`, marginTop: 4 }}>
-          <AppMockRow c={c} label="Identification" sub="Palier 1" amount="✓" />
-          <AppMockRow c={c} label="Localisation" sub="Palier 2" amount="✓" />
-          <AppMockRow c={c} label="Patrimoine" sub="Palier 5" amount="→" pos />
+          <AppMockRow c={c} label="Prénom et initiale" sub="Visible par le pro" amount="✓" />
+          <AppMockRow c={c} label="Téléphone" sub="Jamais transmis" amount="✓" />
+          <AppMockRow c={c} label="E-mail" sub="Jamais transmis" amount="✓" />
         </div>
       </div>
     </div>
@@ -1599,7 +1454,7 @@ function Footer() {
           </div>
           {[
             ['Plateforme', ['Prospects', 'Professionnels', 'Tarifs', 'API']],
-            ['Ressources', ['Barème des paliers', 'Documentation', 'API', 'Status']],
+            ['Ressources', ['Documentation', 'API', 'Status']],
             ['Légal', ['CGU', 'CGV', 'RGPD', 'Contact chargé de la protection des données']],
           ].map(([h, items], i) => (
             <div key={i}>

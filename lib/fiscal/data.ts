@@ -80,24 +80,19 @@ export async function loadProspectFiscalIdentity(
   admin: SupabaseClient<Database>,
   prospectId: string,
 ): Promise<ProspectIdentityRow> {
-  const [{ data: id }, { data: loc }] = await Promise.all([
-    admin
-      .from("prospect_identity")
-      .select("prenom, nom, email")
-      .eq("prospect_id", prospectId)
-      .maybeSingle(),
-    admin
-      .from("prospect_localisation")
-      .select("adresse, ville, code_postal")
-      .eq("prospect_id", prospectId)
-      .maybeSingle(),
-  ]);
+  // Pivot « mise en relation pure » : l'adresse postale n'est plus collectée
+  // (table prospect_localisation supprimée) — champs adresse toujours null.
+  const { data: id } = await admin
+    .from("prospect_identity")
+    .select("prenom, nom, email")
+    .eq("prospect_id", prospectId)
+    .maybeSingle();
   return {
     prenom: id?.prenom ?? null,
     nom: id?.nom ?? null,
     email: id?.email ?? null,
-    adresse: loc?.adresse ?? null,
-    ville: loc?.ville ?? null,
-    codePostal: loc?.code_postal ?? null,
+    adresse: null,
+    ville: null,
+    codePostal: null,
   };
 }

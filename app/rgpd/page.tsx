@@ -122,15 +122,15 @@ export default function RgpdPage() {
           <p>
             BUUPP collecte uniquement les données strictement nécessaires
             aux finalités décrites à l&apos;article&nbsp;3, conformément
-            au principe de{" "}
-            <Link
-              href="/minimisation"
-              style={{ color: "var(--accent)", textDecoration: "underline" }}
-            >
-              minimisation
-            </Link>
-            {" "}(RGPD art.&nbsp;5.1.c). Les catégories de données
-            traitées sont&nbsp;:
+            au principe de minimisation (RGPD art.&nbsp;5.1.c). Pour la
+            mise en relation, <strong>seules sept données</strong>{" "}
+            sont demandées au prospect&nbsp;: son prénom, l&apos;initiale de
+            son nom, sa ville, son sexe, sa tranche d&apos;âge (18-35&nbsp;ans
+            ou plus de 35&nbsp;ans), son numéro de téléphone et son adresse
+            e-mail. BUUPP ne collecte ni date de naissance, ni adresse
+            postale, ni code postal, ni donnée de géolocalisation, de mode de
+            vie, de situation professionnelle ou de patrimoine. Les
+            catégories de données traitées sont&nbsp;:
           </p>
           <ul style={{ paddingLeft: 22, marginTop: 8 }}>
             <li>
@@ -139,48 +139,45 @@ export default function RgpdPage() {
               de connexion (mot de passe, Google, Apple).
             </li>
             <li>
-              <strong>Données de profil prospect — Palier 1 (Identification)</strong>{" "}
-              : prénom, nom, e-mail, téléphone (vérifié par SMS), date de
-              naissance, genre.
+              <strong>Données de contact du prospect</strong>&nbsp;:
+              prénom, initiale du nom, numéro de téléphone (vérifié par
+              SMS) et adresse e-mail.
             </li>
             <li>
-              <strong>Palier 2 (Localisation)</strong>&nbsp;: adresse,
-              code postal, ville, région, type de logement, mobilité
-              géographique — facultatif.
-            </li>
-            <li>
-              <strong>Palier 3 (Style de vie)</strong>&nbsp;: famille,
-              véhicule, sport, animaux, alimentation — facultatif.
-            </li>
-            <li>
-              <strong>Palier 4 (Données professionnelles)</strong>&nbsp;:
-              statut, secteur — facultatif.
-            </li>
-            <li>
-              <strong>Palier 5 (Patrimoine &amp; projets)</strong>&nbsp;:
-              propriétaire / locataire, projet immobilier — facultatif.
+              <strong>Données de ciblage du prospect</strong>&nbsp;: ville
+              (nom de la commune uniquement), sexe (femme, homme ou autre)
+              et tranche d&apos;âge (18-35&nbsp;ans ou plus de 35&nbsp;ans).
+              Elles servent uniquement à proposer au prospect des campagnes
+              pertinentes (un pro peut réserver sa campagne à certaines
+              villes, à un sexe ou à une tranche d&apos;âge) et ne sont{" "}
+              <strong>jamais communiquées au professionnel</strong>.
             </li>
             <li>
               <strong>Données de profil pro</strong>&nbsp;: raison sociale,
               SIREN/SIRET, secteur, forme juridique, adresse, code postal,
-              ville, RCS, capital social, plan.
+              ville, RCS, capital social, numéro de TVA.
             </li>
             <li>
               <strong>Données de paiement</strong>&nbsp;: identifiant client
-              Stripe (token), IBAN du prospect (pour retraits), historique
-              des transactions wallet, factures émises. Aucune donnée
-              carte complète n&apos;est stockée par BUUPP.
+              Stripe (token), coordonnées bancaires du prospect (IBAN, BIC,
+              titulaire du compte) et compte de versement Stripe Connect
+              pour les retraits — la vérification d&apos;identité requise
+              pour les versements est réalisée directement par Stripe —,
+              historique des transactions wallet, factures émises. Aucune
+              donnée carte complète n&apos;est stockée par BUUPP.
             </li>
             <li>
               <strong>Données de relation</strong>&nbsp;: sollicitations
-              reçues, acceptations, refus, motif rédigé par le pro, date
+              reçues, acceptations, refus, mode de contact retenu par le
+              pro (téléphone et/ou e-mail), motif rédigé par le pro, date
               de décision, code d&apos;authentification de campagne,
+              journal des prises de contact effectuées via la plateforme,
               évaluation post-contact (atteint / non&nbsp;atteint).
             </li>
             <li>
               <strong>Données fiscales</strong>&nbsp;: cumul annuel des
               gains, nombre de transactions, attestations DGFiP générées
-              (palier déclencheur DAC7&nbsp;: 2&nbsp;000&nbsp;€ ou
+              (seuil déclencheur DAC7&nbsp;: 2&nbsp;000&nbsp;€ ou
               30&nbsp;transactions par an).
             </li>
             <li>
@@ -200,6 +197,17 @@ export default function RgpdPage() {
               .
             </li>
           </ul>
+          <p>
+            <strong>Est-ce que le professionnel a accès à mes
+            informations&nbsp;?</strong> Non&nbsp;: tout contact passe par la
+            plateforme BUUPP&nbsp;; il ne voit que votre prénom et
+            l&apos;initiale de votre nom. Votre numéro de téléphone et votre
+            adresse e-mail ne lui sont jamais transmis&nbsp;: les appels et
+            les e-mails sont relayés par BUUPP. Votre ville, votre sexe et
+            votre tranche d&apos;âge ne lui sont pas non plus
+            communiqués&nbsp;: ils servent uniquement à déterminer si une
+            campagne vous concerne.
+          </p>
         </Section>
 
         <Section title="3. Finalités du traitement">
@@ -211,18 +219,32 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Mise en relation rémunérée</strong> entre prospects
-              et pros — ciblage par palier, double consentement, calcul
-              de la rémunération, traçabilité du contrat.
+              et pros — double consentement, mise en contact par
+              téléphone et/ou e-mail relayée par la plateforme (sans
+              transmission des coordonnées du prospect au pro), calcul de
+              la rémunération, traçabilité du contrat.
             </li>
             <li>
-              <strong>Calcul du BUUPP Score</strong> (qualité de profil
-              prospect) — segmentation par les pros, valorisation du
-              profil pour le prospect.
+              <strong>Ciblage des campagnes (matching)</strong> — sélection
+              des prospects à qui une sollicitation est proposée selon les
+              critères facultatifs du pro (villes, sexe, tranche d&apos;âge),
+              à partir de la ville, du sexe et de la tranche d&apos;âge
+              déclarés par le prospect. Ces données ne sont jamais
+              transmises au pro, qui ne connaît que le nombre de prospects
+              sollicités&nbsp;; la ville alimente aussi des statistiques
+              internes agrégées.
             </li>
             <li>
-              <strong>Gestion financière</strong>&nbsp;: paiement des
-              abonnements pro, recharge des portefeuilles, séquestre,
-              débit, retrait sur IBAN du prospect.
+              <strong>Calcul du BUUPP Score</strong> (complétude des
+              sept données du profil, fraîcheur des informations, taux de fiabilité issu
+              des notes attribuées par les pros après une mise en relation)
+              — valorisation du sérieux du prospect auprès des pros.
+            </li>
+            <li>
+              <strong>Gestion financière</strong>&nbsp;: recharge des
+              portefeuilles pro, paiement des mises en relation et de la
+              commission BUUPP, séquestre, débit, retrait vers le compte
+              bancaire du prospect.
             </li>
             <li>
               <strong>Émission de factures et obligations fiscales</strong>{" "}
@@ -244,12 +266,10 @@ export default function RgpdPage() {
               déterministe (contraintes d&apos;unicité base sur l&apos;IBAN,
               le téléphone E.164 et l&apos;e-mail), exclusivité de rôle
               prospect / pro, détection de freeloaders (signalements
-              «&nbsp;non atteint&nbsp;»), <strong>watermark cryptographique
-              des emails révélés</strong> (alias unique{" "}
-              <code>prospect+rXXX@buupp.com</code> propre à chaque relation,
-              routé via Cloudflare Email Routing) qui rend toute fuite
-              imputable nominativement au Pro émetteur, et journal
-              d&apos;audit verrouillé des révélations (lecture admin
+              «&nbsp;non atteint&nbsp;»), <strong>relais systématique des
+              appels et e-mails par la plateforme</strong> (les coordonnées
+              du prospect ne sont jamais transmises au pro) et journal
+              d&apos;audit verrouillé des prises de contact (lecture admin
               uniquement).
             </li>
           </ul>
@@ -265,8 +285,12 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Consentement</strong> (RGPD art.&nbsp;6.1.a) —
-              complétion des paliers facultatifs (2 à 5), acceptation
-              d&apos;une sollicitation, cookies non strictement
+              acceptation d&apos;une sollicitation (et du mode de contact
+              proposé), renseignement facultatif de la ville, du sexe et de
+              la tranche d&apos;âge utilisés pour le ciblage des campagnes
+              (retirable à tout moment en effaçant ces champs, qui restent
+              toutefois requis pour accepter une sollicitation), cookies non
+              strictement
               nécessaires, pixel de mesure d&apos;ouverture des
               broadcasts (cf. §9).
             </li>
@@ -395,9 +419,14 @@ export default function RgpdPage() {
             </li>
             <li>
               <strong>Professionnels destinataires d&apos;une
-              sollicitation acceptée</strong>&nbsp;: ils deviennent{" "}
+              sollicitation acceptée</strong>&nbsp;: ils reçoivent
+              uniquement le <strong>prénom</strong> et l&apos;
+              <strong>initiale du nom</strong> du prospect, et deviennent{" "}
               <em>responsables de traitement distincts</em> pour les
-              coordonnées révélées.
+              informations qu&apos;ils recueillent au cours de
+              l&apos;échange. Le numéro de téléphone, l&apos;adresse
+              e-mail, la ville, le sexe et la tranche d&apos;âge du prospect
+              ne leur sont jamais communiqués.
             </li>
           </ul>
           <p>
@@ -580,22 +609,22 @@ export default function RgpdPage() {
           <p>
             <strong>Données :</strong> inscription et statut de participation,
             code individuel, commentaire facultatif, motifs de refus ou de
-            contestation, signalements. Le département, déduit du code postal,
-            sert uniquement de filtre d&apos;éligibilité et n&apos;est jamais
-            transmis au Professionnel.
+            contestation, signalements. Aucune donnée de localisation
+            n&apos;est collectée.
           </p>
           <p>
             <strong>Destinataire :</strong> le Professionnel organisateur reçoit
-            uniquement le <strong>prénom</strong> et un{" "}
-            <strong>alias e-mail</strong> BUUPP (les messages envoyés à cet
-            alias sont réacheminés vers le prospect), et seulement si la
-            campagne atteint son seuil.
+            uniquement le <strong>prénom</strong> et l&apos;
+            <strong>initiale du nom</strong> du prospect, et seulement si la
+            campagne atteint son seuil. Les échanges éventuels passent par la
+            plateforme BUUPP&nbsp;: l&apos;adresse e-mail et le numéro de
+            téléphone du prospect ne lui sont jamais transmis.
           </p>
           <p>
             <strong>Durées de conservation :</strong> inscriptions aux campagnes
             annulées supprimées immédiatement à l&apos;annulation ; codes,
             commentaires et motifs effacés 30 jours après la clôture de la
-            campagne (fin de la période de contestation) et alias révoqués ;
+            campagne (fin de la période de contestation) ;
             signalements conservés un an ; écritures du portefeuille conservées
             selon les obligations comptables. Le récapitulatif e-mail des
             nouvelles campagnes est facultatif (désactivé par défaut) et
@@ -613,7 +642,7 @@ export default function RgpdPage() {
             entrée en vigueur.
           </p>
           <p>
-            <strong>Dernière mise à jour&nbsp;:</strong> 14/06/2026.
+            <strong>Dernière mise à jour&nbsp;:</strong> 22/11/2026.
           </p>
         </Section>
 

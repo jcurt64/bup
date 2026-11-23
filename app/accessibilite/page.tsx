@@ -97,8 +97,8 @@ export default function AccessibilitePage() {
             une préoccupation continue, intégrée dès la conception des
             interfaces. Notre objectif est de permettre à chaque prospect et
             chaque professionnel d&apos;utiliser pleinement la plateforme,
-            quelles que soient ses capacités : compléter ses paliers de
-            données, accepter ou refuser une sollicitation, lancer une
+            quelles que soient ses capacités : renseigner ses coordonnées,
+            accepter ou refuser une sollicitation, lancer une
             campagne, gérer ses retraits ou encore exercer ses droits
             RGPD&nbsp;— autant d&apos;actions critiques qui doivent rester
             accessibles à tous.
@@ -130,7 +130,7 @@ export default function AccessibilitePage() {
             Aucun audit de conformité formel n&apos;a encore été réalisé : la
             plateforme est récente et nous concentrons d&apos;abord nos
             efforts sur la mise en accessibilité des parcours critiques
-            (inscription, vérification SMS, gestion des paliers, acceptation
+            (inscription, vérification SMS, gestion des coordonnées, acceptation
             d&apos;une mise en relation, lancement d&apos;une campagne,
             retrait IBAN).
           </p>
@@ -148,7 +148,7 @@ export default function AccessibilitePage() {
           </p>
           <ul>
             <li>
-              Pages publiques : <em>accueil</em>, barème des paliers, pages
+              Pages publiques : <em>accueil</em>, À propos, centre d&apos;aide, pages
               légales (CGU, CGV, RGPD, cookies, contact chargé de la protection des données).
             </li>
             <li>
@@ -212,7 +212,7 @@ export default function AccessibilitePage() {
           <p>
             Si vous rencontrez une difficulté ou un défaut
             d&apos;accessibilité empêchant de finaliser une action sur
-            BUUPP (par exemple : impossibilité de valider un palier au
+            BUUPP (par exemple : impossibilité d&apos;enregistrer ses coordonnées au
             clavier, contraste insuffisant pour lire un montant, blocage
             d&apos;un lecteur d&apos;écran sur une modale), nous nous
             engageons à&nbsp;:

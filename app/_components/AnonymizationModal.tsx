@@ -48,8 +48,8 @@ export default function AnonymizationModal() {
               <div className="eb">CONFIDENTIALITÉ PAR CONCEPTION</div>
               <h3 id="anon-title">Comment vos données sont pseudonymisées</h3>
               <div className="sub">
-                Palier par palier&nbsp;: ce que vous renseignez, la transformation
-                appliquée par buupp, et ce qui parvient réellement au professionnel.
+                Ce que vous renseignez, la protection appliquée par buupp, et ce
+                qui parvient réellement au professionnel.
               </div>
               <button type="button" className="anon-close" aria-label="Fermer" onClick={() => setOpen(false)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">

@@ -15,8 +15,8 @@ export default function RequestDemoSection() {
   const [demoOpen, setDemoOpen] = useState(false);
 
   const points: string[] = [
-    "Tour guidé de la création de campagne et du ciblage par paliers de données.",
-    "Démonstration du double consentement et de la pseudonymisation côté pro.",
+    "Tour guidé de la création de campagne et du choix du mode de contact (téléphone et/ou e-mail).",
+    "Démonstration du double consentement et du contact relayé par la plateforme.",
     "Échange sur votre cas d'usage et estimation de coût au contact.",
   ];
 

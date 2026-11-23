@@ -1,19 +1,17 @@
 /**
  * Mapping wizard ↔ DB pour la création de campagne.
  *
- * Source de vérité côté UI : `OBJECTIVES`, `VERIF_LEVELS`, `AGE_RANGES`,
- * `GEO_ZONES` dans `public/prototype/components/Pro.jsx`.
+ * Source de vérité côté UI : `OBJECTIVES`, `VERIF_LEVELS` dans
+ * `public/prototype/components/Pro.jsx`.
  *
  * Comme le wizard est en JSX dans une iframe (pas typé), ces mappings
  * sont la frontière où l'on valide et convertit avant de toucher la DB.
  */
 
 import type { Database } from "@/lib/supabase/types";
-import { ageFromBirth } from "@/lib/prospect/naissance";
 
 export type CampaignTypeDb = Database["public"]["Enums"]["campaign_type"];
 export type VerificationLevelDb = Database["public"]["Enums"]["verification_level"];
-export type TierKeyDb = Database["public"]["Enums"]["tier_key"];
 
 const OBJECTIVE_TO_TYPE: Record<string, CampaignTypeDb> = {
   contact: "prise_de_contact",
@@ -113,128 +111,9 @@ export function acceptableVerifLevels(verif: string): VerificationLevelDb[] {
   return VERIF_ACCEPTABLE[verif] ?? VERIF_ACCEPTABLE.p0;
 }
 
-const TIER_NUM_TO_KEY: Record<number, TierKeyDb> = {
-  1: "identity",
-  2: "localisation",
-  3: "vie",
-  4: "pro",
-  5: "patrimoine",
-};
-
-export function tierNumsToKeys(nums: number[] | null | undefined): TierKeyDb[] {
-  if (!nums || nums.length === 0) return [];
-  return nums
-    .map((n) => TIER_NUM_TO_KEY[n])
-    .filter((k): k is TierKeyDb => Boolean(k));
-}
-
 /**
- * Calcule un préfixe `LIKE` à appliquer sur `prospect_localisation.code_postal`
- * en fonction de la zone choisie par le pro et de son propre code postal.
- *
- * - 'ville'    → 2 premiers chiffres du CP du pro (ex. "69%"). Approximation
- *                département pour cette itération — un vrai rayon 20 km
- *                (TODO geo) demanderait une lib geocoding ou une table CP→GPS.
- * - 'dept'     → 2 premiers chiffres du CP du pro.
- * - 'region'   → idem 'dept' pour cette itération (mapping région complet
- *                out-of-scope).
- * - 'national' → null (pas de filtre).
+ * Pivot « mise en relation pure » : les paliers de données, le ciblage
+ * géographique et le ciblage par âge ont été supprimés. Seul subsiste le
+ * palier 1 (prénom + initiale + coordonnées relayées par BUUPP).
  */
-export function geoCodePostalPrefix(
-  geo: string,
-  proCodePostal: string | null,
-): string | null {
-  if (geo === "national") return null;
-  if (!proCodePostal) return null;
-  const dep = proCodePostal.slice(0, 2);
-  if (geo === "ville" || geo === "dept" || geo === "region") {
-    return dep + "%";
-  }
-  return null;
-}
-
-/**
- * Rayon minimum (km) que le prospect doit avoir activé dans ses Préférences
- * pour être éligible à une campagne de portée donnée. Cf. champ
- * `prospect_localisation.targeting_radius_km` (5-100 km, default 25).
- *
- * - 'ville'     → 25 km : couvre une agglomération, équivalent du
- *                 default prospect.
- * - 'dept'      → 50 km : ouverture département, prospect doit avoir
- *                 explicitement élargi sa zone.
- * - 'region'    → 100 km : couverture régionale.
- * - 'national'  → null   : pas de plancher (un prospect en zone
- *                 5 km reçoit aussi le national, c'est son choix
- *                 d'avoir paramétré ce minimum).
- */
-export function geoRadiusFloorKm(geo: string): number | null {
-  switch (geo) {
-    case "ville":
-      return 25;
-    case "dept":
-      return 50;
-    case "region":
-      return 100;
-    case "around":
-      // Le ciblage « autour de moi » applique son propre filtre distance
-      // (haversine pro↔prospect) dans le matcher. Pas de plancher de rayon
-      // prospect ici — c'est la distance réelle qui décide, bornée par le
-      // rayon choisi par le pro (cf. AROUND_RADII).
-      return null;
-    case "national":
-    default:
-      return null;
-  }
-}
-
-/**
- * Rayons (km) proposés au pro pour le ciblage « autour de moi ».
- * Miroir des boutons du wizard (`public/prototype/components/Pro.jsx`).
- */
-export const AROUND_RADII = [10, 30, 50] as const;
-export const AROUND_RADIUS_DEFAULT = 10;
-
-/**
- * Borne le rayon « autour de moi » envoyé par le client à l'une des valeurs
- * autorisées. Toute valeur inconnue / hors-liste retombe sur le défaut
- * (10 km) — garde-fou contre un rayon arbitraire qui élargirait le bassin.
- */
-export function normalizeRadiusKm(raw: unknown): number {
-  const n = typeof raw === "number" ? raw : Number(raw);
-  if (Number.isFinite(n) && (AROUND_RADII as readonly number[]).includes(n)) {
-    return n;
-  }
-  return AROUND_RADIUS_DEFAULT;
-}
-
-const AGE_BUCKETS: Record<string, [number, number]> = {
-  "18–25": [18, 25],
-  "26–35": [26, 35],
-  "36–45": [36, 45],
-  "46–55": [46, 55],
-  "56–65": [56, 65],
-  "65+": [65, 200],
-};
-
-/** Retourne null si `Tous` est dans la sélection (pas de filtre). */
-export function ageRangesToBounds(
-  ages: string[],
-): Array<[number, number]> | null {
-  if (!ages || ages.length === 0 || ages.includes("Tous")) return null;
-  return ages
-    .map((a) => AGE_BUCKETS[a])
-    .filter((b): b is [number, number] => Boolean(b));
-}
-
-/** Âge à partir de la date de naissance stockée (`MM/AAAA`, anciens
- *  formats `JJ/MM/AAAA` / `AAAA-MM-JJ` tolérés). */
-export function ageFromBirthString(s: string | null): number | null {
-  return ageFromBirth(s);
-}
-
-export function ageMatchesAny(
-  age: number,
-  bounds: Array<[number, number]>,
-): boolean {
-  return bounds.some(([lo, hi]) => age >= lo && age <= hi);
-}
+export const CONTACT_ONLY_TIER_KEYS = ["identity"] as const;

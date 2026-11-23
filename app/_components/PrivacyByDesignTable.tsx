@@ -1,91 +1,51 @@
 import { type ReactNode } from "react";
 
 /**
- * Tableau « Confidentialité par conception » — palier par palier : ce que le
- * prospect renseigne, la transformation appliquée par buupp, et ce qui parvient
- * réellement au professionnel.
+ * Tableau « Confidentialité par conception » : ce que le prospect renseigne,
+ * la transformation appliquée par buupp, et ce qui parvient réellement au
+ * professionnel.
+ *
+ * Depuis le 22/11/2026, BUUPP ne collecte plus que sept données (prénom,
+ * initiale du nom, ville, sexe, tranche d'âge, téléphone, e-mail) : le pro ne
+ * voit que le prénom et l'initiale ; ville, sexe et tranche d'âge servent
+ * uniquement au ciblage des campagnes ; téléphone et e-mail ne lui sont jamais
+ * transmis, les appels et e-mails étant relayés par la plateforme.
  *
  * Extrait de AnonymizationModal pour pouvoir être affiché EN LIGNE (page
  * « À propos ») autant que dans la modale.
- *
- * ⚠️ Les valeurs (colonnes transformation / sortie) sont des EXEMPLES
- * PROVISOIRES. Les règles définitives par donnée seront fournies ensuite :
- * mettre à jour `kind` / `out` dans TIERS.
  */
 
-type KindKey = "supp" | "mask" | "gen" | "cat" | "keep";
+type KindKey = "keep" | "mask" | "target" | "relay";
 
 const KIND: Record<KindKey, { nm: string; fg: string; bg: string; bd: string; dot: string; icon: ReactNode }> = {
-  supp: {
-    nm: "Suppression", fg: "#c0432d", bg: "#fdeae6", bd: "#f6cfc6", dot: "#e7644b",
-    icon: <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M7 7l1 12h8l1-12" />,
-  },
-  mask: {
-    nm: "Masquage", fg: "#5b3fe0", bg: "#efeaff", bd: "#d9cfff", dot: "#7c5cff",
-    icon: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /><path d="M3 3l18 18" /></>,
-  },
-  gen: {
-    nm: "Généralisation", fg: "#1f63d6", bg: "#e7f0ff", bd: "#caddf8", dot: "#3b82f6",
-    icon: <><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></>,
-  },
-  cat: {
-    nm: "Catégorisation", fg: "#0d8a64", bg: "#e4f6ef", bd: "#bfe6d4", dot: "#10b981",
-    icon: <><path d="M3 12.5V5a2 2 0 0 1 2-2h7.5L21 11.5a2 2 0 0 1 0 2.8l-6.7 6.7a2 2 0 0 1-2.8 0z" /><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" /></>,
-  },
   keep: {
     nm: "Conservé", fg: "#475569", bg: "#eef1f6", bd: "#d6dde7", dot: "#64748b",
     icon: <path d="M5 12l4.5 4.5L19 7" />,
   },
+  mask: {
+    nm: "Réduit à l’initiale", fg: "#5b3fe0", bg: "#efeaff", bd: "#d9cfff", dot: "#7c5cff",
+    icon: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /><path d="M3 3l18 18" /></>,
+  },
+  target: {
+    nm: "Ciblage uniquement", fg: "#b45309", bg: "#fdf3e1", bd: "#f3dcae", dot: "#d97706",
+    icon: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></>,
+  },
+  relay: {
+    nm: "Relayé par buupp", fg: "#0d8a64", bg: "#e4f6ef", bd: "#bfe6d4", dot: "#10b981",
+    icon: <><rect x="4" y="10" width="16" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,
+  },
 };
 
 type Field = { label: string; value: string; kind: KindKey; out: string };
-type Tier = { n: number; name: string; reward: string; fields: Field[] };
 
-const TIERS: Tier[] = [
-  {
-    n: 1, name: "Identification", reward: "minimum 1,00 €",
-    fields: [
-      { label: "Prénom", value: "Marie", kind: "keep", out: "Marie" },
-      { label: "Nom", value: "Dubois", kind: "mask", out: "D•••••" },
-      { label: "Email", value: "marie@email.fr", kind: "mask", out: "ma••@••••" },
-      { label: "Téléphone", value: "06 12 34 56 78", kind: "mask", out: "06 •• •• •• 78" },
-      { label: "Date de naissance", value: "12/04/1990", kind: "gen", out: "32–37 ans" },
-    ],
-  },
-  {
-    n: 2, name: "Localisation", reward: "1,00 € – 2,00 €",
-    fields: [
-      { label: "Adresse postale", value: "12 rue de la République", kind: "gen", out: "< 2 km du centre" },
-      { label: "Ville", value: "Lyon", kind: "keep", out: "Lyon" },
-      { label: "Code postal", value: "69002", kind: "gen", out: "69 · Rhône" },
-      { label: "Région", value: "Auvergne-Rhône-Alpes", kind: "keep", out: "Auvergne-Rhône-Alpes" },
-    ],
-  },
-  {
-    n: 3, name: "Style de vie", reward: "2,00 € – 3,50 €",
-    fields: [
-      { label: "Composition du foyer", value: "Mariée · 2 enfants", kind: "cat", out: "Foyer avec enfants" },
-      { label: "Type de logement", value: "Propriétaire", kind: "keep", out: "Propriétaire" },
-      { label: "Mobilité", value: "Voiture + transports", kind: "keep", out: "Voiture + transports" },
-      { label: "Véhicule", value: "Peugeot 308 · 2019", kind: "cat", out: "Citadine" },
-      { label: "Sports / loisirs", value: "Course à pied, ski", kind: "keep", out: "Course à pied, ski" },
-      { label: "Animaux", value: "Chien", kind: "cat", out: "Animal de compagnie" },
-    ],
-  },
-  {
-    n: 4, name: "Données professionnelles", reward: "3,50 € – 5,00 €",
-    fields: [
-      { label: "Statut", value: "Cadre", kind: "keep", out: "Cadre" },
-      { label: "Secteur", value: "Industrie manufacturière", kind: "keep", out: "Industrie manufacturière" },
-    ],
-  },
-  {
-    n: 5, name: "Patrimoine & projets", reward: "5,00 € – 10,00 €",
-    fields: [
-      { label: "Résidence principale", value: "Propriétaire", kind: "keep", out: "Propriétaire" },
-      { label: "Projets à 3–5 ans", value: "Achat immobilier", kind: "cat", out: "Projet immobilier" },
-    ],
-  },
+const FIELDS: Field[] = [
+  { label: "Prénom", value: "Marie", kind: "keep", out: "Marie" },
+  { label: "Nom", value: "Dubois", kind: "mask", out: "D." },
+  { label: "Ville", value: "Lyon", kind: "target", out: "Jamais transmise" },
+  { label: "Sexe", value: "Femme", kind: "target", out: "Jamais transmis" },
+  { label: "Tranche d’âge", value: "18–35 ans", kind: "target", out: "Jamais transmise" },
+  { label: "Téléphone", value: "06 12 34 56 78", kind: "relay", out: "Jamais transmis" },
+  { label: "E-mail", value: "marie@email.fr", kind: "relay", out: "Jamais transmis" },
 ];
 
 function Conn() {
@@ -122,8 +82,10 @@ export default function PrivacyByDesignTable({
             </svg>
           </span>
           <p>
-            Exemples illustratifs — les règles de pseudonymisation définitives
-            propres à chaque donnée seront précisées prochainement.
+            Exemple illustratif — buupp ne vous demande que ces sept
+            données&nbsp;: aucune date de naissance, aucune adresse, aucune
+            autre information personnelle. Ville, sexe et tranche d&apos;âge
+            servent uniquement à vous proposer des offres pertinentes.
           </p>
         </div>
       )}
@@ -145,45 +107,42 @@ export default function PrivacyByDesignTable({
         <div className="ch r">CE QUE REÇOIT LE PRO</div>
       </div>
 
-      {TIERS.map((tier) => (
-        <div key={tier.n} className="anon-tier">
-          <div className="anon-palier">
-            <div className="lft">
-              <span className="anon-pbadge">PALIER {tier.n}</span>
-              <h4>{tier.name}</h4>
-            </div>
-            <span className="anon-price"><span className="c">●</span>{tier.reward}</span>
+      <div className="anon-tier">
+        <div className="anon-palier">
+          <div className="lft">
+            <span className="anon-pbadge">DONNÉES DU PROFIL</span>
+            <h4>Les seules données demandées</h4>
           </div>
-
-          {tier.fields.map((f) => {
-            const k = KIND[f.kind];
-            const empty = f.out === "—";
-            return (
-              <div className="anon-row" key={f.label}>
-                <div className="anon-in">
-                  <div className="lab">{f.label}</div>
-                  <div className="val">{f.value}</div>
-                </div>
-                <Conn />
-                <div className="anon-tf" style={{ background: k.bg, borderColor: k.bd, color: k.fg }}>
-                  <span className="anon-mtag" style={{ color: k.fg, opacity: 0.7 }}>Pseudonymisé</span>
-                  <span className="ic">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={k.fg} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      {k.icon}
-                    </svg>
-                  </span>
-                  <span className="nm">{k.nm}</span>
-                </div>
-                <Conn />
-                <div className={empty ? "anon-out empty" : "anon-out"}>
-                  <span className="anon-mtag" style={{ color: "#8a93a8" }}>Le pro reçoit</span>
-                  <span className="m">{f.out}</span>
-                </div>
-              </div>
-            );
-          })}
+          <span className="anon-price"><span className="c">●</span>1,00&nbsp;€ × durée</span>
         </div>
-      ))}
+
+        {FIELDS.map((f) => {
+          const k = KIND[f.kind];
+          return (
+            <div className="anon-row" key={f.label}>
+              <div className="anon-in">
+                <div className="lab">{f.label}</div>
+                <div className="val">{f.value}</div>
+              </div>
+              <Conn />
+              <div className="anon-tf" style={{ background: k.bg, borderColor: k.bd, color: k.fg }}>
+                <span className="anon-mtag" style={{ color: k.fg, opacity: 0.7 }}>Protégé</span>
+                <span className="ic">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={k.fg} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {k.icon}
+                  </svg>
+                </span>
+                <span className="nm">{k.nm}</span>
+              </div>
+              <Conn />
+              <div className="anon-out">
+                <span className="anon-mtag" style={{ color: "#8a93a8" }}>Le pro reçoit</span>
+                <span className="m">{f.out}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="anon-foot">
         <span className="i">
@@ -192,10 +151,12 @@ export default function PrivacyByDesignTable({
           </svg>
         </span>
         <p>
-          <b>Seul le prénom du prospect est affiché en clair</b> — juste de quoi
-          échanger convenablement au téléphone, sans démarrer par un «&nbsp;euh…
-          bonjour, c&apos;est bien vous&nbsp;?&nbsp;». Toutes les autres données
-          directement identifiantes, elles, restent pseudonymisées.
+          <b>Le pro ne voit que votre prénom et l&apos;initiale de votre nom</b>{" "}
+          — juste de quoi échanger convenablement, sans démarrer par un
+          «&nbsp;euh… bonjour, c&apos;est bien vous&nbsp;?&nbsp;». Votre numéro,
+          votre adresse e-mail, votre ville, votre sexe et votre tranche
+          d&apos;âge ne lui sont jamais transmis&nbsp;: tout contact passe par la
+          plateforme buupp.
         </p>
       </div>
     </>
