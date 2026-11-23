@@ -84,8 +84,7 @@ export default async function NonJoignablesAdminPage({
       `id, prospect_id, evaluated_at, evaluated_by_pro_id,
        pro_accounts:evaluated_by_pro_id ( raison_sociale ),
        prospects:prospect_id (
-         prospect_identity ( prenom, nom, email ),
-         prospect_localisation ( ville )
+         prospect_identity ( prenom, nom, email, ville )
        )`,
     )
     .eq("evaluation", "non_atteint")
@@ -112,12 +111,8 @@ export default async function NonJoignablesAdminPage({
       | null;
     prospects: {
       prospect_identity:
-        | { prenom: string | null; nom: string | null; email: string | null }
-        | { prenom: string | null; nom: string | null; email: string | null }[]
-        | null;
-      prospect_localisation:
-        | { ville: string | null }
-        | { ville: string | null }[]
+        | { prenom: string | null; nom: string | null; email: string | null; ville: string | null }
+        | { prenom: string | null; nom: string | null; email: string | null; ville: string | null }[]
         | null;
     } | null;
   };
@@ -125,8 +120,6 @@ export default async function NonJoignablesAdminPage({
     const pro = Array.isArray(r.pro_accounts) ? r.pro_accounts[0] : r.pro_accounts;
     const idRaw = r.prospects?.prospect_identity ?? null;
     const ident = Array.isArray(idRaw) ? (idRaw[0] ?? null) : idRaw;
-    const locRaw = r.prospects?.prospect_localisation ?? null;
-    const loc = Array.isArray(locRaw) ? (locRaw[0] ?? null) : locRaw;
     return {
       relation_id: r.id,
       prospect_id: r.prospect_id,
@@ -136,7 +129,7 @@ export default async function NonJoignablesAdminPage({
       prospect_prenom: ident?.prenom ?? null,
       prospect_nom: ident?.nom ?? null,
       prospect_email: ident?.email ?? null,
-      prospect_ville: loc?.ville ?? null,
+      prospect_ville: ident?.ville ?? null,
     };
   });
 

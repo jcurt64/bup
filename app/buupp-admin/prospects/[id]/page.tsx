@@ -12,7 +12,7 @@ export default async function ProspectDetailAdminPage({
   const admin = createSupabaseAdminClient();
   const { data: p } = await admin
     .from("prospects")
-    .select("*, prospect_identity(*), prospect_localisation(*), prospect_vie(*), prospect_pro(*), prospect_patrimoine(*)")
+    .select("*, prospect_identity(*)")
     .eq("id", id)
     .maybeSingle();
   if (!p) notFound();
